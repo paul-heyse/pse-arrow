@@ -70,6 +70,9 @@ struct Context<'a> {
     layout: Arc<PreparedLayout>,
     newton_values: Vec<f64>,
     newton_values_b: Vec<f64>,
+    /// Selected Krylov callback scratch, retained across native resets.
+    rhs_direction: Vec<f64>,
+    rhs_product: Vec<f64>,
     /// CSC pattern of the second-order adjoint's block lower-triangular Newton matrix: the
     /// transposed pattern on both diagonal blocks and on the coupling block below them;
     /// empty on the other routes.
@@ -170,13 +173,24 @@ impl Context<'_> {
         self.evaluate(Function::Rhs, t, x, true)
             .and_then(|e| e.jacobian)
     }
-    fn rhs_action(&mut self, t: f64, x: &[f64], direction: &[f64]) -> Option<Vec<f64>> {
-        let Self { oracle, parameters, mode, callback, contract, .. } = self;
+    fn rhs_action(&mut self, t: f64, x: &[f64], direction: &[f64], cj: f64) -> Option<()> {
+        let Self { oracle, parameters, mode, callback, contract, rhs_direction, rhs_product, .. } = self;
         let result = callback.evaluate("idas.residual_action", || {
-            let mut product = vec![0.; contract.states.len()];
-            oracle.jacobian_action(*mode, Function::Rhs, t, x, parameters, direction, &mut product)?;
-            if product.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite IDAS residual action")); }
-            Ok(product)
+            if direction.len() != contract.states.len() || rhs_product.len() != direction.len()
+                || rhs_direction.len() != direction.len() + parameters.len() {
+                return Err(ProblemError::internal("IDAS action workspace extent"));
+            }
+            rhs_direction[..direction.len()].copy_from_slice(direction);
+            // Parameter seeds remain exactly zero from construction. Input
+            // borrows cannot mutate them, and native reinit does not replace them.
+            rhs_product.fill(f64::NAN);
+            oracle.jacobian_action(*mode, Function::Rhs, t, x, parameters, rhs_direction, rhs_product)?;
+            for i in 0..direction.len() {
+                let mass = if contract.differential[i] { cj } else { 0. };
+                rhs_product[i] = mass * rhs_direction[i] - rhs_product[i];
+            }
+            if rhs_product.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite IDAS Newton action")); }
+            Ok(())
         });
         if result.is_none() && callback.terminal.is_none() && self.trial_policy == TrialPolicy::Terminal {
             callback.terminal = Some((crate::solve::Termination::Evaluation, "trial failure under terminal policy".into()));
@@ -609,23 +623,18 @@ unsafe extern "C" fn jtimes(
     let c = unsafe { &mut *data.cast::<Context<'_>>() };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let n = c.contract.states.len();
-        // SAFETY: IDAS passes live serial vectors of the `n` states for the callback.
-        let x = unsafe { read(y, n) };
-        // SAFETY: as above.
-        let direction = unsafe { read(v, n) };
-        let mut extended = vec![0.0; n + c.contract.parameters.len()];
-        extended[..n].copy_from_slice(&direction);
-        let Some(product) = c.rhs_action(t, &x, &extended) else { return c.failure(); };
-        let out: Vec<_> = (0..n)
-            .map(|i| {
-                let mass = if c.contract.differential[i] { cj } else { 0.0 };
-                mass * direction[i] - product[i]
-            })
-            .collect();
-        // SAFETY: as above; `out` has `n` values.
-        unsafe {
-            write(jv, &out);
+        {
+            // SAFETY: IDAS supplies live serial input vectors of n initialized
+            // values. They are read-only throughout this inner scope; even if a
+            // native output aliases either input, all borrows end before publish.
+            let x = unsafe { std::slice::from_raw_parts(ffi::N_VGetArrayPointer(y), n) };
+            // SAFETY: same native input extent and callback lifetime as above.
+            let direction = unsafe { std::slice::from_raw_parts(ffi::N_VGetArrayPointer(v), n) };
+            if c.rhs_action(t, x, direction, cj).is_none() { return c.failure(); }
         }
+        // SAFETY: jv is a live native output of n entries; the fully qualified
+        // Rust-owned product cannot overlap it. No foreign input borrow survives.
+        unsafe { write(jv, &c.rhs_product); }
         0
     }));
     finish_callback(c, result)
@@ -1347,6 +1356,7 @@ impl<'a> Session<'a> {
         let bytes = layout
             .scatter_bytes(DynamicDemand::Base)?
             .checked_add(layout.linear_bytes(config.linear)?)
+            .and_then(|bytes| layout.action_bytes(config.linear, c.parameters.len()).ok().and_then(|actions| bytes.checked_add(actions)))
             .ok_or_else(|| ProblemError::memory("IDAS selected workspace extent"))?;
         if bytes > allowance {
             return Err(ProblemError::memory(
@@ -1385,6 +1395,11 @@ impl<'a> Session<'a> {
             "bytes",
             i64::try_from(layout.linear_bytes(config.linear)? - opaque_fill).unwrap_or(i64::MAX),
         );
+        crate::observation::integer("idas.callback.action_workspace.bytes", "bytes",
+            i64::try_from(layout.action_bytes(config.linear, c.parameters.len())?).unwrap_or(i64::MAX));
+        let action = config.linear != IdasLinear::Klu;
+        let rhs_direction = if action { vec![0.; n + c.parameters.len()] } else { Vec::new() };
+        let rhs_product = if action { vec![0.; n] } else { Vec::new() };
         let map = config.map;
         let newton_values = vec![0.0; layout.rows.len()];
         let newton_values_b = vec![0.0; layout.rows_b.len()];
@@ -1420,6 +1435,8 @@ impl<'a> Session<'a> {
                 layout,
                 newton_values,
                 newton_values_b,
+                rhs_direction,
+                rhs_product,
                 columns_bs: Vec::new(),
                 rows_bs: Vec::new(),
                 partial_slots_bs: Vec::new(),
@@ -3455,6 +3472,7 @@ pub(super) fn initialize_consistent(
     let bytes = layout
         .scatter_bytes(DynamicDemand::Base)?
         .checked_add(layout.linear_bytes(request.linear)?)
+        .and_then(|bytes| layout.action_bytes(request.linear, parameters.len()).ok().and_then(|actions| bytes.checked_add(actions)))
         .ok_or_else(|| ProblemError::memory("consistent initialization workspace extent"))?;
     if bytes > allowance {
         return Err(ProblemError::memory(
@@ -4165,6 +4183,41 @@ mod initialization_tests {
         assert!(report.assessment.unwrap().roles_preserved);
     }
     #[test]
+    fn krylov_action_reuses_admitted_buffers_and_publishes_after_foreign_input_borrows_end() {
+        use pse_model::scalars::PositiveCount;
+        for fail in [false, true] {
+            let mut oracle = IcOracle::new();
+            oracle.fail = fail;
+            let linear = IdasLinear::Spgmr { dimension: PositiveCount::try_new(4).unwrap(), preconditioner: Preconditioner::None };
+            let (mut session, _) = Session::prepare(&mut oracle, &[], StatePreparation {
+                layout: None, time: 0., parameters: vec![], map: vec![], trial_failures: TrialPolicy::Terminal,
+                rtol: 1e-8, atol: &[1e-10; 2], initial_step: None, linear, forward: false,
+            }, execution()).unwrap();
+            let direction = session.vector(&[1., 3.]).unwrap();
+            let identity = (session.callback.rhs_direction.as_ptr(), session.callback.rhs_product.as_ptr());
+            for alias_state in [false, true] {
+                // SAFETY: both vectors belong to this live session, with two entries.
+                unsafe { write(direction, &[1., 3.]); write(session.y, &[2., 0.]); }
+                let output = if alias_state { session.y } else { direction };
+                // SAFETY: the live callback context owns all borrowed data. This
+                // deliberate input/output alias exercises read-before-publish.
+                let status = unsafe { jtimes(0., session.y, session.dy, session.dy, direction, output,
+                    2., (&raw mut *session.callback).cast(), std::ptr::null_mut(), std::ptr::null_mut()) };
+                // SAFETY: the selected output is still a live two-entry native vector.
+                let actual = unsafe { read(output, 2) };
+                if fail {
+                    assert_ne!(status, 0);
+                    assert_eq!(actual, if alias_state { vec![2., 0.] } else { vec![1., 3.] });
+                } else {
+                    assert_eq!(status, 0);
+                    // Analytic residual Jacobian: diag(2,0) - [[-1,0],[2,-1]].
+                    assert_eq!(actual, [3., 1.]);
+                }
+                assert_eq!(identity, (session.callback.rhs_direction.as_ptr(), session.callback.rhs_product.as_ptr()));
+            }
+        }
+    }
+    #[test]
     fn public_ic_admits_selected_klu_and_krylov_workspaces_before_callbacks() {
         use pse_model::scalars::PositiveCount;
         for linear in [
@@ -4183,7 +4236,7 @@ mod initialization_tests {
             let mut oracle = IcOracle::new();
             let layout = oracle.prepared_layout(1 << 20).unwrap();
             let bytes = layout.scatter_bytes(DynamicDemand::Base).unwrap()
-                + layout.linear_bytes(linear).unwrap();
+                + layout.linear_bytes(linear).unwrap() + layout.action_bytes(linear, 0).unwrap();
             let mut refused = execution();
             refused.memory = Some(bytes - 1);
             assert!(initialize_consistent(&mut oracle, &[], &request, refused).is_err());

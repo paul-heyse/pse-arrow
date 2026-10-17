@@ -2888,7 +2888,7 @@ impl ModelingPackage {
                 .and_then(|n| n.checked_add(4 << 20))
                 .and_then(|n| {
                     n.checked_add(
-                        profile.native_scatter_bytes(layout.native(), native::DynamicDemand::Base).ok()?
+                        profile.native_scatter_bytes(layout.native(), native::DynamicDemand::Base, contract.parameters.len()).ok()?
                             .checked_sub(if profile.method == native::Method::Diffsol { 0 } else { layout.native().retained_bytes() })?,
                     )
                 })

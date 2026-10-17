@@ -203,6 +203,18 @@ impl PreparedLayout {
         };
         bytes.ok_or_else(|| ProblemError::memory("IDAS selected linear workspace extent"))
     }
+    /// Rust-owned direction and complete result buffers for selected Krylov callbacks.
+    /// Direct KLU creates no action workspace. Parameter axes are explicit because
+    /// unused declared parameters cannot be inferred from Jacobian sparsity.
+    /// # Errors
+    /// The selected finite state/parameter storage extent overflows.
+    pub fn action_bytes(&self, linear: IdasLinear, parameters: usize) -> Result<usize, ProblemError> {
+        if linear == IdasLinear::Klu { return Ok(0); }
+        self.states().checked_mul(2).and_then(|n| n.checked_add(parameters))
+            .and_then(|n| n.checked_mul(size_of::<f64>()))
+            .and_then(|n| n.checked_add(2 * size_of::<Vec<f64>>()))
+            .ok_or_else(|| ProblemError::memory("IDAS action callback workspace extent"))
+    }
     pub(super) fn direct_bytes(states: usize, entries: usize) -> Option<usize> {
         // Dense fill is a conservative opaque allowance, independent of sparse
         // input nonzeros. The known matrix/vectors remain explicitly represented.
@@ -330,16 +342,20 @@ mod tests {
             ..Profile::default()
         };
         let forward = profile
-            .native_scatter_bytes(&layout, DynamicDemand::Base)
+            .native_scatter_bytes(&layout, DynamicDemand::Base, 0)
             .unwrap();
+        assert_eq!(layout.action_bytes(IdasLinear::Klu, usize::MAX).unwrap(), 0);
         let mut krylov = profile.clone();
         krylov.idas.linear = IdasLinear::Spgmr {
             dimension: PositiveCount::try_new(12).unwrap(),
             preconditioner: Preconditioner::None,
         };
+        assert_eq!(layout.action_bytes(krylov.idas.linear, 100).unwrap()
+            - layout.action_bytes(krylov.idas.linear, 0).unwrap(), 100 * size_of::<f64>());
+        assert!(layout.action_bytes(krylov.idas.linear, usize::MAX).is_err());
         assert!(
             krylov
-                .native_scatter_bytes(&layout, DynamicDemand::Base)
+                .native_scatter_bytes(&layout, DynamicDemand::Base, 0)
                 .unwrap()
                 < forward
         );
@@ -361,17 +377,17 @@ mod tests {
         assert_eq!(
             profile.checkpoint_bytes(&contract, &small).unwrap()
                 - profile
-                    .native_scatter_bytes(&small, DynamicDemand::Base)
+                    .native_scatter_bytes(&small, DynamicDemand::Base, 0)
                     .unwrap(),
             krylov.checkpoint_bytes(&contract, &small).unwrap()
                 - krylov
-                    .native_scatter_bytes(&small, DynamicDemand::Base)
+                    .native_scatter_bytes(&small, DynamicDemand::Base, 0)
                     .unwrap()
         );
         assert!(
             profile.checkpoint_bytes(&contract, &small).unwrap()
                 - profile
-                    .native_scatter_bytes(&small, DynamicDemand::Base)
+                    .native_scatter_bytes(&small, DynamicDemand::Base, 0)
                     .unwrap()
                 > PreparedLayout::direct_bytes(small.states(), small.nonzeros()).unwrap()
         );

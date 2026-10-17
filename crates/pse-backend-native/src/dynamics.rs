@@ -1771,6 +1771,7 @@ impl Profile {
         &self,
         layout: &PreparedLayout,
         demand: DynamicDemand,
+        parameters: usize,
     ) -> Result<usize, ProblemError> {
         if self.method == Method::Diffsol {
             return Ok(0);
@@ -1778,6 +1779,7 @@ impl Profile {
         layout
             .scatter_bytes(demand)?
             .checked_add(layout.linear_bytes(self.idas.linear)?)
+            .and_then(|bytes| layout.action_bytes(self.idas.linear, parameters).ok().and_then(|actions| bytes.checked_add(actions)))
             .ok_or_else(|| ProblemError::memory("IDAS prepared workspace extent"))
     }
     /// The estimated bytes of the adjoint forward checkpoints and their replay buffers,
@@ -1815,7 +1817,7 @@ impl Profile {
             .and_then(|cells| cells.checked_mul(size_of::<f64>()))
             .ok_or_else(|| ProblemError::memory("adjoint checkpoint extent overflow"))?;
         bytes
-            .checked_add(self.native_scatter_bytes(layout, DynamicDemand::Base)?)
+            .checked_add(self.native_scatter_bytes(layout, DynamicDemand::Base, c.parameters.len())?)
             .and_then(|bytes| bytes.checked_add(sample_elimination_bytes(c, layout)?))
             .and_then(|bytes| {
                 if self.method == Method::Diffsol {
@@ -1943,7 +1945,7 @@ impl Profile {
             .and_then(|cells| cells.checked_mul(size_of::<f64>()))
             .ok_or_else(|| ProblemError::memory("second-order adjoint extent overflow"))?;
         bytes
-            .checked_add(self.native_scatter_bytes(layout, DynamicDemand::ExactHessian)?)
+            .checked_add(self.native_scatter_bytes(layout, DynamicDemand::ExactHessian, c.parameters.len())?)
             .and_then(|bytes| bytes.checked_add(sample_elimination_bytes(c, layout)?))
             .and_then(|bytes| {
                 bytes.checked_add(
