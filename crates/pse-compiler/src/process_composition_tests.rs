@@ -95,7 +95,7 @@ fn authored_vessel_temporal_closures_use_original_inventory_and_flux() {
     };
     use std::{
         collections::{BTreeMap, BTreeSet},
-        sync::{Arc, atomic::AtomicBool},
+        sync::Arc,
     };
     let source = format!(
         r#"{}
@@ -143,14 +143,14 @@ def Root {{child root:vessels.Vessel=vessels.Vessel(selected=bt_ideal.aromatics,
     .into_iter()
     .map(str::to_owned)
     .collect();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::default();
     let prepared = workspace
         .prepare_modeling_cancellable(
             id,
             root_instance(id),
             bindings,
             Limits::default(),
-            cancel.clone(),
+            cancel.flag(),
         )
         .unwrap();
     assert_eq!(prepared.model.inventory_balances.len(), 2);
@@ -173,14 +173,14 @@ def Root {{child root:vessels.Vessel=vessels.Vessel(selected=bt_ideal.aromatics,
             &quantities,
             DerivativeOrder::Value,
             AssemblyLimits::default(),
-            &cancel,
+            &cancel.flag(),
         )
         .unwrap();
     let assembly = Arc::new(
         plan.compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel,
+            &cancel.flag(),
         )
         .unwrap(),
     );

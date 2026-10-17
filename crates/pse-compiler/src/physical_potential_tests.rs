@@ -17,7 +17,7 @@ use pse_math::binding::CaseValues;
 use pse_modeling::{Bindings, Limits, PhysicalScope, specialize::root_instance};
 use std::{
     collections::BTreeMap,
-    sync::{Arc, atomic::AtomicBool},
+    sync::Arc,
 };
 
 /// Whole current source documents: the tests do not copy scientific function bodies.
@@ -95,7 +95,7 @@ fn check(name: &str) {
                 scalars: BTreeMap::new(),
             },
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::default(),
         )
         .unwrap_or_else(|error| panic!("{name}: {error}"));
     assert!(!result.expectations.is_empty());

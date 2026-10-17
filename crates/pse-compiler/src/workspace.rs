@@ -1699,14 +1699,14 @@ mod directional_identity_tests {
             )
             .unwrap(),
         );
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let plan = CasePlan::prepare(
             structure,
             BTreeMap::from([(key, body)]),
             &registry,
             DerivativeOrder::Value,
             AssemblyLimits::default(),
-            &cancel,
+            &cancel.flag(),
         )
         .unwrap();
         let profile = Profile {
@@ -1742,14 +1742,14 @@ mod directional_identity_tests {
             native[0].construction_allocation_bound().unwrap().unwrap()
                 > normal[0].construction_allocation_bound().unwrap().unwrap()
         );
-        let directional = plan.with_directional_actions(&cancel).unwrap();
+        let directional = plan.with_directional_actions(&cancel.flag()).unwrap();
         let requests = artifact_requests(&directional, profile, &environment);
         assert_eq!(normal.as_slice(), &requests[..normal.len()]);
         assert!(requests.len() > normal.len());
         assert_ne!(requests[normal.len()].key(), normal[0].key());
         let programs = requests
             .iter()
-            .map(|r| Arc::new(r.build(&cancel).unwrap()))
+            .map(|r| Arc::new(r.build(&cancel.flag()).unwrap()))
             .collect();
         let assembly = Arc::new(Arc::new(directional).assemble(programs).unwrap());
         let inputs = CaseValues {

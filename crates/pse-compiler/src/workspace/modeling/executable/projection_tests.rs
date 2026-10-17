@@ -200,14 +200,14 @@ fn prepared_pure_checks_do_not_read_a_later_workspace_revision() {
     workspace
         .publish_modeling(rows, PhysicalScope::default())
         .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::default();
     let model = workspace
         .prepare_modeling_cancellable(
             root,
             instance,
             Bindings::default(),
             Limits::default(),
-            cancel.clone(),
+            cancel.flag(),
         )
         .unwrap();
     workspace

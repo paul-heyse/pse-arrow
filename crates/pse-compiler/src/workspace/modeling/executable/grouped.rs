@@ -1268,13 +1268,13 @@ mod dependency_tests {
             hash.str(path);
             hash.finish_id()
         };
-        let cancellation = Arc::new(AtomicBool::new(false));
+        let cancellation = pse_diagnostics::Cancellation::default();
         let plan = admitted
             .plan(
                 &workspace.inputs.quantities,
                 DerivativeOrder::Second,
                 AssemblyLimits::default(),
-                &cancellation,
+                &cancellation.flag(),
             )
             .unwrap();
         // Missing or invented attribution is rejected before evaluator construction.
@@ -1313,7 +1313,7 @@ mod dependency_tests {
                 &workspace.inputs.quantities,
                 DerivativeOrder::Second,
                 AssemblyLimits::default(),
-                &cancellation,
+                &cancellation.flag(),
             );
             assert!(
                 matches!(refused, Err(MathError::Contract(message)) if message == "incomplete or invalid checked-member attribution")
@@ -1365,7 +1365,7 @@ mod dependency_tests {
             "actual checked-member bindings consume the existing binding extent allowance"
         );
         let assembly = Arc::new(
-            plan.compile(Default::default(), Default::default(), &cancellation)
+            plan.compile(Default::default(), Default::default(), &cancellation.flag())
                 .unwrap(),
         );
         let mut worker = assembly.worker(BTreeMap::new(), cancellation);

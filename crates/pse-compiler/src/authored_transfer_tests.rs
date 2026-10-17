@@ -18,7 +18,7 @@ use pse_modeling::{
 };
 use std::{
     collections::BTreeMap,
-    sync::{Arc, atomic::AtomicBool},
+    sync::Arc,
 };
 
 #[path = "../../../tests/fixtures/reference-source-fixture.rs"]
@@ -73,7 +73,7 @@ fn check(name: &str) {
                 scalars: BTreeMap::new(),
             },
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::default(),
         )
         .unwrap_or_else(|error| panic!("{name}: {error}"));
     assert!(!result.expectations.is_empty());
@@ -128,14 +128,14 @@ fn authored_vessel_amount_and_energy_equations_evaluate_without_adapters() {
     workspace
         .publish_modeling(rows, PhysicalScope::default())
         .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::default();
     let prepared = workspace
         .prepare_modeling_cancellable(
             root,
             root_instance(root),
             Bindings::default(),
             Limits::default(),
-            cancel.clone(),
+            cancel.flag(),
         )
         .unwrap();
     let admitted = &prepared.admitted;
@@ -144,14 +144,14 @@ fn authored_vessel_amount_and_energy_equations_evaluate_without_adapters() {
             &registry,
             DerivativeOrder::Value,
             AssemblyLimits::default(),
-            &cancel,
+            &cancel.flag(),
         )
         .unwrap();
     let assembly = Arc::new(
         plan.compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel,
+            &cancel.flag(),
         )
         .unwrap(),
     );
@@ -183,11 +183,9 @@ fn authored_vessel_amount_and_energy_equations_evaluate_without_adapters() {
             })
             .collect(),
     };
-    let computed = assembly
-        .worker(BTreeMap::new(), cancel)
-        .constraints(&values)
-        .unwrap();
-    let ordered = admitted.ordered_values(&computed).unwrap();
+    let mut worker = assembly.worker(BTreeMap::new(), cancel);
+    let computed = worker.constraints(&values).unwrap();
+    let ordered = admitted.ordered_values(computed).unwrap();
     let mut equations = 0;
     for (output, value) in admitted.outputs.iter().zip(ordered) {
         if let ModelingOutput::Equation { id, .. } = output {

@@ -6,10 +6,7 @@ use crate::workspace::{CompilerWorkspace, Profile, WorkspaceLimits};
 use pse_ids::SemanticId;
 use pse_math::binding::CaseValues;
 use pse_modeling::{Bindings, Limits, PhysicalScope, specialize::root_instance};
-use std::{
-    collections::BTreeMap,
-    sync::{Arc, atomic::AtomicBool},
-};
+use std::collections::BTreeMap;
 
 const SOURCES: &[&str] = &[
     include_str!("../../../packages/reference/physical/models/chemistry.pse"),
@@ -58,7 +55,7 @@ fn check(name: &str) {
                 scalars: BTreeMap::new(),
             },
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::default(),
         )
         .unwrap();
     assert!(!point.expectations.is_empty());

@@ -11,7 +11,7 @@ use pse_math::binding::CaseValues;
 use pse_modeling::{Bindings, Limits, PhysicalScope, specialize::root_instance};
 use std::{
     collections::BTreeMap,
-    sync::{Arc, atomic::AtomicBool},
+    sync::Arc,
 };
 
 fn control(potential: &str, response: &str, derivative: bool) -> Result<(), String> {
@@ -67,7 +67,7 @@ fn control(potential: &str, response: &str, derivative: bool) -> Result<(), Stri
                 scalars: BTreeMap::new(),
             },
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::default(),
         )
         .map_err(|error| error.to_string())?;
     assert!(!outcome.expectations.is_empty());

@@ -77,27 +77,25 @@ impl Case {
         for (suffix, value) in point {
             values.scalars.insert(self.symbol(suffix), *value);
         }
-        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel = pse_diagnostics::Cancellation::default();
         let assembly = Arc::new(
             self.prepared
                 .plan
                 .compile(
                     Optimization::default(),
                     EvaluationLimits::default(),
-                    &cancel,
+                    &cancel.flag(),
                 )
                 .unwrap(),
         );
-        let rows = assembly
-            .worker(BTreeMap::new(), cancel)
-            .constraints(&values)
-            .unwrap();
+        let mut worker = assembly.worker(BTreeMap::new(), cancel);
+        let rows = worker.constraints(&values).unwrap();
         self.prepared
             .plan
             .structure()
             .rows()
             .iter()
-            .zip(rows)
+            .zip(rows.iter().copied())
             .all(|(row, value)| value >= row.lower - 1e-9 && value <= row.upper + 1e-9)
     }
 }

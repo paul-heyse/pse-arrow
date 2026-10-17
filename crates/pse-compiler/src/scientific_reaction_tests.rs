@@ -19,7 +19,7 @@ use pse_modeling::{
 };
 use std::{
     collections::BTreeMap,
-    sync::{Arc, atomic::AtomicBool},
+    sync::Arc,
 };
 
 const FIXTURE: &str = r#"package scientific_reaction_fixture {
@@ -121,14 +121,14 @@ fn contributions(text: &str, point: &str) -> Vec<(String, f64)> {
     workspace
         .publish_modeling(declarations, PhysicalScope::default())
         .unwrap();
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::default();
     let prepared = workspace
         .prepare_modeling_cancellable(
             id,
             root_instance(id),
             Bindings::default(),
             Limits::default(),
-            cancel.clone(),
+            cancel.flag(),
         )
         .unwrap();
     let admitted = &prepared.admitted;
@@ -137,14 +137,14 @@ fn contributions(text: &str, point: &str) -> Vec<(String, f64)> {
             &registry,
             DerivativeOrder::Value,
             AssemblyLimits::default(),
-            &cancel,
+            &cancel.flag(),
         )
         .unwrap();
     let assembly = Arc::new(
         plan.compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel,
+            &cancel.flag(),
         )
         .unwrap(),
     );
@@ -180,11 +180,9 @@ fn contributions(text: &str, point: &str) -> Vec<(String, f64)> {
             })
             .collect(),
     };
-    let computed = assembly
-        .worker(BTreeMap::new(), cancel)
-        .constraints(&values)
-        .unwrap();
-    let ordered = admitted.ordered_values(&computed).unwrap();
+    let mut worker = assembly.worker(BTreeMap::new(), cancel);
+    let computed = worker.constraints(&values).unwrap();
+    let ordered = admitted.ordered_values(computed).unwrap();
     let mut result = Vec::new();
     for (output, value) in admitted.outputs.iter().zip(ordered) {
         let ModelingOutput::Contribution {
@@ -453,7 +451,7 @@ fn costing_point(name: &str) -> Result<(), String> {
                 scalars: BTreeMap::new(),
             },
             crate::workspace::Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::default(),
         )
         .map_err(|e| e.to_string())?;
     assert!(!result.expectations.is_empty());
@@ -517,7 +515,7 @@ fn scientific_seed_constant_parameter_reads_require_exact_unknown_permission() {
                     scalars: BTreeMap::new(),
                 },
                 crate::workspace::Profile::default(),
-                Arc::new(AtomicBool::new(false)),
+                pse_diagnostics::Cancellation::default(),
             )
             .map_err(|e| e.to_string())
     }

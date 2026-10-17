@@ -11,7 +11,7 @@ use pse_math::binding::CaseValues;
 use pse_modeling::{Bindings, Limits, PhysicalScope, specialize::root_instance};
 use std::{
     collections::BTreeMap,
-    sync::{Arc, atomic::AtomicBool},
+    sync::Arc,
 };
 
 fn workspace(text: &str) -> (CompilerWorkspace, Vec<pse_modeling::Declaration>) {
@@ -59,7 +59,7 @@ fn check(text: &str, name: &str) {
                 scalars: BTreeMap::new(),
             },
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::default(),
         )
         .unwrap();
     assert!(!result.expectations.is_empty());

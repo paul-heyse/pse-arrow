@@ -12,10 +12,7 @@ use pse_authoring::{
 use pse_ids::SemanticId;
 use pse_math::binding::CaseValues;
 use pse_modeling::{Bindings, Limits, PhysicalScope, specialize::root_instance};
-use std::{
-    collections::BTreeMap,
-    sync::{Arc, atomic::AtomicBool},
-};
+use std::collections::BTreeMap;
 const DEFINITIONS: &str = r#"
 entity kind source provenance {} entity source evidence {}
 entity kind fit {
@@ -61,7 +58,7 @@ fn point(extra: &str, body: &str) -> Result<crate::workspace::ModelingPointCheck
                 scalars: BTreeMap::new(),
             },
             Profile::default(),
-            Arc::new(AtomicBool::new(false)),
+            pse_diagnostics::Cancellation::default(),
         )
         .map_err(|e| e.to_string())?;
     assert!(!point.expectations.is_empty());

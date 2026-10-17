@@ -58,21 +58,21 @@ fn evaluate(
     model: &PreparedModeling,
     point: &[(SemanticId, f64)],
 ) -> (f64, Vec<(SemanticId, f64)>) {
-    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel = pse_diagnostics::Cancellation::default();
     let plan = model
         .admitted
         .plan(
             &workspace.inputs.quantities,
             DerivativeOrder::Value,
             AssemblyLimits::default(),
-            &cancel,
+            &cancel.flag(),
         )
         .unwrap();
     let assembly = Arc::new(
         plan.compile(
             Optimization::default(),
             EvaluationLimits::default(),
-            &cancel,
+            &cancel.flag(),
         )
         .unwrap(),
     );
@@ -105,7 +105,7 @@ fn evaluate(
         .rows()
         .iter()
         .map(|r| r.id)
-        .zip(worker.constraints(&values).unwrap())
+        .zip(worker.constraints(&values).unwrap().iter().copied())
         .collect();
     (objective, rows)
 }
