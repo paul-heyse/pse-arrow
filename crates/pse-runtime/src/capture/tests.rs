@@ -1166,7 +1166,9 @@ fn capture_standalone_trace_processor_reads_numerical_events_with_clock_alignmen
 fn capture_decoder_fixture(directory: &std::path::Path) -> PathBuf {
     use std::os::unix::fs::PermissionsExt;
     let program = directory.join("owned-perf-decoder");
-    std::fs::write(&program, r#"#!/bin/sh
+    std::fs::write(
+        &program,
+        r#"#!/bin/sh
 leaf=no
 raw=
 while [ "$#" -gt 0 ]; do
@@ -1188,7 +1190,9 @@ case "$fixture:$leaf" in
     slow:yes) sleep .12; printf '7fff too_late (app)\n' ;;
     *) printf 'unexpected fallback\n' >&2; exit 9 ;;
 esac
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o700)).unwrap();
     program
 }
@@ -1196,7 +1200,9 @@ esac
 #[test]
 fn capture_cpu_empty_callchain_retries_leaf_ips_without_losing_full_or_unknown_frames() {
     for (fixture, expected_resolved, expected_unknown, attempts) in [
-        ("leaf-only", 2, 0, 2), ("full", 2, 0, 1), ("unknown", 0, 1, 1),
+        ("leaf-only", 2, 0, 2),
+        ("full", 2, 0, 1),
+        ("unknown", 0, 1, 1),
     ] {
         let directory = tempfile::tempdir().unwrap();
         let program = capture_decoder_fixture(directory.path());
@@ -1206,28 +1212,50 @@ fn capture_cpu_empty_callchain_retries_leaf_ips_without_losing_full_or_unknown_f
         // Earlier samplers cannot suppress a local empty-callchain alternative, and their
         // resolved/unknown populations must not be counted again by this decoder.
         document(&state).symbols = CaptureSymbols {
-            resolved_frames: 7, unresolved_frames: 3, names: vec!["previous".into()], checked: true,
+            resolved_frames: 7,
+            unresolved_frames: 3,
+            names: vec!["previous".into()],
+            checked: true,
         };
         let raw = directory.path().join("retained.perf.data");
         let original = format!("{fixture}\n");
         std::fs::write(&raw, &original).unwrap();
         let mut files = cpu::OwnedFiles::new(65536);
-        assert_eq!(cpu::symbols_program(&raw, &state, Duration::from_secs(2), &mut files,
-            program.to_str().unwrap()).unwrap(), cpu::Decode::Checked);
+        assert_eq!(
+            cpu::symbols_program(
+                &raw,
+                &state,
+                Duration::from_secs(2),
+                &mut files,
+                program.to_str().unwrap()
+            )
+            .unwrap(),
+            cpu::Decode::Checked
+        );
         let result = document(&state);
         assert_eq!(result.symbols.resolved_frames, 7 + expected_resolved);
         assert_eq!(result.symbols.unresolved_frames, 3 + expected_unknown);
         assert!(result.symbols.checked);
         assert_eq!(result.outputs.len(), 2);
-        assert_eq!(files.len(), 2, "both attempts share the original output/log reservation");
+        assert_eq!(
+            files.len(),
+            2,
+            "both attempts share the original output/log reservation"
+        );
         assert_eq!(std::fs::read_to_string(&raw).unwrap(), original);
         let calls = std::fs::read_to_string(format!("{}.calls", raw.display())).unwrap();
         assert_eq!(calls.lines().count(), attempts);
         let projection = std::fs::read_to_string(raw.with_extension("symbols.txt")).unwrap();
-        if fixture == "full" { assert!(projection.contains("outer_frame")); }
+        if fixture == "full" {
+            assert!(projection.contains("outer_frame"));
+        }
         if fixture == "leaf-only" {
             assert!(projection.contains("leaf_one"));
-            assert!(std::fs::read_to_string(raw.with_extension("symbols.log")).unwrap().contains("decoder-mode=leaf-ip"));
+            assert!(
+                std::fs::read_to_string(raw.with_extension("symbols.log"))
+                    .unwrap()
+                    .contains("decoder-mode=leaf-ip")
+            );
         }
     }
 }
@@ -1242,15 +1270,37 @@ fn capture_cpu_failed_callchain_decoder_never_attempts_leaf_fallback() {
     let raw = directory.path().join("retained.perf.data");
     std::fs::write(&raw, "failed\n").unwrap();
     let mut files = cpu::OwnedFiles::new(65536);
-    assert!(cpu::symbols_program(&raw, &state, Duration::from_secs(2), &mut files,
-        program.to_str().unwrap()).is_err());
-    assert_eq!(std::fs::read_to_string(format!("{}.calls", raw.display())).unwrap(), "no\n");
+    assert!(
+        cpu::symbols_program(
+            &raw,
+            &state,
+            Duration::from_secs(2),
+            &mut files,
+            program.to_str().unwrap()
+        )
+        .is_err()
+    );
+    assert_eq!(
+        std::fs::read_to_string(format!("{}.calls", raw.display())).unwrap(),
+        "no\n"
+    );
     assert!(!document(&state).symbols.checked);
     assert_eq!(document(&state).symbols.resolved_frames, 0);
     assert_eq!(document(&state).outputs.len(), 2);
     assert_eq!(files.len(), 2);
-    assert!(std::fs::read_to_string(raw.with_extension("symbols.txt")).unwrap().contains("partial_frame"));
-    assert!(!document(&state).outputs.iter().find(|output| output.kind == CaptureOutputKind::Symbols).unwrap().readable);
+    assert!(
+        std::fs::read_to_string(raw.with_extension("symbols.txt"))
+            .unwrap()
+            .contains("partial_frame")
+    );
+    assert!(
+        !document(&state)
+            .outputs
+            .iter()
+            .find(|output| output.kind == CaptureOutputKind::Symbols)
+            .unwrap()
+            .readable
+    );
 }
 
 #[test]
@@ -1263,11 +1313,22 @@ fn capture_cpu_leaf_fallback_keeps_original_decoder_deadline() {
     let raw = directory.path().join("retained.perf.data");
     std::fs::write(&raw, "slow\n").unwrap();
     let mut files = cpu::OwnedFiles::new(65536);
-    assert!(cpu::symbols_program(&raw, &state, Duration::from_millis(200), &mut files,
-        program.to_str().unwrap()).is_err());
+    assert!(
+        cpu::symbols_program(
+            &raw,
+            &state,
+            Duration::from_millis(200),
+            &mut files,
+            program.to_str().unwrap()
+        )
+        .is_err()
+    );
     assert!(!document(&state).symbols.checked);
-    assert_eq!(document(&state).symbols.resolved_frames, 0,
-        "a late leaf result must not receive a fresh decoder allowance");
+    assert_eq!(
+        document(&state).symbols.resolved_frames,
+        0,
+        "a late leaf result must not receive a fresh decoder allowance"
+    );
     assert_eq!(files.len(), 2);
     assert_eq!(std::fs::read_to_string(&raw).unwrap(), "slow\n");
 }
