@@ -456,6 +456,14 @@ impl TNLP for Adapter {
                     copy(&self.hess.columns, jcol)
                 }
                 SparsityRequest::Values { values } => {
+                    if values.len() != self.hess.rows.len() {
+                        return Err(ProblemError::Internal("POUNCE Hessian value dimensions".into()));
+                    }
+                    // SQP's terminal curvature check also queries quasi-Newton
+                    // profiles. The declared empty triplet means no exact Hessian
+                    // is supplied; it is not a request to evaluate the full oracle
+                    // into empty storage or a certificate of zero curvature.
+                    if values.is_empty() { return Ok(()); }
                     let lambda = if self.oracle.contract().rows.is_empty() {
                         &[][..]
                     } else {

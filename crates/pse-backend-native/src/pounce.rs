@@ -1369,6 +1369,22 @@ mod tests {
             panic!("First oracle Hessian must never be called")
         }
     }
+    #[test]
+    fn empty_declared_tnlp_hessian_does_not_request_unavailable_second_order_work() {
+        let mut a = adapter();
+        a.oracle = Box::new(FirstOnly::new(Arc::new(std::sync::atomic::AtomicUsize::new(0)), false));
+        a.normalization = pse_math::normalization::Normalization::identity(4, 1);
+        a.scratch = crate::tnlp::Scratch::new(4, 1, 4, 0);
+        a.jac = Pattern::new(a.oracle.jacobian_pattern(), false).unwrap();
+        a.hess = Pattern { rows: vec![], columns: vec![] };
+        assert!(a.eval_h(Some(&[0.;4]), true, 1., Some(&[0.]), true,
+            SparsityRequest::Values { values: &mut [] }));
+        assert!(a.state.terminal.is_none(), "optional empty curvature query cannot request the first-only oracle Hessian");
+        let mut malformed = [73.];
+        assert!(!a.eval_h(Some(&[0.;4]), true, 1., Some(&[0.]), true,
+            SparsityRequest::Values { values: &mut malformed }));
+        assert_eq!(malformed, [73.]);
+    }
     fn first_run(
         mode: HessianMode,
         separated: bool,
