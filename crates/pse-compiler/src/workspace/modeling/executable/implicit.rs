@@ -775,6 +775,7 @@ impl AdmittedImplicit {
             ImplicitAlgorithm::Native => capabilities.solver.clone(),
         })
     }
+    /// Build compiler-issued requests directly for service-free functional controls.
     #[cfg(test)]
     pub fn compile_programs(
         &self, configurations: &BTreeMap<SemanticId, pse_math::implicit::Configuration>,
@@ -853,6 +854,7 @@ impl AdmittedImplicit {
             verifier,
         ))
     }
+    /// Exercise the production request and factory assembly route without a runtime service.
     #[cfg(test)]
     pub fn factory(
         &self, configurations: BTreeMap<SemanticId, pse_math::implicit::Configuration>,
