@@ -370,7 +370,7 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
-    #[pyo3(signature=(case_id, settings, diagnostics, samples, *, controls=None))]
+    #[pyo3(signature=(case_id, settings, diagnostics, samples, *, controls=None, origin=None))]
     fn diagnose_samples(
         &self,
         py: Python<'_>,
@@ -379,6 +379,7 @@ impl NativeModelingPackage {
         diagnostics: &ModelingDiagnosticSettings,
         samples: Vec<(String, BTreeMap<String, f64>)>,
         controls: Option<&[u8]>,
+        origin: Option<documents::DocumentInput<native::DiagnosticOrigin>>,
     ) -> PyResult<NativeModelingDiagnosticSamples> {
         let native::DiagnosticSamplesControls {
             maximum_samples,
@@ -406,11 +407,13 @@ impl NativeModelingPackage {
             })
             .collect::<PyResult<Vec<_>>>()?;
         let cancel = CancelSource::new();
+        let operation = native::DiagnosticOperation::new(&cancel, settings.controls.time_limit.min(duration), origin.map(|value| value.0))
+            .map_err(|error| errors::diagnostic(py, &error))?;
         let inner = blocking(
             py,
             &self.owner,
             async {
-                let execution = self
+                let execution = operation.within(self
                     .inner
                     .declared_execution(
                         root,
@@ -418,12 +421,12 @@ impl NativeModelingPackage {
                         settings.clone(),
                         Default::default(),
                         self.limits,
-                        &cancel,
-                    )
+                        operation.driver(),
+                    ))
                     .await?;
-                let prepared = self
+                let prepared = operation.within(self
                     .inner
-                    .prepare_declared_diagnostics(&execution, &cancel)
+                    .prepare_declared_diagnostics(&execution, operation.driver()))
                     .await?;
                 let samples = samples
                     .into_iter()
@@ -440,12 +443,11 @@ impl NativeModelingPackage {
                         diagnostics.policy.clone(),
                         execution.analysis.compiler,
                         maximum_samples,
-                        duration,
-                        &cancel,
+                        &operation,
                     )
                     .await
             },
-            || cancel.cancel(),
+            || operation.cancel(),
         )?;
         Ok(NativeModelingDiagnosticSamples {
             inner: Arc::new(inner),
@@ -542,21 +544,25 @@ impl NativeModelingPackage {
         )
         .map(documents::DocumentValue)
     }
+    #[pyo3(signature=(case_id, settings, diagnostics, *, origin=None))]
     fn diagnose(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &[u8],
         diagnostics: &ModelingDiagnosticSettings,
+        origin: Option<documents::DocumentInput<native::DiagnosticOrigin>>,
     ) -> PyResult<NativeModelingDiagnostics> {
         let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
         let cancel = CancelSource::new();
+        let operation = native::DiagnosticOperation::new(&cancel, settings.controls.time_limit, origin.map(|value| value.0))
+            .map_err(|error| errors::diagnostic(py, &error))?;
         let inner = blocking(
             py,
             &self.owner,
             async {
-                let execution = self
+                let execution = operation.within(self
                     .inner
                     .declared_execution(
                         root,
@@ -564,12 +570,12 @@ impl NativeModelingPackage {
                         settings.clone(),
                         Default::default(),
                         self.limits,
-                        &cancel,
-                    )
+                        operation.driver(),
+                    ))
                     .await?;
-                let prepared = self
+                let prepared = operation.within(self
                     .inner
-                    .prepare_declared_diagnostics(&execution, &cancel)
+                    .prepare_declared_diagnostics(&execution, operation.driver()))
                     .await?;
                 let values = prepared.model.values.clone();
                 self.inner
@@ -578,23 +584,24 @@ impl NativeModelingPackage {
                         values,
                         diagnostics.policy.clone(),
                         execution.analysis.compiler,
-                        &cancel,
+                        &operation,
                     )
                     .await
             },
-            || cancel.cancel(),
+            || operation.cancel(),
         )?;
         Ok(NativeModelingDiagnostics {
             inner: Arc::new(inner),
         })
     }
-    #[pyo3(signature=(case_id, settings, *, controls=None))]
+    #[pyo3(signature=(case_id, settings, *, controls=None, origin=None))]
     fn diagnose_linear(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &[u8],
         controls: Option<&[u8]>,
+        origin: Option<documents::DocumentInput<native::DiagnosticOrigin>>,
     ) -> PyResult<NativeModelingNativeAnalysis> {
         let controls: native::LinearDiagnosticControls = documents::controls(
             py,
@@ -605,18 +612,20 @@ impl NativeModelingPackage {
         let settings = settings::solve_profile(py, settings)?;
         #[cfg(not(feature = "solver-highs"))]
         {
-            let _ = (case_id, settings, controls);
+            let _ = (case_id, settings, controls, origin);
             Err(invalid(py, "HiGHS capability is not installed"))
         }
         #[cfg(feature = "solver-highs")]
         {
             let root = declaration(py, case_id)?;
             let cancel = CancelSource::new();
+        let operation = native::DiagnosticOperation::new(&cancel, settings.controls.time_limit, origin.map(|value| value.0))
+            .map_err(|error| errors::diagnostic(py, &error))?;
             let inner = blocking(
                 py,
                 &self.owner,
                 async {
-                    let execution = self
+                    let execution = operation.within(self
                         .inner
                         .declared_execution(
                             root,
@@ -624,12 +633,12 @@ impl NativeModelingPackage {
                             settings.clone(),
                             Default::default(),
                             self.limits,
-                            &cancel,
-                        )
+                            operation.driver(),
+                        ))
                         .await?;
-                    let prepared = self
+                    let prepared = operation.within(self
                         .inner
-                        .prepare_declared_diagnostics(&execution, &cancel)
+                        .prepare_declared_diagnostics(&execution, operation.driver()))
                         .await?;
                     let plan = &prepared.model.case.compiled().plan;
                     let rows = plan
@@ -646,25 +655,26 @@ impl NativeModelingPackage {
                             request,
                             settings.controls.clone(),
                             maximum_entries,
-                            &cancel,
+                            &operation,
                         )
                         .await?
                         .into_export()
                 },
-                || cancel.cancel(),
+                || operation.cancel(),
             )?;
             Ok(NativeModelingNativeAnalysis {
                 inner: Arc::new(inner),
             })
         }
     }
-    #[pyo3(signature=(case_id, settings, *, controls=None))]
+    #[pyo3(signature=(case_id, settings, *, controls=None, origin=None))]
     fn diagnose_jacobian(
         &self,
         py: Python<'_>,
         case_id: &str,
         settings: &[u8],
         controls: Option<&[u8]>,
+        origin: Option<documents::DocumentInput<native::DiagnosticOrigin>>,
     ) -> PyResult<NativeModelingNativeAnalysis> {
         let controls: native::JacobianDiagnosticControls = documents::controls(
             py,
@@ -675,18 +685,20 @@ impl NativeModelingPackage {
         let settings = settings::solve_profile(py, settings)?;
         #[cfg(not(feature = "solver-highs"))]
         {
-            let _ = (case_id, settings, controls);
+            let _ = (case_id, settings, controls, origin);
             Err(invalid(py, "HiGHS capability is not installed"))
         }
         #[cfg(feature = "solver-highs")]
         {
             let root = declaration(py, case_id)?;
             let cancel = CancelSource::new();
+        let operation = native::DiagnosticOperation::new(&cancel, settings.controls.time_limit, origin.map(|value| value.0))
+            .map_err(|error| errors::diagnostic(py, &error))?;
             let inner = blocking(
                 py,
                 &self.owner,
                 async {
-                    let execution = self
+                    let execution = operation.within(self
                         .inner
                         .declared_execution(
                             root,
@@ -694,12 +706,12 @@ impl NativeModelingPackage {
                             settings.clone(),
                             Default::default(),
                             self.limits,
-                            &cancel,
-                        )
+                            operation.driver(),
+                        ))
                         .await?;
-                    let prepared = self
+                    let prepared = operation.within(self
                         .inner
-                        .prepare_declared_diagnostics(&execution, &cancel)
+                        .prepare_declared_diagnostics(&execution, operation.driver()))
                         .await?;
                     let values = prepared.model.values.clone();
                     self.inner
@@ -708,12 +720,12 @@ impl NativeModelingPackage {
                             values,
                             controls.policy(),
                             settings.controls.clone(),
-                            &cancel,
+                            &operation,
                         )
                         .await?
                         .into_export()
                 },
-                || cancel.cancel(),
+                || operation.cancel(),
             )?;
             Ok(NativeModelingNativeAnalysis {
                 inner: Arc::new(inner),
@@ -1417,6 +1429,10 @@ pub(crate) struct NativeModelingNativeAnalysis {
 #[pymethods]
 impl NativeModelingNativeAnalysis {
     #[getter]
+    fn origin(&self) -> Option<documents::DocumentValue<native::DiagnosticOrigin>> {
+        self.inner.origin.clone().map(documents::DocumentValue)
+    }
+    #[getter]
     fn relation(&self) -> &str {
         self.inner.relation
     }
@@ -1444,6 +1460,10 @@ pub(crate) struct NativeModelingDiagnosticSamples {
 }
 #[pymethods]
 impl NativeModelingDiagnosticSamples {
+    #[getter]
+    fn origin(&self) -> Option<documents::DocumentValue<native::DiagnosticOrigin>> {
+        self.inner.origin.clone().map(documents::DocumentValue)
+    }
     fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.findings_table())
             .map(inspection::TableStream::from_batch)
@@ -1501,6 +1521,10 @@ impl NativeModelingDiagnosticSamples {
 }
 #[pymethods]
 impl NativeModelingDiagnostics {
+    #[getter]
+    fn origin(&self) -> Option<documents::DocumentValue<native::DiagnosticOrigin>> {
+        self.inner.origin.clone().map(documents::DocumentValue)
+    }
     fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.clone().into_table_cursor(name, 1024))
             .map(inspection::TableStream::from_result)

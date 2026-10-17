@@ -33,6 +33,7 @@ from pse.contracts.documents import (
     AttemptSummary,
     ComparisonPolicy,
     Completion,
+    DiagnosticOrigin,
     CompositionRequest,
     EligibilityDocument,
     FitProfileDocument,
@@ -329,6 +330,10 @@ class RunResult:
     """Joined immutable outcome; failed and unattempted steps remain inspectable."""
 
     _handle: _NativeRunResult
+
+    def diagnostic_origin(self, step: int | None = None) -> DiagnosticOrigin:
+        """Retain the originating invocation/failure for explicit follow-up diagnostics."""
+        return self._handle.diagnostic_origin(step)
 
     def replay(self) -> "ScientificReplay":
         """Retain exact inputs and observed decisions without mutable history."""

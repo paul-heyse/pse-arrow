@@ -44,6 +44,7 @@ from pse.contracts.documents import (
     ConformanceControls,
     DeclarationInventory,
     DiagnosticSamplesControls,
+    DiagnosticOrigin,
     FitPreparationDocument,
     FlowSelectionDocument,
     InitializationOverrides,
@@ -166,6 +167,11 @@ class ModelingNativeAnalysis:
     """Native analysis evidence; the generated relation defines its scientific scope."""
 
     _handle: _NativeModelingNativeAnalysis
+
+    @property
+    def origin(self) -> DiagnosticOrigin | None:
+        """Original invocation/failure link, independent of diagnostic success."""
+        return self._handle.origin
 
     @property
     def relation(self) -> str:
@@ -496,6 +502,11 @@ class ModelingDiagnostics:
 
     _handle: _NativeModelingDiagnostics
 
+    @property
+    def origin(self) -> DiagnosticOrigin | None:
+        """Original invocation/failure link, independent of diagnostic success."""
+        return self._handle.origin
+
     def table(self, name: str = "runtime.modeling_diagnostics") -> TableStream:
         """Export attributed numerical evidence or runtime.modeling_findings."""
         return TableStream(self._handle.table(name))
@@ -599,6 +610,11 @@ class ModelingDiagnosticSamples:
     """Named sample findings with independent results and explicit stopping evidence."""
 
     _handle: _NativeModelingDiagnosticSamples
+
+    @property
+    def origin(self) -> DiagnosticOrigin | None:
+        """Original invocation/failure link, independent of diagnostic success."""
+        return self._handle.origin
 
     def findings(self) -> TableStream:
         """Structured sample failures, joined to outcomes by failure ordinal."""
@@ -711,6 +727,7 @@ class ModelingPackage:
         samples: tuple[tuple[SemanticId, dict[SemanticId, float]], ...],
         *,
         controls: DiagnosticSamplesControls | None = None,
+        origin: DiagnosticOrigin | None = None,
     ) -> ModelingDiagnosticSamples:
         """Inspect overrides while preserving the prepared case's frozen inputs."""
         return ModelingDiagnosticSamples(
@@ -726,6 +743,7 @@ class ModelingPackage:
                     for name, point in samples
                 ],
                 controls=None if controls is None else codec.encode_json(controls),
+                origin=origin,
             )
         )
 
@@ -777,11 +795,13 @@ class ModelingPackage:
         case_id: DeclarationId,
         settings: SolveSettings,
         diagnostics: ModelingDiagnosticSettings,
+        *,
+        origin: DiagnosticOrigin | None = None,
     ) -> ModelingDiagnostics:
         """Inspect the declared candidate without requesting a native solve."""
         return ModelingDiagnostics(
             self._handle.diagnose(
-                case_id.to_hex(), codec.encode_json(settings), diagnostics
+                case_id.to_hex(), codec.encode_json(settings), diagnostics, origin=origin
             )
         )
 
@@ -791,6 +811,7 @@ class ModelingPackage:
         settings: SolveSettings,
         *,
         controls: LinearDiagnosticControls | None = None,
+        origin: DiagnosticOrigin | None = None,
     ) -> ModelingNativeAnalysis:
         """Run native affine diagnostics with explicit physical penalties."""
         return ModelingNativeAnalysis(
@@ -798,6 +819,7 @@ class ModelingPackage:
                 case_id.to_hex(),
                 codec.encode_json(settings),
                 controls=None if controls is None else codec.encode_json(controls),
+                origin=origin,
             )
         )
 
@@ -807,6 +829,7 @@ class ModelingPackage:
         settings: SolveSettings,
         *,
         controls: JacobianDiagnosticControls | None = None,
+        origin: DiagnosticOrigin | None = None,
     ) -> ModelingNativeAnalysis:
         """Bounded native evidence about the local scaled Jacobian."""
         return ModelingNativeAnalysis(
@@ -814,6 +837,7 @@ class ModelingPackage:
                 case_id.to_hex(),
                 codec.encode_json(settings),
                 controls=None if controls is None else codec.encode_json(controls),
+                origin=origin,
             )
         )
 
