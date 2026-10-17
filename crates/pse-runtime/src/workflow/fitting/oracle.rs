@@ -2696,6 +2696,7 @@ mod tests {
     #[tokio::test]
     async fn original_fit_failure_withholds_completed_statistical_products_in_invocation() {
         use crate::invocation::ProductAvailability;
+        use pse_model::scalars::Fraction;
         let package = source_body(false,
             "param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 3);").await;
         let mut declarations = package.fit_declarations().await.unwrap();
@@ -2704,7 +2705,7 @@ mod tests {
         let mut requested = profile(false);
         requested.solver.controls.hessian = HessianMode::GaussNewton;
         requested.uncertainty = Some(FitUncertainty {
-            level: pse_model::scalar!(pse_model::scalars::Fraction(0.95)),
+            level: pse_model::scalar!(Fraction(0.95)),
             profile: None,
             predictions: false,
         });
