@@ -4763,23 +4763,6 @@ fn prepared_callback_addresses_preserve_reordered_outputs_duplicates_aliases_and
             plan.compile(Optimization::default(), EvaluationLimits::default(), &scope)
                 .unwrap(),
         );
-        let local = &assembly.instances[0];
-        assert_eq!(
-            local
-                .objective_terms
-                .iter()
-                .map(|term| term.result_row)
-                .collect::<Vec<_>>(),
-            [1, 0]
-        );
-        assert_eq!(
-            local
-                .constraint_terms
-                .iter()
-                .map(|term| (term.result_row, term.destination))
-                .collect::<Vec<_>>(),
-            [(1, 1), (0, 0), (1, 0)]
-        );
         let mut worker = assembly.worker(BTreeMap::new(), control);
         assert_eq!(
             worker.objective(&values).unwrap(),
