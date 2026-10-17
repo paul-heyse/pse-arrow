@@ -135,3 +135,35 @@ fn launch_capture_actual_sampler_start_failure_preserves_logs_and_science() {
     assert!(document.outputs.iter().any(|output| output.kind == super::super::CaptureOutputKind::ToolLog));
     assert!(!document.errors.is_empty());
 }
+
+#[test]
+fn launch_capture_late_operation_links_require_exact_published_process_identity() {
+    let directory = tempfile::tempdir().unwrap();
+    let owner = crate::observation::Diagnostics::new(
+        pse_diagnostics::observation::Policy::default(), directory.path().to_owned());
+    let operation = owner.hub().start("late published scientific operation");
+    owner.publish().unwrap();
+    let image = crate::observation::read_checkpoint(&owner.checkpoint_path()).unwrap();
+    let state = Arc::new(Mutex::new(CaptureDocument {
+        version: Version, kind: CaptureKind::Cpu, operation: None,
+        launch_process: Some(image.locator.clone()), related_operations: Vec::new(),
+        status: CaptureStatus::Running, requested_duration: Duration::from_secs(1),
+        observed_duration: Duration::ZERO, targets: Vec::new(), outputs: Vec::new(),
+        loss: CaptureLoss::default(), symbols: CaptureSymbols::default(),
+        open_intervals: 0, errors: Vec::new(),
+    }));
+    let mut wrong = image.locator.clone();
+    wrong.start_ticks = wrong.start_ticks.map(|ticks| ticks + 1);
+    let mut checkpoint = None;
+    let mut cursor = None;
+    cpu::discover_launch(directory.path(), &wrong, &mut checkpoint, &mut cursor, &state);
+    assert!(checkpoint.is_none());
+    assert!(document(&state).related_operations.is_empty());
+    cpu::discover_launch(directory.path(), &image.locator, &mut checkpoint, &mut cursor, &state);
+    assert_eq!(checkpoint, Some(owner.checkpoint_path()));
+    assert_eq!(document(&state).related_operations, vec![operation.context().id()]);
+    assert!(document(&state).operation.is_none(), "observed links never invent an operation selection");
+    // A retained locator mismatch is a diagnostic error, not a switch to the reused PID.
+    cpu::discover_launch(directory.path(), &wrong, &mut checkpoint, &mut cursor, &state);
+    assert!(document(&state).errors.iter().any(|error| error.contains("identity")));
+}

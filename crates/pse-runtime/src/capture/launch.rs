@@ -178,7 +178,7 @@ fn launch_with(
     let command = LaunchedCommand { child, locator: locator.clone(), finished: None, process_fd };
     let stop = Arc::new(AtomicBool::new(false));
     let state = Arc::new(Mutex::new(CaptureDocument {
-        version: Version, kind: CaptureKind::Cpu, operation: None, launch_process: Some(locator.clone()),
+        version: Version, kind: CaptureKind::Cpu, operation: None, launch_process: Some(locator.clone()), related_operations: Vec::new(),
         status: CaptureStatus::Running, requested_duration: request.duration,
         observed_duration: Duration::ZERO,
         targets: vec![CaptureTarget { process: format!("launch:{}:{}", locator.pid, locator.start_ticks.unwrap_or(0)),

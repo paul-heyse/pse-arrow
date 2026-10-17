@@ -516,6 +516,7 @@ pub(super) fn run(
                     continue;
                 }
                 discover(request, &image, &mut selected, &mut paths, state);
+                document(state).related_operations = selected.clone();
                 if !attached.contains(&image.process) && samplers.len() < 16 {
                     attached.push(image.process.clone());
                     let reserved: u64 = samplers.iter().map(|sampler| sampler.reservation).sum();
@@ -658,6 +659,50 @@ fn finalize(samplers: &mut [Sampler], state: &Shared, files: &mut OwnedFiles) ->
     Ok(())
 }
 
+/// Link only actual published operations from the exact launched process. Discovery itself
+/// neither creates an observation owner nor makes process samples operation-exclusive.
+pub(super) fn discover_launch(
+    directory: &Path, locator: &crate::observation::ProcessLocator,
+    checkpoint: &mut Option<PathBuf>, cursor: &mut Option<String>, state: &Shared,
+) {
+    let same_process = |candidate: &crate::observation::ProcessLocator| {
+        candidate.pid == locator.pid && locator.start_ticks.is_some()
+            && candidate.start_ticks == locator.start_ticks
+    };
+    if checkpoint.is_none() {
+        match crate::inspection::list_processes(directory, crate::inspection::DiagnosticListRequest {
+            after: cursor.clone(), limit: 16,
+        }) {
+            Ok(page) => {
+                *cursor = page.next;
+                *checkpoint = page.processes.into_iter().find(|process| {
+                    process.locator.as_ref().is_some_and(same_process)
+                }).map(|process| process.checkpoint);
+            }
+            Err(error) => { failure(state, error); return; }
+        }
+    }
+    let Some(path) = checkpoint else { return; };
+    let image = match read_checkpoint(path) {
+        Ok(image) if same_process(&image.locator) => image,
+        Ok(_) => { failure(state, "launch checkpoint no longer matches owned process/start identity"); return; }
+        Err(error) => { failure(state, error); return; }
+    };
+    let selected: Vec<_> = image.operations.iter().take(512).map(|operation| operation.id).collect();
+    let mut entry = target(&image, &selected);
+    entry.concurrent_operations = image.operations.iter().filter(|operation| operation.finished_at.is_none()).count() > 1;
+    let mut state = document(state);
+    state.loss.source_partial |= source_partial(&image, &selected);
+    state.loss.unknown_clock |= image.clock.is_none();
+    if let Some(target) = state.targets.first_mut() { *target = entry; }
+    for operation in selected {
+        if !state.related_operations.contains(&operation) {
+            if state.related_operations.len() < 512 { state.related_operations.push(operation); }
+            else { state.loss.refused_items = state.loss.refused_items.saturating_add(1); state.loss.source_partial = true; }
+        }
+    }
+}
+
 // Only fresh capture-owned FIFO nodes; removal never touches raw evidence or science.
 struct ControlPaths([PathBuf; 2]);
 impl Drop for ControlPaths {
@@ -729,7 +774,15 @@ pub(super) fn run_launched_program(
         // The receiver alone owns the command gate. Sending carries no cancellation lease.
         let _ = ready.send(Ok(()));
         let started = Instant::now();
+        let mut checkpoint = None;
+        let mut cursor = None;
+        let directory = crate::inspection::default_directory();
+        let mut next_discovery = Duration::ZERO;
         loop {
+            if started.elapsed() >= next_discovery {
+                discover_launch(&directory, locator, &mut checkpoint, &mut cursor, state);
+                next_discovery = started.elapsed().saturating_add(Duration::from_secs(1));
+            }
             sampler.finished = sampler.tool.poll()?;
             output(state, &sampler.raw, CaptureOutputKind::PerfData, false);
             output(state, &sampler.log, CaptureOutputKind::ToolLog, true);
