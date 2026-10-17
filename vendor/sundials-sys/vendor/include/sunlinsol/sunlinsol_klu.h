@@ -26,6 +26,7 @@
 #ifndef _SUNLINSOL_KLU_H
 #define _SUNLINSOL_KLU_H
 
+#include <stdint.h>
 #include <sundials/sundials_linearsolver.h>
 #include <sundials/sundials_matrix.h>
 #include <sundials/sundials_nvector.h>
@@ -88,10 +89,25 @@ typedef sunindextype (*KLUSolveFn)(sun_klu_symbolic*, sun_klu_numeric*,
                                    sunindextype, sunindextype, double*,
                                    sun_klu_common*);
 
+/* Source-owned lifetime work; queries never initiate numerical work. Issued
+ * counts precede actual calls; completed means that call returned successfully.
+ * Overflow makes all reported totals unavailable, never a silently exact cap. */
+typedef struct {
+  uint64_t setup_issued, setup_completed;
+  uint64_t symbolic_issued, symbolic_completed;
+  uint64_t numeric_factor_issued, numeric_factor_completed;
+  uint64_t refactor_issued, refactor_completed;
+  uint64_t rcond_issued, rcond_completed;
+  uint64_t condest_issued, condest_completed;
+  uint64_t solve_issued, solve_completed;
+  int overflow;
+} SUNLinearSolver_KLUWork;
+
 struct _SUNLinearSolverContent_KLU
 {
   int last_flag;
   int first_factorize;
+  SUNLinearSolver_KLUWork work;
   sun_klu_symbolic* symbolic;
   sun_klu_numeric* numeric;
   sun_klu_common common;
@@ -118,6 +134,7 @@ SUNDIALS_EXPORT int SUNLinSol_KLUSetOrdering(SUNLinearSolver S,
 SUNDIALS_EXPORT sun_klu_symbolic* SUNLinSol_KLUGetSymbolic(SUNLinearSolver S);
 SUNDIALS_EXPORT sun_klu_numeric* SUNLinSol_KLUGetNumeric(SUNLinearSolver S);
 SUNDIALS_EXPORT sun_klu_common* SUNLinSol_KLUGetCommon(SUNLinearSolver S);
+SUNDIALS_EXPORT SUNErrCode SUNLinSol_KLUGetWork(SUNLinearSolver S, SUNLinearSolver_KLUWork* work);
 
 /* -----------------------------------------------
  *  Implementations of SUNLinearSolver operations

@@ -44,6 +44,12 @@
 #define NUMERIC(S)        (KLU_CONTENT(S)->numeric)
 #define COMMON(S)         (KLU_CONTENT(S)->common)
 #define SOLVE(S)          (KLU_CONTENT(S)->klu_solver)
+#define WORK(S)           (KLU_CONTENT(S)->work)
+static void count_work(uint64_t* value, int* overflow) {
+  if (*value == UINT64_MAX) { *overflow = 1; }
+  else { ++*value; }
+}
+#define COUNT_WORK(S, field) count_work(&WORK(S).field, &WORK(S).overflow)
 
 /*
  * -----------------------------------------------------------------
@@ -105,6 +111,7 @@ SUNLinearSolver SUNLinSol_KLU(N_Vector y, SUNMatrix A, SUNContext sunctx)
   /* Fill content */
   content->last_flag       = 0;
   content->first_factorize = 1;
+  content->work = (SUNLinearSolver_KLUWork){0};
   content->symbolic        = NULL;
   content->numeric         = NULL;
 
@@ -211,6 +218,14 @@ sun_klu_common* SUNLinSol_KLUGetCommon(SUNLinearSolver S)
 {
   return (&(COMMON(S)));
 }
+SUNErrCode SUNLinSol_KLUGetWork(SUNLinearSolver S, SUNLinearSolver_KLUWork* work)
+{
+  if (!S || !S->content || !work) { return SUN_ERR_ARG_CORRUPT; }
+  if (SUNLinSolGetID(S) != SUNLINEARSOLVER_KLU) { return SUN_ERR_ARG_INCOMPATIBLE; }
+  *work = WORK(S);
+  return SUN_SUCCESS;
+}
+
 
 /*
  * -----------------------------------------------------------------
@@ -242,6 +257,9 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
   int retval;
   sunrealtype uround_twothirds;
 
+  if (!S || !S->content) { return SUN_ERR_ARG_CORRUPT; }
+  COUNT_WORK(S, setup_issued);
+  if (!A) { LASTFLAG(S) = SUN_ERR_ARG_CORRUPT; return LASTFLAG(S); }
   uround_twothirds = SUNRpowerR(SUN_UNIT_ROUNDOFF, TWOTHIRDS);
 
   /* Ensure that A is a sparse matrix */
@@ -256,6 +274,7 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
   {
     /* Perform symbolic analysis of sparsity structure */
     if (SYMBOLIC(S)) { sun_klu_free_symbolic(&SYMBOLIC(S), &COMMON(S)); }
+    COUNT_WORK(S, symbolic_issued);
     SYMBOLIC(S) = sun_klu_analyze(SUNSparseMatrix_NP(A),
                                   SUNSparseMatrix_IndexPointers(A),
                                   SUNSparseMatrix_IndexValues(A), &COMMON(S));
@@ -265,10 +284,13 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
       return (LASTFLAG(S));
     }
 
+    COUNT_WORK(S, symbolic_completed);
+
     /* ------------------------------------------------------------
        Compute the LU factorization of the matrix
        ------------------------------------------------------------*/
     if (NUMERIC(S)) { sun_klu_free_numeric(&NUMERIC(S), &COMMON(S)); }
+    COUNT_WORK(S, numeric_factor_issued);
     NUMERIC(S) = sun_klu_factor(SUNSparseMatrix_IndexPointers(A),
                                 SUNSparseMatrix_IndexValues(A),
                                 SUNSparseMatrix_Data(A), SYMBOLIC(S), &COMMON(S));
@@ -278,11 +300,13 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
       return (LASTFLAG(S));
     }
 
+    COUNT_WORK(S, numeric_factor_completed);
     FIRSTFACTORIZE(S) = 0;
   }
   else
   { /* not the first decomposition, so just refactor */
 
+    COUNT_WORK(S, refactor_issued);
     retval = sun_klu_refactor(SUNSparseMatrix_IndexPointers(A),
                               SUNSparseMatrix_IndexValues(A),
                               SUNSparseMatrix_Data(A), SYMBOLIC(S), NUMERIC(S),
@@ -293,12 +317,15 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
       return (LASTFLAG(S));
     }
 
+    COUNT_WORK(S, refactor_completed);
+
     /*-----------------------------------------------------------
       Check if a cheap estimate of the reciprocal of the condition
       number is getting too small.  If so, delete
       the prior numeric factorization and recompute it.
       -----------------------------------------------------------*/
 
+    COUNT_WORK(S, rcond_issued);
     retval = sun_klu_rcond(SYMBOLIC(S), NUMERIC(S), &COMMON(S));
     if (retval == 0)
     {
@@ -306,10 +333,12 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
       return (LASTFLAG(S));
     }
 
+    COUNT_WORK(S, rcond_completed);
     if (COMMON(S).rcond < uround_twothirds)
     {
       /* Condition number may be getting large.
 	 Compute more accurate estimate */
+      COUNT_WORK(S, condest_issued);
       retval = sun_klu_condest(SUNSparseMatrix_IndexPointers(A),
                                SUNSparseMatrix_Data(A), SYMBOLIC(S), NUMERIC(S),
                                &COMMON(S));
@@ -319,11 +348,13 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
         return (LASTFLAG(S));
       }
 
+      COUNT_WORK(S, condest_completed);
       if (COMMON(S).condest > (ONE / uround_twothirds))
       {
         /* More accurate estimate also says condition number is
            large, so recompute the numeric factorization */
         sun_klu_free_numeric(&NUMERIC(S), &COMMON(S));
+        COUNT_WORK(S, numeric_factor_issued);
         NUMERIC(S) = sun_klu_factor(SUNSparseMatrix_IndexPointers(A),
                                     SUNSparseMatrix_IndexValues(A),
                                     SUNSparseMatrix_Data(A), SYMBOLIC(S),
@@ -333,10 +364,12 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
           LASTFLAG(S) = SUN_ERR_EXT_FAIL;
           return (LASTFLAG(S));
         }
+        COUNT_WORK(S, numeric_factor_completed);
       }
     }
   }
 
+  COUNT_WORK(S, setup_completed);
   LASTFLAG(S) = SUN_SUCCESS;
   return (LASTFLAG(S));
 }
@@ -347,6 +380,7 @@ int SUNLinSolSolve_KLU(SUNLinearSolver S, SUNMatrix A, N_Vector x, N_Vector b,
   int flag;
   sunrealtype* xdata;
 
+  if (S && S->content) { COUNT_WORK(S, solve_issued); }
   /* check for valid inputs */
   if ((A == NULL) || (S == NULL) || (x == NULL) || (b == NULL))
   {
@@ -373,6 +407,7 @@ int SUNLinSolSolve_KLU(SUNLinearSolver S, SUNMatrix A, N_Vector x, N_Vector b,
     return (LASTFLAG(S));
   }
 
+  COUNT_WORK(S, solve_completed);
   LASTFLAG(S) = SUN_SUCCESS;
   return (LASTFLAG(S));
 }

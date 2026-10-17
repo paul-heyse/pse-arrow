@@ -9,6 +9,7 @@
 //! settings are typed [`Method`] fields (Plan 22 Y6); one-sided bounds are shifted to
 //! native sign constraints.
 mod restarts;
+mod linear_work;
 use crate::{
     NleOracle, OracleContract, ProblemError,
     callback::CallbackState,
@@ -565,6 +566,10 @@ struct Context {
     setup_calls: u64,
     data: pse_ids::ContentHash,
     raw_map: Option<RawMapCapture>,
+    /// Read-only source-owned linear handle; never queried concurrently.
+    klu: ffi::SUNLinearSolver,
+    klu_baseline: Option<ffi::SUNLinearSolver_KLUWork>,
+    klu_producer: Option<pse_diagnostics::observation::Producer>,
 }
 /// Worker-local allocation retains native layouts across compatible equation values.
 pub struct Session {
@@ -802,6 +807,7 @@ unsafe extern "C" fn residual(x: ffi::N_Vector, out: ffi::N_Vector, data: *mut c
         }
         Ok(())
     });
+    linear_work::current(c);
     // KINFP and KINPicardAA only test for negative callback returns; a positive
     // trial refusal would let them consume stale output. They cannot recover the
     // failed map, so latch its original typed cause before returning terminally.
@@ -1353,6 +1359,7 @@ impl Session {
             setup_calls: 0,
             data: compatibility.data,
             raw_map: None,
+            klu: std::ptr::null_mut(), klu_baseline: None, klu_producer: None,
         });
         let mut s = Self {
             ctx: std::ptr::null_mut(),
@@ -1569,6 +1576,12 @@ impl Session {
             )?);
         }
         self.callback.state = CallbackState::new(execution.clone());
+        self.callback.klu = if self.settings.method.linear == Linear::Klu { self.linear } else { std::ptr::null_mut() };
+        // SAFETY: this live linear solver remains exclusively Session-owned until drain.
+        self.callback.klu_baseline = unsafe { linear_work::snapshot(self.callback.klu) };
+        self.callback.klu_producer = pse_diagnostics::observation::current().map(|context| {
+            context.producer(pse_diagnostics::observation::ProducerRole::NativeFactor, "kinsol.klu")
+        });
         self.callback.raw_map = match &self.callback.function {
             Function::FixedPoint(oracle) => Some(
                 RawMapCapture::new(
@@ -1725,6 +1738,7 @@ impl Session {
             KINGetNumNonlinSolvIters, KINGetNumFuncEvals,
             KINGetNumBetaCondFails, KINGetNumBacktrackOps
         );
+        linear_work::finish(&self.callback, &mut report);
         report.evidence.native_observations = Some(std::sync::Arc::new(NativeObservations {
             backend: Backend::Kinsol,
             problem: self.callback.function.contract().identity,
@@ -2467,6 +2481,42 @@ mod tests {
                 assert_eq!(metric(&at_root, "preconditioner.block.factor_calls"), 0);
             }
         }
+    }
+    #[test]
+    fn klu_work_getter_reports_failed_guard_singular_factor_and_fresh_application() {
+        let setups = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut session = Session::new(affine_function(1., &setups), settings(), execution(), crate::solver_tests::stamp(Backend::Kinsol)).unwrap();
+        // SAFETY: live exclusively owned KLU solver; null matrix is a checked refusal.
+        assert_ne!(unsafe { ffi::SUNLinSolSetup_KLU(session.linear, std::ptr::null_mut()) }, 0);
+        // SAFETY: getter reads only this session's live KLU counters.
+        let failed = unsafe { linear_work::snapshot(session.linear) }.unwrap();
+        assert_eq!(failed.setup_issued, 1); assert_eq!(failed.setup_completed, 0);
+        assert_eq!(failed.symbolic_issued, 0);
+        for start in [0., 3.] {
+            let report = setup_solve(&mut session, start, ReusePolicy::AllowRebuild);
+            assert_eq!(report.termination.category, Termination::Success);
+            assert_eq!(report.metrics["klu.symbolic.issued"], Metric::Integer(1));
+            assert_eq!(report.metrics["klu.symbolic.completed"], Metric::Integer(1));
+            assert_eq!(report.metrics["klu.numeric_factor.issued"], Metric::Integer(1));
+            assert_eq!(report.metrics["klu.numeric_factor.completed"], Metric::Integer(1));
+            assert!(metric(&report, "klu.solve.completed") > 0);
+        }
+        // SAFETY: the session's exact one-entry CSC storage is live and exclusively owned.
+        unsafe {
+            *ffi::SUNSparseMatrix_IndexPointers(session.matrix) = 0;
+            *ffi::SUNSparseMatrix_IndexPointers(session.matrix).add(1) = 1;
+            *ffi::SUNSparseMatrix_IndexValues(session.matrix) = 0;
+            *ffi::SUNSparseMatrix_Data(session.matrix) = 0.;
+            assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
+        }
+        // SAFETY: safe-return getter on the same live owner.
+        let before = unsafe { linear_work::snapshot(session.linear) }.unwrap();
+        // SAFETY: admitted canonical singular CSC on this owned solver.
+        assert_ne!(unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) }, 0);
+        // SAFETY: getter reports the failed actual factor prefix without initiating work.
+        let after = unsafe { linear_work::snapshot(session.linear) }.unwrap();
+        assert_eq!(after.numeric_factor_issued - before.numeric_factor_issued, 1);
+        assert_eq!(after.numeric_factor_completed, before.numeric_factor_completed);
     }
     #[test]
     fn fresh_application_setup_preserves_within_call_native_monitoring() {
