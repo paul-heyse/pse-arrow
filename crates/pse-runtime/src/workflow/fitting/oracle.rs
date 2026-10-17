@@ -1064,9 +1064,10 @@ impl FitProblem {
         report: &mut FitReport,
         execution: Execution,
     ) -> Result<(), crate::math::MathRuntimeError> {
-        crate::workflow::dynamics::analysis("fit.original_final_assessment", || {
+        let Some(x) = report.candidate.clone() else { return Ok(()); };
+        let interval = crate::invocation::stage("fit.original_final_assessment");
+        let result: Result<(), crate::math::MathRuntimeError> = (|| {
         let _phase = pse_diagnostics::observation::phase("fit.original_final_assessment");
-        if let Some(x) = report.candidate.clone() {
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.count("fit.original_final_assessments", "count", 1);
             }
@@ -1104,9 +1105,12 @@ impl FitProblem {
                     }
                 }
             }
-        }
         Ok(())
-        })
+        })();
+        interval.finish(if result.is_ok() && report.objective.is_some() && !report.diagnostic.as_ref().is_some_and(|diagnostic| matches!(diagnostic.rule, FitRule::FinalEvaluation | FitRule::ObjectiveOverflow)) {
+            crate::invocation::InvocationOutcome::Completed
+        } else { crate::invocation::InvocationOutcome::Failed });
+        result
     }
     /// Values and derivative products refer to the same physically compared trial.
     /// Preserve a completed value observation when rank/derivatives are unavailable.

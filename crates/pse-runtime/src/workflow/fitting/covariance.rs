@@ -312,6 +312,7 @@ impl FitProblem {
         report: &FitReport,
         level: f64,
     ) -> Result<Vec<Interval>, FitWithheld> {
+        crate::workflow::dynamics::analysis("fit.wald_interval_analysis", || {
         let covariance = report
             .covariance
             .as_ref()
@@ -341,6 +342,7 @@ impl FitProblem {
                 }
             })
             .collect())
+        })
     }
     /// The quantities the fit derives from its estimate: the covariance, and on request
     /// Wald intervals and profile-likelihood chains.

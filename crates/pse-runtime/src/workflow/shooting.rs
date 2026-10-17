@@ -1666,8 +1666,9 @@ impl ShootingProblem {
             checks_complete: false,
             validation_error: None,
         };
-        let original = crate::invocation::stage("shooting.original_assessment_and_trajectory_materialization");
         if let Some(x) = report.candidate.clone() {
+            let original = crate::invocation::stage("shooting.original_assessment_and_trajectory_materialization");
+            let assessed: Result<(), crate::math::MathRuntimeError> = (|| {
             // A fresh evaluation, independent of the native callbacks' cache.
             let mut oracle = ShootingOracle {
                 observation: pse_diagnostics::observation::current().map(|context| {
@@ -1693,9 +1694,7 @@ impl ShootingProblem {
                         native.record_validation_failure(error);
                     }
                     report.validation_error = Some(diagnostic);
-                    self.assess_completion(&mut report);
-                    original.finish(crate::invocation::InvocationOutcome::Failed);
-                    return Ok(report);
+                    return Ok(());
                 }
             };
             report.quality = Some(native::quality::observed(
@@ -1823,11 +1822,14 @@ impl ShootingProblem {
             report.validation_error = checks.error;
             report.trajectory = Some(Arc::new(stitched));
             report.parameters = Some(integration);
+            Ok(())
+            })();
+            original.finish(if assessed.is_ok() && report.checks_complete && report.validation_error.is_none() {
+                crate::invocation::InvocationOutcome::Completed
+            } else { crate::invocation::InvocationOutcome::Failed });
+            assessed?;
         }
         self.assess_completion(&mut report);
-        original.finish(if report.checks_complete && report.validation_error.is_none() {
-            crate::invocation::InvocationOutcome::Completed
-        } else { crate::invocation::InvocationOutcome::Failed });
         Ok(report)
     }
     fn original_candidate(&self, report: &ShootingReport) -> super::numerics::CandidateDecision {

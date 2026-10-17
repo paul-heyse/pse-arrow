@@ -1993,6 +1993,7 @@ impl ModelingSimulation {
         (native::Report, checks::SampleChecks, Vec<GoalResult>),
         crate::math::MathRuntimeError,
     > {
+        if self.numerics().policy.goals.is_empty() { return Ok((report, checks, Vec::new())); }
         crate::workflow::dynamics::analysis("dynamic.output_accuracy_and_refinement", || {
         let (mut report, checks, accuracy) =
             self.assess_dynamic_accuracy_inner(report, checks, &mut context)?;
@@ -2027,9 +2028,6 @@ impl ModelingSimulation {
         let run_id = *run_id;
         let admission = admission.clone();
         let goals = &self.numerics().policy.goals;
-        if goals.is_empty() {
-            return Ok((report, checks, Vec::new()));
-        }
         let admission = admission.ok_or_else(|| {
             ProblemError::Internal("dynamic accuracy has no task admission".into())
         })?;
