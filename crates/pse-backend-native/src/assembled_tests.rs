@@ -79,6 +79,8 @@ fn fixture(domain: ModelingVariableDomain) -> (Arc<CaseAssembly>, CaseValues) {
                 AssemblyLimits::default(),
                 &pse_diagnostics::Cancellation::default().flag(),
             )
+            .unwrap()
+            .with_directional_actions(&pse_diagnostics::Cancellation::default().flag())
             .unwrap(),
         )
         .compile(
