@@ -1437,6 +1437,8 @@ mod tests {
         assert!(!source_map.document.instances.is_empty());
         assert!(source_map.document.fields.iter().all(|field| field.document == Some(SemanticId::from_bytes([83; 16]))));
         assert!(source_map.document.templates.iter().all(|template| !template.arithmetic.is_empty()));
+        assert!(source_map.document.templates.iter().flat_map(|template| &template.arithmetic)
+            .all(|origin| origin.source.is_some() == origin.source_unavailable.is_none()));
         for instance in &source_map.document.instances {
             assert_eq!(instance.contributions.len(), prepared.model.case.compiled().plan.structure().instances()[instance.ordinal].contributions.len());
             assert!(!instance.demands.is_empty());

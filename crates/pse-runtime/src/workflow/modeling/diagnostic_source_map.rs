@@ -47,8 +47,11 @@ pub struct SourceMemberDocument {
 pub struct ArithmeticSourceDocument {
     /// Physical arithmetic-region ordinal within the stated check program.
     pub region: usize,
-    /// Original body-local source token, joined through checked_members.
-    pub source: SemanticId,
+    /// Original body-local source token, joined through checked_members; absent
+    /// when the compiled owner supplied only a generated arithmetic range.
+    pub source: Option<SemanticId>,
+    /// Why this range has no original source token, independently of its existence.
+    pub source_unavailable: Option<String>,
     /// First original check-output ordinal within the shared region.
     pub start_output: usize,
     /// Exclusive original check-output endpoint.
@@ -289,7 +292,9 @@ impl Runtime {
                     if stopped.is_some() { return; }
                     if let Err(error) = check() { stopped = Some(error); return; }
                     arithmetic.push(ArithmeticSourceDocument {
-                        region: origin.region, source: origin.source, start_output: origin.start_output,
+                        region: origin.region, source: (origin.source != SemanticId::NIL).then_some(origin.source),
+                        source_unavailable: (origin.source == SemanticId::NIL).then(|| "compiled owner supplied no original source token for this arithmetic range".into()),
+                        start_output: origin.start_output,
                         end_output: origin.end_output, check_order: origin.check_order,
                     });
                 });
