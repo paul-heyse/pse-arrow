@@ -6,10 +6,15 @@ use crate::workflow::{modeling::ModelingAnalysis, tests as fixture};
 use pse_compiler::workspace::ModelingCaseBindings;
 use std::{collections::BTreeSet, time::Duration};
 
-async fn prepared_branches() -> (Runtime, ModelingPackage, ModelingDiagnosticPreparation) {
+async fn prepared_cells(branching: bool) -> (Runtime, ModelingPackage, ModelingDiagnosticPreparation) {
     let runtime = fixture::runtime();
+    let source = if branching {
+        "package p { def Cell {param g:Scalar=1; var x:Scalar; let a:Scalar=(if g>0 then log(x) else log(-x)); let b:Scalar=a*a+x; eq e:b==0;} def Root {child left:Cell=Cell(); child right:Cell=Cell();} }"
+    } else {
+        "package p { def Cell {var x:Scalar; let a:Scalar=x*x; let b:Scalar=a*a+x; eq e:b==0;} def Root {child left:Cell=Cell(); child right:Cell=Cell();} }"
+    };
     let declarations = pse_authoring::language::parse(
-        "package p { def Cell {param g:Scalar=1; var x:Scalar; let a:Scalar=(if g>0 then log(x) else log(-x)); let b:Scalar=a*a+x; eq e:b==0;} def Root {child left:Cell=Cell(); child right:Cell=Cell();} }",
+        source,
         SemanticId::from_bytes([117; 16]), pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
     ).unwrap();
@@ -28,7 +33,7 @@ async fn prepared_branches() -> (Runtime, ModelingPackage, ModelingDiagnosticPre
 
 #[tokio::test]
 async fn kernel_source_map_preserves_shared_occurrences_original_sources_and_static_alternatives_without_evaluation() {
-    let (runtime, _package, prepared) = prepared_branches().await;
+    let (runtime, _package, prepared) = prepared_cells(true).await;
     // Both log branches are invalid at the supplied point. Static inspection has
     // no reason to evaluate either branch, choose a current arm, or qualify a point.
     let model = prepared.model.model.compiled();
@@ -82,7 +87,7 @@ async fn kernel_source_map_preserves_shared_occurrences_original_sources_and_sta
 
 #[tokio::test]
 async fn kernel_source_map_explicit_second_product_labels_value_check_origins_without_extra_actions_or_evaluation() {
-    let (runtime, _package, mut prepared) = prepared_branches().await;
+    let (runtime, _package, mut prepared) = prepared_cells(false).await;
     prepared.model.case = runtime.shared.math().prepare_order(prepared.model.case.clone(),
         DerivativeOrder::Second, pse_diagnostics::Cancellation::default()).await.unwrap();
     let owner = runtime.modeling_diagnostic_source_map(&prepared, 2 << 20, Duration::from_secs(10),
@@ -97,11 +102,22 @@ async fn kernel_source_map_explicit_second_product_labels_value_check_origins_wi
     }
     assert!(owner.document().templates.iter().all(|template| !matches!(template.product,
         ProductKind::JacobianAction | ProductKind::WeightedHessianAction)), "inspection does not silently prepare unrequested action products");
+    // A control-bearing product is deliberately not flattened. Its source ranges
+    // belong to the selected compiled product, rather than a fake Value-only view.
+    let (runtime, _package, mut branch) = prepared_cells(true).await;
+    branch.model.case = runtime.shared.math().prepare_order(branch.model.case.clone(),
+        DerivativeOrder::Second, pse_diagnostics::Cancellation::default()).await.unwrap();
+    let branch = runtime.modeling_diagnostic_source_map(&branch, 2 << 20, Duration::from_secs(10),
+        &crate::CancelSource::new()).await.unwrap();
+    let selected = branch.document().templates.iter().filter(|template| template.product == ProductKind::WeightedHessian).collect::<Vec<_>>();
+    assert!(!selected.is_empty());
+    assert!(selected.iter().all(|template| matches!(template.arithmetic_mapping, ArithmeticMappingScope::SelectedCompiledProduct)));
+    assert!(selected.iter().all(|template| template.arithmetic.iter().any(|origin| origin.check_order == DerivativeOrder::Second)));
 }
 
 #[tokio::test]
 async fn kernel_source_map_finite_byte_clock_and_cancel_refusals_leave_prepared_source_and_admission_intact() {
-    let (runtime, _package, prepared) = prepared_branches().await;
+    let (runtime, _package, prepared) = prepared_cells(true).await;
     let cancel = crate::CancelSource::new();
     // Warm only the explicitly requested immutable assembly before comparing
     // refusal cleanup; the source owner and its cache retain their normal leases.
