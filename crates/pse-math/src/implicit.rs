@@ -718,8 +718,7 @@ impl Problem {
             self.solve_factor(&mut factor, first.as_mut(), cancel)?;
             observed_ift!("implicit.derivatives.verification", cancel, {
                 check_solve(
-                    &jet.jacobian,
-                    width,
+                    &matrix,
                     &first,
                     &original,
                     options.derivative_tolerance,
@@ -768,8 +767,7 @@ impl Problem {
             self.solve_factor(&mut factor, second.as_mut(), cancel)?;
             observed_ift!("implicit.derivatives.verification", cancel, {
                 check_solve(
-                    &jet.jacobian,
-                    width,
+                    &matrix,
                     &second,
                     &original,
                     options.derivative_tolerance,
@@ -791,28 +789,60 @@ impl Problem {
     }
 }
 fn check_solve(
-    jacobian: &[f64],
-    width: usize,
+    matrix: &SparseColMat<usize, f64>,
     x: &Mat<f64>,
     rhs: &Mat<f64>,
     tolerance: f64,
     id: SemanticId,
 ) -> Result<(), MathError> {
+    let matrix = matrix.as_ref();
+    if matrix.nrows() != x.nrows()
+        || matrix.ncols() != x.nrows()
+        || rhs.nrows() != x.nrows()
+        || rhs.ncols() != x.ncols()
+    {
+        return Err(MathError::Contract("implicit derivative solve extent".into()));
+    }
+    let refused = || MathError::Domain {
+        source_id: id,
+        requirement: "implicit derivative residual verification failed",
+    };
+    if matrix.val().iter().any(|value| !value.is_finite()) {
+        return Err(refused());
+    }
+    let context = pse_diagnostics::observation::current();
+    let mut sums = vec![0.0; x.nrows()];
+    let mut scales = vec![0.0; x.nrows()];
     for column in 0..x.ncols() {
+        sums.fill(0.0);
         for row in 0..x.nrows() {
-            let mut sum = 0.0;
-            let mut scale = rhs[(row, column)].abs();
-            for k in 0..x.nrows() {
-                let value = jacobian[row * width + k] * x[(k, column)];
-                sum += value;
-                scale += value.abs();
+            if !x[(row, column)].is_finite() || !rhs[(row, column)].is_finite() {
+                return Err(refused());
             }
-            let error = (sum - rhs[(row, column)]).abs();
-            if !error.is_finite() || error > tolerance * scale.max(f64::MIN_POSITIVE) {
-                return Err(MathError::Domain {
-                    source_id: id,
-                    requirement: "implicit derivative residual verification failed",
-                });
+            scales[row] = rhs[(row, column)].abs();
+        }
+        // Ascending CSC columns retain each row's original summation order. The
+        // absolute contributions must be accumulated before cancellation occurs.
+        let mut visits = 0;
+        for k in 0..matrix.ncols() {
+            for (row, coefficient) in matrix.row_idx_of_col(k).zip(matrix.val_of_col(k)) {
+                let value = coefficient * x[(k, column)];
+                sums[row] += value;
+                scales[row] += value.abs();
+                visits += 1;
+            }
+        }
+        if let Some(context) = &context {
+            context.count(
+                "implicit.derivatives.verification.support_visits",
+                "contributions",
+                visits,
+            );
+        }
+        for row in 0..x.nrows() {
+            let error = (sums[row] - rhs[(row, column)]).abs();
+            if !error.is_finite() || error > tolerance * scales[row].max(f64::MIN_POSITIVE) {
+                return Err(refused());
             }
         }
     }
@@ -1654,6 +1684,197 @@ mod deadline_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn verification_matrix(n: usize, entries: &[(usize, usize, f64)]) -> SparseColMat<usize, f64> {
+        let indices = entries
+            .iter()
+            .map(|(row, column, _)| faer::sparse::Pair::new(*row, *column))
+            .collect::<Vec<_>>();
+        let (pattern, _) = SymbolicSparseColMat::try_new_from_indices(n, n, &indices).unwrap();
+        let values = (0..n)
+            .flat_map(|column| pattern.as_ref().row_idx_of_col(column).map(move |row| (row, column)))
+            .map(|(row, column)| {
+                entries
+                    .iter()
+                    .find(|(i, j, _)| *i == row && *j == column)
+                    .unwrap()
+                    .2
+            })
+            .collect();
+        SparseColMat::new(pattern, values)
+    }
+
+    fn assert_verification_refused(result: Result<(), MathError>) {
+        assert!(matches!(
+            result,
+            Err(MathError::Domain {
+                requirement: "implicit derivative residual verification failed",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn sparse_verification_banded_packed_rhs_and_bad_solve() {
+        let id = SemanticId::from_bytes([61; 16]);
+        let matrix = verification_matrix(
+            4,
+            &[
+                (0, 0, 2.0),
+                (1, 0, 3.0),
+                (1, 1, 4.0),
+                (2, 1, -5.0),
+                (2, 2, 6.0),
+                (3, 2, 7.0),
+                (3, 3, 8.0),
+            ],
+        );
+        // Three packed second RHS columns for two independent parameters.
+        let mut x = faer::mat![[1.0, 0.0, -1.0], [2.0, 1.0, 0.0], [3.0, -1.0, 2.0], [4.0, 2.0, -2.0]];
+        let rhs = faer::mat![[2.0, 0.0, -2.0], [11.0, 4.0, -3.0], [8.0, -11.0, 12.0], [53.0, 9.0, -2.0]];
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("implicit.sparse_verification.packed");
+        let _entered = operation.context().enter();
+        check_solve(&matrix, &x, &rhs, 1e-12, id).unwrap();
+        let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+        let visits = snapshot.metrics.iter().find(|metric| {
+            metric.name == "implicit.derivatives.verification.support_visits"
+        }).unwrap();
+        assert_eq!(visits.cumulative, pse_diagnostics::observation::Value::Count(7 * 3));
+        x[(3, 2)] += 0.01;
+        assert_verification_refused(check_solve(&matrix, &x, &rhs, 1e-12, id));
+    }
+
+    #[test]
+    fn sparse_verification_preserves_absolute_contribution_and_rhs_scale() {
+        let id = SemanticId::from_bytes([62; 16]);
+        let matrix = verification_matrix(
+            3,
+            &[(0, 0, 1e16), (0, 1, 1.0), (0, 2, -1e16), (1, 1, 1.0), (2, 2, 1.0)],
+        );
+        let x = Mat::from_fn(3, 1, |_, _| 1.0);
+        // Ascending columns yield (1e16 + 1) - 1e16 = 0. The lost unit
+        // is small against the absolute contribution scale, despite cancellation.
+        let rhs = Mat::from_fn(3, 1, |_, _| 1.0);
+        check_solve(&matrix, &x, &rhs, 1e-12, id).unwrap();
+        // A zero tolerance pins the original ascending-column arithmetic: an
+        // implementation that groups the cancelling terms first instead yields 1.
+        check_solve(&matrix, &x, &faer::mat![[0.0], [1.0], [1.0]], 0.0, id).unwrap();
+        // Omitting the RHS from the scale would incorrectly refuse this error:
+        // 0.15 <= 0.1 * (1 + 1.15), but 0.15 > 0.1 * 1.
+        let scalar = verification_matrix(1, &[(0, 0, 1.0)]);
+        check_solve(&scalar, &faer::mat![[1.0]], &faer::mat![[1.15]], 0.1, id).unwrap();
+        assert_verification_refused(check_solve(
+            &scalar, &faer::mat![[1.0]], &faer::mat![[1.3]], 0.1, id,
+        ));
+        // Preserve the minimum-positive scale floor for an all-zero row.
+        check_solve(
+            &verification_matrix(1, &[]),
+            &faer::mat![[0.0]],
+            &faer::mat![[f64::MIN_POSITIVE / 4.0]],
+            0.5,
+            id,
+        ).unwrap();
+    }
+
+    #[test]
+    fn sparse_verification_rejects_nonfinite_coordinates_and_arithmetic() {
+        let id = SemanticId::from_bytes([63; 16]);
+        // The empty second column must not hide a nonfinite solved coordinate.
+        let matrix = verification_matrix(2, &[(0, 0, 1.0)]);
+        for nonfinite in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            for row in 0..2 {
+                let mut x = Mat::zeros(2, 2);
+                x[(row, 1)] = nonfinite;
+                assert_verification_refused(check_solve(&matrix, &x, &Mat::zeros(2, 2), 1e-12, id));
+                let mut rhs = Mat::zeros(2, 2);
+                rhs[(row, 1)] = nonfinite;
+                assert_verification_refused(check_solve(&matrix, &Mat::zeros(2, 2), &rhs, 1e-12, id));
+            }
+            assert_verification_refused(check_solve(
+                &verification_matrix(2, &[(0, 0, 1.0), (1, 1, nonfinite)]),
+                &Mat::zeros(2, 1), &Mat::zeros(2, 1), 1e-12, id,
+            ));
+        }
+        // Finite inputs can still overflow the action and must be refused.
+        assert_verification_refused(check_solve(
+            &verification_matrix(1, &[(0, 0, f64::MAX)]),
+            &faer::mat![[2.0]], &faer::mat![[0.0]], 1e-12, id,
+        ));
+        // A structurally empty singular row still independently detects a bad RHS.
+        assert_verification_refused(check_solve(
+            &matrix, &Mat::zeros(2, 1), &faer::mat![[0.0], [1.0]], 1e-12, id,
+        ));
+    }
+
+    #[test]
+    fn sparse_verification_diagonal_ift_first_and_packed_second() {
+        use crate::guarded::{PreparedBody, Stage};
+        use symbolica::atom::Atom;
+        crate::initialize().unwrap();
+        for n in [4, 8] {
+            let id = SemanticId::from_bytes([64; 16]);
+            let width = n + 2;
+            let p = crate::library::formal(n).unwrap();
+            let q = crate::library::formal(n + 1).unwrap();
+            // Each residual is strictly increasing in its own unknown, with one
+            // global branch: y_i = (i + 1)p² + pq + q². Admit every formal axis
+            // explicitly so the actual first and packed-second IFT paths run.
+            let expressions = (0..n).map(|i| {
+                crate::library::formal(i).unwrap()
+                    - Atom::num((i + 1) as i64) * &p * &p - &p * &q - &q * &q
+            }).collect::<Vec<_>>();
+            let outputs = (width..width + n).collect::<Vec<_>>();
+            let source = PreparedBody::new(
+                width, width + n, outputs.clone(),
+                vec![Stage::Block { expressions, outputs, source: id }],
+                DerivativeOrder::Second,
+            ).unwrap();
+            let control = pse_diagnostics::Cancellation::new(false);
+            let cancel = control.flag();
+            let body = Arc::new(source.compile(
+                &(0..n).collect::<Vec<_>>(), &(0..width).collect::<Vec<_>>(),
+                DerivativeOrder::Second, crate::library::Optimization::default(),
+                crate::jets::EvaluationLimits::default(),
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
+            ).unwrap());
+            let problem = Problem::new(
+                id, ContentHash::from_bytes([0; 32]),
+                (0..n).map(|i| Unknown {
+                    id: pse_ids::named_id(id, &format!("unknown.{i}")), lower: -100.0, upper: 100.0,
+                }).collect(),
+                (0..n).map(|i| pse_ids::named_id(id, &format!("row.{i}"))).collect(),
+                2, residual_bodies_for_test(body), 10_000,
+            ).unwrap();
+            let point = (0..n).map(|i| 4.0 * (i + 1) as f64 + 15.0).collect::<Vec<_>>();
+            let options = Options {
+                start: point.clone(), variable_nominals: vec![1.0; n],
+                variable_tolerance: vec![1e-9; n], residual_tolerance: vec![1e-10; n],
+                iterations: 30, time_limit: Duration::from_secs(1), derivative_tolerance: 1e-12,
+            };
+            let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+            let operation = hub.start("implicit.sparse_verification.analytic");
+            let _entered = operation.context().enter();
+            let jet = problem.derivatives(&[2.0, 3.0], &point, DerivativeOrder::Second, &options, &cancel).unwrap();
+            assert_eq!(jet.values, point);
+            for i in 0..n {
+                assert_eq!(&jet.jacobian[2 * i..2 * i + 2], &[4.0 * (i + 1) as f64 + 3.0, 8.0]);
+                assert_eq!(&jet.hessians[4 * i..4 * i + 4], &[2.0 * (i + 1) as f64, 1.0, 1.0, 2.0]);
+            }
+            let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+            let count = |name: &str| snapshot.metrics.iter().find(|metric| metric.name == name).map(|metric| metric.cumulative.clone());
+            use pse_diagnostics::observation::Value;
+            assert_eq!(count("implicit.factor.numeric.completed"), Some(Value::Count(1)));
+            assert_eq!(count("implicit.factor.solve.completed"), Some(Value::Count(2)));
+            assert_eq!(count("implicit.factor.right_hand_sides"), Some(Value::Count(5)));
+            assert_eq!(count("implicit.derivatives.verification.support_visits"), Some(Value::Count((n * 5) as u64)));
+            control.cancel();
+            assert!(matches!(problem.derivatives_at_verified_point(
+                &[2.0, 3.0], &jet.values, DerivativeOrder::Second, &options, &cancel,
+            ), Err(MathError::Cancelled)));
+        }
+    }
+
     #[test]
     fn implicit_dual_programs_require_canonical_parameter_axes_and_analytic_ift() {
         use crate::guarded::{PreparedBody, Stage};
