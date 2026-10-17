@@ -262,6 +262,15 @@ async fn source_case_on(
     expected: f64,
     case: &str,
 ) -> (crate::workflow::ModelingPackage, FitProfile) {
+    source_case_on_with_fixed_parameter(runtime, mixed, expected, case, false).await
+}
+async fn source_case_on_with_fixed_parameter(
+    runtime: crate::workflow::Runtime,
+    mixed: bool,
+    expected: f64,
+    case: &str,
+    fixed_parameter: bool,
+) -> (crate::workflow::ModelingPackage, FitProfile) {
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -270,6 +279,12 @@ async fn source_case_on(
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
     let body = "{ domain t: Time from 160{s} to 161{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == p; eq initial: x[160{s}] == 10{s}; let y[i in t]: Time = x[i]+i-100{s}; let hit[i in t]: Time = x[i]-11{s}; let jump[i in t]: Time = 20{s}; annotation report y(\"measurement\"); annotation check x(x[i] >= 10{s}); }";
+    let body = if fixed_parameter {
+        body.replace("param p: Scalar = 2;", "param p: Scalar = 2; param q: Scalar = 0;")
+            .replace("d(x[i])/di == p;", "d(x[i])/di == p+q;")
+    } else {
+        body.to_owned()
+    };
     let integrate = "integrate samples(160{s},161{s}) relative(global) normalized_absolute(global) step(1e-5{s});";
     let event_tolerance = pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY;
     let text = format!(
@@ -289,6 +304,14 @@ async fn source_case_on(
     let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
     let mut data = FitDeclarations::default();
     let mut fit:FitDeclaration=serde_json::from_value(serde_json::json!({"fit_id":id(73),"parameters":[{"symbol_id":id(3),"fixed":false,"value":2.,"lower":0.1,"upper":10.,"scale":1.}],"experiments":[{"experiment_id":id(74),"case_id":root(case),"route":"integrated","bindings":[{"parameter_id":id(3),"path":"p"}]}],"observations":[{"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":id(71),"experiment_id":id(74),"output_path":"y[160{s}]","time":161.,"time_basis":"model_clock","included":true,"importance":1.}]})).unwrap();
+    if fixed_parameter {
+        fit.parameters.insert(0, serde_json::from_value(serde_json::json!({
+            "symbol_id": id(4), "fixed": true, "value": 0., "scale": 1.
+        })).unwrap());
+        fit.experiments[0].bindings.insert(0, serde_json::from_value(serde_json::json!({
+            "parameter_id": id(4), "path": "q"
+        })).unwrap());
+    }
     if mixed {
         fit.experiments.push(serde_json::from_value(serde_json::json!({"experiment_id":id(75),"case_id":root("Steady"),"route":"steady","bindings":[{"parameter_id":id(3),"path":"p"}]})).unwrap());
         fit.observations.push(serde_json::from_value(serde_json::json!({"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":id(72),"experiment_id":id(75),"output_path":"y","time":null,"included":true,"importance":1.})).unwrap());
@@ -1722,12 +1745,214 @@ async fn exact_transient_fit_hessian_satisfies_production_action_basis() {
     }
 }
 
+fn candidate_fit_report(problem: &FitProblem, candidate: Vec<f64>) -> FitReport {
+    FitReport {
+        completion: None,
+        strategy: None,
+        checks: Vec::new(),
+        reports: Vec::new(),
+        checks_complete: false,
+        validation_error: None,
+        solve: None,
+        hessian: problem.profile.solver.controls.hessian,
+        derivatives: problem.profile.derivatives,
+        candidate: Some(candidate),
+        quality: None,
+        constraint_values: Vec::new(),
+        objective: None,
+        predictions: vec![None; problem.measurements.len()],
+        trajectories: BTreeMap::new(),
+        responses: None,
+        singular_values: Vec::new(),
+        directions: None,
+        rank: None,
+        diagnostic: None,
+        covariance: None,
+        wald: None,
+        profiles: None,
+    }
+}
+fn integration_field<'a>(
+    record: &'a pse_diagnostics::observation::CoherentRecord,
+    name: &str,
+) -> &'a pse_diagnostics::observation::Value {
+    &record.values.iter().find(|field| field.name == name).unwrap().value
+}
+
+/// The actual production final assessment is fresh relative to the callback oracle,
+/// while its value, response and rank products share one completed forward IVP.
+#[tokio::test]
+async fn fitting_original_final_assessment_shares_one_fresh_integration_and_preserves_rank_refusal() {
+    use pse_diagnostics::observation::{self, ObservationHub, Outcome, Value};
+    for rank_admitted in [true, false] {
+        let (package, mut profile) = source(true, 73.).await;
+        profile.derivatives = FitDerivatives::Gradient;
+        let (mut problem, assessments) = package.prepare_fit_problem(
+            id(73).into(), profile, compiler_profile(), Default::default(),
+            &crate::CancelSource::new(),
+        ).await.unwrap();
+        let allowances = affine_output_allowances(&problem, &assessments);
+        // The sparse layout is already admitted. Only the optional dense response
+        // diagnostic becomes unavailable; fresh candidate values must still survive.
+        if !rank_admitted { problem.profile.max_cells = 0; }
+        let hub = ObservationHub::new(Default::default());
+        let operation = hub.start("fit.final_assessment.control");
+        observation::scope(Some(operation.context()), with_admitted_fit_oracle(
+            problem.into(), move |callback| {
+                let problem = callback.prepared.clone();
+                callback.objective(&[2.5]).unwrap();
+                let callback_trajectory = callback.point.as_ref().unwrap().trajectories
+                    .values().next().unwrap().clone();
+                let callback_passes = callback.transient_passes;
+                // Production joins and destroys the optimizer's mutable workers before
+                // constructing the final oracle. Retain only the immutable report.
+                callback.point = None;
+                callback.workers.clear();
+                callback.transient_workers.clear();
+                drop(callback.team.take());
+                let mut report = candidate_fit_report(&problem, vec![2.5]);
+                problem.observe(&mut report, callback.execution.clone()).unwrap();
+                assert_eq!(callback.transient_passes, callback_passes,
+                    "final assessment never consumes the optimizer callback cache");
+                let final_trajectory = report.trajectories.values().next().unwrap();
+                assert!(!Arc::ptr_eq(final_trajectory, &callback_trajectory));
+                assert!(report.quality.as_ref().unwrap().feasible());
+                assert_action(report.predictions[0].unwrap(), 73.5, allowances[0]);
+                assert_eq!(report.predictions[1], Some(2.5));
+                assert_action(report.objective.unwrap(), 1.25,
+                    0.5 * allowances[0] + 0.5 * allowances[0].powi(2));
+                if rank_admitted {
+                    assert!(report.diagnostic.is_none(), "{:?}", report.diagnostic);
+                    assert_eq!(report.rank, Some(1));
+                    let responses = report.responses.as_ref().unwrap();
+                    assert_eq!((responses.nrows(), responses.ncols()), (2, 1));
+                    assert_action(responses[(0, 0)] * 0.5, 0.5, allowances[0]);
+                    assert_eq!(responses[(1, 0)], 1.);
+                    let Experiment::Transient(experiment) = &problem.experiments[0] else { panic!() };
+                    let axes: Vec<_> = problem.layout.mappings[0].free_bindings.iter()
+                        .map(|&binding| experiment.bindings[binding].local)
+                        .collect::<BTreeSet<_>>().into_iter().collect();
+                    assert_eq!(final_trajectory.forward_axes, axes);
+                } else {
+                    assert!(matches!(report.diagnostic.as_ref(),
+                        Some(FitDiagnostic { rule: FitRule::ResponseRank, .. })));
+                    assert!(report.responses.is_none() && report.rank.is_none());
+                    assert!(final_trajectory.forward_axes.is_empty());
+                }
+            },
+        )).await;
+        let mut final_integrations = 0;
+        for entry in hub.list(0, 128).operations {
+            let snapshot = hub.reader(entry.id).unwrap().snapshot(std::time::Duration::from_secs(60));
+            for producer in &snapshot.producers {
+                let records: Vec<_> = producer.recent.iter()
+                    .filter(|record| record.family == "workflow.integration.v1").collect();
+                assert!(!records.iter().any(|record|
+                    integration_field(record, "purpose") == &Value::Text("identifiability".into())),
+                    "rank must reuse the final response integration");
+                if !records.iter().any(|record|
+                    integration_field(record, "purpose") == &Value::Text("original_assessment".into())) {
+                    continue;
+                }
+                final_integrations += 1;
+                assert_eq!(records.len(), 2);
+                assert_eq!(records[0].phase, "started");
+                assert_eq!(records[1].phase, "completed");
+                assert!(records[0].sequence < records[1].sequence);
+                assert_eq!(integration_field(records[0], "forward_response"), &Value::Boolean(rank_admitted));
+                assert_eq!(producer.current.as_ref().unwrap().phase, "completed");
+                assert!(!producer.coverage.partial);
+                assert_eq!(snapshot.outcome, Some(Outcome::Completed));
+                assert!(snapshot.finished_at.unwrap() >= records[1].observed_at,
+                    "integration completion must be published before experiment terminal");
+            }
+        }
+        assert_eq!(final_integrations, 1);
+    }
+}
+
+/// Stop the actual first final response attempt at its performing-owner boundary.
+/// A cancelled assessment must never issue a second value-only fallback demand.
+#[tokio::test]
+async fn fitting_original_final_assessment_cancellation_never_falls_back() {
+    use pse_diagnostics::observation::{self, CoherentRecord, ObservationHub, Outcome, RecordTap, Value};
+    #[derive(Debug)]
+    struct CancelAtFinalEntry {
+        cancellation: pse_diagnostics::Cancellation,
+        starts: std::sync::atomic::AtomicUsize,
+    }
+    impl RecordTap for CancelAtFinalEntry {
+        fn selected(&self, family: &str) -> bool { family == "workflow.integration.v1" }
+        fn issued(&self, record: &CoherentRecord) {
+            if record.phase == "started"
+                && integration_field(record, "purpose") == &Value::Text("original_assessment".into()) {
+                self.starts.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                self.cancellation.cancel();
+            }
+        }
+        fn observe(&self, _: &CoherentRecord) {}
+    }
+    let (package, profile) = source(false, 73.).await;
+    let (problem, _) = package.prepare_fit_problem(
+        id(73).into(), profile, compiler_profile(), Default::default(), &crate::CancelSource::new(),
+    ).await.unwrap();
+    let hub = ObservationHub::new(Default::default());
+    let operation = hub.start("fit.cancelled_final_assessment.control");
+    let outcome = observation::scope(Some(operation.context()),
+        with_admitted_fit_oracle_outcome(problem.into(), move |owner| {
+            let tap = Arc::new(CancelAtFinalEntry {
+                cancellation: owner.execution.cancellation_control().clone(),
+                starts: std::sync::atomic::AtomicUsize::new(0),
+            });
+            let context = observation::current().unwrap().with_record_tap(tap.clone());
+            let _entered = context.enter();
+            owner.workers.clear();
+            owner.transient_workers.clear();
+            drop(owner.team.take());
+            let mut report = candidate_fit_report(&owner.prepared, vec![2.5]);
+            owner.prepared.observe(&mut report, owner.execution.clone()).unwrap();
+            assert_eq!(tap.starts.load(std::sync::atomic::Ordering::Relaxed), 1);
+            let diagnostic = report.diagnostic.as_ref().unwrap();
+            assert_eq!(diagnostic.rule, FitRule::FinalEvaluation);
+            assert!(matches!(diagnostic.cause.as_ref(), ProblemError::Cancelled));
+            assert!(report.objective.is_none() && report.responses.is_none());
+            assert!(report.trajectories.is_empty());
+        }),
+    ).await;
+    assert!(matches!(outcome, Err(crate::math::MathRuntimeError::Cancelled)), "{outcome:?}");
+    let mut attempts = 0;
+    let mut demands = Vec::new();
+    for entry in hub.list(0, 128).operations {
+        let snapshot = hub.reader(entry.id).unwrap().snapshot(std::time::Duration::from_secs(60));
+        if let Some(metric) = snapshot.metrics.iter().find(|metric| metric.name == "fit.trial_demands") {
+            demands.push(metric.cumulative.clone());
+        }
+        for producer in &snapshot.producers {
+            let records: Vec<_> = producer.recent.iter()
+                .filter(|record| record.family == "workflow.integration.v1").collect();
+            if records.is_empty() { continue; }
+            attempts += 1;
+            assert_eq!(records.len(), 2);
+            assert_eq!(records[0].phase, "started");
+            assert_eq!(records[1].phase, "failed");
+            assert_eq!(producer.current.as_ref().unwrap().phase, "failed");
+            assert!(!producer.coverage.partial);
+            assert_eq!(snapshot.outcome, Some(Outcome::Cancelled));
+            assert!(snapshot.finished_at.unwrap() >= records[1].observed_at);
+        }
+    }
+    assert_eq!(attempts, 1);
+    assert_eq!(demands, [Value::Count(1)], "no stopped value-only fallback demand");
+}
+
 /// The actual callback demand drives native passes and exact-bit point installation.
 #[tokio::test]
 async fn transient_fit_demand_cache_and_coherent_upgrade() {
-    let (package, mut selected) = source(true, 73.).await;
+    let (package, mut selected) = source_case_on_with_fixed_parameter(
+        crate::workflow::tests::runtime_with_workspace(32 << 20), true, 73., "Dynamic", true,
+    ).await;
     selected.derivatives = FitDerivatives::Gradient;
-    let (problem, _) = package
+    let (problem, assessments) = package
         .prepare_fit_problem(
             FitId::from(id(73)),
             selected,
@@ -1737,6 +1962,17 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
         )
         .await
         .unwrap();
+    let allowances = affine_output_allowances(&problem, &assessments);
+    assert_eq!(problem.parameter_columns, [None, Some(OriginalCol::new(0))]);
+    let Experiment::Transient(transient) = &problem.experiments[0] else { panic!() };
+    assert_eq!(problem.layout.mappings[0].free_bindings, [1]);
+    assert_eq!(transient.bindings[0].parameter, 0);
+    let selected_axes: Vec<_> = problem.layout.mappings[0].free_bindings.iter()
+        .map(|&local| transient.bindings[local].local).collect::<BTreeSet<_>>()
+        .into_iter().collect();
+    let fixed_axis = transient.bindings[0].local;
+    assert_eq!(selected_axes.len(), 1);
+    assert!(!selected_axes.contains(&fixed_axis));
     with_admitted_fit_oracle(problem.into(), move |oracle| {
         let mut first = [0.];
         oracle.gradient(&[2.5], &mut first).unwrap();
@@ -1897,6 +2133,27 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
         // Candidate bits participate in the key; invalid values retire the cache.
         assert!(oracle.gradient(&[f64::NAN], &mut first).is_err());
         assert!(oracle.point.is_none());
+        // The free parameter is tied across the transient and steady experiments.
+        // Its final response upgrade retains only its physical integration axis;
+        // the distinct fixed q axis is absent, rather than a stored zero column.
+        oracle.objective(&[2.5]).unwrap();
+        let passes = oracle.transient_passes;
+        let rank = oracle.response_rank(&[2.5]).unwrap();
+        assert_eq!(rank.rank, 1);
+        assert_eq!(oracle.transient_passes, (passes.0 + 1, passes.1));
+        let point = oracle.point.as_ref().unwrap();
+        let trajectory = point.trajectories.values().next().unwrap();
+        assert_eq!(trajectory.forward_axes, selected_axes);
+        assert!(trajectory.sensitivity_column(fixed_axis).is_err());
+        let outputs = match &oracle.prepared.experiments[0] {
+            Experiment::Transient(experiment) => experiment.output_ports.len(),
+            Experiment::Steady(_) => panic!(),
+        };
+        assert!(trajectory.samples.iter().all(|sample|
+            sample.output_sensitivities.len() == outputs * selected_axes.len()));
+        assert_action(rank.responses[(0, 0)] * 0.5, 0.5, allowances[0]);
+        assert_eq!(rank.responses[(1, 0)], 1.);
+
     })
     .await;
 }
@@ -2391,6 +2648,22 @@ async fn prepared_fitting_relationships_refill_direct_binding_addends() {
                 experiment.output_ports.len() * experiment.parameters.len()
             ],
         };
+        let report = native::dynamics::Report {
+            forward_axes: (0..experiment.parameters.len()).collect(),
+            termination: native::dynamics::Termination::Completed,
+            completed_time: sample.time,
+            endpoint: None,
+            requested_initial: Vec::new(),
+            consistent_initial: Vec::new(),
+            coverage: Default::default(),
+            samples: Vec::new(),
+            events: Vec::new(),
+            conservation: Vec::new(),
+            statistics: Vec::new(),
+            error: None,
+            progress: Vec::new(),
+            dropped_progress: 0,
+        };
         for _ in 0..2 {
             layout.responses.clear();
             for term in &mapping.responses {
@@ -2400,6 +2673,7 @@ async fn prepared_fitting_relationships_refill_direct_binding_addends() {
                         term.contribution,
                         experiment
                             .response(
+                                &report,
                                 &sample,
                                 measurements[term.observation].row,
                                 &experiment.bindings[term.local],
