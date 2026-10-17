@@ -203,6 +203,9 @@ pub(super) fn finish_tool_result(
     result.inspect_err(|_| failure(state, format!("capture tool log: {}", log_prefix(log))))
 }
 fn command(program: &str, limit: u64, log: &Path) -> Result<Command, CaptureError> {
+    command_log(program, limit, log, false)
+}
+fn command_log(program: &str, limit: u64, log: &Path, reuse: bool) -> Result<Command, CaptureError> {
     let mut command = Command::new("prlimit");
     command
         .arg(format!("--fsize={limit}:{limit}"))
@@ -210,7 +213,7 @@ fn command(program: &str, limit: u64, log: &Path) -> Result<Command, CaptureErro
         .arg(program)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(OpenOptions::new().write(true).create_new(true).open(log)?);
+        .stderr(OpenOptions::new().write(true).append(reuse).create_new(!reuse).open(log)?);
     Ok(command)
 }
 fn start_sampler(
@@ -304,26 +307,35 @@ fn start_sampler_for(
     })
 }
 fn tool_until(
-    mut command: Command,
+    command: Command,
     timeout: Duration,
     output_path: &Path,
     output_limit: u64,
 ) -> Result<ExitStatus, CaptureError> {
+    let deadline = Instant::now().checked_add(timeout)
+        .ok_or_else(|| CaptureError::Invalid("capture tool deadline extent".into()))?;
+    tool_until_deadline(command, deadline, output_path, output_limit)
+}
+fn tool_until_deadline(
+    mut command: Command, deadline: Instant, output_path: &Path, output_limit: u64,
+) -> Result<ExitStatus, CaptureError> {
+    if Instant::now() >= deadline {
+        return Err(CaptureError::Invalid("capture tool original time allowance exhausted".into()));
+    }
     let mut tool = Tool {
         child: command.spawn()?,
     };
-    let started = Instant::now();
     loop {
         if let Some(status) = tool.poll()? {
             return Ok(status);
         }
-        if started.elapsed() >= timeout || size(output_path) >= output_limit {
+        if Instant::now() >= deadline || size(output_path) >= output_limit {
             let _ = tool.interrupt_and_join();
             return Err(CaptureError::Invalid(
                 "capture conversion/decoder exceeded its time or file allowance".into(),
             ));
         }
-        std::thread::sleep(Duration::from_millis(25));
+        std::thread::sleep(Duration::from_millis(25).min(deadline.saturating_duration_since(Instant::now())));
     }
 }
 fn convert(
@@ -379,6 +391,13 @@ pub(super) fn symbols(
     timeout: Duration,
     files: &mut OwnedFiles,
 ) -> Result<Decode, CaptureError> {
+    symbols_program(raw, state, timeout, files, "perf")
+}
+pub(super) fn symbols_program(
+    raw: &Path, state: &Shared, timeout: Duration, files: &mut OwnedFiles, program: &str,
+) -> Result<Decode, CaptureError> {
+    let deadline = Instant::now().checked_add(timeout)
+        .ok_or_else(|| CaptureError::Invalid("perf decoder deadline extent".into()))?;
     let allowance = (files.available() / 2).min(4 << 20);
     if allowance < 4096 {
         document(state).loss.output_exhausted = true;
@@ -389,58 +408,74 @@ pub(super) fn symbols(
     files.reserve_pair(&path, &log, allowance)?;
     output(state, &path, CaptureOutputKind::Symbols, false);
     output(state, &log, CaptureOutputKind::ToolLog, false);
-    let mut command = command("perf", allowance, &log)?;
-    // Frame names suffice here; inline addr2line expansion is outside this bounded decoder.
-    // The unchanged raw recording and Samply import retain the complete input evidence.
-    command
-        .args(["script", "--no-inline", "-i"])
-        .arg(raw)
-        .args(["-F", "ip,sym,dso"])
-        .stdout(
-            OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&path)?,
-        );
-    let result = tool_until(command, timeout, &path, allowance);
+    let decoded = (|| {
+        for leaf in [false, true] {
+            if Instant::now() >= deadline {
+                return Err(CaptureError::Invalid("perf decoder original time allowance exhausted".into()));
+            }
+            let mut command = command_log(program, allowance, &log, leaf)?;
+            // Preserve full callchains whenever their projection contains frame tokens.
+            // Some valid IP-only recordings produce only blank lines in this mode; only
+            // that successful empty projection permits the bounded leaf-IP alternative.
+            command.args(["script", "--no-inline", "-i"]).arg(raw).args(["-F", "ip,sym,dso"]);
+            if leaf { command.arg("--hide-call-graph"); }
+            command.stdout(OpenOptions::new().write(true).create_new(!leaf).truncate(leaf).open(&path)?);
+            let result = tool_until_deadline(command, deadline, &path, allowance);
+            let status = finish_tool_result(state, &path, CaptureOutputKind::Symbols, &log, result)?;
+            output(state, &path, CaptureOutputKind::Symbols, status.success());
+            output(state, &log, CaptureOutputKind::ToolLog, true);
+            if !status.success() {
+                return Err(CaptureError::Invalid(format!("perf frame decoding failed ({status}): {}", log_prefix(&log))));
+            }
+            let decoded = read_symbols(&path, allowance)?;
+            if Instant::now() >= deadline {
+                return Err(CaptureError::Invalid("perf decoder original time allowance exhausted".into()));
+            }
+            if leaf || decoded.resolved_frames > 0 || decoded.unresolved_frames > 0 {
+                return Ok(decoded);
+            }
+            let note = b"pse-capture decoder-mode=leaf-ip; successful callchain projection contained no frame tokens\n";
+            if size(&log).saturating_add(note.len() as u64) > allowance {
+                document(state).loss.output_exhausted = true;
+                return Err(CaptureError::Invalid("perf decoder log allowance exhausted".into()));
+            }
+            OpenOptions::new().append(true).open(&log)?.write_all(note)?;
+        }
+        Err(CaptureError::Invalid("perf decoder projection unavailable".into()))
+    })();
+    // One reservation and one output/log pair span both attempts; only the owner's
+    // successful empty text projection may be overwritten. Raw recording is untouched.
     files.seal(&path);
     files.seal(&log);
-    let status = finish_tool_result(state, &path, CaptureOutputKind::Symbols, &log, result)?;
-    output(state, &path, CaptureOutputKind::Symbols, status.success());
-    output(state, &log, CaptureOutputKind::ToolLog, true);
-    if !status.success() {
-        return Err(CaptureError::Invalid(format!(
-            "perf frame decoding failed ({status}): {}",
-            log_prefix(&log)
-        )));
-    }
-    let reader = BufReader::new(File::open(path)?.take(allowance));
+    output(state, &log, CaptureOutputKind::ToolLog, log.is_file());
+    let decoded = decoded?;
     let mut state = document(state);
-    for line in reader.split(b'\n') {
-        let line = line?;
-        let text = String::from_utf8_lossy(&line);
-        let Some((address, frame)) = text.trim().split_once(char::is_whitespace) else {
-            continue;
-        };
-        if !address
-            .chars()
-            .all(|character| character.is_ascii_hexdigit())
-        {
-            continue;
-        }
-        let frame = frame.trim();
-        if frame.starts_with("[unknown]") || frame.starts_with("0x") || frame.is_empty() {
-            state.symbols.unresolved_frames = state.symbols.unresolved_frames.saturating_add(1);
-        } else {
-            state.symbols.resolved_frames = state.symbols.resolved_frames.saturating_add(1);
-            let frame: String = frame.chars().take(256).collect();
-            if state.symbols.names.len() < 16 && !state.symbols.names.contains(&frame) {
-                state.symbols.names.push(frame);
-            }
-        }
+    state.symbols.resolved_frames = state.symbols.resolved_frames.saturating_add(decoded.resolved_frames);
+    state.symbols.unresolved_frames = state.symbols.unresolved_frames.saturating_add(decoded.unresolved_frames);
+    for name in decoded.names {
+        if state.symbols.names.len() < 16 && !state.symbols.names.contains(&name) { state.symbols.names.push(name); }
     }
     state.symbols.checked = true;
     Ok(Decode::Checked)
+}
+fn read_symbols(path: &Path, allowance: u64) -> Result<super::CaptureSymbols, CaptureError> {
+    let reader = BufReader::new(File::open(path)?.take(allowance));
+    let mut symbols = super::CaptureSymbols::default();
+    for line in reader.split(b'\n') {
+        let line = line?;
+        let text = String::from_utf8_lossy(&line);
+        let Some((address, frame)) = text.trim().split_once(char::is_whitespace) else { continue; };
+        if !address.chars().all(|character| character.is_ascii_hexdigit()) { continue; }
+        let frame = frame.trim();
+        if frame.starts_with("[unknown]") || frame.starts_with("0x") || frame.is_empty() {
+            symbols.unresolved_frames = symbols.unresolved_frames.saturating_add(1);
+        } else {
+            symbols.resolved_frames = symbols.resolved_frames.saturating_add(1);
+            let frame: String = frame.chars().take(256).collect();
+            if symbols.names.len() < 16 && !symbols.names.contains(&frame) { symbols.names.push(frame); }
+        }
+    }
+    Ok(symbols)
 }
 pub(super) fn discover(
     request: &CaptureRequest,
