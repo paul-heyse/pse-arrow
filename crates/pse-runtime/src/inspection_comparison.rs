@@ -712,8 +712,7 @@ mod tests {
         // data identity alone must not erase layout/submission/prior context.
         for change in 0..4 {
             let mut candidate=fixture(3,10,8.);
-            candidate.attempts=Arc::new((*a.attempts).clone());
-            Arc::get_mut(&mut candidate.attempts).unwrap().run_id=candidate.run_id;
+            step(&mut candidate).start=Some(seed(21));
             let start=step(&mut candidate).start.as_mut().unwrap();
             match change {
                 0=>start.layout=Some(ContentHash::from_bytes([19;32])),
