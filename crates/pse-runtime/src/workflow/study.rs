@@ -42,6 +42,7 @@ pub(crate) struct PreparedStudyCandidate {
     pub(crate) output: super::StudyOutputDemand,
     pub(crate) seed: Option<pse_model::study::SeedFact>,
     prediction: Option<StudyPrediction>,
+    pub(crate) diagnostics: Option<super::study_diagnostics::ManagedDetailSelection>,
 }
 
 struct StudyPrediction {
@@ -290,10 +291,11 @@ fn document(value: &impl serde::Serialize) -> Result<Vec<u8>, WorkflowError> {
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-struct StudyMetadata {
-    version: Version<2>,
+pub(super) struct StudyMetadata {
+    version: Version<3>,
     physical: super::PhysicalSource,
     variants: Option<super::LazyStudyDefinition>,
+    pub(super) diagnostics: Option<super::study_diagnostics::ManagedDetailSelection>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -678,10 +680,12 @@ impl Runtime {
                     source_selection: source_selection.clone(),
                     attestation: attestation.clone(),
                 };
+                let diagnostics = super::study_diagnostics::ManagedDetailSelection::selected(definition.graph().points.iter().try_fold(0_u64, |total, point| total.checked_add(u64::from(point.attempt_limit))));
                 let metadata = document(&StudyMetadata {
-                    version: Version::<2>,
+                    version: Version::<3>,
                     physical: physical.clone(),
                     variants: definition.variants.clone(),
+                    diagnostics,
                 })?;
                 let graph = definition.graph();
                 let points = graph
@@ -1055,7 +1059,7 @@ impl Runtime {
                     .canonical_study(&point.study)
                     .await?
                     .ok_or_else(|| contract("study header absent"))?;
-                let StudyMetadata { physical, .. } =
+                let StudyMetadata { physical, diagnostics, .. } =
                     serde_json::from_slice(study.metadata.as_slice())
                         .map_err(|error| contract(format!("study interpretation: {error}")))?;
                 let actual_revision = selected_revision.as_deref().unwrap_or(&study.revision);
@@ -1241,6 +1245,7 @@ impl Runtime {
                     output: definition.operation.output,
                     seed,
                     prediction,
+                    diagnostics,
                 })
             })
             .await
@@ -2025,8 +2030,8 @@ tokio::task_local! {
 /// A durable study's exact canonical selection.
 #[derive(Clone, Debug)]
 pub struct StudyHandle {
-    runtime: Runtime,
-    study_id: StudyId,
+    pub(super) runtime: Runtime,
+    pub(super) study_id: StudyId,
 }
 impl StudyHandle {
     /// Stable requested study identity.

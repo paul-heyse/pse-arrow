@@ -81,6 +81,8 @@ pub use study_variants::{
     LazyStudyDefinition, SelectedStudyVariant, SourceChoice, StudyInputs, StudyVariants,
 };
 mod study;
+mod study_diagnostics;
+pub use study_diagnostics::{ManagedDetailOwner, ManagedDetailReference, ManagedDetailReferenceState, ManagedDetailRefusal, ManagedDetailSelection, ManagedStudyDiagnosticsDocument};
 mod study_execution;
 mod study_tables;
 pub use pse_model::diagnostic::BoundaryDiagnostic;
