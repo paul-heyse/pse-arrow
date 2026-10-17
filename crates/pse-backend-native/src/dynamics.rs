@@ -1872,7 +1872,7 @@ impl Profile {
             for tolerance in &self.out_atol {
                 let value = tolerance / scales[axis];
                 if !value.is_finite() || value <= 0. {
-                    return Err(contract("forward quadrature derivative tolerance must be finite and positive"));
+                    return Err(ProblemError::unsupported("forward quadrature derivative tolerance must be finite and positive"));
                 }
             }
         }

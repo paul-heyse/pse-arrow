@@ -149,6 +149,8 @@ pub struct ShootingProblem {
     terminal: Vec<(usize, f64)>,
     integral: Vec<(usize, f64)>,
     evaluation: ShootingEvaluationPolicy,
+    /// Selected once before effects; a refused optional binding retains adjoints.
+    forward_quadratures: bool,
     contract: OracleContract,
     pattern: SymbolicSparseColMat<usize>,
     normalization: Normalization,
@@ -679,6 +681,7 @@ impl ShootingProblem {
             terminal,
             integral,
             evaluation: request.evaluation,
+            forward_quadratures: false,
             contract: oracle_contract,
             // Filled below from the rows and the windows.
             pattern: SymbolicSparseColMat::new_checked(0, 0, vec![0], None, vec![]),
@@ -879,68 +882,70 @@ impl ShootingProblem {
     /// Only combined requests already consuming forward state directions use the
     /// qualified IDAS product. Integral-only requests retain their adjoint route.
     fn forward_quadratures(&self) -> bool {
-        cfg!(feature = "solver-idas") && !self.integral.is_empty()
-            && (!self.rows.is_empty() || !self.terminal.is_empty())
-            && self.windows.iter().all(|window| window.profile.method == native::dynamics::Method::Idas)
+        self.forward_quadratures
     }
-    /// Every window's anchored profile is admitted before native work: with forward
-    /// sensitivities when rows or a terminal objective need them. Combined IDAS requests
-    /// admit exact forward quadratures; other integral products admit observed adjoints.
-    fn admit_windows(&self, simulation: &super::ModelingSimulation) -> Result<(), WorkflowError> {
+    /// Every window's plain forward profile remains admissible. Select the optional
+    /// exact quadrature binding only when all windows fit; only its before-effect
+    /// capacity/capability refusals retain the independently admitted adjoint route.
+    fn admit_windows(&mut self, simulation: &super::ModelingSimulation) -> Result<(), WorkflowError> {
         let n = self.contract.variables.len();
         let forward = n > 0 && (!self.rows.is_empty() || !self.terminal.is_empty());
-        let forward_quadratures = forward && self.forward_quadratures();
-        let adjoint = n > 0 && !self.integral.is_empty() && !forward_quadratures;
+        let forward_quadratures = cfg!(feature = "solver-idas") && forward && !self.integral.is_empty()
+            && self.windows.iter().all(|window| window.profile.method == native::dynamics::Method::Idas);
+        #[cfg(feature = "solver-idas")]
+        let mut forward_quadratures = forward_quadratures;
         let problem = |e: ProblemError| WorkflowError::Math(e.into());
         let worker = |observed| {
             native::dynamics::Anchored::new(
                 simulation.worker(pse_kernels::ExecutionScope::new(
-                    pse_diagnostics::Cancellation::new(false),
-                    None,
-                ))?,
-                observed,
+                    pse_diagnostics::Cancellation::new(false), None,
+                ))?, observed,
             )
         };
-        let (plain, observed) = (
-            worker(false).map_err(problem)?,
-            worker(true).map_err(problem)?,
-        );
+        let plain = worker(false).map_err(problem)?;
         let integration = self.experiment.parameters.clone();
         for window in &self.windows {
-            let parameters = IntegratedExperiment::window_parameters(
-                window,
-                &integration,
-                &vec![0.; self.differential.len()],
-            )
-            .map_err(problem)?;
+            let parameters = IntegratedExperiment::window_parameters(window, &integration,
+                &vec![0.; self.differential.len()]).map_err(problem)?;
             let mut profile = plain.profile(&window.profile);
-            profile.sensitivity = if forward {
-                DynamicSensitivity::Forward
-            } else {
-                DynamicSensitivity::None
-            };
-            if !forward {
-                profile.forward_axes = None;
-            }
-            profile
-                .validate(native::dynamics::Oracle::contract(&plain), &parameters)
-                .map_err(problem)?;
+            profile.sensitivity = if forward { DynamicSensitivity::Forward } else { DynamicSensitivity::None };
+            if !forward { profile.forward_axes = None; }
+            profile.validate(native::dynamics::Oracle::contract(&plain), &parameters).map_err(problem)?;
             #[cfg(feature = "solver-idas")]
             if forward_quadratures {
                 let memory = self.runtime.shared.budget().math.foreign_allowance(&self.solver.controls);
-                let layout = native::dynamics::Oracle::prepared_layout(&plain, memory).map_err(problem)?;
-                if profile.forward_quadrature_bytes(native::dynamics::Oracle::contract(&plain), &parameters, &layout).map_err(problem)? > memory {
-                    return Err(problem(ProblemError::memory("shooting forward quadrature foreign allowance")));
+                let admitted = native::dynamics::Oracle::prepared_layout(&plain, memory)
+                    .and_then(|layout| profile.forward_quadrature_bytes(native::dynamics::Oracle::contract(&plain), &parameters, &layout))
+                    .and_then(|bytes| if bytes <= memory { Ok(()) } else {
+                        Err(ProblemError::memory("shooting forward quadrature foreign allowance"))
+                    });
+                match admitted {
+                    Ok(()) => {},
+                    Err(error @ (ProblemError::Unsupported(_) | ProblemError::Limit { kind: native::LimitKind::Memory, .. })) => {
+                        forward_quadratures = false;
+                        if let Some(context) = pse_diagnostics::observation::current() {
+                            context.count("shooting.forward_quadrature_preflight_refusals", "count", 1);
+                            context.text("shooting.forward_quadrature_preflight_refusal", &error.to_string());
+                        }
+                    },
+                    Err(error) => return Err(problem(error)),
                 }
             }
-            if adjoint {
+        }
+        if n > 0 && !self.integral.is_empty() && !forward_quadratures {
+            let observed = worker(true).map_err(problem)?;
+            for window in &self.windows {
+                let parameters = IntegratedExperiment::window_parameters(window, &integration,
+                    &vec![0.; self.differential.len()]).map_err(problem)?;
                 let mut profile = observed.profile(&window.profile);
                 profile.sensitivity = DynamicSensitivity::Adjoint;
                 profile.forward_axes = None;
-                profile
-                    .validate(native::dynamics::Oracle::contract(&observed), &parameters)
-                    .map_err(problem)?;
+                profile.validate(native::dynamics::Oracle::contract(&observed), &parameters).map_err(problem)?;
             }
+        }
+        self.forward_quadratures = forward_quadratures;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.boolean("shooting.forward_quadrature_admitted", forward_quadratures);
         }
         Ok(())
     }

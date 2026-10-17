@@ -1816,3 +1816,37 @@ async fn shooting_failed_forward_quadrature_upgrade_keeps_completed_weaker_point
     assert!(matches!(oracle.gradient(&x, &mut gradient), Err(ProblemError::Cancelled)));
     assert!(oracle.point.as_ref().unwrap().integral_gradient.is_some(), "cancelled demand cannot erase a completed product");
 }
+
+/// A before-effect optional product refusal preserves the older supported route;
+/// numerical/callback failures after selecting the new route are never retried this way.
+#[cfg(feature = "solver-idas")]
+#[tokio::test]
+async fn shooting_forward_quadrature_preflight_retains_adjoint_when_added_cells_do_not_fit() {
+    let simulation = tracking(Method::Idas).await;
+    let mut problem = simulation.shooting(request(&simulation, ShootingMethod::Single, vec![], true)).unwrap();
+    assert!(problem.forward_quadratures());
+    let plain = native::dynamics::Anchored::new(simulation.worker(pse_kernels::ExecutionScope::new(
+        pse_diagnostics::Cancellation::default(), None)).unwrap(), false).unwrap();
+    let integration = problem.experiment.parameters.clone();
+    let anchors = vec![0.; problem.differential.len()];
+    for window in &mut problem.windows {
+        let parameters = IntegratedExperiment::window_parameters(window, &integration, &anchors).unwrap();
+        let mut profile = plain.profile(&window.profile);
+        profile.sensitivity = DynamicSensitivity::Forward;
+        let ordinary = profile.validate_retention(native::dynamics::Oracle::contract(&plain), &parameters,
+            native::dynamics::SampleRetention::Full, 0).unwrap();
+        window.profile.max_cells = ordinary;
+    }
+    problem.admit_windows(&simulation).unwrap();
+    assert!(!problem.forward_quadratures(), "optional endpoint product must fit in addition to the ordinary trajectory");
+    let problem = Arc::new(problem);
+    let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
+    execution.memory = Some(problem.runtime.shared.budget().math.foreign_allowance(&solver().controls));
+    let mut oracle = ShootingOracle { observation: None,
+        purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
+        problem, execution, point: None, worker: None };
+    let mut gradient = vec![0.; 2];
+    oracle.gradient(&[0.4, 1.2], &mut gradient).unwrap();
+    assert!(gradient.iter().all(|value| value.is_finite()));
+    assert!(oracle.point.as_ref().unwrap().integral_gradient.is_some());
+}
