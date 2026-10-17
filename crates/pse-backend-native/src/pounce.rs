@@ -1535,6 +1535,42 @@ mod tests {
         )
     }
     #[test]
+    fn selected_native_factor_and_refinement_records_come_from_actual_library_owners() {
+        use pse_diagnostics::observation::{CoherentRecord, ObservationHub, Policy, RecordTap, Value};
+        #[derive(Debug, Default)]
+        struct Tap(Mutex<Vec<CoherentRecord>>);
+        impl RecordTap for Tap {
+            fn selected(&self, family: &str) -> bool {
+                matches!(family, "native_factor.v1" | "native_refinement.v1")
+            }
+            fn observe(&self, record: &CoherentRecord) {
+                if self.selected(&record.family) { self.0.lock().unwrap().push(record.clone()); }
+            }
+        }
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("selected-pounce-linear-detail");
+        let tap = Arc::new(Tap::default());
+        let context = operation.context().with_record_tap(tap.clone());
+        let _entered = context.enter();
+        let report = run(&mut Session::new(), Options::new(), 1).unwrap();
+        assert_eq!(report.termination.category, Termination::Success);
+        assert!(report.quality.unwrap().feasible());
+        let records = tap.0.lock().unwrap();
+        let field = |record: &CoherentRecord, name: &str| record.values.iter()
+            .find(|field| field.name == name).unwrap().value.clone();
+        let factor = records.iter().find(|record| record.family == "native_factor.v1"
+            && field(record, "factor_values_available") == Value::Boolean(true)).unwrap();
+        assert!(matches!(field(factor, "input_nonzeros"), Value::Integer(value) if value > 0));
+        assert!(matches!(field(factor, "actual_ordering"), Value::Text(_)));
+        let refinement = records.iter().find(|record| record.family == "native_refinement.v1").unwrap();
+        assert_eq!(field(refinement, "counter_overflow"), Value::Boolean(false));
+        assert_eq!(field(refinement, "precheck_rhs_issued"), Value::Integer(0), "the explicit default profile does not enable the target precheck");
+        assert_eq!(field(refinement, "refinement_entered"), Value::Boolean(true));
+        assert!(matches!(field(refinement, "initial_rhs_issued"), Value::Integer(value) if value > 0));
+        assert_eq!(field(refinement, "path"), Value::Text("monolithic".into()));
+        assert!(records.iter().all(|record| record.producer.operation == operation.context().id()));
+    }
+    #[test]
     fn explicit_refinement_configuration_survives_method_and_curvature_composition() {
         for method in [Method::InteriorPoint, Method::ActiveSetSqp] {
             for hessian in [HessianMode::Exact, HessianMode::LimitedMemory] {
