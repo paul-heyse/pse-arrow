@@ -724,40 +724,34 @@ impl Problem {
             if order == DerivativeOrder::First {
                 return Ok(output);
             }
-            let (pairs, mut second) = observed_ift!("implicit.derivatives.second_rhs", cancel, {
+            let (pairs, mut second, original) = observed_ift!("implicit.derivatives.second_rhs", cancel, {
                 let pairs = (0..p)
                     .flat_map(|a| (a..p).map(move |b| (a, b)))
                     .collect::<Vec<_>>();
-                let second = Mat::zeros(n, pairs.len());
-                Ok((pairs, second))
-            })?;
-            let tangent = |coordinate: usize, input: usize| {
-                if coordinate < n {
-                    first[(coordinate, input)]
-                } else {
-                    f64::from(coordinate == n + input)
-                }
-            };
-            let original = observed_ift!("implicit.derivatives.contraction", cancel, {
-                let mut entries = 0u64;
-                for j in 0..pairs.len() {
-                    let (a, b) = pairs[j];
-                    for i in 0..n {
+                let tangent = |coordinate: usize, input: usize| {
+                    if coordinate < n {
+                        first[(coordinate, input)]
+                    } else {
+                        f64::from(coordinate == n + input)
+                    }
+                };
+                // This child measures the support contraction inside RHS construction;
+                // retain the library's single initialization pass over the RHS matrix.
+                let second = observed_ift!("implicit.derivatives.contraction", cancel, {
+                    Ok(Mat::from_fn(n, pairs.len(), |i, j| {
+                        let (a, b) = pairs[j];
                         let mut value = 0.0;
                         for (k, l, partial) in jet.second_entries(i) {
                             value -= partial * tangent(k, a) * tangent(l, b);
                             if k != l {
                                 value -= partial * tangent(l, a) * tangent(k, b);
                             }
-                            entries = entries.saturating_add(1);
                         }
-                        second[(i, j)] = value;
-                    }
-                }
-                if let Some(context) = pse_diagnostics::observation::current() {
-                    context.count("implicit.derivatives.contracted_entries", "support-entries", entries);
-                }
-                Ok(second.clone())
+                        value
+                    }))
+                })?;
+                let original = second.clone();
+                Ok((pairs, second, original))
             })?;
             self.solve_factor(&mut factor, second.as_mut(), cancel)?;
             observed_ift!("implicit.derivatives.verification", cancel, {
