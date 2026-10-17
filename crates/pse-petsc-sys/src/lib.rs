@@ -84,7 +84,22 @@ pub struct Block {
     pub options: Handle,
 }
 
+/// Current-stage statistics copied from one separately owned selected handler.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+pub struct EventPerf {
+    pub available: i32,
+    pub stage: i32,
+    pub event: i32,
+    pub entered_calls: i32,
+    pub active_depth: i32,
+    pub completed_seconds: f64,
+    pub completed_flops: f64,
+}
 unsafe extern "C" {
+    pub fn pse_petsc_log_create(out: *mut Handle) -> i32;
+    pub fn pse_petsc_log_event(handler: Handle, name: *const c_char, out: *mut EventPerf) -> i32;
+    pub fn pse_petsc_log_destroy(handler: *mut Handle) -> i32;
     pub fn pse_petsc_abi(
         major: *mut i32,
         minor: *mut i32,

@@ -22,6 +22,7 @@ use std::{
     time::Duration,
 };
 mod blocks;
+mod logging;
 mod derived;
 #[cfg(test)]
 mod derived_tests;
@@ -425,6 +426,9 @@ struct Context<'a> {
     jacobian: Vec<f64>,
     output: Vec<f64>,
     snes: ffi::Handle,
+    /// Borrowed only through synchronous SNESSolve callbacks; the lexical owner
+    /// drops its selected handler before releasing process serialization.
+    logging: *const logging::Log,
 }
 impl Context<'_> {
     fn refused(&self) -> i32 {
@@ -542,6 +546,10 @@ unsafe extern "C" fn convergence(
     // SAFETY: valid context and writable scalar supplied by the C trampoline.
     let context = unsafe { &mut *ctx.cast::<Context<'_>>() };
     let mut observed = 0;
+    if !context.logging.is_null() {
+        // SAFETY: SNESSolve cannot outlive its caller's selected Log and admission.
+        unsafe { &*context.logging }.checkpoint("petsc.snes.convergence", false);
+    }
     crate::observation::metrics(
         "petsc.snes.convergence",
         &std::collections::BTreeMap::from([
@@ -691,6 +699,7 @@ pub fn solve(
         rows: published_rows,
         columns: published_columns,
         snes: ptr::null_mut(),
+        logging: ptr::null(),
     });
     let admission = Admission::enter(&execution)?;
     let _threads = crate::mkl::Threads::enter(1)?;
@@ -833,16 +842,22 @@ pub fn solve(
             "linear solver controls",
         )?;
     }
+    // Declared after admission: all early returns drop the selected handler before
+    // process serialization is released. No events are active at registration.
+    let logging = logging::Log::selected(&execution);
+    context.logging = logging.as_ref().map_or(ptr::null(), std::ptr::from_ref);
     let code = {
-        crate::observation::unavailable(
-            "petsc.logging",
-            "default event logging not activated by this profile; zeroed log counters are uncollected",
-        );
+        if logging.is_none() {
+            crate::observation::unavailable("petsc.logging", "not selected or handler unavailable; zeroed counters are uncollected");
+        }
         // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
         crate::observation::scoped("petsc.snes.solve", || unsafe {
             ffi::pse_petsc_snes_solve(snes, x)
         })
     };
+    context.logging = ptr::null();
+    if let Some(logging) = &logging { logging.checkpoint("petsc.snes.return", true); }
+    drop(logging);
     let (mut reason, mut iterations, mut evaluations, mut linear_iterations, mut norm) =
         (0, 0, 0, 0, 0.0);
     {
@@ -1376,6 +1391,36 @@ mod tests {
             matches!(report.callback_failure(),Some(ProblemError::Contract(message)) if message=="actual source witness")
         );
         assert!(report.evidence.callback.terminal_failure);
+    }
+    #[test]
+    fn selected_petsc_events_keep_active_and_completed_native_work_distinct() {
+        use pse_diagnostics::observation::{CoherentRecord, ObservationHub, Policy, RecordTap, Value};
+        #[derive(Debug, Default)]
+        struct Tap(Mutex<Vec<CoherentRecord>>);
+        impl RecordTap for Tap {
+            fn selected(&self, family: &str) -> bool { family == "petsc_event.v1" }
+            fn observe(&self, record: &CoherentRecord) {
+                if record.family == "petsc_event.v1" { self.0.lock().unwrap().push(record.clone()); }
+            }
+        }
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("selected-petsc-events");
+        let tap = std::sync::Arc::new(Tap::default());
+        let context = operation.context().with_record_tap(tap.clone());
+        let _entered = context.enter();
+        let mut oracle = LogOracle::new();
+        let report = run(&mut oracle, 1., &Controls::default(), None).unwrap();
+        assert_eq!(report.termination.category, Termination::Success);
+        assert!(report.quality.as_ref().unwrap().feasible());
+        let records = tap.0.lock().unwrap();
+        let field = |record: &CoherentRecord, name: &str| record.values.iter()
+            .find(|field| field.name == name).unwrap().value.clone();
+        let snes: Vec<_> = records.iter().filter(|record| field(record, "native_event") == Value::Text("SNESSolve".into())).collect();
+        assert!(snes.iter().any(|record| matches!(field(record, "native_event_depth"), Value::Integer(value) if value > 0)), "safe callback reports active native solve");
+        let terminal = snes.iter().find(|record| record.phase == "petsc.snes.return").unwrap();
+        assert_eq!(field(terminal, "native_event_depth"), Value::Integer(0));
+        assert_eq!(field(terminal, "entered_calls"), Value::Integer(1));
+        assert_eq!(field(terminal, "source_available"), Value::Boolean(true));
     }
     #[test]
     fn trust_owner_preserves_domain_phase_causes_limits_and_terminal_lifetime() {

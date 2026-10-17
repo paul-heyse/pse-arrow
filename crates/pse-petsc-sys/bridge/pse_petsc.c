@@ -19,6 +19,61 @@ _Static_assert(sizeof(PetscScalar) == sizeof(double), "real double ABI");
 #define TRY(call) do { PetscErrorCode code_ = (call); if (code_) return code_; } while (0)
 #define REQUIRE(value) do { if (!(value)) return PETSC_ERR_ARG_NULL; } while (0)
 
+int32_t pse_petsc_log_create(PsePetscHandle *out) {
+  REQUIRE(out); *out = NULL;
+#if defined(PETSC_USE_LOG)
+  PetscLogHandler handler = NULL;
+  PetscErrorCode code = PetscLogHandlerCreate(PETSC_COMM_SELF, &handler);
+  if (!code) code = PetscLogHandlerSetType(handler, PETSCLOGHANDLERDEFAULT);
+  if (!code) code = PetscLogHandlerStart(handler);
+  if (code) {
+    if (handler) { (void)PetscLogHandlerStop(handler); (void)PetscLogHandlerDestroy(&handler); }
+    return code;
+  }
+  *out = handler; return PETSC_SUCCESS;
+#else
+  return PETSC_ERR_SUP;
+#endif
+}
+int32_t pse_petsc_log_event(PsePetscHandle raw, const char *name, PsePetscEventPerf *out) {
+  REQUIRE(raw); REQUIRE(name); REQUIRE(out);
+#if defined(PETSC_USE_LOG)
+  PetscLogHandler handler = raw;
+  PetscLogState state = NULL;
+  PetscLogStage stage = -1;
+  PetscLogEvent event = -1;
+  PetscEventPerfInfo *info = NULL;
+  TRY(PetscLogHandlerGetState(handler, &state));
+  if (!state) return PETSC_ERR_ARG_WRONGSTATE;
+  TRY(PetscLogStateGetCurrentStage(state, &stage));
+  TRY(PetscLogStateGetEventFromName(state, name, &event));
+  PsePetscEventPerf value = {0, stage, event, 0, 0, 0., 0.};
+  if (stage >= 0 && event >= 0) {
+    TRY(PetscLogHandlerGetEventPerfInfo(handler, stage, event, &info));
+    if (!info) return PETSC_ERR_ARG_WRONGSTATE;
+    value.available = 1; value.entered_calls = info->count;
+    value.active_depth = info->depth; value.completed_seconds = info->time;
+    value.completed_flops = info->flops;
+  }
+  *out = value; return PETSC_SUCCESS;
+#else
+  return PETSC_ERR_SUP;
+#endif
+}
+int32_t pse_petsc_log_destroy(PsePetscHandle *raw) {
+  REQUIRE(raw);
+#if defined(PETSC_USE_LOG)
+  PetscLogHandler handler = *raw;
+  if (!handler) return PETSC_SUCCESS;
+  PetscErrorCode stop = PetscLogHandlerStop(handler);
+  PetscErrorCode destroy = PetscLogHandlerDestroy(&handler);
+  *raw = handler;
+  return stop ? stop : destroy;
+#else
+  *raw = NULL; return PETSC_ERR_SUP;
+#endif
+}
+
 typedef struct PseSnes PseSnes;
 typedef struct PseComposition PseComposition;
 static PetscErrorCode composition_finish_failed_solve(PseSnes *, Vec, PetscErrorCode);

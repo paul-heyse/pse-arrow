@@ -28,6 +28,19 @@ typedef int32_t (*PsePetscBlockJacobian)(void *, PsePetscHandle, PsePetscHandle,
  * every overlap coordinate, and overlays current block unknowns on NASM's frozen
  * outer state. Only domain-safe unbounded blocks are
  * admitted by the safe owner. */
+/* An independent selected log handler. Create/start and stop/destroy affect
+ * only this owner. Query copies current-stage totals; entered_calls counts
+ * outermost entries for that event (not recursive same-event entries), including an
+ * active outer event, while completed_seconds/flops exclude that active interval.
+ * active_depth therefore remains explicit. No global default handler is toggled. */
+typedef struct {
+  int32_t available, stage, event, entered_calls, active_depth;
+  double completed_seconds, completed_flops;
+} PsePetscEventPerf;
+int32_t pse_petsc_log_create(PsePetscHandle *);
+int32_t pse_petsc_log_event(PsePetscHandle, const char *, PsePetscEventPerf *);
+int32_t pse_petsc_log_destroy(PsePetscHandle *);
+
 typedef struct {
   int32_t size;
   const int32_t *overlap;

@@ -207,6 +207,7 @@ struct Shared<'a> {
     domain: &'a mut dyn DomainOracle,
     anchor: Vec<f64>,
     scratch: Vec<f64>,
+    logging: *const logging::Log,
 }
 struct Parent<'a, 'b> {
     original: &'a mut dyn NleOracle,
@@ -505,6 +506,10 @@ unsafe extern "C" fn parent_convergence(
     let c = unsafe { &mut *ctx.cast::<Parent<'_, '_>>() };
     // SAFETY: Shared is pinned through teardown and parent/child callbacks execute serially without lending its pointer to suppliers.
     let shared = unsafe { &mut *c.shared };
+    if !shared.logging.is_null() {
+        // SAFETY: the synchronous NASM owner retains its selected Log and admission.
+        unsafe { &*shared.logging }.checkpoint("petsc.nasm.outer_convergence", false);
+    }
     let mut observed = 0;
     let ok = shared
         .state
@@ -547,6 +552,10 @@ unsafe extern "C" fn child_convergence(
     let c = unsafe { &mut *ctx.cast::<Child<'_, '_>>() };
     // SAFETY: Shared is pinned through teardown and parent/child callbacks execute serially without lending its pointer to suppliers.
     let shared = unsafe { &mut *c.shared };
+    if !shared.logging.is_null() {
+        // SAFETY: the synchronous NASM owner retains its selected Log and admission.
+        unsafe { &*shared.logging }.checkpoint("petsc.nasm.child_convergence", false);
+    }
     let mut observed = 0;
     let ok = shared
         .state
@@ -684,6 +693,7 @@ pub fn solve_blocks(
         domain: composition.domain,
         anchor: start.to_vec(),
         scratch: vec![0.0; n],
+        logging: ptr::null(),
     });
     let shared_ptr = ptr::from_mut(shared.as_mut());
     let crate::nlp_pattern::Pattern { rows, columns } =
@@ -896,10 +906,15 @@ pub fn solve_blocks(
             )?;
         }
     }
+    let logging = logging::Log::selected(&execution);
+    shared.logging = logging.as_ref().map_or(ptr::null(), std::ptr::from_ref);
     let code = {
         // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
         unsafe { ffi::pse_petsc_snes_solve(snes, x) }
     };
+    shared.logging = ptr::null();
+    if let Some(logging) = &logging { logging.checkpoint("petsc.nasm.return", true); }
+    drop(logging);
     let (mut reason, mut iterations, mut evaluations, mut linear, mut norm) = (0, 0, 0, 0, 0.0);
     {
         check(

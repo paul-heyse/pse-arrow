@@ -235,6 +235,34 @@ fn stats(snes: Handle) -> (i32, i32, i32, i32, f64) {
     }
     (reason, iterations, evaluations, linear, norm)
 }
+fn independent_selected_logging_controls() {
+    let mut first = object(pse_petsc_log_create, pse_petsc_log_destroy);
+    let second = object(pse_petsc_log_create, pse_petsc_log_destroy);
+    let mut context = RootContext { target: 1., ..RootContext::default() };
+    let fixture = root(&mut context, 0.);
+    // SAFETY: two independent handlers and all solver objects remain live under
+    // this one serialized lifecycle test; getters copy separate caller storage.
+    unsafe {
+        assert_eq!(pse_petsc_snes_solve(fixture.solver.handle, fixture.primal.handle), 0);
+        for handler in [first.handle, second.handle] {
+            let mut info = EventPerf::default();
+            assert_eq!(pse_petsc_log_event(handler, c"SNESSolve".as_ptr(), &mut info), 0);
+            assert_eq!(info.available, 1);
+            assert_eq!(info.entered_calls, 1);
+            assert_eq!(info.active_depth, 0);
+            assert!(info.completed_seconds >= 0. && info.completed_seconds.is_finite());
+        }
+        assert_eq!(pse_petsc_log_destroy(&mut first.handle), 0);
+        assert!(first.handle.is_null());
+        assert_eq!(pse_petsc_snes_solve(fixture.solver.handle, fixture.primal.handle), 0);
+        let mut info = EventPerf::default();
+        assert_eq!(pse_petsc_log_event(second.handle, c"SNESSolve".as_ptr(), &mut info), 0);
+        assert_eq!(info.entered_calls, 2, "stopping one handler preserves the other");
+        assert_eq!(pse_petsc_log_event(second.handle, c"PSE nonexistent native event".as_ptr(), &mut info), 0);
+        assert_eq!(info.available, 0, "absent event is not a measured zero");
+    }
+    assert!((read::<1>(fixture.primal.handle)[0] - 1.).abs() < 1e-10);
+}
 fn trust_region_controls() {
     let mut context = RootContext {
         target: 0.1,
@@ -947,6 +975,7 @@ fn linked_profiles_preserve_phase_controls_and_native_ownership() {
             "process initialization is not per-attempt"
         );
     }
+    independent_selected_logging_controls();
     trust_region_controls();
     private_options_controls();
     pseudo_controls(false);

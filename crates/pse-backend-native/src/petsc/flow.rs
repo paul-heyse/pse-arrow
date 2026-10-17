@@ -314,6 +314,7 @@ struct Context<'a, 'b> {
     steady_tolerances: Vec<f64>,
     steady: bool,
     accepted: usize,
+    logging: *const logging::Log,
 }
 unsafe extern "C" fn function(
     ctx: *mut c_void,
@@ -435,6 +436,10 @@ unsafe extern "C" fn pre_stage(ctx: *mut c_void, ts: ffi::Handle, time: f64) -> 
 unsafe extern "C" fn post_step(ctx: *mut c_void, ts: ffi::Handle) -> i32 {
     // SAFETY: The serial C trampoline supplies this pinned callback context; its exclusive borrow ends before the callback returns.
     let c = unsafe { &mut *ctx.cast::<Context<'_, '_>>() };
+    if !c.logging.is_null() {
+        // SAFETY: the synchronous TS owner retains its selected Log and admission.
+        unsafe { &*c.logging }.checkpoint("petsc.ts.post_step", false);
+    }
     let n = c.n;
     let accepted = c.state.evaluate("flow.accepted_original", || {
         let point = read(c.x, n)?;
@@ -624,6 +629,7 @@ pub fn solve_flow(
         steady_tolerances: tolerances.rows.clone(),
         steady: false,
         accepted: 0,
+        logging: ptr::null(),
     });
     let admission = Admission::enter(&execution)?;
     let _threads = crate::mkl::Threads::enter(1)?;
@@ -773,12 +779,17 @@ pub fn solve_flow(
             "TS growth cap",
         )?;
     }
+    let logging = logging::Log::selected(&execution);
+    context.logging = logging.as_ref().map_or(ptr::null(), std::ptr::from_ref);
     let code = {
         // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
         crate::observation::scoped("petsc.ts.solve", || unsafe {
             ffi::pse_petsc_ts_solve(ts, x)
         })
     };
+    context.logging = ptr::null();
+    if let Some(logging) = &logging { logging.checkpoint("petsc.ts.return", true); }
+    drop(logging);
     let (reason, steps, iterations, rejections, failures, time, dt) = statistics(ts)?;
     let mut name = ptr::null();
     {

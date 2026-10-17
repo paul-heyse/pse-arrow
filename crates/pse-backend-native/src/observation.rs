@@ -173,6 +173,9 @@ pub(crate) fn event(event: &mut Event, producer: Option<&pse_diagnostics::observ
     }
     fn unit(family: &str, name: &str) -> &'static str {
         match (family, name) {
+            ("petsc_event", "completed_seconds") => "seconds",
+            ("petsc_event", "completed_flops") => "flops",
+            ("petsc_event", "entered_calls" | "native_event_depth" | "stage") => "native_count",
             ("native_linear_work", name) if name.ends_with(".issued") || name.ends_with(".completed") => "native_linear_calls",
             ("native_factor", "input_nonzeros" | "factor_nonzeros") => "nonzeros",
             ("native_factor", "fill_ratio") => "ratio",
