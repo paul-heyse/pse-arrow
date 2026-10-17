@@ -2519,6 +2519,27 @@ mod tests {
         assert_eq!(after.numeric_factor_completed, before.numeric_factor_completed);
     }
     #[test]
+    fn setup_interval_profiles_preserve_original_acceptance_and_expose_actual_work() {
+        assert_eq!(Method::default().setup_interval, 10, "retained monitored global default");
+        for interval in [1, 2, 3, 10] {
+            let mut config = settings();
+            config.method.setup_interval = interval;
+            let mut session = Session::new(
+                Function::Equations(Box::new(crate::solver_tests::Polynomial::new())),
+                config, execution(), crate::solver_tests::stamp(Backend::Kinsol),
+            ).unwrap();
+            let report = setup_solve(&mut session, 0.25, ReusePolicy::AllowRebuild);
+            assert_eq!(report.termination.category, Termination::Success, "interval{interval}");
+            assert!(report.quality.as_ref().unwrap().feasible());
+            assert_eq!(report.metrics["setup.initial_reuse_requested"], Metric::Bool(false));
+            assert_eq!(report.metrics["klu.symbolic.completed"], Metric::Integer(1));
+            eprintln!("setup_interval={interval} iterations={:?} evaluations={:?} setup={:?} fresh_factor={:?} refactor={:?} solve={:?}",
+                report.metrics["KINGetNumNonlinSolvIters"], report.metrics["KINGetNumFuncEvals"],
+                report.metrics["klu.setup.completed"], report.metrics["klu.numeric_factor.completed"],
+                report.metrics["klu.refactor.completed"], report.metrics["klu.solve.completed"]);
+        }
+    }
+    #[test]
     fn fresh_application_setup_preserves_within_call_native_monitoring() {
         let setups = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let mut config = settings();

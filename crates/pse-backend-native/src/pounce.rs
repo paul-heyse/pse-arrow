@@ -987,6 +987,7 @@ impl Session {
         report
             .provenance
             .insert("feral.effective".into(), effective.to_string());
+        report.provenance.insert("feral.refinement_policy".into(), "explicit_typed_configuration".into());
         observation.record(&mut report);
         if let Some(mut candidate) = a.solution.take()
             && candidate.primal.iter().all(|v| v.is_finite())
@@ -1482,6 +1483,31 @@ mod tests {
             None,
             crate::solver_tests::stamp(Backend::Pounce),
         )
+    }
+    #[test]
+    fn explicit_refinement_configuration_survives_method_and_curvature_composition() {
+        for method in [Method::InteriorPoint, Method::ActiveSetSqp] {
+            for hessian in [HessianMode::Exact, HessianMode::LimitedMemory] {
+                for refine in [false, true] {
+                    let mut settings = Settings { method, ..Default::default() };
+                    settings.linear.refine = refine;
+                    settings.linear.refine_max_steps = 3;
+                    let report = Session::new().solve(
+                        Box::new(crate::solver_tests::Polynomial::new()), &[2.], ObjectiveSense::Minimize,
+                        &Controls { hessian, ..Default::default() }, &ResolvedAccuracy::verification(),
+                        &settings, crate::solver_tests::execution(),
+                        &Tolerances { variables: vec![1e-8], rows: vec![1e-8], integrality: 1e-8 },
+                        None, crate::solver_tests::stamp(Backend::Pounce),
+                    ).unwrap();
+                    let effective: serde_json::Value = serde_json::from_str(&report.provenance["feral.effective"]).unwrap();
+                    assert_eq!(effective["refine"], serde_json::json!(refine), "{method:?}/{hessian:?}");
+                    assert_eq!(effective["refine_max_steps"], serde_json::json!(3));
+                    assert_eq!(report.provenance["feral.refinement_policy"], "explicit_typed_configuration");
+                    assert_eq!(report.termination.category, Termination::Success, "{method:?}/{hessian:?}/{refine}");
+                    assert!(report.quality.unwrap().feasible());
+                }
+            }
+        }
     }
     #[test]
     fn feral_owned_pool_width_matches_admission() {
