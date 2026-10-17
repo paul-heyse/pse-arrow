@@ -1202,6 +1202,10 @@ pub struct Profile {
     /// absent.
     #[serde(default = "no_sensitivity")]
     pub sensitivity: DynamicSensitivity,
+    /// Internal physical integration axes, in retained derivative order. Absence means
+    /// every axis for ordinary Forward. Complete physical values are always supplied.
+    #[serde(skip)]
+    pub forward_axes: Option<Vec<usize>>,
     /// Checkpointing of the adjoint backward pass; used only by adjoint gradients.
     #[serde(default)]
     pub adjoint: AdjointSettings,
@@ -1404,6 +1408,25 @@ impl DynamicDecision {
     }
 }
 impl Profile {
+    /// Ordered physical axes of a forward request; adjoint layouts remain independent.
+    pub fn forward_axes(&self, parameters: usize) -> Vec<usize> {
+        if self.sensitivity != DynamicSensitivity::Forward {
+            return vec![];
+        }
+        self.forward_axes.clone().unwrap_or_else(|| {
+            (0..self.integration_width(parameters)).collect()
+        })
+    }
+    /// Retained forward derivative width, distinct from the complete value width.
+    pub fn forward_width(&self, parameters: usize) -> usize {
+        if self.sensitivity != DynamicSensitivity::Forward {
+            0
+        } else {
+            self.forward_axes.as_ref().map_or_else(
+                || self.integration_width(parameters), Vec::len,
+            )
+        }
+    }
     /// The integration parameter vector's length for `parameters` contract parameters:
     /// the unscheduled parameters, then every interval of every scheduled input.
     pub fn integration_width(&self, parameters: usize) -> usize {
@@ -1499,6 +1522,9 @@ impl Profile {
         window.start = start;
         window.end = end;
         window.samples = samples;
+        // Physical interval coordinates change when clipping a horizon. Consumers
+        // select the new window's coordinates after constructing its value mapping.
+        window.forward_axes = None;
         window.schedule = self
             .schedule
             .iter()
@@ -1717,6 +1743,7 @@ impl Profile {
     /// Forward sensitivities are integrated with every sample.
     pub fn forward(&self) -> bool {
         self.sensitivity == DynamicSensitivity::Forward
+            && self.forward_axes.as_ref().is_none_or(|axes| !axes.is_empty())
     }
     /// The adjoint route's profile limits (ADR-0110 items 3 and 6), refused before native
     /// work: the functional observes sampled outputs only, so declared quadratures need
@@ -2053,7 +2080,7 @@ impl Profile {
             .and_then(|n| n.checked_add(contract.quadratures.len()))
             .and_then(|n| {
                 n.checked_mul(if self.forward() {
-                    self.integration_width(contract.parameters.len())
+                    self.forward_width(contract.parameters.len())
                         .checked_add(1)?
                 } else {
                     1
@@ -2167,6 +2194,14 @@ impl Profile {
             self.admit_adjoint(c)?;
         }
         let np = self.integration_width(c.parameters.len());
+        if let Some(axes) = &self.forward_axes {
+            if self.sensitivity != DynamicSensitivity::Forward
+                || axes.iter().any(|axis| *axis >= np)
+                || axes.iter().enumerate().any(|(k, axis)| axes[..k].contains(axis))
+            {
+                return Err(contract("forward axes must be unique physical integration coordinates"));
+            }
+        }
         let scheduled = self
             .schedule
             .iter()
@@ -2206,7 +2241,7 @@ impl Profile {
                 .iter()
                 .any(|t| !t.is_finite() || *t < self.start || *t > self.end)
             || self.samples.windows(2).any(|w| w[0] >= w[1])
-            || (self.sensitivity != DynamicSensitivity::None && np == 0)
+            || ((self.forward() || self.sensitivity == DynamicSensitivity::Adjoint) && np == 0)
             || (self.forward()
                 && !c.quadratures.is_empty()
                 && c.events.iter().any(|e| !e.is_empty()))
@@ -2225,6 +2260,7 @@ impl Profile {
                 .ok_or_else(|| ProblemError::memory("compact sample extent"))?,
         };
         let cells = Some(self.sample_cells(c, retained_samples)?)
+            .and_then(|v| v.checked_add(self.forward_width(c.parameters.len())))
             .and_then(|v| self.samples.len().checked_mul(2)?.checked_add(v))
             .and_then(|v| {
                 self.max_events
@@ -2575,10 +2611,10 @@ pub struct Sample {
     pub state: Vec<f64>,
     /// Ordered physical outputs.
     pub outputs: Vec<f64>,
-    /// State-major derivatives with respect to the integration parameters, empty when
+    /// State-major derivatives over the owning report's forward axes, empty when
     /// not requested.
     pub state_sensitivities: Vec<f64>,
-    /// Output-major derivatives with respect to the integration parameters, empty when
+    /// Output-major derivatives over the owning report's forward axes, empty when
     /// not requested.
     pub output_sensitivities: Vec<f64>,
 }
@@ -2629,6 +2665,9 @@ pub struct TrajectoryEndpoint {
 /// Joined report retaining valid completed data even when a later callback fails.
 #[derive(Debug)]
 pub struct Report {
+    /// Physical integration axis for each retained forward derivative column. Stored
+    /// once per report; absent axes are unavailable, never implied zero derivatives.
+    pub forward_axes: Vec<usize>,
     /// Native/profile outcome.
     pub termination: Termination,
     /// Last completed physical time; initial time until initialization succeeds.
@@ -2657,6 +2696,11 @@ pub struct Report {
     pub dropped_progress: u64,
 }
 impl Report {
+    /// Retained derivative column for one physical integration axis.
+    pub fn sensitivity_column(&self, axis: usize) -> Result<usize, ProblemError> {
+        self.forward_axes.iter().position(|a| *a == axis)
+            .ok_or_else(|| contract("requested physical sensitivity axis is unavailable"))
+    }
     /// Evaluate the declared endpoint and observation coverage without inventing samples.
     pub fn assess_endpoint(&self, profile: &Profile) -> EndpointAssessment {
         use pse_model::generated::enums::EndpointPolicy;
@@ -2705,6 +2749,7 @@ impl Report {
     /// is covered separately by the runtime's report allowance.
     pub fn numeric_bytes(&self) -> usize {
         size_of::<Self>()
+            + self.forward_axes.capacity() * size_of::<usize>()
             + (self.requested_initial.capacity() + self.consistent_initial.capacity())
                 * size_of::<f64>()
             + self.endpoint.as_ref().map_or(0, |e| {
@@ -2755,8 +2800,9 @@ impl Report {
                 .sum::<usize>()
     }
     #[cfg(any(feature = "diffsol", feature = "idas"))]
-    pub(crate) fn new(profile: &Profile, retention: SampleRetention) -> Self {
+    pub(crate) fn new(profile: &Profile, retention: SampleRetention, parameters: usize) -> Self {
         Self {
+            forward_axes: profile.forward_axes(parameters),
             termination: Termination::Failed,
             completed_time: profile.start,
             endpoint: None,
@@ -2796,6 +2842,7 @@ impl std::fmt::Debug for Profile {
             .field("end", &self.end)
             .field("samples", &self.samples)
             .field("sensitivity", &self.sensitivity)
+            .field("forward_axes", &self.forward_axes)
             .finish_non_exhaustive()
     }
 }
@@ -2826,6 +2873,7 @@ pub fn settings_identity(p: &Profile) -> String {
 pub fn profile_json(p: &Profile) -> serde_json::Value {
     let mut value = encoded(p);
     if let serde_json::Value::Object(fields) = &mut value {
+        fields.insert("forward_axes".into(), encoded(&p.forward_axes));
         fields.insert("resolved_method".into(), encoded(&p.resolved_method().ok()));
     }
     value
@@ -3052,6 +3100,7 @@ impl Default for Profile {
             time_limit: Duration::from_secs(300),
             max_cells: 1_000_000,
             sensitivity: no_sensitivity(),
+            forward_axes: None,
             adjoint: AdjointSettings::default(),
             parameter_scales: vec![],
             schedule: vec![],
@@ -3069,6 +3118,9 @@ mod tests;
 
 #[cfg(test)]
 mod contextual_tests;
+
+#[cfg(all(test, any(feature = "diffsol", feature = "idas")))]
+mod selected_tests;
 
 #[cfg(all(test, any(feature = "diffsol", feature = "idas")))]
 mod sample_elimination_tests {

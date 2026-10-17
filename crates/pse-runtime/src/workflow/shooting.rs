@@ -688,6 +688,12 @@ impl ShootingProblem {
             profile_key: pse_ids::roles::ProfileHash::from_id(session.finish_hash()),
             numerics,
         };
+        for k in 0..problem.windows.len() {
+            let axes = problem.windows[k].columns.iter().enumerate()
+                .filter_map(|(axis, column)| problem.variable(k, column).map(|_| axis))
+                .collect();
+            problem.windows[k].profile.forward_axes = Some(axes);
+        }
         problem.pattern = problem.jacobian_structure()?;
         problem.admit_windows(simulation)?;
         if !problem.contract.variables.is_empty() {
@@ -901,12 +907,14 @@ impl ShootingProblem {
             } else {
                 DynamicSensitivity::None
             };
+            if !forward { profile.forward_axes = None; }
             profile
                 .validate(native::dynamics::Oracle::contract(&plain), &parameters)
                 .map_err(problem)?;
             if adjoint {
                 let mut profile = observed.profile(&window.profile);
                 profile.sensitivity = DynamicSensitivity::Adjoint;
+                profile.forward_axes = None;
                 profile
                     .validate(native::dynamics::Oracle::contract(&observed), &parameters)
                     .map_err(problem)?;
@@ -1220,13 +1228,20 @@ impl ShootingOracle {
                 result
             })
             .collect::<Result<Vec<_>, _>>()?;
+        if forward {
+            for (window, report) in p.windows.iter().zip(&reports) {
+                if window.profile.forward_axes.as_ref() != Some(&report.forward_axes) {
+                    return Err(ProblemError::internal("shooting selected sensitivity layout unavailable"));
+                }
+            }
+        }
         let end = |k: usize| {
             reports[k]
                 .samples
                 .last()
                 .ok_or_else(|| ProblemError::internal("shooting window without its end sample"))
         };
-        let width = |k: usize| p.windows[k].columns.len();
+        let width = |k: usize| reports[k].forward_axes.len();
         let mut constraints = Vec::with_capacity(p.rows.len());
         let mut jacobian = if first {
             vec![0.; p.pattern.row_idx().len()]
@@ -1260,7 +1275,9 @@ impl ShootingOracle {
             };
             constraints.push(value);
             if let Some(derivatives) = derivatives {
-                for (column, d) in p.windows[k].columns.iter().zip(derivatives) {
+                for (axis, d) in reports[k].forward_axes.iter().zip(derivatives) {
+                    let column = p.windows[k].columns.get(*axis)
+                        .ok_or_else(|| ProblemError::internal("shooting physical sensitivity axis"))?;
                     if let Some(v) = p.variable(k, column) {
                         *entries.entry((r, v)).or_default() += d;
                     }
@@ -1299,7 +1316,9 @@ impl ShootingOracle {
             for (o, w) in &p.terminal {
                 let sensitivities =
                     &finish.output_sensitivities[o * width(last)..(o + 1) * width(last)];
-                for (column, d) in p.windows[last].columns.iter().zip(sensitivities) {
+                for (axis, d) in reports[last].forward_axes.iter().zip(sensitivities) {
+                    let column = p.windows[last].columns.get(*axis)
+                        .ok_or_else(|| ProblemError::internal("shooting terminal sensitivity axis"))?;
                     if let Some(v) = p.variable(last, column) {
                         gradient[v] += w * d;
                     }
@@ -1736,6 +1755,7 @@ impl ShootingProblem {
                     .map(|k| self.anchors(k, &x).to_vec())
                     .collect();
                 let mut stitched = native::dynamics::Report {
+                    forward_axes: vec![],
                     termination: native::dynamics::Termination::Completed,
                     completed_time: self.experiment.profile.end,
                     requested_initial: point.reports[0].requested_initial.clone(),
@@ -2161,6 +2181,7 @@ mod conservation_tests {
             defects: vec![0.],
         };
         native::dynamics::Report {
+            forward_axes: vec![],
             termination: native::dynamics::Termination::Completed,
             completed_time: start + 1.,
             requested_initial: vec![],

@@ -72,13 +72,18 @@ impl IntegratedExperiment {
     /// parameter, from the forward output sensitivities.
     pub(crate) fn response(
         &self,
+        report: &native::dynamics::Report,
         sample: &native::dynamics::Sample,
         row: usize,
         binding: &Binding,
     ) -> Result<f64, ProblemError> {
+        let column = report.sensitivity_column(binding.local)?;
+        let offset = row.checked_mul(report.forward_axes.len())
+            .and_then(|start| start.checked_add(column))
+            .ok_or_else(|| ProblemError::internal("integrated output sensitivity offset"))?;
         sample
             .output_sensitivities
-            .get(row * self.parameters.len() + binding.local)
+            .get(offset)
             .map(|v| v * binding.conversion.scale)
             .ok_or_else(|| ProblemError::internal("integrated output sensitivity extent"))
     }
@@ -184,6 +189,9 @@ fn attempt(
 ) -> super::SimulationProfile {
     let mut profile = profile.clone();
     profile.sensitivity = sensitivity;
+    if sensitivity != DynamicSensitivity::Forward {
+        profile.forward_axes = None;
+    }
     profile.time_limit = profile.time_limit.min(
         execution
             .time_limit
@@ -222,13 +230,17 @@ impl IntegratedExperiment {
         value: &dyn Fn(usize) -> f64,
         execution: &Execution,
         sensitivity: DynamicSensitivity,
+        selected: &[usize],
     ) -> Result<native::dynamics::Report, ProblemError> {
         if sensitivity == DynamicSensitivity::Adjoint {
             return Err(ProblemError::internal(
                 "an adjoint product is a gradient, not an integration",
             ));
         }
-        let profile = attempt(&self.profile, execution, sensitivity);
+        let mut profile = attempt(&self.profile, execution, sensitivity);
+        if sensitivity == DynamicSensitivity::Forward {
+            profile.forward_axes = Some(selected.to_vec());
+        }
         let report = native::dynamics::integrate_with_progress_observed(
             worker,
             &profile,

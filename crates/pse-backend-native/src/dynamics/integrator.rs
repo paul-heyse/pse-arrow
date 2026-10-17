@@ -59,6 +59,8 @@ struct Shared<'o> {
     /// The integration parameter vector: unscheduled parameters, then every interval of
     /// every scheduled input (I6). Diffsol's parameters and sensitivity columns.
     parameters: RefCell<Vec<f64>>,
+    /// Diffsol coordinates lifted into the complete physical vector above.
+    axes: Vec<usize>,
     /// The integration column of each contract parameter in the current segment.
     columns: RefCell<Vec<usize>>,
     mode: Cell<usize>,
@@ -109,7 +111,11 @@ impl Shared<'_> {
     }
     /// The integration parameter count: Diffsol's parameter and sensitivity width.
     fn width(&self) -> usize {
-        self.parameters.borrow().len()
+        self.axes.len()
+    }
+    fn coordinates(&self) -> Vec<f64> {
+        let parameters = self.parameters.borrow();
+        self.axes.iter().map(|axis| parameters[*axis]).collect()
     }
     fn evaluate_mode(
         &self,
@@ -250,8 +256,8 @@ struct Operator<'o> {
     /// Partials in the segment's integration columns: each contract parameter column is
     /// relabeled to its interval's column; the other intervals' columns are empty.
     parameter_pattern: Pattern,
-    /// The integration column of each contract parameter in this operator's segment.
-    columns: Vec<usize>,
+    /// The selected coordinate of each contract parameter in this operator's segment.
+    columns: Vec<Option<usize>>,
     /// The contract parameter of each integration column in this segment, if any.
     contract: Vec<Option<usize>>,
     direction: RefCell<Vec<f64>>,
@@ -277,11 +283,11 @@ impl<'o> Operator<'o> {
         let columns = shared.columns.borrow().clone();
         let mut contract_columns = vec![None; width];
         for (k, c) in columns.iter().enumerate() {
-            if let Some(slot) = contract_columns.get_mut(*c) {
-                *slot = Some(k);
+            if let Some(selected) = shared.axes.iter().position(|axis| axis == c) {
+                contract_columns[selected] = Some(k);
             }
         }
-        if columns.len() != np || contract_columns.iter().flatten().count() != np {
+        if columns.len() != np {
             return Err(ProblemError::internal("dynamic segment parameter columns"));
         }
         let m = shared.nout_mode(mode, function);
@@ -293,17 +299,21 @@ impl<'o> Operator<'o> {
             .into_iter()
             .map(|entry| (entry.row.get(), entry.col.get()))
             .collect::<Vec<_>>();
-        if function == Function::Initial {
-            pairs.extend((0..n).flat_map(|r| (n..n + np).map(move |c| (r, c))));
-        }
         if pairs.iter().any(|&(r, c)| r >= m || c >= n + np) {
             return Err(ProblemError::internal("dynamic support bounds"));
         }
         // Contract parameter columns become the segment's integration columns.
-        for pair in &mut pairs {
-            if pair.1 >= n {
-                pair.1 = n + columns[pair.1 - n];
+        pairs = pairs.into_iter().filter_map(|(row, col)| {
+            if col < n { Some((row, col)) } else {
+                shared.axes.iter().position(|axis| *axis == columns[col - n])
+                    .map(|selected| (row, n + selected))
             }
+        }).collect();
+        if function == Function::Initial {
+            // A restarted segment carries every selected state derivative, including
+            // axes from inactive earlier intervals. Its seed is not a fresh direct
+            // initial function of only the currently active contract parameters.
+            pairs.extend((0..m).flat_map(|row| (0..width).map(move |col| (row, n + col))));
         }
         let pattern = |parameter: bool| {
             let indices: Vec<_> = pairs
@@ -335,7 +345,7 @@ impl<'o> Operator<'o> {
             parameter_adjoint_pattern: transpose(&parameter_pattern)?,
             state_pattern,
             parameter_pattern,
-            columns,
+            columns: columns.iter().map(|column| shared.axes.iter().position(|axis| axis == column)).collect(),
             contract: contract_columns,
             direction: RefCell::new(vec![0.0; n + np]),
             transposed: RefCell::new(vec![0.0; n + np]),
@@ -440,7 +450,7 @@ impl<'o> Operator<'o> {
         let n = self.nstates();
         if parameter {
             for (k, c) in self.columns.iter().enumerate() {
-                direction[n + k] = v[*c];
+                direction[n + k] = c.map_or(0.0, |selected| v[selected]);
             }
         } else {
             direction[..n].copy_from_slice(v.as_slice());
@@ -712,11 +722,15 @@ impl<'o> OdeEquations for Equation<'o> {
             .then(|| self.mass.clone())
     }
     fn set_params(&mut self, p: &V) {
-        *self.rhs.shared.parameters.borrow_mut() = p.as_slice().to_vec();
+        let shared = &self.rhs.shared;
+        let mut parameters = shared.parameters.borrow_mut();
+        for (axis, value) in shared.axes.iter().zip(p.as_slice()) {
+            parameters[*axis] = *value;
+        }
     }
     fn get_params(&self, p: &mut V) {
         p.as_mut_slice()
-            .copy_from_slice(&self.rhs.shared.parameters.borrow());
+            .copy_from_slice(&self.rhs.shared.coordinates());
     }
 }
 /// Classify Diffsol's typed errors by cause. The matches are exhaustive over the
@@ -782,7 +796,7 @@ pub(super) fn integrate_with_samples(
 ) -> Result<Report, ProblemError> {
     profile.validate_retention(oracle.contract(), parameters, output.retention, 0)?;
     let shared = Shared::new(oracle, profile, parameters, cancel, progress)?;
-    let mut report = Report::new(profile, output.retention);
+    let mut report = Report::new(profile, output.retention, shared.contract.parameters.len());
     let result = catch_unwind(AssertUnwindSafe(|| match profile.diffsol.linear {
         DiffsolLinear::FaerLu => {
             run::<linear::FaerLu>(shared.clone(), profile, &mut report, output)
@@ -802,6 +816,9 @@ impl<'o> Shared<'o> {
         progress: Arc<crate::solve::Progress>,
     ) -> Result<Rc<Self>, ProblemError> {
         let contract_value = oracle.contract().clone();
+        let axes = if profile.sensitivity == DynamicSensitivity::Forward {
+            profile.forward_axes(contract_value.parameters.len())
+        } else { (0..parameters.len()).collect() };
         Ok(Rc::new(Shared {
             oracle: RefCell::new(oracle),
             columns: RefCell::new(
@@ -810,6 +827,7 @@ impl<'o> Shared<'o> {
             integrals: RefCell::new(vec![0.0; contract_value.quadratures.len()]),
             contract: contract_value,
             parameters: RefCell::new(parameters.to_vec()),
+            axes,
             mode: Cell::new(0),
             seed: RefCell::new(None),
             transition: RefCell::new(None),
@@ -968,7 +986,7 @@ fn build_problem<'o>(
         mass: Mass(shared.clone()),
         reset: None,
     };
-    let params = shared.parameters.borrow().clone();
+    let params = shared.coordinates();
     let mut builder = OdeBuilder::<M>::new()
         .context(shared.context)
         .t0(time)
@@ -1007,7 +1025,8 @@ fn run<LS: LinearSolver<M>>(
     // Scheduled-input changes split the horizon into segments; every segment integrates
     // the same integration parameters with its own column map (I6).
     let boundaries = p.boundaries();
-    let scales = p.integration_parameters(&p.parameter_scales);
+    let complete_scales = p.integration_parameters(&p.parameter_scales);
+    let scales = shared.axes.iter().map(|axis| complete_scales[*axis]).collect::<Vec<_>>();
     let np = shared.contract.parameters.len();
     let mut segment = 0;
     let mut steps = StepBudget::new(p.max_steps);
@@ -1252,7 +1271,7 @@ fn reset_sens<'p, 'o: 'p, LS: LinearSolver<M>, S: OdeSolverMethod<'p, Equation<'
         for (k, s) in state.s.iter().enumerate() {
             let direct = columns
                 .iter()
-                .position(|c| *c == k)
+                .position(|c| *c == shared.axes[k])
                 .and_then(|contract| j.get(index, state.y.len() + contract).copied())
                 .unwrap_or(0.0);
             let moving = (0..state.y.len())
@@ -1278,7 +1297,7 @@ fn reset_sens<'p, 'o: 'p, LS: LinearSolver<M>, S: OdeSolverMethod<'p, Equation<'
         out: Operator::for_mode(shared.clone(), Function::Output, event.next_mode)?,
         mass: Mass(shared.clone()),
     };
-    let parameters = shared.parameters.borrow().clone();
+    let parameters = shared.coordinates();
     let mut transition = OdeBuilder::<M>::new()
         .context(shared.context)
         .t0(state.t)
@@ -1547,7 +1566,7 @@ fn sample<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             if i < n {
                 states[(i, j)]
             } else {
-                f64::from(columns[i - n] == j)
+                f64::from(columns[i - n] == shared.axes[j])
             }
         });
         let mut result = faer::Mat::zeros(jac.nrows(), chain.ncols());

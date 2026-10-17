@@ -59,6 +59,9 @@ struct Context<'a> {
     parameters: Vec<f64>,
     /// The integration parameter vector: the sensitivity parameters.
     integration: Vec<f64>,
+    /// Physical integration axis for each native sensitivity vector. Adjoint and
+    /// exact-curvature sessions preserve their complete integration layout.
+    axes: Vec<usize>,
     /// The integration column of each contract parameter in the current segment.
     map: Vec<usize>,
     mode: usize,
@@ -500,13 +503,13 @@ unsafe fn publish(
 /// the state sensitivities `columns` (one per integration parameter) and the direct
 /// partials, where `P` selects each contract parameter's integration column `map[k]` in the
 /// current segment. One faer sparse × dense product (F12).
-fn chained(j: &Jacobian, columns: &[Vec<f64>], n: usize, map: &[usize]) -> faer::Mat<f64> {
+fn chained(j: &Jacobian, columns: &[Vec<f64>], n: usize, map: &[usize], axes: &[usize]) -> faer::Mat<f64> {
     let np = columns.len();
     let chain = faer::Mat::from_fn(n + map.len(), np, |i, k| {
         if i < n {
             columns[k][i]
         } else {
-            f64::from(map[i - n] == k)
+            f64::from(map[i - n] == axes[k])
         }
     });
     let mut result = faer::Mat::zeros(j.nrows(), np);
@@ -788,7 +791,7 @@ unsafe extern "C" fn sensitivities(
     let c = unsafe { &mut *data.cast::<Context<'_>>() };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let n = c.contract.states.len();
-        if np < 0 || np as usize != c.integration.len() {
+        if np <= 0 || np as usize != c.axes.len() {
             return -1;
         }
         let np = np as usize;
@@ -805,7 +808,7 @@ unsafe extern "C" fn sensitivities(
                 unsafe { read(v, n) }
             })
             .collect();
-        let product = chained(&j, &columns, n, &c.map);
+        let product = chained(&j, &columns, n, &c.map, &c.axes);
         for p in 0..np {
             // SAFETY: as above.
             let v = unsafe { at(yps, p) };
@@ -1494,6 +1497,7 @@ impl<'a> Session<'a> {
                 contract: c,
                 parameters: config.parameters,
                 integration: integration.to_vec(),
+                axes: Vec::new(),
                 map,
                 mode: 0,
                 trial_policy: config.trial_failures,
@@ -1608,6 +1612,11 @@ impl<'a> Session<'a> {
             execution,
         )?;
         let n = s.callback.contract.states.len();
+        s.callback.axes = if p.sensitivity == DynamicSensitivity::Forward {
+            p.forward_axes(s.callback.contract.parameters.len())
+        } else if !directions.is_empty() {
+            (0..integration.len()).collect()
+        } else { Vec::new() };
         if forward {
             let j = initial
                 .jacobian
@@ -1615,9 +1624,9 @@ impl<'a> Session<'a> {
             let symbolic = j.symbolic();
             // Each integration parameter starts from its contract parameter's initial
             // partials when the first segment uses it, and from zero otherwise.
-            for k in 0..integration.len() {
+            for k in 0..s.callback.axes.len() {
                 let mut values = vec![0.0; n];
-                if let Some(contract) = s.callback.map.iter().position(|c| *c == k) {
+                if let Some(contract) = s.callback.map.iter().position(|c| *c == s.callback.axes[k]) {
                     for e in symbolic.col_range(n + contract) {
                         values[symbolic.row_idx()[e]] = j.val()[e];
                     }
@@ -1630,7 +1639,7 @@ impl<'a> Session<'a> {
             native!(
                 ffi::IDASensInit(
                     s.mem,
-                    integration
+                    s.callback.axes
                         .len()
                         .try_into()
                         .map_err(|_| ProblemError::unsupported("IDAS parameter extent"))?,
@@ -1642,7 +1651,9 @@ impl<'a> Session<'a> {
                 "forward sensitivities",
             )?;
             let mut atol_s = Vec::new();
-            for scale in &p.integration_parameters(&p.parameter_scales) {
+            let scales = p.integration_parameters(&p.parameter_scales);
+            for k in 0..s.callback.axes.len() {
+                let scale = scales[s.callback.axes[k]];
                 let tolerances: Vec<_> = p.atol.iter().map(|v| v / scale).collect();
                 atol_s.push(s.vector(&tolerances)?);
             }
@@ -2093,7 +2104,7 @@ impl<'a> Session<'a> {
                 .jacobian
                 .as_ref()
                 .ok_or_else(|| ProblemError::internal("IDAS output derivative missing"))?;
-            let product = chained(j, &columns, n, &self.callback.map);
+            let product = chained(j, &columns, n, &self.callback.map, &self.callback.axes);
             output_sensitivities = (0..e.values.len())
                 .flat_map(|row| (0..columns.len()).map(move |k| (row, k)))
                 .map(|(row, k)| product[(row, k)])
@@ -3996,7 +4007,10 @@ fn attempt<T>(
         enclosing_scope: None,
         abandonment: Arc::default(),
     };
-    let mut r = Report::new(p, output.retention);
+    let mut r = Report::new(p, output.retention, oracle.contract().parameters.len());
+    if !directions.is_empty() {
+        r.forward_axes = (0..integration.len()).collect();
+    }
     let n = oracle.contract().states.len();
     let failure = |mut report: Report, error: ProblemError| {
         report.termination = stopped(&error, &execution);
