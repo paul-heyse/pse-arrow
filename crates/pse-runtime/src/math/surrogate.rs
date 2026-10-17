@@ -264,9 +264,7 @@ impl SurrogateHandle {
     }
     /// Request cooperative interruption; active admitted work joins before releasing CPU.
     pub fn cancel(&self) {
-        self.scope
-            .cancellation()
-            .store(true, std::sync::atomic::Ordering::Release);
+        self.scope.cancellation_control().cancel();
         self.control.cancel();
     }
 }

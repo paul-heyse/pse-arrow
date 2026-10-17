@@ -327,8 +327,8 @@ impl execution::ComputeAdmission for ComputeOwner {
                     () = jobs_released, if !self.blocked_cpu => {},
                     () = cpu_released, if self.blocked_cpu => {},
                     () = abandoned => {},
-                    () = self.jobs.closed() => {},
-                    () = self.cpu.closed() => {},
+                    () = self.jobs.closed() => return Err(MathRuntimeError::Limit("active jobs closed").into_problem()),
+                    () = self.cpu.closed() => return Err(MathRuntimeError::Limit("CPU admission closed").into_problem()),
                     () = scope.cancellation_control().cancelled() => {},
                     () = async { match scope.deadline() { Some(at) => tokio::time::sleep_until(at.into()).await, None => std::future::pending().await } } => {},
                 }

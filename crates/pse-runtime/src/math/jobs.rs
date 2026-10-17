@@ -218,8 +218,8 @@ impl MathService {
                     () = cpu_released, if reserved && cpu_busy => {},
                     () = jobs_released, if reserved && !cpu_busy => {},
                     () = abandoned => {},
-                    () = self.active_jobs.closed() => {},
-                    () = self.cpu.closed() => {},
+                    () = self.active_jobs.closed() => return Err(MathRuntimeError::Limit("active jobs closed")),
+                    () = self.cpu.closed() => return Err(MathRuntimeError::Limit("CPU admission closed")),
                     () = task_scope.cancellation_control().cancelled() => {},
                     () = async { match task_scope.deadline() { Some(at) => tokio::time::sleep_until(at.into()).await, None => std::future::pending().await } } => {},
                 }
@@ -321,8 +321,8 @@ impl MathService {
             tokio::select! {
                 biased;
                 () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
-                () = self.active_jobs.closed() => {},
-                () = self.cpu.closed() => {},
+                () = self.active_jobs.closed() => return Err(MathRuntimeError::Limit("active jobs closed")),
+                () = self.cpu.closed() => return Err(MathRuntimeError::Limit("CPU admission closed")),
                 () = tokio::time::sleep_until(at.into()) => return Err(Self::admission_timeout()),
                 // A successful tentative reservation was just shrunk when active
                 // capacity was unavailable. Its own release notification must not
@@ -344,6 +344,9 @@ pub(super) fn try_active(
     cores: u32,
 ) -> Result<ActiveAttempt, MathRuntimeError> {
     use tokio::sync::TryAcquireError;
+    // Closure is terminal even when the other capacity owner is busy.
+    if jobs.is_closed() { return Err(MathRuntimeError::Limit("active jobs closed")); }
+    if cpu.is_closed() { return Err(MathRuntimeError::Limit("CPU admission closed")); }
     let job = match jobs.clone().try_acquire_owned() {
         Ok(job) => job,
         Err(TryAcquireError::NoPermits) => return Ok(ActiveAttempt::JobsBusy),
@@ -1389,6 +1392,17 @@ mod construction_tests {
     use super::*;
     use datafusion::execution::memory_pool::{FairSpillPool, MemoryConsumer, MemoryPool};
     use pse_math::construction::ConstructionAdmission;
+    #[test]
+    fn closed_cpu_refuses_even_when_jobs_are_saturated() {
+        let jobs = Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(1));
+        let cpu = Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(1));
+        let held = jobs.clone().try_acquire_owned().unwrap();
+        cpu.close();
+        assert!(matches!(try_active(&jobs, &cpu, 1), Err(MathRuntimeError::Limit("CPU admission closed"))));
+        assert_eq!(jobs.available_permits(), 0);
+        drop(held);
+        assert_eq!(jobs.available_permits(), 1);
+    }
     async fn gated_scoped_job_stops_after_native_join(explicit_cancel: bool) {
         let (service, _cache) = super::super::tests::service_with_policy(
             256 << 20,
