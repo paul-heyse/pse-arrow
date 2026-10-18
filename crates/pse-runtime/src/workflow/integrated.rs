@@ -193,6 +193,9 @@ fn attempt(
     if sensitivity != DynamicSensitivity::Forward {
         profile.forward_axes = None;
     }
+    if sensitivity != DynamicSensitivity::Adjoint {
+        profile.adjoint_parameters = native::dynamics::AdjointParameters::All;
+    }
     profile.time_limit = profile.time_limit.min(
         execution
             .time_limit
@@ -327,7 +330,7 @@ impl IntegratedExperiment {
             .collect()
     }
     /// One forward and one backward pass: the forward report and the gradient of the
-    /// cotangent's functional with respect to each binding's consumer parameter, as
+    /// cotangent's functional with respect to each selected binding's consumer parameter, as
     /// `(parameter, value)` pairs. The checkpoints are charged against the attempt's
     /// foreign allowance.
     pub(crate) fn gradient(
@@ -335,6 +338,7 @@ impl IntegratedExperiment {
         worker: &mut super::dynamics::DynamicWorker,
         value: &dyn Fn(usize) -> f64,
         execution: &Execution,
+        selected: &[usize],
         cotangent: native::dynamics::Cotangent<'_>,
     ) -> Result<(native::dynamics::Report, Vec<(usize, f64)>), ProblemError> {
         let memory = execution.memory.ok_or_else(|| {
@@ -342,9 +346,17 @@ impl IntegratedExperiment {
                 "adjoint gradients need the worker's admitted foreign allowance".into(),
             )
         })?;
-        let profile = attempt(&self.profile, execution, DynamicSensitivity::Adjoint);
+        let bindings = selected.iter().map(|index| self.bindings.get(*index)
+            .ok_or_else(|| ProblemError::internal("adjoint binding extent")))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut axes = Vec::new();
+        for binding in &bindings {
+            if !axes.contains(&binding.local) { axes.push(binding.local); }
+        }
+        let mut profile = attempt(&self.profile, execution, DynamicSensitivity::Adjoint);
+        profile.adjoint_parameters = native::dynamics::AdjointParameters::Selected(axes);
         let native::dynamics::Gradient {
-            report, gradient, ..
+            report, gradient, parameter_axes, ..
         } = native::dynamics::gradient_observed(
             worker,
             &profile,
@@ -357,12 +369,10 @@ impl IntegratedExperiment {
         let report = completed(report)?;
         let gradient = gradient
             .ok_or_else(|| ProblemError::internal("completed adjoint without a gradient"))?;
-        let contributions = self
-            .bindings
-            .iter()
+        let contributions = bindings.iter()
             .map(|b| {
-                gradient
-                    .get(b.local)
+                parameter_axes.iter().position(|axis| *axis == b.local)
+                    .and_then(|column| gradient.get(column))
                     .map(|g| (b.parameter, g * b.conversion.scale))
                     .ok_or_else(|| ProblemError::internal("adjoint gradient extent"))
             })
@@ -370,6 +380,10 @@ impl IntegratedExperiment {
         Ok((report, contributions))
     }
 }
+
+/// Completed window values, physical parameter axes and their ordered gradient.
+#[cfg(feature = "solver-diffsol")]
+type WindowGradient = (native::dynamics::Report, Vec<usize>, Vec<f64>);
 
 /// The forward report, the gradient contributions and the row-major Hessian over the
 /// selected bindings of one second-order adjoint.
@@ -407,7 +421,10 @@ impl IntegratedExperiment {
         let mut directions = bindings.iter().map(|b| b.local).collect::<Vec<_>>();
         directions.sort_unstable();
         directions.dedup();
-        let profile = attempt(&self.profile, execution, DynamicSensitivity::Adjoint);
+        let mut profile = attempt(&self.profile, execution, DynamicSensitivity::Adjoint);
+        // This route consumes the complete first-order binding gradient independently
+        // of the selected second-order directions (ADR-0199).
+        profile.adjoint_parameters = native::dynamics::AdjointParameters::All;
         let native::dynamics::Gradient {
             report,
             gradient,
@@ -547,8 +564,10 @@ impl IntegratedExperiment {
     }
     /// One forward and one backward pass over a shooting window whose quadratures are
     /// observed as outputs after the model's own: the forward report and the gradient of
-    /// the cotangent's functional over the window's integration columns. The checkpoints
+    /// the cotangent's functional over the selected window integration columns, with
+    /// their physical coordinate identity. The checkpoints
     /// are charged against the attempt's foreign allowance.
+    #[expect(clippy::too_many_arguments, reason = "window values, original execution and ordered parameter-gradient demand have separate owners")]
     pub(crate) fn window_gradient(
         &self,
         worker: &mut super::dynamics::DynamicWorker,
@@ -556,8 +575,9 @@ impl IntegratedExperiment {
         integration: &[f64],
         anchors: &[f64],
         execution: &Execution,
+        selected: &[usize],
         cotangent: native::dynamics::Cotangent<'_>,
-    ) -> Result<(native::dynamics::Report, Vec<f64>), ProblemError> {
+    ) -> Result<WindowGradient, ProblemError> {
         let memory = execution.memory.ok_or_else(|| {
             ProblemError::Contract(
                 "adjoint gradients need the worker's admitted foreign allowance".into(),
@@ -568,13 +588,14 @@ impl IntegratedExperiment {
             context.count("dynamics.window_adjoint_initializations", "count", 1);
         }
         let mut oracle = worker.window(true)?;
-        let profile = oracle.profile(&attempt(
+        let mut profile = oracle.profile(&attempt(
             &window.profile,
             execution,
             DynamicSensitivity::Adjoint,
         ));
+        profile.adjoint_parameters = native::dynamics::AdjointParameters::Selected(selected.to_vec());
         let native::dynamics::Gradient {
-            report, gradient, ..
+            report, gradient, parameter_axes, ..
         } = native::dynamics::gradient_observed(
             &mut oracle,
             &profile,
@@ -587,7 +608,7 @@ impl IntegratedExperiment {
         let report = completed(report)?;
         let gradient = gradient
             .ok_or_else(|| ProblemError::internal("completed adjoint without a gradient"))?;
-        Ok((report, gradient))
+        Ok((report, parameter_axes, gradient))
     }
 }
 

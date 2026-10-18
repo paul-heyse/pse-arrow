@@ -1810,6 +1810,10 @@ async fn shooting_integral_only_retains_adjoint_when_no_rows_consume_forward_dir
     profile.objective.terminal.clear();
     let problem = Arc::new(simulation.shooting(profile).unwrap());
     assert!(!problem.forward_quadratures());
+    let selected = problem.adjoint_axes(0);
+    assert_eq!(selected.len(), problem.controls.len());
+    assert!(selected.len() < problem.windows[0].columns.len(), "fixed first-window anchors are physical values, not gradient demand");
+    assert!(selected.iter().all(|axis| matches!(problem.windows[0].columns[*axis], WindowColumn::Integration(_))));
     let mut execution =
         Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
     execution.memory = Some(

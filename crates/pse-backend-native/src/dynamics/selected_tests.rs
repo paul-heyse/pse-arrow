@@ -452,3 +452,160 @@ fn forward_quadrature_selected_physical_axes_offsets_and_admission_are_exact() {
         "underflowed derivative tolerances must refuse before native work"
     );
 }
+
+
+fn adjoint_profile(method: Method, selection: AdjointParameters) -> Profile {
+    let mut profile = profile(method, None);
+    profile.sensitivity = DynamicSensitivity::Adjoint;
+    profile.adjoint_parameters = selection;
+    profile
+}
+fn selected_gradient(oracle: &mut dyn Oracle, p: &Profile, values: &[f64]) -> Gradient {
+    let mut weights = |r: &Report| Ok(r.samples.iter().map(|s| match s.time {
+        0. => 0.3, 0.5 => 0.7, 1. => 1.2, _ => 0.,
+    }).collect());
+    let result = gradient(oracle, p, values, &mut weights, Cancellation::default(), 64 << 20).unwrap();
+    assert_eq!(result.report.termination, Termination::Completed, "{:?}: {:?}", p.method, result.report.error);
+    result
+}
+fn selected_native_width(result: &Gradient, method: Method, width: usize) {
+    let adjoint = result.report.statistics.iter().find_map(|s| s.get("adjoint")).unwrap();
+    if method == Method::Diffsol {
+        assert_eq!(adjoint["parameter_product_width"], width);
+    } else {
+        let problems = adjoint["backward"].as_array().unwrap();
+        assert!(!problems.is_empty(), "empty parameter demand retains the state adjoint");
+        for problem in problems {
+            assert_eq!(problem["parameter_quadrature_width"], width);
+            assert_eq!(problem["quadrature_allocated"], width != 0);
+        }
+    }
+}
+#[test]
+fn selected_adjoint_full_selected_empty_preserve_values_initial_direct_and_schedule() {
+    for method in methods() {
+        let full = selected_gradient(&mut Coupled::new(), &adjoint_profile(method, AdjointParameters::All), &VALUES);
+        assert_eq!(full.parameter_axes, [0, 1, 2, 3, 4]);
+        selected_native_width(&full, method, 5);
+        for axes in [vec![4, 2, 3], vec![0], vec![1, 0], vec![]] {
+            let selected = selected_gradient(&mut Coupled::new(), &adjoint_profile(method, AdjointParameters::Selected(axes.clone())), &VALUES);
+            assert_eq!(selected.parameter_axes, axes);
+            selected_native_width(&selected, method, axes.len());
+            assert!(selected.reserved_bytes < full.reserved_bytes);
+            let derivatives = selected.gradient.as_ref().unwrap();
+            assert_eq!(derivatives.len(), axes.len());
+            for (column, axis) in axes.iter().enumerate() {
+                let expected = 0.3 * analytic(0., *axis).2 + 0.7 * analytic(0.5, *axis).2 + 1.2 * analytic(1., *axis).2;
+                assert!((derivatives[column] - expected).abs() < 2e-5, "{method:?}, axis {axis}: {} vs {expected}", derivatives[column]);
+                assert!((derivatives[column] - full.gradient.as_ref().unwrap()[*axis]).abs() < 2e-5);
+            }
+            for (sample, reference) in selected.report.samples.iter().zip(&full.report.samples) {
+                assert!(sample.state_sensitivities.is_empty() && sample.output_sensitivities.is_empty());
+                assert_eq!(sample.state.len(), 2);
+                let t = sample.time;
+                let later = (t - 0.5).max(0.);
+                let x = VALUES[2] * VALUES[0] + (VALUES[3] + VALUES[0]) * t + (VALUES[4] - VALUES[3]) * later;
+                let y = 1. + VALUES[1] * (VALUES[2] * VALUES[0] * t + (VALUES[3] + VALUES[0]) * t * t / 2. + (VALUES[4] - VALUES[3]) * later * later / 2.);
+                let rate = if t < 0.5 { VALUES[3] } else { VALUES[4] };
+                assert!((sample.state[0] - x).abs() < 2e-5 && (sample.state[1] - y).abs() < 2e-5);
+                assert!((sample.outputs[0] - (x + y + 2. * rate + 3. * VALUES[0])).abs() < 2e-5);
+                assert!((sample.outputs[0] - reference.outputs[0]).abs() < 2e-5);
+            }
+        }
+    }
+}
+#[test]
+fn selected_adjoint_anchor_and_later_interval_keep_physical_identity() {
+    for method in methods() {
+        let mut oracle = Anchored::new(Coupled::new(), false).unwrap();
+        let mut profile = oracle.profile(&adjoint_profile(method, AdjointParameters::All));
+        let values = [5., 2., 0.4, 2., 1., 1., 3.];
+        profile.adjoint_parameters = AdjointParameters::Selected(vec![6, 3]);
+        let result = selected_gradient(&mut oracle, &profile, &values);
+        assert_eq!(result.parameter_axes, [6, 3]);
+        selected_native_width(&result, method, 2);
+        let expected = [0.7 * analytic(0.5, 4).2 + 1.2 * analytic(1., 4).2,
+            0.3 + 0.7 * 2. + 1.2 * 3.];
+        for (actual, exact) in result.gradient.unwrap().iter().zip(expected) {
+            assert!((actual - exact).abs() < 2e-5, "{method:?}: {actual} vs {exact}");
+        }
+    }
+}
+#[test]
+fn selected_adjoint_admission_identity_and_cancelled_product() {
+    for method in methods() {
+        let contract = Coupled::new().0;
+        let full = adjoint_profile(method, AdjointParameters::All);
+        let mut keys = BTreeSet::new();
+        for selection in [AdjointParameters::All, AdjointParameters::Selected(vec![]),
+            AdjointParameters::Selected(vec![4, 2]), AdjointParameters::Selected(vec![2, 4])] {
+            let profile = adjoint_profile(method, selection);
+            assert!(keys.insert(profile_json(&profile).to_string()));
+            assert!(serde_json::to_value(&profile).unwrap().get("adjoint_parameters").is_none());
+        }
+        for axes in [vec![1, 1], vec![5], vec![usize::MAX]] {
+            let p = adjoint_profile(method, AdjointParameters::Selected(axes));
+            assert!(p.validate(&contract, &VALUES).is_err());
+        }
+        let mut p = adjoint_profile(method, AdjointParameters::Selected(vec![2]));
+        p.sensitivity = DynamicSensitivity::None;
+        assert!(p.validate(&contract, &VALUES).is_err());
+        let mut cotangent = |r: &Report| Ok(vec![1.; r.samples.len()]);
+        let cancelled = gradient(&mut Coupled::new(), &full, &VALUES, &mut cotangent, Cancellation::new(true), 64 << 20).unwrap();
+        assert_eq!(cancelled.report.termination, Termination::Cancelled);
+        assert!(cancelled.gradient.is_none());
+        assert_eq!(cancelled.parameter_axes, [0, 1, 2, 3, 4]);
+    }
+}
+
+
+#[test]
+fn selected_adjoint_one_parameter_without_fixed_inputs_and_derivative_failure() {
+    #[derive(Debug)]
+    struct Single(Contract);
+    impl Oracle for Single {
+        fn contract(&self) -> &Contract { &self.0 }
+        fn support(&self, _: usize, f: Function) -> Vec<SupportEntry> {
+            entries(match f { Function::Initial | Function::Rhs => vec![(0, 1)],
+                Function::Output => vec![(0, 0), (0, 1)], _ => vec![] })
+        }
+        fn evaluate(&mut self, _: usize, f: Function, _: f64, x: &[f64], p: &[f64], derivative: bool) -> Result<Evaluation, ProblemError> {
+            let values = match f { Function::Initial | Function::Rhs => vec![p[0]],
+                Function::Output => vec![x[0] + 2. * p[0]], _ => vec![] };
+            let jacobian = derivative.then(|| {
+                let entries = match f { Function::Initial | Function::Rhs => vec![(0, 1, 1.)],
+                    Function::Output => vec![(0, 0, 1.), (0, 1, 2.)], _ => vec![] };
+                faer::sparse::SparseColMat::try_new_from_triplets(values.len(), 2,
+                    &entries.into_iter().map(|(r,c,v)| faer::sparse::Triplet::new(r,c,v)).collect::<Vec<_>>()).unwrap()
+            });
+            Ok(Evaluation { values, jacobian: jacobian.map(|j| Arc::new(j).into()) })
+        }
+    }
+    #[derive(Debug)]
+    struct Fails(Coupled);
+    impl Oracle for Fails {
+        fn contract(&self) -> &Contract { self.0.contract() }
+        fn support(&self, mode: usize, f: Function) -> Vec<SupportEntry> { self.0.support(mode, f) }
+        fn evaluate(&mut self, mode: usize, f: Function, t: f64, x: &[f64], p: &[f64], derivative: bool) -> Result<Evaluation, ProblemError> {
+            if derivative && f == Function::Output { return Err(ProblemError::numerical("selected derivative fixture failure")); }
+            self.0.evaluate(mode, f, t, x, p, derivative)
+        }
+    }
+    for method in methods() {
+        let mut contract = Coupled::new().0;
+        contract.states.truncate(1); contract.differential.truncate(1); contract.parameters.truncate(1);
+        let mut p = adjoint_profile(method, AdjointParameters::Selected(vec![0]));
+        p.schedule.clear(); p.atol.truncate(1); p.parameter_scales.truncate(1);
+        let result = selected_gradient(&mut Single(contract), &p, &[2.]);
+        let expected = 0.3 * 3. + 0.7 * 3.5 + 1.2 * 4.;
+        assert!((result.gradient.unwrap()[0] - expected).abs() < 2e-5);
+        for sample in result.report.samples { assert!((sample.outputs[0] - (6. + 2. * sample.time)).abs() < 2e-5); }
+        let p = adjoint_profile(method, AdjointParameters::Selected(vec![4]));
+        let mut weights = |r: &Report| Ok(vec![1.; r.samples.len()]);
+        let failed = gradient(&mut Fails(Coupled::new()), &p, &VALUES, &mut weights, Cancellation::default(), 64 << 20).unwrap();
+        assert_ne!(failed.report.termination, Termination::Completed);
+        assert_eq!(failed.parameter_axes, [4]);
+        assert!(failed.gradient.is_none());
+        assert!(!failed.report.samples.is_empty(), "completed weaker forward samples survive derivative failure");
+    }
+}

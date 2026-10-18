@@ -574,13 +574,26 @@ pub fn forward_quadratures_observed(
     )
 }
 
+/// Ordered physical parameter-gradient coordinates of an adjoint request. This is
+/// independent of forward sensitivities, the state adjoint and Hessian directions.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize)]
+pub enum AdjointParameters {
+    /// Every physical integration coordinate, including scheduled intervals.
+    #[default]
+    All,
+    /// Exactly these unique coordinates, in order. Empty requests no coordinates.
+    Selected(Vec<usize>),
+}
+
 /// A functional's gradient and the forward trajectory it was taken on (ADR-0110 item 3).
 #[derive(Debug)]
 pub struct Gradient {
     /// The forward pass, whose samples carry values without sensitivities. A backward pass
     /// that fails records its termination and cause here; the forward samples remain.
     pub report: Report,
-    /// dJ/dp over the integration parameters, present when both passes completed.
+    /// Physical integration coordinate for each returned gradient entry.
+    pub parameter_axes: Vec<usize>,
+    /// dJ/dp in `parameter_axes` order, present when both passes completed.
     pub gradient: Option<Vec<f64>>,
     /// The second-order route's d²J/dpᵢdpⱼ over the requested directions, symmetric,
     /// present when both passes completed (ADR-0110 item 4); absent on the first-order
@@ -596,8 +609,8 @@ pub struct Gradient {
 pub type Cotangent<'c> = &'c mut dyn FnMut(&Report) -> Result<Vec<f64>, ProblemError>;
 
 /// The gradient of a scalar functional of the sampled outputs with respect to the
-/// integration parameters, by checkpointed adjoint sensitivities. The profile requests
-/// [`DynamicSensitivity::Adjoint`]; the checkpoint estimate ([`Profile::checkpoint_bytes`])
+/// profile's ordered adjoint parameter coordinates, by checkpointed adjoint sensitivities.
+/// The profile requests [`DynamicSensitivity::Adjoint`]; the checkpoint estimate ([`Profile::checkpoint_bytes`])
 /// must fit `memory` before any native work. The forward pass runs once, `cotangent` reads
 /// its samples, and the backward pass carries the adjoint state across scheduled changes.
 #[cfg(any(feature = "diffsol", feature = "idas"))]
@@ -779,7 +792,7 @@ fn sample_elimination_bytes(c: &Contract, layout: &PreparedLayout) -> Option<usi
 /// The jump of the adjoint at an observed sample, shared by both adjoint backends
 /// (ADR-0110 item 3). With `c` the cotangent of the sample's outputs `y = g(x, p)`, the
 /// differential adjoint gains `dJ/dx_d` and the gradient gains `dJ/dp` over the contract
-/// parameters, both total derivatives through the algebraic states, which the index-1
+/// selected parameters, both total derivatives through the algebraic states, which the index-1
 /// constraint `F_a(x_d, x_a, p) = 0` determines: with `F_aaᵀ w = g_aᵀc`,
 /// `dJ/dx_d = g_dᵀc − F_adᵀw` and `dJ/dp = g_pᵀc − F_apᵀw`. The algebraic adjoint has no
 /// jump of its own; the integrator's consistent initialization recomputes it. `output` and
@@ -791,13 +804,14 @@ pub(crate) fn sample_jump(
     output: faer::sparse::SparseColMatRef<'_, usize, f64>,
     rhs: Option<faer::sparse::SparseColMatRef<'_, usize, f64>>,
     cotangent: &[f64],
+    parameter_columns: &[Option<usize>],
     preparation: &mut SampleEliminationPreparation,
 ) -> Result<(Vec<f64>, Vec<f64>), ProblemError> {
     if output.nrows() != cotangent.len() || output.ncols() < differential.len() {
         return Err(ProblemError::internal("adjoint jump extent"));
     }
     let eliminated = SampleElimination::prepared(differential, rhs, output.ncols(), preparation)?
-        .solve(transposed_product(output, cotangent))?;
+        .solve_selected(selected_transposed_product(output, cotangent, differential.len(), parameter_columns), parameter_columns)?;
     Ok((eliminated.state, eliminated.parameters))
 }
 /// A total derivative over the state followed by the contract parameters after the
@@ -806,7 +820,8 @@ pub(crate) fn sample_jump(
 pub(crate) struct Eliminated {
     /// Over the state: the differential part; zero on algebraic states.
     pub(crate) state: Vec<f64>,
-    /// Over the contract parameters.
+    /// Over the requested parameter columns: full contract order for `solve`,
+    /// selected contract-column order (including inactive zeros) for `solve_selected`.
     pub(crate) parameters: Vec<f64>,
     /// The constraint multipliers `w` of `F_aaᵀ w = b_a`, scattered over the algebraic rows
     /// of the residual function and zero on its differential rows.
@@ -829,6 +844,23 @@ pub(crate) fn transposed_product(
         faer::Par::Seq,
     );
     out
+}
+/// Required state transpose product plus only the selected contract parameter columns.
+/// Inactive scheduled coordinates have no direct contribution in this segment.
+/// Pinned faer's sparse transpose matmul consumes every matrix column. Gathering
+/// these CSC columns avoids a full product or rebuilding a sparse matrix per callback;
+/// faer still owns the algebraic factor and solve.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub(crate) fn selected_transposed_product(
+    matrix: faer::sparse::SparseColMatRef<'_, usize, f64>,
+    v: &[f64],
+    states: usize,
+    parameters: &[Option<usize>],
+) -> Vec<f64> {
+    (0..states).map(Some).chain(parameters.iter().map(|column| column.map(|q| states + q)))
+        .map(|column| column.map_or(0., |column| matrix.col_range(column)
+            .map(|entry| matrix.val()[entry] * v[matrix.row_idx()[entry]]).sum()))
+        .collect()
 }
 /// Eliminate the algebraic states from `b`, a derivative over the state followed by the
 /// contract parameters: with `F_aaᵀ w = b_a`, the result is `b − F_zᵀw` with its algebraic
@@ -998,13 +1030,23 @@ impl<'a> SampleElimination<'a> {
         })
     }
     pub(crate) fn solve(&mut self, jump: Vec<f64>) -> Result<Eliminated, ProblemError> {
+        self.solve_columns(jump, None)
+    }
+    /// The same state factor and elimination with only demanded parameter corrections.
+    pub(crate) fn solve_selected(&mut self, jump: Vec<f64>, columns: &[Option<usize>]) -> Result<Eliminated, ProblemError> {
+        if columns.iter().flatten().any(|q| self.n.checked_add(*q).is_none_or(|c| c >= self.width)) {
+            return Err(ProblemError::internal("selected adjoint constraint columns"));
+        }
+        self.solve_columns(jump, Some(columns))
+    }
+    fn solve_columns(&mut self, jump: Vec<f64>, columns: Option<&[Option<usize>]>) -> Result<Eliminated, ProblemError> {
         if !self.ready {
             return Err(ProblemError::numerical(
                 "sample elimination factor is invalid",
             ));
         }
         let result = crate::observation::scoped("dynamics.sample_elimination.solve", || {
-            self.solve_ready(jump)
+            self.solve_ready(jump, columns)
         });
         if result.is_err() {
             self.ready = false;
@@ -1012,9 +1054,10 @@ impl<'a> SampleElimination<'a> {
         }
         result
     }
-    fn solve_ready(&self, mut jump: Vec<f64>) -> Result<Eliminated, ProblemError> {
+    fn solve_ready(&self, mut jump: Vec<f64>, columns: Option<&[Option<usize>]>) -> Result<Eliminated, ProblemError> {
         use faer::linalg::solvers::Solve;
-        if jump.len() != self.width || jump.iter().any(|v| !v.is_finite()) {
+        let width = columns.map_or(self.width, |columns| self.n.saturating_add(columns.len()));
+        if jump.len() != width || jump.iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::numerical("adjoint jump extent or values"));
         }
         let mut multipliers = vec![0.0; self.n];
@@ -1033,7 +1076,9 @@ impl<'a> SampleElimination<'a> {
             let f = self
                 .rhs
                 .ok_or_else(|| ProblemError::internal("adjoint constraint partials"))?;
-            for (total, correction) in jump.iter_mut().zip(transposed_product(f, &multipliers)) {
+            let corrections = columns.map_or_else(|| transposed_product(f, &multipliers),
+                |columns| selected_transposed_product(f, &multipliers, self.n, columns));
+            for (total, correction) in jump.iter_mut().zip(corrections) {
                 *total -= correction;
             }
             for i in &self.algebraic {
@@ -1261,6 +1306,9 @@ pub struct Profile {
     /// every axis for ordinary Forward. Complete physical values are always supplied.
     #[serde(skip)]
     pub forward_axes: Option<Vec<usize>>,
+    /// Internal adjoint parameter-gradient demand; ordinary requests explicitly use All.
+    #[serde(skip)]
+    pub adjoint_parameters: AdjointParameters,
     /// Checkpointing of the adjoint backward pass; used only by adjoint gradients.
     #[serde(default)]
     pub adjoint: AdjointSettings,
@@ -1463,6 +1511,20 @@ impl DynamicDecision {
     }
 }
 impl Profile {
+    /// Ordered adjoint parameter-gradient axes, without changing physical values.
+    pub fn adjoint_axes(&self, parameters: usize) -> Vec<usize> {
+        match &self.adjoint_parameters {
+            AdjointParameters::All => (0..self.integration_width(parameters)).collect(),
+            AdjointParameters::Selected(axes) => axes.clone(),
+        }
+    }
+    /// Native parameter-product width of this adjoint request.
+    pub fn adjoint_width(&self, parameters: usize) -> usize {
+        match &self.adjoint_parameters {
+            AdjointParameters::All => self.integration_width(parameters),
+            AdjointParameters::Selected(axes) => axes.len(),
+        }
+    }
     /// Ordered physical axes of a forward request; adjoint layouts remain independent.
     pub fn forward_axes(&self, parameters: usize) -> Vec<usize> {
         if self.sensitivity != DynamicSensitivity::Forward {
@@ -1580,6 +1642,7 @@ impl Profile {
         // Physical interval coordinates change when clipping a horizon. Consumers
         // select the new window's coordinates after constructing its value mapping.
         window.forward_axes = None;
+        window.adjoint_parameters = AdjointParameters::All;
         window.schedule = self
             .schedule
             .iter()
@@ -1952,12 +2015,17 @@ impl Profile {
             })
             .and_then(|cells| cells.checked_mul(size_of::<f64>()))
             .ok_or_else(|| ProblemError::memory("adjoint checkpoint extent overflow"))?;
-        bytes
-            .checked_add(self.native_scatter_bytes(
+        // Parameter quadrature history, selected products, corrections and returned
+        // coordinates coexist with the complete physical state/checkpoint allowance.
+        let selected = self.adjoint_width(c.parameters.len());
+        let parameter_bytes = selected.checked_mul(32 * size_of::<f64>() + 4 * size_of::<usize>())
+            .ok_or_else(|| ProblemError::memory("adjoint parameter workspace extent"))?;
+        bytes.checked_add(parameter_bytes)
+            .and_then(|bytes| bytes.checked_add(self.native_scatter_bytes(
                 layout,
                 DynamicDemand::Base,
                 c.parameters.len(),
-            )?)
+            ).ok()?))
             .and_then(|bytes| bytes.checked_add(sample_elimination_bytes(c, layout)?))
             .and_then(|bytes| {
                 if self.method == Method::Diffsol {
@@ -1989,6 +2057,9 @@ impl Profile {
         c: &Contract,
         directions: &[usize],
     ) -> Result<(), ProblemError> {
+        if self.adjoint_parameters != AdjointParameters::All {
+            return Err(contract("exact Hessians require explicit full first-order parameter gradients"));
+        }
         if self.sensitivity != DynamicSensitivity::Adjoint {
             return Err(contract(
                 "an exact transient Hessian needs the adjoint sensitivity profile",
@@ -2302,6 +2373,13 @@ impl Profile {
             self.admit_adjoint(c)?;
         }
         let np = self.integration_width(c.parameters.len());
+        if let AdjointParameters::Selected(axes) = &self.adjoint_parameters
+            && (self.sensitivity != DynamicSensitivity::Adjoint
+                || axes.iter().any(|axis| *axis >= np)
+                || axes.iter().enumerate().any(|(k, axis)| axes[..k].contains(axis)))
+        {
+            return Err(contract("adjoint parameter axes must be unique physical integration coordinates"));
+        }
         if let Some(axes) = &self.forward_axes
             && (self.sensitivity != DynamicSensitivity::Forward
                 || axes.iter().any(|axis| *axis >= np)
@@ -2988,6 +3066,7 @@ pub fn profile_json(p: &Profile) -> serde_json::Value {
     let mut value = encoded(p);
     if let serde_json::Value::Object(fields) = &mut value {
         fields.insert("forward_axes".into(), encoded(&p.forward_axes));
+        fields.insert("adjoint_parameters".into(), encoded(&p.adjoint_parameters));
         fields.insert("resolved_method".into(), encoded(&p.resolved_method().ok()));
     }
     value
@@ -3215,6 +3294,7 @@ impl Default for Profile {
             max_cells: 1_000_000,
             sensitivity: no_sensitivity(),
             forward_axes: None,
+            adjoint_parameters: AdjointParameters::All,
             adjoint: AdjointSettings::default(),
             parameter_scales: vec![],
             schedule: vec![],

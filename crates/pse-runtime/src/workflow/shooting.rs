@@ -986,7 +986,7 @@ impl ShootingProblem {
         }
         if n > 0 && !self.integral.is_empty() && !forward_quadratures {
             let observed = worker(true).map_err(problem)?;
-            for window in &self.windows {
+            for (k, window) in self.windows.iter().enumerate() {
                 let parameters = IntegratedExperiment::window_parameters(
                     window,
                     &integration,
@@ -996,6 +996,7 @@ impl ShootingProblem {
                 let mut profile = observed.profile(&window.profile);
                 profile.sensitivity = DynamicSensitivity::Adjoint;
                 profile.forward_axes = None;
+                profile.adjoint_parameters = native::dynamics::AdjointParameters::Selected(self.adjoint_axes(k));
                 profile
                     .validate(native::dynamics::Oracle::contract(&observed), &parameters)
                     .map_err(problem)?;
@@ -1006,6 +1007,12 @@ impl ShootingProblem {
             context.boolean("shooting.forward_quadrature_admitted", forward_quadratures);
         }
         Ok(())
+    }
+    /// Physical window axes actually consumed by the integral objective gradient.
+    fn adjoint_axes(&self, window: usize) -> Vec<usize> {
+        self.windows[window].columns.iter().enumerate()
+            .filter_map(|(axis, source)| self.variable(window, source).map(|_| axis))
+            .collect()
     }
     /// The NLP variable a window's integration column moves, if any.
     fn variable(&self, window: usize, column: &WindowColumn) -> Option<usize> {
@@ -1574,17 +1581,20 @@ impl ShootingOracle {
                     k as u64,
                     None,
                 );
+                let selected = p.adjoint_axes(k);
                 let product = p.experiment.window_gradient(
                     worker,
                     window,
                     &integration,
                     p.anchors(k, x),
                     &self.execution,
+                    &selected,
                     &mut cotangent,
                 );
                 observation.finish(product.is_ok());
-                let (_, gradient) = product?;
-                for (column, d) in window.columns.iter().zip(&gradient) {
+                let (_, axes, gradient) = product?;
+                for (axis, d) in axes.iter().zip(&gradient) {
+                    let column = window.columns.get(*axis).ok_or_else(|| ProblemError::internal("shooting adjoint coordinate"))?;
                     if let Some(v) = p.variable(k, column) {
                         total[v] += d;
                     }

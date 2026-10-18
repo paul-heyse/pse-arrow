@@ -264,8 +264,6 @@ struct Operator<'o> {
     /// The transposed patterns of the adjoint operators −Jₓᵀ and −Jₚᵀ.
     state_adjoint_pattern: Pattern,
     parameter_adjoint_pattern: Pattern,
-    /// One transposed-product buffer over the state followed by the contract parameters.
-    transposed: RefCell<Vec<f64>>,
 }
 impl<'o> Operator<'o> {
     fn new(shared: Rc<Shared<'o>>, function: Function) -> Result<Self, ProblemError> {
@@ -359,7 +357,6 @@ impl<'o> Operator<'o> {
                 .collect(),
             contract: contract_columns,
             direction: RefCell::new(vec![0.0; n + np]),
-            transposed: RefCell::new(vec![0.0; n + np]),
             shared,
             function,
             mode,
@@ -386,35 +383,31 @@ impl<'o> Operator<'o> {
     /// −Jᵀv from the oracle's one CSC by a faer transpose product: over the state, or over
     /// the segment's integration columns, where a column this segment maps no contract
     /// parameter to is zero.
+    // Gather only demanded CSC columns: faer's complete transpose matmul would
+    // calculate fixed parameter products, or require a new sparse matrix per call.
     fn transpose_product(&self, x: &V, t: f64, v: &V, y: &mut V, parameter: bool) {
+        if parameter && self.shared.width() == 0 { return; }
         let j = self.raw_partials(x, t);
         let n = self.nstates();
-        let mut product = self.transposed.borrow_mut();
-        let width = product.len();
-        faer::sparse::linalg::matmul::sparse_dense_matmul(
-            faer::MatMut::from_column_major_slice_mut(&mut product, width, 1),
-            faer::Accum::Replace,
-            j.as_ref().as_ref().transpose(),
-            faer::MatRef::from_column_major_slice(v.as_slice(), v.len(), 1),
-            -1.0,
-            faer::Par::Seq,
-        );
         if parameter {
+            crate::observation::integer("diffsol.adjoint.parameter_product_width", "count", self.shared.width() as i64);
+            let symbolic = j.symbolic();
             for (k, slot) in y.as_mut_slice().iter_mut().enumerate() {
-                *slot = self
-                    .contract
-                    .get(k)
-                    .copied()
-                    .flatten()
-                    .map_or(0.0, |c| product[n + c]);
+                *slot = self.contract[k].map_or(0.0, |c| {
+                    symbolic.col_range(n + c).map(|e| -j.val()[e] * v[symbolic.row_idx()[e]]).sum()
+                });
             }
-        } else {
-            y.as_mut_slice().copy_from_slice(&product[..n]);
+            return;
+        }
+        let symbolic = j.symbolic();
+        for (col, slot) in y.as_mut_slice().iter_mut().enumerate() {
+            *slot = symbolic.col_range(col).map(|e| -j.val()[e] * v[symbolic.row_idx()[e]]).sum();
         }
     }
     /// −Jᵀ in its transposed pattern: each column is a function row, each row a state or
     /// an integration column of the segment.
     fn transpose_partials(&self, x: &V, t: f64, matrix: &mut M, parameter: bool) {
+        if parameter && self.shared.width() == 0 { return; }
         let j = self.raw_partials(x, t);
         let n = self.nstates();
         let target = matrix.inner_mut();
@@ -829,6 +822,8 @@ impl<'o> Shared<'o> {
         let contract_value = oracle.contract().clone();
         let axes = if profile.sensitivity == DynamicSensitivity::Forward {
             profile.forward_axes(contract_value.parameters.len())
+        } else if profile.sensitivity == DynamicSensitivity::Adjoint {
+            profile.adjoint_axes(contract_value.parameters.len())
         } else {
             (0..parameters.len()).collect()
         };
@@ -1017,7 +1012,7 @@ fn build_problem<'o>(
     if p.forward() {
         builder = builder.sens_rtol(p.rtol).sens_atol(p.atol.clone());
     }
-    if p.sensitivity == DynamicSensitivity::Adjoint {
+    if p.sensitivity == DynamicSensitivity::Adjoint && !scales.is_empty() {
         let atol = p.atol.iter().copied().fold(f64::INFINITY, f64::min);
         builder = builder
             .param_rtol(p.rtol)
