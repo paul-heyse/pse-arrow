@@ -526,3 +526,174 @@ fn repeated_banded_sparse_stock_and_krylov_complete_operation_contrast() {
         }
     }
 }
+
+/// Cheap residuals separate native analysis from expensive oracle work. Every
+/// application changes coefficients and the nonuniform manufactured physical root.
+#[derive(Clone, Copy, Debug)]
+enum SparseShape {
+    Band,
+    Blocks { recycle: bool },
+    Grid,
+}
+#[derive(Debug)]
+struct Manufactured {
+    contract: OracleContract,
+    matrix: faer::sparse::SparseColMat<usize, f64>,
+    target: Vec<f64>,
+    nonlinear: bool,
+    calls: Rc<RefCell<Calls>>,
+}
+impl Manufactured {
+    fn new(shape: SparseShape, generation: usize, nonlinear: bool) -> Self {
+        let n = match shape {
+            SparseShape::Band => 4096,
+            SparseShape::Blocks { .. } => 64 * 8,
+            SparseShape::Grid => 32 * 32,
+        };
+        let mut root = Root::new(n, false, Shape::Cubic, 1.);
+        let mut support = Vec::new();
+        let coefficient = 0.03 + generation as f64 * 0.015;
+        for row in 0..n {
+            let mut neighbours = Vec::new();
+            match shape {
+                SparseShape::Band => {
+                    neighbours.extend((1..=4).map(|d| (row + n - d) % n));
+                }
+                SparseShape::Blocks { recycle } => {
+                    let block = row / 8;
+                    neighbours.extend((block * 8..block * 8 + 8).filter(|c| *c != row));
+                    if block > 0 || recycle {
+                        neighbours.push((row + n - 8) % n);
+                    }
+                }
+                SparseShape::Grid => {
+                    if row % 32 > 0 { neighbours.push(row - 1); }
+                    if row % 32 < 31 { neighbours.push(row + 1); }
+                    if row >= 32 { neighbours.push(row - 32); }
+                    if row + 32 < n { neighbours.push(row + 32); }
+                }
+            }
+            support.push(faer::sparse::Triplet::new(row, row,
+                1. + coefficient * neighbours.len() as f64));
+            for col in neighbours {
+                support.push(faer::sparse::Triplet::new(row, col, -coefficient));
+            }
+        }
+        root.matrix = faer::sparse::SparseColMat::try_new_from_triplets(n, n, &support).unwrap();
+        Self {
+            contract: root.contract,
+            matrix: root.matrix,
+            target: (0..n).map(|i| 0.9 + (i % 19) as f64 * 0.01 + generation as f64 * 0.1).collect(),
+            nonlinear,
+            calls: Rc::default(),
+        }
+    }
+    fn physical_residual(&self, x: &[f64], out: &mut [f64]) {
+        out.fill(0.);
+        for col in 0..x.len() {
+            let difference = x[col] - self.target[col];
+            for (row, value) in self.matrix.symbolic().row_idx_of_col(col)
+                .zip(self.matrix.val_of_col(col)) {
+                out[row] += value * difference;
+            }
+            if self.nonlinear {
+                out[col] += x[col].powi(3) - self.target[col].powi(3);
+            }
+        }
+    }
+}
+impl NleOracle for Manufactured {
+    fn contract(&self) -> &OracleContract { &self.contract }
+    fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+        self.matrix.symbolic()
+    }
+    fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        let started = Instant::now();
+        self.physical_residual(x, out);
+        let mut calls = self.calls.borrow_mut();
+        calls.residuals += 1;
+        calls.residual_nanos += started.elapsed().as_nanos();
+        Ok(())
+    }
+    fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        let started = Instant::now();
+        let mut offset = 0;
+        for col in 0..x.len() {
+            for (row, value) in self.matrix.symbolic().row_idx_of_col(col)
+                .zip(self.matrix.val_of_col(col)) {
+                out[offset] = value + if self.nonlinear && row == col { 3. * x[col] * x[col] } else { 0. };
+                offset += 1;
+            }
+        }
+        let mut calls = self.calls.borrow_mut();
+        calls.jacobians += 1;
+        calls.jacobian_nanos += started.elapsed().as_nanos();
+        Ok(())
+    }
+    fn jacobian_product(&mut self, x: &[f64], direction: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.calls.borrow_mut().products += 1;
+        out.fill(0.);
+        for col in 0..x.len() {
+            for (row, value) in self.matrix.symbolic().row_idx_of_col(col)
+                .zip(self.matrix.val_of_col(col)) {
+                out[row] += value * direction[col];
+            }
+            if self.nonlinear { out[col] += 3. * x[col] * x[col] * direction[col]; }
+        }
+        Ok(())
+    }
+}
+#[test]
+fn fixed_pattern_short_stock_screen() {
+    for shape in [SparseShape::Band, SparseShape::Blocks { recycle: false },
+        SparseShape::Blocks { recycle: true }, SparseShape::Grid] {
+        for nonlinear in [false, true] {
+            // One nonlinear shape is enough to expose within-call setup behaviour.
+            if nonlinear && !matches!(shape, SparseShape::Blocks { recycle: true }) { continue; }
+            for linear in [Linear::Klu, Linear::Spgmr {
+                dimension: pse_model::scalars::PositiveCount::try_new(20).unwrap(),
+            }] {
+                let n = Manufactured::new(shape, 0, nonlinear).target.len();
+                let mut config = settings(n, 10);
+                config.method.linear = linear;
+                if linear.krylov().is_some() { config.method.preconditioner = Preconditioner::Jacobi; }
+                let stamp = crate::solver_tests::stamp(Backend::Kinsol);
+                let mut session = Session::new(
+                    Function::Equations(Box::new(Manufactured::new(shape, 0, nonlinear))),
+                    config.clone(), execution(), stamp.clone(),
+                ).unwrap();
+                for generation in 0..3 {
+                    let root = Manufactured::new(shape, generation, nonlinear);
+                    let verification = Manufactured::new(shape, generation, nonlinear);
+                    let calls = root.calls.clone();
+                    let mut current = stamp.clone();
+                    current.data = pse_ids::ContentHash::from_bytes([generation as u8; 32]);
+                    let initial: Vec<_> = (0..n).map(|i| 0.3 + (i % 7) as f64 * 0.01).collect();
+                    let started = Instant::now();
+                    session.replace(Function::Equations(Box::new(root)), config.clone(), current).unwrap();
+                    let (report, phases) = if linear == Linear::Klu {
+                        solve_observed(&mut session, &initial)
+                    } else { (solve(&mut session, &initial), LinearPhases::default()) };
+                    let elapsed = started.elapsed();
+                    assert_eq!(report.termination.category, Termination::Success,
+                        "{shape:?} nonlinear={nonlinear} {linear:?} generation={generation}");
+                    assert!(report.quality.as_ref().unwrap().feasible());
+                    let x = &report.candidate.as_ref().unwrap().primal;
+                    assert!(x.iter().zip(&verification.target).all(|(x, root)| (x - root).abs() <= 0.001));
+                    let mut residual = vec![0.; n];
+                    verification.physical_residual(x, &mut residual);
+                    let original_max = residual.iter().map(|r| r.abs()).fold(0., f64::max);
+                    assert!(original_max <= 0.001, "original residual {original_max}");
+                    if linear == Linear::Klu {
+                        assert_eq!(count(&report, "klu.symbolic.completed"), 1);
+                        assert!(count(&report, "klu.numeric_factor.completed") >= 1);
+                    }
+                    eprintln!("stock_screen shape={shape:?} n={n} nonlinear={nonlinear} linear={linear:?} generation={generation} replacement_solve_ns={} retained_bytes={} calls={:?} native_phase_ns={:?} symbolic={:?} numeric={:?} refactor={:?} substitutions={:?} original_max={original_max}",
+                        elapsed.as_nanos(), session.retained_bytes(), calls.borrow(), phases.nanos,
+                        report.metrics.get("klu.symbolic.completed"), report.metrics.get("klu.numeric_factor.completed"),
+                        report.metrics.get("klu.refactor.completed"), report.metrics.get("klu.solve.completed"));
+                }
+            }
+        }
+    }
+}
