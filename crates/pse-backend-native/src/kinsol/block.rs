@@ -13,12 +13,14 @@ struct Block {
     // remain stored, so numeric zero crossings cannot change the retained pattern.
     coefficients: Vec<usize>,
     matrix: feral::SparseColMatrix,
+    rhs: Vec<f64>,
     factor: Option<feral::SparseLu>,
 }
 /// Immutable semantic projection plus mutable factors owned by one KINSOL session.
 #[derive(Debug)]
 pub(super) struct Blocks {
     blocks: Vec<Block>,
+    result: Vec<f64>,
     retained_allowance: usize,
     pub(super) factor_calls: u64,
     pub(super) factors_completed: u64,
@@ -89,6 +91,8 @@ impl Blocks {
         } else {
             projection
         };
+        let scratch_bytes = n.checked_mul(2 * size_of::<f64>()).ok_or_else(|| ProblemError::memory("block application storage extent"))?;
+        let factor_plan = factor_plan.checked_add(scratch_bytes).ok_or_else(|| ProblemError::memory("block retained storage extent"))?;
         let required = factor_plan
             .checked_add(construction)
             .and_then(|bytes| bytes.checked_add(native_workspace))
@@ -211,6 +215,7 @@ impl Blocks {
             };
             matrix.validate().map_err(crate::conditioning::native)?;
             blocks.push(Block {
+                rhs: vec![0.; row_slots.len()],
                 rows: row_slots,
                 columns: column_slots,
                 coefficients,
@@ -237,6 +242,7 @@ impl Blocks {
         execution.check()?;
         Ok(Self {
             blocks,
+            result: vec![0.; n],
             retained_allowance: factor_plan,
             factor_calls: 0,
             factors_completed: 0,
@@ -309,28 +315,25 @@ impl Blocks {
         &mut self,
         rhs: &[f64],
         execution: &Execution,
-    ) -> Result<Vec<f64>, ProblemError> {
-        let mut result = vec![0.; rhs.len()];
+    ) -> Result<&[f64], ProblemError> {
+        if rhs.len() != self.result.len() || rhs.iter().any(|value| !value.is_finite()) {
+            return Err(ProblemError::Contract("block preconditioner right-hand side extent or values".into()));
+        }
+        self.result.fill(0.);
         for block in &mut self.blocks {
             execution.check()?;
             let factor = block.factor.as_mut().ok_or_else(|| {
                 ProblemError::Internal("block solve lacks completed factor setup".into())
             })?;
-            let mut local = block
-                .rows
-                .iter()
-                .map(|&row| {
-                    rhs.get(row).copied().ok_or_else(|| {
-                        ProblemError::Contract("block preconditioner right-hand side extent".into())
-                    })
-                })
-                .collect::<Result<Vec<_>, _>>()?;
+            for (slot, &row) in block.rhs.iter_mut().zip(&block.rows) {
+                *slot = rhs[row];
+            }
             self.solve_calls = self
                 .solve_calls
                 .checked_add(1)
                 .ok_or_else(|| ProblemError::Internal("block solve count overflow".into()))?;
             let solved =
-                crate::observation::scoped("kinsol.block.feral.solve", || factor.ftran(&mut local));
+                crate::observation::scoped("kinsol.block.feral.solve", || factor.ftran(&mut block.rhs));
             crate::observation::count(
                 if solved.is_ok() {
                     "kinsol.block.feral.solve.succeeded"
@@ -341,16 +344,16 @@ impl Blocks {
             );
             solved.map_err(crate::conditioning::native)?;
             execution.check()?;
-            if local.iter().any(|value| !value.is_finite()) {
+            if block.rhs.iter().any(|value| !value.is_finite()) {
                 return Err(ProblemError::numerical(
                     "block preconditioner nonfinite solution",
                 ));
             }
-            for (&column, value) in block.columns.iter().zip(local) {
-                result[column] = value;
+            for (&column, value) in block.columns.iter().zip(&block.rhs) {
+                self.result[column] = *value;
             }
         }
-        Ok(result)
+        Ok(&self.result)
     }
     pub(super) fn count(&self) -> usize {
         self.blocks.len()
@@ -526,6 +529,31 @@ mod tests {
         assert!(blocks.solve(&[1.; 3], &execution).is_err());
         blocks.setup(&[0., 3., 2., 1., 4., 5.], &execution).unwrap();
         assert!(blocks.solve(&[2., 1., 14.], &execution).is_ok());
+    }
+    #[test]
+    fn retained_block_application_buffers_survive_repeats_failure_and_recovery() {
+        let function = Function::Equations(Box::new(Coupled::new(Arc::new(AtomicU64::new(0)), false, false)));
+        let execution = execution();
+        let mut blocks = Blocks::admit(&function, &execution, linear()).unwrap();
+        blocks.setup(&[0., 3., 2., 1., 4., 5.], &execution).unwrap();
+        let global = blocks.result.as_ptr();
+        let local = blocks.blocks.iter().map(|b| b.rhs.as_ptr()).collect::<Vec<_>>();
+        for _ in 0..32 {
+            assert_eq!(blocks.solve(&[2., 1., 14.], &execution).unwrap(), &[0., 1., 2.8]);
+            assert_eq!(blocks.result.as_ptr(), global);
+            assert_eq!(blocks.blocks.iter().map(|b| b.rhs.as_ptr()).collect::<Vec<_>>(), local);
+        }
+        assert!(blocks.solve(&[1.; 2], &execution).is_err());
+        assert!(blocks.setup(&[0.; 6], &execution).is_err());
+        assert!(blocks.solve(&[2., 1., 14.], &execution).is_err());
+        blocks.setup(&[0., 3., 2., 1., 4., 5.], &execution).unwrap();
+        assert!(blocks.solve(&[2., 1., 14.], &execution).is_ok());
+        let stopped = execution.clone();
+        stopped.cancel.store(true, Ordering::Relaxed);
+        assert!(blocks.solve(&[2., 1., 14.], &stopped).is_err());
+        stopped.cancel.store(false, Ordering::Relaxed);
+        assert!(blocks.solve(&[2., 1., 14.], &execution).is_ok());
+        assert_eq!(blocks.result.as_ptr(), global);
     }
     #[test]
     fn library_btf_factor_action_keeps_coupling_in_true_product_and_refuses_unowned_storage() {

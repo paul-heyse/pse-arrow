@@ -1066,9 +1066,11 @@ unsafe extern "C" fn precondition_solve(
     let value = c.state.evaluate("preconditioner.solve", || {
         // SAFETY: KINSOL passes null or a live serial vector for the callback, and
         // `values` checks it against the `n` coordinates.
-        let z = if let Some(blocks) = &mut c.blocks {
-            // SAFETY: as above, the callback's checked live serial right-hand side.
-            blocks.solve(unsafe { values(v, c.n) }?, &execution)?
+        if let Some(blocks) = &mut c.blocks {
+            // SAFETY: the callback's checked live serial right-hand side.
+            let z = blocks.solve(unsafe { values(v, c.n) }?, &execution)?;
+            // SAFETY: the native RHS is no longer borrowed; the output is session-owned.
+            unsafe { publish(v, z) }
         } else {
             // SAFETY: the callback receives this session's live serial vector with n entries.
             let z: Vec<f64> = unsafe { values(v, c.n) }?
@@ -1076,10 +1078,9 @@ unsafe extern "C" fn precondition_solve(
                 .zip(&c.inverse_diagonal)
                 .map(|(r, d)| r * d)
                 .collect();
-            z
-        };
-        // SAFETY: as above; the slice read above is no longer used.
-        unsafe { publish(v, &z) }
+            // SAFETY: the RHS slice is no longer used.
+            unsafe { publish(v, &z) }
+        }
     });
     result(value, &c.state)
 }
