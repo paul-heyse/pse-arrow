@@ -6748,6 +6748,51 @@ mod compact_tests {
         assert_eq!(result.jacobian, [12., 4.]);
     }
 
+    #[test]
+    fn sparse_symbolic_firsts_match_analytic_and_taylor_nonlinear_compositions() {
+        crate::initialize().unwrap();
+        let expressions = (0..4).map(|row| {
+            let x = library::formal(2 * row).unwrap();
+            let y = library::formal(2 * row + 1).unwrap();
+            x.clone().sin() * y + x.exp()
+        }).collect();
+        let body = PreparedBody::new(8, 12, (8..12).collect(), vec![Stage::Block {
+            expressions, outputs: (8..12).collect(), source: SemanticId::NIL,
+        }], DerivativeOrder::First).unwrap();
+        let make = || body.compile(&(0..4).collect::<Vec<_>>(), &(0..8).collect::<Vec<_>>(), DerivativeOrder::First,
+            Optimization::default(), EvaluationLimits::default(),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None)).unwrap();
+        let selected = make();
+        FORCE_TAYLOR_FIRST.set(true);
+        let taylor = make();
+        FORCE_TAYLOR_FIRST.set(false);
+        let mut worker = selected.worker();
+        let mut point = vec![0.; 8];
+        for seed in [0.0f64, -2., 0.5, 2.] {
+            for row in 0..4 { point[2 * row] = seed + row as f64 / 10.; point[2 * row + 1] = row as f64 - 1.; }
+            let actual = eval(&mut worker, &point, DerivativeOrder::First).unwrap();
+            let reference = eval(&mut taylor.worker(), &point, DerivativeOrder::First).unwrap();
+            for (a, b) in actual.values.iter().zip(&reference.values).chain(actual.jacobian.iter().zip(&reference.jacobian)) {
+                assert!((a - b).abs() < 1e-12 * (1. + b.abs()));
+            }
+            for row in 0..4 {
+                let (x, y) = (point[2 * row], point[2 * row + 1]);
+                let first_x = y * x.cos() + x.exp();
+                let first_y = x.sin();
+                assert!((actual.values[row] - (x.sin() * y + x.exp())).abs() < 1e-12 * (1. + actual.values[row].abs()));
+                for axis in 0..8 {
+                    let expected = if axis == 2 * row { first_x } else if axis == 2 * row + 1 { first_y } else { 0. };
+                    assert!((actual.jacobian[row * 8 + axis] - expected).abs() < 1e-12 * (1. + expected.abs()));
+                }
+            }
+        }
+        assert_eq!(selected.first_result_entries(), 8);
+        point[0] = 800.;
+        assert!(matches!(eval(&mut worker, &point, DerivativeOrder::First), Err(MathError::Domain { .. })));
+        point[0] = 0.;
+        assert_eq!(eval(&mut worker, &point, DerivativeOrder::First).unwrap().jacobian.len(), 32);
+    }
+
     #[cfg(feature = "compiled-evaluator")]
     #[test]
     fn native_compact_selected_firsts_retain_original_value_checks_and_recover() {
