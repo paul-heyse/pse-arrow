@@ -404,13 +404,7 @@ impl<'o> Operator<'o> {
             .shared
             .evaluate_mode(self.mode, self.function, t, x.as_slice(), true);
         match result.jacobian {
-            Some(j) => {
-                if j.symbolic().col_ptr() != self.source_pattern.col_ptr()
-                    || j.symbolic().row_idx() != self.source_pattern.row_idx() {
-                    self.shared.abort(Termination::Failed, ProblemError::internal("dynamic source Jacobian changed its prepared pattern"));
-                }
-                j
-            },
+            Some(j) => j,
             None => self.shared.abort(
                 Termination::Failed,
                 ProblemError::internal("missing dynamic partials"),
@@ -443,19 +437,49 @@ impl<'o> Operator<'o> {
             for (target, value) in y.as_mut_slice().iter_mut().zip(&candidate[..n]) { *target = -*value; }
         }
     }
+    fn fixed_storage(&self, source: &faer::sparse::SparseColMat<usize,f64>) -> bool {
+        source.symbolic().col_ptr() == self.source_pattern.col_ptr()
+            && source.symbolic().row_idx() == self.source_pattern.row_idx()
+    }
     fn transpose_partials(&self, x: &V, t: f64, matrix: &mut M, parameter: bool) {
         if parameter && self.shared.width() == 0 { return; }
         let source = self.raw_partials(x, t);
         let offsets = if parameter { &self.parameter_adjoint_refill } else { &self.state_adjoint_refill };
-        for (target, offset) in matrix.inner_mut().val_mut().iter_mut().zip(offsets) {
-            *target = offset.map_or(0., |i| -source.val()[i]);
+        if self.fixed_storage(source.as_ref()) {
+            for (target, offset) in matrix.inner_mut().val_mut().iter_mut().zip(offsets) {
+                *target = offset.map_or(0., |i| -source.val()[i]);
+            }
+        } else {
+            // Generic Oracle support is an all-branch upper bound, not a promise
+            // that every returned CSC stores structural zeros. Compiled owners
+            // take the fixed-offset path above; sparse generic snapshots keep
+            // their existing exact-value contract.
+            let target = matrix.inner_mut();
+            for c in 0..target.ncols() {
+                for k in target.col_range(c) {
+                    let r = target.symbolic().row_idx()[k];
+                    let col = if parameter { self.contract[r].map(|p| self.nstates()+p) } else { Some(r) };
+                    target.val_mut()[k] = col.and_then(|col| source.get(c,col).copied()).map_or(0., |v| -v);
+                }
+            }
         }
     }
     fn partials(&self, x: &V, t: f64, matrix: &mut M, parameter: bool) {
         let source = self.raw_partials(x, t);
         let offsets = if parameter { &self.parameter_refill } else { &self.state_refill };
-        for (target, offset) in matrix.inner_mut().val_mut().iter_mut().zip(offsets) {
-            *target = offset.map_or(0., |i| source.val()[i]);
+        if self.fixed_storage(source.as_ref()) {
+            for (target, offset) in matrix.inner_mut().val_mut().iter_mut().zip(offsets) {
+                *target = offset.map_or(0., |i| source.val()[i]);
+            }
+        } else {
+            let target = matrix.inner_mut();
+            for c in 0..target.ncols() {
+                let col = if parameter { self.contract[c].map(|p| self.nstates()+p) } else { Some(c) };
+                for k in target.col_range(c) {
+                    let row = target.symbolic().row_idx()[k];
+                    target.val_mut()[k] = col.and_then(|col| source.get(row,col).copied()).unwrap_or(0.);
+                }
+            }
         }
     }
     fn product(&self, x: &V, t: f64, v: &V, y: &mut V, parameter: bool) {
@@ -1861,7 +1885,7 @@ mod action_route_tests {
     impl Oracle for Actions {
         fn contract(&self) -> &Contract { &self.contract }
         fn support(&self, _: usize, _: Function) -> Vec<SupportEntry> {
-            entries(vec![(0,0), (0,2), (0,3), (1,1), (1,2)])
+            entries(vec![(0,0), (0,1), (0,2), (0,3), (1,1), (1,2)])
         }
         fn evaluate(&mut self, _:usize, _:Function, _:f64, x:&[f64], p:&[f64], derivative:bool) -> Result<Evaluation,ProblemError> {
             let matrix = derivative.then(|| {
@@ -1916,7 +1940,9 @@ mod action_route_tests {
         // prepared refill offsets and keep the same derivative meaning.
         let mut matrix=M::new_from_sparsity(2,2,Some(operator.state_pattern.clone()),context);
         operator.partials(&x,0.,&mut matrix,false);
-        assert_eq!(matrix.inner().val(),&[2.,-7.]);
+        assert_eq!(matrix.inner().get(0,0),Some(&2.));
+        assert_eq!(matrix.inner().get(0,1),Some(&0.));
+        assert_eq!(matrix.inner().get(1,1),Some(&-7.));
         let mut transposed=M::new_from_sparsity(3,2,Some(operator.parameter_adjoint_pattern.clone()),context);
         operator.transpose_partials(&x,0.,&mut transposed,true);
         assert_eq!(transposed.inner().get(1,0),Some(&-5.));

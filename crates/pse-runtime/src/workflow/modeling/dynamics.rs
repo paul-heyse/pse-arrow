@@ -2531,6 +2531,7 @@ impl ModelingPackage {
             .values()
             .map(|q| ModelingOutput::Member(q.integrand).row_id())
             .collect::<Vec<_>>();
+        let window_cotangents = !quadrature_rows.is_empty();
         let mut roles = vec![
             (Function::Rhs, rhs.clone(), BTreeMap::new()),
             (Function::Initial, initial, constants),
@@ -2586,7 +2587,9 @@ impl ModelingPackage {
                 // Diffsol sensitivity/adjoint operators demand both actions. A
                 // direct matrix callback may still supply an already completed J.
                 actions.push(pse_math::jets::ProductKind::JacobianAction);
-                if profile.sensitivity == native::DynamicSensitivity::Adjoint {
+                // Integral shooting windows consume adjoints even when the
+                // ordinary trajectory requested forward or value-only outputs.
+                if profile.sensitivity == native::DynamicSensitivity::Adjoint || shooting || window_cotangents {
                     actions.push(pse_math::jets::ProductKind::TransposeJacobianAction);
                 }
             }

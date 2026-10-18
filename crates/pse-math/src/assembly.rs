@@ -160,9 +160,14 @@ pub struct CasePlan {
     requests: Arc<Vec<LocalDemand>>,
     supports: Arc<Vec<Arc<PreparedSupport>>>,
     available: DerivativeOrder,
+    actions: PreparedActions,
     limits: AssemblyLimits,
     owner: Option<Arc<dyn crate::AllocationOwner>>,
 }
+// Preparation permission survives an empty/constant projection, where there is
+// no local program to carry it. Requests below still own actual compiled work.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct PreparedActions { jacobian: bool, transpose: bool, hessian: bool }
 /// Distinct dependency projections of one original contribution. Execution includes
 /// branch and validity inputs, including fixed symbols; numerical support does not.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -960,6 +965,7 @@ impl CasePlan {
             order,
             requests: Arc::new(requests),
             supports: Arc::new(supports),
+            actions: PreparedActions::default(),
             available,
             limits,
             owner: None,
@@ -1339,6 +1345,11 @@ impl CasePlan {
             });
         }
         let mut result = self.clone();
+        match product {
+            ProductKind::JacobianAction => result.actions.jacobian = true,
+            ProductKind::TransposeJacobianAction => result.actions.transpose = true,
+            _ => return Err(MathError::Contract("first action preparation kind".into())),
+        }
         result.product_weights = Arc::new(prepare_product_weights(
             &instances,
             &self.structure,
@@ -1360,6 +1371,7 @@ impl CasePlan {
             return Err(MathError::Cancelled);
         }
         let mut result = self.clone();
+        result.actions.hessian = true;
         let mut instances = self.instances.as_ref().clone();
         let mut requests = self.requests.as_ref().clone();
         let mut supports = self.supports.as_ref().clone();
@@ -1395,21 +1407,12 @@ impl CasePlan {
         Ok(result)
     }
     /// Whether a direct weighted action program was explicitly admitted.
-    pub fn has_hessian_actions(&self) -> bool {
-        self.requests
-            .iter()
-            .any(|request| request.product == ProductKind::WeightedHessianAction)
-    }
-    /// Whether independently demanded directional constraint actions are prepared.
-    pub fn has_directional_actions(&self) -> bool {
-        self.requests
-            .iter()
-            .any(|r| r.product == ProductKind::JacobianAction)
-    }
-    /// Whether actual constraint cotangent programs were admitted.
-    pub fn has_transpose_actions(&self) -> bool {
-        self.requests.iter().any(|r| r.product == ProductKind::TransposeJacobianAction)
-    }
+    pub fn has_hessian_actions(&self) -> bool { self.actions.hessian }
+    /// Whether directional constraint actions were explicitly admitted, including
+    /// mathematically empty projections requiring no local arithmetic program.
+    pub fn has_directional_actions(&self) -> bool { self.actions.jacobian }
+    /// Whether constraint cotangent actions were explicitly admitted.
+    pub fn has_transpose_actions(&self) -> bool { self.actions.transpose }
     /// Construction extent of immutable support/order or directional-demand
     /// upgrades. Numerical evaluators are deferred; this bounds selected support,
     /// instance/demand copies and actual possible sparse derivative contributions.
@@ -1650,6 +1653,7 @@ impl CasePlan {
         cancel: &Arc<AtomicBool>,
     ) -> Result<bool, MathError> {
         if self.structure != original.structure
+            || self.actions != PreparedActions::default()
             || self.columns != original.columns
             || self.bodies != original.bodies
             || self
@@ -4136,4 +4140,28 @@ fn constraint_cotangents_use_direct_products_or_completed_matrix_and_preserve_al
     }
 }
 
+}
+
+#[cfg(test)]
+mod empty_action_tests {
+    use super::*;
+    #[test]
+    fn explicitly_prepared_empty_actions_keep_capability_without_unused_programs() {
+        let (source, values)=crate::assembly_tests::fixture(false,false);
+        let cancel=pse_diagnostics::Cancellation::default();
+        let plan=CasePlan::prepare_functions(source.structure(),|id|source.bodies().get(&id).cloned(),
+            &[],source.columns().to_vec(),&pse_quantity::standard::standard_registry().unwrap(),
+            DerivativeOrder::First,AssemblyLimits::default(),&cancel.flag()).unwrap();
+        assert!(!plan.has_directional_actions() && !plan.has_transpose_actions());
+        let plan=plan.with_directional_actions(&cancel.flag()).unwrap().with_transpose_actions(&cancel.flag()).unwrap();
+        assert!(plan.has_directional_actions() && plan.has_transpose_actions());
+        assert!(plan.requests.is_empty());
+        let assembly=Arc::new(Arc::new(plan).compile(Optimization::default(),EvaluationLimits::default(),
+            &pse_kernels::ExecutionScope::new(cancel.clone(),None)).unwrap());
+        let mut worker=assembly.worker(pse_kernels::ProviderBindings::new(),cancel);
+        worker.jacobian_product(&values,&vec![1.;assembly.columns().len()],&mut[]).unwrap();
+        let mut output=vec![f64::NAN;assembly.columns().len()];
+        worker.jacobian_transpose_product(&values,&[],&mut output).unwrap();
+        assert!(output.iter().all(|v|*v==0.));
+    }
 }
