@@ -262,24 +262,16 @@ fn factor_workspace_bytes(unknowns: usize) -> Option<usize> {
         .checked_add(4096)
 }
 
-fn selected_inputs(
-    worker: &Worker,
-    unknowns: &[f64],
-    parameters: &[f64],
-) -> Result<Vec<f64>, MathError> {
-    worker
-        .input_formals()
-        .iter()
-        .map(|formal| {
-            if *formal < unknowns.len() {
-                unknowns.get(*formal)
-            } else {
-                parameters.get(*formal - unknowns.len())
-            }
-            .copied()
-            .ok_or_else(|| MathError::Contract("implicit compiled input signature".into()))
-        })
-        .collect()
+fn selected_inputs(worker:&Worker,unknowns:&[f64],parameters:&[f64])->Result<Vec<f64>,MathError> {
+    let mut values=Vec::new();fill_selected_inputs(worker,unknowns,parameters,&mut values)?;Ok(values)
+}
+fn fill_selected_inputs(worker:&Worker,unknowns:&[f64],parameters:&[f64],values:&mut Vec<f64>)->Result<(),MathError> {
+    values.clear();
+    for &formal in worker.input_formals() {
+        values.push(if formal<unknowns.len() { unknowns.get(formal) } else { parameters.get(formal-unknowns.len()) }
+            .copied().ok_or_else(|| MathError::Contract("implicit compiled input signature".into()))?);
+    }
+    Ok(())
 }
 
 // Owned public results copy only the requested representation. Internal residual
@@ -563,15 +555,7 @@ impl Problem {
                 .lock()
                 .map_err(|_| MathError::Library("implicit worker lock poisoned".into()))?;
             let ResidualWorker { worker, inputs, evaluation } = &mut *held;
-            for (&formal, value) in worker.input_formals().iter().zip(inputs.iter_mut()) {
-                *value = if formal < unknowns.len() {
-                    unknowns.get(formal)
-                } else {
-                    parameters.get(formal - unknowns.len())
-                }
-                .copied()
-                .ok_or_else(|| MathError::Contract("implicit original-formal gather map".into()))?;
-            }
+            fill_selected_inputs(worker,unknowns,parameters,inputs)?;
             worker.evaluate_trial_into(
                 inputs,
                 order,
@@ -1375,6 +1359,7 @@ impl ImplicitFactory {
                     .checked_add(branch.criterion.retained_bytes())?
                     .checked_add(branch.criterion.worker_bytes())?
                     .checked_add(branch.criterion.evaluation_cache_bytes())?
+                    .checked_add((branch.eligibility.input_formals().len()+branch.criterion.input_formals().len()).checked_mul(size_of::<f64>())?)?
                     .checked_add(
                         branch
                             .isolation
@@ -1889,21 +1874,24 @@ impl Nested {
         n: usize,
         output: pse_kernels::ProviderOutput<'_>,
     ) -> Result<(), pse_kernels::ProviderError> {
+        Self::project_fields(&all.values,&all.jacobian,&all.hessians,request,n,output)
+    }
+    fn project_fields(values:&[f64],jacobian:&[f64],hessians:&[f64],request:&pse_kernels::PreparedProviderRequest,n:usize,output:pse_kernels::ProviderOutput<'_>)->Result<(),pse_kernels::ProviderError> {
         let first_width = match &request.demand {
             pse_kernels::ProviderDemand::SelectedColumns { columns } => columns.len(),
             pse_kernels::ProviderDemand::JacobianAction { directions } => *directions,
             _ => n,
         };
         let contracted = matches!(request.demand, pse_kernels::ProviderDemand::TransposeAction { .. } | pse_kernels::ProviderDemand::WeightedSecondAction { .. });
-        if contracted { output.jacobian.copy_from_slice(&all.jacobian); output.hessians.copy_from_slice(&all.hessians); }
+        if contracted { output.jacobian.copy_from_slice(jacobian); output.hessians.copy_from_slice(hessians); }
         for (row, &i) in request.outputs.iter().enumerate() {
-            output.values[row] = all.values[i];
+            output.values[row] = values[i];
             if request.order >= DerivativeOrder::First && !contracted {
-                output.jacobian[row*first_width..(row+1)*first_width].copy_from_slice(&all.jacobian[i*first_width..(i+1)*first_width]);
+                output.jacobian[row*first_width..(row+1)*first_width].copy_from_slice(&jacobian[i*first_width..(i+1)*first_width]);
             }
             if request.order >= DerivativeOrder::Second && !contracted {
                 let width = first_width*first_width;
-                output.hessians[row*width..(row+1)*width].copy_from_slice(&all.hessians[i*width..(i+1)*width]);
+                output.hessians[row*width..(row+1)*width].copy_from_slice(&hessians[i*width..(i+1)*width]);
             }
         }
         Ok(())

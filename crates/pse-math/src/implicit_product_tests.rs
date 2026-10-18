@@ -19,6 +19,9 @@ impl InnerWorker for CountedAffineWorker {
     }
 }
 fn coupled(parameters: usize, max_entries: usize) -> (Factory, Vec<f64>, Arc<AtomicUsize>) {
+    coupled_with_optimization(parameters,max_entries,Optimization::default())
+}
+fn coupled_with_optimization(parameters: usize, max_entries: usize,optimization:Optimization) -> (Factory, Vec<f64>, Arc<AtomicUsize>) {
     crate::initialize().unwrap();
     let id = pse_ids::named_id(SemanticId::NIL, "coupled implicit product oracle");
     let control = pse_diagnostics::Cancellation::default();
@@ -34,7 +37,7 @@ fn coupled(parameters: usize, max_entries: usize) -> (Factory, Vec<f64>, Arc<Ato
     let calls = Arc::new(AtomicUsize::new(0));
     let solver = Arc::new(CountedAffine { actual: Affine::new(&body,2).unwrap(), calls: calls.clone() });
     let compiled = Arc::new(body.compile(&[0,1], &(0..parameters+2).collect::<Vec<_>>(), DerivativeOrder::Second,
-        Optimization::default(), EvaluationLimits::default(), &ExecutionScope::new(control.clone(),None)).unwrap());
+        optimization, EvaluationLimits::default(), &ExecutionScope::new(control.clone(),None)).unwrap());
     let registry = pse_quantity::standard::standard_registry().unwrap(); let q = registry.neutral_dimensionless().unwrap();
     let unit = registry.quantity_type(q).unwrap().canonical_unit;
     let port = |name: &str| pse_kernels::Port { id: pse_ids::named_id(id,name), quantity:q, unit };
@@ -190,19 +193,22 @@ fn implicit_factor_first_upgrade_affine_use_and_failure_preserve_exact_associati
 
 #[test]
 fn implicit_preparation_retains_finite_demands_and_current_admission_owner() {
-    #[derive(Debug)] struct Admission(AtomicUsize);
-    impl crate::construction::ConstructionAdmission for Admission { fn try_grow(&self,bytes:usize)->Result<(),MathError>{ self.0.fetch_add(bytes,Ordering::Relaxed);Ok(()) } }
-    let (factory,parameters,_)=coupled(12,64);let admission=Arc::new(Admission(AtomicUsize::new(0)));
+    #[derive(Debug)] struct Admission { bytes:AtomicUsize,refuse:AtomicBool }
+    impl crate::construction::ConstructionAdmission for Admission { fn try_grow(&self,bytes:usize)->Result<(),MathError>{ if self.refuse.load(Ordering::Acquire) { return Err(MathError::Limit("current attempt storage")); } self.bytes.fetch_add(bytes,Ordering::Relaxed);Ok(()) } }
+    let (factory,parameters,solves)=coupled(12,64);let admission=Arc::new(Admission { bytes:AtomicUsize::new(0),refuse:AtomicBool::new(false) });
     let mut provider=crate::construction::scoped(admission.clone(),||factory.create().unwrap());
     let first=ProviderRequest { outputs:vec![0],order:DerivativeOrder::First,demand:ProviderDemand::SelectedColumns { columns:vec![0] }};
     let second=ProviderRequest { outputs:vec![1],order:DerivativeOrder::First,demand:ProviderDemand::SelectedColumns { columns:vec![1] }};
-    let prepared=provider.prepare(first.clone()).unwrap();let one=admission.0.load(Ordering::Relaxed);assert!(one>0,"preparation reinstalls the current attempt's owner");
-    provider.prepare(second).unwrap();let two=admission.0.load(Ordering::Relaxed);assert!(two>one);
-    provider.prepare(first).unwrap();assert_eq!(admission.0.load(Ordering::Relaxed),two,"alternating demands reuse retained programs");
+    admission.refuse.store(true,Ordering::Release);
+    assert!(provider.prepare(first.clone()).is_err());assert_eq!(solves.load(Ordering::Relaxed),0,"storage refusal precedes numerical effects");
+    admission.refuse.store(false,Ordering::Release);
+    let prepared=provider.prepare(first.clone()).unwrap();let one=admission.bytes.load(Ordering::Relaxed);assert!(one>0,"preparation reinstalls the current attempt's owner");
+    provider.prepare(second).unwrap();let two=admission.bytes.load(Ordering::Relaxed);assert!(two>one);
+    provider.prepare(first).unwrap();assert_eq!(admission.bytes.load(Ordering::Relaxed),two,"alternating demands reuse retained programs");
     let flag=factory.cancel.flag();let context=EvaluationContext { cancelled:flag.as_ref(),max_result_bytes:1<<20 };
     let mut buffer=ProviderBuffer::new(&prepared);buffer.fill(&mut provider,&parameters,&prepared,Default::default(),&context).unwrap();
-    let after=admission.0.load(Ordering::Relaxed);
-    buffer.fill(&mut provider,&parameters,&prepared,Default::default(),&context).unwrap();assert_eq!(admission.0.load(Ordering::Relaxed),after);
+    let after=admission.bytes.load(Ordering::Relaxed);
+    buffer.fill(&mut provider,&parameters,&prepared,Default::default(),&context).unwrap();assert_eq!(admission.bytes.load(Ordering::Relaxed),after);
 }
 
 #[derive(Debug,Clone)]
@@ -335,4 +341,23 @@ fn implicit_recursive_nested_actions_compose_actual_child_linearizations() {
         if let Some(token)=token { assert_eq!(actual.linearization,Some(token),"normalized original occurrences agree across action legs"); }else {token=Some(actual.linearization.unwrap());}
         match demand { ProviderDemand::JacobianAction { .. }=>close(actual.jacobian,&[-expected.jacobian[0],-expected.jacobian[p]]),ProviderDemand::TransposeAction { .. }=>close(actual.jacobian,&expected.jacobian[..p].iter().map(|v|-v).collect::<Vec<_>>()),ProviderDemand::WeightedSecondAction { .. }=>{close(actual.jacobian,&expected.jacobian[..p].iter().map(|v|-v).collect::<Vec<_>>());close(actual.hessians,&(0..p).map(|j|-expected.hessians[j*p]).collect::<Vec<_>>());},_=>unreachable!() }
     }
+}
+
+#[cfg(feature="compiled-evaluator")]
+#[test]
+fn native_implicit_preparation_preserves_selected_evaluator_policy() {
+    let optimization=Optimization { evaluator:crate::library::Evaluator::CompiledScalar { module_bytes:1<<20 },..Optimization::default() };
+    let (factory,parameters,_)=coupled_with_optimization(12,64,optimization);let scope=ExecutionScope::new(factory.cancel.clone(),None);let problem=factory.problem(scope.clone()).unwrap();
+    let request=pse_kernels::PreparedProviderRequest::new(Arc::new(factory.spec.clone()),ProviderRequest { outputs:vec![0,1],order:DerivativeOrder::Second,demand:ProviderDemand::SelectedColumns { columns:vec![0,1] }}).unwrap();
+    problem.prepare_product(&request,&scope).unwrap();
+    {
+        let programs=problem.product_workers.lock().unwrap();assert_eq!(programs.len(),1);
+        assert!(programs[0].native_blocks>0,"actual prepared residual blocks use the selected native evaluator");
+        assert_eq!(programs[0].worker.lock().unwrap().worker.census().instantiated_orders,[false;3],"native modules are prepared without numerical evaluator instantiation");
+    }
+    let expected=analytic(&parameters);let options=match &factory.configuration { Configuration::Fixed(_,options)=>options,_=>unreachable!() };
+    problem.verify(&parameters,&expected.values,options,&factory.cancel.flag()).unwrap();
+    let actual=problem.demanded_derivatives(&parameters,&expected.values,&request,Default::default(),options,ContentHash::from_bytes([81;32]),&scope).unwrap();
+    close(&actual.values,&expected.values);close(&actual.jacobian,&[expected.jacobian[0],expected.jacobian[1],expected.jacobian[12],expected.jacobian[13]]);
+    let programs=problem.product_workers.lock().unwrap();assert_eq!(programs.len(),1);assert!(programs[0].worker.lock().unwrap().worker.census().instantiated_orders[DerivativeOrder::Second as usize]);
 }

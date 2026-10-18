@@ -139,6 +139,7 @@ impl RegimeFactory {
                     criterion: r.criterion.worker_scoped(scope.clone()),
                     eligibility_source: r.eligibility.clone(),
                     criterion_source: r.criterion.clone(),
+                    isolation_identity:None,
                     eligibility_trial: Default::default(),criterion_trial:Default::default(),eligibility_inputs:Vec::new(),criterion_inputs:Vec::new(),
                     isolation: match (&r.isolation, offsets) {
                         (Some(program), Some(offsets)) => {
@@ -254,12 +255,18 @@ impl pse_kernels::Provider for SelectedProvider {
         // winner and never requires an all-parameter Second jet.
         let scientific=pse_kernels::PreparedProviderRequest::new(Arc::new(request.spec().clone()),pse_kernels::ProviderRequest::all(request.spec(),request.order.min(DerivativeOrder::First)))?;
         for r in &mut self.selection.alternatives {
+            if r.isolation_identity.is_none() { r.isolation_identity=r.isolation.as_ref().map(|program|program.identity()); }
             r.problem.prepare_product(&scientific,scope).map_err(super::provider_error)?;
             r.problem.prepare_product(request,scope).map_err(super::provider_error)?;
             let mut bank=r.problem.providers.lock().map_err(|_| pse_kernels::ProviderError::Terminal("regime provider lock poisoned".into()))?;
             r.eligibility.prepare_providers(&mut bank).map_err(super::provider_error)?;
             r.criterion.prepare_providers(&mut bank).map_err(super::provider_error)?;
         }
+        let bytes=2*size_of::<pse_kernels::ProviderRequest>()+(request.outputs.len()+match &request.demand { pse_kernels::ProviderDemand::SelectedColumns { columns }=>columns.len(),_=>0 })*size_of::<usize>();
+        let owner=self.selection.alternatives.first().and_then(|r|r.problem.construction_owner.clone());
+        let charge=||crate::construction::additional(bytes);
+        match owner { Some(owner)=>crate::construction::scoped(owner,charge),None=>charge() }.map_err(super::provider_error)?;
+        self.prepared.try_reserve_exact(1).map_err(|_|pse_kernels::ProviderError::Limit("selected prepared demand slots"))?;
         self.prepared.push(request.request().clone());Ok(())
     }
     fn fill(
@@ -292,13 +299,14 @@ impl pse_kernels::Provider for SelectedProvider {
         self.linearization=None;
         let complete=request.demand==pse_kernels::ProviderDemand::CompleteJets;
         let order=if complete { request.order } else { request.order.min(DerivativeOrder::First) };
-        let selected=match self.selection.evaluate(inputs,order,&control) { Ok(value)=>value,Err(error)=>{ for r in &self.selection.alternatives { r.problem.invalidate_factor(); } return Err(super::provider_error(error)); } };
+        self.selection.evaluate_current(inputs,order,&control).map_err(super::provider_error)?;
         let product=self.selection.numerical.as_ref().ok_or_else(|| pse_kernels::ProviderError::Terminal("missing regime completion".into()))?;
+        let selected=&product.selected;
         let winner=self.selection.alternatives.iter().position(|r| r.problem.id==selected.id).ok_or_else(|| pse_kernels::ProviderError::Terminal("missing winning regime".into()))?;
         let r=&self.selection.alternatives[winner];
         let scope=self.selection.scope.as_ref().ok_or_else(|| pse_kernels::ProviderError::Contract("selected provider detached scope".into()))?;
         if complete {
-            super::Nested::project(&pse_kernels::ProviderValues { values:selected.values.clone(),jacobian:selected.jacobian,hessians:selected.hessians },request,inputs.len(),output)?;
+            super::Nested::project_fields(&selected.values,&selected.jacobian,&selected.hessians,request,inputs.len(),output)?;
         } else {
             let actual=r.problem.demanded_derivatives(inputs,&selected.values,request,runtime,&product.configurations[winner],product.key,scope).map_err(super::provider_error)?;
             super::Nested::project(&actual,request,inputs.len(),output)?;
@@ -308,10 +316,26 @@ impl pse_kernels::Provider for SelectedProvider {
         if order>=DerivativeOrder::First {
             let mut h=pse_ids::FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
             h.str("selected-current-linearization-v1").id(&self.selection.id).id(&selected.id).hash(&product.key);
+            let certified=self.selection.chart.as_ref();
+            if let Some(chart)=certified {
+                h.id(&chart.selection).u64(chart.winner as u64).hash(&chart.verifier_identity);
+                for (a,r) in chart.alternatives.iter().zip(&self.selection.alternatives) {
+                    h.id(&a.id).hash(&a.residual_identity);
+                    if let Some(identity)=r.isolation_identity { h.hash(&identity); } else { return Err(pse_kernels::ProviderError::Contract("unprepared selection proof source".into())); }
+                    for u in &a.unknowns { h.id(&u.id).f64(u.lower).f64(u.upper); }
+                }
+                for intervals in [&chart.parameters,&chart.existence,&chart.uniqueness] {
+                    h.u64(intervals.len() as u64);for i in intervals { h.f64(i.lower).f64(i.upper); }
+                }
+            }
             let mut qualified=true;
-            for r in &self.selection.alternatives {
+            for (index,r) in self.selection.alternatives.iter().enumerate() {
+                // A certified chart establishes rival exclusion/regularity;
+                // only the winning branch has a current numerical factor.
+                if certified.is_some() && index!=winner { continue; }
                 if r.problem.frame_completed_structure(&mut h).is_none() { qualified=false;break; }
                 for trial in [&r.eligibility_trial,&r.criterion_trial] {
+                    h.u64(trial.provider_visits().len() as u64);
                     for visit in trial.provider_visits() { h.id(&visit.source).hash(&visit.provider.0);if let Some(token)=visit.linearization { token.frame(&mut h); } else { qualified=false; } }
                 }
             }
@@ -336,6 +360,7 @@ pub struct Regime {
     eligibility_source: Arc<CompiledBody>,
     criterion_source: Arc<CompiledBody>,
     isolation: Option<Arc<crate::factorable::RootIsolationProgram>>,
+    isolation_identity:Option<pse_ids::ContentHash>,
     eligibility_trial: crate::execution::TrialEvaluation,
     criterion_trial: crate::execution::TrialEvaluation,
     eligibility_inputs: Vec<f64>, criterion_inputs: Vec<f64>,
@@ -1448,6 +1473,48 @@ mod tests {
             assert_eq!(selected.chart_chain_proof(), None);
         }
     }
+    #[test]
+    fn malformed_public_regime_assessment_signature_returns_typed_refusal() {
+        use crate::guarded::{PreparedBody,Stage};
+        use symbolica::atom::Atom;
+        for eligibility_bad in [true,false] {
+            let mut selected=selection([true,true]);let mut r=selected.alternatives.remove(0);
+            let control=pse_diagnostics::Cancellation::default();let scope=pse_kernels::ExecutionScope::new(control.clone(),None);
+            let options=r.configuration.resolve(&mut r.problem,&[0.],&control.flag(),None).unwrap();
+            let expression=crate::library::formal(2).unwrap();
+            let expressions=if eligibility_bad { vec![expression] } else { vec![expression,Atom::num(0)] };
+            let outputs=(3..3+expressions.len()).collect::<Vec<_>>();
+            let malformed=PreparedBody::new(3,3+expressions.len(),outputs.clone(),vec![Stage::Block { expressions,outputs,source:r.problem.id }],DerivativeOrder::First).unwrap();
+            let malformed=Arc::new(malformed.compile(&(0..malformed.output_count()).collect::<Vec<_>>(),&[0,1,2],DerivativeOrder::First,crate::library::Optimization::default(),crate::jets::EvaluationLimits::default(),&scope).unwrap());
+            let mut r=Regime::new(r.problem,options,if eligibility_bad { malformed.clone() } else { r.eligibility_source },if eligibility_bad { r.criterion_source } else { malformed },Arc::new(Roots { fail:None,wrong:false })).unwrap();
+            assert!(matches!(r.assess(&[0.],&[-1.],DerivativeOrder::Value,&control.flag()),Err(MathError::Contract(message)) if message=="implicit compiled input signature"));
+        }
+    }
+    #[test]
+    fn certified_multi_regime_narrow_tokens_support_enclosing_reverse() {
+        use crate::guarded::{PreparedBody,Stage};
+        use crate::jets::{ProductKind,ProductValues};
+        use pse_kernels::{ProviderBuffer,ProviderDemand,ProviderRequest,ProviderRuntime};
+        use symbolica::atom::AtomCore;
+        let control=pse_diagnostics::Cancellation::default();let scope=pse_kernels::ExecutionScope::new(control.clone(),None);
+        let (mut selection,proofs)=group_selection(None,false);selection.scope=Some(scope.clone());selection.control=Some(control.clone());
+        let registry=pse_quantity::standard::standard_registry().unwrap();let q=registry.neutral_dimensionless().unwrap();let unit=registry.quantity_type(q).unwrap().canonical_unit;
+        let port=|id|pse_kernels::Port { id,quantity:q,unit };
+        let spec=pse_kernels::ProviderSpec { id:selection.id,revision:pse_ids::ContentHash::from_bytes([71;32]),data:pse_ids::ContentHash::from_bytes([72;32]),inputs:vec![port(pse_ids::named_id(selection.id,"p"))],outputs:vec![port(selection.alternatives[0].problem.unknowns[0].id)],shapes:Default::default(),derivative_source:pse_kernels::DerivativeSource::Analytic,derivatives:DerivativeOrder::Second,smoothness:DerivativeOrder::Second };
+        let mut provider=pse_kernels::ProviderBinding::new(spec.clone(),Box::new(SelectedProvider { requested_output:DerivativeOrder::Second,selection,cancel:control.flag(),linearization:None,prepared:Vec::new() }));
+        let flag=control.flag();let context=pse_kernels::EvaluationContext { cancelled:flag.as_ref(),max_result_bytes:1<<20 };
+        let request=provider.prepare(ProviderRequest { outputs:vec![0],order:DerivativeOrder::Second,demand:ProviderDemand::SelectedColumns { columns:vec![0] }}).unwrap();
+        let mut buffer=ProviderBuffer::new(&request);let first=buffer.fill(&mut provider,&[-2.],&request,Default::default(),&context).unwrap();assert_eq!(first.values,[-1.]);let token=first.linearization.expect("certified rival need not have a numerical factor");
+        let request=provider.prepare(ProviderRequest { outputs:vec![0],order:DerivativeOrder::Second,demand:ProviderDemand::WeightedSecondAction { directions:1 }}).unwrap();let mut buffer=ProviderBuffer::new(&request);
+        let actual=buffer.fill(&mut provider,&[-2.],&request,ProviderRuntime { weights:&[1.],directions:&[3.],expected_linearization:Some(token),..Default::default() },&context).unwrap();assert_eq!(actual.linearization,Some(token));assert_eq!(actual.hessians,[0.]);assert_eq!(proofs.load(Ordering::Relaxed),1,"chart reuse supplies rival proof authority");
+        let p=crate::library::formal(0).unwrap();let z=crate::library::formal(1).unwrap();
+        let outer=PreparedBody::new(1,3,vec![2],vec![Stage::Provider { spec:spec.clone(),partial:vec![],inputs:vec![0],outputs:vec![1],source:spec.id },Stage::Block { expressions:vec![z*p.pow(2)],outputs:vec![2],source:spec.id }],DerivativeOrder::Second).unwrap();
+        let support=outer.prepare_support(&[0],&[0],DerivativeOrder::Second,&control).unwrap();
+        let body=support.compile_product(ProductKind::WeightedHessianAction,crate::library::Optimization::default(),crate::jets::EvaluationLimits::default(),&scope).unwrap();
+        let mut worker=body.worker_scoped(scope);let mut bank=pse_kernels::ProviderBindings::from([(spec.key(),provider)]);worker.prepare_providers(&mut bank).unwrap();
+        let mut result=[f64::NAN];worker.evaluate_product_into(&[-2.],ProductValues::WeightedHessianAction { weights:&[1.],direction:&[3.] },&mut bank,&control.flag(),&mut result).unwrap();assert!((result[0]+6.).abs()<1e-12);assert_eq!(proofs.load(Ordering::Relaxed),1);
+    }
+
 }
 impl Regime {
     /// Assessment inputs are the root coordinates followed by the residual inputs.
@@ -1474,7 +1541,7 @@ impl Regime {
             criterion: criterion.worker(),
             eligibility_source: eligibility,
             criterion_source: criterion,
-            isolation: None,
+            isolation: None,isolation_identity:None,
             eligibility_trial:Default::default(),criterion_trial:Default::default(),eligibility_inputs:Vec::new(),criterion_inputs:Vec::new(),
         })
     }
@@ -1485,11 +1552,9 @@ impl Regime {
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Option<(f64, f64)>, MathError> {
-        let fill_inputs=|worker:&Worker,target:&mut Vec<f64>| {
-            target.clear();target.extend(worker.input_formals().iter().map(|&formal| if formal<point.len() { point[formal] } else { parameters[formal-point.len()] }));
-        };
-        fill_inputs(&self.eligibility,&mut self.eligibility_inputs);fill_inputs(&self.criterion,&mut self.criterion_inputs);
-        self.criterion_trial.clear();
+        self.criterion_trial.clear();self.eligibility_trial.clear();
+        super::fill_selected_inputs(&self.eligibility,point,parameters,&mut self.eligibility_inputs)?;
+        super::fill_selected_inputs(&self.criterion,point,parameters,&mut self.criterion_inputs)?;
         let mut providers = self
             .problem
             .providers
@@ -2388,6 +2453,11 @@ impl RegimeSelection {
         order: DerivativeOrder,
         control: &pse_diagnostics::Cancellation,
     ) -> Result<SelectedRegime, MathError> {
+        self.evaluate_current(parameters,order,control)?;
+        let selected=&self.numerical.as_ref().ok_or_else(||MathError::Contract("missing selected numerical completion".into()))?.selected;
+        Ok(SelectedRegime { id:selected.id,values:selected.values.clone(),jacobian:if order>=DerivativeOrder::First { selected.jacobian.clone() } else { Vec::new() },hessians:if order>=DerivativeOrder::Second { selected.hessians.clone() } else { Vec::new() },examined:selected.examined,eligible:selected.eligible })
+    }
+    fn evaluate_current(&mut self,parameters:&[f64],order:DerivativeOrder,control:&pse_diagnostics::Cancellation)->Result<(),MathError> {
         if let Some(scope) = &self.scope
             && !Arc::ptr_eq(scope.cancellation(), &control.flag())
         {
@@ -2448,7 +2518,8 @@ impl RegimeSelection {
                     .connections
                     .saturating_sub(before.connections),
             );
-            if let Ok(selected) = &result {
+            if result.is_ok() && let Some(product)=&self.numerical {
+                let selected=&product.selected;
                 context.source_ref("implicit.selected.branch", selected.id.as_bytes());
                 context.integer(
                     "implicit.selection.examined",
@@ -2470,7 +2541,7 @@ impl RegimeSelection {
         parameters: &[f64],
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
-    ) -> Result<SelectedRegime, MathError> {
+    ) -> Result<(), MathError> {
         let control = self.execution_control()?.clone();
         let deadline = Instant::now()
             .checked_add(self.time_limit)
@@ -2761,22 +2832,9 @@ impl RegimeSelection {
                 requirement: "branch-local implicit root is on its admissibility boundary",
             });
         }
-        let derivatives = match self.numerical.as_ref().filter(|p| {
-            numerical_hit && p.selected.id == id && p.order >= order.max(DerivativeOrder::First)
-        }) {
-            Some(product) => pse_kernels::ProviderValues {
-                values: point.clone(),
-                jacobian: product.selected.jacobian.clone(),
-                hessians: product.selected.hessians.clone(),
-            },
-            None => regime.problem.derivatives(
-                parameters,
-                &point,
-                order.max(DerivativeOrder::First),
-                &configurations[winner],
-                cancel,
-            )?,
-        };
+        let derivatives = if self.numerical.as_ref().is_some_and(|p| {
+            numerical_hit && p.selected.id==id && p.order>=order.max(DerivativeOrder::First)
+        }) { None } else { Some(regime.problem.derivatives(parameters,&point,order.max(DerivativeOrder::First),&configurations[winner],cancel)?) };
         checkpoint()?;
         if regime
             .assess(parameters, &point, DerivativeOrder::First, cancel)?
@@ -3006,22 +3064,6 @@ impl RegimeSelection {
         if order > DerivativeOrder::Value {
             self.derivative_branch = Some(id);
         }
-        let selected = SelectedRegime {
-            id,
-            values: point,
-            jacobian: if order >= DerivativeOrder::First {
-                derivatives.jacobian
-            } else {
-                vec![]
-            },
-            hessians: if order >= DerivativeOrder::Second {
-                derivatives.hessians
-            } else {
-                vec![]
-            },
-            examined: self.alternatives.len(),
-            eligible,
-        };
         if order > DerivativeOrder::Value
             && self.sheet.is_none()
             && let Some(chart) = &self.chart
@@ -3036,9 +3078,16 @@ impl RegimeSelection {
             }
             self.sheet = Some(h.finish_hash());
         }
-        self.sheet_parameters = parameters.to_vec();
-        self.retain_product(numerical_key, proposals, selected.clone(), order, &configurations);
-        Ok(selected)
+        self.sheet_parameters.clear();self.sheet_parameters.extend_from_slice(parameters);
+        if let Some(derivatives)=derivatives {
+            let selected=SelectedRegime { id,values:point,jacobian:if order>=DerivativeOrder::First { derivatives.jacobian } else { Vec::new() },hessians:if order>=DerivativeOrder::Second { derivatives.hessians } else { Vec::new() },examined:self.alternatives.len(),eligible };
+            self.retain_product(numerical_key,proposals,selected,order,&configurations);
+        } else {
+            let product=self.numerical.as_mut().ok_or_else(||MathError::Contract("missing selected derivative completion".into()))?;
+            product.selected.values=point;product.selected.examined=self.alternatives.len();product.selected.eligible=eligible;
+            product.proposals=proposals;product.configurations.clear();product.configurations.extend_from_slice(&configurations);
+        }
+        Ok(())
     }
 
     fn evaluate_operational(
@@ -3046,7 +3095,7 @@ impl RegimeSelection {
         parameters: &[f64],
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
-    ) -> Result<SelectedRegime, MathError> {
+    ) -> Result<(), MathError> {
         let control = self.execution_control()?.clone();
         let deadline = Instant::now()
             .checked_add(self.time_limit)
@@ -3212,8 +3261,8 @@ impl RegimeSelection {
             examined: self.alternatives.len(),
             eligible,
         };
-        self.retain_product(numerical_key, proposals, selected.clone(), order, &configurations);
-        Ok(selected)
+        self.retain_product(numerical_key, proposals, selected, order, &configurations);
+        Ok(())
     }
 }
 
@@ -3294,11 +3343,12 @@ pub(super) fn certificate_bytes(
     for width in unknowns {
         winner_width = winner_width.max(width);
         let refined_vectors = width
-            .checked_mul(4 * size_of::<f64>())
+            .checked_mul(8 * size_of::<f64>())
             .ok_or(MathError::Limit("selected refined controls extent"))?;
         let metadata = (size_of::<Option<Vec<f64>>>()
             + size_of::<Option<Options>>()
-            + size_of::<Option<pse_ids::ContentHash>>()
+            + 2 * size_of::<Option<pse_ids::ContentHash>>()
+            + size_of::<Options>()
             + 2 * size_of::<crate::guarded::PreparedSupport>()
             + size_of::<Option<Arc<crate::factorable::RootIsolationProgram>>>())
         .checked_add(refined_vectors)

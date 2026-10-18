@@ -12,6 +12,8 @@ pub(super) struct ResidualProduct {
     pub(super) order: DerivativeOrder,
     pub(super) worker: Mutex<ResidualWorker>,
     values: Mutex<Vec<f64>>,
+    #[cfg(all(test,feature="compiled-evaluator"))]
+    pub(super) native_blocks:usize,
 }
 #[derive(Debug)]
 pub(super) struct ProductScratch {
@@ -47,11 +49,15 @@ impl Problem {
             .upgrade(order, scope.cancellation())?.at_order(order)?;
         let body = support.compile_product_reusing(kind, self.parameter_source.optimization(),
             self.parameter_source.evaluation_limits(), scope, self.parameter_source.scalar_products())?;
-        crate::construction::additional(body.worker_bytes().checked_add(body.evaluation_cache_bytes())
-            .and_then(|v| v.checked_add((body.product_len()+body.input_formals().len())*size_of::<f64>()+size_of::<ResidualProduct>()))
+        let visits=body.census().map(|order|order.provider_stages).max().unwrap_or(0);
+        let trace_bytes=visits.checked_mul(3*size_of::<crate::execution::ProviderVisit>()).ok_or(MathError::Limit("implicit linearization trace storage"))?;
+        crate::construction::additional(body.worker_bytes().checked_add(body.evaluation_cache_bytes()).and_then(|v|v.checked_add(trace_bytes))
+            .and_then(|v| v.checked_add((body.product_len()+body.input_formals().len())*size_of::<f64>()+size_of::<ResidualProduct>()+2*size_of::<Arc<ResidualProduct>>()))
             .ok_or(MathError::Limit("implicit residual product storage"))?)?;
         let program = Arc::new(ResidualProduct {
             kind, columns: columns.to_vec(), order,
+            #[cfg(all(test,feature="compiled-evaluator"))]
+            native_blocks:body.census().map(|order| order.native_arithmetic_blocks).sum(),
             values: Mutex::new(vec![f64::NAN; body.product_len()]),
             worker: Mutex::new(ResidualWorker {
                 worker: body.worker_scoped(scope.clone()), inputs: vec![f64::NAN; body.input_formals().len()],
@@ -60,6 +66,7 @@ impl Problem {
         });
         program.worker.lock().map_err(|_| MathError::Contract("implicit product lock poisoned".into()))?.worker
             .prepare_providers(&mut *self.providers.lock().map_err(|_| MathError::Contract("implicit provider lock poisoned".into()))?)?;
+        programs.try_reserve_exact(1).map_err(|_| MathError::Limit("implicit prepared program slots"))?;
         programs.push(program.clone());
         Ok(program)
     }
@@ -76,7 +83,8 @@ impl Problem {
             let mut demands=self.prepared_demands.lock().map_err(|_| MathError::Contract("implicit preparation lock poisoned".into()))?;
             if demands.contains(request.request()) { return Ok(()); }
             self.prepare_product_inner(request, scope)?;
-            crate::construction::additional(size_of::<pse_kernels::ProviderRequest>()+(request.outputs.len()+match &request.demand { ProviderDemand::SelectedColumns { columns }=>columns.len(),_=>0 })*size_of::<usize>())?;
+            crate::construction::additional(2*size_of::<pse_kernels::ProviderRequest>()+(request.outputs.len()+match &request.demand { ProviderDemand::SelectedColumns { columns }=>columns.len(),_=>0 })*size_of::<usize>())?;
+            demands.try_reserve_exact(1).map_err(|_| MathError::Limit("implicit prepared demand slots"))?;
             demands.push(request.request().clone());
             Ok(())
         };
@@ -126,7 +134,10 @@ impl Problem {
             ProviderDemand::TransposeAction { cotangents } => request.outputs.len().checked_mul(*cotangents),
             _ => Some(0),
         }.ok_or(MathError::Limit("implicit numeric bindings"))?;
-        let bytes = n.checked_mul(batch.max(n)).and_then(|v| v.checked_mul(8))
+        // faer 0.24.4 rounds f64 row capacity to a 64-byte boundary.
+        // Eight matrices cover both retained workspaces and one growing matrix.
+        let padded_rows=n.checked_add(7).map(|v| v/8*8).ok_or(MathError::Limit("implicit padded matrix rows"))?;
+        let bytes = padded_rows.checked_mul(batch.max(n)).and_then(|v| v.checked_mul(8))
             .and_then(|v| (n+self.inputs).checked_mul(batch).and_then(|w| w.checked_mul(2)).and_then(|w| v.checked_add(w)))
             .and_then(|v| v.checked_add(8*(n+self.inputs)))
             .and_then(|v| v.checked_add(2*numerical+bindings))
@@ -156,9 +167,7 @@ impl Problem {
         cancel: &Arc<AtomicBool>, expected: Option<&[crate::execution::ProviderVisit]>, consume: impl FnOnce(&[f64], &crate::execution::TrialEvaluation) -> Result<R, MathError>) -> Result<R, MathError> {
         let mut held = program.worker.lock().map_err(|_| MathError::Contract("implicit residual product lock poisoned".into()))?;
         let ResidualWorker { worker, inputs, evaluation } = &mut *held;
-        for (&formal, input) in worker.input_formals().iter().zip(inputs.iter_mut()) {
-            *input = if formal < point.len() { point[formal] } else { parameters[formal-point.len()] };
-        }
+        fill_selected_inputs(worker,point,parameters,inputs)?;
         let mut values = program.values.lock().map_err(|_| MathError::Contract("implicit residual product result lock poisoned".into()))?;
         worker.evaluate_product_trial_into(inputs, product, &mut *self.providers.lock()
             .map_err(|_| MathError::Contract("implicit provider lock poisoned".into()))?, cancel, &mut values, evaluation)?;
