@@ -71,7 +71,6 @@ pub(super) struct Rows {
     model: pse_engine::session::BoundModel,
     physical: PhysicalContext,
     revisions: Vec<Revision>,
-    _owner: Arc<PhysicalOwner>,
     bytes: usize,
     _metadata: Arc<pse_columnar::AllocationLease>,
 }
@@ -300,15 +299,10 @@ impl PhysicalCache {
         let Some(receipts) = revision_copy_bytes(revisions) else {
             return;
         };
-        let bytes = physical
-            .retained_bytes()
-            .saturating_add(rows._owner.allocation_bytes())
-            .saturating_add(
-                physical
-                    ._source_owner
-                    .as_ref()
-                    .map_or(0, |owner| owner.allocation_bytes()),
-            );
+        // Retain reconstructible receipt payload and exact checked support only.
+        // Per-caller protection/release grants stay with active PhysicalRows;
+        // every warm return still establishes fresh native protection below.
+        let bytes = physical.retained_bytes();
         if bytes > RETAINED_BYTES {
             return;
         }
@@ -324,12 +318,13 @@ impl PhysicalCache {
         let Some(metadata) = metadata(operations, extent) else {
             return;
         };
+        let mut payload = physical.clone();
+        payload._source_owner = None;
         let entry = Rows {
             operations: operations.clone(),
             model: runtime.model.clone(),
-            physical: physical.clone(),
+            physical: payload,
             revisions: revisions.to_vec(),
-            _owner: rows._owner.clone(),
             bytes,
             _metadata: metadata,
         };
@@ -718,11 +713,9 @@ mod physical_admission_cache_unit {
             "warm lookup borrows the charged retained receipt handle"
         );
         let weight = RetainedProduct::Rows(held.clone()).size();
-        assert!(
-            weight
-                >= held._owner.allocation_bytes()
-                    + physical._source_owner.as_ref().unwrap().allocation_bytes()
-        );
+        assert!(weight >= physical.retained_bytes());
+        assert!(held.physical._source_owner.is_none(), "optional payload retention cannot own caller protection grants");
+        assert!(!Arc::ptr_eq(&first._owner, &second._owner), "every warm holder independently protects its exact receipts");
         assert!(weight <= RETAINED_BYTES);
         let escaped = Arc::downgrade(&first._owner);
         let datafusion::execution::memory_pool::MemoryLimit::Finite(limit) =
@@ -795,16 +788,21 @@ mod physical_admission_cache_unit {
         assert_eq!(first_rows.revisions, second_rows.revisions);
         assert_eq!(
             runtime.physical_cache.hits.load(Ordering::Relaxed),
-            hits,
-            "full receipt closure exceeds optional cache budget; this is canonical replay"
+            hits + 1,
+            "reusable receipt payload fits independently of active protection/release grants"
         );
         assert!(first_rows._owner.pin_metadata_bytes > RETAINED_BYTES);
         assert!(
             runtime
                 .physical_cache
                 .rows(&runtime, operations, &first)
-                .is_none()
+                .is_some()
         );
+        let retained = runtime.physical_cache.rows(&runtime, operations, &first).unwrap();
+        assert!(retained.physical._source_owner.is_none());
+        assert!(!Arc::ptr_eq(&first_rows._owner, &second_rows._owner));
+        assert!(RetainedProduct::Rows(retained.clone()).size() < RETAINED_BYTES);
+        eprintln!("physical-granularity revisions={} active_grants={} retained_payload={}", first_rows.revisions.len(), first_rows._owner.allocation_bytes(), RetainedProduct::Rows(retained).size());
         let mut changed = second.clone();
         let key = *changed
             .sources
@@ -841,14 +839,14 @@ mod physical_admission_cache_unit {
         assert_eq!(changed_rows.revisions, changed_again.revisions);
         assert_eq!(
             runtime.physical_cache.hits.load(Ordering::Relaxed),
-            changed_hits,
+            changed_hits + 1,
         );
         assert!(changed_rows._owner.pin_metadata_bytes > RETAINED_BYTES);
         assert!(
             runtime
                 .physical_cache
                 .rows(&runtime, operations, &changed)
-                .is_none()
+                .is_some()
         );
         // The optional cache may replace an entry at the same coarse key.
         // Escaped receipts retain independent protection of their exact rows.
@@ -1247,8 +1245,8 @@ mod physical_admission_cache_unit {
                 .rows(&runtime, operations, &first)
                 .as_ref()
                 .map(|rows| rows.revisions()),
-            None,
-            "full independently protected row closure exceeds the optional budget"
+            Some(first_rows.revisions.as_slice()),
+            "granular retained receipts coexist without retaining independent caller protection grants"
         );
         assert_eq!(
             runtime
@@ -1256,7 +1254,7 @@ mod physical_admission_cache_unit {
                 .rows(&runtime, operations, &second)
                 .as_ref()
                 .map(|rows| rows.revisions()),
-            None
+            Some(second_rows.revisions.as_slice())
         );
         assert!(first_rows._owner.pin_metadata_bytes > RETAINED_BYTES);
         assert!(second_rows._owner.pin_metadata_bytes > RETAINED_BYTES);
