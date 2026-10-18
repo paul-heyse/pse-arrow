@@ -1678,6 +1678,7 @@ impl<'a> Session<'a> {
         directions: &[usize],
         layout: Option<Arc<PreparedLayout>>,
         execution: Execution,
+        forward_quadratures: bool,
     ) -> Result<Self, ProblemError> {
         let forward = p.forward() || !directions.is_empty();
         let map = p.columns_at(oracle.contract().parameters.len(), p.start);
@@ -1779,6 +1780,12 @@ impl<'a> Session<'a> {
             s.adjoint_init(p, directions)?;
         }
         s.initialize_roots()?;
+        if forward_quadratures {
+            // IDACalcIC runs IDAInitialSetup and marks it complete. Install the
+            // quadrature sensitivity module first so that setup initializes its
+            // initial derivative history, before the first physical step.
+            s.enable_forward_quadratures(p)?;
+        }
         s.consistent(p.start, p, initialization_option(p.idas.initialization))?;
         Ok(s)
     }
@@ -4319,13 +4326,11 @@ fn attempt<T>(
         directions,
         admission.map(|(layout, _)| layout),
         execution.clone(),
+        forward_quadratures,
     ) {
         Ok(session) => session,
         Err(error) => return (failure(r, error), None, 0),
     };
-    if forward_quadratures && let Err(error) = s.enable_forward_quadratures(p) {
-        return (failure(r, error), None, 0);
-    }
     // SAFETY: the new session's state vector holds the `n` states.
     r.consistent_initial = unsafe { read(s.y, n) };
     let mut outcome = None;

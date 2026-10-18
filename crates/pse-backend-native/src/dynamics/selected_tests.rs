@@ -315,7 +315,7 @@ fn selected_axes_admission_and_identity_use_the_resolved_width() {
 #[test]
 fn forward_quadrature_selected_physical_axes_offsets_and_admission_are_exact() {
     #[derive(Debug)]
-    struct Flux(Coupled);
+    struct Flux(Coupled, Arc<std::sync::atomic::AtomicU64>);
     impl Oracle for Flux {
         fn contract(&self) -> &Contract {
             self.0.contract()
@@ -347,6 +347,9 @@ fn forward_quadrature_selected_physical_axes_offsets_and_admission_are_exact() {
                     .0
                     .evaluate(mode, function, time, state, parameters, derivatives);
             }
+            if derivatives {
+                let _ = self.1.compare_exchange(u64::MAX, time.to_bits(), std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::SeqCst);
+            }
             let jacobian = derivatives.then(|| {
                 faer::sparse::SparseColMat::try_new_from_triplets(
                     1,
@@ -364,7 +367,8 @@ fn forward_quadrature_selected_physical_axes_offsets_and_admission_are_exact() {
             })
         }
     }
-    let mut oracle = Flux(Coupled::new());
+    let first_derivative = Arc::new(std::sync::atomic::AtomicU64::new(u64::MAX));
+    let mut oracle = Flux(Coupled::new(), first_derivative.clone());
     oracle.0.0.quadratures = vec![SemanticId::from_bytes([44; 16])];
     let mut p = profile(Method::Idas, Some(vec![4, 0, 2]));
     p.rtol = 0.001;
@@ -390,6 +394,8 @@ fn forward_quadrature_selected_physical_axes_offsets_and_admission_are_exact() {
         result.report.error
     );
     assert_eq!(result.report.forward_axes, [4, 0, 2]);
+    assert_eq!(first_derivative.load(std::sync::atomic::Ordering::SeqCst), p.start.to_bits(),
+        "quadrature sensitivity history must be initialized by IDAInitialSetup before stepping");
     let expected = [1.625, VALUES[2] + 0.5, VALUES[0]];
     for (actual, expected) in result.derivatives.unwrap().iter().zip(expected) {
         assert!(
