@@ -814,7 +814,7 @@ impl MathService {
             let resumed = if parallel { execution::resume_compute(&execution).map_err(MathRuntimeError::from) } else { Ok(()) };
             // Canonical reduction observes every issued child, even after an unrelated
             // failure stopped dispatch. Only complete original assessment accepts a stage.
-            let mut first_error = None;
+            let mut component_failures = BTreeMap::new();
             for (index, outcome) in outcomes {
                 let report = match outcome {
                     Ok(Outcome::Native(report)) => Some(report),
@@ -826,16 +826,23 @@ impl MathService {
                     work = sum_work(work, report.evidence.work);
                     if let Err(error) = capture_component(&report) { errors.entry(index).or_insert(error); }
                     if let Some(cause) = refused.remove(&index) {
-                        if first_error.is_none() && errors.first_key_value().is_none_or(|(&other, _)| index < other) {
-                            component_observation = Some(super::super::strategy::observe_native(&report)); failure_cause = Some(cause);
+                        if !errors.contains_key(&index) {
+                            component_failures.insert(index, (cause, super::super::strategy::observe_native(&report)));
                         }
                         errors.entry(index).or_insert(ProblemError::Unsupported("conditional block candidate refused".into()).into());
                     }
                     components.push((index, report));
                 } else { work = sum_work(work, WorkEvidence::default()); }
-                if first_error.is_none() { first_error = errors.remove(&index); }
             }
-            if let Some(error) = first_error.or_else(|| errors.into_values().next()) { return Err(error); }
+            // Pure dispatch refusals have no outcome entry. Select only after the
+            // complete issued inventory is reduced, so their canonical precedence
+            // is preserved against a later-index sibling's drained native failure.
+            if let Some((index, error)) = errors.into_iter().next() {
+                if let Some((cause, observation)) = component_failures.remove(&index) {
+                    failure_cause = Some(cause); component_observation = Some(observation);
+                }
+                return Err(error);
+            }
             dispatched?;
             resumed?;
             if readiness.remaining != 0 { return Err(ProblemError::Contract("incomplete block dependency execution".into()).into()); }
