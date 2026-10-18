@@ -90,6 +90,15 @@ struct CachedFile {
     _owner: MemoryReservation,
 }
 
+async fn decoder_turn<'a>(
+    cache: &'a tokio::sync::Mutex<Option<CachedFile>>,
+    cancel: &CancellationToken,
+) -> Result<tokio::sync::MutexGuard<'a, Option<CachedFile>>, WorkflowError> {
+    let turn = cancel.until_cancelled(cache.lock()).await.map_err(pse_engine::EngineError::from)?;
+    cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+    Ok(turn)
+}
+
 /// One terminal selection and a frozen explicit file/batch inventory. Clones,
 /// physical plans and partition streams retain the same nonexpiring read ticket.
 #[derive(Clone, Debug)]
@@ -315,9 +324,7 @@ impl ProtectedResultDecode {
         }
         // Waiters own no file-shaped grant. Reserve only once this decoder can
         // actually execute, preserving headroom for its current reader/aliases.
-        let mut cache = cancel.until_cancelled(self.cache.lock()).await
-            .map_err(pse_engine::EngineError::from)?;
-        cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+        let mut cache = decoder_turn(&self.cache, cancel).await?;
         let owner = MemoryConsumer::new("canonical:result-file-decode")
             .register(&self.runtime.shared.pool());
         // Prepay physical integrity reads, footer verification, native body and
@@ -869,6 +876,29 @@ mod decoder_lane_inquiry {
         (rows, sum, escaped.unwrap())
     }
 
+    #[tokio::test]
+    async fn decoder_wait_cancellation_owns_no_working_grant() {
+        let cache = Arc::new(tokio::sync::Mutex::new(None));
+        let first = cache.lock().await;
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(1024));
+        let cancel = CancellationToken::new();
+        let waiting = {
+            let cache = cache.clone(); let pool = pool.clone(); let cancel = cancel.clone();
+            tokio::spawn(async move {
+                let _turn = decoder_turn(&cache, &cancel).await?;
+                let owner = MemoryConsumer::new("test:decoder-working").register(&pool);
+                owner.try_grow(1024).map_err(pse_engine::EngineError::from)?;
+                Ok::<_, WorkflowError>(())
+            })
+        };
+        tokio::task::yield_now().await;
+        assert_eq!(pool.reserved(), 0);
+        cancel.cancel();
+        assert!(tokio::time::timeout(std::time::Duration::from_secs(2), waiting).await.unwrap().unwrap().is_err());
+        assert_eq!(pool.reserved(), 0);
+        drop(first);
+    }
+
     #[test]
     fn decoder_file_affinity_and_independent_lane_inquiry() {
         // 1/4/16 files, sparse/full batch and row selection, and a 4x final-file
@@ -939,7 +969,7 @@ mod decoder_lane_inquiry {
                     assert_eq!(parallel.opens.load(Ordering::SeqCst), file_count);
                     assert_eq!(parallel.decodes.load(Ordering::SeqCst), file_count * batches.len());
                     assert_eq!(pool.reserved(), 0);
-                    eprintln!("decoder-inquiry files={file_count} base_rows={base_rows} sparse={sparse} serial_ns={serial_ns} affinity_ns={affinity_ns} lanes_ns={parallel_ns} serial_opens={} affinity_opens={} lane_opens={} decodes={} simultaneous={} lane_charge={}", serial.opens.load(Ordering::SeqCst), affinity.opens.load(Ordering::SeqCst), parallel.opens.load(Ordering::SeqCst), parallel.decodes.load(Ordering::SeqCst), parallel.simultaneous.load(Ordering::SeqCst), parallel.charge.load(Ordering::SeqCst));
+                    eprintln!("decoder-inquiry files={file_count} base_rows={base_rows} sparse={sparse} serial_ns={serial_ns} affinity_ns={affinity_ns} lanes_ns={parallel_ns} serial_opens={} affinity_opens={} lane_opens={} decodes={} simultaneous={} lane_charge={} serial_charge={} affinity_charge={} footer_reads={}", serial.opens.load(Ordering::SeqCst), affinity.opens.load(Ordering::SeqCst), parallel.opens.load(Ordering::SeqCst), parallel.decodes.load(Ordering::SeqCst), parallel.simultaneous.load(Ordering::SeqCst), parallel.charge.load(Ordering::SeqCst), serial.charge.load(Ordering::SeqCst), affinity.charge.load(Ordering::SeqCst), parallel.footers.load(Ordering::SeqCst));
                 }
                 let mut corrupt = std::fs::read(&files[0].path).unwrap();
                 corrupt[0] ^= 1;

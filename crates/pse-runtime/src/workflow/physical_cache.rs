@@ -307,11 +307,9 @@ impl PhysicalCache {
             return;
         }
         let Some(extent) = physical
-            .sources
-            .len()
-            .checked_mul(512)
-            .and_then(|bytes| bytes.checked_add(receipts))
-            .and_then(|bytes| bytes.checked_add(1024))
+            .metadata_bytes()
+            .checked_add(receipts)
+            .and_then(|bytes| bytes.checked_add(size_of::<Rows>() + 1024))
         else {
             return;
         };

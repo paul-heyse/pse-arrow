@@ -26,6 +26,7 @@ pub(super) struct Products {
     index: SourceIndex,
     data: Vec<Declaration>,
     dependencies: BTreeMap<DeclarationId, BTreeSet<Request>>,
+    extent: usize,
     #[cfg(test)]
     work: (usize, usize, usize),
 }
@@ -36,7 +37,7 @@ impl std::fmt::Debug for Products {
 }
 impl Products {
     fn copy_parent(&self, runtime: &Runtime) -> Result<Parent, WorkflowError> {
-        let owner = runtime.shared.math().reserve("modeling:delta-product-copy", self.parent.rows.owned_bytes().saturating_mul(32).saturating_add(65536))?;
+        let owner = runtime.shared.math().reserve("modeling:delta-product-copy", self.extent)?;
         let mut parent = self.parent.clone();
         if let Some(previous) = parent.product_owner.take() { parent._leases.retain(|lease| !Arc::ptr_eq(lease, &previous)); }
         parent._leases.push(owner.clone());
@@ -44,6 +45,16 @@ impl Products {
         Ok(parent)
     }
 }
+fn product_extent(revision: &AdmittedModelRevision, dependencies: &BTreeMap<DeclarationId, BTreeSet<Request>>) -> Result<usize, WorkflowError> {
+    let metadata = revision.objects.values().filter(|object| object.kind != "data").try_fold(65536usize, |bytes, object| {
+        bytes.checked_add(object.payload.len().checked_mul(32)?).and_then(|bytes| bytes.checked_add(4096))
+    }).ok_or_else(|| contract("delta product metadata extent"))?;
+    dependencies.values().flatten().try_fold(metadata, |bytes, read| {
+        let name = match read { Request::Name(_, name) => name.capacity(), _ => 0 };
+        bytes.checked_add(size_of::<Request>() + 128 + name).ok_or_else(|| contract("delta dependency extent"))
+    })
+}
+
 impl SourceIndex {
     /// Full ingress indexes have no pending discovery. Clone immutable admitted
     /// products; changed rows replace only their buckets and parsed occurrences.
@@ -259,7 +270,11 @@ impl ModelingPackage {
         }
         index.requests.clear();
         let data = index.data_closure()?;
-        let products = Arc::new(Products { parent, index, data, dependencies, #[cfg(test)] work: (0, 0, 0) });
+        let extent = product_extent(&self.revision.admitted, &dependencies)?;
+        let retained = self.runtime.shared.math().reserve("modeling:delta-products", extent)?;
+        parent._leases = vec![retained.clone()];
+        parent.product_owner = Some(retained);
+        let products = Arc::new(Products { parent, index, data, dependencies, extent, #[cfg(test)] work: (0, 0, 0) });
         let _ = self.revision.delta_products.set(products.clone());
         self.revision.delta_products.get().unwrap_or(&products).copy_parent(&self.runtime)
     }
@@ -948,12 +963,15 @@ impl ModelingPackage {
             let admitted = AdmittedModelRevision::apply_inputs(&self.runtime, Some(&self.revision.admitted), &edits, &typed, Some(cancel))?;
             SourceRevision::admitted(admitted, identity, None, None)?
         };
-        let retained = self.runtime.shared.math().reserve("modeling:delta-products", parent.rows.owned_bytes().saturating_mul(32).saturating_add(65536))?;
-        if let Some(previous) = parent.product_owner.take() { parent._leases.retain(|lease| !Arc::ptr_eq(lease, &previous)); }
-        parent._leases.push(retained.clone());
+        let extent = product_extent(&revision.admitted, &dependencies)?;
+        let retained = match parent.product_owner.take().filter(|owner| owner.size() >= extent) {
+            Some(owner) => owner,
+            None => self.runtime.shared.math().reserve("modeling:delta-products", extent)?,
+        };
+        parent._leases = vec![retained.clone()];
         parent.product_owner = Some(retained);
         parent.members = revision.admitted.objects.values().map(|object| (object.logical.clone(), SourceMember::from(object.as_ref()))).collect();
-        let next_products = Arc::new(Products { parent, index, data: new_data, dependencies, #[cfg(test)] work });
+        let next_products = Arc::new(Products { parent, index, data: new_data, dependencies, extent, #[cfg(test)] work });
         let _ = revision.delta_products.set(next_products);
         Ok(Self {revision,held_preparation:None,..self.clone()})
 

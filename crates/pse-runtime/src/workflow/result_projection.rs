@@ -1015,6 +1015,7 @@ pub(super) async fn finish_result_table_prefix(
 }
 
 /// One sealed live batch advances coverage only after its actual append ACK.
+#[expect(clippy::too_many_arguments, reason = "the live position and reusable empty control have independent attempt-owned lifetimes")]
 pub(super) async fn append_live_sample_batch(
     store: &CanonicalStore,
     fence: &AttemptFence,

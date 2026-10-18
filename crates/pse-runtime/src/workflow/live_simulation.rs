@@ -168,7 +168,8 @@ pub(super) enum LiveCapture {
     Event(LiveSimulationEvent),
 }
 impl LiveCapture {
-    pub(super) fn encode(self, prepared: &ModelingSimulation) -> Result<LiveSimulationEvent, WorkflowError> {
+    pub(super) fn encode(self, prepared: &ModelingSimulation, cancel: &pse_diagnostics::Cancellation, deadline: Instant) -> Result<LiveSimulationEvent, WorkflowError> {
+        encoding_checkpoint(cancel, deadline)?;
         let Self::Sample { run_id, canonical_attempt, accuracy_attempt, ordinal, mode, time, outputs, owner } = self else {
             let Self::Event(event) = self else { return Err(contract("live capture variant absent")); };
             return Ok(event);
@@ -190,15 +191,30 @@ impl LiveCapture {
         let validation = runtime.validation_context();
         let mut columns = Collection::new(runtime.registry(), &pool, &token, &validation);
         columns.ensure::<pse_model::generated::runtime::live_simulation_samples::Row>().map_err(relation)?;
-        for row in rows { columns.push(row).map_err(relation)?; }
+        for row in rows {
+            encoding_checkpoint(cancel, deadline)?;
+            columns.push(row).map_err(relation)?;
+        }
         let table = columns.finish().map_err(relation)?.pop_first().map(|(_, batch)| batch)
             .ok_or_else(|| contract("live physical relation absent"))?;
+        encoding_checkpoint(cancel, deadline)?;
         drop(sample);
         drop(owner);
         Ok(LiveSimulationEvent::Sample(LiveSampleBatch {
             run_id, canonical_attempt, accuracy_attempt, ordinal, table, _owner: working,
         }))
     }
+}
+
+fn encoding_checkpoint(cancel: &pse_diagnostics::Cancellation, deadline: Instant) -> Result<(), WorkflowError> {
+    if cancel.is_cancelled() { return Err(crate::math::MathRuntimeError::Cancelled.into()); }
+    if Instant::now() >= deadline {
+        return Err(crate::math::MathRuntimeError::Solve(ProblemError::Limit {
+            kind: pse_backend_native::LimitKind::Time,
+            detail: "live encoding original deadline".into(),
+        }).into());
+    }
+    Ok(())
 }
 
 pub(super) struct LiveDispatch {
@@ -481,7 +497,7 @@ mod tests {
         assert_eq!(outputs, &[0.75]);
         assert_eq!((*accuracy_attempt, *ordinal), (3, 2));
         assert!(owner.size() < 1024, "native state and sensitivity inventory cannot cross compact capture");
-        let LiveSimulationEvent::Sample(batch) = capture.encode(&prepared).unwrap() else { panic!("checked sample absent") };
+        let LiveSimulationEvent::Sample(batch) = capture.encode(&prepared, &Default::default(), Instant::now() + Duration::from_secs(10)).unwrap() else { panic!("checked sample absent") };
         assert_eq!(batch.run_id, run_id);
         assert_eq!(batch.canonical_attempt.as_deref(), Some("attempt"));
         assert_eq!((batch.accuracy_attempt, batch.ordinal), (3, 2));
@@ -496,8 +512,18 @@ mod tests {
             let mut dispatch = LiveDispatch::new(prepared.clone(), LiveSimulationOptions { capacity: 1, retention: SampleRetention::Compact }, pse_operations::mint_id(), None).unwrap();
             let sample = Sample { mode, time: 0., outputs, state: Vec::new(), integrals: Vec::new(), state_sensitivities: Vec::new(), output_sensitivities: Vec::new() };
             dispatch.observer.sample(0, 0, &sample, &execution).unwrap();
-            assert!(dispatch.receiver.recv().await.unwrap().encode(&prepared).is_err());
+            assert!(dispatch.receiver.recv().await.unwrap().encode(&prepared, &Default::default(), Instant::now() + Duration::from_secs(10)).is_err());
         }
+    }
+
+    #[test]
+    fn live_encoding_keeps_original_cancellation_and_deadline() {
+        let cancel = pse_diagnostics::Cancellation::default();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        assert!(encoding_checkpoint(&cancel, deadline).is_ok());
+        cancel.cancel();
+        assert!(matches!(encoding_checkpoint(&cancel, deadline), Err(WorkflowError::Math(crate::math::MathRuntimeError::Cancelled))));
+        assert!(matches!(encoding_checkpoint(&Default::default(), Instant::now()), Err(WorkflowError::Math(crate::math::MathRuntimeError::Solve(ProblemError::Limit { kind: pse_backend_native::LimitKind::Time, .. })))));
     }
 
     #[tokio::test]

@@ -1039,7 +1039,7 @@ impl super::ModelingSimulation {
                                     result = &mut finished, if joined.is_none() => { joined = Some(result); }
                                     event = receiver.recv() => {
                                         let Some(event) = event else { break; };
-                                        let event = match event.encode(&prepared) {
+                                        let event = match event.encode(&prepared, &cancel, deadline) {
                                             Ok(event) => event,
                                             Err(error) => {
                                                 let error = Arc::new(error);
