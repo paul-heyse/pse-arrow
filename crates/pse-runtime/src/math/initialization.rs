@@ -750,8 +750,9 @@ impl MathService {
                 )
             })
             .and_then(|bytes| {
-                let proof_slots=prepared.view.plan.structure().instances().iter().try_fold(0usize,|count,instance|count.checked_add(instance.slots.len()))?;
-                bytes.checked_add(proof_slots.checked_mul(128)?)?.checked_add(support)?.checked_add(8192)
+                let proof_slots=prepared.view.plan.structure().instances().iter().try_fold(0usize,|count,instance|count.checked_add(instance.slots.len()))?
+                    .checked_add(prepared.view.plan.structure().source_frozen_ids().count())?;
+                bytes.checked_add(proof_slots.checked_mul(256)?)?.checked_add(support)?.checked_add(8192)
             })
             .ok_or_else(|| native::ProblemError::memory("conditional callback wrapper extent"))?;
         let charge = budget
