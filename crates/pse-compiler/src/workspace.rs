@@ -39,6 +39,12 @@ pub struct CompilerContext {
     /// Admitted provider descriptors; factories remain attempt-owned.
     pub providers: BTreeMap<String, ProviderCall>,
 }
+impl CompilerContext {
+    /// Allocation owned by this context's cloned provider map. Physical inventory
+    /// Arcs may be shared with an independently charged compiler owner.
+    #[doc(hidden)]
+    pub fn provider_allocation_extent(&self) -> usize { provider_context_extent(self) }
+}
 /// Shared complete identity of actual physical declarations and prerequisites.
 pub fn physical_identity(
     quantities: &QuantityRegistry,

@@ -370,7 +370,7 @@ mod tests {
         let scalar = registry.neutral_dimensionless().unwrap();
         let source = registry.unit(registry.quantity_type(scalar).unwrap().canonical_unit).unwrap();
         let (_, premises) = capture(&registry, &facts, || -> Result<_, QuantityError> {
-            let _ = crate::literal::resolve_literal(source, crate::literal::LiteralContext::Free, &registry);
+            let _ = literal::resolve_literal(source, literal::LiteralContext::Free, &registry);
             Ok(())
         }).unwrap();
         let premises = premises.unwrap();
@@ -379,7 +379,7 @@ mod tests {
         builder.entity_kind(EntityKind { id: axis, name: "literal-unrelated-axis".into() });
         let mut ty = registry.quantity_type(scalar).unwrap().clone();
         ty.id = QuantityTypeId::from_id(pse_ids::SemanticId::from_bytes([238;16]));
-        ty.name = Some("unrelated-vector".into()); ty.key.shape = vec![axis];
+        ty.name = Some("unrelated_vector".into()); ty.key.shape = vec![axis];
         builder.quantity_type(ty);
         let vector = builder.build().unwrap();
         assert!(premises.matches(&vector, &facts));
@@ -388,9 +388,9 @@ mod tests {
         // A new basis gives a distinct complete scalar contract without inventing an admitted mutation.
         let basis = BasisId::from_id(pse_ids::SemanticId::from_bytes([239;16]));
         let prototype = registry.bases().next().unwrap().clone();
-        builder.basis(crate::Basis { id: basis, ..prototype });
+        builder.basis(Basis { id: basis, ..prototype });
         ty.id = QuantityTypeId::from_id(pse_ids::SemanticId::from_bytes([240;16]));
-        ty.name = Some("new-literal-candidate".into()); ty.key.basis = Some(basis);
+        ty.name = Some("new_literal_candidate".into()); ty.key.basis = Some(basis);
         // Use the scalar dimension/representation, with a distinct admitted basis.
         let original = registry.quantity_type(scalar).unwrap();
         ty.key.kind = original.key.kind; ty.key.scale_kind = original.key.scale_kind;

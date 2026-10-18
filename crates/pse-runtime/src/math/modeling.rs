@@ -1601,7 +1601,7 @@ impl MathService {
             })?;
         if let Some(lineage) = lineage
             && let Ok(metadata) =
-                self.reserve("modeling:historical-lineage", lineage.retained_bytes())
+                self.reserve("modeling:historical-lineage", lineage.retained_bytes().saturating_add(inputs.provider_allocation_extent()))
         {
             let mut lanes = self.compiler_lanes.lock().map_err(|_| {
                 MathRuntimeError::Infrastructure("compiler lane map poisoned".into())
