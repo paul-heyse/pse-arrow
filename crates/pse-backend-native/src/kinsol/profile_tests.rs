@@ -773,7 +773,7 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
     assert_eq!(accepted.termination.name, "KIN_INITIAL_GUESS_OK");
     assert_eq!(count(&accepted, "klu.numeric_factor.issued"), 0);
     assert_eq!(memory(&session), symbolic_memory);
-    assert_eq!(session.retained_bytes(), retained_symbolic);
+    assert!(session.retained_bytes() <= retained_symbolic, "accepted start also releases old callback setup storage");
     rejected_solve(&session);
     let error = session.solve(&[0.3; 4], &Controls { threads: 2, ..Controls::default() },
         &ResolvedAccuracy::verification(), execution(), &Tolerances {
