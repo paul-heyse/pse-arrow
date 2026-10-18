@@ -45,7 +45,7 @@ impl Problem {
         } else { (0..n+self.inputs).collect() };
         let support = self.parameter_source.prepared_support().incidence(&coordinates, scope.cancellation())?
             .upgrade(order, scope.cancellation())?.at_order(order)?;
-        let body = support.compile_product_reusing(kind, crate::library::Optimization::default(),
+        let body = support.compile_product_reusing(kind, self.parameter_source.optimization(),
             self.parameter_source.evaluation_limits(), scope, self.parameter_source.scalar_products())?;
         crate::construction::additional(body.worker_bytes().checked_add(body.evaluation_cache_bytes())
             .and_then(|v| v.checked_add((body.product_len()+body.input_formals().len())*size_of::<f64>()+size_of::<ResidualProduct>()))

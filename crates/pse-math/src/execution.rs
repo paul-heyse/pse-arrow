@@ -2377,6 +2377,7 @@ impl PreparedBody {
         let scalar_new_bytes = scalars.unowned_bytes();
         let compiled = CompiledBody {
             owner: None,
+            optimization: options,
             scalar_products: scalars.clone(),
             directional,
             product,
@@ -2414,6 +2415,7 @@ impl PreparedBody {
                 .and_then(|n| n.checked_add(required_provider_keys.capacity() * size_of::<ProviderKey>()))
                 .and_then(|n| n.checked_add(scalar_new_bytes))
                 .and_then(|n| n.checked_add(scalars.descriptor_bytes()))
+                .and_then(|n| n.checked_add(size_of::<Optimization>()))
                 .ok_or(MathError::Limit("retained program storage"))?,
             outputs: Arc::new(selected),
             layouts: Arc::new(layouts),
@@ -2719,6 +2721,7 @@ pub struct ArithmeticOrigin {
 /// Immutable library artifact. Clone workers to obtain independent evaluator scratch.
 #[derive(Clone)]
 pub struct CompiledBody {
+    optimization: Optimization,
     scalar_products: library::ScalarProducts,
     directional: bool,
     product: ProductKind,
@@ -2756,6 +2759,8 @@ impl std::fmt::Debug for CompiledBody {
     }
 }
 impl CompiledBody {
+    /// Original preparation policy for additional demands from this same source.
+    pub(crate) fn optimization(&self) -> Optimization { self.optimization }
     /// Exactly the provider keys selected in this compiled artifact, including control arms.
     pub(crate) fn required_provider_keys(&self) -> &[ProviderKey] { &self.required_provider_keys }
     pub(crate) fn evaluation_limits(&self) -> EvaluationLimits {
