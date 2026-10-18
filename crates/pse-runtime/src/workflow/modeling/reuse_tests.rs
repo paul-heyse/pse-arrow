@@ -208,9 +208,14 @@ async fn shared_body_cache_preserves_unconsumed_context_and_fresh_receiving_owne
         assert_eq!(body.spec().physical, current.spec().physical);
         assert!(Arc::ptr_eq(body.math(), current.math()));
     }
-    assert_eq!(a.compiled().consumed_physical_identity(), b.compiled().consumed_physical_identity());
-    assert!(!Arc::ptr_eq(&a.compiled().compiler_context().quantities,
-        &b.compiled().compiler_context().quantities));
+    assert_eq!(
+        a.compiled().consumed_physical_identity(),
+        b.compiled().consumed_physical_identity()
+    );
+    assert!(!Arc::ptr_eq(
+        &a.compiled().compiler_context().quantities,
+        &b.compiled().compiler_context().quantities
+    ));
     service.clear_program_cache();
     drop(a);
     drop(b);

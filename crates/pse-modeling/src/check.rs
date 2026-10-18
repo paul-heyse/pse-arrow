@@ -296,11 +296,21 @@ impl CheckedPackage {
     /// Retain the exact source-admission owners after a complete value-checked
     /// phase composition. This cannot replace a different physical interpretation.
     #[doc(hidden)]
-    pub fn retain_physical_owners(mut self, quantities: Arc<pse_quantity::QuantityRegistry>, preconditions: Arc<pse_quantity::PhysicalPreconditions>) -> Result<Self> {
-        if self.quantities.as_ref() != quantities.as_ref() || self.preconditions.as_ref() != preconditions.as_ref() {
-            return Err(invalid(DeclarationId::from_id(SemanticId::NIL), "checked source physical owners differ"));
+    pub fn retain_physical_owners(
+        mut self,
+        quantities: Arc<pse_quantity::QuantityRegistry>,
+        preconditions: Arc<pse_quantity::PhysicalPreconditions>,
+    ) -> Result<Self> {
+        if self.quantities.as_ref() != quantities.as_ref()
+            || self.preconditions.as_ref() != preconditions.as_ref()
+        {
+            return Err(invalid(
+                DeclarationId::from_id(SemanticId::NIL),
+                "checked source physical owners differ",
+            ));
         }
-        self.quantities = quantities; self.preconditions = preconditions;
+        self.quantities = quantities;
+        self.preconditions = preconditions;
         Ok(self)
     }
     /// The immutable physical environment used to admit this package.

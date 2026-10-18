@@ -248,7 +248,8 @@ fn inventory_identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conten
 
 pub(crate) fn complete(r: &QuantityRegistry, p: &PhysicalPreconditions) -> ContentHash {
     let mut hash = FramedHasher::new(pse_ids::Frame::MathPhysicalPremisesV1);
-    hash.str("complete-builtin-physical-preconditions-v1").hash(&identity(r, p));
+    hash.str("complete-builtin-physical-preconditions-v1")
+        .hash(&identity(r, p));
     hash.finish_hash()
 }
 pub(crate) fn consumed(premises: &pse_quantity::premises::PhysicalPremises) -> ContentHash {

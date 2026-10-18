@@ -25,10 +25,18 @@ enum BodyPhysicalContext {
 }
 impl BodyPhysicalContext {
     fn context(&self) -> (&QuantityRegistry, &PhysicalPreconditions) {
-        match self { Self::Consumed(premises) => premises.context(), Self::Complete(registry, facts) => (registry, facts) }
+        match self {
+            Self::Consumed(premises) => premises.context(),
+            Self::Complete(registry, facts) => (registry, facts),
+        }
     }
     fn retained_bytes(&self) -> usize {
-        match self { Self::Consumed(premises) => premises.retained_bytes(), Self::Complete(registry, facts) => registry.allocation_extent().saturating_add(facts.allocation_extent()) }
+        match self {
+            Self::Consumed(premises) => premises.retained_bytes(),
+            Self::Complete(registry, facts) => registry
+                .allocation_extent()
+                .saturating_add(facts.allocation_extent()),
+        }
     }
 }
 impl PartialEq for BodyInput {
@@ -157,10 +165,26 @@ fn semantic_body(
     let generation = db.body_retention().map(|cache| cache.generation());
     let (quantities, preconditions) = input.context.context();
     let (mut body, eligible) = match &input.context {
-        BodyPhysicalContext::Complete(_, _) => (materialize(input, quantities, preconditions, input.physical, db.cancel())?, true),
+        BodyPhysicalContext::Complete(_, _) => (
+            materialize(
+                input,
+                quantities,
+                preconditions,
+                input.physical,
+                db.cancel(),
+            )?,
+            true,
+        ),
         BodyPhysicalContext::Consumed(premises) => {
-            let result = pse_quantity::premises::capture(quantities, preconditions,
-                || materialize(input, quantities, preconditions, input.physical, db.cancel()));
+            let result = pse_quantity::premises::capture(quantities, preconditions, || {
+                materialize(
+                    input,
+                    quantities,
+                    preconditions,
+                    input.physical,
+                    db.cancel(),
+                )
+            });
             match result {
                 Ok((body, Some(actual))) if premises.covers(&actual) => (body, true),
                 _ => {
@@ -170,7 +194,16 @@ fn semantic_body(
                     let registry = inventory.quantities(db);
                     let facts = inventory.preconditions(db);
                     pse_quantity::premises::unsupported();
-                    (materialize(input, registry, facts, crate::physical_identity::complete(registry, facts), db.cancel())?, false)
+                    (
+                        materialize(
+                            input,
+                            registry,
+                            facts,
+                            crate::physical_identity::complete(registry, facts),
+                            db.cancel(),
+                        )?,
+                        false,
+                    )
                 }
             }
         }
@@ -180,7 +213,11 @@ fn semantic_body(
             .with_checked_members(input.validity.values().map(|range| range.target).collect())?,
     );
     checkpoint(db);
-    let body = Arc::new(if eligible { body.for_semantic_identity(input.identity) } else { body });
+    let body = Arc::new(if eligible {
+        body.for_semantic_identity(input.identity)
+    } else {
+        body
+    });
     admission.record("success", true);
     if let Some(context) = pse_diagnostics::observation::current() {
         context.count("compiler.semantic_body_admissions_completed", "count", 1);
@@ -197,13 +234,34 @@ fn semantic_body(
     }
     Ok(body)
 }
-fn materialize(input: &BodyInput, registry: &QuantityRegistry, facts: &PhysicalPreconditions, physical: ContentHash, cancel: &Arc<AtomicBool>) -> Result<AdmittedBody> {
+fn materialize(
+    input: &BodyInput,
+    registry: &QuantityRegistry,
+    facts: &PhysicalPreconditions,
+    physical: ContentHash,
+    cancel: &Arc<AtomicBool>,
+) -> Result<AdmittedBody> {
     Ok(crate::typed_math::Request {
-        definition: SemanticId::NIL, expressions: std::slice::from_ref(&input.expression),
-        formals: &input.formals, domains: &BTreeMap::new(), groups: &BTreeMap::new(),
-        providers: &input.providers, literals: &BTreeMap::new(), physical,
-        structure: input.identity.as_id(), limits: input.limits,
-    }.admit_modeling_outputs(registry, facts, cancel, &input.functions, &[input.quantity], &input.hints, &input.validity)?)
+        definition: SemanticId::NIL,
+        expressions: std::slice::from_ref(&input.expression),
+        formals: &input.formals,
+        domains: &BTreeMap::new(),
+        groups: &BTreeMap::new(),
+        providers: &input.providers,
+        literals: &BTreeMap::new(),
+        physical,
+        structure: input.identity.as_id(),
+        limits: input.limits,
+    }
+    .admit_modeling_outputs(
+        registry,
+        facts,
+        cancel,
+        &input.functions,
+        &[input.quantity],
+        &input.hints,
+        &input.validity,
+    )?)
 }
 fn body_heap(value: &Result<Arc<AdmittedBody>>) -> usize {
     value
@@ -638,7 +696,16 @@ impl PlannedModeling {
             .map(|instance| instance.input.identity)
     }
     pub(super) fn providers(&self) -> BTreeMap<String, (ContentHash, usize)> {
-        self.instances.iter().flat_map(|instance| instance.input.providers.iter()).map(|(name,provider)| (name.clone(),(provider.descriptor.spec().identity(),provider.output))).collect()
+        self.instances
+            .iter()
+            .flat_map(|instance| instance.input.providers.iter())
+            .map(|(name, provider)| {
+                (
+                    name.clone(),
+                    (provider.descriptor.spec().identity(), provider.output),
+                )
+            })
+            .collect()
     }
     pub(super) fn retained_bytes(&self) -> usize {
         size_of::<Self>()
@@ -708,7 +775,9 @@ pub(super) fn plan(
     supplied: BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
 ) -> Result<PlannedModeling> {
     let (implicit, mut providers) = implicit::admit(db, inventory, p, supplied)?;
-    if !implicit.is_empty() { pse_quantity::premises::unsupported(); }
+    if !implicit.is_empty() {
+        pse_quantity::premises::unsupported();
+    }
     for function in p.functions.values() {
         if let Some(external) = &function.external {
             let call =
@@ -882,15 +951,38 @@ pub(super) fn plan(
             .filter_map(|n| providers.get(n).map(|v| (n.clone(), v.clone())))
             .collect();
         let prepass = crate::typed_math::Request {
-            definition: SemanticId::NIL, expressions: std::slice::from_ref(&expression),
-            formals: &formals, domains: &BTreeMap::new(), groups: &BTreeMap::new(),
-            providers: &selected_providers, literals: &BTreeMap::new(),
-            physical: complete_physical, structure: complete_physical, limits: p.body_limits,
-        }.physical_modeling_outputs(registry, checker, db.cancel(), &functions,
-            &[p.quantities[index]], &hints, &validity)?;
+            definition: SemanticId::NIL,
+            expressions: std::slice::from_ref(&expression),
+            formals: &formals,
+            domains: &BTreeMap::new(),
+            groups: &BTreeMap::new(),
+            providers: &selected_providers,
+            literals: &BTreeMap::new(),
+            physical: complete_physical,
+            structure: complete_physical,
+            limits: p.body_limits,
+        }
+        .physical_modeling_outputs(
+            registry,
+            checker,
+            db.cancel(),
+            &functions,
+            &[p.quantities[index]],
+            &hints,
+            &validity,
+        )?;
         let (physical, context) = match prepass {
-            Some(premises) => (crate::physical_identity::consumed(&premises), BodyPhysicalContext::Consumed(Arc::new(premises))),
-            None => { pse_quantity::premises::unsupported(); (complete_physical, BodyPhysicalContext::Complete(registry.clone(), checker.clone())) },
+            Some(premises) => (
+                crate::physical_identity::consumed(&premises),
+                BodyPhysicalContext::Consumed(Arc::new(premises)),
+            ),
+            None => {
+                pse_quantity::premises::unsupported();
+                (
+                    complete_physical,
+                    BodyPhysicalContext::Complete(registry.clone(), checker.clone()),
+                )
+            }
         };
         let mut h = FramedHasher::new(pse_ids::Frame::ModelingConsumerBodyV5);
         frame_physical_scope(&mut h, &p.physical_scope);
@@ -1057,20 +1149,25 @@ pub(super) fn complete(
     for instance in planned.instances {
         checkpoint(db);
         match &instance.input.context {
-            BodyPhysicalContext::Consumed(premises) => { premises.observe(inventory.quantities(db), inventory.preconditions(db)); }
-            BodyPhysicalContext::Complete(_,_) => pse_quantity::premises::unsupported(),
+            BodyPhysicalContext::Consumed(premises) => {
+                premises.observe(inventory.quantities(db), inventory.preconditions(db));
+            }
+            BodyPhysicalContext::Complete(_, _) => pse_quantity::premises::unsupported(),
         }
         let requested = instance.input.identity;
         let key = BodyKey::new(db, instance.input);
-        let body = pse_quantity::premises::without_recording(|| semantic_body(db, inventory, key)).map_err(|cause| MathError::Instance {
-            instance: instance.instance,
-            checked_members: instance.checked_members.clone(),
-            cause: Box::new(MathError::Typed {
-                retained: cause.retained_bytes(),
-                cause: pse_model::diagnostic::DiagnosticCause::new(cause),
-            }),
-        })?;
-        if body.semantic_identity() != Some(requested) { pse_quantity::premises::unsupported(); }
+        let body = pse_quantity::premises::without_recording(|| semantic_body(db, inventory, key))
+            .map_err(|cause| MathError::Instance {
+                instance: instance.instance,
+                checked_members: instance.checked_members.clone(),
+                cause: Box::new(MathError::Typed {
+                    retained: cause.retained_bytes(),
+                    cause: pse_model::diagnostic::DiagnosticCause::new(cause),
+                }),
+            })?;
+        if body.semantic_identity() != Some(requested) {
+            pse_quantity::premises::unsupported();
+        }
         let key = body.spec.key();
         bodies.insert(key, body);
         instances.push(InstanceBinding {

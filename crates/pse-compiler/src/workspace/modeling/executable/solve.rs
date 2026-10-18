@@ -369,15 +369,20 @@ impl PreparedCase {
     /// Exact current context ownership, separate from consumed mathematical equality.
     #[doc(hidden)]
     pub fn has_modeling_context(&self, model: &PreparedModeling) -> bool {
-        self.modeling_physical == Some(model.physical) &&
-            std::ptr::eq(self.quantities.as_ref(), model.context.quantities.as_ref()) &&
-            std::ptr::eq(self.preconditions.as_ref(), model.context.preconditions.as_ref())
+        self.modeling_physical == Some(model.physical)
+            && std::ptr::eq(self.quantities.as_ref(), model.context.quantities.as_ref())
+            && std::ptr::eq(
+                self.preconditions.as_ref(),
+                model.context.preconditions.as_ref(),
+            )
     }
     /// Build the receiving shell after exact consumed mathematical compatibility.
     #[doc(hidden)]
     pub fn receive_modeling_context(&self, model: &PreparedModeling) -> Result<Self> {
         if self.modeling_physical != Some(model.physical) {
-            return Err(CompileError::Missing("prepared view consumed physical context differs".into()));
+            return Err(CompileError::Missing(
+                "prepared view consumed physical context differs".into(),
+            ));
         }
         let mut received = self.clone();
         received.quantities = model.context.quantities.clone().into();

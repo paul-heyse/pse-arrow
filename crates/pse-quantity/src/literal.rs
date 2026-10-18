@@ -54,7 +54,10 @@ pub fn resolve_literal(
         crate::convert_spec_for_type(source, registry.unit(ty.canonical_unit)?, &ty.key)?;
         return Ok(id);
     }
-    let candidates = registry.literal_candidates(source.dimension, source.reference_state).map(|ty|ty.id).collect::<Vec<_>>();
+    let candidates = registry
+        .literal_candidates(source.dimension, source.reference_state)
+        .map(|ty| ty.id)
+        .collect::<Vec<_>>();
     if let [only] = candidates.as_slice() {
         return Ok(*only);
     }

@@ -1120,7 +1120,11 @@ impl MathService {
         }
         let mut supplier_refused = false;
         let mut compiler = authority.lock()?;
-        let inputs = authority.workspace.desired_context.clone().unwrap_or_else(|| compiler.context());
+        let inputs = authority
+            .workspace
+            .desired_context
+            .clone()
+            .unwrap_or_else(|| compiler.context());
         let admitted = compiler.publish_modeling_context_with_validation(
             inputs,
             rows,
@@ -1486,9 +1490,10 @@ impl MathService {
             let mut lanes = self.compiler_lanes.lock().map_err(|_| {
                 MathRuntimeError::Infrastructure("compiler lane map poisoned".into())
             })?;
-            if let Some(index) = lanes.iter().position(|lane| {
-                lane.historical.is_none() && lane.lineage == lineage
-            }) {
+            if let Some(index) = lanes
+                .iter()
+                .position(|lane| lane.historical.is_none() && lane.lineage == lineage)
+            {
                 let lane = lanes.remove(index);
                 let mut result = lane.workspace.clone();
                 result.desired_context = Some(inputs.clone());
@@ -1522,9 +1527,10 @@ impl MathService {
             .compiler_lanes
             .lock()
             .map_err(|_| MathRuntimeError::Infrastructure("compiler lane map poisoned".into()))?;
-        if let Some(lane) = lanes.iter().find(|lane| {
-            lane.historical.is_none() && lane.lineage == lineage
-        }) {
+        if let Some(lane) = lanes
+            .iter()
+            .find(|lane| lane.historical.is_none() && lane.lineage == lineage)
+        {
             let mut workspace = lane.workspace.clone();
             workspace.desired_context = Some(inputs);
             return Ok(workspace);
@@ -1546,7 +1552,10 @@ impl MathService {
             lineage,
             historical: None,
             historical_context: None,
-            workspace: Workspace { desired_context: None, ..workspace.clone() },
+            workspace: Workspace {
+                desired_context: None,
+                ..workspace.clone()
+            },
             _metadata: metadata,
         });
         Ok(workspace)
@@ -1573,8 +1582,11 @@ impl MathService {
             if let Some(lineage) = &lineage
                 && let Some(index) = lanes.iter().position(|lane| {
                     lane.lineage == *lineage
-                        && lane.historical_context.as_ref().is_some_and(|current|
-                            *current == inputs && Arc::ptr_eq(&current.quantities, &inputs.quantities) && Arc::ptr_eq(&current.preconditions, &inputs.preconditions))
+                        && lane.historical_context.as_ref().is_some_and(|current| {
+                            *current == inputs
+                                && Arc::ptr_eq(&current.quantities, &inputs.quantities)
+                                && Arc::ptr_eq(&current.preconditions, &inputs.preconditions)
+                        })
                         && lane.historical == Some(revision.identity)
                 })
                 && let Ok(permit) = lanes[index].workspace.admission.clone().try_acquire_owned()
@@ -1600,8 +1612,12 @@ impl MathService {
                 )
             })?;
         if let Some(lineage) = lineage
-            && let Ok(metadata) =
-                self.reserve("modeling:historical-lineage", lineage.retained_bytes().saturating_add(inputs.provider_allocation_extent()))
+            && let Ok(metadata) = self.reserve(
+                "modeling:historical-lineage",
+                lineage
+                    .retained_bytes()
+                    .saturating_add(inputs.provider_allocation_extent()),
+            )
         {
             let mut lanes = self.compiler_lanes.lock().map_err(|_| {
                 MathRuntimeError::Infrastructure("compiler lane map poisoned".into())
@@ -1610,8 +1626,11 @@ impl MathService {
             // An active peer retains its own authority; this caller stays private.
             if !lanes.iter().any(|lane| {
                 lane.lineage == lineage
-                    && lane.historical_context.as_ref().is_some_and(|current|
-                            *current == inputs && Arc::ptr_eq(&current.quantities, &inputs.quantities) && Arc::ptr_eq(&current.preconditions, &inputs.preconditions))
+                    && lane.historical_context.as_ref().is_some_and(|current| {
+                        *current == inputs
+                            && Arc::ptr_eq(&current.quantities, &inputs.quantities)
+                            && Arc::ptr_eq(&current.preconditions, &inputs.preconditions)
+                    })
                     && lane.historical == Some(revision.identity)
             }) {
                 while lanes.len() >= self.policy.jobs.max(1) {
@@ -1628,7 +1647,10 @@ impl MathService {
                         lineage,
                         historical: Some(revision.identity),
                         historical_context: Some(inputs),
-                        workspace: Workspace { desired_context: None, ..workspace.clone() },
+                        workspace: Workspace {
+                            desired_context: None,
+                            ..workspace.clone()
+                        },
                         _metadata: metadata,
                     });
                 }
@@ -1694,7 +1716,11 @@ impl MathService {
             })?;
         if head.as_ref().is_some_and(|prior| stamp.precedes(prior)) {
             drop(head);
-            let inputs = authority.workspace.desired_context.clone().unwrap_or(authority.lock()?.context());
+            let inputs = authority
+                .workspace
+                .desired_context
+                .clone()
+                .unwrap_or(authority.lock()?.context());
             authority.release()?;
             let detached =
                 self.workspace(inputs, pse_compiler::workspace::WorkspaceLimits::default())?;

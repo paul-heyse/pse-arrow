@@ -177,14 +177,27 @@ impl CasePlan {
     /// Missing or incompatible contracts, ambiguous accumulation, or cancellation.
     #[doc(hidden)]
     pub fn check_physical_bindings(
-        structure: &CaseStructure, bodies: &BTreeMap<ContentHash, Arc<PreparedBody>>,
-        registry: &QuantityRegistry, cancel: &Arc<AtomicBool>,
+        structure: &CaseStructure,
+        bodies: &BTreeMap<ContentHash, Arc<PreparedBody>>,
+        registry: &QuantityRegistry,
+        cancel: &Arc<AtomicBool>,
     ) -> Result<(), MathError> {
-        let rows: BTreeMap<_, _> = structure.rows().iter().enumerate().map(|(i,row)| (row.id, GlobalRow::new(i))).collect();
+        let rows: BTreeMap<_, _> = structure
+            .rows()
+            .iter()
+            .enumerate()
+            .map(|(i, row)| (row.id, GlobalRow::new(i)))
+            .collect();
         let mut target_counts = BTreeMap::new();
-        for binding in structure.instances() { for contribution in &binding.contributions { *target_counts.entry(contribution.target).or_insert(0usize) += 1; } }
         for binding in structure.instances() {
-            if cancel.load(Ordering::Relaxed) { return Err(MathError::Cancelled); }
+            for contribution in &binding.contributions {
+                *target_counts.entry(contribution.target).or_insert(0usize) += 1;
+            }
+        }
+        for binding in structure.instances() {
+            if cancel.load(Ordering::Relaxed) {
+                return Err(MathError::Cancelled);
+            }
             let body = bodies
                 .get(&binding.body)
                 .ok_or_else(|| MathError::Contract("missing prepared body".into()))?;
@@ -720,7 +733,9 @@ impl CasePlan {
             if cancel.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);
             }
-            let body = bodies.get(&binding.body).ok_or_else(|| MathError::Contract("missing prepared body".into()))?;
+            let body = bodies
+                .get(&binding.body)
+                .ok_or_else(|| MathError::Contract("missing prepared body".into()))?;
             let coordinates: Vec<Slot> = binding
                 .slots
                 .iter()

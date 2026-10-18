@@ -163,7 +163,9 @@ mod sessions {
     }
     /// Return a session after its solve, counted at its current retained bytes.
     pub(super) fn give(key: pse_ids::ContentHash, session: kinsol::Session) {
-        if !session.ready_for_retention() { return; }
+        if !session.ready_for_retention() {
+            return;
+        }
         let bytes = session.retained_bytes();
         let released = SESSIONS.with(|s| {
             let mut s = s.borrow_mut();
@@ -189,9 +191,18 @@ mod sessions {
         })
     }
     #[cfg(test)]
-    pub(super) fn klu_state(key: pse_ids::ContentHash) -> (usize, sundials_sys::SUNLinearSolver_KLUWork) {
-        SESSIONS.with(|s| s.borrow().held.iter().find(|(k, _, _)| *k == key)
-            .unwrap().1.test_klu_state())
+    pub(super) fn klu_state(
+        key: pse_ids::ContentHash,
+    ) -> (usize, sundials_sys::SUNLinearSolver_KLUWork) {
+        SESSIONS.with(|s| {
+            s.borrow()
+                .held
+                .iter()
+                .find(|(k, _, _)| *k == key)
+                .unwrap()
+                .1
+                .test_klu_state()
+        })
     }
 }
 /// The trial problem is lent to the native session for one solve only: the implicit
@@ -1301,14 +1312,23 @@ mod tests {
         let id = pse_ids::SemanticId::from_bytes([90; 16]);
         let identity = pse_ids::ContentHash::from_bytes([90; 32]);
         let cancel = pse_diagnostics::Cancellation::default();
-        let mut builder = pse_math::typed::BodyBuilder::new(pse_math::initialize().unwrap(),
-            &registry, &pse_quantity::standard::StandardInvariantChecker, n + 1,
-            pse_math::typed::BodyLimits::default()).unwrap();
-        let p = builder.input(n, q, pse_quantity::IndexSet::new(), id).unwrap();
+        let mut builder = pse_math::typed::BodyBuilder::new(
+            pse_math::initialize().unwrap(),
+            &registry,
+            &pse_quantity::standard::StandardInvariantChecker,
+            n + 1,
+            pse_math::typed::BodyLimits::default(),
+        )
+        .unwrap();
+        let p = builder
+            .input(n, q, pse_quantity::IndexSet::new(), id)
+            .unwrap();
         let mut target = p.clone();
         let mut differences = Vec::new();
         for i in 0..n {
-            let x = builder.input(i, q, pse_quantity::IndexSet::new(), id).unwrap();
+            let x = builder
+                .input(i, q, pse_quantity::IndexSet::new(), id)
+                .unwrap();
             differences.push(builder.binary(Sub, x, target.clone(), None, id).unwrap());
             target = builder.binary(Add, target, p.clone(), None, id).unwrap();
         }
@@ -1316,41 +1336,88 @@ mod tests {
         for i in 0..n {
             // (p + 2) * (x_i - (i+1)*p) + x_previous - previous_target.
             // Parameter changes coefficients but never structural support.
-            let diagonal = builder.binary(Mul, p.clone(), differences[i].clone(), None, id).unwrap();
-            let diagonal = builder.binary(Add, diagonal, differences[i].clone(), None, id).unwrap();
-            let diagonal = builder.binary(Add, diagonal, differences[i].clone(), None, id).unwrap();
-            residuals.push(builder.binary(Add, diagonal, differences[(i+n-1)%n].clone(), None, id).unwrap());
+            let diagonal = builder
+                .binary(Mul, p.clone(), differences[i].clone(), None, id)
+                .unwrap();
+            let diagonal = builder
+                .binary(Add, diagonal, differences[i].clone(), None, id)
+                .unwrap();
+            let diagonal = builder
+                .binary(Add, diagonal, differences[i].clone(), None, id)
+                .unwrap();
+            residuals.push(
+                builder
+                    .binary(
+                        Add,
+                        diagonal,
+                        differences[(i + n - 1) % n].clone(),
+                        None,
+                        id,
+                    )
+                    .unwrap(),
+            );
         }
-        let body = Arc::new(builder.finish(&residuals, DerivativeOrder::First,
-            pse_math::library::Optimization::default(),
-            &pse_kernels::ExecutionScope::new(cancel.clone(), None)).unwrap());
-        let mut problem = Arc::new(Problem::new(id, identity,
-            (0..n).map(|i| pse_math::implicit::Unknown {
-                id: pse_ids::SemanticId::from_bytes((200 + i as u128).to_le_bytes()),
-                lower: f64::NEG_INFINITY, upper: f64::INFINITY,
-            }).collect(),
-            (0..n).map(|i| pse_ids::SemanticId::from_bytes((300 + i as u128).to_le_bytes())).collect(),
-            1, test_residual_bodies(body), n * (n + 1)).unwrap());
+        let body = Arc::new(
+            builder
+                .finish(
+                    &residuals,
+                    DerivativeOrder::First,
+                    pse_math::library::Optimization::default(),
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+                )
+                .unwrap(),
+        );
+        let mut problem = Arc::new(
+            Problem::new(
+                id,
+                identity,
+                (0..n)
+                    .map(|i| pse_math::implicit::Unknown {
+                        id: pse_ids::SemanticId::from_bytes((200 + i as u128).to_le_bytes()),
+                        lower: f64::NEG_INFINITY,
+                        upper: f64::INFINITY,
+                    })
+                    .collect(),
+                (0..n)
+                    .map(|i| pse_ids::SemanticId::from_bytes((300 + i as u128).to_le_bytes()))
+                    .collect(),
+                1,
+                test_residual_bodies(body),
+                n * (n + 1),
+            )
+            .unwrap(),
+        );
         assert_eq!(problem.pattern().compute_nnz(), n * 2);
         let options = Options {
-            start: vec![0.1; n], variable_nominals: vec![1.; n],
-            variable_tolerance: vec![0.001; n], residual_tolerance: vec![0.001; n],
-            iterations: 20, time_limit: std::time::Duration::from_secs(2), derivative_tolerance: 1e-10,
+            start: vec![0.1; n],
+            variable_nominals: vec![1.; n],
+            variable_tolerance: vec![0.001; n],
+            residual_tolerance: vec![0.001; n],
+            iterations: 20,
+            time_limit: std::time::Duration::from_secs(2),
+            derivative_tolerance: 1e-10,
         };
         budget_sessions(0);
         budget_sessions(16 << 20);
         let before = sessions::created();
         let mut address = None;
         for (generation, p) in [1., 1.25, 0.75, 1.5].into_iter().enumerate() {
-            let root = Kinsol.solve(problem.clone(), &[p], &options, &cancel).unwrap();
-            assert!(Arc::get_mut(&mut problem).is_some(), "cache returned the problem loan");
+            let root = Kinsol
+                .solve(problem.clone(), &[p], &options, &cancel)
+                .unwrap();
+            assert!(
+                Arc::get_mut(&mut problem).is_some(),
+                "cache returned the problem loan"
+            );
             let difference = |i: usize| root[i] - (i + 1) as f64 * p;
             for i in 0..n {
                 assert!(difference(i).abs() <= 0.001);
-                assert!(((p + 2.) * difference(i) + difference((i+n-1)%n)).abs() <= 0.001);
+                assert!(((p + 2.) * difference(i) + difference((i + n - 1) % n)).abs() <= 0.001);
             }
             let (current, work) = sessions::klu_state(identity);
-            if let Some(address) = address { assert_eq!(current, address); }
+            if let Some(address) = address {
+                assert_eq!(current, address);
+            }
             address = Some(current);
             assert_eq!(work.symbolic_completed, 1);
             assert_eq!(work.numeric_factor_completed, generation as u64 + 1);
@@ -1364,7 +1431,11 @@ mod tests {
         budget_sessions(0);
         assert_eq!(sessions::retained(), (0, 0));
         Kinsol.solve(problem, &[1.], &options, &cancel).unwrap();
-        assert_eq!(sessions::created() - before, 2, "budget-zero owner was released");
+        assert_eq!(
+            sessions::created() - before,
+            2,
+            "budget-zero owner was released"
+        );
         assert_eq!(sessions::retained(), (0, 0));
     }
     /// I14: the cache keeps sessions only within the thread's byte budget, releasing the

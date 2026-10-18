@@ -251,7 +251,10 @@ fn stock_session(function: Function, config: Settings, stamp: Compatibility) -> 
         unsafe {
             let linear = ffi::SUNLinSol_KLU(session.x, session.matrix, session.ctx);
             assert!(!linear.is_null());
-            assert_eq!(ffi::KINSetLinearSolver(session.mem, linear, session.matrix), 0);
+            assert_eq!(
+                ffi::KINSetLinearSolver(session.mem, linear, session.matrix),
+                0
+            );
             assert_eq!(ffi::KINSetJacFn(session.mem, Some(jacobian)), 0);
             assert_eq!(ffi::SUNLinSolFree(session.linear), 0);
             session.linear = linear;
@@ -351,7 +354,10 @@ fn retained_klu_exact_layout_and_fresh_coefficient_application_boundary() {
                 phases.nanos
             );
             assert!(report.quality.as_ref().unwrap().feasible());
-            assert_eq!(count(&report, "klu.symbolic.completed"), i64::from(generation == 1));
+            assert_eq!(
+                count(&report, "klu.symbolic.completed"),
+                i64::from(generation == 1)
+            );
             assert_eq!(count(&report, "klu.numeric_factor.completed"), 1);
             assert!(
                 report
@@ -583,14 +589,25 @@ impl Manufactured {
                     }
                 }
                 SparseShape::Grid => {
-                    if row % 32 > 0 { neighbours.push(row - 1); }
-                    if row % 32 < 31 { neighbours.push(row + 1); }
-                    if row >= 32 { neighbours.push(row - 32); }
-                    if row + 32 < n { neighbours.push(row + 32); }
+                    if row % 32 > 0 {
+                        neighbours.push(row - 1);
+                    }
+                    if row % 32 < 31 {
+                        neighbours.push(row + 1);
+                    }
+                    if row >= 32 {
+                        neighbours.push(row - 32);
+                    }
+                    if row + 32 < n {
+                        neighbours.push(row + 32);
+                    }
                 }
             }
-            support.push(faer::sparse::Triplet::new(row, row,
-                1. + coefficient * neighbours.len() as f64));
+            support.push(faer::sparse::Triplet::new(
+                row,
+                row,
+                1. + coefficient * neighbours.len() as f64,
+            ));
             for col in neighbours {
                 support.push(faer::sparse::Triplet::new(row, col, -coefficient));
             }
@@ -599,7 +616,9 @@ impl Manufactured {
         Self {
             contract: root.contract,
             matrix: root.matrix,
-            target: (0..n).map(|i| 0.9 + (i % 19) as f64 * 0.01 + generation as f64 * 0.1).collect(),
+            target: (0..n)
+                .map(|i| 0.9 + (i % 19) as f64 * 0.01 + generation as f64 * 0.1)
+                .collect(),
             nonlinear,
             calls: Rc::default(),
         }
@@ -608,8 +627,12 @@ impl Manufactured {
         out.fill(0.);
         for col in 0..x.len() {
             let difference = x[col] - self.target[col];
-            for (row, value) in self.matrix.symbolic().row_idx_of_col(col)
-                .zip(self.matrix.val_of_col(col)) {
+            for (row, value) in self
+                .matrix
+                .symbolic()
+                .row_idx_of_col(col)
+                .zip(self.matrix.val_of_col(col))
+            {
                 out[row] += value * difference;
             }
             if self.nonlinear {
@@ -619,7 +642,9 @@ impl Manufactured {
     }
 }
 impl NleOracle for Manufactured {
-    fn contract(&self) -> &OracleContract { &self.contract }
+    fn contract(&self) -> &OracleContract {
+        &self.contract
+    }
     fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
         self.matrix.symbolic()
     }
@@ -635,9 +660,18 @@ impl NleOracle for Manufactured {
         let started = Instant::now();
         let mut offset = 0;
         for col in 0..x.len() {
-            for (row, value) in self.matrix.symbolic().row_idx_of_col(col)
-                .zip(self.matrix.val_of_col(col)) {
-                out[offset] = value + if self.nonlinear && row == col { 3. * x[col] * x[col] } else { 0. };
+            for (row, value) in self
+                .matrix
+                .symbolic()
+                .row_idx_of_col(col)
+                .zip(self.matrix.val_of_col(col))
+            {
+                out[offset] = value
+                    + if self.nonlinear && row == col {
+                        3. * x[col] * x[col]
+                    } else {
+                        0.
+                    };
                 offset += 1;
             }
         }
@@ -646,15 +680,26 @@ impl NleOracle for Manufactured {
         calls.jacobian_nanos += started.elapsed().as_nanos();
         Ok(())
     }
-    fn jacobian_product(&mut self, x: &[f64], direction: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+    fn jacobian_product(
+        &mut self,
+        x: &[f64],
+        direction: &[f64],
+        out: &mut [f64],
+    ) -> Result<(), ProblemError> {
         self.calls.borrow_mut().products += 1;
         out.fill(0.);
         for col in 0..x.len() {
-            for (row, value) in self.matrix.symbolic().row_idx_of_col(col)
-                .zip(self.matrix.val_of_col(col)) {
+            for (row, value) in self
+                .matrix
+                .symbolic()
+                .row_idx_of_col(col)
+                .zip(self.matrix.val_of_col(col))
+            {
                 out[row] += value * direction[col];
             }
-            if self.nonlinear { out[col] += 3. * x[col] * x[col] * direction[col]; }
+            if self.nonlinear {
+                out[col] += 3. * x[col] * x[col] * direction[col];
+            }
         }
         Ok(())
     }
@@ -668,28 +713,48 @@ fn fixed_pattern_complete_operation_contrast() {
     sparse_screen(true);
 }
 fn sparse_screen(qualify: bool) {
-    for shape in [SparseShape::Band, SparseShape::Blocks { recycle: false },
-        SparseShape::Blocks { recycle: true }, SparseShape::Grid] {
-        if qualify && matches!(shape, SparseShape::Blocks { .. }) { continue; }
+    for shape in [
+        SparseShape::Band,
+        SparseShape::Blocks { recycle: false },
+        SparseShape::Blocks { recycle: true },
+        SparseShape::Grid,
+    ] {
+        if qualify && matches!(shape, SparseShape::Blocks { .. }) {
+            continue;
+        }
         for nonlinear in [false, true] {
             // One nonlinear shape is enough to expose within-call setup behaviour.
-            let nonlinear_shape = if qualify { matches!(shape, SparseShape::Grid) }
-                else { matches!(shape, SparseShape::Blocks { recycle: true }) };
-            if nonlinear && !nonlinear_shape { continue; }
+            let nonlinear_shape = if qualify {
+                matches!(shape, SparseShape::Grid)
+            } else {
+                matches!(shape, SparseShape::Blocks { recycle: true })
+            };
+            if nonlinear && !nonlinear_shape {
+                continue;
+            }
             for route in 0..if qualify { 3 } else { 2 } {
                 let fixed = route == 2;
-                let linear = if route == 1 { Linear::Spgmr {
-                    dimension: pse_model::scalars::PositiveCount::try_new(20).unwrap(),
-                } } else { Linear::Klu };
+                let linear = if route == 1 {
+                    Linear::Spgmr {
+                        dimension: pse_model::scalars::PositiveCount::try_new(20).unwrap(),
+                    }
+                } else {
+                    Linear::Klu
+                };
                 let n = Manufactured::new(shape, 0, nonlinear).target.len();
                 let mut config = settings(n, 10);
                 config.method.linear = linear;
-                if linear.krylov().is_some() { config.method.preconditioner = Preconditioner::Jacobi; }
+                if linear.krylov().is_some() {
+                    config.method.preconditioner = Preconditioner::Jacobi;
+                }
                 let stamp = crate::solver_tests::stamp(Backend::Kinsol);
-                let function = Function::Equations(Box::new(Manufactured::new(shape, 0, nonlinear)));
+                let function =
+                    Function::Equations(Box::new(Manufactured::new(shape, 0, nonlinear)));
                 let mut session = if fixed {
                     Session::new(function, config.clone(), execution(), stamp.clone()).unwrap()
-                } else { stock_session(function, config.clone(), stamp.clone()) };
+                } else {
+                    stock_session(function, config.clone(), stamp.clone())
+                };
                 for generation in 0..if qualify { 4 } else { 3 } {
                     let root = Manufactured::new(shape, generation, nonlinear);
                     let verification = Manufactured::new(shape, generation, nonlinear);
@@ -698,28 +763,49 @@ fn sparse_screen(qualify: bool) {
                     current.data = pse_ids::ContentHash::from_bytes([generation as u8; 32]);
                     let initial: Vec<_> = (0..n).map(|i| 0.3 + (i % 7) as f64 * 0.01).collect();
                     let started = Instant::now();
-                    session.replace(Function::Equations(Box::new(root)), config.clone(), current).unwrap();
+                    session
+                        .replace(Function::Equations(Box::new(root)), config.clone(), current)
+                        .unwrap();
                     let (report, phases) = if linear == Linear::Klu {
                         solve_observed(&mut session, &initial)
-                    } else { (solve(&mut session, &initial), LinearPhases::default()) };
+                    } else {
+                        (solve(&mut session, &initial), LinearPhases::default())
+                    };
                     let elapsed = started.elapsed();
-                    assert_eq!(report.termination.category, Termination::Success,
-                        "{shape:?} nonlinear={nonlinear} {linear:?} generation={generation}");
+                    assert_eq!(
+                        report.termination.category,
+                        Termination::Success,
+                        "{shape:?} nonlinear={nonlinear} {linear:?} generation={generation}"
+                    );
                     assert!(report.quality.as_ref().unwrap().feasible());
                     let x = &report.candidate.as_ref().unwrap().primal;
-                    assert!(x.iter().zip(&verification.target).all(|(x, root)| (x - root).abs() <= 0.001));
+                    assert!(
+                        x.iter()
+                            .zip(&verification.target)
+                            .all(|(x, root)| (x - root).abs() <= 0.001)
+                    );
                     let mut residual = vec![0.; n];
                     verification.physical_residual(x, &mut residual);
                     let original_max = residual.iter().map(|r| r.abs()).fold(0., f64::max);
                     assert!(original_max <= 0.001, "original residual {original_max}");
                     if linear == Linear::Klu {
-                        assert_eq!(count(&report, "klu.symbolic.completed"), i64::from(!fixed || generation == 0));
+                        assert_eq!(
+                            count(&report, "klu.symbolic.completed"),
+                            i64::from(!fixed || generation == 0)
+                        );
                         assert!(count(&report, "klu.numeric_factor.completed") >= 1);
                     }
-                    eprintln!("sparse_screen fixed={fixed} shape={shape:?} n={n} nonlinear={nonlinear} linear={linear:?} generation={generation} replacement_solve_ns={} retained_bytes={} calls={:?} native_phase_ns={:?} symbolic={:?} numeric={:?} refactor={:?} substitutions={:?} original_max={original_max}",
-                        elapsed.as_nanos(), session.retained_bytes(), calls.borrow(), phases.nanos,
-                        report.metrics.get("klu.symbolic.completed"), report.metrics.get("klu.numeric_factor.completed"),
-                        report.metrics.get("klu.refactor.completed"), report.metrics.get("klu.solve.completed"));
+                    eprintln!(
+                        "sparse_screen fixed={fixed} shape={shape:?} n={n} nonlinear={nonlinear} linear={linear:?} generation={generation} replacement_solve_ns={} retained_bytes={} calls={:?} native_phase_ns={:?} symbolic={:?} numeric={:?} refactor={:?} substitutions={:?} original_max={original_max}",
+                        elapsed.as_nanos(),
+                        session.retained_bytes(),
+                        calls.borrow(),
+                        phases.nanos,
+                        report.metrics.get("klu.symbolic.completed"),
+                        report.metrics.get("klu.numeric_factor.completed"),
+                        report.metrics.get("klu.refactor.completed"),
+                        report.metrics.get("klu.solve.completed")
+                    );
                 }
             }
         }
@@ -731,13 +817,22 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
     let stamp = crate::solver_tests::stamp(Backend::Kinsol);
     let mut session = Session::new(
         Function::Equations(Box::new(Root::new(4, true, Shape::Cubic, 1.))),
-        settings(4, 10), execution(), stamp,
-    ).unwrap();
-    assert_eq!(solve(&mut session, &[0.3; 4]).termination.category, Termination::Success);
+        settings(4, 10),
+        execution(),
+        stamp,
+    )
+    .unwrap();
+    assert_eq!(
+        solve(&mut session, &[0.3; 4]).termination.category,
+        Termination::Success
+    );
     let memory = |session: &Session| {
         let mut bytes = 0;
         // SAFETY: scalar read from this exclusively owned, idle native solver.
-        assert_eq!(unsafe { ffi::SUNLinSol_KLUGetMemUsage(session.linear, &raw mut bytes) }, 0);
+        assert_eq!(
+            unsafe { ffi::SUNLinSol_KLUGetMemUsage(session.linear, &raw mut bytes) },
+            0
+        );
         bytes
     };
     let full_memory = memory(&session);
@@ -752,7 +847,10 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
         let data = ffi::SUNSparseMatrix_Data(session.matrix);
         let nnz = ffi::SUNSparseMatrix_NNZ(session.matrix);
         for reinit in [1, 2] {
-            assert_ne!(ffi::SUNLinSol_KLUReInit(session.linear, session.matrix, nnz + 1, reinit), 0);
+            assert_ne!(
+                ffi::SUNLinSol_KLUReInit(session.linear, session.matrix, nnz + 1, reinit),
+                0
+            );
             assert_eq!(ffi::SUNSparseMatrix_NNZ(session.matrix), nnz);
             assert_eq!(ffi::SUNSparseMatrix_Data(session.matrix), data);
         }
@@ -766,21 +864,43 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
     let retained_symbolic = session.retained_bytes();
     let rejected_solve = |session: &Session| {
         // SAFETY: all objects are live; this is a checked numerical-validity refusal.
-        assert_ne!(unsafe { ffi::SUNLinSolSolve_KLU(session.linear, session.matrix, session.x, session.us, 0.) }, 0);
+        assert_ne!(
+            unsafe {
+                ffi::SUNLinSolSolve_KLU(session.linear, session.matrix, session.x, session.us, 0.)
+            },
+            0
+        );
     };
     rejected_solve(&session);
     let accepted = solve(&mut session, &[1.; 4]);
     assert_eq!(accepted.termination.name, "KIN_INITIAL_GUESS_OK");
     assert_eq!(count(&accepted, "klu.numeric_factor.issued"), 0);
     assert_eq!(memory(&session), symbolic_memory);
-    assert!(session.retained_bytes() <= retained_symbolic, "accepted start also releases old callback setup storage");
+    assert!(
+        session.retained_bytes() <= retained_symbolic,
+        "accepted start also releases old callback setup storage"
+    );
     rejected_solve(&session);
-    let error = session.solve(&[0.3; 4], &Controls { threads: 2, ..Controls::default() },
-        &ResolvedAccuracy::verification(), execution(), &Tolerances {
-            variables: vec![0.001; 4], rows: vec![0.001; 4], integrality: 0.001,
-        }, None);
+    let error = session.solve(
+        &[0.3; 4],
+        &Controls {
+            threads: 2,
+            ..Controls::default()
+        },
+        &ResolvedAccuracy::verification(),
+        execution(),
+        &Tolerances {
+            variables: vec![0.001; 4],
+            rows: vec![0.001; 4],
+            integrality: 0.001,
+        },
+        None,
+    );
     assert!(error.is_err());
-    assert!(session.ready_for_retention(), "ordinary admission refusal leaves a drained reset owner");
+    assert!(
+        session.ready_for_retention(),
+        "ordinary admission refusal leaves a drained reset owner"
+    );
     rejected_solve(&session);
     let recovered = solve(&mut session, &[0.3; 4]);
     assert_eq!(count(&recovered, "klu.symbolic.completed"), 0);
@@ -791,21 +911,41 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
     for refactor in [false, true] {
         // SAFETY: owned live matrix values; canonical indices are unchanged.
         unsafe {
-            if !refactor { assert_eq!(ffi::SUNLinSol_KLUBeginApplication(session.linear), 0); }
-            std::slice::from_raw_parts_mut(ffi::SUNSparseMatrix_Data(session.matrix), session.callback.rows.len()).fill(0.);
+            if !refactor {
+                assert_eq!(ffi::SUNLinSol_KLUBeginApplication(session.linear), 0);
+            }
+            std::slice::from_raw_parts_mut(
+                ffi::SUNSparseMatrix_Data(session.matrix),
+                session.callback.rows.len(),
+            )
+            .fill(0.);
         }
         // SAFETY: getter and setup on these exclusively owned live objects.
         let before = unsafe { linear_work::snapshot(session.linear) }.unwrap();
-        assert_ne!(unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) }, 0);
-        assert_eq!(memory(&session), symbolic_memory, "failed partial factors released");
+        assert_ne!(
+            unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) },
+            0
+        );
+        assert_eq!(
+            memory(&session),
+            symbolic_memory,
+            "failed partial factors released"
+        );
         rejected_solve(&session);
         // SAFETY: the canonical CSC and values remain exclusively session owned.
         unsafe {
-            let values = std::slice::from_raw_parts_mut(ffi::SUNSparseMatrix_Data(session.matrix), session.callback.rows.len());
+            let values = std::slice::from_raw_parts_mut(
+                ffi::SUNSparseMatrix_Data(session.matrix),
+                session.callback.rows.len(),
+            );
             for col in 0..4 {
                 for offset in session.callback.columns[col]..session.callback.columns[col + 1] {
                     let offset = usize::try_from(offset).unwrap();
-                    values[offset] = if session.callback.rows[offset] == col as i64 { 1. } else { 0. };
+                    values[offset] = if session.callback.rows[offset] == col as i64 {
+                        1.
+                    } else {
+                        0.
+                    };
                 }
             }
             assert_eq!(ffi::SUNLinSolSetup_KLU(session.linear, session.matrix), 0);
@@ -813,13 +953,20 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
         // SAFETY: scalar getter reads completed work on the idle owner.
         let after = unsafe { linear_work::snapshot(session.linear) }.unwrap();
         assert_eq!(after.symbolic_completed, before.symbolic_completed);
-        assert_eq!(after.numeric_factor_completed - before.numeric_factor_completed, 1);
-        assert_eq!(after.refactor_issued - before.refactor_issued, u64::from(refactor));
+        assert_eq!(
+            after.numeric_factor_completed - before.numeric_factor_completed,
+            1
+        );
+        assert_eq!(
+            after.refactor_issued - before.refactor_issued,
+            u64::from(refactor)
+        );
     }
     // A wrong native matrix is refused before use, invalidating uncertain analysis.
     // SAFETY: temporary independent native matrix, freed before this scope exits.
     unsafe {
-        let foreign = ffi::SUNSparseMatrix(4, 4, session.callback.rows.len() as i64, 0, session.ctx);
+        let foreign =
+            ffi::SUNSparseMatrix(4, 4, session.callback.rows.len() as i64, 0, session.ctx);
         assert!(!foreign.is_null());
         assert_ne!(ffi::SUNLinSolSetup_KLU(session.linear, foreign), 0);
         ffi::SUNMatDestroy(foreign);
@@ -829,13 +976,28 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
     assert_eq!(count(&fresh, "klu.symbolic.completed"), 1);
     assert_eq!(count(&fresh, "klu.numeric_factor.completed"), 1);
     let stopped_execution = execution();
-    stopped_execution.cancel.store(true, std::sync::atomic::Ordering::SeqCst);
-    let stopped = session.solve(&[0.3; 4], &Controls::default(),
-        &ResolvedAccuracy::verification(), stopped_execution, &Tolerances {
-            variables: vec![0.001; 4], rows: vec![0.001; 4], integrality: 0.001,
-        }, None).unwrap();
+    stopped_execution
+        .cancel
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    let stopped = session
+        .solve(
+            &[0.3; 4],
+            &Controls::default(),
+            &ResolvedAccuracy::verification(),
+            stopped_execution,
+            &Tolerances {
+                variables: vec![0.001; 4],
+                rows: vec![0.001; 4],
+                integrality: 0.001,
+            },
+            None,
+        )
+        .unwrap();
     assert_eq!(stopped.termination.category, Termination::Cancelled);
-    assert!(session.ready_for_retention(), "synchronous canceled application drained and reset");
+    assert!(
+        session.ready_for_retention(),
+        "synchronous canceled application drained and reset"
+    );
     assert_eq!(memory(&session), symbolic_memory);
     rejected_solve(&session);
     let recovered = solve(&mut session, &[0.3; 4]);

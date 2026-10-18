@@ -1011,15 +1011,34 @@ impl ResolvedPhysicalContract {
 
     fn resolve_named(mut self, registry: &QuantityRegistry) -> Result<(Self, f64), QuantityError> {
         let neutral_key = if self.kinds.is_empty() {
-            registry.neutral_dimensionless().and_then(|id| registry.quantity_type(id).ok()).map(|ty| {
-                let mut key = ty.key.clone(); key.shape = self.axes.clone(); key
-            })
-        } else { None };
-        let neutral = neutral_key.as_ref().and_then(|key| registry.resolve_key(key).ok());
-        let candidates: Vec<_> = if self.formula.is_some() { Vec::new() } else if self.kinds.is_empty() {
-            neutral.into_iter().filter_map(|id| registry.quantity_type(id).ok()).collect()
-        } else { registry.contract_candidates(&self.kinds, &self.axes).collect() };
-        let candidates = candidates.into_iter()
+            registry
+                .neutral_dimensionless()
+                .and_then(|id| registry.quantity_type(id).ok())
+                .map(|ty| {
+                    let mut key = ty.key.clone();
+                    key.shape = self.axes.clone();
+                    key
+                })
+        } else {
+            None
+        };
+        let neutral = neutral_key
+            .as_ref()
+            .and_then(|key| registry.resolve_key(key).ok());
+        let candidates: Vec<_> = if self.formula.is_some() {
+            Vec::new()
+        } else if self.kinds.is_empty() {
+            neutral
+                .into_iter()
+                .filter_map(|id| registry.quantity_type(id).ok())
+                .collect()
+        } else {
+            registry
+                .contract_candidates(&self.kinds, &self.axes)
+                .collect()
+        };
+        let candidates = candidates
+            .into_iter()
             .filter_map(|ty| match self.matches_key(&ty.key, registry) {
                 Ok(true) => Some(Ok(ty.id)),
                 Ok(false) => None,

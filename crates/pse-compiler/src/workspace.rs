@@ -43,7 +43,9 @@ impl CompilerContext {
     /// Allocation owned by this context's cloned provider map. Physical inventory
     /// Arcs may be shared with an independently charged compiler owner.
     #[doc(hidden)]
-    pub fn provider_allocation_extent(&self) -> usize { provider_context_extent(self) }
+    pub fn provider_allocation_extent(&self) -> usize {
+        provider_context_extent(self)
+    }
 }
 /// Shared complete identity of actual physical declarations and prerequisites.
 pub fn physical_identity(
@@ -1608,27 +1610,23 @@ fn configure(db: &mut CompilerDatabase, n: usize) {
     provider_query::set_lru_capacity(db, n);
 }
 fn provider_context_extent(i: &CompilerContext) -> usize {
-    i.providers
-        .iter()
-        .fold(
-            0usize,
-            |bytes, (name, provider)| {
-                let spec = provider.descriptor.spec();
-                bytes
-                    .saturating_add(size_of::<(String, ProviderCall)>() + 128)
-                    .saturating_add(name.capacity())
-                    .saturating_add(spec.shapes.retained_bytes())
-                    .saturating_add(
-                        (spec.inputs.len() + spec.outputs.len())
-                            .saturating_mul(size_of::<pse_kernels::Port>()),
-                    )
-            },
-        )
-
-
+    i.providers.iter().fold(0usize, |bytes, (name, provider)| {
+        let spec = provider.descriptor.spec();
+        bytes
+            .saturating_add(size_of::<(String, ProviderCall)>() + 128)
+            .saturating_add(name.capacity())
+            .saturating_add(spec.shapes.retained_bytes())
+            .saturating_add(
+                (spec.inputs.len() + spec.outputs.len())
+                    .saturating_mul(size_of::<pse_kernels::Port>()),
+            )
+    })
 }
 fn context_extent(i: &CompilerContext) -> usize {
-    i.quantities.allocation_extent().saturating_add(i.preconditions.allocation_extent()).saturating_add(provider_context_extent(i))
+    i.quantities
+        .allocation_extent()
+        .saturating_add(i.preconditions.allocation_extent())
+        .saturating_add(provider_context_extent(i))
 }
 fn validate(i: &CompilerContext, l: WorkspaceLimits) -> Result<()> {
     if [

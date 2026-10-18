@@ -235,8 +235,13 @@ pub struct Inferred {
 pub(crate) struct CheckerSeal;
 pub trait InvariantChecker {
     #[doc(hidden)]
-    #[allow(private_interfaces, reason = "sealed optional builtin identity; custom implementations retain the default")]
-    fn physical_premise_owner(&self, _seal: CheckerSeal) -> Option<&crate::PhysicalPreconditions> { None }
+    #[allow(
+        private_interfaces,
+        reason = "sealed optional builtin identity; custom implementations retain the default"
+    )]
+    fn physical_premise_owner(&self, _seal: CheckerSeal) -> Option<&crate::PhysicalPreconditions> {
+        None
+    }
 
     /// Whether all facts read by this checker remain immutable for its borrowed
     /// lifetime. Mutable or observation-based implementations must keep the default.

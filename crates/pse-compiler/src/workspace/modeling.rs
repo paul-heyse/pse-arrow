@@ -231,7 +231,9 @@ pub struct ModelingRevision {
 impl ModelingRevision {
     /// Exact immutable compiler context retained for historical preparation.
     #[doc(hidden)]
-    pub fn compiler_context(&self) -> CompilerContext { self.inputs.clone() }
+    pub fn compiler_context(&self) -> CompilerContext {
+        self.inputs.clone()
+    }
     /// Original declarations in source order.
     pub fn declarations(&self) -> &[Declaration] {
         &self.rows
@@ -452,7 +454,10 @@ impl CompilerWorkspace {
             && state.revision.documents == documents
             && state.revision.inputs == self.inputs
             && Arc::ptr_eq(&state.revision.inputs.quantities, &self.inputs.quantities)
-            && Arc::ptr_eq(&state.revision.inputs.preconditions, &self.inputs.preconditions)
+            && Arc::ptr_eq(
+                &state.revision.inputs.preconditions,
+                &self.inputs.preconditions,
+            )
         {
             validate_candidate(&state.revision.checked)?;
             if let Some(context) = pse_diagnostics::observation::current() {
@@ -503,8 +508,13 @@ impl CompilerWorkspace {
                 context.count("compiler.failed_candidate_rotations", "count", 1);
                 context.phase("compiler.failed_candidate_restore")
             });
-            let mut restored =
-                Self::with_shared_events(prior.as_ref().map_or_else(|| self.inputs.clone(), |revision| revision.inputs.clone()), self.limits, self.events.clone())?;
+            let mut restored = Self::with_shared_events(
+                prior
+                    .as_ref()
+                    .map_or_else(|| self.inputs.clone(), |revision| revision.inputs.clone()),
+                self.limits,
+                self.events.clone(),
+            )?;
             restored.db.body_retention = self.db.body_retention.clone();
             if let Some(prior) = prior {
                 restored.publish_modeling_revision(prior)?;
@@ -522,8 +532,14 @@ impl CompilerWorkspace {
                     && state.revision.scope == revision.scope
                     && state.revision.documents == revision.documents
                     && state.revision.inputs == revision.inputs
-                    && Arc::ptr_eq(&state.revision.inputs.quantities, &revision.inputs.quantities)
-                    && Arc::ptr_eq(&state.revision.inputs.preconditions, &revision.inputs.preconditions)
+                    && Arc::ptr_eq(
+                        &state.revision.inputs.quantities,
+                        &revision.inputs.quantities,
+                    )
+                    && Arc::ptr_eq(
+                        &state.revision.inputs.preconditions,
+                        &revision.inputs.preconditions,
+                    )
         })
     }
     /// Whether a generation has an admitted live head, independently of retained query entries.
@@ -538,41 +554,82 @@ impl CompilerWorkspace {
     /// preceding source need not be valid in the incoming interpretation.
     #[doc(hidden)]
     pub fn publish_modeling_context_with_validation(
-        &mut self, inputs: CompilerContext, rows: impl Into<Arc<Vec<Declaration>>>,
-        scope: impl Into<Arc<PhysicalScope>>, documents: Arc<DocumentInventory>,
-        cancel: Arc<AtomicBool>, validate_candidate: impl FnOnce(&CheckedPackage) -> Result<()>,
+        &mut self,
+        inputs: CompilerContext,
+        rows: impl Into<Arc<Vec<Declaration>>>,
+        scope: impl Into<Arc<PhysicalScope>>,
+        documents: Arc<DocumentInventory>,
+        cancel: Arc<AtomicBool>,
+        validate_candidate: impl FnOnce(&CheckedPackage) -> Result<()>,
     ) -> Result<Arc<ModelingRevision>> {
         self.with_modeling_context(inputs, cancel.clone(), |workspace| {
-            workspace.publish_modeling_with_validation(rows, scope, documents, cancel, validate_candidate)
+            workspace.publish_modeling_with_validation(
+                rows,
+                scope,
+                documents,
+                cancel,
+                validate_candidate,
+            )
         })
     }
     /// Refresh physical inputs under the existing exclusive compiler writer. Failed
     /// admission destroys all candidate setters and restores the preceding context/head.
     #[doc(hidden)]
-    pub fn refresh_modeling_context(&mut self, inputs: CompilerContext, cancel: Arc<AtomicBool>) -> Result<()> {
+    pub fn refresh_modeling_context(
+        &mut self,
+        inputs: CompilerContext,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<()> {
         let prior = self.modeling.as_ref().map(|state| state.revision.clone());
         self.with_modeling_context(inputs, cancel.clone(), |workspace| match prior {
-            Some(prior) => workspace.publish_modeling_with_cancellable(prior.rows.clone(), prior.scope.clone(), prior.documents.clone(), cancel).map(|_| ()),
+            Some(prior) => workspace
+                .publish_modeling_with_cancellable(
+                    prior.rows.clone(),
+                    prior.scope.clone(),
+                    prior.documents.clone(),
+                    cancel,
+                )
+                .map(|_| ()),
             None => Ok(()),
         })
     }
-    fn with_modeling_context<T>(&mut self, inputs: CompilerContext, cancel: Arc<AtomicBool>,
-        admit: impl FnOnce(&mut Self) -> Result<T>) -> Result<T> {
-        if cancel.load(Ordering::Acquire) { return Err(CompileError::Cancelled); }
-        if self.inputs == inputs && Arc::ptr_eq(&self.inputs.quantities, &inputs.quantities) && Arc::ptr_eq(&self.inputs.preconditions, &inputs.preconditions) { return admit(self); }
+    fn with_modeling_context<T>(
+        &mut self,
+        inputs: CompilerContext,
+        cancel: Arc<AtomicBool>,
+        admit: impl FnOnce(&mut Self) -> Result<T>,
+    ) -> Result<T> {
+        if cancel.load(Ordering::Acquire) {
+            return Err(CompileError::Cancelled);
+        }
+        if self.inputs == inputs
+            && Arc::ptr_eq(&self.inputs.quantities, &inputs.quantities)
+            && Arc::ptr_eq(&self.inputs.preconditions, &inputs.preconditions)
+        {
+            return admit(self);
+        }
         validate(&inputs, self.limits)?;
         let prior_inputs = self.inputs.clone();
         let prior = self.modeling.as_ref().map(|state| state.revision.clone());
         let generation = self.generation.saturating_add(1);
-        self.inventory.set_quantities(&mut self.db).to(inputs.quantities.clone());
-        self.inventory.set_preconditions(&mut self.db).to(inputs.preconditions.clone());
-        self.inventory.set_providers(&mut self.db).to(inputs.providers.clone());
+        self.inventory
+            .set_quantities(&mut self.db)
+            .to(inputs.quantities.clone());
+        self.inventory
+            .set_preconditions(&mut self.db)
+            .to(inputs.preconditions.clone());
+        self.inventory
+            .set_providers(&mut self.db)
+            .to(inputs.providers.clone());
         self.inputs = inputs;
         let result = admit(self);
         if result.is_err() {
-            let mut restored = Self::with_shared_events(prior_inputs, self.limits, self.events.clone())?;
+            let mut restored =
+                Self::with_shared_events(prior_inputs, self.limits, self.events.clone())?;
             restored.db.body_retention = self.db.body_retention.clone();
-            if let Some(prior) = prior { restored.publish_modeling_revision(prior)?; }
+            if let Some(prior) = prior {
+                restored.publish_modeling_revision(prior)?;
+            }
             restored.generation = generation;
             *self = restored;
         }
@@ -600,8 +657,14 @@ impl CompilerWorkspace {
         granular::configure(&mut self.db, self.limits.query_values);
         let checked = salsa::Cancelled::catch(std::panic::AssertUnwindSafe(|| {
             granular::check(self, rows, scope, documents)
-        })).map_err(|_| CompileError::Cancelled)??;
-        checked.retain_physical_owners(self.inputs.quantities.clone(), self.inputs.preconditions.clone()).map_err(CompileError::from)
+        }))
+        .map_err(|_| CompileError::Cancelled)??;
+        checked
+            .retain_physical_owners(
+                self.inputs.quantities.clone(),
+                self.inputs.preconditions.clone(),
+            )
+            .map_err(CompileError::from)
     }
     /// Select an already admitted revision without rechecking its declarations.
     /// # Errors

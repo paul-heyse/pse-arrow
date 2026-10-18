@@ -86,7 +86,12 @@ impl ModelingPackage {
             .scope(async {
                 let product = model.compiled();
                 let lookup = product
-                    .bound_lookup(states, order, compiler, &product.consumed_physical_identity())
+                    .bound_lookup(
+                        states,
+                        order,
+                        compiler,
+                        &product.consumed_physical_identity(),
+                    )
                     .map_err(crate::math::MathRuntimeError::from)?;
                 let key = lookup.key.clone();
                 let tightenings = lookup.tightenings.clone();
@@ -109,7 +114,9 @@ impl ModelingPackage {
                 let (case, retained) = match cached {
                     Some(cached) => {
                         let case = service.rebind(&cached.view, values.clone(), cancel).await?;
-                        if cached.identity == identity && case.compiled().has_modeling_context(product) {
+                        if cached.identity == identity
+                            && case.compiled().has_modeling_context(product)
+                        {
                             (case, Some(cached))
                         } else {
                             // Equal occurrences under new physical owners still need

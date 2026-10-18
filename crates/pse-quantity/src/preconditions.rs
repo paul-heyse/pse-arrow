@@ -52,8 +52,16 @@ impl PhysicalPreconditions {
     }
 }
 impl InvariantChecker for PhysicalPreconditions {
-    #[allow(private_interfaces, reason = "sealed builtin checker identity is not a custom checker extension")]
-    fn physical_premise_owner(&self, _seal: crate::infer::CheckerSeal) -> Option<&PhysicalPreconditions> { Some(self) }
+    #[allow(
+        private_interfaces,
+        reason = "sealed builtin checker identity is not a custom checker extension"
+    )]
+    fn physical_premise_owner(
+        &self,
+        _seal: crate::infer::CheckerSeal,
+    ) -> Option<&PhysicalPreconditions> {
+        Some(self)
+    }
 
     fn immutable(&self) -> bool {
         true

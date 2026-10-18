@@ -1217,8 +1217,13 @@ impl Session {
             // SAFETY: the session's live KLU solver, queried between solves.
             let mut native_bytes = 0;
             // SAFETY: read-only scalar query of the live solver into a local.
-            let status = unsafe { ffi::SUNLinSol_KLUGetMemUsage(self.linear, &raw mut native_bytes) };
-            bytes = bytes.saturating_add(if status == 0 { native_bytes } else { usize::MAX });
+            let status =
+                unsafe { ffi::SUNLinSol_KLUGetMemUsage(self.linear, &raw mut native_bytes) };
+            bytes = bytes.saturating_add(if status == 0 {
+                native_bytes
+            } else {
+                usize::MAX
+            });
         }
         bytes
     }
@@ -1578,22 +1583,27 @@ impl Session {
     ) -> Result<SolveReport, ProblemError> {
         self.retention_ready = false;
         self.begin_application()?;
-        let mut result = self.solve_application(initial, controls, accuracy, execution, tolerances, warm);
+        let mut result =
+            self.solve_application(initial, controls, accuracy, execution, tolerances, warm);
         // All work is synchronous on this owner. Failed attempts release numerical
         // factors even when they returned before KINSol or original validation.
         let successful = result.as_ref().is_ok_and(|report| {
             report.termination.category == Termination::Success
                 && report.quality.as_ref().is_some_and(Quality::feasible)
                 && report.validation_failure().is_none()
-                && report.shared_effective_failure().is_none_or(|cause|
-                    crate::callback::classify(cause.as_ref()) == crate::callback::Failure::Trial)
+                && report.shared_effective_failure().is_none_or(|cause| {
+                    crate::callback::classify(cause.as_ref()) == crate::callback::Failure::Trial
+                })
         });
         if !successful {
             if let Err(cleanup) = self.begin_application() {
                 // The original scientific/callback cause stays authoritative.
                 // This owner cannot be retained after uncertain cleanup.
                 if let Ok(report) = &mut result {
-                    report.metrics.insert("klu.retention_reset_failure".into(), Metric::Text(cleanup.to_string()));
+                    report.metrics.insert(
+                        "klu.retention_reset_failure".into(),
+                        Metric::Text(cleanup.to_string()),
+                    );
                 }
                 if let Some(context) = pse_diagnostics::observation::current() {
                     context.unavailable("kinsol.retention_reset", &cleanup.to_string());
@@ -1602,34 +1612,56 @@ impl Session {
             }
         }
         self.retention_ready = match &result {
-            Ok(report) => !matches!(report.termination.category, Termination::Panic)
-                && !matches!(report.termination.code as i32,
-                    ffi::KIN_MEM_NULL | ffi::KIN_NO_MALLOC | ffi::KIN_CONTEXT_ERR |
-                    ffi::KIN_VECTOROP_ERR)
-                && report.termination.name != "KIN_UNKNOWN",
-            Err(error) => matches!(error,
-                ProblemError::Contract(_) | ProblemError::Unsupported(_) |
-                ProblemError::Reuse { .. } | ProblemError::Structural { .. } |
-                ProblemError::Cancelled | ProblemError::Limit { .. } |
-                ProblemError::Math(_) | ProblemError::Provider(_)),
+            Ok(report) => {
+                !matches!(report.termination.category, Termination::Panic)
+                    && !matches!(
+                        report.termination.code as i32,
+                        ffi::KIN_MEM_NULL
+                            | ffi::KIN_NO_MALLOC
+                            | ffi::KIN_CONTEXT_ERR
+                            | ffi::KIN_VECTOROP_ERR
+                    )
+                    && report.termination.name != "KIN_UNKNOWN"
+            }
+            Err(error) => matches!(
+                error,
+                ProblemError::Contract(_)
+                    | ProblemError::Unsupported(_)
+                    | ProblemError::Reuse { .. }
+                    | ProblemError::Structural { .. }
+                    | ProblemError::Cancelled
+                    | ProblemError::Limit { .. }
+                    | ProblemError::Math(_)
+                    | ProblemError::Provider(_)
+            ),
         };
         result
     }
     fn begin_application(&mut self) -> Result<(), ProblemError> {
         #[cfg(test)]
-        if self.stock_klu { return Ok(()); }
+        if self.stock_klu {
+            return Ok(());
+        }
         if self.settings.method.linear == Linear::Klu && !self.linear.is_null() {
-            native!(ffi::SUNLinSol_KLUBeginApplication(self.linear), "fresh KLU application")?;
+            native!(
+                ffi::SUNLinSol_KLUBeginApplication(self.linear),
+                "fresh KLU application"
+            )?;
         }
         Ok(())
     }
     /// A completed synchronous application with known native integrity may return
     /// to the worker cache; terminal failures have already reset numerical state.
-    pub(crate) fn ready_for_retention(&self) -> bool { self.retention_ready }
+    pub(crate) fn ready_for_retention(&self) -> bool {
+        self.retention_ready
+    }
     #[cfg(test)]
     pub(crate) fn test_klu_state(&self) -> (usize, ffi::SUNLinearSolver_KLUWork) {
         // SAFETY: test-only read of the idle native owner retained by this session.
-        (self.linear as usize, unsafe { linear_work::snapshot(self.linear) }.unwrap())
+        (
+            self.linear as usize,
+            unsafe { linear_work::snapshot(self.linear) }.unwrap(),
+        )
     }
     fn solve_application(
         &mut self,
@@ -2605,8 +2637,14 @@ mod tests {
             let report = setup_solve(&mut session, start, ReusePolicy::AllowRebuild);
             assert_eq!(report.termination.category, Termination::Success);
             let symbolic = i64::from(application == 0);
-            assert_eq!(report.metrics["klu.symbolic.issued"], Metric::Integer(symbolic));
-            assert_eq!(report.metrics["klu.symbolic.completed"], Metric::Integer(symbolic));
+            assert_eq!(
+                report.metrics["klu.symbolic.issued"],
+                Metric::Integer(symbolic)
+            );
+            assert_eq!(
+                report.metrics["klu.symbolic.completed"],
+                Metric::Integer(symbolic)
+            );
             assert_eq!(
                 report.metrics["klu.numeric_factor.issued"],
                 Metric::Integer(1)
@@ -2997,7 +3035,8 @@ mod tests {
             self.trial(x, out)?;
             NleOracle::residual(&mut self.inner, x, out)?;
             if let Some((at, bias)) = self.validation_bias
-                && self.calls.load(std::sync::atomic::Ordering::SeqCst) == at {
+                && self.calls.load(std::sync::atomic::Ordering::SeqCst) == at
+            {
                 out[0] += bias;
             }
             Ok(())
@@ -3712,7 +3751,12 @@ mod tests {
         assert!(report.callback_failure().is_none());
         // SAFETY: live canonical session objects after the successful application;
         // a recovered trial must leave its valid numerical factor available.
-        assert_eq!(unsafe { ffi::SUNLinSolSolve_KLU(session.linear, session.matrix, session.x, session.us, 0.) }, 0);
+        assert_eq!(
+            unsafe {
+                ffi::SUNLinSolSolve_KLU(session.linear, session.matrix, session.x, session.us, 0.)
+            },
+            0
+        );
     }
     #[test]
     fn original_validation_failure_resets_numeric_after_native_success() {
@@ -3725,20 +3769,42 @@ mod tests {
         let last = calls.load(std::sync::atomic::Ordering::SeqCst);
         for domain_failure in [false, true] {
             let mut oracle = FaultOracle::new(if domain_failure { last } else { usize::MAX });
-            if !domain_failure { oracle.validation_bias = Some((last, 1.)); }
+            if !domain_failure {
+                oracle.validation_bias = Some((last, 1.));
+            }
             let mut session = fault_session(Strategy::LineSearch, oracle);
             let report = solve_fault(&mut session, 0.5);
             assert_eq!(report.termination.category, Termination::Success);
             assert_eq!(report.validation_failure().is_some(), domain_failure);
             assert!(!report.quality.as_ref().is_some_and(Quality::feasible));
             assert_eq!(metric(&report, "klu.numeric_factor.completed"), 1);
-            assert!(session.ready_for_retention(), "failed scientific validation drained and reset");
+            assert!(
+                session.ready_for_retention(),
+                "failed scientific validation drained and reset"
+            );
             // SAFETY: live exclusively owned solver and vectors; missing numerical
             // validity must refuse substitution without invoking native KLU solve.
-            assert_ne!(unsafe { ffi::SUNLinSolSolve_KLU(session.linear, session.matrix, session.x, session.us, 0.) }, 0);
+            assert_ne!(
+                unsafe {
+                    ffi::SUNLinSolSolve_KLU(
+                        session.linear,
+                        session.matrix,
+                        session.x,
+                        session.us,
+                        0.,
+                    )
+                },
+                0
+            );
             let config = session.settings.clone();
             let stamp = session.compatibility.clone();
-            session.replace(Function::Equations(Box::new(FaultOracle::new(usize::MAX))), config, stamp).unwrap();
+            session
+                .replace(
+                    Function::Equations(Box::new(FaultOracle::new(usize::MAX))),
+                    config,
+                    stamp,
+                )
+                .unwrap();
             let recovered = solve_fault(&mut session, 0.5);
             solved(&recovered);
             assert_eq!(metric(&recovered, "klu.symbolic.completed"), 0);
