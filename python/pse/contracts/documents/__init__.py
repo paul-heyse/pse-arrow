@@ -7627,6 +7627,9 @@ class RecycleRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     anderson_delay: Annotated[int, msgspec.Meta(ge=0)] = 0
     #: Native fixed-point damping in (0,1].
     damping: Fraction
+    #: Explicit native Anderson orthogonalization. Absence retains modified
+    #: Gram–Schmidt; a selected value requires nonzero Anderson history.
+    orthogonalization: enums.KinsolOrthogonalization | None = None
     #: Explicit finite screened restarts; omission never restarts.
     restarts: RecycleRestartRequest | None = None
     #: Exact selected tear decision groups, obtainable through select_tears.
@@ -7635,7 +7638,7 @@ class RecycleRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     units: tuple[CausalUnitRequest, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.anderson), v.scalar_key(self.anderson_delay), v.scalar_key(self.damping), v.optional_key(v.record_key)(self.restarts), v.sequence_key(v.scalar_key)(self.tears), v.sequence_key(v.record_key)(self.units),))
+        return (type(self), (v.scalar_key(self.anderson), v.scalar_key(self.anderson_delay), v.scalar_key(self.damping), v.optional_key(v.scalar_key)(self.orthogonalization), v.optional_key(v.record_key)(self.restarts), v.sequence_key(v.scalar_key)(self.tears), v.sequence_key(v.record_key)(self.units),))
 
     def __post_init__(self) -> None:
         v.unique(v.scalar_key)(self, None, self.tears)
