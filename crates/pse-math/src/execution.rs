@@ -2224,6 +2224,7 @@ impl PreparedBody {
                     && product == ProductKind::SelectedPartials,
                 first_variables: coordinates.iter().map(|&slot| parameters[slot].clone()).collect(),
                 scalar_inputs: self.inputs,
+                selected_partial_calls: limits.operations,
                 #[cfg(feature = "compiled-evaluator")]
                 native_prepaid: self.is_flat_arithmetic(),
                 local_order: if local_branches {
@@ -2967,6 +2968,9 @@ impl CompiledBody {
     }
     pub(crate) fn projection_first_layout(&self) -> Arc<FirstLayout> {
         self.first_layout.clone()
+    }
+    pub(crate) fn first_result_entries(&self) -> usize {
+        self.first_layout.axes.len()
     }
     pub(crate) fn projection_witnesses(
         &self,
@@ -4191,6 +4195,7 @@ struct BuildAllowance {
     selected_first: bool,
     first_variables: Vec<Atom>,
     scalar_inputs: usize,
+    selected_partial_calls: usize,
     /// Flat arithmetic modules were included by the selected-source preflight.
     /// Opaque control/provider construction consumes the installed owner's prepaid capacity.
     #[cfg(feature = "compiled-evaluator")]
@@ -4213,7 +4218,7 @@ impl SelectedFirstRegion {
                 let emitted = if component == 0 {
                     expression.clone()
                 } else {
-                    allowance.operations = allowance.operations.checked_sub(1)
+                    allowance.selected_partial_calls = allowance.selected_partial_calls.checked_sub(1)
                         .ok_or(MathError::Limit("selected first construction calls"))?;
                     crate::construction::additional(expression.as_view().get_byte_size().checked_mul(8)
                         .ok_or(MathError::Limit("selected first construction"))?)?;

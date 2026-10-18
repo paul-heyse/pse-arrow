@@ -42,6 +42,7 @@ pub(super) fn allocation_bound(
                         + program.input_formals().len())
                     .checked_mul(2 * size_of::<usize>())?
                     .checked_add(2 * size_of::<ProjectionRelationship>())?
+                    .checked_add(program.first_result_entries().checked_mul(size_of::<Option<usize>>())?)?
                     .checked_add(program.evaluation_cache_bytes())?;
                     bytes.checked_add(one.checked_mul(donors)?)
                 })
