@@ -1868,6 +1868,7 @@ mod forward_initialization_tests {
 #[cfg(test)]
 mod action_route_tests {
     use super::*;
+    use diffsol::MatrixCommon;
     use std::cell::Cell;
     #[derive(Debug)]
     struct Actions {
