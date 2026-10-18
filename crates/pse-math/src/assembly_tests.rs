@@ -3938,14 +3938,24 @@ fn compact_census_borrows_actual_products_and_separates_addends_from_nnz() {
             assembly.programs()[demand.template].as_ref()
         ));
         let orders = demand.program.census().collect::<Vec<_>>();
-        assert_eq!(orders.len(), demand.demand.order as usize + 1);
+        let expected_orders = if orders.iter().any(|order| order.direct_weighted) {
+            vec![DerivativeOrder::Value, demand.demand.order]
+        } else {
+            [DerivativeOrder::Value, DerivativeOrder::First, DerivativeOrder::Second]
+                .into_iter().filter(|order| *order <= demand.demand.order).collect()
+        };
+        assert_eq!(orders.iter().map(|order| order.order).collect::<Vec<_>>(), expected_orders);
         assert_eq!(orders[0].order, DerivativeOrder::Value);
         for order in orders {
             assert!(order.stages >= order.arithmetic_blocks + order.provider_stages);
             assert!(order.library_instructions > 0);
             assert!(order.instruction_storage_bytes >= order.library_instructions);
-            assert!(order.frame_entries > 0);
-            assert!(order.result_entries >= demand.demand.outputs.len());
+            assert!(order.direct_weighted || order.frame_entries > 0);
+            if order.direct_weighted {
+                assert_eq!(order.result_entries, demand.program.product_len());
+            } else {
+                assert!(order.result_entries >= demand.demand.outputs.len());
+            }
             assert_eq!(order.native_arithmetic_blocks, 0);
             assert_eq!(order.provider_stages, 0);
         }

@@ -10,10 +10,11 @@ mod product_guard_tests;
 pub(super) struct DirectProduct {
     evaluator: BlockEvaluator,
     pairs: Arc<Vec<(usize, usize)>>,
-    kind: ProductKind,
     inputs: usize,
     outputs: usize,
-    coordinates: usize,
+    directional_gradient: bool,
+    arguments: usize,
+    results: usize,
     scratch_bytes: usize,
     pub(super) retained_bytes: usize,
 }
@@ -224,15 +225,6 @@ impl PreparedSupport {
             weighted += weight * expression;
         }
         let n = coordinates.len();
-        let directions = if kind == ProductKind::WeightedHessianAction {
-            let directions = (0..n)
-                .map(|i| library::formal(next_formal + body.outputs.len() + i))
-                .collect::<Result<Vec<_>, _>>()?;
-            parameters.extend(directions.iter().cloned());
-            directions
-        } else {
-            Vec::new()
-        };
         let axes = self
             .coordinates()
             .iter()
@@ -249,67 +241,82 @@ impl PreparedSupport {
             .collect::<BTreeSet<_>>()
             .into_iter()
             .collect::<Vec<_>>();
-        if pairs
-            .len()
-            .checked_mul(2)
-            .is_none_or(|calls| calls > limits.operations)
-        {
+        // The bounded I02 controls qualify the directional-gradient construction for
+        // complete pair support. Sparse support retains pair construction with shared
+        // firsts; no unmeasured density crossover or latency estimator is introduced.
+        let directional_gradient = kind == ProductKind::WeightedHessianAction
+            && pairs.len() == n.checked_mul(n.saturating_add(1))
+                .ok_or(MathError::Limit("weighted pair population"))? / 2;
+        let directions = if kind == ProductKind::WeightedHessianAction && !directional_gradient {
+            let directions = (0..n).map(|i| library::formal(next_formal + body.outputs.len() + i))
+                .collect::<Result<Vec<_>, _>>()?;
+            parameters.extend(directions.iter().cloned());
+            directions
+        } else { Vec::new() };
+        // Differentiate each participating first derivative once. Exact-entry callers
+        // consume supported pairs; action callers differentiate the weighted gradient
+        // along one library Taylor axis instead of constructing every second pair.
+        let needed_first = if directional_gradient {
+            (0..n).collect::<BTreeSet<_>>()
+        } else {
+            pairs.iter().map(|&(i, _)| i).collect()
+        };
+        let calls = needed_first.len().checked_add(if directional_gradient { 0 } else { pairs.len() })
+            .ok_or(MathError::Limit("weighted symbolic derivative calls"))?;
+        if calls > limits.operations {
             return Err(MathError::Limit("weighted symbolic derivative calls"));
         }
-        let mut expressions = if kind == ProductKind::WeightedHessianAction {
-            vec![Atom::num(0); n]
+        let mut firsts = BTreeMap::new();
+        for i in needed_first {
+            scope.check().map_err(crate::error::scope_error)?;
+            crate::construction::additional(weighted.as_view().get_byte_size()
+                .checked_mul(4).ok_or(MathError::Limit("weighted derivative construction"))?)?;
+            firsts.insert(i, weighted.derivative(
+                Indeterminate::try_from(parameters[coordinates[i]].clone())
+                    .map_err(MathError::Library)?,
+            ));
+        }
+        let mut expressions = if directional_gradient {
+            firsts.into_values().collect::<Vec<_>>()
         } else {
-            Vec::with_capacity(pairs.len())
-        };
-        for &(i, j) in &pairs {
-            if cancel.load(Ordering::Acquire) {
-                return Err(MathError::Cancelled);
-            }
-            let bytes = weighted
-                .as_view()
-                .get_byte_size()
-                .checked_mul(8)
-                .ok_or(MathError::Limit("weighted derivative construction"))?;
-            crate::construction::additional(bytes)?;
-            let partial = weighted
-                .derivative(
-                    Indeterminate::try_from(parameters[coordinates[i]].clone())
-                        .map_err(MathError::Library)?,
-                )
-                .derivative(
+            let mut expressions = if kind == ProductKind::WeightedHessianAction { vec![Atom::num(0); n] } else { Vec::with_capacity(pairs.len()) };
+            for &(i, j) in &pairs {
+                scope.check().map_err(crate::error::scope_error)?;
+                let first = firsts.get(&i).ok_or_else(|| MathError::Contract("weighted first partial missing".into()))?;
+                crate::construction::additional(first.as_view().get_byte_size()
+                    .checked_mul(4).ok_or(MathError::Limit("weighted derivative construction"))?)?;
+                let partial = first.derivative(
                     Indeterminate::try_from(parameters[coordinates[j]].clone())
                         .map_err(MathError::Library)?,
                 );
-            if kind == ProductKind::WeightedHessianAction {
-                expressions[i] += &partial * &directions[j];
-                if i != j {
-                    expressions[j] += &partial * &directions[i];
-                }
-            } else {
-                expressions.push(partial);
+                if kind == ProductKind::WeightedHessianAction {
+                    expressions[i] += &partial * &directions[j];
+                    if i != j { expressions[j] += &partial * &directions[i]; }
+                } else { expressions.push(partial); }
             }
-        }
-        // Empty sparse products still use a finite constant library output internally;
-        // the public product has zero entries and never invents a nonzero support cell.
-        let product_len = if kind == ProductKind::WeightedHessianAction {
-            n
-        } else {
-            pairs.len()
+            expressions
         };
+        let product_len = if kind == ProductKind::WeightedHessianAction { n } else { pairs.len() };
         if expressions.is_empty() {
             expressions.push(Atom::num(0));
         }
         let mut scalars = retained
             .map(library::ScalarCache::from_products)
             .unwrap_or_default();
-        let inspected = library::bounded_scalar_evaluator(
-            &expressions,
-            &parameters,
-            options,
-            cancel,
-            limits,
-            &mut scalars,
-        )?;
+        let inspected = if directional_gradient {
+            let layout = JetLayout::new(vec![0], DerivativeOrder::First, limits)?;
+            // Runtime weights are constant along the action; only selected physical
+            // coordinates receive directional seeds. Other inputs remain complete.
+            let selected = coordinates.iter().copied().collect::<BTreeSet<_>>();
+            let zeros = (0..parameters.len())
+                .filter(|i| !selected.contains(i))
+                .map(|i| (i, 1)).collect::<Vec<_>>();
+            library::bounded_evaluator(SemanticId::NIL, &expressions, &parameters,
+                &layout, &zeros, options, cancel, limits, limits.operations, 0, &mut scalars)?
+        } else {
+            library::bounded_scalar_evaluator(&expressions, &parameters, options,
+                cancel, limits, &mut scalars)?
+        };
         let storage = inspected.facts.storage;
         let operations = operation_count(inspected.facts.operations);
         let export = inspected.export;
@@ -341,8 +348,9 @@ impl PreparedSupport {
         drop(export);
         let numeric = storage
             .numeric_entries
-            .checked_add(parameters.len())
-            .and_then(|n| n.checked_add(expressions.len()))
+            .checked_add(parameters.len().checked_mul(if directional_gradient { 2 } else { 1 })
+                .ok_or(MathError::Limit("weighted product arguments"))?)
+            .and_then(|n| n.checked_add(expressions.len() * if directional_gradient { 2 } else { 1 }))
             .and_then(|n| n.checked_add(product_len))
             .ok_or(MathError::Limit("weighted product scratch"))?;
         limits.allocation(numeric)?;
@@ -365,10 +373,11 @@ impl PreparedSupport {
         let direct = DirectProduct {
             evaluator,
             pairs: Arc::new(pairs),
-            kind,
             inputs: body.inputs,
             outputs: body.outputs.len(),
-            coordinates: n,
+            directional_gradient,
+            arguments: parameters.len() * if directional_gradient { 2 } else { 1 },
+            results: expressions.len() * if directional_gradient { 2 } else { 1 },
             scratch_bytes,
             retained_bytes,
         };
@@ -410,7 +419,7 @@ impl PreparedSupport {
             library_instructions: storage.instruction_count,
             instruction_storage_bytes: storage.instruction_bytes,
             frame_entries: 0,
-            derivative_components: 1,
+            derivative_components: if directional_gradient { 2 } else { 1 },
             second_pairs: direct.pairs.len(),
             result_entries: product_len,
             worker_bytes: scratch_bytes,
@@ -448,6 +457,7 @@ impl PreparedSupport {
             .ok_or(MathError::Limit("weighted product retained storage"))?;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("math.weighted_direct_constructions", "count", 1);
+            context.count("math.weighted_symbolic_derivative_calls", "calls", calls as u64);
             context.integer(
                 "math.weighted_direct_outputs",
                 "components",
@@ -563,17 +573,8 @@ impl Worker {
                     evaluator.instantiate()?;
                     self.direct_product = Some(DirectWorker {
                         evaluator,
-                        arguments: vec![
-                            f64::NAN;
-                            template.inputs
-                                + template.outputs
-                                + if template.kind == ProductKind::WeightedHessianAction {
-                                    template.coordinates
-                                } else {
-                                    0
-                                }
-                        ],
-                        values: vec![f64::NAN; scratch.len().max(1)],
+                        arguments: vec![f64::NAN; template.arguments],
+                        values: vec![f64::NAN; template.results],
                     });
                     self.used_bytes = used;
                 }
@@ -581,14 +582,22 @@ impl Worker {
                     .direct_product
                     .as_mut()
                     .ok_or_else(|| MathError::Contract("weighted product worker missing".into()))?;
-                worker.arguments[..template.inputs].copy_from_slice(inputs);
-                worker.arguments[template.inputs..template.inputs + template.outputs]
-                    .copy_from_slice(weights.ok_or_else(|| {
-                        MathError::Contract("weighted coefficients missing".into())
-                    })?);
-                if let Some(direction) = direction {
-                    worker.arguments[template.inputs + template.outputs..]
-                        .copy_from_slice(direction);
+                let weights = weights.ok_or_else(|| MathError::Contract("weighted coefficients missing".into()))?;
+                if template.directional_gradient {
+                    for (i, &value) in inputs.iter().chain(weights).enumerate() {
+                        worker.arguments[2 * i] = value;
+                        worker.arguments[2 * i + 1] = 0.0;
+                    }
+                    let direction = direction.ok_or_else(|| MathError::Contract("direction missing".into()))?;
+                    for (&coordinate, &seed) in self.body.coordinate_offsets.iter().zip(direction) {
+                        worker.arguments[2 * coordinate + 1] = seed;
+                    }
+                } else {
+                    worker.arguments[..template.inputs].copy_from_slice(inputs);
+                    worker.arguments[template.inputs..template.inputs + template.outputs].copy_from_slice(weights);
+                    if let Some(direction) = direction {
+                        worker.arguments[template.inputs + template.outputs..].copy_from_slice(direction);
+                    }
                 }
                 worker.values.fill(f64::NAN);
                 worker
@@ -600,7 +609,13 @@ impl Worker {
                         detail,
                     })?;
                 let count = scratch.len();
-                scratch.copy_from_slice(&worker.values[..count]);
+                if template.directional_gradient {
+                    for (i, value) in scratch.iter_mut().enumerate() {
+                        *value = worker.values[2 * i + 1];
+                    }
+                } else {
+                    scratch.copy_from_slice(&worker.values[..count]);
+                }
             } else {
                 if self.body.product == ProductKind::JacobianAction {
                     self.evaluate_directional_trial_into(
@@ -820,6 +835,80 @@ mod tests {
                 .is_err()
         );
     }
+    #[test]
+    fn flat_action_construction_comparison_keeps_directional_work_and_exact_entries_distinct() {
+        crate::initialize().unwrap();
+        let n = 6;
+        let x = (0..n).map(|i| library::formal(i).unwrap()).collect::<Vec<_>>();
+        let sum = x.iter().cloned().fold(Atom::num(0), |a, b| a + b);
+        let chain = (0..n - 1).fold(Atom::num(0), |a, i| a + x[i].pow(2) * &x[i + 1]);
+        let shared = (&sum * &sum + &x[0]).pow(2);
+        let cancel = pse_diagnostics::Cancellation::new(false);
+        let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
+        let limits = EvaluationLimits::default();
+        let point = (0..n).map(|i| 0.2 + i as f64 * 0.1).collect::<Vec<_>>();
+        let direction = (0..n).map(|i| if i % 2 == 0 { 0.5 } else { -0.3 }).collect::<Vec<_>>();
+        for (name, expression) in [("dense", sum.pow(3)), ("sparse", chain), ("shared", shared)] {
+            let body = PreparedBody::new(n, n + 1, vec![n], vec![Stage::Block {
+                expressions: vec![expression.clone()], outputs: vec![n], source: SemanticId::NIL,
+            }], DerivativeOrder::Second).unwrap();
+            let axes = (0..n).collect::<Vec<_>>();
+            let support = body.prepare_support(&[0], &axes, DerivativeOrder::Second, &cancel).unwrap();
+            let start = std::time::Instant::now();
+            let matrix = support.compile_product(ProductKind::WeightedHessian,
+                Optimization::default(), limits, &scope).unwrap();
+            let matrix_prepare = start.elapsed();
+            let start = std::time::Instant::now();
+            let action = support.compile_product(ProductKind::WeightedHessianAction,
+                Optimization::default(), limits, &scope).unwrap();
+            let action_prepare = start.elapsed();
+            assert_eq!(action.direct_product.as_ref().unwrap().directional_gradient, name != "sparse");
+            assert_eq!(action.census[DerivativeOrder::Second].unwrap().derivative_components,
+                if name == "sparse" { 1 } else { 2 });
+            let mut matrix_values = vec![f64::NAN; matrix.product_len()];
+            matrix.worker_scoped(scope.clone()).evaluate_product_into(&point,
+                ProductValues::WeightedHessian { weights: &[1.] }, &mut BTreeMap::new(),
+                &cancel, &mut matrix_values).unwrap();
+            let mut expected = vec![0.; n];
+            for (&(i, j), &value) in matrix.product_pairs().iter().zip(&matrix_values) {
+                expected[i] += value * direction[j];
+                if i != j { expected[j] += value * direction[i]; }
+            }
+            // Independent contracted symbolic candidate: gradient of directional scalar.
+            let seeds = (n..2*n).map(|i| library::formal(i).unwrap()).collect::<Vec<_>>();
+            let start = std::time::Instant::now();
+            let firsts = x.iter().map(|atom| expression.derivative(
+                Indeterminate::try_from(atom.clone()).unwrap())).collect::<Vec<_>>();
+            let contracted = firsts.iter().zip(&seeds).fold(Atom::num(0), |a, (g, v)| a + g * v);
+            let scalar_gradient = x.iter().map(|atom| contracted.derivative(
+                Indeterminate::try_from(atom.clone()).unwrap())).collect::<Vec<_>>();
+            let parameters = x.iter().chain(&seeds).cloned().collect::<Vec<_>>();
+            let mut alternative = library::bounded_scalar_evaluator(&scalar_gradient,
+                &parameters, Optimization::default(), &cancel, limits,
+                &mut library::ScalarCache::default()).unwrap();
+            let alternative_prepare = start.elapsed();
+            let mut alternative_values = vec![f64::NAN; n];
+            alternative.evaluator.try_evaluate(&point.iter().chain(&direction).copied().collect::<Vec<_>>(),
+                &mut alternative_values).unwrap();
+            let mut worker = action.worker_scoped(scope.clone());
+            let mut actual = vec![f64::NAN; n];
+            let start = std::time::Instant::now();
+            for _ in 0..16 {
+                worker.evaluate_product_into(&point, ProductValues::WeightedHessianAction {
+                    weights: &[1.], direction: &direction }, &mut BTreeMap::new(), &cancel,
+                    &mut actual).unwrap();
+            }
+            let execute = start.elapsed();
+            for ((&actual, &alternative), &expected) in actual.iter().zip(&alternative_values).zip(&expected) {
+                assert!((actual - expected).abs() <= 1e-10 * expected.abs().max(1.), "{name}: {actual} != {expected}");
+                assert!((alternative - expected).abs() <= 1e-10 * expected.abs().max(1.));
+            }
+            eprintln!("I02 {name}: pairs={} matrix_prepare={matrix_prepare:?} directional_prepare={action_prepare:?} scalar_gradient_prepare={alternative_prepare:?} directional_16_calls={execute:?} action_ops={} alternative_ops={} action_scratch={}",
+                matrix.product_len(), action.census[DerivativeOrder::Second].unwrap().library_operations,
+                operation_count(alternative.facts.operations), action.scratch_bytes());
+        }
+    }
+
     #[cfg(feature = "compiled-evaluator")]
     #[test]
     fn compiled_weighted_products_execute_derivatives_and_retain_private_workers() {

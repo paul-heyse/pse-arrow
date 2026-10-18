@@ -454,7 +454,7 @@ impl ScalarCache {
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("math.scalar_cache_lookups", "count", 1);
         }
-        let product = match self.evaluators.entry_ref(&query) {
+        let product: &Arc<ScalarProduct> = match self.evaluators.entry_ref(&query) {
             EntryRef::Occupied(entry) => {
                 if let Some(context) = pse_diagnostics::observation::current() {
                     context.count("math.scalar_cache_reuses", "count", 1);
