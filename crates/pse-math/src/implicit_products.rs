@@ -72,12 +72,20 @@ impl Problem {
     }
     fn product_program(&self, kind: ProductKind, columns: &[usize], order: DerivativeOrder,
         scope: &pse_kernels::ExecutionScope) -> Result<Arc<ResidualProduct>, MathError> {
+        self.check_residual_order(order)?;
         scope.check().map_err(crate::error::scope_error)?;
         self.product_workers.lock().map_err(|_| MathError::Contract("implicit product lock poisoned".into()))?
             .iter().find(|p| p.kind == kind && p.order == order && p.columns == columns).cloned()
             .ok_or_else(|| MathError::Contract("implicit product was not prepared before numerical execution".into()))
     }
+    fn check_residual_order(&self,order:DerivativeOrder)->Result<(),MathError> {
+        let available=self.requirements.residual_compilation.min(self.requirements.residual_available);
+        if order>available { return Err(MathError::Scope(pse_kernels::ProviderError::DerivativeUnavailable {
+            capability:pse_kernels::DerivativeCapability::Residual,requested:order,available,members:Vec::new(),
+        })); }Ok(())
+    }
     pub(super) fn complete_program(&self,order:DerivativeOrder)->Result<Arc<ResidualProduct>,MathError> {
+        self.check_residual_order(order)?;
         let columns=(0..self.inputs).collect::<Vec<_>>();
         self.product_workers.lock().map_err(|_|MathError::Contract("implicit product lock poisoned".into()))?.iter()
             .find(|p|p.kind==ProductKind::SelectedPartials && p.order==order && p.columns==columns).cloned()
@@ -96,6 +104,7 @@ impl Problem {
         self.prepare_request(request.request(),request.extents(),scope)
     }
     fn prepare_request(&self,request:&pse_kernels::ProviderRequest,extents:pse_kernels::ProviderExtents,scope:&pse_kernels::ExecutionScope)->Result<(),MathError> {
+        self.check_residual_order(request.order)?;
         scope.check().map_err(crate::error::scope_error)?;
         let prepare=|| {
             let mut demands=self.prepared_demands.lock().map_err(|_|MathError::Contract("implicit preparation lock poisoned".into()))?;

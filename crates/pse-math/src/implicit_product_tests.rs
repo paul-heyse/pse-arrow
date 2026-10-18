@@ -403,3 +403,19 @@ fn wide_dense_implicit_value_source_prepares_only_consumed_parameter_products() 
     assert!(refusal.to_string().contains("derivative component"),"{refusal}");
     assert_eq!(solves.load(Ordering::Relaxed),before,"4096-component full tensor refusal occurs before native effects");
 }
+
+#[test]
+fn complete_implicit_preparation_and_cached_lookup_respect_admitted_residual_order() {
+    let (factory,parameters,_)=coupled(2,128);let scope=ExecutionScope::new(factory.cancel.clone(),None);
+    let first=pse_kernels::DerivativeRequirements::new(DerivativeOrder::First,DerivativeOrder::First,DerivativeOrder::First,DerivativeOrder::First,DerivativeOrder::First).unwrap();
+    let problem=Arc::try_unwrap(factory.problem(scope.clone()).unwrap()).unwrap().with_requirements(first).unwrap();
+    assert!(matches!(problem.prepare_complete(DerivativeOrder::Second,&scope),Err(MathError::Scope(pse_kernels::ProviderError::DerivativeUnavailable {requested:DerivativeOrder::Second,available:DerivativeOrder::First,..}))));
+    assert!(problem.product_workers.lock().unwrap().is_empty(),"refused order creates no artifact");
+    problem.prepare_complete(DerivativeOrder::First,&scope).unwrap();
+    let expected=analytic(&parameters);let options=match &factory.configuration {Configuration::Fixed(_,options)=>options,_=>unreachable!()};
+    close(&problem.derivatives(&parameters,&expected.values,DerivativeOrder::First,options,&factory.cancel.flag()).unwrap().jacobian,&expected.jacobian);
+    let problem=Arc::try_unwrap(factory.problem(scope.clone()).unwrap()).unwrap();
+    problem.prepare_complete(DerivativeOrder::Second,&scope).unwrap();
+    let problem=problem.with_requirements(first).unwrap();
+    assert!(matches!(problem.complete_program(DerivativeOrder::Second),Err(MathError::Scope(pse_kernels::ProviderError::DerivativeUnavailable {..}))),"broader retained artifact cannot bypass a narrowed admission");
+}

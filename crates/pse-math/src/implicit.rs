@@ -461,6 +461,7 @@ impl Problem {
         mut self,
         requirements: pse_kernels::DerivativeRequirements,
     ) -> Result<Self, MathError> {
+        if self.native_order<requirements.inner_minimum {return Err(MathError::Contract("implicit native product is below the inner algorithm minimum".into()));}
         self.requirements = requirements;
         Ok(self)
     }
