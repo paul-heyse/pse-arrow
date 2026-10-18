@@ -58,6 +58,9 @@ mod regimes;
 mod scalar;
 #[path = "implicit_selection.rs"]
 mod selection;
+#[cfg(test)]
+#[path = "implicit_property_tests.rs"]
+mod property_tests;
 use crate::{
     MathError,
     guarded::{CompiledBody, Evaluation, Worker},
@@ -1488,9 +1491,10 @@ impl Nested {
         }
         let started = std::time::Instant::now();
         // A fixed configuration and the immutable worker's residual, provider and
-        // selector definitions cover this premise. Hint resolvers are not assumed
-        // immutable here: they still run in their original refusal order below.
+        // pure selector programs cover this premise. Provider-backed selectors
+        // and hint resolvers still run in their original refusal order below.
         if let Some((identity, allowance)) = self.configuration.fixed_identity()
+            && self.selection.permits_fixed_reuse()
             && let Some(product) = &self.numerical
             && product.fixed_configuration == Some(identity)
             && product.inputs.len() == inputs.len()
@@ -1517,6 +1521,7 @@ impl Nested {
             let reason = match (&self.numerical, self.configuration.fixed_identity()) {
                 (None, _) => "implicit.product.miss.empty",
                 (Some(_), None) => "implicit.product.miss.dynamic_configuration",
+                (Some(_), _) if !self.selection.permits_fixed_reuse() => "implicit.product.miss.selection_effect",
                 (Some(product), Some((identity, _)))
                     if product.fixed_configuration != Some(identity) =>
                 {
@@ -1618,7 +1623,7 @@ impl Nested {
         };
         self.scope
             .remaining(allowance.saturating_sub(started.elapsed()))?;
-        if self
+        if !self.selection.reusable_restriction() || self
             .numerical
             .as_ref()
             .is_none_or(|product| product.key != numerical_key || product.order < request.order)
