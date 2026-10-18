@@ -127,6 +127,7 @@ pub(super) struct ExperimentProducts {
 pub(super) struct FitOracle {
     observation: Option<pse_diagnostics::observation::Producer>,
     point_generation: u64,
+    response_layouts: std::sync::Mutex<std::collections::BTreeMap<usize, native::square_response::SquareScope>>,
     prepared: Arc<FitProblem>,
     workers: Vec<Option<CaseWorker>>,
     #[cfg(feature = "solver-diffsol")]
@@ -228,6 +229,7 @@ impl FitOracle {
                 )
             }),
             point_generation: 0,
+            response_layouts: Default::default(),
             derivatives: p.profile.derivatives,
             prepared: p,
             workers,
@@ -1487,13 +1489,18 @@ impl FitOracle {
                         .iter()
                         .map(|(_, r)| p.bounds[r.get()])
                         .collect::<Vec<_>>();
-                    let scope = native::square_response::SquareScope::admit(
+                    let mut scope = native::square_response::SquareScope::admit(
                         &contract,
                         pattern.as_ref(),
                         &bounds,
                         None,
                     )
                     .map_err(|e| ProblemError::unsupported(e.to_string()))?;
+                    {
+                        let mut layouts = self.response_layouts.lock().map_err(|_| ProblemError::internal("steady response layout owner poisoned"))?;
+                        if let Some(previous) = layouts.get(&ei) { scope.reuse_symbolic_from(previous); }
+                        layouts.insert(ei, scope.clone());
+                    }
                     let states = (0..nx)
                         .map(|i| point.x[s.coordinates[GlobalCol::new(i)].1.get()])
                         .collect::<Vec<_>>();

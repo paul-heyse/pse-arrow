@@ -214,7 +214,17 @@ pub fn estimate_square(
         return result;
     }
     let rhs = residual.values.iter().map(|r| -*r).collect::<Vec<_>>();
-    let (correction, action) = match factor.action(&rhs, execution) {
+    let mut actions = match crate::square_response::SparseActionExecutor::new(factor.clone(), 1, factor.reserved_bytes(), execution) {
+        Ok(actions) => actions,
+        Err(error) => {
+            let reason = cause_reason(&error);
+            result.outputs = reasons.into_iter().map(|r| Err(r.unwrap_or(reason))).collect();
+            result.work_demands.resize_with(outputs.len(), || None);
+            result.failure = Some(error);
+            return result;
+        }
+    };
+    let (correction, action) = match actions.action(&rhs, execution) {
         Ok(action) => action,
         Err(error) => {
             let reason = cause_reason(&error);
@@ -256,7 +266,7 @@ pub fn estimate_square(
                 && jacobian_uncertainty.iter().any(|value| *value > 0.0);
         let mut adjoint = None;
         if arithmetic_possible {
-            match factor.transpose_action(output.gradient, execution) {
+            match actions.transpose_action(output.gradient, execution) {
                 Ok(value) => adjoint = Some(value),
                 Err(error) => {
                     result.outputs.push(Err(cause_reason(&error)));
@@ -342,7 +352,7 @@ pub fn estimate_square(
             let remainder = allowance - evaluator_reserve - arithmetic_uncertainty;
             if remainder.is_finite() && remainder > 0.0 {
                 if adjoint.is_none() {
-                    match factor.transpose_action(output.gradient, execution) {
+                    match actions.transpose_action(output.gradient, execution) {
                         Ok(value) => adjoint = Some(value),
                         Err(error) => {
                             if result.failure.is_none() {

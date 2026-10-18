@@ -226,6 +226,7 @@ struct SensitivityProgram {
     /// Immutable original dependencies for fresh Root response products. Their actual
     /// point is filled only by the postsolve fresh derivative producer.
     root_source: Option<pse_model::strategy::SemanticProductKey>,
+    root_layout: Arc<std::sync::Mutex<Option<native::square_response::SquareScope>>>,
 }
 struct FreshRootPartials {
     square: native::square_response::SquareScope,
@@ -2424,6 +2425,7 @@ impl PreparedSolve {
             reduced_hessian: request.reduced_hessian,
             retain: false,
             root_source,
+            root_layout: Default::default(),
         }));
         Ok(self)
     }
@@ -5623,12 +5625,17 @@ impl MathService {
             .iter()
             .map(|r| (r.lower, r.upper))
             .collect::<Vec<_>>();
-        let square = SquareScope::admit(
+        let mut square = SquareScope::admit(
             &contract,
             plan.jacobian_pattern(),
             &row_bounds,
             Some(&prepared.compiled().structure),
         )?;
+        {
+            let mut layout = program.root_layout.lock().map_err(|_| cause(ProblemError::internal("root symbolic layout owner poisoned")))?;
+            if let Some(previous) = layout.as_ref() { square.reuse_symbolic_from(previous); }
+            *layout = Some(square.clone());
+        }
         let mut key = program.root_source.ok_or_else(|| {
             cause(ProblemError::internal(
                 "fresh Root products lack original dependencies",

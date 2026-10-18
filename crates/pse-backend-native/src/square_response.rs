@@ -6,7 +6,7 @@ use faer::Mat;
 use pse_ids::SemanticId;
 
 mod actions;
-pub use actions::{ActionEvidence, SparseFactor, SparsePredictor, SparseRequest, point_key};
+pub use actions::{ActionEvidence, SparseFactor, SparsePredictor, SparseRequest, SparseActionExecutor, point_key};
 
 /// Default relative scaled rank cutoff of public Root parameter analysis.
 pub const DEFAULT_RELATIVE_RANK_CUTOFF: f64 = 1e-10;
@@ -53,8 +53,21 @@ pub struct SquareScope {
     contract: OracleContract,
     bounds: Vec<(f64, f64)>,
     pattern: faer::sparse::SymbolicSparseColMat<usize>,
+    symbolic: std::sync::Arc<std::sync::Mutex<Option<actions::SymbolicPlan>>>,
 }
 impl SquareScope {
+    /// Share a symbolic preparation only for the same original support and order.
+    /// Scaling and fixed library settings are checked by the factor producer.
+    pub fn reuse_symbolic_from(&mut self, previous: &Self) -> bool {
+        let compatible = self.contract.identity == previous.contract.identity
+            && self.contract.rows == previous.contract.rows
+            && self.contract.variables.iter().map(|v| v.id).eq(previous.contract.variables.iter().map(|v| v.id))
+            && self.pattern.nrows() == previous.pattern.nrows()
+            && self.pattern.ncols() == previous.pattern.ncols()
+            && (0..self.pattern.ncols()).all(|c| self.pattern.as_ref().row_idx_of_col(c).eq(previous.pattern.as_ref().row_idx_of_col(c)));
+        if compatible { self.symbolic = previous.symbolic.clone(); }
+        compatible
+    }
     /// Validate every original row/free coordinate and its matching witness.
     /// # Errors
     /// Partial, ill-posed, non-equality, or inconsistent original scope.
@@ -84,6 +97,7 @@ impl SquareScope {
             contract: contract.clone(),
             bounds: bounds.to_vec(),
             pattern: pattern.to_owned().map_err(|_| Withheld::Memory)?,
+            symbolic: Default::default(),
         })
     }
 }

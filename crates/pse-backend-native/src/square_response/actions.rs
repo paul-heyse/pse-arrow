@@ -62,7 +62,7 @@ pub struct SparseFactor {
 }
 #[derive(Debug)]
 struct Owned {
-    symbolic: SymbolicLu<usize>,
+    symbolic: SymbolicPlan,
     numeric: NumericLu<usize, f64>,
     matrix: SparseColMat<usize, f64>,
     states: Vec<SemanticId>,
@@ -71,6 +71,12 @@ struct Owned {
     scales: Normalization,
     key: SemanticProductKey,
     allowance: usize,
+}
+#[derive(Clone, Debug)]
+pub(super) struct SymbolicPlan {
+    inner: Arc<SymbolicLu<usize>>,
+    normalization: ContentHash,
+    owner: Arc<std::sync::Mutex<Option<Arc<dyn pse_math::AllocationOwner>>>>,
 }
 impl SparseFactor {
     /// Build once from freshly evaluated physical First partials. No stale iteration
@@ -124,12 +130,21 @@ impl SparseFactor {
                     ));
                 }
                 let matrix = SparseColMat::new(pattern, values);
-                let symbolic = crate::observation::scoped("square_response.faer.symbolic", || {
-                    lu::factorize_symbolic_lu(matrix.symbolic(), Default::default())
-                })
-                .map_err(sparse_failure)?;
+                let mut cached = request.scope.symbolic.lock().map_err(|_| ProblemError::internal("sparse symbolic owner poisoned"))?;
+                let symbolic = if let Some(plan) = cached.as_ref().filter(|plan| plan.normalization == request.normalization.key()) {
+                    crate::observation::count("square_response.faer.symbolic.reused", 1);
+                    plan.clone()
+                } else {
+                    let inner = crate::observation::scoped("square_response.faer.symbolic", || {
+                        lu::factorize_symbolic_lu(matrix.symbolic(), Default::default())
+                    }).map_err(sparse_failure)?;
+                    let plan = SymbolicPlan { inner: Arc::new(inner), normalization: request.normalization.key(), owner: Default::default() };
+                    *cached = Some(plan.clone());
+                    plan
+                };
+                drop(cached);
                 let scratch =
-                    symbolic.factorize_numeric_lu_scratch::<f64>(Par::Seq, Default::default());
+                    symbolic.inner.factorize_numeric_lu_scratch::<f64>(Par::Seq, Default::default());
                 if scratch.size_bytes() > request.bytes {
                     return Err(ProblemError::memory(
                         "fresh sparse factor scratch allowance",
@@ -139,7 +154,7 @@ impl SparseFactor {
                     .map_err(|_| ProblemError::memory("fresh sparse factor scratch allocation"))?;
                 let mut numeric = NumericLu::new();
                 crate::observation::scoped("square_response.faer.factor", || {
-                    symbolic.factorize_numeric_lu(
+                    symbolic.inner.factorize_numeric_lu(
                         &mut numeric,
                         matrix.as_ref(),
                         Par::Seq,
@@ -260,6 +275,9 @@ impl SparseFactor {
     }
     /// Bind the actual escaping reservation, without reporting it as measured bytes.
     pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
+        if let Ok(mut held) = self.held.symbolic.owner.lock() {
+            if held.is_none() { *held = Some(owner.clone()); }
+        }
         self.owner = Some(pse_math::retain_allocation_owner(self.owner.take(), owner));
         self
     }
@@ -310,234 +328,14 @@ impl SparseFactor {
         bytes: usize,
         execution: &Execution,
     ) -> Result<(Mat<f64>, ActionEvidence), ProblemError> {
-        execution.check()?;
-        admit_storage(execution)?;
-        let n = self.held.point.len();
-        if rhs.nrows() != n
-            || rhs.ncols() == 0
-            || rhs
-                .col_iter()
-                .any(|column| column.iter().any(|value| !value.is_finite()))
-        {
-            return Err(ProblemError::Contract(
-                "sparse response action shape or nonfinite values".into(),
-            ));
-        }
-        let req = self
-            .held
-            .symbolic
-            .solve_in_place_scratch::<f64>(rhs.ncols(), Par::Seq);
-        if req.size_bytes() > bytes {
-            return Err(ProblemError::memory("sparse response action scratch"));
-        }
-        let mut memory =
-            MemBuffer::try_new(req).map_err(|e| ProblemError::memory(e.to_string()))?;
-        let b = Mat::from_fn(n, rhs.ncols(), |row, column| {
-            rhs[(row, column)] / self.held.scales.rows[row]
-        });
-        if b.col_iter()
-            .any(|column| column.iter().any(|value| !value.is_finite()))
-        {
-            return Err(ProblemError::numerical(
-                "nonfinite normalized sparse response RHS",
-            ));
-        }
-        let mut x = b.clone();
-        // Numeric/symbolic fields are private, installed together by the constructor.
-        let lu = LuRef::new_unchecked(&self.held.symbolic, &self.held.numeric);
-        execution.counted(work_unit(0, 0), || {
-            crate::observation::integer(
-                "square_response.faer.solve.rhs",
-                "count",
-                i64::try_from(rhs.ncols()).unwrap_or(i64::MAX),
-            );
-            crate::observation::scoped("square_response.faer.solve", || {
-                lu.solve_in_place_with_conj(
-                    Conj::No,
-                    x.as_mut(),
-                    Par::Seq,
-                    MemStack::new(&mut memory),
-                )
-            });
-            Ok(())
-        })?;
-        let limit = 64. * n.max(1) as f64 * f64::EPSILON;
-        let mut backsolves = 1;
-        loop {
-            execution.check()?;
-            if x.col_iter()
-                .any(|column| column.iter().any(|value| !value.is_finite()))
-            {
-                return Err(ProblemError::numerical("nonfinite sparse response action"));
-            }
-            let mut residual = b.clone();
-            sparse_dense_matmul(
-                residual.as_mut(),
-                Accum::Add,
-                self.held.matrix.as_ref(),
-                x.as_ref(),
-                -1.,
-                Par::Seq,
-            );
-            let error = backward(
-                self.held.matrix.as_ref(),
-                x.as_ref(),
-                b.as_ref(),
-                residual.as_ref(),
-            );
-            if error.is_finite() && error <= limit {
-                let values = Mat::from_fn(n, rhs.ncols(), |row, column| {
-                    x[(row, column)] * self.held.scales.variables[row]
-                });
-                if values
-                    .col_iter()
-                    .any(|column| column.iter().any(|value| !value.is_finite()))
-                {
-                    return Err(ProblemError::numerical(
-                        "nonfinite physical sparse response",
-                    ));
-                }
-                return Ok((
-                    values,
-                    ActionEvidence {
-                        backward_error: error,
-                        limit,
-                        backsolves,
-                    },
-                ));
-            }
-            if backsolves == 3 {
-                return Err(ProblemError::numerical(
-                    "sparse response action backward-error allowance",
-                ));
-            }
-            // Refinement is an actual solver iteration. A reused-factor action is
-            // neither another factor construction nor a proof operation.
-            execution.counted(work_unit(1, 0), || {
-                crate::observation::scoped("square_response.faer.refinement_solve", || {
-                    lu.solve_in_place_with_conj(
-                        Conj::No,
-                        residual.as_mut(),
-                        Par::Seq,
-                        MemStack::new(&mut memory),
-                    )
-                });
-                for column in 0..rhs.ncols() {
-                    for row in 0..n {
-                        x[(row, column)] += residual[(row, column)];
-                    }
-                }
-                backsolves += 1;
-                Ok(())
-            })?;
-        }
+        SparseActionExecutor::new(self.clone(), rhs.ncols(), bytes, execution)?.actions(rhs, execution)
     }
     /// Apply the physical transpose action `J^-T q_x` using the already retained
     /// normalized sparse factor. This is an estimated adjoint, not a certificate.
     /// # Errors
     /// Shape/nonfinite, scope, scratch or backward-error failure.
-    pub fn transpose_action(
-        &self,
-        rhs: &[f64],
-        execution: &Execution,
-    ) -> Result<(Vec<f64>, ActionEvidence), ProblemError> {
-        execution.check()?;
-        admit_storage(execution)?;
-        let n = self.held.point.len();
-        if rhs.len() != n || rhs.iter().any(|x| !x.is_finite()) {
-            return Err(ProblemError::Contract(
-                "sparse response transpose action shape or nonfinite values".into(),
-            ));
-        }
-        let req = self
-            .held
-            .symbolic
-            .solve_in_place_scratch::<f64>(1, Par::Seq);
-        if req.size_bytes() > self.held.allowance {
-            return Err(ProblemError::memory("sparse response transpose scratch"));
-        }
-        let mut memory =
-            MemBuffer::try_new(req).map_err(|e| ProblemError::memory(e.to_string()))?;
-        // J = D_r A D_x^-1, hence J^T lambda=q_x iff
-        // A^T (D_r lambda)=D_x q_x.
-        let b = Mat::from_fn(n, 1, |i, _| rhs[i] * self.held.scales.variables[i]);
-        let mut z = b.clone();
-        let lu = LuRef::new_unchecked(&self.held.symbolic, &self.held.numeric);
-        execution.counted(work_unit(0, 0), || {
-            crate::observation::scoped("square_response.faer.transpose_solve", || {
-                lu.solve_transpose_in_place_with_conj(
-                    Conj::No,
-                    z.as_mut(),
-                    Par::Seq,
-                    MemStack::new(&mut memory),
-                )
-            });
-            Ok(())
-        })?;
-        let limit = 64. * n.max(1) as f64 * f64::EPSILON;
-        let mut backsolves = 1;
-        loop {
-            execution.check()?;
-            if z.col(0).iter().any(|v| !v.is_finite()) {
-                return Err(ProblemError::numerical(
-                    "nonfinite sparse response transpose action",
-                ));
-            }
-            let mut residual = b.clone();
-            for column in 0..n {
-                for entry in self.held.matrix.symbolic().col_range(column) {
-                    let row = self.held.matrix.symbolic().row_idx()[entry];
-                    residual[(column, 0)] -= self.held.matrix.val()[entry] * z[(row, 0)];
-                }
-            }
-            let error = transpose_backward(
-                self.held.matrix.as_ref(),
-                z.as_ref(),
-                b.as_ref(),
-                residual.as_ref(),
-            );
-            if error.is_finite() && error <= limit {
-                let values = (0..n)
-                    .map(|i| z[(i, 0)] / self.held.scales.rows[i])
-                    .collect::<Vec<_>>();
-                if values.iter().any(|v| !v.is_finite()) {
-                    return Err(ProblemError::numerical(
-                        "nonfinite physical sparse response transpose",
-                    ));
-                }
-                return Ok((
-                    values,
-                    ActionEvidence {
-                        backward_error: error,
-                        limit,
-                        backsolves,
-                    },
-                ));
-            }
-            if backsolves == 3 {
-                return Err(ProblemError::numerical(
-                    "sparse response transpose backward-error allowance",
-                ));
-            }
-            execution.counted(work_unit(1, 0), || {
-                crate::observation::scoped(
-                    "square_response.faer.transpose_refinement_solve",
-                    || {
-                        lu.solve_transpose_in_place_with_conj(
-                            Conj::No,
-                            residual.as_mut(),
-                            Par::Seq,
-                            MemStack::new(&mut memory),
-                        )
-                    },
-                );
-                for i in 0..n {
-                    z[(i, 0)] += residual[(i, 0)];
-                }
-                backsolves += 1;
-                Ok(())
-            })?;
-        }
+    pub fn transpose_action(&self, rhs: &[f64], execution: &Execution) -> Result<(Vec<f64>, ActionEvidence), ProblemError> {
+        SparseActionExecutor::new(self.clone(), 1, self.held.allowance, execution)?.transpose_action(rhs, execution)
     }
 }
 
@@ -606,16 +404,22 @@ fn transpose_backward(
 /// A fresh sparse state factor paired with the parameter partials evaluated at that
 /// same original point. Every prediction reuses this factor and performs only a
 /// parameter action and bounded backsolves; it does not materialize a dense response.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct SparsePredictor {
     factor: SparseFactor,
     partials: Arc<ParameterPartials>,
+    executor: std::sync::Mutex<Option<SparseActionExecutor>>,
     owner: Option<Arc<dyn pse_math::AllocationOwner>>,
 }
 #[derive(Debug)]
 struct ParameterPartials {
     parameters: Vec<(SemanticId, f64)>,
     matrix: SparseColMat<usize, f64>,
+}
+impl Clone for SparsePredictor {
+    fn clone(&self) -> Self {
+        Self { factor: self.factor.clone(), partials: self.partials.clone(), executor: Default::default(), owner: self.owner.clone() }
+    }
 }
 impl SparsePredictor {
     /// Bind actual original parameter columns from the same fresh evaluation as the
@@ -646,6 +450,7 @@ impl SparsePredictor {
         Ok(Self {
             factor,
             partials: Arc::new(ParameterPartials { parameters, matrix }),
+            executor: Default::default(),
             owner: None,
         })
     }
@@ -710,9 +515,272 @@ impl SparsePredictor {
             -1.,
             Par::Seq,
         );
-        self.factor
-            .action(&rhs.col(0).iter().copied().collect::<Vec<_>>(), execution)
+        let mut executor = self.executor.lock().map_err(|_| ProblemError::internal("predictor action owner poisoned"))?;
+        if executor.is_none() {
+            *executor = Some(SparseActionExecutor::new(self.factor.clone(), 1, self.factor.reserved_bytes(), execution)?);
+        }
+        executor.as_mut().ok_or_else(|| ProblemError::internal("predictor executor unavailable"))?.actions(rhs.as_ref(), execution).map(|(values, evidence)| (values.col(0).iter().copied().collect(), evidence))
     }
+}
+/// Mutable RHS, residual and library scratch owned by one action consumer.
+/// Independent executors may safely share one immutable point-specific factor.
+pub struct SparseActionExecutor {
+    factor: SparseFactor,
+    columns: usize,
+    b: Mat<f64>,
+    x: Mat<f64>,
+    residual: Mat<f64>,
+    memory: MemBuffer,
+}
+impl std::fmt::Debug for SparseActionExecutor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SparseActionExecutor").field("factor", &self.factor).field("columns", &self.columns).finish_non_exhaustive()
+    }
+}
+impl SparseActionExecutor {
+    /// Allocate an admitted private executor for the declared RHS batch size.
+    /// # Errors
+    /// Unsupported strict storage, invalid batch extent or scratch allowance.
+    pub fn new(factor: SparseFactor, columns: usize, bytes: usize, execution: &Execution) -> Result<Self, ProblemError> {
+        execution.check()?;
+        admit_storage(execution)?;
+        let n = factor.states().len();
+        if columns == 0 { return Err(ProblemError::Contract("empty sparse action batch".into())); }
+        let req = factor.held.symbolic.inner.solve_in_place_scratch::<f64>(columns, Par::Seq);
+        let required = n.checked_mul(columns).and_then(|v| v.checked_mul(3 * size_of::<f64>())).and_then(|v| v.checked_add(req.size_bytes())).ok_or_else(|| ProblemError::memory("sparse action executor extent"))?;
+        if required > bytes { return Err(ProblemError::memory("sparse action executor scratch")); }
+        let memory = MemBuffer::try_new(req).map_err(|e| ProblemError::memory(e.to_string()))?;
+        Ok(Self { factor, columns, b: Mat::zeros(n, columns), x: Mat::zeros(n, columns), residual: Mat::zeros(n, columns), memory })
+    }
+    /// Apply a physical RHS using retained buffers and the same numerical refinement.
+    /// # Errors
+    /// Shape, execution, nonfinite values or backward-error failure.
+    pub fn action(&mut self, rhs: &[f64], execution: &Execution) -> Result<(Vec<f64>, ActionEvidence), ProblemError> {
+        if self.columns != 1 || rhs.len() != self.factor.states().len() { return Err(ProblemError::Contract("sparse action executor scalar extent".into())); }
+        let rhs = faer::MatRef::from_column_major_slice(rhs, rhs.len(), 1);
+        let (values, evidence) = self.actions(rhs, execution)?;
+        Ok((values.col(0).iter().copied().collect(), evidence))
+    }
+    /// Apply a physical transpose RHS with retained private buffers.
+    /// # Errors
+    /// Shape, execution, nonfinite values or backward-error failure.
+    pub fn transpose_action(&mut self, rhs: &[f64], execution: &Execution) -> Result<(Vec<f64>, ActionEvidence), ProblemError> {
+        execution.check()?;
+        admit_storage(execution)?;
+        let n = self.factor.held.point.len();
+        if rhs.len() != n || rhs.iter().any(|x| !x.is_finite()) {
+            return Err(ProblemError::Contract(
+                "sparse response transpose action shape or nonfinite values".into(),
+            ));
+        }
+        if self.columns != 1 { return Err(ProblemError::Contract("transpose executor requires one RHS".into())); }
+        // J = D_r A D_x^-1, hence A^T (D_r lambda) = D_x q_x.
+        let b = &mut self.b;
+        for i in 0..n { b[(i, 0)] = rhs[i] * self.factor.held.scales.variables[i]; }
+        let z = &mut self.x;
+        z.as_mut().copy_from(b.as_ref());
+        let residual = &mut self.residual;
+        let memory = &mut self.memory;
+        let lu = LuRef::new_unchecked(&self.factor.held.symbolic.inner, &self.factor.held.numeric);
+        execution.counted(work_unit(0, 0), || {
+            crate::observation::scoped("square_response.faer.transpose_solve", || {
+                lu.solve_transpose_in_place_with_conj(
+                    Conj::No,
+                    z.as_mut(),
+                    Par::Seq,
+                    MemStack::new(memory),
+                )
+            });
+            Ok(())
+        })?;
+        let limit = 64. * n.max(1) as f64 * f64::EPSILON;
+        let mut backsolves = 1;
+        loop {
+            execution.check()?;
+            if z.col(0).iter().any(|v| !v.is_finite()) {
+                return Err(ProblemError::numerical(
+                    "nonfinite sparse response transpose action",
+                ));
+            }
+            residual.as_mut().copy_from(b.as_ref());
+            for column in 0..n {
+                for entry in self.factor.held.matrix.symbolic().col_range(column) {
+                    let row = self.factor.held.matrix.symbolic().row_idx()[entry];
+                    residual[(column, 0)] -= self.factor.held.matrix.val()[entry] * z[(row, 0)];
+                }
+            }
+            let error = transpose_backward(
+                self.factor.held.matrix.as_ref(),
+                z.as_ref(),
+                b.as_ref(),
+                residual.as_ref(),
+            );
+            if error.is_finite() && error <= limit {
+                let values = (0..n)
+                    .map(|i| z[(i, 0)] / self.factor.held.scales.rows[i])
+                    .collect::<Vec<_>>();
+                if values.iter().any(|v| !v.is_finite()) {
+                    return Err(ProblemError::numerical(
+                        "nonfinite physical sparse response transpose",
+                    ));
+                }
+                return Ok((
+                    values,
+                    ActionEvidence {
+                        backward_error: error,
+                        limit,
+                        backsolves,
+                    },
+                ));
+            }
+            if backsolves == 3 {
+                return Err(ProblemError::numerical(
+                    "sparse response transpose backward-error allowance",
+                ));
+            }
+            execution.counted(work_unit(1, 0), || {
+                crate::observation::scoped(
+                    "square_response.faer.transpose_refinement_solve",
+                    || {
+                        lu.solve_transpose_in_place_with_conj(
+                            Conj::No,
+                            residual.as_mut(),
+                            Par::Seq,
+                            MemStack::new(memory),
+                        )
+                    },
+                );
+                for i in 0..n {
+                    z[(i, 0)] += residual[(i, 0)];
+                }
+                backsolves += 1;
+                Ok(())
+            })?;
+        }
+    }
+    /// Apply the declared batch with private retained RHS and residual storage.
+    /// # Errors
+    /// Shape, execution, nonfinite values or backward-error failure.
+    pub fn actions(&mut self, rhs: faer::MatRef<'_, f64>, execution: &Execution) -> Result<(Mat<f64>, ActionEvidence), ProblemError> {
+        execution.check()?;
+        admit_storage(execution)?;
+        let n = self.factor.held.point.len();
+        if rhs.nrows() != n
+            || rhs.ncols() == 0
+            || rhs
+                .col_iter()
+                .any(|column| column.iter().any(|value| !value.is_finite()))
+        {
+            return Err(ProblemError::Contract(
+                "sparse response action shape or nonfinite values".into(),
+            ));
+        }
+        if rhs.ncols() != self.columns { return Err(ProblemError::Contract("sparse action executor batch extent".into())); }
+        let b = &mut self.b;
+        for column in 0..rhs.ncols() { for row in 0..n {
+            b[(row, column)] = rhs[(row, column)] / self.factor.held.scales.rows[row];
+        }}
+        if b.col_iter()
+            .any(|column| column.iter().any(|value| !value.is_finite()))
+        {
+            return Err(ProblemError::numerical(
+                "nonfinite normalized sparse response RHS",
+            ));
+        }
+        let x = &mut self.x;
+        x.as_mut().copy_from(b.as_ref());
+        let memory = &mut self.memory;
+        let residual = &mut self.residual;
+        // Numeric/symbolic fields are private, installed together by the constructor.
+        let lu = LuRef::new_unchecked(&self.factor.held.symbolic.inner, &self.factor.held.numeric);
+        execution.counted(work_unit(0, 0), || {
+            crate::observation::integer(
+                "square_response.faer.solve.rhs",
+                "count",
+                i64::try_from(rhs.ncols()).unwrap_or(i64::MAX),
+            );
+            crate::observation::scoped("square_response.faer.solve", || {
+                lu.solve_in_place_with_conj(
+                    Conj::No,
+                    x.as_mut(),
+                    Par::Seq,
+                    MemStack::new(memory),
+                )
+            });
+            Ok(())
+        })?;
+        let limit = 64. * n.max(1) as f64 * f64::EPSILON;
+        let mut backsolves = 1;
+        loop {
+            execution.check()?;
+            if x.col_iter()
+                .any(|column| column.iter().any(|value| !value.is_finite()))
+            {
+                return Err(ProblemError::numerical("nonfinite sparse response action"));
+            }
+            residual.as_mut().copy_from(b.as_ref());
+            sparse_dense_matmul(
+                residual.as_mut(),
+                Accum::Add,
+                self.factor.held.matrix.as_ref(),
+                x.as_ref(),
+                -1.,
+                Par::Seq,
+            );
+            let error = backward(
+                self.factor.held.matrix.as_ref(),
+                x.as_ref(),
+                b.as_ref(),
+                residual.as_ref(),
+            );
+            if error.is_finite() && error <= limit {
+                let values = Mat::from_fn(n, rhs.ncols(), |row, column| {
+                    x[(row, column)] * self.factor.held.scales.variables[row]
+                });
+                if values
+                    .col_iter()
+                    .any(|column| column.iter().any(|value| !value.is_finite()))
+                {
+                    return Err(ProblemError::numerical(
+                        "nonfinite physical sparse response",
+                    ));
+                }
+                return Ok((
+                    values,
+                    ActionEvidence {
+                        backward_error: error,
+                        limit,
+                        backsolves,
+                    },
+                ));
+            }
+            if backsolves == 3 {
+                return Err(ProblemError::numerical(
+                    "sparse response action backward-error allowance",
+                ));
+            }
+            // Refinement is an actual solver iteration. A reused-factor action is
+            // neither another factor construction nor a proof operation.
+            execution.counted(work_unit(1, 0), || {
+                crate::observation::scoped("square_response.faer.refinement_solve", || {
+                    lu.solve_in_place_with_conj(
+                        Conj::No,
+                        residual.as_mut(),
+                        Par::Seq,
+                        MemStack::new(memory),
+                    )
+                });
+                for column in 0..rhs.ncols() {
+                    for row in 0..n {
+                        x[(row, column)] += residual[(row, column)];
+                    }
+                }
+                backsolves += 1;
+                Ok(())
+            })?;
+        }
+    }
+
 }
 /// Point identity shared by the factor producer and semantic start owner.
 pub fn point_key(values: &[f64]) -> ContentHash {
@@ -778,6 +846,9 @@ mod tests {
         evaluated: &std::cell::Cell<usize>,
     ) -> Result<SparseFactor, Withheld> {
         let scope = super::super::tests::scope();
+        factor_on_scope(bytes, point, execution, values, evaluated, &scope)
+    }
+    fn factor_on_scope(bytes: usize, point: &[f64], execution: &Execution, values: Vec<f64>, evaluated: &std::cell::Cell<usize>, scope: &SquareScope) -> Result<SparseFactor, Withheld> {
         let scales = Normalization {
             variables: vec![100., 0.01],
             rows: vec![2., 400.],
@@ -816,6 +887,41 @@ mod tests {
             },
             execution,
         )
+    }
+    #[test]
+    fn response_symbolic_reuse_keeps_numeric_points_and_private_actions_independent() {
+        let execution = Execution::new(pse_diagnostics::Cancellation::default(), &crate::solve::Controls::default());
+        let scope = super::super::tests::scope();
+        let evaluated = std::cell::Cell::new(0);
+        let first = factor_on_scope(1 << 20, &[2., 1.], &execution, vec![4., 1., 3., 1.], &evaluated, &scope).unwrap();
+        let mut next_scope = super::super::tests::scope();
+        assert!(next_scope.reuse_symbolic_from(&scope));
+        let second = factor_on_scope(1 << 20, &[3., 2.], &execution, vec![8., 1., 3., 1.], &evaluated, &next_scope).unwrap();
+        assert!(Arc::ptr_eq(&first.held.symbolic.inner, &second.held.symbolic.inner));
+        assert!(!Arc::ptr_eq(&first.held, &second.held));
+        assert_ne!(first.key().point, second.key().point);
+        let mut left = SparseActionExecutor::new(first.clone(), 1, 1 << 20, &execution).unwrap();
+        let mut right = SparseActionExecutor::new(first.clone(), 1, 1 << 20, &execution).unwrap();
+        let buffers = (left.b.as_ptr(), left.x.as_ptr(), left.residual.as_ptr());
+        assert_ne!(left.b.as_ptr(), right.b.as_ptr());
+        for _ in 0..8 {
+            let (a, _) = left.action(&[7., 2.], &execution).unwrap();
+            let (b, _) = right.action(&[14., 4.], &execution).unwrap();
+            for (a, b) in a.iter().zip(b) { assert!((2. * a - b).abs() < 1e-10); }
+            left.transpose_action(&[1., 2.], &execution).unwrap();
+            assert_eq!(buffers, (left.b.as_ptr(), left.x.as_ptr(), left.residual.as_ptr()));
+        }
+        assert!(left.action(&[f64::NAN, 1.], &execution).is_err());
+        assert!(left.action(&[7., 2.], &execution).is_ok());
+        // faer may finish numeric construction at an exact zero pivot: only a
+        // successful, independently checked action establishes action availability.
+        let singular = factor_on_scope(1 << 20, &[3., 2.], &execution, vec![0.; 4], &evaluated, &next_scope).unwrap();
+        assert!(singular.action(&[1., 1.], &execution).is_err());
+        let recovered = factor_on_scope(1 << 20, &[3., 2.], &execution, vec![8., 1., 3., 1.], &evaluated, &next_scope).unwrap();
+        assert!(Arc::ptr_eq(&first.held.symbolic.inner, &recovered.held.symbolic.inner));
+        next_scope.contract.rows.swap(0, 1);
+        assert!(!next_scope.reuse_symbolic_from(&scope));
+        assert_eq!(evaluated.get(), 4);
     }
     #[derive(Debug, Default)]
     struct Admission {
