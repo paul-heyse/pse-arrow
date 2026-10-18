@@ -3335,6 +3335,8 @@ mod contextual_tests;
 
 #[cfg(all(test, any(feature = "diffsol", feature = "idas")))]
 mod selected_tests;
+#[cfg(all(test, any(feature = "diffsol", feature = "idas")))]
+mod method_contrast_tests;
 
 #[cfg(all(test, any(feature = "diffsol", feature = "idas")))]
 mod sample_elimination_tests {
