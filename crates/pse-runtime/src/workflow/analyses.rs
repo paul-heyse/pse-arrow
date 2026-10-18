@@ -21,32 +21,58 @@ use std::{
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum TransferCheckpoint { BeforeDispatch, BeforeArtifactRead, BeforeGraph, AfterGraphAck }
+enum TransferCheckpoint {
+    BeforeDispatch,
+    BeforeArtifactRead,
+    BeforeGraph,
+    AfterGraphAck,
+}
 #[cfg(all(test, feature = "canonical-tests"))]
 tokio::task_local! {
     static CANCEL_TRANSFER_AT: TransferCheckpoint;
     static GRAPH_HANDOFF_REPLY_LOSS: bool;
 }
-fn transfer_checkpoint(phase: TransferCheckpoint, cancel: &CancellationToken) -> Result<(), WorkflowError> {
+fn transfer_checkpoint(
+    phase: TransferCheckpoint,
+    cancel: &CancellationToken,
+) -> Result<(), WorkflowError> {
     #[cfg(all(test, feature = "canonical-tests"))]
-    if CANCEL_TRANSFER_AT.try_with(|at| *at == phase).unwrap_or(false) { cancel.cancel(); }
+    if CANCEL_TRANSFER_AT
+        .try_with(|at| *at == phase)
+        .unwrap_or(false)
+    {
+        cancel.cancel();
+    }
     #[cfg(not(all(test, feature = "canonical-tests")))]
     let _ = phase;
-    cancel.checkpoint().map_err(pse_engine::EngineError::from).map_err(Into::into)
+    cancel
+        .checkpoint()
+        .map_err(pse_engine::EngineError::from)
+        .map_err(Into::into)
 }
 
-fn check_analysis_ack(pool: &Arc<dyn pse_columnar::MemoryPool>,
+fn check_analysis_ack(
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
     expected: &pse_operations::canonical_analyses::Analysis,
-    actual: &pse_operations::canonical_analyses::Analysis) -> Result<(), WorkflowError> {
+    actual: &pse_operations::canonical_analyses::Analysis,
+) -> Result<(), WorkflowError> {
     use pse_model::HeapUsage;
     let scratch = MemoryConsumer::new("canonical:analysis-ack-equality").register(pool);
-    scratch.try_grow(size_of_val(expected).checked_add(expected.heap_bytes())
-        .ok_or_else(|| contract("analysis acknowledgement equality extent"))?)
+    scratch
+        .try_grow(
+            size_of_val(expected)
+                .checked_add(expected.heap_bytes())
+                .ok_or_else(|| contract("analysis acknowledgement equality extent"))?,
+        )
         .map_err(pse_engine::EngineError::from)?;
     let mut normalized = expected.clone();
     normalized.active = true;
     normalized.retiring = false;
-    if &normalized != actual { return Err(contract("analysis acknowledgement differs from exact original request")); }
+    if &normalized != actual {
+        return Err(contract(
+            "analysis acknowledgement differs from exact original request",
+        ));
+    }
     Ok(())
 }
 
@@ -232,8 +258,14 @@ fn located_rows<R: pse_relations::columnar::RelationRow>(
         .collect())
 }
 impl ResponseEvidence {
-    fn push(&mut self, name: &str, batch: &pse_relations::columnar::FieldCheckedBatch,
-        artifact: &str, block: u64, bounded: bool) -> Result<(), WorkflowError> {
+    fn push(
+        &mut self,
+        name: &str,
+        batch: &pse_relations::columnar::FieldCheckedBatch,
+        artifact: &str,
+        block: u64,
+        bounded: bool,
+    ) -> Result<(), WorkflowError> {
         // Refuse complete relations rather than silently graphing a prefix.
         macro_rules! rows {
             ($field:ident) => {{
@@ -268,7 +300,6 @@ impl ResponseEvidence {
     }
 }
 
-
 /// Facts from the exact admitted batch used to encode one standalone member.
 /// Provisional locators never escape this phase or grant graph admission.
 pub(super) struct MemberFacts {
@@ -279,17 +310,45 @@ pub(super) struct MemberFacts {
     owner: MemoryReservation,
 }
 impl MemberFacts {
-    pub(super) fn mine(runtime: &Runtime, name: &str,
-        batch: &pse_relations::columnar::FieldCheckedBatch, analysis: bool) -> Result<Option<Self>, WorkflowError> {
-        if !analysis && name != "runtime.scientific_contexts" && name != "runtime.trajectory_endpoints" { return Ok(None); }
-        let owner = MemoryConsumer::new("canonical:encoded-member-facts").register(&runtime.shared.pool());
-        let bytes = batch.batch().get_array_memory_size().checked_mul(8)
-            .and_then(|n| batch.batch().num_rows().checked_mul(2048).and_then(|rows| n.checked_add(rows)))
-            .and_then(|n| n.checked_add(64 * 1024)).ok_or_else(|| contract("member fact allocation extent"))?;
-        owner.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
+    pub(super) fn mine(
+        runtime: &Runtime,
+        name: &str,
+        batch: &pse_relations::columnar::FieldCheckedBatch,
+        analysis: bool,
+    ) -> Result<Option<Self>, WorkflowError> {
+        if !analysis
+            && name != "runtime.scientific_contexts"
+            && name != "runtime.trajectory_endpoints"
+        {
+            return Ok(None);
+        }
+        let owner =
+            MemoryConsumer::new("canonical:encoded-member-facts").register(&runtime.shared.pool());
+        let bytes = batch
+            .batch()
+            .get_array_memory_size()
+            .checked_mul(8)
+            .and_then(|n| {
+                batch
+                    .batch()
+                    .num_rows()
+                    .checked_mul(2048)
+                    .and_then(|rows| n.checked_add(rows))
+            })
+            .and_then(|n| n.checked_add(64 * 1024))
+            .ok_or_else(|| contract("member fact allocation extent"))?;
+        owner
+            .try_grow(bytes)
+            .map_err(pse_engine::EngineError::from)?;
         let mut evidence = ResponseEvidence::default();
         evidence.push(name, batch, "", 0, analysis)?;
-        Ok(Some(Self {evidence, relation: name.into(), rows: batch.batch().num_rows() as u64, admission: runtime.admission_context(), owner}))
+        Ok(Some(Self {
+            evidence,
+            relation: name.into(),
+            rows: batch.batch().num_rows() as u64,
+            admission: runtime.admission_context(),
+            owner,
+        }))
     }
 }
 
@@ -304,75 +363,186 @@ pub(super) struct ArtifactEvidence {
 }
 impl ArtifactEvidence {
     pub(super) fn new(runtime: &Runtime) -> Result<Self, WorkflowError> {
-        let owner = MemoryConsumer::new("canonical:artifact-evidence").register(&runtime.shared.pool());
-        owner.try_grow(size_of::<Self>() + 64 * (size_of::<MemoryReservation>() + size_of::<(u64, String, u64, String)>()))
+        let owner =
+            MemoryConsumer::new("canonical:artifact-evidence").register(&runtime.shared.pool());
+        owner
+            .try_grow(
+                size_of::<Self>()
+                    + 64 * (size_of::<MemoryReservation>()
+                        + size_of::<(u64, String, u64, String)>()),
+            )
             .map_err(pse_engine::EngineError::from)?;
-        Ok(Self {evidence: ResponseEvidence::default(), members: Vec::with_capacity(64), coordinates: Vec::with_capacity(64), admission: runtime.admission_context(), owner})
+        Ok(Self {
+            evidence: ResponseEvidence::default(),
+            members: Vec::with_capacity(64),
+            coordinates: Vec::with_capacity(64),
+            admission: runtime.admission_context(),
+            owner,
+        })
     }
-    pub(super) fn append(&mut self, mut member: MemberFacts, ordinal: u64, analysis: bool, name: &str, rows: u64) -> Result<(), WorkflowError> {
-        if !Arc::ptr_eq(&member.admission, &self.admission) {return Err(contract("member facts belong to another receiving admission"));}
-        if member.relation != name || member.rows != rows {return Err(contract("encoded member facts differ from emitted descriptor"));}
-        if self.members.len() >= 64 { return Err(contract("artifact fact member bound")); }
+    pub(super) fn append(
+        &mut self,
+        mut member: MemberFacts,
+        ordinal: u64,
+        analysis: bool,
+        name: &str,
+        rows: u64,
+    ) -> Result<(), WorkflowError> {
+        if !Arc::ptr_eq(&member.admission, &self.admission) {
+            return Err(contract(
+                "member facts belong to another receiving admission",
+            ));
+        }
+        if member.relation != name || member.rows != rows {
+            return Err(contract(
+                "encoded member facts differ from emitted descriptor",
+            ));
+        }
+        if self.members.len() >= 64 {
+            return Err(contract("artifact fact member bound"));
+        }
         macro_rules! merge {
             ($field:ident) => {{
                 let target = &mut self.evidence.$field;
                 let source = &mut member.evidence.$field;
-                let needed = target.len().checked_add(source.len()).ok_or_else(|| contract("artifact fact row extent"))?;
-                if analysis && needed > ANALYSIS_NODES { return Err(contract("analysis evidence relation exceeds bound")); }
+                let needed = target
+                    .len()
+                    .checked_add(source.len())
+                    .ok_or_else(|| contract("artifact fact row extent"))?;
+                if analysis && needed > ANALYSIS_NODES {
+                    return Err(contract("analysis evidence relation exceeds bound"));
+                }
                 if needed > target.capacity() {
                     let old = target.capacity() * element_bytes::<_>(target);
-                    let bytes = needed.checked_mul(element_bytes::<_>(target)).ok_or_else(|| contract("artifact fact vector extent"))?;
-                    self.owner.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
-                    target.try_reserve_exact(source.len()).map_err(|_| contract("artifact fact allocation refused"))?;
+                    let bytes = needed
+                        .checked_mul(element_bytes::<_>(target))
+                        .ok_or_else(|| contract("artifact fact vector extent"))?;
+                    self.owner
+                        .try_grow(bytes)
+                        .map_err(pse_engine::EngineError::from)?;
+                    target
+                        .try_reserve_exact(source.len())
+                        .map_err(|_| contract("artifact fact allocation refused"))?;
                     self.owner.shrink(old);
                 }
-                for item in source.iter_mut() { item.locator.block = ordinal; }
+                for item in source.iter_mut() {
+                    item.locator.block = ordinal;
+                }
                 target.append(source);
             }};
         }
-        merge!(contexts); merge!(routes); merge!(validity); merge!(computations); merge!(endpoints);
-        merge!(samples); merge!(modes); merge!(events); merge!(parametric); merge!(responses);
-        self.owner.try_grow(member.evidence.interpretation.len() * (size_of::<ArtifactLocator>() * 2))
+        merge!(contexts);
+        merge!(routes);
+        merge!(validity);
+        merge!(computations);
+        merge!(endpoints);
+        merge!(samples);
+        merge!(modes);
+        merge!(events);
+        merge!(parametric);
+        merge!(responses);
+        self.owner
+            .try_grow(member.evidence.interpretation.len() * (size_of::<ArtifactLocator>() * 2))
             .map_err(pse_engine::EngineError::from)?;
-        for mut locator in member.evidence.interpretation { locator.block = ordinal; self.evidence.interpretation.push(locator); }
-        self.coordinates.push((ordinal, member.relation, member.rows, String::new()));
+        for mut locator in member.evidence.interpretation {
+            locator.block = ordinal;
+            self.evidence.interpretation.push(locator);
+        }
+        self.coordinates
+            .push((ordinal, member.relation, member.rows, String::new()));
         self.members.push(member.owner);
         Ok(())
     }
-    pub(super) fn verify_members(&mut self, blocks: &[pse_operations::canonical_artifacts::ArtifactBlock]) -> Result<(), WorkflowError> {
+    pub(super) fn verify_members(
+        &mut self,
+        blocks: &[pse_operations::canonical_artifacts::ArtifactBlock],
+    ) -> Result<(), WorkflowError> {
         for (ordinal, relation, rows, digest) in &mut self.coordinates {
-            let block = usize::try_from(*ordinal).ok().and_then(|index| blocks.get(index))
-                .filter(|block| block.ordinal == *ordinal && block.relation == *relation && block.rows == *rows)
+            let block = usize::try_from(*ordinal)
+                .ok()
+                .and_then(|index| blocks.get(index))
+                .filter(|block| {
+                    block.ordinal == *ordinal && block.relation == *relation && block.rows == *rows
+                })
                 .ok_or_else(|| contract("artifact fact member coordinate differs"))?;
-            self.owner.try_grow(block.digest.len()).map_err(pse_engine::EngineError::from)?;
+            self.owner
+                .try_grow(block.digest.len())
+                .map_err(pse_engine::EngineError::from)?;
             digest.clone_from(&block.digest);
         }
         Ok(())
     }
-    pub(super) fn bind(mut self, runtime: &Runtime, read: &ArtifactRead,
-        expected: &pse_operations::canonical_artifacts::Artifact) -> Result<Self, WorkflowError> {
+    pub(super) fn bind(
+        mut self,
+        runtime: &Runtime,
+        read: &ArtifactRead,
+        expected: &pse_operations::canonical_artifacts::Artifact,
+    ) -> Result<Self, WorkflowError> {
         if !Arc::ptr_eq(&self.admission, &runtime.admission_context()) {
-            return Err(contract("artifact facts require actual receiving admission"));
+            return Err(contract(
+                "artifact facts require actual receiving admission",
+            ));
         }
         super::artifacts::check_artifact_ack(&runtime.shared.pool(), expected, read.header())?;
-        if self.coordinates.iter().any(|(_, _, _, digest)| digest.is_empty()) {
+        if self
+            .coordinates
+            .iter()
+            .any(|(_, _, _, digest)| digest.is_empty())
+        {
             return Err(contract("artifact facts lack exact encoded member binding"));
         }
         let mut count = self.evidence.interpretation.len();
         macro_rules! count { ($($field:ident),*) => { $(count += self.evidence.$field.len();)* }; }
-        count!(contexts,routes,validity,computations,endpoints,samples,modes,events,parametric,responses);
-        self.owner.try_grow(count.checked_mul(expected.key.len()).ok_or_else(|| contract("artifact locator extent"))?)
+        count!(
+            contexts,
+            routes,
+            validity,
+            computations,
+            endpoints,
+            samples,
+            modes,
+            events,
+            parametric,
+            responses
+        );
+        self.owner
+            .try_grow(
+                count
+                    .checked_mul(expected.key.len())
+                    .ok_or_else(|| contract("artifact locator extent"))?,
+            )
             .map_err(pse_engine::EngineError::from)?;
         macro_rules! bind { ($($field:ident),*) => { $(for item in &mut self.evidence.$field { item.locator.artifact.clone_from(&expected.key); })* }; }
-        bind!(contexts,routes,validity,computations,endpoints,samples,modes,events,parametric,responses);
-        for locator in &mut self.evidence.interpretation { locator.artifact.clone_from(&expected.key); }
+        bind!(
+            contexts,
+            routes,
+            validity,
+            computations,
+            endpoints,
+            samples,
+            modes,
+            events,
+            parametric,
+            responses
+        );
+        for locator in &mut self.evidence.interpretation {
+            locator.artifact.clone_from(&expected.key);
+        }
         Ok(self)
     }
 }
-fn element_bytes<T>(_: &Vec<T>) -> usize { size_of::<T>() }
+fn element_bytes<T>(_: &Vec<T>) -> usize {
+    size_of::<T>()
+}
 
 type EvidenceRun = pse_model::generated::identities::RunId;
-type EvidenceSample = (EvidenceRun, i64, u64, pse_ids::SemanticId, pse_ids::SemanticId);
+type EvidenceSample = (
+    EvidenceRun,
+    i64,
+    u64,
+    pse_ids::SemanticId,
+    pse_ids::SemanticId,
+);
 
 #[derive(Default)]
 struct RunEvidence<'a> {
@@ -433,10 +603,16 @@ impl<'a> ResponseEvidenceIndex<'a> {
         let step = tree_node::<i64, StepEvidence<'_>>();
         let coordinate = tree_node::<(EvidenceRun, i64), CoordinateEvidence<'_>>();
         let references = 4 * size_of::<&Located<()>>();
-        let inputs = evidence.contexts.iter().try_fold(0usize, |n, c| n.checked_add(c.row.inputs.len()))
+        let inputs = evidence
+            .contexts
+            .iter()
+            .try_fold(0usize, |n, c| n.checked_add(c.row.inputs.len()))
             .ok_or_else(|| contract("analysis index input extent"))?;
         let extents = [
-            (evidence.contexts.len(), run + step + coordinate + 3 * references),
+            (
+                evidence.contexts.len(),
+                run + step + coordinate + 3 * references,
+            ),
             (evidence.routes.len(), step + references),
             (evidence.validity.len(), coordinate + 2 * references),
             (evidence.computations.len(), run + references),
@@ -448,63 +624,134 @@ impl<'a> ResponseEvidenceIndex<'a> {
             // Temporary coordinate-key inventory used while validating groups.
             (evidence.contexts.len(), 2 * size_of::<(EvidenceRun, i64)>()),
             (evidence.validity.len(), 2 * size_of::<(EvidenceRun, i64)>()),
-            (evidence.parametric.len(), 2 * size_of::<(EvidenceRun, i64)>()),
+            (
+                evidence.parametric.len(),
+                2 * size_of::<(EvidenceRun, i64)>(),
+            ),
         ];
-        let bytes = extents.into_iter().try_fold(size_of::<Self>(), |bytes, (count, extent)| {
-            count.checked_mul(extent).and_then(|extent| bytes.checked_add(extent))
-        }).ok_or_else(|| contract("analysis index allocation extent"))?;
-        owner.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
-        let mut index = Self { runs: BTreeMap::new(), steps: BTreeMap::new(),
-            coordinates: BTreeMap::new(), samples: BTreeSet::new(), _owner: owner };
+        let bytes = extents
+            .into_iter()
+            .try_fold(size_of::<Self>(), |bytes, (count, extent)| {
+                count
+                    .checked_mul(extent)
+                    .and_then(|extent| bytes.checked_add(extent))
+            })
+            .ok_or_else(|| contract("analysis index allocation extent"))?;
+        owner
+            .try_grow(bytes)
+            .map_err(pse_engine::EngineError::from)?;
+        let mut index = Self {
+            runs: BTreeMap::new(),
+            steps: BTreeMap::new(),
+            coordinates: BTreeMap::new(),
+            samples: BTreeSet::new(),
+            _owner: owner,
+        };
         for item in &evidence.contexts {
-            index.runs.entry(item.row.run_id).or_default().contexts.push(item);
-            index.coordinates.entry((item.row.run_id, item.row.step)).or_default().contexts.push(item);
+            index
+                .runs
+                .entry(item.row.run_id)
+                .or_default()
+                .contexts
+                .push(item);
+            index
+                .coordinates
+                .entry((item.row.run_id, item.row.step))
+                .or_default()
+                .contexts
+                .push(item);
             if item.row.time.is_none() {
-                index.steps.entry(item.row.step).or_default().scalar_contexts.push(item);
+                index
+                    .steps
+                    .entry(item.row.step)
+                    .or_default()
+                    .scalar_contexts
+                    .push(item);
             }
         }
         for item in &evidence.routes {
-            index.steps.entry(item.row.step).or_default().routes.push(item);
+            index
+                .steps
+                .entry(item.row.step)
+                .or_default()
+                .routes
+                .push(item);
         }
         for item in &evidence.validity {
-            let group = index.coordinates.entry((item.row.run_id, item.row.step)).or_default();
+            let group = index
+                .coordinates
+                .entry((item.row.run_id, item.row.step))
+                .or_default();
             group.validity.push(item);
-            if item.row.quantity == pse_model::generated::enums::DerivedQuantity::ParametricSensitivity {
+            if item.row.quantity
+                == pse_model::generated::enums::DerivedQuantity::ParametricSensitivity
+            {
                 group.sensitivity_validity.push(item);
             }
         }
         for item in &evidence.parametric {
-            index.coordinates.entry((item.row.run_id, item.row.step)).or_default();
+            index
+                .coordinates
+                .entry((item.row.run_id, item.row.step))
+                .or_default();
         }
         for item in &evidence.computations {
-            index.runs.entry(item.row.run_id).or_default().computations.push(item);
+            index
+                .runs
+                .entry(item.row.run_id)
+                .or_default()
+                .computations
+                .push(item);
         }
         for item in &evidence.endpoints {
-            index.runs.entry(item.row.run_id).or_default().endpoints.push(item);
+            index
+                .runs
+                .entry(item.row.run_id)
+                .or_default()
+                .endpoints
+                .push(item);
         }
         for item in &evidence.events {
-            index.runs.entry(item.row.run_id).or_default().events.push(item);
+            index
+                .runs
+                .entry(item.row.run_id)
+                .or_default()
+                .events
+                .push(item);
         }
         for item in &evidence.samples {
             let row = &item.row;
             if let Some(time) = evidence_time(row.time) {
-                index.samples.insert((row.run_id, row.sample, time, row.symbol_id, row.unit_id));
+                index
+                    .samples
+                    .insert((row.run_id, row.sample, time, row.symbol_id, row.unit_id));
             }
         }
         for group in index.runs.values_mut() {
             use pse_model::generated::enums::ComputationKind;
-            let Some(header) = group.computations.first().map(|v| &v.row) else { continue; };
-            let Some(context) = group.contexts.first().map(|v| &v.row) else { continue; };
-            let Some(endpoint) = group.endpoints.first().map(|v| &v.row) else { continue; };
+            let Some(header) = group.computations.first().map(|v| &v.row) else {
+                continue;
+            };
+            let Some(context) = group.contexts.first().map(|v| &v.row) else {
+                continue;
+            };
+            let Some(endpoint) = group.endpoints.first().map(|v| &v.row) else {
+                continue;
+            };
             if !group.computations.iter().all(|v| v.row == *header)
                 || !group.contexts.iter().all(|v| v.row == *context)
                 || !group.endpoints.iter().all(|v| v.row == *endpoint)
                 || header.kind != ComputationKind::Simulation
-                || header.response_available != Some(true) || context.time.is_none() {
+                || header.response_available != Some(true)
+                || context.time.is_none()
+            {
                 continue;
             }
-            if let (Some(end), Some(count), Some(instance)) =
-                (header.completed_time, header.completed_samples, context.instance_id) {
+            if let (Some(end), Some(count), Some(instance)) = (
+                header.completed_time,
+                header.completed_samples,
+                context.instance_id,
+            ) {
                 group.transient = Some((end, count, endpoint.time, instance));
                 group.parameters.extend(context.inputs.iter().map(|v| v.id));
             }
@@ -515,7 +762,9 @@ impl<'a> ResponseEvidenceIndex<'a> {
         for (run, step) in keys {
             let family = index.scalar_family(run, step);
             let certified = family.is_some_and(|f| index.scalar_certified(run, step, f));
-            let group = index.coordinates.get_mut(&(run, step))
+            let group = index
+                .coordinates
+                .get_mut(&(run, step))
                 .ok_or_else(|| contract("analysis index coordinate absent"))?;
             group.family = family;
             group.certified = certified;
@@ -602,15 +851,36 @@ impl<'a> ResponseEvidenceIndex<'a> {
 
     // Recorded sensitivity is weaker than a scalar local certificate. Preserve
     // actual endpoint/sample coverage and IEEE equality (NaN never matches).
-    fn transient_recorded(&self, row: &pse_model::generated::runtime::response_sensitivities::Row) -> bool {
-        let Some(time) = row.time else { return false; };
-        let Some(bits) = evidence_time(time) else { return false; };
-        let Some(group) = self.runs.get(&row.run_id) else { return false; };
-        let Some((end, count, endpoint, instance)) = group.transient else { return false; };
-        row.parameter_column >= 0 && row.sample >= 0 && row.sample < count
-            && time <= end && time <= endpoint && row.experiment_id == instance
+    fn transient_recorded(
+        &self,
+        row: &pse_model::generated::runtime::response_sensitivities::Row,
+    ) -> bool {
+        let Some(time) = row.time else {
+            return false;
+        };
+        let Some(bits) = evidence_time(time) else {
+            return false;
+        };
+        let Some(group) = self.runs.get(&row.run_id) else {
+            return false;
+        };
+        let Some((end, count, endpoint, instance)) = group.transient else {
+            return false;
+        };
+        row.parameter_column >= 0
+            && row.sample >= 0
+            && row.sample < count
+            && time <= end
+            && time <= endpoint
+            && row.experiment_id == instance
             && group.parameters.contains(&row.parameter_id)
-            && self.samples.contains(&(row.run_id, row.sample, bits, row.output_id, row.output_unit_id))
+            && self.samples.contains(&(
+                row.run_id,
+                row.sample,
+                bits,
+                row.output_id,
+                row.output_unit_id,
+            ))
     }
 }
 
@@ -685,7 +955,9 @@ fn project_response_evidence(
     }
     for item in &evidence.parametric {
         let row = &item.row;
-        let coordinate = index.coordinates.get(&(row.run_id, row.step))
+        let coordinate = index
+            .coordinates
+            .get(&(row.run_id, row.step))
             .ok_or_else(|| contract("analysis response coordinate absent"))?;
         let family = coordinate.family;
         let family_name = family.map_or("unclassified", ResponseFamily::name);
@@ -734,7 +1006,12 @@ fn project_response_evidence(
                 &context.locator,
             )?;
         }
-        for route in index.steps.get(&row.step).into_iter().flat_map(|group| &group.routes) {
+        for route in index
+            .steps
+            .get(&row.step)
+            .into_iter()
+            .flat_map(|group| &group.routes)
+        {
             evidence_context(
                 graph,
                 nodes,
@@ -802,7 +1079,12 @@ fn project_response_evidence(
             },
             Some(field_locator(&item.locator, "value")),
         )?;
-        for context in index.runs.get(&row.run_id).into_iter().flat_map(|group| &group.contexts) {
+        for context in index
+            .runs
+            .get(&row.run_id)
+            .into_iter()
+            .flat_map(|group| &group.contexts)
+        {
             evidence_context(
                 graph,
                 nodes,
@@ -812,7 +1094,12 @@ fn project_response_evidence(
                 &context.locator,
             )?;
         }
-        for header in index.runs.get(&row.run_id).into_iter().flat_map(|group| &group.computations) {
+        for header in index
+            .runs
+            .get(&row.run_id)
+            .into_iter()
+            .flat_map(|group| &group.computations)
+        {
             evidence_context(
                 graph,
                 nodes,
@@ -822,7 +1109,12 @@ fn project_response_evidence(
                 &header.locator,
             )?;
         }
-        for endpoint in index.runs.get(&row.run_id).into_iter().flat_map(|group| &group.endpoints) {
+        for endpoint in index
+            .runs
+            .get(&row.run_id)
+            .into_iter()
+            .flat_map(|group| &group.endpoints)
+        {
             evidence_context(
                 graph,
                 nodes,
@@ -835,7 +1127,12 @@ fn project_response_evidence(
         // The quantitative row itself preserves exact sample/time/output/unit
         // coordinates. Its matching sample and mode remain in the same retained
         // trajectory; avoid duplicating a graph edge per output/sample metadata.
-        for event in index.runs.get(&row.run_id).into_iter().flat_map(|group| &group.events) {
+        for event in index
+            .runs
+            .get(&row.run_id)
+            .into_iter()
+            .flat_map(|group| &group.events)
+        {
             evidence_context(
                 graph,
                 nodes,
@@ -1124,19 +1421,25 @@ impl Runtime {
             &retained_nodes,
             &retained_edges,
         );
-        let acknowledged = self.canonical_store()?
+        let acknowledged = self
+            .canonical_store()?
             .persist_analysis(&header, sources, inputs, &retained_nodes, &retained_edges)
             .await?;
         let valid = check_analysis_ack(&self.shared.pool(), &header, &acknowledged);
         #[cfg(all(test, feature = "canonical-tests"))]
-        let lost = GRAPH_HANDOFF_REPLY_LOSS.try_with(|lost| *lost).unwrap_or(false);
+        let lost = GRAPH_HANDOFF_REPLY_LOSS
+            .try_with(|lost| *lost)
+            .unwrap_or(false);
         #[cfg(not(all(test, feature = "canonical-tests")))]
         let lost = false;
         if valid.is_err() || lost {
-            return Err(pse_operations::canonical::CanonicalError::AnalysisUnsettled {
-                intent: Box::new(header),
-                source: Box::new(pse_operations::canonical::CanonicalError::IncompleteResponse),
-            }.into());
+            return Err(
+                pse_operations::canonical::CanonicalError::AnalysisUnsettled {
+                    intent: Box::new(header),
+                    source: Box::new(pse_operations::canonical::CanonicalError::IncompleteResponse),
+                }
+                .into(),
+            );
         }
         Ok(AnalysisHandle {
             runtime: self.clone(),
@@ -1150,30 +1453,73 @@ impl Runtime {
     /// through each surrounding ownership scope; the same read leases remain held.
     #[inline(never)]
     fn select_result_analysis<'a>(
-        &'a self, run: &'a str, attempt: &'a str, _owner: &'a MemoryReservation,
+        &'a self,
+        run: &'a str,
+        attempt: &'a str,
+        _owner: &'a MemoryReservation,
         cancel: &'a CancellationToken,
-    ) -> futures_util::future::BoxFuture<'a, Result<super::artifacts::ScientificArtifactSelection, WorkflowError>> {
+    ) -> futures_util::future::BoxFuture<
+        'a,
+        Result<super::artifacts::ScientificArtifactSelection, WorkflowError>,
+    > {
         Box::pin(async move {
             let protected = self.select_scientific_input(run, attempt).await?;
             let mut prepared = Vec::new();
             for name in ["runtime.scientific_contexts", "runtime.computation_runs"] {
-                let spec = self.registry().relation(name).ok_or_else(|| contract("response dispatch relation absent"))?;
-                let Some(set) = protected.input.sets().iter().find(|set| set.name == spec.id.to_string()) else {continue;};
+                let spec = self
+                    .registry()
+                    .relation(name)
+                    .ok_or_else(|| contract("response dispatch relation absent"))?;
+                let Some(set) = protected
+                    .input
+                    .sets()
+                    .iter()
+                    .find(|set| set.name == spec.id.to_string())
+                else {
+                    continue;
+                };
                 let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
                     .map_err(|error| contract(error.to_string()))?;
-                let snapshot = super::ResultSnapshot::capture(self, protected.input.clone(), protected.input_owner.clone(),
-                    spec.id, &set.key, schema, 0, u64::MAX).await?;
+                let snapshot = super::ResultSnapshot::capture(
+                    self,
+                    protected.input.clone(),
+                    protected.input_owner.clone(),
+                    spec.id,
+                    &set.key,
+                    schema,
+                    0,
+                    u64::MAX,
+                )
+                .await?;
                 for block in snapshot.blocks() {
-                    if prepared.len() >= 64 {return Err(contract("scientific dispatch member bound"));}
+                    if prepared.len() >= 64 {
+                        return Err(contract("scientific dispatch member bound"));
+                    }
                     let batch = snapshot.read_block(block, cancel).await?;
-                    prepared.push(super::artifacts::prepare_scientific_member(self, name, &batch, &block.payload_digest, true)?);
+                    prepared.push(super::artifacts::prepare_scientific_member(
+                        self,
+                        name,
+                        &batch,
+                        &block.payload_digest,
+                        true,
+                    )?);
                 }
             }
             let kind = super::artifacts::response_artifact_kind(
-                prepared.iter().filter_map(|member| member.facts.as_ref()).flat_map(|facts| facts.evidence.contexts.iter().map(|c| &c.row)),
-                prepared.iter().filter_map(|member| member.facts.as_ref()).flat_map(|facts| facts.evidence.computations.iter().map(|c| &c.row)),
+                prepared
+                    .iter()
+                    .filter_map(|member| member.facts.as_ref())
+                    .flat_map(|facts| facts.evidence.contexts.iter().map(|c| &c.row)),
+                prepared
+                    .iter()
+                    .filter_map(|member| member.facts.as_ref())
+                    .flat_map(|facts| facts.evidence.computations.iter().map(|c| &c.row)),
             )?;
-            Ok(super::artifacts::ScientificArtifactSelection {protected, kind, prepared})
+            Ok(super::artifacts::ScientificArtifactSelection {
+                protected,
+                kind,
+                prepared,
+            })
         })
     }
 
@@ -1225,9 +1571,16 @@ impl Runtime {
                 "analysis-staging:{}",
                 pse_operations::mint_id::<pse_model::generated::identities::RunId>()
             );
-            let promotion = match self.promote_selected_scientific_artifact(
-                selection, "audit", &staging_owner, cancel, owner, true,
-            )                .await
+            let promotion = match self
+                .promote_selected_scientific_artifact(
+                    selection,
+                    "audit",
+                    &staging_owner,
+                    cancel,
+                    owner,
+                    true,
+                )
+                .await
             {
                 Ok(product) => product,
                 Err(source) => {
@@ -1330,14 +1683,20 @@ impl Runtime {
                     )?;
                     edge(&mut graph, node, attempt_node, "input_provenance", None)?;
                 }
-                project_response_evidence(&facts.evidence, &mut graph, &mut nodes, attempt_node, &self.shared.pool())?;
+                project_response_evidence(
+                    &facts.evidence,
+                    &mut graph,
+                    &mut nodes,
+                    attempt_node,
+                    &self.shared.pool(),
+                )?;
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                 let configuration = serde_json::to_vec(&(2_u8, controls, run, attempt))
                     .map_err(|error| contract(error.to_string()))?;
                 let handle = self
                     .store_analysis_graph(
-                        &revision,
-                        &sources,
+                        revision,
+                        sources,
                         std::slice::from_ref(&artifact_read),
                         "result-sensitivity-provenance-reachability:v2",
                         configuration,
@@ -1360,8 +1719,13 @@ impl Runtime {
                 };
                 transfer_error(source, analysis, Some(read_key.clone()))
             })?;
-            transfer_checkpoint(TransferCheckpoint::AfterGraphAck, cancel).map_err(|source|
-                transfer_error(source, Some(handle.key().to_owned()), Some(read_key.clone())))?;
+            transfer_checkpoint(TransferCheckpoint::AfterGraphAck, cancel).map_err(|source| {
+                transfer_error(
+                    source,
+                    Some(handle.key().to_owned()),
+                    Some(read_key.clone()),
+                )
+            })?;
             self.canonical_store()?
                 .release_artifact_intent(artifact.header(), "audit", &staging_owner)
                 .await
@@ -1910,24 +2274,41 @@ mod analysis_ack_unit {
     #[test]
     fn analysis_ack_requires_generated_whole_row_equality_and_prepaid_clone() {
         let original = pse_operations::canonical_analyses::Analysis {
-            key: "original".into(), revision: "source".into(), method: "original-method".into(),
-            configuration: vec![1,2].into(), input_digest: "input".into(), primary_problem: "problem".into(),
-            primary_authority: "authority".into(), creation_nonce: "nonce".into(),
-            creation_request_digest: "exact-request".into(), creation_expires_at: 1,
-            interpretation: "original-interpretation".into(), node_count: 1, edge_count: 2,
-            active: false, retiring: false,
+            key: "original".into(),
+            revision: "source".into(),
+            method: "original-method".into(),
+            configuration: vec![1, 2].into(),
+            input_digest: "input".into(),
+            primary_problem: "problem".into(),
+            primary_authority: "authority".into(),
+            creation_nonce: "nonce".into(),
+            creation_request_digest: "exact-request".into(),
+            creation_expires_at: 1,
+            interpretation: "original-interpretation".into(),
+            node_count: 1,
+            edge_count: 2,
+            active: false,
+            retiring: false,
         };
-        let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(4096));
-        let mut ack = original.clone(); ack.active = true;
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(4096));
+        let mut ack = original.clone();
+        ack.active = true;
         check_analysis_ack(&pool, &original, &ack).unwrap();
         for change in 0..5 {
             let mut wrong = ack.clone();
-            match change { 0 => wrong.active = false, 1 => wrong.retiring = true,
-                2 => wrong.node_count += 1, 3 => wrong.configuration = vec![9].into(), _ => wrong.method.push('x') }
+            match change {
+                0 => wrong.active = false,
+                1 => wrong.retiring = true,
+                2 => wrong.node_count += 1,
+                3 => wrong.configuration = vec![9].into(),
+                _ => wrong.method.push('x'),
+            }
             assert!(check_analysis_ack(&pool, &original, &wrong).is_err());
         }
         assert_eq!(pool.reserved(), 0);
-        let refused: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1));
+        let refused: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(1));
         assert!(check_analysis_ack(&refused, &original, &ack).is_err());
         assert_eq!(refused.reserved(), 0);
     }

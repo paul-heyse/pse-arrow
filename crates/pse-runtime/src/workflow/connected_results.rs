@@ -207,19 +207,32 @@ pub struct CanonicalResultReader {
 }
 impl CanonicalResultReader {
     fn from_reader(reader: ResultReader) -> Result<Self, WorkflowError> {
-        let snapshot = reader.snapshot.clone().ok_or_else(|| contract("full result snapshot absent"))?;
+        let snapshot = reader
+            .snapshot
+            .clone()
+            .ok_or_else(|| contract("full result snapshot absent"))?;
         Ok(Self { reader, snapshot })
     }
     /// Complete original full relation/range inventory, independent of progress.
-    pub fn snapshot(&self) -> super::ResultSnapshot { self.snapshot.clone() }
+    pub fn snapshot(&self) -> super::ResultSnapshot {
+        self.snapshot.clone()
+    }
     /// Exact full registry schema of the scientific relation.
-    pub fn schema(&self) -> SchemaRef { self.reader.schema() }
+    pub fn schema(&self) -> SchemaRef {
+        self.reader.schema()
+    }
     /// Original protected run/attempt/manifest, including partiality.
-    pub fn selection(&self) -> &ResultRead { self.reader.selection() }
+    pub fn selection(&self) -> &ResultRead {
+        self.reader.selection()
+    }
     /// Cancellation shared with this stream.
-    pub fn cancellation_token(&self) -> CancellationToken { self.reader.cancellation_token() }
+    pub fn cancellation_token(&self) -> CancellationToken {
+        self.reader.cancellation_token()
+    }
     /// Stop unread work and release transient metadata.
-    pub fn close(&mut self) { self.reader.close(); }
+    pub fn close(&mut self) {
+        self.reader.close();
+    }
     /// Export all remaining selected rows atomically on success.
     pub async fn export_ipc(&mut self, destination: &std::path::Path) -> Result<(), WorkflowError> {
         self.reader.export_ipc(destination).await
@@ -229,52 +242,98 @@ impl CanonicalResultReader {
         self.reader.next_batch().await
     }
     /// Decode and admit the next selected registry relation batch.
-    pub async fn next_relation_batch(&mut self) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
+    pub async fn next_relation_batch(
+        &mut self,
+    ) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
         self.reader.next_relation_batch().await
     }
 }
 
 /// Explicit selected stream. A reusable selected universe requires asynchronous freezing.
 #[derive(Debug)]
-pub struct SelectedResultReader { reader: ResultReader }
+pub struct SelectedResultReader {
+    reader: ResultReader,
+}
 impl SelectedResultReader {
     /// Freeze the complete original selected universe, irrespective of stream
     /// progress. A fresh cancellation token controls this independent operation.
-    pub async fn selected_snapshot(&self, cancel: CancellationToken) -> Result<super::SelectedResultSnapshot, WorkflowError> {
+    pub async fn selected_snapshot(
+        &self,
+        cancel: CancellationToken,
+    ) -> Result<super::SelectedResultSnapshot, WorkflowError> {
         let activity = self.reader.runtime.admit_activity()?;
         let pool = self.reader.runtime.shared.pool();
         let reader = &self.reader;
-        activity.scope(prepaid_reader_future(&pool, async move {
-            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-            let selection_owner = MemoryConsumer::new("canonical:selected-snapshot-key").register(&reader.runtime.shared.pool());
-            selection_owner.try_grow(reader.set.capacity()).map_err(pse_engine::EngineError::from)?;
-            let mut fresh = ResultReader {
-                observation: None, runtime: reader.runtime.clone(), read: reader.read.clone(),
-                snapshot: None, decode: reader.decode.clone(), read_owner: reader.read_owner.clone(),
-                relation: reader.relation, set: reader.set.clone(), schema: reader.schema.clone(),
-                start: reader.start, end: reader.end, after: None, snapshot_position: 0,
-                pending: VecDeque::new(), exhausted: reader.start == reader.end, consumed: false,
-                cancel, output: reader.output.clone(), indexes: BTreeMap::new(), descriptors: BTreeMap::new(),
-                descriptor_owner: None, selected_batch: None, metadata_owner: None, _selection_owner: selection_owner,
-            };
-            let mut builder = super::result_snapshot::SelectedSnapshotBuilder::new(fresh.decode.clone())?;
-            loop {
-                let cancel = fresh.cancel.clone();
-                let next = prepaid_reader_future(&fresh.runtime.shared.pool(), fresh.next_checked_body(Some(&mut builder)))?;
-                let batch = cancel.until_cancelled(next).await.map_err(pse_engine::EngineError::from)??;
-                if batch.is_none() { break; }
-            }
-            Ok(builder.finish())
-        })?).await
+        activity
+            .scope(prepaid_reader_future(&pool, async move {
+                cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+                let selection_owner = MemoryConsumer::new("canonical:selected-snapshot-key")
+                    .register(&reader.runtime.shared.pool());
+                selection_owner
+                    .try_grow(reader.set.capacity())
+                    .map_err(pse_engine::EngineError::from)?;
+                let mut fresh = ResultReader {
+                    observation: None,
+                    runtime: reader.runtime.clone(),
+                    read: reader.read.clone(),
+                    snapshot: None,
+                    decode: reader.decode.clone(),
+                    read_owner: reader.read_owner.clone(),
+                    relation: reader.relation,
+                    set: reader.set.clone(),
+                    schema: reader.schema.clone(),
+                    start: reader.start,
+                    end: reader.end,
+                    after: None,
+                    snapshot_position: 0,
+                    pending: VecDeque::new(),
+                    exhausted: reader.start == reader.end,
+                    consumed: false,
+                    cancel,
+                    output: reader.output.clone(),
+                    indexes: BTreeMap::new(),
+                    descriptors: BTreeMap::new(),
+                    descriptor_owner: None,
+                    selected_batch: None,
+                    metadata_owner: None,
+                    _selection_owner: selection_owner,
+                };
+                let mut builder =
+                    super::result_snapshot::SelectedSnapshotBuilder::new(fresh.decode.clone())?;
+                loop {
+                    let cancel = fresh.cancel.clone();
+                    let next = prepaid_reader_future(
+                        &fresh.runtime.shared.pool(),
+                        fresh.next_checked_body(Some(&mut builder)),
+                    )?;
+                    let batch = cancel
+                        .until_cancelled(next)
+                        .await
+                        .map_err(pse_engine::EngineError::from)??;
+                    if batch.is_none() {
+                        break;
+                    }
+                }
+                Ok(builder.finish())
+            })?)
+            .await
     }
     /// Exact full registry schema of the scientific relation.
-    pub fn schema(&self) -> SchemaRef { self.reader.schema() }
+    pub fn schema(&self) -> SchemaRef {
+        self.reader.schema()
+    }
     /// Original protected run/attempt/manifest, including partiality.
-    pub fn selection(&self) -> &ResultRead { self.reader.selection() }
+    pub fn selection(&self) -> &ResultRead {
+        self.reader.selection()
+    }
     /// Cancellation shared with this stream.
-    pub fn cancellation_token(&self) -> CancellationToken { self.reader.cancellation_token() }
+    pub fn cancellation_token(&self) -> CancellationToken {
+        self.reader.cancellation_token()
+    }
     /// Stop unread work and release transient metadata.
-    pub fn close(&mut self) { self.reader.close(); }
+    pub fn close(&mut self) {
+        self.reader.close();
+    }
     /// Export all remaining selected rows atomically on success.
     pub async fn export_ipc(&mut self, destination: &std::path::Path) -> Result<(), WorkflowError> {
         self.reader.export_ipc(destination).await
@@ -284,7 +343,9 @@ impl SelectedResultReader {
         self.reader.next_batch().await
     }
     /// Decode and admit the next selected registry relation batch.
-    pub async fn next_relation_batch(&mut self) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
+    pub async fn next_relation_batch(
+        &mut self,
+    ) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
         self.reader.next_relation_batch().await
     }
 }
@@ -488,7 +549,11 @@ impl ResultReader {
             return Err(pse_engine::EngineError::from(error).into());
         }
         self.consumed = true;
-        if self.pending.is_empty() && self.exhausted && self.indexes.is_empty() && self.descriptors.is_empty() {
+        if self.pending.is_empty()
+            && self.exhausted
+            && self.indexes.is_empty()
+            && self.descriptors.is_empty()
+        {
             if let Some(operation) = self.observation.take() {
                 operation.finish(pse_diagnostics::observation::Outcome::Completed);
             }
@@ -580,7 +645,10 @@ impl ResultReader {
         // Full reads consume the already admitted immutable inventory. Borrow its
         // descriptors directly: aliases share metadata and its original charge.
         while self.output.is_none() {
-            let snapshot = self.snapshot.as_ref().ok_or_else(|| contract("full result snapshot absent"))?;
+            let snapshot = self
+                .snapshot
+                .as_ref()
+                .ok_or_else(|| contract("full result snapshot absent"))?;
             let Some(metadata) = snapshot.blocks().get(self.snapshot_position) else {
                 self.exhausted = true;
                 return Ok(None);
@@ -630,7 +698,9 @@ impl ResultReader {
                     Arc::new((self.read.clone(), self.read_owner.clone(), owner.clone())),
                     async {
                         let page = if let Some(filter) = &self.output {
-                            if let Some(context) = pse_diagnostics::observation::current() { context.count("canonical.result.output_page_requests", "count", 1); }
+                            if let Some(context) = pse_diagnostics::observation::current() {
+                                context.count("canonical.result.output_page_requests", "count", 1);
+                            }
                             let page = self
                                 .runtime
                                 .canonical_store()?
@@ -690,13 +760,25 @@ impl ResultReader {
                 self.descriptor_owner = None;
                 if !page.is_empty() {
                     let ordinals = page.iter().map(|block| block.ordinal).collect::<Vec<_>>();
-                    let descriptor_response = response_owner(&self.runtime,
-                        "canonical:selected-result-descriptors", MetadataResponse::Page)?;
-                    if let Some(context) = pse_diagnostics::observation::current() { context.count("canonical.result.descriptor_page_requests", "count", 1); }
+                    let descriptor_response = response_owner(
+                        &self.runtime,
+                        "canonical:selected-result-descriptors",
+                        MetadataResponse::Page,
+                    )?;
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.count("canonical.result.descriptor_page_requests", "count", 1);
+                    }
                     let descriptors = pse_operations::canonical::response_ownership_scope(
-                        Arc::new((self.read.clone(), self.read_owner.clone(), descriptor_response.clone())),
-                        self.runtime.canonical_store()?.result_file_batch_descriptors(&self.read, &self.set, &ordinals),
-                    ).await?;
+                        Arc::new((
+                            self.read.clone(),
+                            self.read_owner.clone(),
+                            descriptor_response.clone(),
+                        )),
+                        self.runtime
+                            .canonical_store()?
+                            .result_file_batch_descriptors(&self.read, &self.set, &ordinals),
+                    )
+                    .await?;
                     if descriptors.len() != page.len() {
                         return Err(contract("selected descriptor coverage differs"));
                     }
@@ -706,14 +788,27 @@ impl ResultReader {
                         if descriptor.key != block.batch || descriptor.ordinal != block.ordinal {
                             return Err(contract("selected descriptor coordinate differs"));
                         }
-                        bytes = bytes.checked_add(size_of_val(&descriptor) + descriptor.heap_bytes()
-                            + descriptor.key.capacity() + 128)
+                        bytes = bytes
+                            .checked_add(
+                                size_of_val(&descriptor)
+                                    + descriptor.heap_bytes()
+                                    + descriptor.key.capacity()
+                                    + 128,
+                            )
                             .ok_or_else(|| contract("selected descriptor extent"))?;
-                        if self.descriptors.insert(descriptor.key.clone(), descriptor).is_some() {
+                        if self
+                            .descriptors
+                            .insert(descriptor.key.clone(), descriptor)
+                            .is_some()
+                        {
                             return Err(contract("duplicate selected batch descriptor"));
                         }
                     }
-                    self.descriptor_owner = Some(retain_metadata(&self.runtime.shared.pool(), descriptor_response, bytes)?);
+                    self.descriptor_owner = Some(retain_metadata(
+                        &self.runtime.shared.pool(),
+                        descriptor_response,
+                        bytes,
+                    )?);
                 }
                 self.pending = page.into();
                 self.metadata_owner = Some(retain_metadata(
@@ -735,19 +830,39 @@ impl ResultReader {
             if metadata.columns != self.schema.fields().len() as u64 {
                 return Err(contract("recorded result block shape differs"));
             }
-            let descriptor = self.descriptors.remove(&metadata.batch)
+            let descriptor = self
+                .descriptors
+                .remove(&metadata.batch)
                 .ok_or_else(|| contract("selected batch descriptor absent"))?;
-            let cached = self.selected_batch.as_ref().filter(|cached|
-                cached.block == metadata && cached.descriptor == descriptor).map(|cached| cached.batch.clone());
-            let checked = if let Some(checked) = cached { checked } else {
+            let cached = self
+                .selected_batch
+                .as_ref()
+                .filter(|cached| cached.block == metadata && cached.descriptor == descriptor)
+                .map(|cached| cached.batch.clone());
+            let checked = if let Some(checked) = cached {
+                checked
+            } else {
                 use pse_model::HeapUsage;
                 self.selected_batch = None;
-                let owner = MemoryConsumer::new("canonical:selected-current-batch").register(&self.runtime.shared.pool());
-                owner.try_grow(size_of::<SelectedBatch>() + metadata.heap_bytes() + descriptor.heap_bytes())
+                let owner = MemoryConsumer::new("canonical:selected-current-batch")
+                    .register(&self.runtime.shared.pool());
+                owner
+                    .try_grow(
+                        size_of::<SelectedBatch>()
+                            + metadata.heap_bytes()
+                            + descriptor.heap_bytes(),
+                    )
                     .map_err(pse_engine::EngineError::from)?;
-                let checked = self.decode.read_block(&metadata, &descriptor, &self.cancel).await?;
-                self.selected_batch = Some(SelectedBatch {block: metadata.clone(), descriptor: descriptor.clone(),
-                    batch: checked.clone(), _owner: owner});
+                let checked = self
+                    .decode
+                    .read_block(&metadata, &descriptor, &self.cancel)
+                    .await?;
+                self.selected_batch = Some(SelectedBatch {
+                    block: metadata.clone(),
+                    descriptor: descriptor.clone(),
+                    batch: checked.clone(),
+                    _owner: owner,
+                });
                 checked
             };
             let lower = self.start.max(metadata.start);
@@ -760,10 +875,19 @@ impl ResultReader {
                     .indexes
                     .remove(&metadata.batch)
                     .ok_or_else(|| contract("selected output block lacks index"))?;
-                let offsets_owner = MemoryConsumer::new("canonical:selected-source-offsets").register(&self.runtime.shared.pool());
-                let maximum_offsets = match &indexes { OutputRows::Scalar(rows) => rows.len(), OutputRows::Dense(_) => checked.batch().num_rows() };
-                offsets_owner.try_grow(maximum_offsets.checked_mul(size_of::<u32>())
-                    .ok_or_else(|| contract("selected offset allocation extent"))?).map_err(pse_engine::EngineError::from)?;
+                let offsets_owner = MemoryConsumer::new("canonical:selected-source-offsets")
+                    .register(&self.runtime.shared.pool());
+                let maximum_offsets = match &indexes {
+                    OutputRows::Scalar(rows) => rows.len(),
+                    OutputRows::Dense(_) => checked.batch().num_rows(),
+                };
+                offsets_owner
+                    .try_grow(
+                        maximum_offsets
+                            .checked_mul(size_of::<u32>())
+                            .ok_or_else(|| contract("selected offset allocation extent"))?,
+                    )
+                    .map_err(pse_engine::EngineError::from)?;
                 let indices = match indexes {
                     OutputRows::Scalar(locators) => {
                         for locator in &locators {
@@ -797,8 +921,9 @@ impl ResultReader {
                             use datafusion::arrow::array::Array;
                             let offset = locator.offset as usize;
                             if mask.is_valid(offset) && mask.value(offset) {
-                                indices.push(u32::try_from(locator.row - metadata.start)
-                                    .map_err(|_| contract("selected row exceeds Arrow take extent"))?);
+                                indices.push(u32::try_from(locator.row - metadata.start).map_err(
+                                    |_| contract("selected row exceeds Arrow take extent"),
+                                )?);
                             }
                         }
                         indices
@@ -868,7 +993,8 @@ impl ResultReader {
                 if indices.is_empty() {
                     continue;
                 }
-                let rows = super::result_snapshot::SelectedRows::from_offsets(indices, offsets_owner)?;
+                let rows =
+                    super::result_snapshot::SelectedRows::from_offsets(indices, offsets_owner)?;
                 let selected = rows.apply(&checked, &self.runtime.shared.pool(), &self.cancel)?;
                 if let Some(builder) = frozen.as_deref_mut() {
                     builder.push(&metadata, &descriptor, rows)?;
@@ -1017,7 +1143,8 @@ impl Runtime {
                     extent,
                     None,
                 )?
-                .await.and_then(CanonicalResultReader::from_reader)
+                .await
+                .and_then(CanonicalResultReader::from_reader)
             })
             .await
     }
@@ -1103,8 +1230,7 @@ impl Runtime {
         cancel: CancellationToken,
         extent: Arc<MemoryReservation>,
         output: Option<Arc<OutputFilter>>,
-    ) -> Result<PrepaidReaderFuture<'a, Result<ResultReader, WorkflowError>>, WorkflowError>
-    {
+    ) -> Result<PrepaidReaderFuture<'a, Result<ResultReader, WorkflowError>>, WorkflowError> {
         prepaid_reader_future(&self.shared.pool(), async move {
             let read = match selection {
                 TerminalResultSelection::Exact { run, attempt } => {
@@ -1122,7 +1248,7 @@ impl Runtime {
                     .await?
                 }
             };
-            self.result_selection(read, relation, start, end, cancel, extent, output)
+            self.result_selection(read, relation, start..end, cancel, extent, output)
                 .await
         })
     }
@@ -1131,12 +1257,12 @@ impl Runtime {
         &self,
         read: ResultRead,
         relation: &str,
-        start: u64,
-        end: u64,
+        rows: std::ops::Range<u64>,
         cancel: CancellationToken,
         extent: Arc<MemoryReservation>,
         output: Option<Arc<OutputFilter>>,
     ) -> Result<ResultReader, WorkflowError> {
+        let std::ops::Range { start, end } = rows;
         let read_owner = Arc::new(retain_protected_metadata(
             &self.shared.pool(),
             extent,
@@ -1172,13 +1298,31 @@ impl Runtime {
         let set = set.to_owned();
         let read = Arc::new(read);
         let snapshot = if output.is_none() {
-            Some(super::ResultSnapshot::capture(self, read.clone(), read_owner.clone(), spec.id,
-                &set, schema.clone(), start, end).await?)
-        } else { None };
+            Some(
+                super::ResultSnapshot::capture(
+                    self,
+                    read.clone(),
+                    read_owner.clone(),
+                    spec.id,
+                    &set,
+                    schema.clone(),
+                    start,
+                    end,
+                )
+                .await?,
+            )
+        } else {
+            None
+        };
         let decode = match &snapshot {
             Some(snapshot) => snapshot.decoder(),
             None => super::result_snapshot::ProtectedResultDecode::new(
-                self, read.clone(), read_owner.clone(), spec.id, schema.clone())?,
+                self,
+                read.clone(),
+                read_owner.clone(),
+                spec.id,
+                schema.clone(),
+            )?,
         };
         let exhausted = start == end || snapshot.as_ref().is_some_and(|s| s.blocks().is_empty());
         Ok(ResultReader {
@@ -1241,12 +1385,20 @@ impl Runtime {
                 {
                     return Err(contract("invalid finite output predicate"));
                 }
-                if start > end { return Err(contract("result row range is reversed")); }
-                let spec = self.registry().relation(relation).ok_or_else(|| contract("unknown result relation"))?;
+                if start > end {
+                    return Err(contract("result row range is reversed"));
+                }
+                let spec = self
+                    .registry()
+                    .relation(relation)
+                    .ok_or_else(|| contract("unknown result relation"))?;
                 super::result_projection::check_output_field(spec.id, field)?;
-                let dense = spec.id == pse_relations::generated::runtime::simulation_samples::RELATION_ID;
+                let dense =
+                    spec.id == pse_relations::generated::runtime::simulation_samples::RELATION_ID;
                 if dense && missing.is_some() {
-                    return Err(contract("finite dense outputs have no missing-value predicate"));
+                    return Err(contract(
+                        "finite dense outputs have no missing-value predicate",
+                    ));
                 }
                 // Two exact 128-bit hexadecimal identities plus separators; reserve
                 // owned strings and temporary formatting before materializing them.
@@ -1264,8 +1416,10 @@ impl Runtime {
                     .and_then(|bytes| bytes.checked_add(partition.len()))
                     .and_then(|bytes| bytes.checked_add(128))
                     .ok_or_else(|| contract("output selection allocation extent"))?;
-                let filter_owner = MemoryConsumer::new("canonical:output-selection").register(&self.shared.pool());
-                filter_owner.try_grow(admitted + size_of::<OutputFilter>() + 2 * size_of::<usize>())
+                let filter_owner =
+                    MemoryConsumer::new("canonical:output-selection").register(&self.shared.pool());
+                filter_owner
+                    .try_grow(admitted + size_of::<OutputFilter>() + 2 * size_of::<usize>())
                     .map_err(pse_engine::EngineError::from)?;
                 let mut output = String::with_capacity(output_length);
                 use std::fmt::Write as _;
@@ -1298,9 +1452,22 @@ impl Runtime {
                 }
                 filter._owner.shrink(admitted - retained);
                 // The immutable typed predicate exists before any block/descriptor RPC.
-                let extent = response_owner(self, "canonical:selected-result-selection", MetadataResponse::Selection)?;
-                let reader = self.result_reader_body(TerminalResultSelection::Exact {run, attempt},
-                    relation, start, end, cancel, extent, Some(Arc::new(filter)))?.await?;
+                let extent = response_owner(
+                    self,
+                    "canonical:selected-result-selection",
+                    MetadataResponse::Selection,
+                )?;
+                let reader = self
+                    .result_reader_body(
+                        TerminalResultSelection::Exact { run, attempt },
+                        relation,
+                        start,
+                        end,
+                        cancel,
+                        extent,
+                        Some(Arc::new(filter)),
+                    )?
+                    .await?;
                 Ok(SelectedResultReader { reader })
             })
             .await
@@ -1814,8 +1981,14 @@ mod canonical_connected_results_server_unit {
             rows += 1;
             assert_eq!(reader.reader.snapshot_position, rows);
             assert!(reader.reader.pending.is_empty());
-            assert!(reader.reader.metadata_owner.is_none(), "full consumption uses frozen metadata only");
-            assert!(reader.reader.after.is_none(), "no second unrestricted metadata cursor");
+            assert!(
+                reader.reader.metadata_owner.is_none(),
+                "full consumption uses frozen metadata only"
+            );
+            assert!(
+                reader.reader.after.is_none(),
+                "no second unrestricted metadata cursor"
+            );
         }
         assert_eq!(rows, 65, "every nonempty block opened and decoded");
         let pressure = MemoryConsumer::new("test:exhausted-reader-pressure").register(&pool);
@@ -2482,8 +2655,14 @@ mod canonical_connected_results_server_unit {
             )
             .await
             .unwrap();
-        assert!(zero.reader.snapshot.is_none(), "selected construction never captures full inventory");
-        let zero_before = zero.selected_snapshot(CancellationToken::new()).await.unwrap();
+        assert!(
+            zero.reader.snapshot.is_none(),
+            "selected construction never captures full inventory"
+        );
+        let zero_before = zero
+            .selected_snapshot(CancellationToken::new())
+            .await
+            .unwrap();
         assert_eq!(zero_before.row_count(), 1);
         let batch = zero.next_batch().await.unwrap().unwrap();
         assert_eq!(
@@ -2497,24 +2676,76 @@ mod canonical_connected_results_server_unit {
                 .to_bits(),
             (-0.0f64).to_bits()
         );
-        let zero_partial = zero.selected_snapshot(CancellationToken::new()).await.unwrap();
+        let zero_partial = zero
+            .selected_snapshot(CancellationToken::new())
+            .await
+            .unwrap();
         assert_eq!(zero_partial.row_count(), 1);
         assert!(zero.next_batch().await.unwrap().is_none());
-        let zero_after = zero.selected_snapshot(CancellationToken::new()).await.unwrap();
-        assert_eq!(zero_after.row_count(), 1, "snapshot is the original universe, never the unread tail");
-        let context = datafusion::execution::context::SessionContext::new_with_state(zero_after.session_state());
-        let outside = context.read_table(zero_after.table_provider()).unwrap()
-            .filter(datafusion::prelude::col("value").gt(datafusion::prelude::lit(0.0))).unwrap()
-            .select_columns(&["value"]).unwrap().limit(0, Some(1)).unwrap().collect().await.unwrap();
-        assert_eq!(outside.iter().map(|batch| batch.num_rows()).sum::<usize>(), 0);
-        let zero_rows = context.read_table(zero_after.table_provider()).unwrap()
-            .filter(datafusion::prelude::col("value").eq(datafusion::prelude::lit(0.0))).unwrap()
-            .select_columns(&["value"]).unwrap().limit(0, Some(1)).unwrap().collect().await.unwrap();
-        assert_eq!(zero_rows.iter().map(|batch| batch.num_rows()).sum::<usize>(), 1);
-        let values = zero_rows.iter().find(|b| b.num_rows() > 0).unwrap().column(0)
-            .as_any().downcast_ref::<Float64Array>().unwrap();
+        let zero_after = zero
+            .selected_snapshot(CancellationToken::new())
+            .await
+            .unwrap();
+        assert_eq!(
+            zero_after.row_count(),
+            1,
+            "snapshot is the original universe, never the unread tail"
+        );
+        let context = datafusion::execution::context::SessionContext::new_with_state(
+            zero_after.session_state(),
+        );
+        let outside = context
+            .read_table(zero_after.table_provider())
+            .unwrap()
+            .filter(datafusion::prelude::col("value").gt(datafusion::prelude::lit(0.0)))
+            .unwrap()
+            .select_columns(&["value"])
+            .unwrap()
+            .limit(0, Some(1))
+            .unwrap()
+            .collect()
+            .await
+            .unwrap();
+        assert_eq!(
+            outside.iter().map(|batch| batch.num_rows()).sum::<usize>(),
+            0
+        );
+        let zero_rows = context
+            .read_table(zero_after.table_provider())
+            .unwrap()
+            .filter(datafusion::prelude::col("value").eq(datafusion::prelude::lit(0.0)))
+            .unwrap()
+            .select_columns(&["value"])
+            .unwrap()
+            .limit(0, Some(1))
+            .unwrap()
+            .collect()
+            .await
+            .unwrap();
+        assert_eq!(
+            zero_rows
+                .iter()
+                .map(|batch| batch.num_rows())
+                .sum::<usize>(),
+            1
+        );
+        let values = zero_rows
+            .iter()
+            .find(|b| b.num_rows() > 0)
+            .unwrap()
+            .column(0)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
         assert_eq!(values.value(0).to_bits(), (-0.0f64).to_bits());
-        drop((zero_before, zero_partial, zero_after, context, outside, zero_rows));
+        drop((
+            zero_before,
+            zero_partial,
+            zero_after,
+            context,
+            outside,
+            zero_rows,
+        ));
         let mut late = runtime
             .output_results(
                 "projection",
@@ -2565,7 +2796,10 @@ mod canonical_connected_results_server_unit {
             .await
             .unwrap();
         assert!(none.next_batch().await.unwrap().is_none());
-        let empty = none.selected_snapshot(CancellationToken::new()).await.unwrap();
+        let empty = none
+            .selected_snapshot(CancellationToken::new())
+            .await
+            .unwrap();
         assert_eq!(empty.row_count(), 0);
         assert_eq!(empty.schema(), none.schema());
         drop(empty);
@@ -2636,13 +2870,30 @@ mod canonical_connected_results_server_unit {
             )
             .await
             .unwrap();
-        let selected_trajectory = trajectory.selected_snapshot(CancellationToken::new()).await.unwrap();
+        let selected_trajectory = trajectory
+            .selected_snapshot(CancellationToken::new())
+            .await
+            .unwrap();
         assert_eq!(selected_trajectory.row_count(), 3);
-        let context = datafusion::execution::context::SessionContext::new_with_state(selected_trajectory.session_state());
-        let outside = context.read_table(selected_trajectory.table_provider()).unwrap()
-            .filter(datafusion::prelude::col("time").lt(datafusion::prelude::lit(20.0))).unwrap()
-            .select_columns(&["time"]).unwrap().limit(0, Some(1)).unwrap().collect().await.unwrap();
-        assert_eq!(outside.iter().map(|batch| batch.num_rows()).sum::<usize>(), 0);
+        let context = datafusion::execution::context::SessionContext::new_with_state(
+            selected_trajectory.session_state(),
+        );
+        let outside = context
+            .read_table(selected_trajectory.table_provider())
+            .unwrap()
+            .filter(datafusion::prelude::col("time").lt(datafusion::prelude::lit(20.0)))
+            .unwrap()
+            .select_columns(&["time"])
+            .unwrap()
+            .limit(0, Some(1))
+            .unwrap()
+            .collect()
+            .await
+            .unwrap();
+        assert_eq!(
+            outside.iter().map(|batch| batch.num_rows()).sum::<usize>(),
+            0
+        );
         drop((selected_trajectory, context, outside));
         let batch = trajectory.next_batch().await.unwrap().unwrap();
         assert_eq!(batch.num_rows(), 3);

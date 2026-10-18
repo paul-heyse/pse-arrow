@@ -71,17 +71,29 @@ fn decode_intent(bytes: &[u8]) -> Result<Artifact, WorkflowError> {
 
 /// Activation is the only permitted mutation of this exact original request.
 /// Both publication ACK and the actual subsequent read must establish it.
-pub(super) fn check_artifact_ack(pool: &Arc<dyn pse_columnar::MemoryPool>, expected: &Artifact, actual: &Artifact) -> Result<(), WorkflowError> {
+pub(super) fn check_artifact_ack(
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
+    expected: &Artifact,
+    actual: &Artifact,
+) -> Result<(), WorkflowError> {
     // Compare the generated whole-row meaning. Only the acknowledged lifecycle
     // transition differs from the original immutable publication request.
     let scratch = MemoryConsumer::new("canonical:artifact-ack-equality").register(pool);
-    scratch.try_grow(size_of::<Artifact>().checked_add(expected.heap_bytes())
-        .ok_or_else(|| contract("artifact acknowledgement equality extent"))?)
+    scratch
+        .try_grow(
+            size_of::<Artifact>()
+                .checked_add(expected.heap_bytes())
+                .ok_or_else(|| contract("artifact acknowledgement equality extent"))?,
+        )
         .map_err(pse_engine::EngineError::from)?;
     let mut normalized = expected.clone();
     normalized.active = true;
     normalized.retiring = false;
-    if &normalized != actual { return Err(contract("artifact acknowledgement differs from exact original request")); }
+    if &normalized != actual {
+        return Err(contract(
+            "artifact acknowledgement differs from exact original request",
+        ));
+    }
     Ok(())
 }
 
@@ -111,32 +123,76 @@ pub(super) struct PromotedScientificArtifact {
     pub(super) facts: super::analyses::ArtifactEvidence,
 }
 
-pub(super) fn prepare_scientific_member(runtime: &Runtime, name: &'static str,
-    batch: &pse_relations::columnar::FieldCheckedBatch, original_digest: &str,
-    analysis: bool) -> Result<PreparedScientificMember, WorkflowError> {
-    let owner = MemoryConsumer::new("canonical:prepared-scientific-member").register(&runtime.shared.pool());
-    owner.try_grow(3 * super::result_files::MAX_FILE_BYTES).map_err(pse_engine::EngineError::from)?;
-    if let Some(context) = pse_diagnostics::observation::current() { context.count("canonical.artifact.scientific_encodes", "count", 1); }
+pub(super) fn prepare_scientific_member(
+    runtime: &Runtime,
+    name: &'static str,
+    batch: &pse_relations::columnar::FieldCheckedBatch,
+    original_digest: &str,
+    analysis: bool,
+) -> Result<PreparedScientificMember, WorkflowError> {
+    let owner = MemoryConsumer::new("canonical:prepared-scientific-member")
+        .register(&runtime.shared.pool());
+    owner
+        .try_grow(3 * super::result_files::MAX_FILE_BYTES)
+        .map_err(pse_engine::EngineError::from)?;
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.count("canonical.artifact.scientific_encodes", "count", 1);
+    }
     let payload = super::result_files::encode_result_file(batch.batch())?;
     let facts = super::analyses::MemberFacts::mine(runtime, name, batch, analysis)?;
-    let retained = payload.capacity() + name.len() + original_digest.len() + size_of::<PreparedScientificMember>();
-    if retained > owner.size() {return Err(contract("scientific member allocation exceeds admission"));}
+    let retained = payload.capacity()
+        + name.len()
+        + original_digest.len()
+        + size_of::<PreparedScientificMember>();
+    if retained > owner.size() {
+        return Err(contract("scientific member allocation exceeds admission"));
+    }
     owner.shrink(owner.size() - retained);
-    Ok(PreparedScientificMember {name, payload, rows: batch.batch().num_rows() as u64,
-        original_digest: original_digest.into(), facts, _owner: owner})
+    Ok(PreparedScientificMember {
+        name,
+        payload,
+        rows: batch.batch().num_rows() as u64,
+        original_digest: original_digest.into(),
+        facts,
+        _owner: owner,
+    })
 }
 
-fn retain_prepared_member(mut member: PreparedScientificMember,
-    copied: &mut Vec<(&'static str, Vec<u8>, u64, String)>, members: &MemoryReservation,
-    facts: &mut super::analyses::ArtifactEvidence, analysis: bool) -> Result<(), WorkflowError> {
-    if copied.len() >= 64 {return Err(contract("scientific artifact member bound"));}
-    members.try_grow(member.payload.capacity() + member.original_digest.capacity() + 2 * size_of::<(&str, Vec<u8>, u64, String)>())
-        .map_err(pse_engine::EngineError::from)?;
-    copied.try_reserve_exact(1).map_err(|_| contract("scientific artifact member allocation refused"))?;
-    if let Some(evidence) = member.facts.take() {
-        facts.append(evidence, copied.len() as u64, analysis, member.name, member.rows)?;
+fn retain_prepared_member(
+    mut member: PreparedScientificMember,
+    copied: &mut Vec<(&'static str, Vec<u8>, u64, String)>,
+    members: &MemoryReservation,
+    facts: &mut super::analyses::ArtifactEvidence,
+    analysis: bool,
+) -> Result<(), WorkflowError> {
+    if copied.len() >= 64 {
+        return Err(contract("scientific artifact member bound"));
     }
-    copied.push((member.name, member.payload, member.rows, member.original_digest));
+    members
+        .try_grow(
+            member.payload.capacity()
+                + member.original_digest.capacity()
+                + 2 * size_of::<(&str, Vec<u8>, u64, String)>(),
+        )
+        .map_err(pse_engine::EngineError::from)?;
+    copied
+        .try_reserve_exact(1)
+        .map_err(|_| contract("scientific artifact member allocation refused"))?;
+    if let Some(evidence) = member.facts.take() {
+        facts.append(
+            evidence,
+            copied.len() as u64,
+            analysis,
+            member.name,
+            member.rows,
+        )?;
+    }
+    copied.push((
+        member.name,
+        member.payload,
+        member.rows,
+        member.original_digest,
+    ));
     Ok(())
 }
 
@@ -553,31 +609,76 @@ impl Runtime {
             })
             .await
     }
-    pub(super) async fn select_scientific_input(&self, run: &str, attempt: &str) -> Result<ProtectedScientificInput, WorkflowError> {
-        let response = super::connected_results::response_owner(self,
-            "canonical:scientific-selection-response", MetadataResponse::Selection)?;
-        if let Some(context) = pse_diagnostics::observation::current() { context.count("canonical.artifact.scientific_selection_requests", "count", 1); }
-        let input = Arc::new(pse_operations::canonical::response_ownership_scope(response.clone(),
-            self.canonical_store()?.read_results(run, attempt)).await?);
-        let input_owner = Arc::new(super::connected_results::retain_protected_metadata(&self.shared.pool(),
-            response, input.retained_bytes()?, |owner| input.retain_metadata_owner(owner))?);
+    pub(super) async fn select_scientific_input(
+        &self,
+        run: &str,
+        attempt: &str,
+    ) -> Result<ProtectedScientificInput, WorkflowError> {
+        let response = super::connected_results::response_owner(
+            self,
+            "canonical:scientific-selection-response",
+            MetadataResponse::Selection,
+        )?;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count(
+                "canonical.artifact.scientific_selection_requests",
+                "count",
+                1,
+            );
+        }
+        let input = Arc::new(
+            pse_operations::canonical::response_ownership_scope(
+                response.clone(),
+                self.canonical_store()?.read_results(run, attempt),
+            )
+            .await?,
+        );
+        let input_owner = Arc::new(super::connected_results::retain_protected_metadata(
+            &self.shared.pool(),
+            response,
+            input.retained_bytes()?,
+            |owner| input.retain_metadata_owner(owner),
+        )?);
         input.retain_metadata_owner(input_owner.clone())?;
-        let response = super::connected_results::response_owner(self,
-            "canonical:scientific-sources-response", MetadataResponse::Selection)?;
-        if let Some(context) = pse_diagnostics::observation::current() { context.count("canonical.artifact.scientific_source_requests", "count", 1); }
+        let response = super::connected_results::response_owner(
+            self,
+            "canonical:scientific-sources-response",
+            MetadataResponse::Selection,
+        )?;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("canonical.artifact.scientific_source_requests", "count", 1);
+        }
         let sources = pse_operations::canonical::response_ownership_scope(
             Arc::new((input.clone(), input_owner.clone(), response.clone())),
-            self.canonical_store()?.analysis_run_sources(run)).await?;
-        let revision = sources.iter().find(|source| source.key == input.run().revision)
+            self.canonical_store()?.analysis_run_sources(run),
+        )
+        .await?;
+        let revision = sources
+            .iter()
+            .find(|source| source.key == input.run().revision)
             .ok_or_else(|| contract("scientific primary result source absent"))?;
-        let extent = sources.iter().try_fold(sources.capacity() * size_of::<pse_operations::canonical::Revision>(),
-            |n, source| n.checked_add(source.heap_bytes())).and_then(|n| n.checked_add(revision.heap_bytes()))
+        let extent = sources
+            .iter()
+            .try_fold(
+                sources.capacity() * size_of::<pse_operations::canonical::Revision>(),
+                |n, source| n.checked_add(source.heap_bytes()),
+            )
+            .and_then(|n| n.checked_add(revision.heap_bytes()))
             .ok_or_else(|| contract("scientific source allocation extent"))?;
-        let owner = MemoryConsumer::new("canonical:scientific-protected-sources").register(&self.shared.pool());
-        owner.try_grow(extent).map_err(pse_engine::EngineError::from)?;
+        let owner = MemoryConsumer::new("canonical:scientific-protected-sources")
+            .register(&self.shared.pool());
+        owner
+            .try_grow(extent)
+            .map_err(pse_engine::EngineError::from)?;
         let revision = revision.clone();
         drop(response);
-        Ok(ProtectedScientificInput {input, input_owner, sources, revision, _sources_owner: owner})
+        Ok(ProtectedScientificInput {
+            input,
+            input_owner,
+            sources,
+            revision,
+            _sources_owner: owner,
+        })
     }
 
     /// Copy a scientifically sufficient immutable product without rerunning science.
@@ -602,10 +703,20 @@ impl Runtime {
                     .map_err(pse_engine::EngineError::from)?;
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                 let protected = self.select_scientific_input(run, attempt).await?;
-                let product = self.promote_selected_scientific_artifact(
-                    ScientificArtifactSelection {protected, kind, prepared: Vec::new()},
-                    owner_kind, owner, &cancel, &memory, false,
-                ).await?;
+                let product = self
+                    .promote_selected_scientific_artifact(
+                        ScientificArtifactSelection {
+                            protected,
+                            kind,
+                            prepared: Vec::new(),
+                        },
+                        owner_kind,
+                        owner,
+                        &cancel,
+                        &memory,
+                        false,
+                    )
+                    .await?;
                 Ok(product.artifact)
             })
             .await
@@ -627,10 +738,15 @@ impl Runtime {
         cancel: &'a CancellationToken,
         _memory: &'a MemoryReservation,
         analysis: bool,
-    ) -> futures_util::future::BoxFuture<'a, Result<PromotedScientificArtifact, WorkflowError>> {
+    ) -> futures_util::future::BoxFuture<'a, Result<PromotedScientificArtifact, WorkflowError>>
+    {
         Box::pin(async move {
             cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-            let ScientificArtifactSelection {protected, kind, mut prepared} = selection;
+            let ScientificArtifactSelection {
+                protected,
+                kind,
+                mut prepared,
+            } = selection;
             let input = &protected.input;
             let input_owner = &protected.input_owner;
             let sources = &protected.sources;
@@ -715,9 +831,17 @@ impl Runtime {
                 }
                 if set.batch_count != 0 {
                     if prepared.iter().any(|member| member.name == name) {
-                        while let Some(position) = prepared.iter().position(|member| member.name == name) {
+                        while let Some(position) =
+                            prepared.iter().position(|member| member.name == name)
+                        {
                             let member = prepared.remove(position);
-                            retain_prepared_member(member, &mut copied, &members, &mut facts, analysis)?;
+                            retain_prepared_member(
+                                member,
+                                &mut copied,
+                                &members,
+                                &mut facts,
+                                analysis,
+                            )?;
                         }
                         continue;
                     }
@@ -737,14 +861,40 @@ impl Runtime {
                     for block in snapshot.blocks() {
                         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                         let checked = snapshot.read_block(block, cancel).await?;
-                        let member = prepare_scientific_member(self, name, &checked, &block.payload_digest, analysis)?;
-                        retain_prepared_member(member, &mut copied, &members, &mut facts, analysis)?;
+                        let member = prepare_scientific_member(
+                            self,
+                            name,
+                            &checked,
+                            &block.payload_digest,
+                            analysis,
+                        )?;
+                        retain_prepared_member(
+                            member,
+                            &mut copied,
+                            &members,
+                            &mut facts,
+                            analysis,
+                        )?;
                     }
                 }
             }
-            if !prepared.is_empty() {return Err(contract("scientific dispatch was not consumed by exact family"));}
-            let contexts = facts.evidence.contexts.iter().map(|item| &item.row).collect::<Vec<_>>();
-            let endpoints = facts.evidence.endpoints.iter().map(|item| &item.row).collect::<Vec<_>>();
+            if !prepared.is_empty() {
+                return Err(contract(
+                    "scientific dispatch was not consumed by exact family",
+                ));
+            }
+            let contexts = facts
+                .evidence
+                .contexts
+                .iter()
+                .map(|item| &item.row)
+                .collect::<Vec<_>>();
+            let endpoints = facts
+                .evidence
+                .endpoints
+                .iter()
+                .map(|item| &item.row)
+                .collect::<Vec<_>>();
             if contexts.is_empty()
                 || !selected
                     .iter()
@@ -884,7 +1034,7 @@ impl Runtime {
             facts.verify_members(&blocks)?;
             pse_operations::canonical_artifacts::seal_artifact_request(
                 &mut header,
-                &sources,
+                sources,
                 std::slice::from_ref(input.as_ref()),
                 &blocks,
                 owner_kind,
@@ -904,7 +1054,7 @@ impl Runtime {
                 Arc::new((input.clone(), input_owner.clone(), response)),
                 self.canonical_store()?.persist_artifact(
                     &header,
-                    &sources,
+                    sources,
                     std::slice::from_ref(input.as_ref()),
                     &blocks,
                     owner_kind,
@@ -913,24 +1063,54 @@ impl Runtime {
             );
             let acknowledged = match cancel.until_cancelled(publication).await {
                 Ok(reply) => reply?,
-                Err(_) => return Err(pse_operations::canonical::CanonicalError::ArtifactUnsettled {
-                    intent: Box::new(header),
-                    source: Box::new(pse_operations::canonical::CanonicalError::IncompleteResponse),
-                }.into()),
+                Err(_) => {
+                    return Err(
+                        pse_operations::canonical::CanonicalError::ArtifactUnsettled {
+                            intent: Box::new(header),
+                            source: Box::new(
+                                pse_operations::canonical::CanonicalError::IncompleteResponse,
+                            ),
+                        }
+                        .into(),
+                    );
+                }
             };
             if check_artifact_ack(&self.shared.pool(), &header, &acknowledged).is_err() {
-                return Err(pse_operations::canonical::CanonicalError::ArtifactUnsettled {
-                    intent: Box::new(header), source: Box::new(pse_operations::canonical::CanonicalError::IncompleteResponse),
-                }.into());
+                return Err(
+                    pse_operations::canonical::CanonicalError::ArtifactUnsettled {
+                        intent: Box::new(header),
+                        source: Box::new(
+                            pse_operations::canonical::CanonicalError::IncompleteResponse,
+                        ),
+                    }
+                    .into(),
+                );
             }
             #[cfg(all(test, feature = "canonical-tests"))]
-            if SCIENTIFIC_HANDOFF_REPLY_LOSS.try_with(|lost| *lost).unwrap_or(false) {
-                return Err(pse_operations::canonical::CanonicalError::ArtifactUnsettled {
-                    intent: Box::new(header), source: Box::new(pse_operations::canonical::CanonicalError::IncompleteResponse),
-                }.into());
+            if SCIENTIFIC_HANDOFF_REPLY_LOSS
+                .try_with(|lost| *lost)
+                .unwrap_or(false)
+            {
+                return Err(
+                    pse_operations::canonical::CanonicalError::ArtifactUnsettled {
+                        intent: Box::new(header),
+                        source: Box::new(
+                            pse_operations::canonical::CanonicalError::IncompleteResponse,
+                        ),
+                    }
+                    .into(),
+                );
             }
-            let artifact = ScientificArtifact {runtime: self.clone(), header: Arc::new(header), _metadata_owner: metadata_owner};
-            Ok(PromotedScientificArtifact {artifact, protected, facts})
+            let artifact = ScientificArtifact {
+                runtime: self.clone(),
+                header: Arc::new(header),
+                _metadata_owner: metadata_owner,
+            };
+            Ok(PromotedScientificArtifact {
+                artifact,
+                protected,
+                facts,
+            })
         })
     }
 }
@@ -1417,27 +1597,55 @@ mod response_ownership_tests {
 mod scientific_ack_unit {
     use super::*;
     fn intent() -> Artifact {
-        Artifact {key: "original-occurrence".into(), kind: "trajectory".into(), revision: "source".into(),
-            primary_problem: "problem".into(), primary_authority: "authority".into(), creation_nonce: "nonce".into(),
-            creation_expires_at: 1, creation_request_digest: "exact-byte-and-member-request".into(),
-            interpretation: "original-interpretation".into(), provenance: vec![1,2].into(),
-            block_count: 2, payload_bytes: 10, active: false, retiring: false}
+        Artifact {
+            key: "original-occurrence".into(),
+            kind: "trajectory".into(),
+            revision: "source".into(),
+            primary_problem: "problem".into(),
+            primary_authority: "authority".into(),
+            creation_nonce: "nonce".into(),
+            creation_expires_at: 1,
+            creation_request_digest: "exact-byte-and-member-request".into(),
+            interpretation: "original-interpretation".into(),
+            provenance: vec![1, 2].into(),
+            block_count: 2,
+            payload_bytes: 10,
+            active: false,
+            retiring: false,
+        }
     }
     #[test]
     fn scientific_ack_requires_exact_original_request_and_active_independent_content() {
         let original = intent();
-        let mut ack = original.clone(); ack.active = true;
-        let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(4096));
+        let mut ack = original.clone();
+        ack.active = true;
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(4096));
         check_artifact_ack(&pool, &original, &ack).unwrap();
-        assert_eq!(pool.reserved(), 0, "temporary equality copy releases its charge");
-        let refused: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1));
-        assert!(check_artifact_ack(&refused, &original, &ack).is_err(), "header clone must be prepaid");
+        assert_eq!(
+            pool.reserved(),
+            0,
+            "temporary equality copy releases its charge"
+        );
+        let refused: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(1));
+        assert!(
+            check_artifact_ack(&refused, &original, &ack).is_err(),
+            "header clone must be prepaid"
+        );
         assert_eq!(refused.reserved(), 0);
         for kind in 0..8 {
             let mut wrong = ack.clone();
-            match kind {0 => wrong.active = false, 1 => wrong.retiring = true, 2 => wrong.key.push('x'),
-                3 => wrong.creation_request_digest.push('x'), 4 => wrong.block_count += 1,
-                5 => wrong.payload_bytes += 1, 6 => wrong.provenance = vec![9].into(), _ => wrong.kind = "local-analysis".into()}
+            match kind {
+                0 => wrong.active = false,
+                1 => wrong.retiring = true,
+                2 => wrong.key.push('x'),
+                3 => wrong.creation_request_digest.push('x'),
+                4 => wrong.block_count += 1,
+                5 => wrong.payload_bytes += 1,
+                6 => wrong.provenance = vec![9].into(),
+                _ => wrong.kind = "local-analysis".into(),
+            }
             assert!(check_artifact_ack(&pool, &original, &wrong).is_err());
         }
     }
