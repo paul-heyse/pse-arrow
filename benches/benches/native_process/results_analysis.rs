@@ -74,10 +74,21 @@ fn check_sample(row: &simulation_samples::Row, expected: &Expected) {
     );
 }
 
+enum TrajectoryReader {
+    Full(pse_runtime::workflow::CanonicalResultReader),
+    Selected(pse_runtime::workflow::SelectedResultReader),
+}
+impl TrajectoryReader {
+    async fn next_relation_batch(&mut self) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, pse_runtime::workflow::WorkflowError> {
+        match self { Self::Full(reader) => reader.next_relation_batch().await,
+            Self::Selected(reader) => reader.next_relation_batch().await }
+    }
+}
+
 async fn trajectory(runtime: &Runtime, expected: &Expected, one_output: bool) -> ReadObservation {
     let cancel = audit::cancel_source();
     let mut reader = if one_output {
-        runtime
+        TrajectoryReader::Selected(runtime
             .output_results(
                 &expected.run,
                 &expected.attempt,
@@ -93,9 +104,9 @@ async fn trajectory(runtime: &Runtime, expected: &Expected, one_output: bool) ->
                 cancel.token(),
             )
             .await
-            .unwrap()
+            .unwrap())
     } else {
-        runtime
+        TrajectoryReader::Full(runtime
             .results(
                 &expected.run,
                 &expected.attempt,
@@ -105,7 +116,7 @@ async fn trajectory(runtime: &Runtime, expected: &Expected, one_output: bool) ->
                 cancel.token(),
             )
             .await
-            .unwrap()
+            .unwrap())
     };
     let mut hash = hasher("trajectory");
     let mut rows = 0_u64;

@@ -387,6 +387,7 @@ pub fn decode_result_file(
     expected: SchemaRef,
     rows: usize,
 ) -> Result<RecordBatch, ResultBlockError> {
+    if let Some(context) = pse_diagnostics::observation::current() { context.count("canonical.result.standalone_decodes", "count", 1); }
     let mut reader = open_file_reader(Cursor::new(bytes), &expected, Some(1))?;
     let batch = reader
         .next()

@@ -20,6 +20,18 @@ use std::{
     sync::{Arc, atomic::AtomicBool},
 };
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TransferCheckpoint { BeforeDispatch, BeforeArtifactRead, BeforeGraph, AfterGraphAck }
+#[cfg(all(test, feature = "canonical-tests"))]
+tokio::task_local! { static CANCEL_TRANSFER_AT: TransferCheckpoint; }
+fn transfer_checkpoint(phase: TransferCheckpoint, cancel: &CancellationToken) -> Result<(), WorkflowError> {
+    #[cfg(all(test, feature = "canonical-tests"))]
+    if CANCEL_TRANSFER_AT.try_with(|at| *at == phase).unwrap_or(false) { cancel.cancel(); }
+    #[cfg(not(all(test, feature = "canonical-tests")))]
+    let _ = phase;
+    cancel.checkpoint().map_err(pse_engine::EngineError::from).map_err(Into::into)
+}
+
 /// Direction in the graph's explicit source-to-dependent scientific edges.
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -60,15 +72,6 @@ fn target_kind(kind: pse_model::generated::enums::NumericalTarget) -> &'static s
 use pse_operations::canonical::MetadataResponse;
 use pse_operations::canonical_artifacts::{ArtifactLocator, ArtifactRead};
 type Graph = DiGraph<(String, String), (String, Option<ArtifactLocator>)>;
-/// Small phase product. The protected input is retained through the complete transfer,
-/// even after dispatch data has been discarded; copied provenance is not a read lease.
-#[derive(Debug)]
-struct ResultAnalysisSelection {
-    input: Arc<pse_operations::canonical_results::ResultRead>,
-    sources: Vec<pse_operations::canonical::Revision>,
-    revision: pse_operations::canonical::Revision,
-    kind: super::artifacts::ScientificArtifactKind,
-}
 // Four MiB transport, native/typed copies, a <=128 KiB header configuration
 // or <=64 bounded graph rows, and Arrow projection scratch. No IPC verifier.
 fn vertex(
@@ -153,8 +156,8 @@ fn selected(
 // A locator belongs to the independently retained artifact, never the producer's
 // reclaimed result file. Family is admitted context; validity only qualifies a claim.
 #[derive(Clone, Debug)]
-struct Located<R> {
-    row: R,
+pub(super) struct Located<R> {
+    pub(super) row: R,
     locator: ArtifactLocator,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -171,12 +174,12 @@ impl ResponseFamily {
     }
 }
 #[derive(Default)]
-struct ResponseEvidence {
-    contexts: Vec<Located<pse_model::generated::runtime::scientific_contexts::Row>>,
+pub(super) struct ResponseEvidence {
+    pub(super) contexts: Vec<Located<pse_model::generated::runtime::scientific_contexts::Row>>,
     routes: Vec<Located<pse_model::generated::runtime::route_decisions::Row>>,
     validity: Vec<Located<pse_model::generated::runtime::local_validity::Row>>,
-    computations: Vec<Located<pse_model::generated::runtime::computation_runs::Row>>,
-    endpoints: Vec<Located<pse_model::generated::runtime::trajectory_endpoints::Row>>,
+    pub(super) computations: Vec<Located<pse_model::generated::runtime::computation_runs::Row>>,
+    pub(super) endpoints: Vec<Located<pse_model::generated::runtime::trajectory_endpoints::Row>>,
     samples: Vec<Located<pse_model::generated::runtime::simulation_samples::Row>>,
     modes: Vec<Located<pse_model::generated::runtime::modeling_trajectory_modes::Row>>,
     events: Vec<Located<pse_model::generated::runtime::simulation_events::Row>>,
@@ -211,18 +214,13 @@ fn located_rows<R: pse_relations::columnar::RelationRow>(
         .collect())
 }
 impl ResponseEvidence {
-    fn push(
-        &mut self,
-        name: &str,
-        batch: &pse_relations::columnar::FieldCheckedBatch,
-        artifact: &str,
-        block: u64,
-    ) -> Result<(), WorkflowError> {
+    fn push(&mut self, name: &str, batch: &pse_relations::columnar::FieldCheckedBatch,
+        artifact: &str, block: u64, bounded: bool) -> Result<(), WorkflowError> {
         // Refuse complete relations rather than silently graphing a prefix.
         macro_rules! rows {
             ($field:ident) => {{
                 let rows = located_rows(batch, artifact, block)?;
-                if self.$field.len().saturating_add(rows.len()) > ANALYSIS_NODES {
+                if bounded && self.$field.len().saturating_add(rows.len()) > ANALYSIS_NODES {
                     return Err(contract("analysis evidence relation exceeds bound"));
                 }
                 self.$field.extend(rows);
@@ -252,6 +250,108 @@ impl ResponseEvidence {
     }
 }
 
+
+/// Facts from the exact admitted batch used to encode one standalone member.
+/// Provisional locators never escape this phase or grant graph admission.
+pub(super) struct MemberFacts {
+    pub(super) evidence: ResponseEvidence,
+    relation: String,
+    rows: u64,
+    admission: Arc<pse_relations::validate::ValidationContext>,
+    owner: MemoryReservation,
+}
+impl MemberFacts {
+    pub(super) fn mine(runtime: &Runtime, name: &str,
+        batch: &pse_relations::columnar::FieldCheckedBatch, analysis: bool) -> Result<Option<Self>, WorkflowError> {
+        if !analysis && name != "runtime.scientific_contexts" && name != "runtime.trajectory_endpoints" { return Ok(None); }
+        let owner = MemoryConsumer::new("canonical:encoded-member-facts").register(&runtime.shared.pool());
+        let bytes = batch.batch().get_array_memory_size().checked_mul(8)
+            .and_then(|n| batch.batch().num_rows().checked_mul(2048).and_then(|rows| n.checked_add(rows)))
+            .and_then(|n| n.checked_add(64 * 1024)).ok_or_else(|| contract("member fact allocation extent"))?;
+        owner.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
+        let mut evidence = ResponseEvidence::default();
+        evidence.push(name, batch, "", 0, analysis)?;
+        Ok(Some(Self {evidence, relation: name.into(), rows: batch.batch().num_rows() as u64, admission: runtime.admission_context(), owner}))
+    }
+}
+
+/// One bounded fact owner shared by promotion and the response-evidence join.
+/// Member grants retain row heaps; this grant owns merged vectors/final locators.
+pub(super) struct ArtifactEvidence {
+    pub(super) evidence: ResponseEvidence,
+    members: Vec<MemoryReservation>,
+    coordinates: Vec<(u64, String, u64, String)>,
+    admission: Arc<pse_relations::validate::ValidationContext>,
+    owner: MemoryReservation,
+}
+impl ArtifactEvidence {
+    pub(super) fn new(runtime: &Runtime) -> Result<Self, WorkflowError> {
+        let owner = MemoryConsumer::new("canonical:artifact-evidence").register(&runtime.shared.pool());
+        owner.try_grow(size_of::<Self>() + 64 * (size_of::<MemoryReservation>() + size_of::<(u64, String, u64, String)>()))
+            .map_err(pse_engine::EngineError::from)?;
+        Ok(Self {evidence: ResponseEvidence::default(), members: Vec::with_capacity(64), coordinates: Vec::with_capacity(64), admission: runtime.admission_context(), owner})
+    }
+    pub(super) fn append(&mut self, mut member: MemberFacts, ordinal: u64, analysis: bool, name: &str, rows: u64) -> Result<(), WorkflowError> {
+        if !Arc::ptr_eq(&member.admission, &self.admission) {return Err(contract("member facts belong to another receiving admission"));}
+        if member.relation != name || member.rows != rows {return Err(contract("encoded member facts differ from emitted descriptor"));}
+        if self.members.len() >= 64 { return Err(contract("artifact fact member bound")); }
+        macro_rules! merge {
+            ($field:ident) => {{
+                let target = &mut self.evidence.$field;
+                let source = &mut member.evidence.$field;
+                let needed = target.len().checked_add(source.len()).ok_or_else(|| contract("artifact fact row extent"))?;
+                if analysis && needed > ANALYSIS_NODES { return Err(contract("analysis evidence relation exceeds bound")); }
+                if needed > target.capacity() {
+                    let old = target.capacity() * element_bytes::<_>(target);
+                    let bytes = needed.checked_mul(element_bytes::<_>(target)).ok_or_else(|| contract("artifact fact vector extent"))?;
+                    self.owner.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
+                    target.try_reserve_exact(source.len()).map_err(|_| contract("artifact fact allocation refused"))?;
+                    self.owner.shrink(old);
+                }
+                for item in source.iter_mut() { item.locator.block = ordinal; }
+                target.append(source);
+            }};
+        }
+        merge!(contexts); merge!(routes); merge!(validity); merge!(computations); merge!(endpoints);
+        merge!(samples); merge!(modes); merge!(events); merge!(parametric); merge!(responses);
+        self.owner.try_grow(member.evidence.interpretation.len() * (size_of::<ArtifactLocator>() * 2))
+            .map_err(pse_engine::EngineError::from)?;
+        for mut locator in member.evidence.interpretation { locator.block = ordinal; self.evidence.interpretation.push(locator); }
+        self.coordinates.push((ordinal, member.relation, member.rows, String::new()));
+        self.members.push(member.owner);
+        Ok(())
+    }
+    pub(super) fn verify_members(&mut self, blocks: &[pse_operations::canonical_artifacts::ArtifactBlock]) -> Result<(), WorkflowError> {
+        for (ordinal, relation, rows, digest) in &mut self.coordinates {
+            let block = usize::try_from(*ordinal).ok().and_then(|index| blocks.get(index))
+                .filter(|block| block.ordinal == *ordinal && block.relation == *relation && block.rows == *rows)
+                .ok_or_else(|| contract("artifact fact member coordinate differs"))?;
+            self.owner.try_grow(block.digest.len()).map_err(pse_engine::EngineError::from)?;
+            digest.clone_from(&block.digest);
+        }
+        Ok(())
+    }
+    pub(super) fn bind(mut self, runtime: &Runtime, read: &ArtifactRead,
+        expected: &pse_operations::canonical_artifacts::Artifact) -> Result<Self, WorkflowError> {
+        if !Arc::ptr_eq(&self.admission, &runtime.admission_context()) {
+            return Err(contract("artifact facts require actual receiving admission"));
+        }
+        super::artifacts::check_artifact_ack(expected, read.header())?;
+        if self.coordinates.iter().any(|(_, _, _, digest)| digest.is_empty()) {
+            return Err(contract("artifact facts lack exact encoded member binding"));
+        }
+        let mut count = self.evidence.interpretation.len();
+        macro_rules! count { ($($field:ident),*) => { $(count += self.evidence.$field.len();)* }; }
+        count!(contexts,routes,validity,computations,endpoints,samples,modes,events,parametric,responses);
+        self.owner.try_grow(count.checked_mul(expected.key.len()).ok_or_else(|| contract("artifact locator extent"))?)
+            .map_err(pse_engine::EngineError::from)?;
+        macro_rules! bind { ($($field:ident),*) => { $(for item in &mut self.evidence.$field { item.locator.artifact.clone_from(&expected.key); })* }; }
+        bind!(contexts,routes,validity,computations,endpoints,samples,modes,events,parametric,responses);
+        for locator in &mut self.evidence.interpretation { locator.artifact.clone_from(&expected.key); }
+        Ok(self)
+    }
+}
+fn element_bytes<T>(_: &Vec<T>) -> usize { size_of::<T>() }
 
 type EvidenceRun = pse_model::generated::identities::RunId;
 type EvidenceSample = (EvidenceRun, i64, u64, pse_ids::SemanticId, pse_ids::SemanticId);
@@ -1021,92 +1121,30 @@ impl Runtime {
     /// through each surrounding ownership scope; the same read leases remain held.
     #[inline(never)]
     fn select_result_analysis<'a>(
-        &'a self,
-        run: &'a str,
-        attempt: &'a str,
-        owner: &'a MemoryReservation,
+        &'a self, run: &'a str, attempt: &'a str, _owner: &'a MemoryReservation,
         cancel: &'a CancellationToken,
-    ) -> futures_util::future::BoxFuture<'a, Result<ResultAnalysisSelection, WorkflowError>> {
+    ) -> futures_util::future::BoxFuture<'a, Result<super::artifacts::ScientificArtifactSelection, WorkflowError>> {
         Box::pin(async move {
-            let response = super::connected_results::response_owner(
-                self,
-                "canonical:result-analysis-selection-response",
-                MetadataResponse::Selection,
-            )?;
-            let input = Arc::new(
-                pse_operations::canonical::response_ownership_scope(
-                    response.clone(),
-                    self.canonical_store()?.read_results(run, attempt),
-                )
-                .await?,
-            );
-            let input_owner = Arc::new(super::connected_results::retain_protected_metadata(
-                &self.shared.pool(),
-                response,
-                input.retained_bytes()?,
-                |owner| input.retain_metadata_owner(owner),
-            )?);
-            input.retain_metadata_owner(input_owner.clone())?;
-            let response = super::connected_results::response_owner(
-                self,
-                "canonical:result-analysis-sources-response",
-                MetadataResponse::Selection,
-            )?;
-            let sources = pse_operations::canonical::response_ownership_scope(
-                Arc::new((input.clone(), input_owner.clone(), response)),
-                self.canonical_store()?.analysis_run_sources(run),
-            )
-            .await?;
-            let revision = sources
-                .iter()
-                .find(|source| source.key == input.run().revision)
-                .ok_or_else(|| contract("analysis primary result source absent"))?
-                .clone();
-            let mut dispatch = ResponseEvidence::default();
+            let protected = self.select_scientific_input(run, attempt).await?;
+            let mut prepared = Vec::new();
             for name in ["runtime.scientific_contexts", "runtime.computation_runs"] {
-                let spec = self
-                    .registry()
-                    .relation(name)
-                    .ok_or_else(|| contract("response dispatch relation absent"))?;
-                let Some(set) = input
-                    .sets()
-                    .iter()
-                    .find(|set| set.name == spec.id.to_string())
-                else {
-                    continue;
-                };
+                let spec = self.registry().relation(name).ok_or_else(|| contract("response dispatch relation absent"))?;
+                let Some(set) = protected.input.sets().iter().find(|set| set.name == spec.id.to_string()) else {continue;};
                 let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
                     .map_err(|error| contract(error.to_string()))?;
-                let snapshot = super::ResultSnapshot::capture(
-                    self,
-                    input.clone(),
-                    input_owner.clone(),
-                    spec.id,
-                    &set.key,
-                    schema,
-                    0,
-                    u64::MAX,
-                )
-                .await?;
+                let snapshot = super::ResultSnapshot::capture(self, protected.input.clone(), protected.input_owner.clone(),
+                    spec.id, &set.key, schema, 0, u64::MAX).await?;
                 for block in snapshot.blocks() {
+                    if prepared.len() >= 64 {return Err(contract("scientific dispatch member bound"));}
                     let batch = snapshot.read_block(block, cancel).await?;
-                    owner
-                        .try_grow(batch.batch().get_array_memory_size().saturating_mul(4))
-                        .map_err(pse_engine::EngineError::from)?;
-                    dispatch.push(name, &batch, "dispatch", block.ordinal)?;
+                    prepared.push(super::artifacts::prepare_scientific_member(self, name, &batch, &block.payload_digest, true)?);
                 }
             }
             let kind = super::artifacts::response_artifact_kind(
-                dispatch.contexts.iter().map(|item| &item.row),
-                dispatch.computations.iter().map(|item| &item.row),
+                prepared.iter().filter_map(|member| member.facts.as_ref()).flat_map(|facts| facts.evidence.contexts.iter().map(|c| &c.row)),
+                prepared.iter().filter_map(|member| member.facts.as_ref()).flat_map(|facts| facts.evidence.computations.iter().map(|c| &c.row)),
             )?;
-            drop(dispatch);
-            Ok(ResultAnalysisSelection {
-                input,
-                sources,
-                revision,
-                kind,
-            })
+            Ok(super::artifacts::ScientificArtifactSelection {protected, kind, prepared})
         })
     }
 
@@ -1125,7 +1163,7 @@ impl Runtime {
         activity
             .scope(async {
                 controls.validate()?;
-                cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+                transfer_checkpoint(TransferCheckpoint::BeforeDispatch, &cancel)?;
                 let owner =
                     MemoryConsumer::new("canonical:result-analysis").register(&self.shared.pool());
                 owner
@@ -1154,28 +1192,15 @@ impl Runtime {
             let selection = self
                 .select_result_analysis(run, attempt, owner, cancel)
                 .await?;
-            let ResultAnalysisSelection {
-                input: protected_input,
-                sources,
-                revision,
-                kind,
-            } = selection;
             let staging_owner = format!(
                 "analysis-staging:{}",
                 pse_operations::mint_id::<pse_model::generated::identities::RunId>()
             );
-            let artifact = match self
-                .promote_scientific_artifact(
-                    run,
-                    attempt,
-                    kind,
-                    "audit",
-                    &staging_owner,
-                    cancel.clone(),
-                )
-                .await
+            let promotion = match self.promote_selected_scientific_artifact(
+                selection, "audit", &staging_owner, cancel, owner, true,
+            )                .await
             {
-                Ok(artifact) => artifact,
+                Ok(product) => product,
                 Err(source) => {
                     if let WorkflowError::Canonical(
                         pse_operations::canonical::CanonicalError::ArtifactUnsettled {
@@ -1195,6 +1220,11 @@ impl Runtime {
                     return Err(source);
                 }
             };
+            let artifact = promotion.artifact;
+            let protected_input = promotion.protected;
+            let sources = &protected_input.sources;
+            let revision = &protected_input.revision;
+            let facts = promotion.facts;
             let transfer_error =
                 |source: WorkflowError, analysis: Option<String>, read: Option<String>| {
                     WorkflowError::ArtifactTransferUnsettled {
@@ -1206,6 +1236,8 @@ impl Runtime {
                         source: Box::new(source),
                     }
                 };
+            transfer_checkpoint(TransferCheckpoint::BeforeArtifactRead, cancel)
+                .map_err(|source| transfer_error(source, None, None))?;
             let response = super::connected_results::response_owner(
                 self,
                 "canonical:analysis-artifact-selection-response",
@@ -1247,6 +1279,11 @@ impl Runtime {
                 })?;
             let read_key = artifact_read.read_key().to_owned();
             let graph_result: Result<AnalysisHandle, WorkflowError> = Box::pin(async {
+                // Only exact acknowledged independent content plus the actual
+                // artifact acquisition can bind provisional scientific locators.
+                transfer_checkpoint(TransferCheckpoint::BeforeGraph, cancel)?;
+                let facts = facts.bind(self, &artifact_read, artifact.header())?;
+
                 let mut graph = Graph::new();
                 let mut nodes = BTreeMap::new();
                 let attempt_node = vertex(
@@ -1255,7 +1292,7 @@ impl Runtime {
                     format!("attempt:{attempt}"),
                     "attempt",
                 )?;
-                for source in &sources {
+                for source in sources {
                     let node = vertex(
                         &mut graph,
                         &mut nodes,
@@ -1264,51 +1301,8 @@ impl Runtime {
                     )?;
                     edge(&mut graph, node, attempt_node, "input_provenance", None)?;
                 }
-                let mut evidence = ResponseEvidence::default();
-                for ordinal in 0..artifact.header().block_count {
-                    let response = super::connected_results::response_owner(
-                        self,
-                        "canonical:analysis-artifact-response",
-                        MetadataResponse::Header,
-                    )?;
-                    let payload = Arc::new(
-                        MemoryConsumer::new("canonical:analysis-artifact-payload")
-                            .register(&self.shared.pool()),
-                    );
-                    payload
-                        .try_grow(4 * super::result_files::MAX_FILE_BYTES)
-                        .map_err(pse_engine::EngineError::from)?;
-                    let block = pse_operations::canonical::response_ownership_scope(
-                        Arc::new((response, payload, read_owner.clone())),
-                        artifact_read.block(ordinal),
-                    )
-                    .await?;
-                    let relation_name = block.relation.as_str();
-                    let spec = self
-                        .registry()
-                        .relation(relation_name)
-                        .ok_or_else(|| contract("analysis copied relation unavailable"))?;
-                    let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
-                        .map_err(|error| contract(error.to_string()))?;
-                    let decoded = super::result_files::decode_result_file(
-                        block.payload.as_slice(),
-                        schema,
-                        usize::try_from(block.rows).map_err(|_| contract("analysis row extent"))?,
-                    )?;
-                    let batch = pse_relations::columnar::FieldCheckedBatch::admit(
-                        self.registry(),
-                        spec,
-                        decoded,
-                        &self.validation_context(),
-                        cancel,
-                    )
-                    .map_err(pse_engine::EngineError::from)?;
-                    owner
-                        .try_grow(batch.batch().get_array_memory_size().saturating_mul(4))
-                        .map_err(pse_engine::EngineError::from)?;
-                    evidence.push(relation_name, &batch, &artifact.header().key, ordinal)?;
-                }
-                project_response_evidence(&evidence, &mut graph, &mut nodes, attempt_node, &self.shared.pool())?;
+                project_response_evidence(&facts.evidence, &mut graph, &mut nodes, attempt_node, &self.shared.pool())?;
+                cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                 let configuration = serde_json::to_vec(&(2_u8, controls, run, attempt))
                     .map_err(|error| contract(error.to_string()))?;
                 let handle = self
@@ -1337,6 +1331,8 @@ impl Runtime {
                 };
                 transfer_error(source, analysis, Some(read_key.clone()))
             })?;
+            transfer_checkpoint(TransferCheckpoint::AfterGraphAck, cancel).map_err(|source|
+                transfer_error(source, Some(handle.key().to_owned()), Some(read_key.clone())))?;
             self.canonical_store()?
                 .release_artifact_intent(artifact.header(), "audit", &staging_owner)
                 .await
@@ -1874,3 +1870,7 @@ mod analysis_bounds_unit {
 #[cfg(test)]
 #[path = "analyses-response-tests.rs"]
 mod response_evidence_unit;
+
+#[cfg(all(test, feature = "canonical-tests"))]
+#[path = "analyses-transfer-tests.rs"]
+mod transfer_unit;
