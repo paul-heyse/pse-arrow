@@ -170,7 +170,8 @@ pub(in crate::math) struct Iterations { available: u32, issued: BTreeMap<usize, 
 impl Iterations {
     pub(in crate::math) fn new(available: u32) -> Self { Self { available, issued: BTreeMap::new() } }
     pub(in crate::math) fn reserve(&mut self, index: usize, cap: u32, slots: usize) -> Result<u32, native::ProblemError> {
-        let grant = cap.min(self.available / u32::try_from(slots.max(1)).map_err(|_| native::ProblemError::memory("block reservation width"))?);
+        let fair = self.available / u32::try_from(slots.max(1)).map_err(|_| native::ProblemError::memory("block reservation width"))?;
+        let grant = cap.min(self.available).min(fair.max(1));
         if grant == 0 || self.issued.contains_key(&index) {
             return Err(native::ProblemError::Limit { kind: native::LimitKind::Work, detail: "aggregate block iteration allowance exhausted".into() });
         }
@@ -264,5 +265,22 @@ mod tests {
         assert!(budget.complete(1, None).is_err());
         assert_eq!(budget.available(), 0);
         assert!(budget.complete(2, Some(3)).is_err());
+    }
+    #[test]
+    fn late_dependency_chain_can_spend_last_iteration_with_vacant_lanes() {
+        let blocks = [block(1, vec![]), block(2, vec![id(1)])];
+        let graph = Dependencies::prepare(blocks.iter(), vec![vec![]; 2]).unwrap();
+        let mut ready = graph.start();
+        let mut budget = Iterations::new(2);
+        assert_eq!(ready.take(), Some(0));
+        assert_eq!(budget.reserve(0, 10, 4).unwrap(), 1);
+        budget.complete(0, Some(1)).unwrap(); ready.commit(0).unwrap();
+        assert_eq!(budget.available(), 1);
+        assert_eq!(ready.take(), Some(1));
+        assert_eq!(budget.reserve(1, 10, 4).unwrap(), 1);
+        budget.complete(1, Some(1)).unwrap(); ready.commit(1).unwrap();
+        assert_eq!(ready.remaining, 0);
+        assert_eq!(budget.available(), 0);
+        assert!(budget.reserve(2, 1, 4).is_err());
     }
 }

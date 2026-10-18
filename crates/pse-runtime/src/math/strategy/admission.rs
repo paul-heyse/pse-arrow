@@ -33,7 +33,8 @@ struct State {
     next_child: usize,
     children: BTreeMap<usize, ChildWork>,
 }
-struct ChildWork { bound: Option<WorkObservation>, observed: WorkObservation, pending: WorkObservation }
+#[derive(Clone, Copy)]
+struct ChildWork { bound: Option<WorkObservation>, observed: WorkObservation, pending: WorkObservation, attempt_pending: bool }
 impl std::fmt::Debug for TaskAdmission {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TaskAdmission")
@@ -117,7 +118,8 @@ impl TaskAdmission {
     /// actual work. Concurrent children never reset another child's local ledger.
     pub(crate) fn child(self: &Arc<Self>) -> Result<Arc<Self>, ProblemError> {
         let index = { let mut state = self.state()?; let index = state.next_child;
-            state.next_child = index.checked_add(1).ok_or_else(|| ProblemError::memory("task child extent"))?; index };
+            state.next_child = index.checked_add(1).ok_or_else(|| ProblemError::memory("task child extent"))?;
+            state.children.insert(index, ChildWork { bound: None, observed: zero(), pending: zero(), attempt_pending: false }); index };
         let mut child = Self::new_with_pressure(self.limits()?, self.scope.clone(), self.pool.clone(), self.strict_storage, self.pressure.clone());
         Arc::get_mut(&mut child).ok_or_else(|| ProblemError::Internal("new task child escaped".into()))?.parent = Some((self.clone(), index));
         Ok(child)
@@ -125,7 +127,8 @@ impl TaskAdmission {
     fn begin_child(&self, index: usize, bound: Option<WorkObservation>, hooked: bool) -> Result<(), ProblemError> {
         self.scope.check().map_err(ProblemError::Provider)?;
         let mut state = self.state()?;
-        if state.children.contains_key(&index) { return Err(ProblemError::Contract("task child already dispatched".into())); }
+        let child = state.children.get(&index).ok_or_else(|| ProblemError::Contract("task child has drained".into()))?;
+        if child.attempt_pending || child.bound.is_some() { return Err(ProblemError::Contract("task child attempt already dispatched".into())); }
         let strict = [state.ledger.limits.evaluations, state.ledger.limits.iterations, state.ledger.limits.factorizations, state.ledger.limits.proof_steps].iter().any(Option::is_some);
         let bound = if hooked { None } else if strict {
             Some(bound.ok_or_else(|| ProblemError::Unsupported("aggregate child work requires complete coverage or inclusive bound".into()))?)
@@ -133,13 +136,20 @@ impl TaskAdmission {
         let mut held = bound.unwrap_or_else(zero); held.attempts = 1;
         check_limits(state.ledger.limits, add_work(state.admission_budget()?, held)?)?;
         state.pending.attempts = state.pending.attempts.checked_add(1).ok_or_else(|| ProblemError::memory("task child attempts"))?;
-        state.children.insert(index, ChildWork { bound: bound.map(|mut bound| { bound.attempts = 0; bound }), observed: zero(), pending: zero() });
+        let child = state.children.get_mut(&index).ok_or_else(|| ProblemError::Contract("missing task child".into()))?;
+        child.bound = bound.map(|mut bound| { bound.attempts = 0; bound });
+        child.attempt_pending = true;
         Ok(())
     }
-    fn complete_child(&self, index: usize, charge: WorkCharge) -> Result<(), ProblemError> {
+    fn complete_child_phase(&self, index: usize, charge: WorkCharge) -> Result<(), ProblemError> {
         let mut state = self.state()?;
-        let child = state.children.remove(&index).ok_or_else(|| ProblemError::Contract("unissued child work charge".into()))?;
-        state.pending.attempts = state.pending.attempts.checked_sub(1).ok_or_else(|| ProblemError::Contract("missing child attempt reservation".into()))?;
+        let child = *state.children.get(&index).ok_or_else(|| ProblemError::Contract("drained child work charge".into()))?;
+        if charge.observed.attempts != u64::from(child.attempt_pending) {
+            return Err(ProblemError::Contract("child phase differs from its attempt reservation".into()));
+        }
+        if child.attempt_pending {
+            state.pending.attempts = state.pending.attempts.checked_sub(1).ok_or_else(|| ProblemError::Contract("missing child attempt reservation".into()))?;
+        }
         let remaining = child.bound.map(|bound| subtract_known(bound, child.observed)).transpose()?.unwrap_or_else(zero);
         let effective = WorkObservation { attempts: charge.observed.attempts,
             evaluations: charge.observed.evaluations.or(remaining.evaluations),
@@ -156,6 +166,10 @@ impl TaskAdmission {
         ] { if unknown { *reserved = upper; } }
         if [charge.observed.evaluations, charge.observed.iterations, charge.observed.factorizations, charge.observed.proof_steps].iter().any(Option::is_none) { state.ledger.has_reservation = true; }
         state.ledger.charge(charge)?;
+        let child = state.children.get_mut(&index).ok_or_else(|| ProblemError::Contract("missing completed child phase".into()))?;
+        child.bound = None;
+        child.observed = zero();
+        child.attempt_pending = false;
         // An enclosing report may include the complete child. Keep its remainder in
         // the original reconciliation owner, without stealing another child's hooks.
         state.unreported = add_work(state.unreported, charge.observed)?;
@@ -163,6 +177,20 @@ impl TaskAdmission {
         if let Some((_, work)) = &mut state.local { *work = add_work(*work, charge.observed)?; }
         state.retain_effective_work()?;
         check_limits(state.ledger.limits, state.admission_budget()?)
+    }
+    /// Only the whole issued operation may deregister a child. Native completion,
+    /// independent assessment and recovery all retain the same admission identity.
+    pub(crate) fn finish_child(&self) -> Result<(), ProblemError> {
+        let Some((parent, index)) = &self.parent else { return Ok(()); };
+        let mut state = parent.state()?;
+        let child = state.children.get(index).ok_or_else(|| ProblemError::Contract("task child already drained".into()))?;
+        if child.attempt_pending || child.bound.is_some()
+            || [child.pending.evaluations, child.pending.iterations, child.pending.factorizations, child.pending.proof_steps].iter().any(|&pending| pending != Some(0)) {
+            // An inconsistent drain cannot release still-issued finite permission.
+            return Err(ProblemError::Contract("task child drained before issued work reconciled".into()));
+        }
+        state.children.remove(index);
+        Ok(())
     }
     pub(crate) fn matches_scope(&self, scope: &pse_kernels::ExecutionScope) -> bool {
         Arc::ptr_eq(self.scope.cancellation(), scope.cancellation())
@@ -324,7 +352,7 @@ impl TaskAdmission {
             charge.observed.proof_steps,
             &mut state.unreported.proof_steps,
         );
-        if let Some((parent, index)) = &self.parent { parent.complete_child(*index, charge)?; }
+        if let Some((parent, index)) = &self.parent { parent.complete_child_phase(*index, charge)?; }
         state.ledger.charge(charge)?;
         state.budget_local = state.local_effective(add_work(state.budget_local, charge.observed)?);
         if let Some((_, work)) = &mut state.local {
@@ -1025,6 +1053,38 @@ mod tests {
         assert_eq!(parent.observation().unwrap().evaluations, Some(2));
         assert_eq!(parent.observation().unwrap().attempts, 2);
         let third = parent.child().unwrap(); assert!(third.reserve(limits(), None, true).is_err());
+        one.finish_child().unwrap(); two.finish_child().unwrap(); third.finish_child().unwrap();
+    }
+    #[test]
+    fn child_registration_survives_native_assessment_and_recovery_until_whole_drain() {
+        let mut caps = limits(); caps.attempts = 3; caps.evaluations = Some(4);
+        let parent = TaskAdmission::new(caps, pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None), None, false);
+        let child = parent.child().unwrap();
+        child.reserve(caps, None, true).unwrap();
+        child.admit(unit()).unwrap();
+        assert!(child.finish_child().is_err(), "whole-child drain cannot release an issued operation");
+        child.observe(unit()).unwrap(); child.complete_charge(charge(Some(1))).unwrap();
+        child.admit(unit()).unwrap(); child.observe(unit()).unwrap();
+        let mut assessment = charge(Some(1)); assessment.phase = super::super::Phase::Assessment;
+        assessment.observed.attempts = 0; assessment.charging_owner = pse_ids::ContentHash::from_bytes([2; 32]);
+        child.complete_charge(assessment).unwrap();
+        assert_eq!(parent.state().unwrap().children.len(), 1);
+        child.reserve(caps, None, true).unwrap();
+        child.admit(unit()).unwrap(); child.observe(unit()).unwrap();
+        let mut recovery = charge(Some(1)); recovery.charging_owner = pse_ids::ContentHash::from_bytes([3; 32]);
+        child.complete_charge(recovery).unwrap();
+        child.admit(unit()).unwrap(); child.observe(unit()).unwrap();
+        assessment.charging_owner = pse_ids::ContentHash::from_bytes([4; 32]); child.complete_charge(assessment).unwrap();
+        assert_eq!(parent.observation().unwrap().evaluations, Some(4));
+        assert_eq!(parent.observation().unwrap().attempts, 2);
+        child.finish_child().unwrap();
+        assert!(parent.state().unwrap().children.is_empty());
+        assert!(child.finish_child().is_err());
+        assert!(child.admit(unit()).is_err(), "drained callbacks cannot reacquire permission");
+        let sibling = parent.child().unwrap(); sibling.reserve(caps, None, true).unwrap();
+        assert!(sibling.admit(unit()).is_err(), "phase completion never renews the original aggregate allowance");
+        let mut refused = charge(Some(0)); refused.charging_owner = pse_ids::ContentHash::from_bytes([5; 32]);
+        sibling.complete_charge(refused).unwrap(); sibling.finish_child().unwrap();
     }
     #[test]
     fn concurrent_child_bounds_release_known_surplus_but_never_renew_unknown_permission() {
@@ -1036,11 +1096,14 @@ mod tests {
         two.reserve(caps, Some(bound(4)), false).unwrap();
         assert!(three.reserve(caps, Some(bound(1)), false).is_err());
         one.complete_charge(charge(Some(2))).unwrap();
+        one.finish_child().unwrap();
         three.reserve(caps, Some(bound(4)), false).unwrap();
         let mut unknown = charge(None); unknown.charging_owner = pse_ids::ContentHash::from_bytes([2; 32]);
         two.complete_charge(unknown).unwrap();
+        two.finish_child().unwrap();
         let mut known = charge(Some(3)); known.charging_owner = pse_ids::ContentHash::from_bytes([3; 32]);
         three.complete_charge(known).unwrap();
+        three.finish_child().unwrap();
         assert_eq!(parent.observation().unwrap().evaluations, None);
         let four = parent.child().unwrap();
         assert!(four.reserve(caps, Some(bound(2)), false).is_err());
@@ -1082,6 +1145,7 @@ mod tests {
                     let mut report = charge(Some(u64::from(admitted)));
                     report.charging_owner = pse_ids::ContentHash::from_bytes([index as u8 + 1; 32]);
                     child.complete_charge(report).unwrap();
+                    child.finish_child().unwrap();
                     usize::from(admitted)
                 }));
             }
@@ -1099,6 +1163,7 @@ mod tests {
         parent.scope.cancellation_control().cancel();
         assert!(child.admit(unit()).is_err());
         child.observe(unit()).unwrap(); child.complete_charge(charge(Some(1))).unwrap();
+        child.finish_child().unwrap();
         assert_eq!(parent.observation().unwrap().evaluations, Some(1));
         assert!(parent.child().unwrap().reserve(limits(), None, true).is_err());
     }

@@ -159,7 +159,7 @@ impl MathService {
                     if committed_block && let Err(error) = readiness.commit(index) {
                         committed_block = false;
                         if let Some(context) = pse_diagnostics::observation::current() {
-                            context.unavailable("math.block_dependency_commit", error.to_string());
+                            context.unavailable("math.block_dependency_commit", &error.to_string());
                         }
                     }
                     completed &= committed_block;
@@ -239,7 +239,8 @@ impl MathService {
         cancel: crate::CancelSource, iterations: u32, previous: Option<usize>, attempt: usize,
         events: Arc<Progress>, owner: Arc<pse_columnar::AllocationLease>,
     ) -> (usize, Result<(Box<SolveReport>, super::super::solves::StrategyTrace), MathRuntimeError>) {
-        let result = async {
+        let child_admission = admission.clone();
+        let mut result = async {
             let (step, assessor, previous) = self.prepare_ready_block(&prepared, index,
                 values, &providers, &profile, &numerics, route, &scope, admission, &cancel, iterations, previous).await?;
             let affinity = step.preparation_identity()?;
@@ -254,6 +255,13 @@ impl MathService {
                 _ => Err(native::ProblemError::Internal("conditional native report unavailable".into()).into()),
             }
         }.await;
+        if let Some(admission) = child_admission {
+            let drained = admission.finish_child().map_err(MathRuntimeError::from);
+            if result.is_ok() { result = drained.and(result); }
+            else if let Err(error) = drained && let Some(context) = pse_diagnostics::observation::current() {
+                context.unavailable("math.block_child_drain", &error.to_string());
+            }
+        }
         #[cfg(test)]
         prepared.dependencies.delivered(index, &scope, &cancel).await;
         (index, result)

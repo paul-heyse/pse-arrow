@@ -2446,6 +2446,9 @@ async fn ready_initialization_releases_successor_before_unrelated_sibling_delive
             super::super::tests::profile(SolveIntent::Initialize), Default::default(), Default::default(), &cancel)
             .await.unwrap().analysis;
         analysis.solver.block_workers = 2;
+        analysis.solver.composition.limits = Some(pse_model::strategy::WorkLimits {
+            attempts: 16, evaluations: Some(10000), iterations: None, factorizations: None, proof_steps: None,
+        });
         let mut prepared = package.prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel).await.unwrap();
         let (fast, slow, child) = prepared.prepared.independent_test_chain();
         let (release, mut completed) = prepared.prepared.fence_completion(slow);
@@ -2464,6 +2467,10 @@ async fn ready_initialization_releases_successor_before_unrelated_sibling_delive
         } else {
             assert!(report.attempts.iter().all(|attempt| attempt.committed));
             assert_eq!(report.attempts.len(), 4);
+            assert!(report.attempts.iter().all(|attempt| attempt.trace.as_ref().is_some_and(|trace|
+                trace.events.iter().any(|event| event.work.as_ref().is_some_and(|work|
+                    work.phase == pse_model::strategy::Phase::Assessment && work.observed.evaluations.is_some_and(|count| count > 0))))),
+                "aggregate child registration survives native completion through independent assessment");
         }
         let order = report.attempts.iter().map(|attempt| attempt.boundary.id).collect::<Vec<_>>();
         let expected = prepared.blocks().boundaries().map(|block| block.id).filter(|id| order.contains(id)).collect::<Vec<_>>();

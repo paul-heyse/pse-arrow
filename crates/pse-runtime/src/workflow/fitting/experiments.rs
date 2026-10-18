@@ -542,6 +542,8 @@ mod startup_tests {
                 joined: Some(joined),
                 #[cfg(feature = "solver-diffsol")]
                 constructions: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+                #[cfg(feature = "solver-diffsol")]
+                elapsed_nanos: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             });
         }
         let (request, joined, drained) = waiting_lane();
