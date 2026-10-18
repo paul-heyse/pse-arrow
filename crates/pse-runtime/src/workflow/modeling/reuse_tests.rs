@@ -175,7 +175,7 @@ async fn escaped_nested_body_retains_its_admission_owner_after_eviction() {
     assert_eq!(pool.reserved(), baseline);
 }
 #[tokio::test]
-async fn shared_body_cache_invalidates_the_complete_physical_closure() {
+async fn shared_body_cache_preserves_unconsumed_context_and_fresh_receiving_owners() {
     let runtime = super::super::tests::runtime();
     let service = runtime.shared.math();
     let pool = runtime.shared.pool();
@@ -204,16 +204,13 @@ async fn shared_body_cache_invalidates_the_complete_physical_closure() {
     let b = prepared(&second).await;
     assert!(!a.compiled().admitted.bodies.is_empty());
     for (key, body) in &a.compiled().admitted.bodies {
-        assert!(!b.compiled().admitted.bodies.contains_key(key));
-        assert!(
-            b.compiled()
-                .admitted
-                .bodies
-                .values()
-                .all(|other| body.spec().physical != other.spec().physical
-                    && !Arc::ptr_eq(body.math(), other.math()))
-        );
+        let current = &b.compiled().admitted.bodies[key];
+        assert_eq!(body.spec().physical, current.spec().physical);
+        assert!(Arc::ptr_eq(body.math(), current.math()));
     }
+    assert_eq!(a.compiled().consumed_physical_identity(), b.compiled().consumed_physical_identity());
+    assert!(!Arc::ptr_eq(&a.compiled().compiler_context().quantities,
+        &b.compiled().compiler_context().quantities));
     service.clear_program_cache();
     drop(a);
     drop(b);

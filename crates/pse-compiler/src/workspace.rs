@@ -1601,22 +1601,11 @@ fn inventory(db: &dyn CompilerDb, i: &CompilerContext, environment: ContentHash)
 fn configure(db: &mut CompilerDatabase, n: usize) {
     provider_query::set_lru_capacity(db, n);
 }
-fn validate(i: &CompilerContext, l: WorkspaceLimits) -> Result<()> {
-    if [
-        l.input_bytes,
-        l.retained_entries,
-        l.retained_bytes,
-        l.query_values,
-    ]
-    .contains(&0)
-    {
-        return Err(CompileError::Limit("zero workspace allowance"));
-    }
-    let bytes = i
-        .providers
+fn provider_context_extent(i: &CompilerContext) -> usize {
+    i.providers
         .iter()
         .fold(
-            i.quantities.allocation_extent(),
+            0usize,
             |bytes, (name, provider)| {
                 let spec = provider.descriptor.spec();
                 bytes
@@ -1628,7 +1617,24 @@ fn validate(i: &CompilerContext, l: WorkspaceLimits) -> Result<()> {
                     )
             },
         )
-        .saturating_add(i.preconditions.allocation_extent());
+
+
+}
+fn context_extent(i: &CompilerContext) -> usize {
+    i.quantities.allocation_extent().saturating_add(i.preconditions.allocation_extent()).saturating_add(provider_context_extent(i))
+}
+fn validate(i: &CompilerContext, l: WorkspaceLimits) -> Result<()> {
+    if [
+        l.input_bytes,
+        l.retained_entries,
+        l.retained_bytes,
+        l.query_values,
+    ]
+    .contains(&0)
+    {
+        return Err(CompileError::Limit("zero workspace allowance"));
+    }
+    let bytes = context_extent(i);
     if bytes > l.input_bytes {
         return Err(CompileError::Limit("context extent"));
     }

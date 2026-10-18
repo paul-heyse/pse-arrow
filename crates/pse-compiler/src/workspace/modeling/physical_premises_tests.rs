@@ -173,4 +173,7 @@ fn equal_content_new_physical_owners_refresh_checked_shell_and_reuse_mathematics
     let fresh = prepare(&mut workspace, root);
     assert_same_mathematics(&old, &fresh);
     assert_eq!(old.consumed_physical_identity(), fresh.consumed_physical_identity());
+    assert!(!workspace.selects_modeling_revision(&prior));
+    assert!(workspace.publish_modeling_revision(prior.clone()).is_err());
+    assert!(Arc::ptr_eq(&workspace.context().quantities, &current.quantities));
 }

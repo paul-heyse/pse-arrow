@@ -62,13 +62,13 @@ async fn physical_refresh_keeps_one_live_lane_and_historical_context_without_own
     let old_math = prepare(service, &first, &old, root);
     let second = {
         let held = first.compiler.lock().unwrap();
-        let second = service.compiler_lane(lineage, changed.clone()).unwrap();
+        let second = service.compiler_lane(lineage.clone(), changed.clone()).unwrap();
         assert!(Arc::ptr_eq(&first.compiler, &second.compiler), "context-only edit created a second live lane");
         assert!(Arc::ptr_eq(&held.context().quantities, &original.quantities),
             "selecting desired context mutated the active writer");
         second
     };
-    let current = service.modeling_revision(&second, rows, PhysicalScope::default(), Arc::default(),
+    let current = service.modeling_revision(&second, rows.clone(), PhysicalScope::default(), Arc::default(),
         &changed_physical, &crate::CancelSource::new()).await.unwrap();
     assert_ne!(old.identity(), current.identity(), "full source identity lost physical admission context");
     assert!(Arc::ptr_eq(&second.compiler.lock().unwrap().context().quantities, &changed.quantities));
@@ -87,6 +87,25 @@ async fn physical_refresh_keeps_one_live_lane_and_historical_context_without_own
     assert!(second.compiler.lock().unwrap().selects_modeling_revision(&current.admitted));
     assert_eq!(service.compiler_lanes.lock().unwrap().iter().filter(|lane| lane.historical.is_none()).count(), 1);
     assert_eq!(historical_math.consumed_physical_identity(), old_math.consumed_physical_identity());
+    let equal = CompilerContext {
+        quantities: Arc::new(changed.quantities.as_ref().clone()),
+        preconditions: Arc::new(changed.preconditions.as_ref().clone()),
+        ..changed.clone()
+    };
+    let equal_lane = service.compiler_lane(lineage, equal.clone()).unwrap();
+    let equal_revision = service.modeling_revision(&equal_lane, rows, PhysicalScope::default(), Arc::default(),
+        &changed_physical, &crate::CancelSource::new()).await.unwrap();
+    assert!(std::ptr::eq(equal_revision.checked().context().quantities, equal.quantities.as_ref()));
+    let equal_math = prepare(service, &equal_lane, &equal_revision, root);
+    assert!(Arc::ptr_eq(&equal_math.compiler_context().quantities, &equal.quantities));
+    let previous_equal_math = prepare(service, &equal_lane, &current, root);
+    assert!(Arc::ptr_eq(&previous_equal_math.compiler_context().quantities, &changed.quantities));
+    assert!(Arc::ptr_eq(&equal_lane.compiler.lock().unwrap().context().quantities, &equal.quantities));
+    assert!(!equal_lane.compiler.lock().unwrap().selects_modeling_revision(&current.admitted));
+    for (key, body) in &current_math.admitted.bodies {
+        assert!(Arc::ptr_eq(body.math(), equal_math.admitted.bodies[key].math()));
+    }
+    drop((equal_math, previous_equal_math, equal_revision, equal_lane));
     drop((old_math, current_math, historical_math, old, current, first, second));
     service.clear_program_cache();
     service.trim_compiler_lanes();

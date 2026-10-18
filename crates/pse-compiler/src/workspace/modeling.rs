@@ -289,6 +289,7 @@ fn revision(
     let input_bytes = rows
         .owned_bytes()
         .saturating_add(checked.retained_bytes())
+        .saturating_add(super::provider_context_extent(&inputs))
         .saturating_add(scope_bytes(&scope))
         .saturating_add(documents.retained_bytes());
     Arc::new(ModelingRevision {
@@ -521,6 +522,8 @@ impl CompilerWorkspace {
                     && state.revision.scope == revision.scope
                     && state.revision.documents == revision.documents
                     && state.revision.inputs == revision.inputs
+                    && Arc::ptr_eq(&state.revision.inputs.quantities, &revision.inputs.quantities)
+                    && Arc::ptr_eq(&state.revision.inputs.preconditions, &revision.inputs.preconditions)
         })
     }
     /// Whether a generation has an admitted live head, independently of retained query entries.
@@ -588,6 +591,8 @@ impl CompilerWorkspace {
     /// A different physical context or insufficient workspace budget refuses publication.
     pub fn publish_modeling_revision(&mut self, revision: Arc<ModelingRevision>) -> Result<()> {
         if revision.inputs != self.inputs
+            || !Arc::ptr_eq(&revision.inputs.quantities, &self.inputs.quantities)
+            || !Arc::ptr_eq(&revision.inputs.preconditions, &self.inputs.preconditions)
             || revision.checked.context().quantities != self.inputs.quantities.as_ref()
             || revision.checked.context().preconditions != self.inputs.preconditions.as_ref()
         {

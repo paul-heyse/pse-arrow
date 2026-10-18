@@ -1760,7 +1760,7 @@ impl CompilerWorkspace {
             );
             Ok(PreparedModeling {
                 context: self.inputs.clone(),
-                physical: frontier.physical,
+                physical: complete_context(&self.inputs.quantities, &self.inputs.preconditions, &frontier.projection.physical_scope),
                 lookup_structure,
                 solver_rows,
                 occurrences,
@@ -1806,8 +1806,7 @@ impl PreparedModeling {
     pub fn retained_bytes(&self) -> usize {
         2 * size_of::<Self>()
             + 256
-            + self.context.quantities.allocation_extent()
-            + self.context.preconditions.allocation_extent()
+            + super::super::context_extent(&self.context)
             + self.semantic.descriptor_bytes()
             + size_of_val(self.portable.as_ref())
             + 32
