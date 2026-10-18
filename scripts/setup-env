@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# Explicit setup for this checkout. No Rust installation or service startup.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+mode=${1:-core}
+case "$mode" in core|python|native|docs) ;; *) echo 'usage: bash scripts/setup-env [core|python|native|docs]' >&2; exit 2;; esac
+[[ $# -le 1 ]] || exit 2
+unset VIRTUAL_ENV UV_NO_SYNC
+export UV_PROJECT_ENVIRONMENT=.venv
+# Keep installed native packages while preparing tools; never build pse during core setup.
+uv sync --locked --inexact --only-group dev
+uv run --no-sync python scripts/agent-config.py
+uv run --no-sync python scripts/library_skills.py
+case "$mode" in
+    core) ;;
+    python) just py-sync ;;
+    native) just py-sync-native ;;
+    docs) just bootstrap-docs ;;
+esac

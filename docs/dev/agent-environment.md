@@ -5,6 +5,25 @@ capabilities work for the coding agents (Claude Code and Codex) and for anyone a
 terminal. `AGENTS.md` keeps the always-loaded rules; this page holds the mechanics behind
 them. Plan 29 introduced most of it.
 
+## Preparing and activating a checkout
+
+Run `bash scripts/setup-env` for locked development tools and the existing agent/skill
+configuration. It preserves installed native packages and does not build the extension.
+Choose `python`, `native` or `docs` explicitly to add the existing `just py-sync`,
+`just py-sync-native` or `just bootstrap-docs` preparation. Installed Rust toolchains are
+selected by `rust-toolchain.toml`; setup does not install them.
+
+Review `.envrc`, then run `direnv allow` in each checkout. Activation removes inherited
+Python environment paths before composing the existing export owner, and does not run
+doctor, synchronize packages or build native code. `.envrc.local` remains the ignored
+personal override. A checkout without its own `.venv` needs explicit preparation for
+Python work; it must not borrow another checkout's packages.
+
+On this workstation, Codex's `local-env` profile initializes direnv before every Bash
+command through `~/.config/codex/bash-env.bash`. New or changed `.envrc` files need review
+and approval before commands run; activation failures stop the command. Keep using the
+workload boundary below for execution and native/store admission.
+
 ## One environment boundary: `scripts/pse-env`
 
 Workload recipe lines and scripts run through `scripts/pse-env` (the justfile's

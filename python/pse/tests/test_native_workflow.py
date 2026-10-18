@@ -80,8 +80,8 @@ def test_runtime_startup_allows_python_thread_progress_inside_native_constructor
     assert sys.version_info[:3] == (
         3,
         14,
-        7,
-    ), "the constructor frame witness requires the pinned CPython 3.14.7 interpreter"
+        8,
+    ), "the constructor frame witness requires the pinned CPython 3.14.8 interpreter"
     # Accept progress only while the public wrapper is executing its actual
     # native constructor call. An event set before calling Runtime, or thread
     # activity observed only after return, would not establish this boundary.

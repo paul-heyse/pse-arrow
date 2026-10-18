@@ -133,7 +133,7 @@ def base_environment(
     if "PSE_PYTHON" not in env:
         version = root / ".python-version"
         env["PSE_PYTHON"] = (
-            version.read_text().strip() if version.is_file() else "3.14.7"
+            version.read_text().strip() if version.is_file() else "3.14.8"
         )
     env.setdefault("UV_PROJECT_ENVIRONMENT", ".venv")
     # The supervisor's own default state; recipes that need the server check it (--store).
