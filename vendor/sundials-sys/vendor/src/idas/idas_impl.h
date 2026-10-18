@@ -805,6 +805,12 @@ struct IDAadjMemRec
   /* Number of checkpoints. */
   int ia_nckpnts;
 
+  /* Maintained owner bound on actual checkpoint population, including the initial
+     checkpoint. A refused allocation is terminal until adjoint reinitialization. */
+  long int ia_pse_checkpoint_limit;
+  long int ia_pse_checkpoint_peak;
+  sunbooleantype ia_pse_checkpoint_refused;
+
   /* ------------------
    * Interpolation data
    * ------------------ */

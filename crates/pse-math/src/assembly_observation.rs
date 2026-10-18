@@ -157,6 +157,7 @@ impl CaseObservation {
             EvaluationDemand::Constraints => "math.demand.constraints",
             EvaluationDemand::All => "math.demand.all",
             EvaluationDemand::Directional => "math.demand.directional",
+            EvaluationDemand::TransposeDirectional => "math.demand.transpose_directional",
             EvaluationDemand::HessianAction => "math.demand.hessian_action",
         };
         self.producer.context().phase(name)
@@ -529,6 +530,7 @@ fn demand_name(demand: EvaluationDemand) -> &'static str {
         EvaluationDemand::Constraints => "constraints",
         EvaluationDemand::All => "all",
         EvaluationDemand::Directional => "directional",
+        EvaluationDemand::TransposeDirectional => "transpose_directional",
         EvaluationDemand::HessianAction => "hessian_action",
     }
 }

@@ -20,6 +20,7 @@
 /*                  Import Header Files                            */
 /*=================================================================*/
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sundials/sundials_math.h>
@@ -149,6 +150,10 @@ int IDAAdjInit(void* ida_mem, long int steps, int interp)
   IDAADJ_mem->ia_nckpnts   = 0;
   IDAADJ_mem->ia_ckpntData = NULL;
 
+  IDAADJ_mem->ia_pse_checkpoint_limit = -1;
+  IDAADJ_mem->ia_pse_checkpoint_peak = 0;
+  IDAADJ_mem->ia_pse_checkpoint_refused = SUNFALSE;
+
   /* Initialization of interpolation data. */
   IDAADJ_mem->ia_interpType = interp;
   IDAADJ_mem->ia_nsteps     = steps;
@@ -264,6 +269,7 @@ int IDAAdjReInit(void* ida_mem)
   IDAADJ_mem->ck_mem       = NULL;
   IDAADJ_mem->ia_nckpnts   = 0;
   IDAADJ_mem->ia_ckpntData = NULL;
+  IDAADJ_mem->ia_pse_checkpoint_refused = SUNFALSE;
 
   /* Flags for tracking the first calls to IDASolveF and IDASolveF. */
   IDAADJ_mem->ia_firstIDAFcall = SUNTRUE;
@@ -272,6 +278,34 @@ int IDAAdjReInit(void* ida_mem)
 
   SUNDIALS_MARK_FUNCTION_END(IDA_PROFILER);
   return (IDA_SUCCESS);
+}
+
+/* Maintained owner hooks. The population includes ck_mem's initial checkpoint,
+ * whereas upstream ia_nckpnts counts only later checkpoints. */
+int IDASetCheckpointLimit(void* ida_mem, long int maximum)
+{
+  if (ida_mem == NULL) { return IDA_MEM_NULL; }
+  IDAMem mem = (IDAMem)ida_mem;
+  if (mem->ida_adjMallocDone == SUNFALSE) { return IDA_NO_ADJ; }
+  IDAadjMem adj = mem->ida_adj_mem;
+  long int current = (adj->ck_mem == NULL) ? 0 : ((long int)adj->ia_nckpnts + 1);
+  if (maximum < 0 || maximum > INT_MAX || maximum < current) { return IDA_ILL_INPUT; }
+  adj->ia_pse_checkpoint_limit = maximum;
+  return IDA_SUCCESS;
+}
+
+int IDAGetCheckpointUsage(void* ida_mem, long int* current, long int* peak,
+                          int* refused)
+{
+  if (ida_mem == NULL) { return IDA_MEM_NULL; }
+  if (current == NULL || peak == NULL || refused == NULL) { return IDA_ILL_INPUT; }
+  IDAMem mem = (IDAMem)ida_mem;
+  if (mem->ida_adjMallocDone == SUNFALSE) { return IDA_NO_ADJ; }
+  IDAadjMem adj = mem->ida_adj_mem;
+  *current = (adj->ck_mem == NULL) ? 0 : ((long int)adj->ia_nckpnts + 1);
+  *peak = adj->ia_pse_checkpoint_peak;
+  *refused = (adj->ia_pse_checkpoint_refused == SUNTRUE) ? 1 : 0;
+  return IDA_SUCCESS;
 }
 
 /*
@@ -399,6 +433,11 @@ int IDASolveF(void* ida_mem, sunrealtype tout, sunrealtype* tret, N_Vector yret,
     return (IDA_NO_ADJ);
   }
   IDAADJ_mem = IDA_mem->ida_adj_mem;
+  if (IDAADJ_mem->ia_pse_checkpoint_refused)
+  {
+    SUNDIALS_MARK_FUNCTION_END(IDA_PROFILER);
+    return IDA_MEM_FAIL;
+  }
 
   /* Check for yret != NULL */
   if (yret == NULL)
@@ -455,6 +494,12 @@ int IDASolveF(void* ida_mem, sunrealtype tout, sunrealtype* tret, N_Vector yret,
    */
   if (IDAADJ_mem->ia_firstIDAFcall)
   {
+    if (IDAADJ_mem->ia_pse_checkpoint_limit == 0)
+    {
+      IDAADJ_mem->ia_pse_checkpoint_refused = SUNTRUE;
+      SUNDIALS_MARK_FUNCTION_END(IDA_PROFILER);
+      return IDA_MEM_FAIL;
+    }
     IDAADJ_mem->ia_tinitial = IDA_mem->ida_tn;
     IDAADJ_mem->ck_mem      = IDAAckpntInit(IDA_mem);
     if (IDAADJ_mem->ck_mem == NULL)
@@ -463,6 +508,11 @@ int IDASolveF(void* ida_mem, sunrealtype tout, sunrealtype* tret, N_Vector yret,
                       MSG_MEM_FAIL);
       SUNDIALS_MARK_FUNCTION_END(IDA_PROFILER);
       return (IDA_MEM_FAIL);
+    }
+
+    if (IDAADJ_mem->ia_pse_checkpoint_peak < 1)
+    {
+      IDAADJ_mem->ia_pse_checkpoint_peak = 1;
     }
 
     if (!IDAADJ_mem->ia_mallocDone)
@@ -570,6 +620,14 @@ int IDASolveF(void* ida_mem, sunrealtype tout, sunrealtype* tret, N_Vector yret,
     {
       IDAADJ_mem->ck_mem->ck_t1 = IDA_mem->ida_tn;
 
+      /* Refuse before allocating, including zero-advance root/stop returns. */
+      if (IDAADJ_mem->ia_pse_checkpoint_limit >= 0 &&
+          (long int)IDAADJ_mem->ia_nckpnts + 1 >= IDAADJ_mem->ia_pse_checkpoint_limit)
+      {
+        IDAADJ_mem->ia_pse_checkpoint_refused = SUNTRUE;
+        flag = IDA_MEM_FAIL;
+        break;
+      }
       /* Create a new check point, load it, and append it to the list */
       tmp = IDAAckpntNew(IDA_mem);
       if (tmp == NULL)
@@ -581,6 +639,10 @@ int IDASolveF(void* ida_mem, sunrealtype tout, sunrealtype* tret, N_Vector yret,
       tmp->ck_next       = IDAADJ_mem->ck_mem;
       IDAADJ_mem->ck_mem = tmp;
       IDAADJ_mem->ia_nckpnts++;
+      if ((long int)IDAADJ_mem->ia_nckpnts + 1 > IDAADJ_mem->ia_pse_checkpoint_peak)
+      {
+        IDAADJ_mem->ia_pse_checkpoint_peak = (long int)IDAADJ_mem->ia_nckpnts + 1;
+      }
 
       IDA_mem->ida_forceSetup = SUNTRUE;
 

@@ -623,6 +623,7 @@ impl DynamicWorker {
                         1 + coordinates.state.len() + coordinates.parameters.len(),
                     ),
                     cache: None,
+                    pure: program.case.assembly.programs().iter().all(|p| p.census().all(|c| c.provider_stages == 0)),
                     actions: ActionScratch::new(program, &coordinates)?,
                     #[cfg(test)]
                     evaluations: 0,
@@ -677,6 +678,7 @@ struct FunctionWorker {
     values: Vec<f64>,
     key: Vec<u64>,
     cache: Option<bool>,
+    pure: bool,
     actions: ActionScratch,
     #[cfg(test)]
     evaluations: usize,
@@ -694,6 +696,7 @@ impl ActionScratch {
     fn extents(program: &FunctionProgram, coordinates: &DynamicCoordinates) -> Option<[usize; 4]> {
         let jacobian = program.case.assembly.has_directional_actions();
         let hessian = program.case.assembly.has_hessian_actions();
+        let transpose = program.case.assembly.has_transpose_actions();
         let columns = program.case.assembly.columns().len();
         let rows = program.case.assembly.structure().rows().len();
         let physical = coordinates
@@ -702,9 +705,9 @@ impl ActionScratch {
             .checked_add(coordinates.parameters.len())?;
         Some([
             if jacobian || hessian { columns } else { 0 },
-            (if jacobian { rows } else { 0 }).max(if hessian { columns } else { 0 }),
-            if hessian { rows } else { 0 },
-            (if jacobian { program.rows.len() } else { 0 }).max(if hessian { physical } else { 0 }),
+            (if jacobian { rows } else { 0 }).max(if hessian || transpose { columns } else { 0 }),
+            if hessian || transpose { rows } else { 0 },
+            (if jacobian { program.rows.len() } else { 0 }).max(if hessian || transpose { physical } else { 0 }),
         ])
     }
     fn allocation_bound(
@@ -1099,6 +1102,7 @@ impl Oracle for DynamicWorker {
                 ));
             }
             let role = function;
+            self.bind(mode, role, time, state, parameters)?;
             let Some(function) = self.functions.get(&(mode, function)) else {
                 if function == Function::Roots && mode < self.contract.events.len() {
                     return Ok(native::Evaluation {
@@ -1117,6 +1121,7 @@ impl Oracle for DynamicWorker {
             if let Some(has_derivatives) = function.cache
                 && (!derivatives || has_derivatives)
                 && function.key.iter().copied().eq(bits.clone())
+                && function.pure
             {
                 return Ok(native::Evaluation {
                     values: function.values.clone(),
@@ -1127,7 +1132,6 @@ impl Oracle for DynamicWorker {
                     },
                 });
             }
-            self.bind(mode, role, time, state, parameters)?;
             let function = self.functions.get_mut(&(mode, role)).ok_or_else(|| {
                 ProblemError::Internal("missing compiled dynamic function".into())
             })?;
@@ -1286,6 +1290,45 @@ impl Oracle for DynamicWorker {
             return Err(ProblemError::numerical(
                 "nonfinite physical Jacobian action",
             ));
+        }
+        self.scope.check().map_err(ProblemError::Provider)?;
+        output.copy_from_slice(candidate);
+        Ok(())
+    }
+    #[allow(clippy::too_many_arguments, reason = "physical point and cotangent bindings are independent scientific inputs")]
+    fn jacobian_transpose_action(
+        &mut self, mode: usize, function: Function, time: f64,
+        state: &[f64], parameters: &[f64], weights: &[f64], output: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        self.bind(mode, function, time, state, parameters)?;
+        let chain = &self.layout.chain;
+        let worker = self.functions.get_mut(&(mode, function))
+            .ok_or_else(|| ProblemError::internal("missing compiled dynamic transpose function"))?;
+        if !worker.worker.assembly().has_transpose_actions() {
+            return Err(ProblemError::unsupported("the selected dynamic profile did not prepare transpose actions"));
+        }
+        let p = &worker.program;
+        if weights.len() != p.rows.len() || output.len() != chain.len()
+            || weights.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::Contract("dynamic transpose dimensions or weights".into()));
+        }
+        worker.actions.multipliers.fill(0.);
+        for (i, &row) in p.rows.iter().enumerate() {
+            if !p.constants.contains_key(&i) {
+                worker.actions.multipliers[row] += weights[i] * p.scales[i];
+            }
+        }
+        worker.binding.refill(&self.modes[mode].frame)?;
+        let columns = worker.worker.assembly().columns().len();
+        worker.worker.jacobian_transpose_product(worker.binding.trial()?,
+            &worker.actions.multipliers, &mut worker.actions.local[..columns])?;
+        worker.actions.physical[..chain.len()].fill(0.);
+        for (local, &axis) in worker.layout.columns.iter().enumerate() {
+            worker.actions.physical[axis] += worker.actions.local[local] * chain[axis];
+        }
+        let candidate = &worker.actions.physical[..output.len()];
+        if candidate.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("nonfinite physical transpose action"));
         }
         self.scope.check().map_err(ProblemError::Provider)?;
         output.copy_from_slice(candidate);
@@ -1477,6 +1520,13 @@ impl Oracle for &mut DynamicWorker {
         output: &mut [f64],
     ) -> Result<(), ProblemError> {
         (**self).jacobian_action(mode, function, time, state, parameters, direction, output)
+    }
+    #[allow(clippy::too_many_arguments, reason = "physical point and cotangent bindings are independent scientific inputs")]
+    fn jacobian_transpose_action(
+        &mut self, mode: usize, function: Function, time: f64,
+        state: &[f64], parameters: &[f64], weights: &[f64], output: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        (**self).jacobian_transpose_action(mode, function, time, state, parameters, weights, output)
     }
     #[allow(
         clippy::too_many_arguments,

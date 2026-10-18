@@ -2582,6 +2582,14 @@ impl ModelingPackage {
                     actions.push(pse_math::jets::ProductKind::WeightedHessianAction);
                 }
             }
+            if profile.method == native::Method::Diffsol {
+                // Diffsol sensitivity/adjoint operators demand both actions. A
+                // direct matrix callback may still supply an already completed J.
+                actions.push(pse_math::jets::ProductKind::JacobianAction);
+                if profile.sensitivity == native::DynamicSensitivity::Adjoint {
+                    actions.push(pse_math::jets::ProductKind::TransposeJacobianAction);
+                }
+            }
             let compiled = self
                 .runtime
                 .shared
@@ -6463,11 +6471,9 @@ mod tests {
         assert_eq!(Arc::strong_count(&prepared.state_allowances), 3);
         assert_eq!(Arc::strong_count(&prepared.output_allowances), 3);
         first.assert_independent_layout(&second);
-        assert_eq!(
-            first.action_buffer_sizes(0, Function::Output),
-            [0; 4],
-            "matrix-only function preparation allocates no action workspace"
-        );
+        let actions = first.action_buffer_sizes(0, Function::Output);
+        assert!(actions[0] > 0 && actions[1] > 0 && actions[3] > 0);
+        assert_eq!(actions[2], 0, "forward preparation has no cotangent/Hessian weights");
         let a = first
             .evaluate(0, Function::Output, 0., &[0.1], prepared.parameters(), true)
             .unwrap();
@@ -6764,6 +6770,90 @@ mod tests {
             ))
         ));
     }
+    #[tokio::test]
+    #[cfg(feature = "solver-diffsol")]
+    async fn kernel_diffsol_cotangents_preserve_physical_scaling_and_direct_product_capability() {
+        let runtime = super::super::super::tests::runtime();
+        let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); param p:Scalar=2; param offset:Time=1{s}; var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==p*(x[i]/1{s})^2; eq initial:x[0{s}]==offset; annotation start x(1{s}); annotation nominal x(10{s}); } }";
+        let rows = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime.modeling_package(rows, physical()).await.unwrap();
+        let cancel = crate::CancelSource::new();
+        let prepared = package
+            .prepare_simulation(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Default::default(),
+                Default::default(),
+                super::super::super::tests::compiler_profile(),
+                native::Profile {
+                    method: native::Method::Diffsol,
+                    sensitivity: native::DynamicSensitivity::Adjoint,
+                    // The native profile names every original parameter, including
+                    // the Time-valued initial offset, independently of the state scale.
+                    parameter_scales: vec![1.; 2],
+                    ..Default::default()
+                },
+                DerivativeOrder::Second,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let mut worker = prepared
+            .worker(pse_kernels::ExecutionScope::new(
+                pse_diagnostics::Cancellation::default(),
+                None,
+            ))
+            .unwrap();
+        let state = [0.1];
+        let parameters = prepared.parameters();
+        let axes = state.len() + parameters.len();
+        let direction = (0..axes).map(|i| 0.3 + i as f64 * 0.2).collect::<Vec<_>>();
+        let original = worker
+            .evaluate(0, Function::Rhs, 0., &state, parameters, true)
+            .unwrap();
+        let jacobian = original.jacobian.as_ref().unwrap();
+        let mut expected_jacobian = vec![0.; original.values.len()];
+        for (column, &seed) in direction.iter().enumerate() {
+            for index in jacobian.col_range(column) {
+                expected_jacobian[jacobian.row_idx()[index]] += jacobian.val()[index] * seed;
+            }
+        }
+        let weights = vec![2.; original.values.len()];
+        let mut expected = vec![0.; axes];
+        for column in 0..axes {
+            for index in jacobian.col_range(column) {
+                expected[column] += jacobian.val()[index] * weights[jacobian.row_idx()[index]];
+            }
+        }
+        let mut fresh = prepared.worker(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(),None)).unwrap();
+        let mut direct_jvp=vec![f64::NAN; original.values.len()];
+        fresh.jacobian_action(0,Function::Rhs,0.,&state,parameters,&direction,&mut direct_jvp).unwrap();
+        for (a,e) in direct_jvp.iter().zip(&expected_jacobian) { assert!((a-e).abs()<1e-10); }
+        let mut actual = vec![f64::NAN; axes];
+        let buffers = fresh.action_buffer_identity(0, Function::Rhs);
+        for _ in 0..2 {
+            fresh.jacobian_transpose_action(0,Function::Rhs,0.,&state,parameters,&weights,&mut actual).unwrap();
+            for (a,e) in actual.iter().zip(&expected) { assert!((a-e).abs()<1e-10); }
+            assert_eq!(buffers,fresh.action_buffer_identity(0,Function::Rhs));
+        }
+        assert_eq!(fresh.evaluation_count(0,Function::Rhs),0,"direct cotangent does not call the full derivative adapter");
+        let intact=actual.clone();
+        assert!(fresh.jacobian_transpose_action(0,Function::Rhs,0.,&state,parameters,&[f64::NAN],&mut actual).is_err());
+        assert_eq!(actual,intact);
+    }
+
     #[tokio::test]
     #[cfg(feature = "solver-idas")]
     async fn kernel_integrated_actions_preserve_scaled_axes_and_complete_publication() {

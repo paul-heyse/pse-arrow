@@ -259,6 +259,13 @@ struct Operator<'o> {
     /// The contract parameter of each integration column in this segment, if any.
     contract: Vec<Option<usize>>,
     direction: RefCell<Vec<f64>>,
+    transpose: RefCell<Vec<f64>>,
+    product: RefCell<Vec<f64>>,
+    source_pattern: Pattern,
+    state_refill: Vec<Option<usize>>,
+    parameter_refill: Vec<Option<usize>>,
+    state_adjoint_refill: Vec<Option<usize>>,
+    parameter_adjoint_refill: Vec<Option<usize>>,
     /// The transposed patterns of the adjoint operators −Jₓᵀ and −Jₚᵀ.
     state_adjoint_pattern: Pattern,
     parameter_adjoint_pattern: Pattern,
@@ -298,6 +305,9 @@ impl<'o> Operator<'o> {
         if pairs.iter().any(|&(r, c)| r >= m || c >= n + np) {
             return Err(ProblemError::internal("dynamic support bounds"));
         }
+        let source_pattern = Pattern::try_new_from_indices(m, n + np,
+            &pairs.iter().map(|&(r,c)| faer::sparse::Pair::new(r,c)).collect::<Vec<_>>())
+            .map(|v| v.0).map_err(|e| ProblemError::internal(format!("dynamic source pattern: {e}")))?;
         // Contract parameter columns become the segment's integration columns.
         pairs = pairs
             .into_iter()
@@ -344,13 +354,39 @@ impl<'o> Operator<'o> {
                 .to_col_major()
                 .map_err(|e| ProblemError::memory(format!("dynamic adjoint pattern: {e}")))
         };
+        let state_adjoint_pattern = transpose(&state_pattern)?;
+        let parameter_adjoint_pattern = transpose(&parameter_pattern)?;
+        let refill = |pattern: &Pattern, parameter: bool, transposed: bool| {
+            let mut offsets = Vec::with_capacity(pattern.row_idx().len());
+            for c in 0..pattern.ncols() {
+                for k in pattern.col_range(c) {
+                    let r = pattern.row_idx()[k];
+                    let axis = if transposed { r } else { c };
+                    let source_col = if parameter { contract_columns[axis].map(|p| n + p) } else { Some(axis) };
+                    let source_row = if transposed { c } else { r };
+                    let offset = source_col.and_then(|col| {
+                        let range = source_pattern.col_range(col);
+                        source_pattern.row_idx()[range.clone()].binary_search(&source_row).ok().map(|i| range.start + i)
+                    });
+                    offsets.push(offset);
+                }
+            }
+            offsets
+        };
         Ok(Self {
-            state_adjoint_pattern: transpose(&state_pattern)?,
-            parameter_adjoint_pattern: transpose(&parameter_pattern)?,
+            state_refill: refill(&state_pattern, false, false),
+            parameter_refill: refill(&parameter_pattern, true, false),
+            state_adjoint_refill: refill(&state_adjoint_pattern, false, true),
+            parameter_adjoint_refill: refill(&parameter_adjoint_pattern, true, true),
+            state_adjoint_pattern,
+            parameter_adjoint_pattern,
             state_pattern,
             parameter_pattern,
             contract: contract_columns,
             direction: RefCell::new(vec![0.0; n + np]),
+            transpose: RefCell::new(vec![0.0; n + np]),
+            product: RefCell::new(vec![f64::NAN; m]),
+            source_pattern,
             shared,
             function,
             mode,
@@ -367,118 +403,86 @@ impl<'o> Operator<'o> {
             .shared
             .evaluate_mode(self.mode, self.function, t, x.as_slice(), true);
         match result.jacobian {
-            Some(j) => j,
+            Some(j) => {
+                if j.symbolic().col_ptr() != self.source_pattern.col_ptr()
+                    || j.symbolic().row_idx() != self.source_pattern.row_idx() {
+                    self.shared.abort(Termination::Failed, ProblemError::internal("dynamic source Jacobian changed its prepared pattern"));
+                }
+                j
+            },
             None => self.shared.abort(
                 Termination::Failed,
                 ProblemError::internal("missing dynamic partials"),
             ),
         }
     }
-    /// −Jᵀv from the oracle's one CSC by a faer transpose product: over the state, or over
-    /// the segment's integration columns, where a column this segment maps no contract
-    /// parameter to is zero.
-    // Gather only demanded CSC columns: faer's complete transpose matmul would
-    // calculate fixed parameter products, or require a new sparse matrix per call.
+    /// Apply the admitted cotangent product. Diffsol owns the adjoint minus sign
+    /// and this segment maps only currently active selected parameter axes.
     fn transpose_product(&self, x: &V, t: f64, v: &V, y: &mut V, parameter: bool) {
-        if parameter && self.shared.width() == 0 {
-            return;
+        if parameter && self.shared.width() == 0 { return; }
+        self.shared.check();
+        let parameters = self.shared.values();
+        let mut candidate = self.transpose.borrow_mut();
+        candidate.fill(f64::NAN);
+        let result = crate::observation::scoped("diffsol.callback.transpose_action", || {
+            self.shared.oracle.borrow_mut().jacobian_transpose_action(self.mode, self.function, t,
+                x.as_slice(), &parameters, v.as_slice(), &mut candidate)
+        });
+        if let Err(error) = result { self.shared.abort(Termination::Failed, error); }
+        self.shared.check();
+        if candidate.iter().any(|v| !v.is_finite()) {
+            self.shared.abort(Termination::Failed, ProblemError::numerical("nonfinite dynamic transpose candidate"));
         }
-        let j = self.raw_partials(x, t);
         let n = self.nstates();
         if parameter {
-            crate::observation::integer(
-                "diffsol.adjoint.parameter_product_width",
-                "count",
-                self.shared.width() as i64,
-            );
-            let symbolic = j.symbolic();
-            for (k, slot) in y.as_mut_slice().iter_mut().enumerate() {
-                *slot = self.contract[k].map_or(0.0, |c| {
-                    symbolic
-                        .col_range(n + c)
-                        .map(|e| -j.val()[e] * v[symbolic.row_idx()[e]])
-                        .sum()
-                });
+            for (axis, target) in y.as_mut_slice().iter_mut().enumerate() {
+                *target = self.contract[axis].map_or(0., |col| -candidate[n + col]);
             }
-            return;
-        }
-        let symbolic = j.symbolic();
-        for (col, slot) in y.as_mut_slice().iter_mut().enumerate() {
-            *slot = symbolic
-                .col_range(col)
-                .map(|e| -j.val()[e] * v[symbolic.row_idx()[e]])
-                .sum();
+        } else {
+            for (target, value) in y.as_mut_slice().iter_mut().zip(&candidate[..n]) { *target = -*value; }
         }
     }
-    /// −Jᵀ in its transposed pattern: each column is a function row, each row a state or
-    /// an integration column of the segment.
     fn transpose_partials(&self, x: &V, t: f64, matrix: &mut M, parameter: bool) {
-        if parameter && self.shared.width() == 0 {
-            return;
-        }
-        let j = self.raw_partials(x, t);
-        let n = self.nstates();
-        let target = matrix.inner_mut();
-        for c in 0..target.ncols() {
-            for k in target.col_range(c) {
-                let r = target.symbolic().row_idx()[k];
-                let source = if parameter {
-                    self.contract.get(r).copied().flatten().map(|p| n + p)
-                } else {
-                    Some(r)
-                };
-                target.val_mut()[k] = source
-                    .and_then(|source| j.get(c, source).copied())
-                    .map_or(0.0, |v| -v);
-            }
+        if parameter && self.shared.width() == 0 { return; }
+        let source = self.raw_partials(x, t);
+        let offsets = if parameter { &self.parameter_adjoint_refill } else { &self.state_adjoint_refill };
+        for (target, offset) in matrix.inner_mut().val_mut().iter_mut().zip(offsets) {
+            *target = offset.map_or(0., |i| -source.val()[i]);
         }
     }
     fn partials(&self, x: &V, t: f64, matrix: &mut M, parameter: bool) {
-        let j = self.raw_partials(x, t);
-        let n = self.nstates();
-        let target = matrix.inner_mut();
-        for c in 0..target.ncols() {
-            // A parameter column reads its contract parameter's partials, if this segment
-            // maps one to it.
-            let source = if parameter {
-                self.contract.get(c).copied().flatten().map(|k| n + k)
-            } else {
-                Some(c)
-            };
-            for k in target.col_range(c) {
-                let r = target.symbolic().row_idx()[k];
-                target.val_mut()[k] = source
-                    .and_then(|source| j.get(r, source).copied())
-                    .unwrap_or(0.0);
-            }
+        let source = self.raw_partials(x, t);
+        let offsets = if parameter { &self.parameter_refill } else { &self.state_refill };
+        for (target, offset) in matrix.inner_mut().val_mut().iter_mut().zip(offsets) {
+            *target = offset.map_or(0., |i| source.val()[i]);
         }
     }
     fn product(&self, x: &V, t: f64, v: &V, y: &mut V, parameter: bool) {
-        let j = self.raw_partials(x, t);
-        // Keep one direction buffer per operator attempt. faer multiplies the
-        // full admitted CSC matrix; a fresh Diffsol matrix is unnecessary.
+        self.shared.check();
         let mut direction = self.direction.borrow_mut();
-        direction.fill(0.0);
+        direction.fill(0.);
         let n = self.nstates();
         if parameter {
             for (selected, contract) in self.contract.iter().enumerate() {
-                if let Some(contract) = contract {
-                    direction[n + contract] = v[selected];
-                }
+                if let Some(contract) = contract { direction[n + contract] = v[selected]; }
             }
-        } else {
-            direction[..n].copy_from_slice(v.as_slice());
+        } else { direction[..n].copy_from_slice(v.as_slice()); }
+        let parameters = self.shared.values();
+        let mut candidate = self.product.borrow_mut();
+        candidate.fill(f64::NAN);
+        let result = crate::observation::scoped("diffsol.callback.jacobian_action", || {
+            self.shared.oracle.borrow_mut().jacobian_action(self.mode, self.function, t,
+                x.as_slice(), &parameters, &direction, &mut candidate)
+        });
+        if let Err(error) = result { self.shared.abort(Termination::Failed, error); }
+        self.shared.check();
+        if candidate.iter().any(|v| !v.is_finite()) {
+            self.shared.abort(Termination::Failed, ProblemError::numerical("nonfinite dynamic action candidate"));
         }
-        let nout = self.nout();
-        faer::sparse::linalg::matmul::sparse_dense_matmul(
-            faer::MatMut::from_column_major_slice_mut(y.as_mut_slice(), nout, 1),
-            faer::Accum::Replace,
-            j.as_ref().as_ref(),
-            faer::MatRef::from_column_major_slice(&direction, direction.len(), 1),
-            1.0,
-            faer::Par::Seq,
-        );
+        y.as_mut_slice().copy_from_slice(&candidate);
     }
+
+
 }
 impl Op for Operator<'_> {
     type T = f64;
@@ -1838,5 +1842,89 @@ mod forward_initialization_tests {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod action_route_tests {
+    use super::*;
+    use std::cell::Cell;
+    #[derive(Debug)]
+    struct Actions {
+        contract: Contract,
+        partials: Cell<usize>,
+        jvp: Cell<usize>,
+        vjp: Cell<usize>,
+    }
+    impl Oracle for Actions {
+        fn contract(&self) -> &Contract { &self.contract }
+        fn support(&self, _: usize, _: Function) -> Vec<SupportEntry> {
+            entries(vec![(0,0), (0,2), (0,3), (1,1), (1,2)])
+        }
+        fn evaluate(&mut self, _:usize, _:Function, _:f64, x:&[f64], p:&[f64], derivative:bool) -> Result<Evaluation,ProblemError> {
+            let matrix = derivative.then(|| {
+                self.partials.set(self.partials.get()+1);
+                Arc::new(faer::sparse::SparseColMat::try_new_from_triplets(2,4,
+                    &[faer::sparse::Triplet::new(0,0,2.),faer::sparse::Triplet::new(0,2,3.),
+                    faer::sparse::Triplet::new(0,3,5.),faer::sparse::Triplet::new(1,1,-7.),
+                    faer::sparse::Triplet::new(1,2,11.)]).unwrap()).into()
+            });
+            Ok(Evaluation { values: vec![2.*x[0]+3.*p[0]+5.*p[1], -7.*x[1]+11.*p[0]], jacobian:matrix })
+        }
+        fn jacobian_action(&mut self,_:usize,_:Function,_:f64,_:&[f64],_:&[f64],v:&[f64],out:&mut[f64])->Result<(),ProblemError>{
+            self.jvp.set(self.jvp.get()+1);
+            out.copy_from_slice(&[2.*v[0]+3.*v[2]+5.*v[3],-7.*v[1]+11.*v[2]]);Ok(())
+        }
+        fn jacobian_transpose_action(&mut self,_:usize,_:Function,_:f64,_:&[f64],_:&[f64],v:&[f64],out:&mut[f64])->Result<(),ProblemError>{
+            self.vjp.set(self.vjp.get()+1);
+            out.copy_from_slice(&[2.*v[0],-7.*v[1],3.*v[0]+11.*v[1],5.*v[0]]);Ok(())
+        }
+    }
+    #[test]
+    fn diffsol_direct_actions_preserve_adjoint_sign_selected_segment_axes_and_scatter_offsets() {
+        let id=|i|SemanticId::from_bytes([i;16]);
+        let mut oracle=Actions { contract:Contract {identity:ContentHash::from_bytes([13;32]),
+            states:vec![id(1),id(2)], differential:vec![true,true],parameters:vec![id(3),id(4)],outputs:vec![id(5),id(6)],
+            events:vec![vec![]],quadratures:vec![],balances:vec![],signs:vec![],derivatives:pse_kernels::DerivativeOrder::First},
+            partials:Cell::new(0),jvp:Cell::new(0),vjp:Cell::new(0)};
+        let mut profile=Profile {method:Method::Diffsol,sensitivity:DynamicSensitivity::Forward,
+            forward_axes:Some(vec![2,0,1]),schedule:vec![ScheduledInput{parameter:0,times:vec![0.5]}],
+            parameter_scales:vec![2.,3.],atol:vec![0.001;2],rtol:0.001,..Default::default()};
+        // Physical integration order is unscheduled p1, scheduled p0[0], p0[1].
+        let shared=Shared::new(&mut oracle,&profile,&[10.,20.,30.],Cancellation::default(),Arc::new(crate::solve::Progress::new(32))).unwrap();
+        let operator=Operator::new(shared.clone(),Function::Rhs).unwrap();
+        let context=shared.context;
+        let x=V::from_vec(vec![1.,2.],context);
+        let direction=V::from_vec(vec![4.,6.],context);
+        let mut output=V::zeros(2,context);
+        operator.product(&x,0.,&direction,&mut output,false);
+        assert_eq!(output.as_slice(),&[8.,-42.]);
+        let parameter_direction=V::from_vec(vec![100.,2.,3.],context);
+        operator.product(&x,0.,&parameter_direction,&mut output,true);
+        assert_eq!(output.as_slice(),&[19.,33.]);
+        let weights=V::from_vec(vec![2.,3.],context);
+        let mut parameters=V::zeros(3,context);
+        operator.transpose_product(&x,0.,&weights,&mut parameters,true);
+        assert_eq!(parameters.as_slice(),&[0.,-10.,-39.]);
+        operator.transpose_product(&x,0.,&weights,&mut output,false);
+        assert_eq!(output.as_slice(),&[-4.,21.]);
+        // Actions above have no derivative matrix callback. Matrix consumers use
+        // prepared refill offsets and keep the same derivative meaning.
+        let mut matrix=M::new_from_sparsity(2,2,Some(operator.state_pattern.clone()),context);
+        operator.partials(&x,0.,&mut matrix,false);
+        assert_eq!(matrix.inner().val(),&[2.,-7.]);
+        let mut transposed=M::new_from_sparsity(3,2,Some(operator.parameter_adjoint_pattern.clone()),context);
+        operator.transpose_partials(&x,0.,&mut transposed,true);
+        assert_eq!(transposed.inner().get(1,0),Some(&-5.));
+        assert_eq!(transposed.inner().get(2,1),Some(&-11.));
+        drop(operator);drop(shared);
+        assert_eq!(oracle.jvp.get(),2);assert_eq!(oracle.vjp.get(),2);assert_eq!(oracle.partials.get(),2);
+        // Later interval maps a different selected coordinate; no stale operator
+        // columns are reused across the segment restart.
+        profile.start=0.5;
+        let shared=Shared::new(&mut oracle,&profile,&[10.,20.,30.],Cancellation::default(),Arc::new(crate::solve::Progress::new(32))).unwrap();
+        let operator=Operator::new(shared.clone(),Function::Rhs).unwrap();
+        operator.transpose_product(&x,0.5,&weights,&mut parameters,true);
+        assert_eq!(parameters.as_slice(),&[-39.,-10.,0.]);
     }
 }

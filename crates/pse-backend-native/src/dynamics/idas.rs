@@ -637,6 +637,7 @@ unsafe extern "C" fn jacobian(
     // borrowed while IDAS calls back on the owning thread.
     let c = unsafe { &mut *data.cast::<Context<'_>>() };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        crate::observation::gauge("idas.newton.shift", "inverse-time", cj);
         let n = c.contract.states.len();
         // SAFETY: IDAS passes a live serial vector of the `n` states for the callback.
         let x = unsafe { read(y, n) };
@@ -680,6 +681,7 @@ unsafe extern "C" fn jtimes(
     // borrowed while IDAS calls back on the owning thread.
     let c = unsafe { &mut *data.cast::<Context<'_>>() };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        crate::observation::gauge("idas.newton.shift", "inverse-time", cj);
         let n = c.contract.states.len();
         {
             // SAFETY: IDAS supplies live serial input vectors of n initialized
@@ -718,6 +720,7 @@ unsafe extern "C" fn precondition_setup(
     // borrowed while IDAS calls back on the owning thread.
     let c = unsafe { &mut *data.cast::<Context<'_>>() };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        crate::observation::gauge("idas.newton.shift", "inverse-time", cj);
         let n = c.contract.states.len();
         // SAFETY: IDAS passes a live serial vector of the `n` states for the callback.
         let x = unsafe { read(y, n) };
@@ -1814,6 +1817,10 @@ impl<'a> Session<'a> {
             ffi::IDAAdjInit(self.mem, steps, ffi::IDA_HERMITE),
             "adjoint initialization",
         )?;
+        let checkpoint_limit: i32 = p.adjoint.max_checkpoints.into_inner().try_into()
+            .map_err(|_| ProblemError::unsupported("IDAS checkpoint population extent"))?;
+        native!(ffi::IDASetCheckpointLimit(self.mem, checkpoint_limit.into()),
+            "adjoint checkpoint population limit")?;
         let zeros = vec![0.0; n];
         let mut sensitivities = Vec::new();
         let mut rates = Vec::new();
@@ -2436,10 +2443,22 @@ impl<'a> Session<'a> {
                 &raw mut stored,
             )
         });
-        // IDAS counts the checkpoints it adds after the segment's first.
-        let held = usize::try_from(stored).unwrap_or(0) + 1;
-        b.checkpoints = b.checkpoints.max(held);
-        if held > b.limit {
+        // Native allocation-point enforcement counts the initial checkpoint too,
+        // and records the high-water mark even when a NORMAL call fails partway.
+        let (mut current, mut peak, mut refused) = (0, 0, 0);
+        native!(ffi::IDAGetCheckpointUsage(self.mem, &raw mut current, &raw mut peak,
+            &raw mut refused), "checkpoint population observation")?;
+        let held = usize::try_from(current)
+            .map_err(|_| ProblemError::internal("negative IDAS checkpoint population"))?;
+        let peak = usize::try_from(peak)
+            .map_err(|_| ProblemError::internal("negative IDAS checkpoint peak"))?;
+        b.checkpoints = b.checkpoints.max(peak);
+        crate::observation::integer("idas.checkpoints.current", "checkpoints", current);
+        crate::observation::integer("idas.checkpoints.peak", "checkpoints", peak.try_into().unwrap_or(i64::MAX));
+        if held > b.limit || peak > b.limit {
+            return Err(ProblemError::internal("IDAS checkpoint owner exceeded admitted population"));
+        }
+        if refused != 0 {
             return Err(ProblemError::memory(
                 "the adjoint forward pass needs more than max_checkpoints checkpoints",
             ));
@@ -2616,11 +2635,13 @@ impl<'a> Session<'a> {
                 .filter(|t| *t < stop)
                 .unwrap_or(stop);
             let mut time = r.completed_time;
-            let flag = self.solve(target, &mut time)?;
+            let result = self.solve(target, &mut time);
             native!(ffi::IDAGetNumSteps(self.mem, &raw mut steps), "step count")?;
             if let Some(last) = r.statistics.last_mut() {
+                let flag = result.as_ref().copied().unwrap_or(ffi::IDA_MEM_FAIL);
                 *last = self.statistics(flag, p, (flag >= 0).then_some(time));
             }
+            let flag = result?;
             if flag == ffi::IDA_TOO_MUCH_WORK {
                 // This native return exposes its last accepted physical state,
                 // separately from the retained requested-sample prefix.
@@ -4951,5 +4972,132 @@ mod initialization_tests {
             Err(ProblemError::Cancelled)
         ));
         assert_eq!(oracle.residual_calls, 0);
+    }
+}
+
+#[cfg(test)]
+mod checkpoint_owner_tests {
+    use super::*;
+
+    struct NativeForward {
+        context: ffi::SUNContext,
+        memory: *mut c_void,
+        state: ffi::N_Vector,
+        rate: ffi::N_Vector,
+        matrix: ffi::SUNMatrix,
+        linear: ffi::SUNLinearSolver,
+    }
+    unsafe extern "C" fn decay(_time: f64, state: ffi::N_Vector,
+        rate: ffi::N_Vector, residual: ffi::N_Vector, _data: *mut c_void) -> i32 {
+        // SAFETY: IDAS supplies the three live, one-entry serial vectors of this fixture.
+        unsafe { *ffi::N_VGetArrayPointer(residual) =
+            *ffi::N_VGetArrayPointer(rate) + *ffi::N_VGetArrayPointer(state); }
+        0
+    }
+    impl NativeForward {
+        fn new(spacing: c_long) -> Self {
+            let mut context = std::ptr::null_mut();
+            // SAFETY: all native objects are installed immediately into this private
+            // owner, with compatible one-entry vectors and release order in Drop.
+            unsafe {
+                assert_eq!(ffi::SUNContext_Create(ffi::comm_no_mpi(), &raw mut context), 0);
+                let state = ffi::N_VNew_Serial(1, context);
+                let rate = ffi::N_VNew_Serial(1, context);
+                assert!(!state.is_null() && !rate.is_null());
+                *ffi::N_VGetArrayPointer(state) = 1.;
+                *ffi::N_VGetArrayPointer(rate) = -1.;
+                let memory = ffi::IDACreate(context);
+                let matrix = ffi::SUNDenseMatrix(1, 1, context);
+                let linear = ffi::SUNLinSol_Dense(state, matrix, context);
+                let owner = Self { context, memory, state, rate, matrix, linear };
+                assert!(!memory.is_null() && !matrix.is_null() && !linear.is_null());
+                assert_eq!(ffi::IDAInit(memory, Some(decay), 0., state, rate), 0);
+                assert_eq!(ffi::IDASStolerances(memory, 0.001, 0.001), 0);
+                assert_eq!(ffi::IDASetLinearSolver(memory, linear, matrix), 0);
+                assert_eq!(ffi::IDAAdjInit(memory, spacing, ffi::IDA_HERMITE), 0);
+                owner
+            }
+        }
+        fn limit(&mut self, maximum: c_long) -> i32 {
+            // SAFETY: the owner retains initialized adjoint memory on this thread.
+            unsafe { ffi::IDASetCheckpointLimit(self.memory, maximum) }
+        }
+        fn usage(&self) -> (c_long, c_long, i32) {
+            let (mut current, mut peak, mut refused) = (0, 0, 0);
+            // SAFETY: live owned memory and independent initialized output storage.
+            unsafe { assert_eq!(ffi::IDAGetCheckpointUsage(self.memory,
+                &raw mut current, &raw mut peak, &raw mut refused), 0); }
+            (current, peak, refused)
+        }
+        fn solve(&mut self, target: f64, task: i32) -> (i32, f64, f64) {
+            let (mut time, mut stored) = (0., 0);
+            // SAFETY: live native memory, matching state/rate vectors and local output.
+            unsafe {
+                let flag = ffi::IDASolveF(self.memory, target, &raw mut time,
+                    self.state, self.rate, task, &raw mut stored);
+                (flag, time, *ffi::N_VGetArrayPointer(self.state))
+            }
+        }
+    }
+    impl Drop for NativeForward {
+        fn drop(&mut self) {
+            // SAFETY: each resource is private and freed once, consumers before inputs.
+            unsafe {
+                ffi::IDAFree(&raw mut self.memory);
+                ffi::SUNLinSolFree(self.linear);
+                ffi::SUNMatDestroy(self.matrix);
+                ffi::N_VDestroy(self.state);
+                ffi::N_VDestroy(self.rate);
+                ffi::SUNContext_Free(&raw mut self.context);
+            }
+        }
+    }
+    #[test]
+    fn checkpoint_owner_guards_initial_and_next_allocation_and_latches_refusal() {
+        let mut native = NativeForward::new(1);
+        assert_eq!(native.limit(-1), ffi::IDA_ILL_INPUT);
+        assert_eq!(native.limit(0), 0);
+        assert_eq!(native.solve(1., ffi::IDA_NORMAL).0, ffi::IDA_MEM_FAIL);
+        assert_eq!(native.usage(), (0, 0, 1), "initial allocation was refused");
+        assert_eq!(native.limit(2), 0);
+        assert_eq!(native.solve(1., ffi::IDA_NORMAL).0, ffi::IDA_MEM_FAIL);
+        assert_eq!(native.usage(), (0, 0, 1), "larger limit cannot repair a failed attempt");
+        // SAFETY: this owning thread reinitializes its live adjoint module.
+        unsafe { assert_eq!(ffi::IDAAdjReInit(native.memory), 0); }
+        assert_eq!(native.usage(), (0, 0, 0));
+        assert_eq!(native.solve(1., ffi::IDA_ONE_STEP).0, ffi::IDA_SUCCESS);
+        assert_eq!(native.usage(), (2, 2, 0), "initial plus exactly one new checkpoint");
+        assert_eq!(native.limit(1), ffi::IDA_ILL_INPUT);
+        assert_eq!(native.solve(1., ffi::IDA_NORMAL).0, ffi::IDA_MEM_FAIL);
+        assert_eq!(native.usage(), (2, 2, 1), "no excess checkpoint ever became resident");
+        // SAFETY: reset physical history and then release the checkpoint population.
+        unsafe {
+            *ffi::N_VGetArrayPointer(native.state) = 1.;
+            *ffi::N_VGetArrayPointer(native.rate) = -1.;
+            assert_eq!(ffi::IDAReInit(native.memory, 0., native.state, native.rate), 0);
+            assert_eq!(ffi::IDAAdjReInit(native.memory), 0);
+        }
+        assert_eq!(native.usage(), (0, 2, 0), "reset preserves lifetime peak and installed limit");
+        assert_eq!(native.solve(1., ffi::IDA_NORMAL).0, ffi::IDA_MEM_FAIL);
+        assert_eq!(native.usage(), (2, 2, 1));
+    }
+    #[test]
+    fn checkpoint_owner_preserves_normal_interpolation_for_sparse_and_dense_outputs() {
+        let mut values = Vec::new();
+        for outputs in [vec![0.3], vec![0.05,0.1,0.15,0.2,0.3]] {
+            let mut native = NativeForward::new(100_000);
+            assert_eq!(native.limit(2), 0);
+            // SAFETY: finite physical stop on live owned IDAS memory.
+            unsafe { assert_eq!(ffi::IDASetStopTime(native.memory, 0.3), 0); }
+            for target in outputs {
+                let (flag, time, value) = native.solve(target, ffi::IDA_NORMAL);
+                assert!(flag == ffi::IDA_SUCCESS || flag == ffi::IDA_TSTOP_RETURN);
+                assert_eq!(time, target);
+                assert!((value - (-target).exp()).abs() < 0.01);
+                assert_eq!(native.usage(), (1,1,0));
+                if target == 0.3 { values.push(value); }
+            }
+        }
+        assert_eq!(values[0], values[1], "output density does not change native integration");
     }
 }

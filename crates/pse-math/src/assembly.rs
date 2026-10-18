@@ -85,6 +85,8 @@ pub enum EvaluationDemand {
     All,
     /// One directional constraint action.
     Directional,
+    /// Constraint cotangent pulled back to global coordinates.
+    TransposeDirectional,
     /// Weighted second derivative applied directly to one global direction.
     HessianAction,
 }
@@ -1269,6 +1271,13 @@ impl CasePlan {
     /// Append first directional constraint actions after a consumer requests them.
     /// Existing demands, support products and artifact ordinals retain their identity.
     pub fn with_directional_actions(&self, cancel: &Arc<AtomicBool>) -> Result<Self, MathError> {
+        self.with_first_action(ProductKind::JacobianAction, EvaluationDemand::Directional, cancel)
+    }
+    /// Admit constraint pullbacks only for consumers requesting transpose actions.
+    pub fn with_transpose_actions(&self, cancel: &Arc<AtomicBool>) -> Result<Self, MathError> {
+        self.with_first_action(ProductKind::TransposeJacobianAction, EvaluationDemand::TransposeDirectional, cancel)
+    }
+    fn with_first_action(&self, product: ProductKind, demand: EvaluationDemand, cancel: &Arc<AtomicBool>) -> Result<Self, MathError> {
         if cancel.load(Ordering::Relaxed) {
             return Err(MathError::Cancelled);
         }
@@ -1279,7 +1288,7 @@ impl CasePlan {
         for (index, request) in requests
             .iter()
             .enumerate()
-            .filter(|(_, r)| r.product == ProductKind::JacobianAction)
+            .filter(|(_, r)| r.product == product)
         {
             indices.insert(
                 (
@@ -1291,7 +1300,7 @@ impl CasePlan {
             );
         }
         for instance in &mut instances {
-            if instance.groups[EvaluationDemand::Directional].is_some() {
+            if instance.groups[demand].is_some() {
                 continue;
             }
             let Some(group) = instance.groups[EvaluationDemand::Constraints].as_ref() else {
@@ -1318,13 +1327,13 @@ impl CasePlan {
                     outputs: group.outputs.clone(),
                     coordinates: original.coordinates.clone(),
                     order: DerivativeOrder::First,
-                    product: ProductKind::JacobianAction,
+                    product,
                 });
                 supports.push(Arc::new(support));
                 indices.insert(key, index);
                 index
             };
-            instance.groups[EvaluationDemand::Directional] = Some(Group {
+            instance.groups[demand] = Some(Group {
                 outputs: group.outputs.clone(),
                 request,
             });
@@ -1397,6 +1406,10 @@ impl CasePlan {
             .iter()
             .any(|r| r.product == ProductKind::JacobianAction)
     }
+    /// Whether actual constraint cotangent programs were admitted.
+    pub fn has_transpose_actions(&self) -> bool {
+        self.requests.iter().any(|r| r.product == ProductKind::TransposeJacobianAction)
+    }
     /// Construction extent of immutable support/order or directional-demand
     /// upgrades. Numerical evaluators are deferred; this bounds selected support,
     /// instance/demand copies and actual possible sparse derivative contributions.
@@ -1413,7 +1426,7 @@ impl CasePlan {
         let mul = |a: usize, b: usize| a.checked_mul(b).ok_or_else(overflow);
         let mut support_bytes = 0;
         for (support, request) in self.supports.iter().zip(self.requests.iter()) {
-            let requested = if request.product == ProductKind::JacobianAction {
+            let requested = if matches!(request.product, ProductKind::JacobianAction | ProductKind::TransposeJacobianAction) {
                 DerivativeOrder::First
             } else {
                 order
@@ -1524,7 +1537,7 @@ impl CasePlan {
         }
         let mut supports = Vec::with_capacity(self.supports.len());
         for (request, previous) in self.supports.iter().enumerate() {
-            if self.requests[request].product == ProductKind::JacobianAction {
+            if matches!(self.requests[request].product, ProductKind::JacobianAction | ProductKind::TransposeJacobianAction) {
                 supports.push(previous.clone());
                 continue;
             }
@@ -1642,7 +1655,7 @@ impl CasePlan {
             || self
                 .requests
                 .iter()
-                .any(|d| d.product == ProductKind::JacobianAction)
+                .any(|d| matches!(d.product, ProductKind::JacobianAction | ProductKind::TransposeJacobianAction))
         {
             return Ok(false);
         }
@@ -2533,7 +2546,7 @@ impl CaseAssembly {
                         let program = &self.programs[group.request];
                         let weighted = matches!(
                             program.product_kind(),
-                            ProductKind::WeightedHessian | ProductKind::WeightedHessianAction
+                            ProductKind::WeightedHessian | ProductKind::WeightedHessianAction | ProductKind::TransposeJacobianAction
                         );
                         let directed = matches!(
                             program.product_kind(),
@@ -3678,6 +3691,55 @@ impl CaseWorker {
         output.copy_from_slice(&self.action_values[..output.len()]);
         Ok(())
     }
+    /// Pull back constraint weights without constructing unconsumed partials.
+    /// A completed compatible pure matrix is consumed when already available.
+    pub fn jacobian_transpose_product<'a>(
+        &mut self,
+        values: impl Into<EvalInputs<'a>>,
+        weights: &[f64],
+        output: &mut [f64],
+    ) -> Result<(), MathError> {
+        if weights.len() != self.assembly.rows.len()
+            || output.len() != self.assembly.columns.len()
+            || weights.iter().any(|v| !v.is_finite())
+        {
+            return Err(MathError::Contract("finite constraint cotangent and global dimensions required".into()));
+        }
+        let values = values.into();
+        let point = self.trial_point(values)?;
+        // Transpose products share the action staging buffer, so invalidate any
+        // previous action receipt before writing even when using a completed matrix.
+        self.completion.begin(AssembledProduct::TransposeJacobianAction);
+        let matrix = self.matrix_eligible(AssembledProduct::Jacobian,
+            EvaluationDemand::Constraints, DerivativeOrder::First, point);
+        let demand = if matrix { EvaluationDemand::Constraints } else { EvaluationDemand::TransposeDirectional };
+        if !matrix {
+            if !self.assembly.has_transpose_actions() {
+                return Err(MathError::Contract("no completed compatible matrix or prepared transpose action".into()));
+            }
+            self.evaluate_bound_product(values, demand, 0., weights, None)?;
+        }
+        let assembled = (|| {
+            if matrix {
+                self.jacobian.as_ref().ok_or_else(|| MathError::Contract("detached jacobian".into()))?
+                    .transpose_product(weights, &mut self.action_values[..output.len()])?;
+            } else {
+                self.action_values[..output.len()].fill(0.);
+                for (index, (local, binding)) in self.assembly.instances.iter()
+                    .zip(self.assembly.structure.instances()).enumerate() {
+                    let Some(cache) = &self.groups[index][demand] else { continue; };
+                    for (axis, (&formal, &column)) in local.coordinates.iter().zip(&local.columns).enumerate() {
+                        let destination = &mut self.action_values[column.get()];
+                        *destination = finite(*destination + binding.slots[formal.get()].scale() * cache.product[axis])?;
+                    }
+                }
+            }
+            self.scope.check().map_err(crate::error::scope_error)
+        })();
+        self.finish_assembly(assembled, AssembledProduct::TransposeJacobianAction, demand, DerivativeOrder::First)?;
+        output.copy_from_slice(&self.action_values[..output.len()]);
+        Ok(())
+    }
     fn trial_point(&mut self, values: EvalInputs<'_>) -> Result<Option<u64>, MathError> {
         let result = values
             .check(&self.assembly)
@@ -3757,7 +3819,7 @@ impl CaseWorker {
             .as_ref()
             .map(|o| o.producer.context().enter());
         let _phase = self.observation.as_ref().map(|o| o.phase(demand));
-        let order = if demand == EvaluationDemand::Directional {
+        let order = if matches!(demand, EvaluationDemand::Directional | EvaluationDemand::TransposeDirectional) {
             DerivativeOrder::First
         } else {
             DerivativeOrder::Second
@@ -3942,6 +4004,7 @@ fn prepare_product_weights(
                     demand,
                     EvaluationDemand::All
                         | EvaluationDemand::Directional
+                        | EvaluationDemand::TransposeDirectional
                         | EvaluationDemand::HessianAction
                 ) {
                     return Vec::new();
@@ -3954,7 +4017,7 @@ fn prepare_product_weights(
                         let target = match contribution.target {
                             Target::Objective(_)
                                 if contribution.target == Target::PRIMARY
-                                    && demand != EvaluationDemand::Directional =>
+                                    && !matches!(demand, EvaluationDemand::Directional | EvaluationDemand::TransposeDirectional) =>
                             {
                                 ProductTarget::Objective
                             }
@@ -3976,7 +4039,7 @@ fn selected(target: Target, demand: EvaluationDemand) -> bool {
     match demand {
         EvaluationDemand::Objective => target == Target::PRIMARY,
         EvaluationDemand::Constraints => matches!(target, Target::Row(_)),
-        EvaluationDemand::Directional | EvaluationDemand::HessianAction => false,
+        EvaluationDemand::Directional | EvaluationDemand::TransposeDirectional | EvaluationDemand::HessianAction => false,
         // A later lexicographic objective is projected to coefficients, never evaluated.
         EvaluationDemand::All => matches!(target, Target::Row(_)) || target == Target::PRIMARY,
     }
@@ -4026,4 +4089,51 @@ mod observation_counter_tests {
         assert_eq!(counts.completed, 1);
         assert_eq!(counts.achieved(DerivativeOrder::First), 1);
     }
+}
+
+#[cfg(test)]
+mod cotangent_tests {
+    use super::*;
+    use crate::{assembly_tests::fixture, library::Optimization};
+
+#[test]
+fn constraint_cotangents_use_direct_products_or_completed_matrix_and_preserve_aliases() {
+    for alias in [false, true] {
+        let (original, values) = fixture(alias, false);
+        let cancel = pse_diagnostics::Cancellation::new(false);
+        let plan = original.plan.with_transpose_actions(&cancel.flag()).unwrap();
+        assert!(plan.has_transpose_actions());
+        let assembly = Arc::new(Arc::new(plan).compile(Optimization::default(), EvaluationLimits::default(),
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None)).unwrap());
+        let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), cancel.clone());
+        let weights = vec![2.; assembly.rows.len()];
+        let mut output = vec![f64::NAN; assembly.columns.len()];
+        worker.jacobian_transpose_product(&values, &weights, &mut output).unwrap();
+        assert_eq!(worker.completion.assemblies[AssembledProduct::Jacobian], 0);
+        let first = worker.completion.evaluations[EvaluationDemand::TransposeDirectional];
+        assert!(first > 0);
+        let expected = output.clone();
+        worker.jacobian_transpose_product(&values, &weights, &mut output).unwrap();
+        assert_eq!(output, expected);
+        assert_eq!(worker.completion.evaluations[EvaluationDemand::TransposeDirectional], first);
+        let bound = assembly.bind_values(&values).unwrap();
+        let point = assembly.columns.iter().map(|id| values.scalars[id]).collect::<Vec<_>>();
+        let trial = bound.trial(&point).unwrap();
+        worker.jacobian(trial).unwrap();
+        worker.jacobian_transpose_product(bound.trial(&point).unwrap(), &weights, &mut output).unwrap();
+        assert_eq!(output, expected);
+        assert_eq!(worker.completion.evaluations[EvaluationDemand::TransposeDirectional], first);
+        let mut doubled = weights.clone();
+        doubled.iter_mut().for_each(|w| *w *= 2.);
+        worker.jacobian_transpose_product(bound.trial(&point).unwrap(), &doubled, &mut output).unwrap();
+        for (actual, value) in output.iter().zip(expected) { assert_eq!(*actual, 2. * value); }
+        let intact = output.clone();
+        assert!(worker.jacobian_transpose_product(&values, &[f64::NAN], &mut output).is_err());
+        assert_eq!(output, intact);
+        cancel.cancel();
+        assert!(worker.jacobian_transpose_product(&values, &weights, &mut output).is_err());
+        assert_eq!(output, intact);
+    }
+}
+
 }

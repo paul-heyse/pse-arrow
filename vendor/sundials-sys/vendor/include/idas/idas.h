@@ -456,6 +456,15 @@ SUNDIALS_EXPORT int IDAAdjInit(void* ida_mem, long int steps, int interp);
 
 SUNDIALS_EXPORT int IDAAdjReInit(void* ida_mem);
 
+/* Maintained checkpoint population owner. Limit includes the initial checkpoint;
+ * zero refuses its creation. Negative limits are invalid. Setting a limit does
+ * not clear a prior refusal or native history. Reinit releases current population
+ * and clears refusal, retaining the installed limit and lifetime high-water mark. */
+SUNDIALS_EXPORT int IDASetCheckpointLimit(void* ida_mem, long int maximum);
+SUNDIALS_EXPORT int IDAGetCheckpointUsage(void* ida_mem, long int* current,
+                                       long int* peak, int* refused);
+
+
 /* Maintained bounded checkpoint-replay owner API. Zero refuses advancement;
    negative disables the guard. Setting permission resets only this observation,
    never native history. Reinitialization/checkpoint restoration do not renew it. */

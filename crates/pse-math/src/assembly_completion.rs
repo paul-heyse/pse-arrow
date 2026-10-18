@@ -13,6 +13,7 @@ pub(super) enum AssembledProduct {
     Jacobian,
     Hessian,
     JacobianAction,
+    TransposeJacobianAction,
     HessianAction,
 }
 
@@ -168,10 +169,11 @@ impl AssemblyCompletion {
         // Both actions use one completed staging buffer.
         if matches!(
             product,
-            AssembledProduct::JacobianAction | AssembledProduct::HessianAction
+            AssembledProduct::JacobianAction | AssembledProduct::TransposeJacobianAction | AssembledProduct::HessianAction
         ) {
             self.action_point = None;
             self.receipts[AssembledProduct::JacobianAction] = None;
+            self.receipts[AssembledProduct::TransposeJacobianAction] = None;
             self.receipts[AssembledProduct::HessianAction] = None;
         }
         #[cfg(test)]

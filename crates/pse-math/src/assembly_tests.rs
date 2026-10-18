@@ -24,7 +24,7 @@ use std::{
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
-fn fixture(alias: bool, fixed: bool) -> (Arc<CaseAssembly>, CaseValues) {
+pub(crate) fn fixture(alias: bool, fixed: bool) -> (Arc<CaseAssembly>, CaseValues) {
     fixture_with_fixed(alias, |_| fixed)
 }
 fn fixture_with_fixed(alias: bool, fixed: impl Fn(u8) -> bool) -> (Arc<CaseAssembly>, CaseValues) {

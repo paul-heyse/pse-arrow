@@ -894,6 +894,9 @@ impl CompilerWorkspace {
                 pse_math::jets::ProductKind::JacobianAction => {
                     plan.with_directional_actions(cancel)?
                 }
+                pse_math::jets::ProductKind::TransposeJacobianAction => {
+                    plan.with_transpose_actions(cancel)?
+                }
                 pse_math::jets::ProductKind::WeightedHessianAction => {
                     plan.with_hessian_actions(cancel)?
                 }
