@@ -18,6 +18,8 @@ use std::{
 mod delta;
 mod local;
 mod rebind;
+#[cfg(test)]
+mod incremental_tests;
 pub(crate) use local::{AdmittedModelRevision, LocalSourcePremises};
 use local::{LocalInventory, LocalSourceObject, SourceMember, TypedObjectPayload, TypedSourceInputs};
 pub(crate) mod reload;
