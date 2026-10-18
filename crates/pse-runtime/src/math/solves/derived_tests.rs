@@ -4288,28 +4288,50 @@ fn completed_provider_values(
 #[cfg(feature = "solver-kinsol")]
 #[tokio::test]
 async fn compiled_blocks_release_successor_before_unrelated_sibling_delivery() {
-    let mut profile = crate::workflow::tests::profile();
-    profile.block_workers = 2;
-    let (runtime, original) = original_order_on(crate::workflow::tests::runtime(),
-        "package p {def Root {var a:Scalar; var b:Scalar; var c:Scalar; var d:Scalar; eq first:a==1; eq second:b==2; eq chain:c==a+1; eq downstream:d==c+b; annotation start a(0); annotation start b(0); annotation start c(0); annotation start d(0);}}",
-        DerivativeOrder::First, profile).await;
-    let service = runtime.native().clone();
-    let flag = Cancellation::default();
-    let scope = ExecutionScope::new(flag.clone(), Some(Instant::now() + std::time::Duration::from_secs(45)));
-    let mut prepared = service.prepare_blocks(original.clone(), scope.clone(), &crate::CancelSource::new()).await.unwrap();
-    let (fast, slow, child) = prepared.independent_test_chain();
-    let (release, mut completed) = prepared.fence_completion(slow);
-    let worker = service.clone();
-    let job = tokio::spawn(async move { service.job_scoped(1, 1 << 20, flag, scope.deadline(), move |flag| {
-        let execution = Execution::within(flag, original.controls(), scope)?;
-        Ok(worker.blocks_step(&prepared, execution, &mut Retained::default(),
-            &WorkerBudget::drawing_for(worker.policy.worker_bytes, &worker), &[0.; 4], |_| Ok(()))
-            .unwrap_or_else(|failure| panic!("{}", failure.cause)))
-    }).await });
-    assert_eq!(tokio::time::timeout(std::time::Duration::from_secs(15), completed.recv()).await.unwrap(), Some(fast));
-    assert_eq!(tokio::time::timeout(std::time::Duration::from_secs(15), completed.recv()).await.unwrap(), Some(child));
-    release.notify_one();
-    let Outcome::Constant(report) = job.await.unwrap().unwrap() else { panic!("full original assessment required"); };
-    assert_eq!(report.components.len(), 4);
-    assert!(report.coordinates.iter().all(|(_, value)| value.is_finite()));
+    for (fails, cancelled) in [(false, false), (true, false), (false, true)] {
+        let mut profile = crate::workflow::tests::profile(); profile.block_workers = 2;
+        let text = "package p {def Root {var a:Scalar; var b:Scalar; var c:Scalar; var d:Scalar; eq first:a==1; eq second:b==2; eq chain:c==a+1; eq downstream:d==c+b; annotation start a(0); annotation start b(0); annotation start c(0); annotation start d(0);}}";
+        let text = if fails { text.replace("b==2", "b*b==-1") } else { text.to_owned() };
+        let (runtime, original) = original_order_on(crate::workflow::tests::runtime(), &text, DerivativeOrder::First, profile).await;
+        let service = runtime.native().clone();
+        let flag = Cancellation::default(); let stop = flag.clone();
+        let scope = ExecutionScope::new(flag.clone(), Some(Instant::now() + std::time::Duration::from_secs(45)));
+        let mut prepared = service.prepare_blocks(original.clone(), scope.clone(), &crate::CancelSource::new()).await.unwrap();
+        let expected = prepared.canonical_test_columns();
+        let (fast, slow, child) = prepared.independent_test_chain();
+        let (release, mut completed) = prepared.fence_completion(slow);
+        let worker = service.clone();
+        let captured = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let captured_worker = captured.clone();
+        let observed = Arc::new(std::sync::Mutex::new(None)); let observed_worker = observed.clone();
+        let job = tokio::spawn(async move { service.job_scoped(1, 1 << 20, flag, scope.deadline(), move |flag| {
+            let execution = Execution::within(flag, original.controls(), scope)?;
+            let outcome = worker.blocks_step(&prepared, execution, &mut Retained::default(),
+                &WorkerBudget::drawing_for(worker.policy.worker_bytes, &worker), &[0.; 4], |report| { captured_worker.lock().unwrap().push(report.variables.clone()); Ok(()) });
+            if let Err(failure) = &outcome { *observed_worker.lock().unwrap() = Some(failure.observed); }
+            Ok(outcome)
+        }).await });
+        assert_eq!(tokio::time::timeout(std::time::Duration::from_secs(15), completed.recv()).await.unwrap(), Some(fast));
+        assert_eq!(tokio::time::timeout(std::time::Duration::from_secs(15), completed.recv()).await.unwrap(), Some(child));
+        if cancelled { stop.cancel(); } else { release.notify_one(); }
+        let outcome = job.await.unwrap();
+        let captured = captured.lock().unwrap().clone();
+        if cancelled {
+            assert!(matches!(outcome, Err(MathRuntimeError::Cancelled)));
+            assert!(observed.lock().unwrap().unwrap().iterations.is_some(), "actual work reconciles before the outer cancelled owner drains");
+            assert_eq!(captured.len(), 3);
+        } else if fails {
+            let failure = outcome.unwrap().err().expect("incomplete original stage must refuse");
+            assert!(failure.observed.iterations.is_some(), "all issued native work remains accounted after drain");
+            assert_eq!(captured.len(), 3, "unresolved join descendant never dispatches");
+        } else {
+            let Outcome::Constant(report) = outcome.unwrap().unwrap_or_else(|failure| panic!("{}", failure.cause)) else { panic!("full original assessment required"); };
+            assert_eq!(report.components.len(), 4);
+            assert!(report.coordinates.iter().all(|(_, value)| value.is_finite()));
+            assert_eq!(captured.len(), 4);
+        }
+        let expected = expected.into_iter().filter(|columns| captured.contains(columns)).collect::<Vec<_>>();
+        assert_eq!(captured, expected, "report callbacks reduce in prepared canonical order");
+        while completed.recv().await.is_some() {}
+    }
 }

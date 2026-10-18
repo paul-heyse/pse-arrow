@@ -145,6 +145,7 @@ impl Iterations {
         self.available += grant - actual;
         Ok(())
     }
+    #[cfg(test)]
     pub(in crate::math) fn available(&self) -> u32 { self.available }
 }
 

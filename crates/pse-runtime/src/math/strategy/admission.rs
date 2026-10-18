@@ -1062,4 +1062,45 @@ mod tests {
         assert_eq!(parent.observation().unwrap().evaluations, Some(4));
     }
 
+    #[test]
+    fn simultaneous_child_admission_has_one_winner_and_reconciles_both_attempts() {
+        let mut caps = limits(); caps.evaluations = Some(1);
+        let parent = TaskAdmission::new(caps, pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None), None, false);
+        let children = [parent.child().unwrap(), parent.child().unwrap()];
+        for child in &children { child.reserve(caps, None, true).unwrap(); }
+        let start = Arc::new(std::sync::Barrier::new(3));
+        let issued = Arc::new(std::sync::Barrier::new(2));
+        let winners = std::thread::scope(|scope| {
+            let mut workers = Vec::new();
+            for (index, child) in children.into_iter().enumerate() {
+                let start = start.clone(); let issued = issued.clone();
+                workers.push(scope.spawn(move || {
+                    start.wait();
+                    let admitted = child.admit(unit()).is_ok();
+                    issued.wait(); // Neither actual operation can finish before both reservations contend.
+                    if admitted { child.observe(unit()).unwrap(); }
+                    let mut report = charge(Some(u64::from(admitted)));
+                    report.charging_owner = pse_ids::ContentHash::from_bytes([index as u8 + 1; 32]);
+                    child.complete_charge(report).unwrap();
+                    usize::from(admitted)
+                }));
+            }
+            start.wait();
+            workers.into_iter().map(|worker| worker.join().unwrap()).sum::<usize>()
+        });
+        assert_eq!(winners, 1);
+        assert_eq!(parent.observation().unwrap().evaluations, Some(1));
+        assert_eq!(parent.observation().unwrap().attempts, 2);
+    }
+    #[test]
+    fn cancelled_parent_stops_child_admission_but_observes_and_drains_issued_work() {
+        let parent = task(); let child = parent.child().unwrap();
+        child.reserve(limits(), None, true).unwrap(); child.admit(unit()).unwrap();
+        parent.scope.cancellation_control().cancel();
+        assert!(child.admit(unit()).is_err());
+        child.observe(unit()).unwrap(); child.complete_charge(charge(Some(1))).unwrap();
+        assert_eq!(parent.observation().unwrap().evaluations, Some(1));
+        assert!(parent.child().unwrap().reserve(limits(), None, true).is_err());
+    }
+
 }

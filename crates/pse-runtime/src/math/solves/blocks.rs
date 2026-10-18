@@ -27,6 +27,10 @@ pub struct PreparedBlocks {
 }
 impl PreparedBlocks {
     #[cfg(test)]
+    pub(super) fn canonical_test_columns(&self) -> Vec<Vec<pse_ids::SemanticId>> {
+        self.boundaries.iter().map(|block| block.boundary.members.columns.clone()).collect()
+    }
+    #[cfg(test)]
     pub(super) fn independent_test_chain(&self) -> (usize, usize, usize) { self.dependencies.independent_chain() }
     #[cfg(test)]
     pub(super) fn fence_completion(&mut self, slow: usize) -> (Arc<tokio::sync::Notify>, tokio::sync::mpsc::Receiver<usize>) {
@@ -816,7 +820,7 @@ impl MathService {
                     work = sum_work(work, report.evidence.work);
                     if let Err(error) = capture_component(&report) { errors.entry(index).or_insert(error); }
                     if let Some(cause) = refused.remove(&index) {
-                        if first_error.is_none() && errors.first_key_value().is_none_or(|(&other, _)| index <= other) {
+                        if first_error.is_none() && errors.first_key_value().is_none_or(|(&other, _)| index < other) {
                             component_observation = Some(super::super::strategy::observe_native(&report)); failure_cause = Some(cause);
                         }
                         errors.entry(index).or_insert(ProblemError::Unsupported("conditional block candidate refused".into()).into());
