@@ -21,8 +21,7 @@ impl Dependencies {
             total = (|| {
                 let slots = plan.structure().instances().iter().try_fold(0usize, |n, instance| n.checked_add(instance.slots.len()))?;
                 let ids = slots.checked_add(inputs.len())?.checked_add(plan.columns().len())?
-                    .checked_add(plan.structure().parameters().len())?
-                    .checked_add(plan.structure().variables().iter().filter(|variable| variable.fixed).count())?
+                    .checked_add(plan.structure().source_frozen_ids().count())?
                     .checked_add(block.inputs.len())?;
                 total.checked_add(ids.checked_mul(128)?)?.checked_add(1024)
             })().ok_or_else(|| native::ProblemError::memory("block dependency descriptor extent"))?;
@@ -197,8 +196,7 @@ impl Iterations {
 pub(in crate::math) fn consumed_inputs(plan: &pse_math::assembly::CasePlan, inputs: &[SemanticId]) -> Vec<SemanticId> {
     inputs.iter().copied().chain(plan.columns().iter().copied())
         .chain(plan.structure().instances().iter().flat_map(|instance| instance.slots.iter().map(|slot| slot.source())))
-        .chain(plan.structure().parameters().iter().map(|p| p.id))
-        .chain(plan.structure().variables().iter().filter(|v| v.fixed).map(|v| v.port.id))
+        .chain(plan.structure().source_frozen_ids())
         .collect::<BTreeSet<_>>().into_iter().collect()
 }
 

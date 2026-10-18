@@ -1169,6 +1169,7 @@ impl ValueProducts {
         values: &CaseValues,
         limit: usize,
         cancel: &Arc<AtomicBool>,
+        conditional: bool,
     ) -> Result<Self> {
         let presolve = Arc::new(plan.presolve_domain_facts(values, limit, cancel)?);
         let coefficients: Option<Arc<Coefficients>> = None;
@@ -1184,9 +1185,29 @@ impl ValueProducts {
             presolve,
             coefficients,
             facts,
-            assumptions: fixed_values(plan, values)?,
+            assumptions: binding_assumptions(plan, values, conditional)?,
         })
     }
+}
+/// Conditional proof/evaluator assumptions omit unread authored free coordinates.
+/// Every original explicit frozen declaration remains mandatory, even when unused.
+fn binding_assumptions(plan: &CasePlan, values: &CaseValues, conditional: bool) -> Result<Vec<(SemanticId, u64)>> {
+    if !conditional { return fixed_values(plan, values); }
+    plan.structure().source_frozen_ids()
+        .chain(plan.structure().instances().iter().flat_map(|instance| instance.slots.iter().map(|slot| slot.source()))
+            .filter(|id| plan.columns().binary_search(id).is_err()))
+        .collect::<BTreeSet<_>>().into_iter().map(|id| {
+            values.scalars.get(&id).map(|value| (id, value.to_bits()))
+                .ok_or_else(|| CompileError::Missing(format!("conditional frozen or consumed input {id}")))
+        }).collect()
+}
+fn validate_conditional_bindings(plan: &CasePlan, values: &CaseValues) -> Result<()> {
+    plan.structure().validate_source_frozen_values(values)?;
+    for id in plan.columns().iter().copied().chain(plan.structure().instances().iter().flat_map(|instance| instance.slots.iter().map(|slot| slot.source()))) {
+        let value = values.scalars.get(&id).copied().ok_or_else(|| CompileError::Missing(format!("conditional selected or consumed input {id}")))?;
+        plan.structure().validate_scalar(id, value)?;
+    }
+    Ok(())
 }
 /// The fixed and parameter values of `plan`, bitwise.
 fn fixed_values(plan: &CasePlan, values: &CaseValues) -> Result<Vec<(SemanticId, u64)>> {
@@ -1296,8 +1317,8 @@ impl PreparedBlock {
         values: &CaseValues,
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedCase> {
-        self.plan.structure().validate_frozen_values(values)?;
-        let bound = ValueProducts::bind(&self.plan, values, self.class_proof_work, cancel)?;
+        validate_conditional_bindings(&self.plan, values)?;
+        let bound = ValueProducts::bind(&self.plan, values, self.class_proof_work, cancel, true)?;
         Ok(PreparedCase {
             modeling_physical: None,
             class_proof_work: self.class_proof_work,

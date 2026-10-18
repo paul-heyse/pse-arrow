@@ -422,6 +422,7 @@ fn shared_conditional_bindings_keep_current_facts_and_lease_without_unread_free_
     let registry = standard_registry().unwrap();
     let mut variables = base.structure().variables().to_vec();
     let mut unread = variables[0].clone(); unread.port.id = id(8); variables.push(unread);
+    let mut frozen = variables[0].clone(); frozen.port.id = id(10); frozen.fixed = true; variables.push(frozen);
     let mut parameter = variables[0].port.clone(); parameter.id = id(9);
     let structure = Arc::new(CaseStructure::new(variables, vec![parameter],
         base.structure().instances().to_vec(), base.structure().rows().to_vec(), None,
@@ -431,15 +432,19 @@ fn shared_conditional_bindings_keep_current_facts_and_lease_without_unread_free_
         DerivativeOrder::Second, AssemblyLimits::default(), &stop.flag()).unwrap();
     let plan = Arc::new(original.conditional(&[id(2)].into_iter().collect(), &[id(1)].into_iter().collect(),
         &registry, &stop.flag()).unwrap());
-    let compact = CaseValues { scalars: BTreeMap::from([(id(1), 3.0), (id(9), 7.0)]) };
+    let compact = CaseValues { scalars: BTreeMap::from([(id(1), 3.0), (id(9), 7.0), (id(10), 4.0)]) };
     assert!(plan.structure().validate_values(&compact).is_err(), "full-universe public admission remains unchanged");
+    assert!(plan.structure().validate_frozen_values(&compact).is_err(), "effective conditional frozen admission remains unchanged");
+    assert_eq!(plan.structure().source_frozen_ids().collect::<Vec<_>>(), vec![id(9), id(10)]);
+    plan.structure().validate_source_frozen_values(&compact).unwrap();
     let facts = Arc::new(plan.presolve_domain_facts(&compact, 10000, &stop.flag()).unwrap());
     let assembly = Arc::new(plan.compile(Optimization::default(), EvaluationLimits::default(),
         &pse_kernels::ExecutionScope::new(stop.clone(), None)).unwrap());
     let worker = || assembly.worker(pse_kernels::ProviderBindings::new(), stop.clone());
-    for bad in [CaseValues { scalars: BTreeMap::from([(id(1), 3.)]) },
-        CaseValues { scalars: BTreeMap::from([(id(9), 7.)]) },
-        CaseValues { scalars: BTreeMap::from([(id(1), f64::NAN), (id(9), 7.)]) }] {
+    for bad in [CaseValues { scalars: BTreeMap::from([(id(1), 3.), (id(10), 4.)]) },
+        CaseValues { scalars: BTreeMap::from([(id(9), 7.), (id(10), 4.)]) },
+        CaseValues { scalars: BTreeMap::from([(id(1), 3.), (id(9), 7.)]) },
+        CaseValues { scalars: BTreeMap::from([(id(1), f64::NAN), (id(9), 7.), (id(10), 4.)]) }] {
         assert!(assembled::AlgebraicOracle::conditional(worker(), Arc::new(bad).into()).is_err());
     }
     #[derive(Debug)] struct Owner(Arc<std::sync::atomic::AtomicBool>);

@@ -70,7 +70,7 @@ impl AlgebraicOracle {
     /// compiled execution inputs and selected unknowns need current scalar values.
     pub fn conditional(worker: CaseWorker, values: pse_math::SharedAllocation<CaseValues>) -> Result<Self, ProblemError> {
         let assembly = worker.assembly();
-        assembly.structure().validate_frozen_values(&values)?;
+        assembly.structure().validate_source_frozen_values(&values)?;
         for id in assembly.columns().iter().chain(assembly.input_ids()) {
             let value = values.scalars.get(id).copied().ok_or_else(|| ProblemError::Contract(format!("missing conditional input {id}")))?;
             assembly.structure().validate_scalar(*id, value)?;

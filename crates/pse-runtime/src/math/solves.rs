@@ -3933,7 +3933,7 @@ impl MathService {
         profile.resolve_curvature(prepared.prepared.plan.available_order());
         profile.controls.validate()?;
         let plan = &prepared.prepared.plan;
-        plan.structure().validate_frozen_values(&values)?;
+        plan.structure().validate_source_frozen_values(&values)?;
         for id in plan.columns().iter().chain(executable.assembly.input_ids()) {
             let value = values.scalars.get(id).copied().ok_or_else(|| ProblemError::Contract(format!("missing block input {id}")))?;
             plan.structure().validate_scalar(*id, value)?;
