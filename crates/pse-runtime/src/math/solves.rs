@@ -3103,7 +3103,7 @@ impl MathService {
             pse_model::strategy::AffinePreparationFacts {
                 automatic: matches!(profile.presolve, native::presolve::Policy::Auto),
                 explicitly_requested: affine_requested,
-                nlp_possible,
+                nlp_possible: nlp_possible || profile.intent == SolveIntent::Root,
                 missing: result.prepared.presolve.affine.iter().any(Option::is_none),
             },
         ) {
@@ -5299,11 +5299,16 @@ impl MathService {
         };
         let normalization = run.normalization.clone();
         let tolerance = run.tolerances.clone();
-        // A retained root session keeps the original evaluator's allocation owner.
-        let mut base_owner = Some((_case, _charge));
+        let root_primal = if kind == execution::Representation::Roots && !matches!(profile.presolve,native::presolve::Policy::Off) {
+            let bytes=native::presolve::roots::allowance(plan.columns().len(),plan.jacobian_pattern().compute_nnz()).ok_or(MathRuntimeError::Limit("root primal transformation extent"))?;
+            Some(budget.charge(bytes)?)
+        } else { None };
+        // Retained native callbacks keep evaluator support and primal projection leases.
+        let mut base_owner = Some((_case, _charge, _root_support, root_primal));
         let mut report = if kind == execution::Representation::Roots {
             oracle.admit_nle()?;
-            execution::roots(
+            let root_bounds = native::NlpOracle::constraint_bounds(&oracle).to_vec();
+            native::presolve::roots::execute(
                 run,
                 retained,
                 execution::Roots {
@@ -5313,6 +5318,7 @@ impl MathService {
                         .take()
                         .map(|owner| -> Box<dyn std::any::Any> { Box::new(owner) }),
                 },
+                native::presolve::roots::Primal { facts: &prepared.prepared.presolve, bounds: &root_bounds, policy: &profile.presolve },
             )?
         } else {
             execution::nlp(

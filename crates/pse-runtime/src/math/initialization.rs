@@ -806,12 +806,21 @@ impl MathService {
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let columns = prepared.view.plan.columns().iter().copied().collect::<BTreeSet<_>>();
+        let proof_ids = prepared.view.plan.structure().instances().iter()
+            .flat_map(|instance| instance.slots.iter().map(|slot| slot.source()))
+            .filter(|id| !columns.contains(id)).collect::<BTreeSet<_>>();
+        let proof_values = CaseValues { scalars: proof_ids.into_iter().map(|id| {
+            value(id).filter(|v|v.is_finite()).map(|v|(id,v)).ok_or_else(||native::ProblemError::Contract("missing conditional affine assumption".into()))
+        }).collect::<Result<_,_>>()? };
         let oracle = native::assembled::AlgebraicOracle::compact(worker, value)?
             .with_structural_analysis(prepared.view.structure.clone().into())?
             .with_normalization(prepared.normalization.clone())?;
         Ok(ConditionalUnitSession {
             retained: execution::Retained::default(),
             oracle: native::assembled::SharedRootOracle::new(oracle)?,
+            proof_values,
+            budget: budget.clone(),
             initial,
             _case,
             _worker: _charge,
@@ -833,6 +842,8 @@ impl MathService {
 pub(crate) struct ConditionalUnitSession {
     retained: execution::Retained,
     oracle: native::assembled::SharedRootOracle,
+    proof_values: CaseValues,
+    budget: Arc<WorkerBudget>,
     initial: Vec<f64>,
     _case: Arc<ExecutableCase>,
     _worker: super::WorkerCharge,
@@ -874,8 +885,22 @@ impl ConditionalUnitSession {
                     .saturating_add(prepared.profile.controls.time_limit),
             );
             nested.memory = Some(prepared.foreign_bytes);
-            let report = execution::roots(
-                execution::Step {
+            for (id,value) in updates {
+                if let Some(slot)=self.proof_values.scalars.get_mut(id) { *slot=*value; }
+            }
+            let proof_bound = if matches!(prepared.profile.presolve,native::presolve::Policy::Off) { None } else {
+                prepared.view.plan.rebind_projection_allocation_bound(prepared.view.class_proof_work)?.map(|bytes| {
+                    native::presolve::roots::allowance(prepared.view.plan.columns().len(),prepared.view.plan.jacobian_pattern().compute_nnz()).and_then(|primal|bytes.checked_add(primal)).ok_or_else(||native::ProblemError::memory("conditional primal construction extent"))
+                }).transpose()?
+            };
+            let proof_charge = proof_bound.map(|bytes|self.budget.charge(bytes).map_err(MathRuntimeError::into_problem)).transpose()?;
+            let fresh = if proof_charge.is_some() {
+                let _phase=pse_diagnostics::observation::phase("initialization.affine_preparation");
+                let base=prepared.view.plan.presolve_domain_facts(&self.proof_values,prepared.view.class_proof_work,&nested.cancel)?;
+                Some(prepared.view.plan.affine_row_facts(&self.proof_values,&base,prepared.view.class_proof_work,&nested.cancel)?)
+            } else { None };
+            let root_bounds=prepared.view.plan.structure().rows().iter().map(|row|(row.lower,row.upper)).collect::<Vec<_>>();
+            let step = execution::Step {
                     adapter: execution::adapter(prepared.backend),
                     snapshot: &prepared.snapshot,
                     structure: prepared.assessment.as_ref(),
@@ -892,15 +917,16 @@ impl ConditionalUnitSession {
                         backend: prepared.backend,
                     },
                     warm: None,
-                },
-                &mut self.retained,
-                execution::Roots {
-                    oracle: Box::new(self.oracle.clone()),
-                    // Allocation retention never substitutes a previous solved root.
-                    initial: &self.initial,
-                    owner: None,
-                },
-            )?;
+                };
+            let run=execution::Roots {
+                oracle:Box::new(self.oracle.clone()), initial:&self.initial,
+                owner:proof_charge.map(|charge|->Box<dyn std::any::Any>{Box::new(charge)}),
+            };
+            let report=if let Some(facts)=fresh.as_ref() {
+                native::presolve::roots::execute(step,&mut self.retained,run,native::presolve::roots::Primal {facts,bounds:&root_bounds,policy:&prepared.profile.presolve})?
+            } else {
+                execution::roots(step,&mut self.retained,run)?
+            };
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.boolean(
                     "initialization.conditional_native_state_reused",

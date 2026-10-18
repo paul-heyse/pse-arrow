@@ -3,6 +3,7 @@
 //! Library-owned continuous NLP transformations shared by both native backends.
 mod pipeline;
 mod records;
+pub mod roots;
 #[cfg(test)]
 mod tests;
 use crate::{ProblemError, quality::Tolerances};

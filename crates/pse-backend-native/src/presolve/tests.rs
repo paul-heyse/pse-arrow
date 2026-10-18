@@ -1350,3 +1350,62 @@ fn pipeline_original_callbacks_and_fresh_validation_are_charged_once() {
         "fresh original numeric calls plus one original coordinate recovery callback"
     );
 }
+
+#[test]
+fn root_primal_affine_keeps_tiny_coefficients_bounds_and_original_inventory() {
+    let mut source=Mixed::new();
+    source.bounds[1]=(10.,10.);
+    source.facts.affine[0].as_mut().unwrap().entries.insert(0,1e-15);
+    let reduction=super::roots::plan(&source.contract,&super::roots::Primal {facts:&source.facts,bounds:&source.bounds,policy:&Policy::Auto}).unwrap().unwrap();
+    assert_eq!(reduction.n_reduced_vars(),1);
+    let mut full=vec![0.;2];
+    reduction.lift_x(&[2.],&mut full);
+    assert!((1e-15*full[0]+full[1]-4.).abs()<1e-12);
+    // Elimination transfers the eliminated original box, even at unequal scales.
+    assert!(reduction.x_l_red[0]>=0. && reduction.x_u_red[0]<=10.);
+    assert!(super::roots::plan(&source.contract,&super::roots::Primal {facts:&source.facts,bounds:&source.bounds,policy:&Policy::Off}).unwrap().is_none());
+    source.facts.structure=ContentHash::from_bytes([99;32]);
+    assert!(super::roots::plan(&source.contract,&super::roots::Primal {facts:&source.facts,bounds:&source.bounds,policy:&Policy::Auto}).is_err());
+}
+#[cfg(feature="kinsol")]
+#[derive(Debug)]
+struct RootMixed(Mixed);
+#[cfg(feature="kinsol")]
+impl crate::NleOracle for RootMixed {
+    fn contract(&self)->&OracleContract { &self.0.contract }
+    fn jacobian_pattern(&self)->faer::sparse::SymbolicSparseColMatRef<'_,usize> { self.0.j.matrix().symbolic() }
+    fn residual(&mut self,x:&[f64],out:&mut[f64])->Result<(),ProblemError> {
+        self.0.constraints(x,out)?;
+        for (v,b) in out.iter_mut().zip(&self.0.bounds) { *v-=b.0; }
+        Ok(())
+    }
+    fn jacobian(&mut self,x:&[f64],out:&mut[f64])->Result<(),ProblemError> { self.0.jacobian(x,out) }
+    fn jacobian_product(&mut self,x:&[f64],direction:&[f64],out:&mut[f64])->Result<(),ProblemError> {
+        let mut values=[0.;4];self.0.jacobian(x,&mut values)?;
+        out[0]=values[0]*direction[0]+values[2]*direction[1];out[1]=values[1]*direction[0]+values[3]*direction[1];Ok(())
+    }
+}
+#[cfg(feature="kinsol")]
+#[test]
+fn actual_root_primal_affine_recovers_original_scales_and_detects_reconstruction_failure() {
+    use crate::execution::{self,BackendSettings,Retained,Roots,Step};
+    let mut source=Mixed::new();source.bounds[1]=(10.,10.);
+    let facts=source.facts.clone();let bounds=source.bounds.clone();
+    let controls=Controls::default();let accuracy=ResolvedAccuracy::verification();let tolerances=tolerances();
+    let normalization=pse_math::normalization::Normalization {variables:vec![1e-3,1e3],rows:vec![1e-2,1e2],objective:1.};
+    let settings=BackendSettings::Kinsol(crate::settings::kinsol::Method::default());
+    let mut compatibility=stamp();compatibility.backend=Backend::Kinsol;
+    let snapshot=execution::Snapshot::observe(&execution::LINKED);
+    let mut retained=Retained::default();
+    let report=super::roots::execute(Step {adapter:execution::adapter(Backend::Kinsol),settings:&settings,snapshot:&snapshot,structure:None,controls:&controls,accuracy:&accuracy,execution:execution(),tolerances:&tolerances,normalization:&normalization,compatibility,warm:None},&mut retained,Roots {oracle:Box::new(RootMixed(source)),initial:&[0.5,3.5],owner:None},super::roots::Primal {facts:&facts,bounds:&bounds,policy:&Policy::Auto}).unwrap();
+    assert_eq!(report.metrics["root.affine.native_columns"],Metric::Integer(1));
+    assert_eq!(report.variables.len(),2);assert_eq!(report.rows.len(),2);
+    assert!(report.quality.as_ref().unwrap().feasible(),"{report:?}");
+    let point=&report.candidate.as_ref().unwrap().primal;
+    assert!((point[0]-1.).abs()<1e-7 && (point[1]-3.).abs()<1e-7);
+    // The evaluator's original domain remains authoritative after primal lifting.
+    let mut failed=Mixed::new();failed.bounds=bounds.clone();failed.fail_domain=true;
+    let mut compatibility=stamp();compatibility.backend=Backend::Kinsol;
+    let result=super::roots::execute(Step {adapter:execution::adapter(Backend::Kinsol),settings:&settings,snapshot:&snapshot,structure:None,controls:&controls,accuracy:&accuracy,execution:execution(),tolerances:&tolerances,normalization:&normalization,compatibility,warm:None},&mut retained,Roots {oracle:Box::new(RootMixed(failed)),initial:&[0.5,3.5],owner:None},super::roots::Primal {facts:&facts,bounds:&bounds,policy:&Policy::Auto});
+    assert!(result.is_err() || result.unwrap().callback_failure().is_some());
+}
