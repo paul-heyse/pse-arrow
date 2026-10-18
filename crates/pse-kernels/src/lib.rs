@@ -15,6 +15,9 @@ use std::{
 
 pub mod portable;
 mod shape;
+mod provider;
+pub use provider::{PreparedProviderRequest, ProviderBinding, ProviderBindings, ProviderBuffer,
+    ProviderCompletion, ProviderDemand, ProviderExtents, ProviderOutput, ProviderRuntime};
 pub use pse_model::generated::enums::ExternalDerivativeSource as DerivativeSource;
 pub use shape::{ProviderShape, ProviderShapes};
 
@@ -29,6 +32,8 @@ pub struct ProviderRequest {
     pub outputs: Vec<usize>,
     /// Required raw derivative order.
     pub order: DerivativeOrder,
+    /// Exact local partial or contracted derivative representation.
+    pub demand: ProviderDemand,
 }
 impl ProviderRequest {
     /// Request all outputs in registration order.
@@ -36,6 +41,7 @@ impl ProviderRequest {
         Self {
             outputs: (0..spec.outputs.len()).collect(),
             order,
+            demand: ProviderDemand::CompleteJets,
         }
     }
     /// Reject malformed demand and bounded output allocation before a library call.
@@ -46,38 +52,7 @@ impl ProviderRequest {
         spec: &ProviderSpec,
         context: &EvaluationContext<'_>,
     ) -> Result<(), ProviderError> {
-        context.check()?;
-        if self.outputs.is_empty()
-            || self.order > spec.derivatives
-            || self.order > spec.smoothness
-            || self.outputs.iter().any(|&i| i >= spec.outputs.len())
-            || self
-                .outputs
-                .iter()
-                .collect::<std::collections::BTreeSet<_>>()
-                .len()
-                != self.outputs.len()
-        {
-            return Err(ProviderError::Contract(
-                "property demand or derivative profile".into(),
-            ));
-        }
-        let n = spec.inputs.len();
-        let width = match self.order {
-            DerivativeOrder::Value => Some(1),
-            DerivativeOrder::First => n.checked_add(1),
-            DerivativeOrder::Second => n
-                .checked_mul(n)
-                .and_then(|k| k.checked_add(n))
-                .and_then(|k| k.checked_add(1)),
-        };
-        let bytes = width
-            .and_then(|k| k.checked_mul(self.outputs.len()))
-            .and_then(|k| k.checked_mul(size_of::<f64>()));
-        if bytes.is_none_or(|n| n > context.max_result_bytes) {
-            return Err(ProviderError::Limit("property result bytes"));
-        }
-        Ok(())
+        PreparedProviderRequest::new(Arc::new(spec.clone()), self.clone())?.check_context(context)
     }
 }
 
@@ -475,17 +450,21 @@ impl ProviderValues {
 }
 /// Evaluation-local provider; native scratch and scalar types stay private.
 pub trait Provider: std::fmt::Debug + Send {
-    /// Exact executable registration.
-    fn spec(&self) -> &ProviderSpec;
+    /// Product support is checked once while binding an immutable prepared request.
+    fn supports(&self, demand: &ProviderDemand) -> bool {
+        matches!(demand, ProviderDemand::CompleteJets)
+    }
     /// Compute one coherent state and requested partials.
     /// # Errors
     /// Recoverable trial rejection or terminal library failure.
-    fn evaluate(
+    fn fill(
         &mut self,
         inputs: &[f64],
-        request: &ProviderRequest,
+        request: &PreparedProviderRequest,
+        runtime: ProviderRuntime<'_>,
+        output: ProviderOutput<'_>,
         context: &EvaluationContext<'_>,
-    ) -> Result<ProviderValues, ProviderError>;
+    ) -> Result<(), ProviderError>;
 }
 /// Failure classes retained across the math and native boundaries.
 #[derive(Debug, thiserror::Error)]
@@ -665,14 +644,14 @@ pub trait ProviderFactory: std::fmt::Debug + Send + Sync {
     /// Construct fresh scratch; it must return exactly the declared provider contract.
     /// # Errors
     /// Returns the concrete provider construction failure.
-    fn create(&self) -> Result<Box<dyn Provider>, ProviderError>;
+    fn create(&self) -> Result<ProviderBinding, ProviderError>;
     /// Construct state attached to the enclosing execution's original controls.
     /// Nested providers pass this same scope recursively; no callback renews its deadline.
-    fn create_scoped(&self, scope: ExecutionScope) -> Result<Box<dyn Provider>, ProviderError> {
+    fn create_scoped(&self, scope: ExecutionScope) -> Result<ProviderBinding, ProviderError> {
         scope.check()?;
         let inner = self.create()?;
         scope.check()?;
-        Ok(Box::new(ScopedProvider { inner, scope }))
+        Ok(ProviderBinding::new(inner.spec().clone(), Box::new(ScopedProvider { inner, scope })))
     }
     /// Closed output intervals every evaluation of this provider keeps, one per output
     /// in output order: a sound envelope a global export may relax the provider to
@@ -686,21 +665,23 @@ pub trait ProviderFactory: std::fmt::Debug + Send + Sync {
 }
 #[derive(Debug)]
 struct ScopedProvider {
-    inner: Box<dyn Provider>,
+    inner: ProviderBinding,
     scope: ExecutionScope,
 }
 impl Provider for ScopedProvider {
-    fn spec(&self) -> &ProviderSpec {
-        self.inner.spec()
+    fn supports(&self, demand: &ProviderDemand) -> bool {
+        self.inner.supports(demand)
     }
-    fn evaluate(
+    fn fill(
         &mut self,
         inputs: &[f64],
-        request: &ProviderRequest,
+        request: &PreparedProviderRequest,
+        runtime: ProviderRuntime<'_>,
+        output: ProviderOutput<'_>,
         context: &EvaluationContext<'_>,
-    ) -> Result<ProviderValues, ProviderError> {
+    ) -> Result<(), ProviderError> {
         self.scope.check()?;
-        let result = self.inner.evaluate(inputs, request, context);
+        let result = self.inner.fill(inputs, request, runtime, output, context).map(|_| ());
         self.scope.check()?;
         result
     }
@@ -739,21 +720,23 @@ fn checked_envelope(
 /// [`ProviderValues::validate`] makes of them.
 #[derive(Debug)]
 struct Enveloped {
-    inner: Box<dyn Provider>,
+    inner: ProviderBinding,
     envelope: Envelope,
 }
 impl Provider for Enveloped {
-    fn spec(&self) -> &ProviderSpec {
-        self.inner.spec()
+    fn supports(&self, demand: &ProviderDemand) -> bool {
+        self.inner.supports(demand)
     }
-    fn evaluate(
+    fn fill(
         &mut self,
         inputs: &[f64],
-        request: &ProviderRequest,
+        request: &PreparedProviderRequest,
+        runtime: ProviderRuntime<'_>,
+        output: ProviderOutput<'_>,
         context: &EvaluationContext<'_>,
-    ) -> Result<ProviderValues, ProviderError> {
-        let values = self.inner.evaluate(inputs, request, context)?;
-        for (&output, &value) in request.outputs.iter().zip(&values.values) {
+    ) -> Result<(), ProviderError> {
+        let values = self.inner.fill(inputs, request, runtime, output, context)?;
+        for (&output, &value) in request.outputs.iter().zip(values.values) {
             let Some(&(lower, upper)) = self.envelope.get(output) else {
                 continue;
             };
@@ -766,14 +749,14 @@ impl Provider for Enveloped {
                 )));
             }
         }
-        Ok(values)
+        Ok(())
     }
 }
 /// Observation wraps the admitted outer product, including envelope refusal. It
 /// consumes only the requested invocation and never constructs additional trials.
 #[derive(Debug)]
 struct ObservedProvider {
-    inner: Box<dyn Provider>,
+    inner: ProviderBinding,
     observation: Option<Box<ProviderObservation>>,
     observation_operation: Option<pse_diagnostics::observation::OperationId>,
 }
@@ -841,15 +824,17 @@ impl ProviderObservation {
     }
 }
 impl Provider for ObservedProvider {
-    fn spec(&self) -> &ProviderSpec {
-        self.inner.spec()
+    fn supports(&self, demand: &ProviderDemand) -> bool {
+        self.inner.supports(demand)
     }
-    fn evaluate(
+    fn fill(
         &mut self,
         inputs: &[f64],
-        request: &ProviderRequest,
+        request: &PreparedProviderRequest,
+        runtime: ProviderRuntime<'_>,
+        output: ProviderOutput<'_>,
         context: &EvaluationContext<'_>,
-    ) -> Result<ProviderValues, ProviderError> {
+    ) -> Result<(), ProviderError> {
         let current = pse_diagnostics::observation::current();
         let operation = current
             .as_ref()
@@ -879,7 +864,7 @@ impl Provider for ObservedProvider {
             observation.order.integer(request.order as i64);
             observation.outputs.count(request.outputs.len() as u64);
         }
-        let result = self.inner.evaluate(inputs, request, context);
+        let result = self.inner.fill(inputs, request, runtime, output, context).map(|_| ());
         if let Some(observation) = &self.observation {
             observation.failed.boolean(result.is_err());
             if let Err(error) = &result {
@@ -1008,20 +993,20 @@ impl Registration {
     /// Fresh evaluation-local state, checked on every construction.
     /// # Errors
     /// Returns factory failure or a contract error when its product changes meaning.
-    pub fn worker(&self) -> Result<Box<dyn Provider>, ProviderError> {
+    pub fn worker(&self) -> Result<ProviderBinding, ProviderError> {
         self.worker_scoped(ExecutionScope::new(
             pse_diagnostics::Cancellation::default(),
             None,
         ))
     }
     /// Construct a worker with the enclosing attempt's immutable execution scope.
-    pub fn worker_scoped(&self, scope: ExecutionScope) -> Result<Box<dyn Provider>, ProviderError> {
+    pub fn worker_scoped(&self, scope: ExecutionScope) -> Result<ProviderBinding, ProviderError> {
         let observation = pse_diagnostics::observation::current();
         let _phase = observation
             .as_ref()
             .map(|context| context.phase("kernel.provider.construct"));
         let started = observation.as_ref().map(|_| Instant::now());
-        let result: Result<Box<dyn Provider>, ProviderError> = (|| {
+        let result: Result<ProviderBinding, ProviderError> = (|| {
             scope.check()?;
             if let Some(observation) = &observation {
                 observation.count("kernel.provider.constructions", "workers", 1);
@@ -1033,18 +1018,18 @@ impl Registration {
                     "factory returned a different provider contract".into(),
                 ));
             }
-            let inner: Box<dyn Provider> = match &self.envelope {
-                Some(envelope) => Box::new(Enveloped {
+            let inner = match &self.envelope {
+                Some(envelope) => ProviderBinding::new(worker.spec().clone(), Box::new(Enveloped {
                     inner: worker,
                     envelope: envelope.clone(),
-                }),
+                })),
                 None => worker,
             };
-            let observed: Box<dyn Provider> = Box::new(ObservedProvider {
+            let observed = ProviderBinding::new(inner.spec().clone(), Box::new(ObservedProvider {
                 inner,
                 observation: None,
                 observation_operation: None,
-            });
+            }));
             Ok(observed)
         })();
         if let Some(observation) = &observation {
