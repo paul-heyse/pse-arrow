@@ -2861,7 +2861,6 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
     let old_stop = Arc::downgrade(&stop);
     #[derive(Debug)]
     struct DepartingProvider {
-        spec: pse_kernels::ProviderSpec,
         dropped: Arc<AtomicBool>,
     }
     impl Drop for DepartingProvider {
@@ -2904,7 +2903,6 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
         smoothness: DerivativeOrder::Value,
     };
     let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(DepartingProvider {
-        spec: spec.clone(),
         dropped: dropped.clone(),
     }));
     let returned = Arc::new(std::sync::Mutex::new(None));

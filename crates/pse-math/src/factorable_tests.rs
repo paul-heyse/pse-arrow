@@ -506,7 +506,7 @@ fn point_arithmetic_value_projects_selected_abs_and_retains_demanded_obligations
 }
 
 #[derive(Debug)]
-struct Cube(ProviderSpec);
+struct Cube;
 impl Provider for Cube {
     fn fill(
         &mut self,
@@ -526,7 +526,7 @@ impl Provider for Cube {
     }
 }
 #[derive(Debug)]
-struct Root(ProviderSpec);
+struct Root;
 impl Provider for Root {
     fn fill(
         &mut self,
@@ -606,7 +606,7 @@ fn relaxed_rows_enclose_evaluator() {
         lower: true,
         upper: true,
     }));
-    let providers = || registered(&cube, Box::new(Cube(cube.clone())));
+    let providers = || registered(&cube, Box::new(Cube));
     let points = sample(&[(0.5, 3.0), (-1.0, 1.0)], 16, 3);
     // The relaxation admits the evaluator's value: the auxiliary at the provider output.
     assert_rows_match(&assembly, &program, &points, providers, |p| {
@@ -864,7 +864,7 @@ fn implicit_residual_exported_exactly() {
     assert_eq!(unknown.fidelity, Fidelity::Exact);
     assert_eq!(program.rows[0].fidelity, Fidelity::Exact);
     assert_eq!(program.fidelity(), Fidelity::Exact);
-    let providers = || registered(&root, Box::new(Root(root.clone())));
+    let providers = || registered(&root, Box::new(Root));
     let points = sample(&[(0.5, 3.0), (-1.0, 1.0)], 16, 5);
     assert_rows_match(&assembly, &program, &points, providers, |p| {
         vec![p[0].sqrt()]
@@ -891,7 +891,7 @@ fn implicit_residual_exported_exactly() {
         &assembly,
         &graph,
         &[vec![1.0, 0.0]],
-        || registered(&root, Box::new(Root(root.clone()))),
+        || registered(&root, Box::new(Root)),
         |_| vec![1.0],
     );
     let wrong = graph.evaluate(&[1.0, 0.0], &[-1.0]).unwrap();

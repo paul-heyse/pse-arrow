@@ -205,16 +205,17 @@ impl ProviderFactory for ObservedFactory {
     fn envelope(&self) -> Option<Vec<(f64, f64)>> {
         self.original.envelope().map(<[_]>::to_vec)
     }
-    fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
+    fn create(&self) -> Result<pse_kernels::ProviderBinding, ProviderError> {
         self.create_scoped(self.scope.clone())
     }
-    fn create_scoped(&self, scope: ExecutionScope) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
+    fn create_scoped(&self, scope: ExecutionScope) -> Result<pse_kernels::ProviderBinding, ProviderError> {
         assert!(Arc::ptr_eq(scope.cancellation(), self.scope.cancellation()));
         assert_eq!(scope.deadline(), self.scope.deadline());
         Ok(pse_kernels::ProviderBinding::new(self.spec().clone(), Box::new(ObservedProvider {
             inner: self.original.worker_scoped(scope)?,
             observations: self.observations.clone(),
             source_key: self.source_key,
+            prepared: Default::default(), completed: None,
         })))
     }
 }
@@ -223,23 +224,38 @@ struct ObservedProvider {
     inner: pse_kernels::ProviderBinding,
     observations: Observations,
     source_key: ProviderKey,
+    prepared: [Option<(pse_kernels::PreparedProviderRequest, pse_kernels::ProviderBuffer)>; 3],
+    completed: Option<pse_ids::ContentHash>,
 }
 impl Provider for ObservedProvider {
+    fn supports(&self, _: &pse_kernels::ProviderDemand) -> bool { self.inner.supports(&pse_kernels::ProviderDemand::CompleteJets) }
+    fn supports_linearization(&self) -> bool { self.inner.supports_linearization() }
+    fn completed_linearization(&self) -> Option<pse_ids::ContentHash> { self.completed }
+    fn prepare_demand(&mut self, request: &pse_kernels::PreparedProviderRequest) -> Result<(), ProviderError> {
+        let slot = request.order as usize;
+        if self.prepared[slot].is_none() {
+            let all = self.inner.prepare(ProviderRequest::all(self.inner.spec(), request.order))?;
+            let buffer = pse_kernels::ProviderBuffer::new(&all);
+            self.prepared[slot] = Some((all, buffer));
+        }
+        Ok(())
+    }
     fn fill(
         &mut self,
         inputs: &[f64],
         request: &pse_kernels::PreparedProviderRequest,
         _runtime: pse_kernels::ProviderRuntime<'_>,
-        mut output: pse_kernels::ProviderOutput<'_>,
-        context: &pse_kernels::EvaluationContext<'_>,
-    ) -> Result<(), pse_kernels::ProviderError> {
+        output: pse_kernels::ProviderOutput<'_>,
+        context: &EvaluationContext<'_>,
+    ) -> Result<(), ProviderError> {
         request.check_context(context)?;
-        // The implicit factory already computes the full root jet before projecting.
-        // Requesting all outputs observes that jet; it adds no perturbed inner solve.
-        let all = self.inner.prepare(ProviderRequest::all(self.inner.spec(), request.order))?;
+        self.completed = None;
+        // This qualification owner explicitly consumes all root partials to assess
+        // defining-equation backward errors. Its finite demand is prepared before callbacks.
+        let (all, buffer) = self.prepared[request.order as usize].as_mut()
+            .ok_or_else(|| ProviderError::Contract("unprepared PR dense observation demand".into()))?;
         all.check_context(context)?;
-        let mut buffer = pse_kernels::ProviderBuffer::new(&all);
-        let full = buffer.fill(&mut self.inner, inputs, &all, _runtime, context)?;
+        let full = buffer.fill(&mut self.inner, inputs, all, pse_kernels::ProviderRuntime::default(), context)?;
         let mut observations = self
             .observations
             .lock()
@@ -264,25 +280,48 @@ impl Provider for ObservedProvider {
         }
         drop(observations);
         let n = self.inner.spec().inputs.len();
-        let mut projected = ProviderValues {
-            values: Vec::new(),
-            jacobian: Vec::new(),
-            hessians: Vec::new(),
-        };
-        for &output in &request.outputs {
-            projected.values.push(full.values[output]);
-            if request.order >= DerivativeOrder::First {
-                projected
-                    .jacobian
-                    .extend_from_slice(&full.jacobian[output * n..(output + 1) * n]);
+        use pse_kernels::ProviderDemand;
+        for (row, &original) in request.outputs.iter().enumerate() { output.values[row] = full.values[original]; }
+        match &request.demand {
+            ProviderDemand::CompleteJets => {
+                for (row, &original) in request.outputs.iter().enumerate() {
+                    if request.order >= DerivativeOrder::First { output.jacobian[row*n..(row+1)*n].copy_from_slice(&full.jacobian[original*n..(original+1)*n]); }
+                    if request.order >= DerivativeOrder::Second { output.hessians[row*n*n..(row+1)*n*n].copy_from_slice(&full.hessians[original*n*n..(original+1)*n*n]); }
+                }
             }
-            if request.order >= DerivativeOrder::Second {
-                projected
-                    .hessians
-                    .extend_from_slice(&full.hessians[output * n * n..(output + 1) * n * n]);
+            ProviderDemand::SelectedColumns { columns } => {
+                let k = columns.len();
+                for (row, &original) in request.outputs.iter().enumerate() { for (i, &axis) in columns.iter().enumerate() {
+                    output.jacobian[row*k+i] = full.jacobian[original*n+axis];
+                    if request.order >= DerivativeOrder::Second { for (j, &other) in columns.iter().enumerate() {
+                        output.hessians[(row*k+i)*k+j] = full.hessians[(original*n+axis)*n+other];
+                    } }
+                } }
+            }
+            ProviderDemand::JacobianAction { directions } => {
+                for (row, &original) in request.outputs.iter().enumerate() { for d in 0..*directions {
+                    output.jacobian[row*directions+d] = (0..n).map(|i| full.jacobian[original*n+i]*_runtime.directions[d*n+i]).sum();
+                } }
+            }
+            ProviderDemand::TransposeAction { cotangents } => {
+                for c in 0..*cotangents { for i in 0..n {
+                    output.jacobian[c*n+i] = request.outputs.iter().enumerate().map(|(row, &original)| _runtime.cotangents[c*request.outputs.len()+row]*full.jacobian[original*n+i]).sum();
+                } }
+            }
+            ProviderDemand::WeightedSecondAction { directions } => {
+                for i in 0..n {
+                    output.jacobian[i] = request.outputs.iter().enumerate().map(|(row, &original)| _runtime.weights[row]*full.jacobian[original*n+i]).sum();
+                    for d in 0..*directions {
+                        output.hessians[i*directions+d] = request.outputs.iter().enumerate().map(|(row, &original)| _runtime.weights[row]*(0..n).map(|j|full.hessians[(original*n+i)*n+j]*_runtime.directions[d*n+j]).sum::<f64>()).sum();
+                    }
+                }
             }
         }
-        output.copy_from(&projected)
+        self.completed = full.linearization.map(|token| {
+            let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::ProviderConfigurationV1);
+            token.frame(&mut hash); hash.finish_hash()
+        });
+        Ok(())
     }
 }
 
@@ -1436,11 +1475,11 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
 // Test-only dense assessment boundary: copy only a successfully completed fill.
 #[cfg(test)]
 fn completed_provider_values(provider: &mut pse_kernels::ProviderBinding, inputs: &[f64],
-    request: &pse_kernels::ProviderRequest, context: &pse_kernels::EvaluationContext<'_>)
-    -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+    request: &ProviderRequest, context: &EvaluationContext<'_>)
+    -> Result<ProviderValues, ProviderError> {
     let prepared = provider.prepare(request.clone())?;
     prepared.check_context(context)?;
     let mut buffer = pse_kernels::ProviderBuffer::new(&prepared);
     let completed = buffer.fill(provider, inputs, &prepared, pse_kernels::ProviderRuntime::default(), context)?;
-    Ok(pse_kernels::ProviderValues { values: completed.values.to_vec(), jacobian: completed.jacobian.to_vec(), hessians: completed.hessians.to_vec() })
+    Ok(ProviderValues { values: completed.values.to_vec(), jacobian: completed.jacobian.to_vec(), hessians: completed.hessians.to_vec() })
 }

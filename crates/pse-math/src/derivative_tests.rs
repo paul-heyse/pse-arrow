@@ -1012,7 +1012,6 @@ fn numerica_raw_diagonal_mixed_and_multi_output_derivatives() {
 
 #[derive(Debug)]
 struct Cubic {
-    spec: ProviderSpec,
     calls: Arc<AtomicUsize>,
 }
 impl Provider for Cubic {
@@ -1074,7 +1073,6 @@ fn provider() -> (ProviderSpec, ProviderBinding, Arc<AtomicUsize>) {
     (
         spec.clone(),
         ProviderBinding::new(spec.clone(), Box::new(Cubic {
-            spec,
             calls: calls.clone(),
         })),
         calls,
@@ -1124,7 +1122,6 @@ fn domain_predicates_use_value_only_providers_and_remain_demand_scoped() {
     let cancel = control.flag();
     let key = spec.key();
     let provider = ProviderBinding::new(spec.clone(), Box::new(Cubic {
-        spec,
         calls: calls.clone(),
     }));
     let mut workers = ProviderBindings::from([(key, provider)]);
@@ -1442,9 +1439,7 @@ fn parameter_only_switches_preserve_all_branch_support() {
 fn multi_input_provider_lift_preserves_mixed_raw_partials() {
     crate::initialize().unwrap();
     #[derive(Debug)]
-    struct Product {
-        spec: ProviderSpec,
-    }
+    struct Product;
     impl Provider for Product {
             fn fill(
             &mut self,
@@ -1493,7 +1488,7 @@ fn multi_input_provider_lift_preserves_mixed_raw_partials() {
         vec![4],
         DerivativeOrder::Second,
     );
-    let provider = ProviderBinding::new(spec.clone(), Box::new(Product { spec }));
+    let provider = ProviderBinding::new(spec.clone(), Box::new(Product));
     let mut providers: ProviderBindings = ProviderBindings::from([(key, provider)]);
     let v = body
         .worker()
@@ -1523,7 +1518,6 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
     }
     #[derive(Debug)]
     struct Properties {
-        spec: ProviderSpec,
         requests: Arc<std::sync::Mutex<Vec<ProviderRequest>>>,
     }
     impl Provider for Properties {
@@ -1569,7 +1563,6 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
         }
         fn create(&self) -> Result<ProviderBinding, ProviderError> {
             Ok(ProviderBinding::new(self.spec().clone(), Box::new(Properties {
-                spec: self.spec.clone(),
                 requests: self.requests.clone(),
             })))
         }
@@ -2040,7 +2033,6 @@ fn selected_provider_demand_matches_fixed_coordinate_program_and_authored_partia
         .unwrap()
         .worker();
     let selected_provider = ProviderBinding::new(spec.clone(), Box::new(Cubic {
-        spec: spec.clone(),
         calls: calls.clone(),
     }));
     let mut providers = ProviderBindings::from([(spec.key(), selected_provider)]);
@@ -2197,7 +2189,6 @@ fn selected_output_availability_and_incidence_ignore_unrelated_value_provider() 
     );
     let calls = Arc::new(AtomicUsize::new(0));
     let provider = ProviderBinding::new(spec.clone(), Box::new(Cubic {
-        spec,
         calls: calls.clone(),
     }));
     let mut providers = ProviderBindings::from([(provider.spec().key(), provider)]);
@@ -2683,7 +2674,6 @@ fn conditional_block_keeps_actual_guard_provider_execution_inputs() {
             .unwrap(),
     );
     let selected_provider = ProviderBinding::new(spec.clone(), Box::new(Cubic {
-        spec: spec.clone(),
         calls: calls.clone(),
     }));
     let providers = ProviderBindings::from([(spec.key(), selected_provider)]);

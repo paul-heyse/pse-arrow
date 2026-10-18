@@ -54,6 +54,12 @@ impl Drop for Lane {
         }
     }
 }
+// Keep resident owners alive until every already-started lane has drained.
+fn drain_failed_startup(peers: &mut Vec<Lane>, request: SyncSender<Request>, joined: JoinHandle<()>) {
+    drop(request);
+    let _ = joined.join();
+    peers.clear();
+}
 /// Idle threads keep their original evaluator/provider owners and charged resident
 /// memory. They receive at most one bounded wave while the parent lends active compute.
 pub(super) struct ExperimentTeam {
@@ -111,6 +117,7 @@ impl ExperimentTeam {
             let mut lanes = Vec::with_capacity(count);
             for lane in 0..count {
                 let (tx, rx) = mpsc::sync_channel::<Request>(1);
+                let (ready, preparation) = mpsc::sync_channel::<Result<(), ProblemError>>(1);
                 let problem = problem.clone();
                 let execution = execution.clone();
                 let runtime = runtime.clone();
@@ -130,6 +137,27 @@ impl ExperimentTeam {
                         let mut transient: Vec<
                             Option<crate::workflow::dynamics::DynamicWorker>,
                         > = (0..problem.experiments.len()).map(|_| None).collect();
+                        // Prepare only this lane's finite assigned experiment set on its
+                        // actual owner, before the enclosing native fit can attach callbacks.
+                        let mut prepare = || -> Result<(), ProblemError> {
+                            for ei in (lane..problem.experiments.len()).step_by(count) {
+                                match &problem.experiments[ei] {
+                                    Experiment::Steady(s) => steady[ei] = Some(oracle::prepare_steady_worker(s, &execution)?),
+                                    #[cfg(feature = "solver-diffsol")]
+                                    Experiment::Transient(s) => transient[ei] = Some(s.worker(&execution)?),
+                                    #[cfg(not(feature = "solver-diffsol"))]
+                                    Experiment::Transient(_) => {}
+                                }
+                                #[cfg(all(test, feature = "solver-diffsol"))]
+                                observed_constructions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            }
+                            Ok(())
+                        };
+                        let prepared = catch_unwind(AssertUnwindSafe(|| native::execution::original_scoped(&execution, || {
+                            match &constructor { Some(owner) => pse_math::construction::scoped(owner.clone(), prepare), None => prepare() }
+                        }))).unwrap_or_else(|_| Err(ProblemError::internal("fit experiment lane preparation panicked")));
+                        let succeeded = prepared.is_ok();
+                        if ready.send(prepared).is_err() || !succeeded { return; }
                         while let Ok(request) = rx.recv() {
                             // A retained lane receives the context of each actual wave,
                             // rather than retaining the operation that created the team.
@@ -158,14 +186,6 @@ impl ExperimentTeam {
                                 let _ = gate.wait();
                             }
                             for (ei, previous) in request.experiments {
-                                #[cfg(all(test, feature = "solver-diffsol"))]
-                                let constructing = match &problem.experiments[ei] {
-                                    Experiment::Steady(_) => steady[ei].is_none(),
-                                    #[cfg(feature = "solver-diffsol")]
-                                    Experiment::Transient(_) => transient[ei].is_none(),
-                                    #[cfg(not(feature = "solver-diffsol"))]
-                                    Experiment::Transient(_) => false,
-                                };
                                 let mut work = || {
                                     evaluate_experiment(
                                         &problem,
@@ -195,16 +215,17 @@ impl ExperimentTeam {
                                 .unwrap_or_else(|_| {
                                     Err(ProblemError::internal("fit experiment lane panicked"))
                                 });
-                                #[cfg(all(test, feature = "solver-diffsol"))]
-                                if constructing && result.is_ok() {
-                                    observed_constructions
-                                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                                }
-                                if result.is_err() {
-                                    steady[ei] = None;
-                                    #[cfg(feature = "solver-diffsol")]
-                                    {
-                                        transient[ei] = None;
+                                if let Err(cause) = &result {
+                                    if native::callback::classify(cause) == native::callback::Failure::Trial {
+                                        if let Some(worker) = &mut steady[ei] { worker.invalidate_trial(); }
+                                        #[cfg(feature = "solver-diffsol")]
+                                        if let Some(worker) = &mut transient[ei] { worker.invalidate_trial(); }
+                                    } else {
+                                        // Unknown/terminal native validity is not reset by inference.
+                                        // A later callback refuses this owner and requires a fresh fit attempt.
+                                        steady[ei] = None;
+                                        #[cfg(feature = "solver-diffsol")]
+                                        { transient[ei] = None; }
                                     }
                                 }
                                 if request.reply.send((ei, result)).is_err() {
@@ -226,6 +247,11 @@ impl ExperimentTeam {
                     .map_err(|e| {
                         ProblemError::internal(format!("fit experiment lane creation: {e}"))
                     })?;
+                let prepared = preparation.recv().unwrap_or_else(|_| Err(ProblemError::internal("fit experiment lane stopped during preparation")));
+                if let Err(cause) = prepared {
+                    drain_failed_startup(&mut lanes, tx, joined);
+                    return Err(cause);
+                }
                 lanes.push(Lane {
                     request: Some(tx),
                     joined: Some(joined),
@@ -369,5 +395,39 @@ mod tests {
             assert_eq!(BORROWED_CAPACITY.with(std::cell::Cell::get), Some(4));
         });
         assert_eq!(BORROWED_CAPACITY.with(std::cell::Cell::get), None);
+    }
+}
+
+#[cfg(test)]
+mod startup_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    fn waiting_lane() -> (SyncSender<Request>, JoinHandle<()>, Arc<AtomicBool>) {
+        let (request, incoming) = mpsc::sync_channel::<Request>(1);
+        let drained = Arc::new(AtomicBool::new(false));
+        let observed = drained.clone();
+        let joined = std::thread::spawn(move || {
+            assert!(incoming.recv().is_err());
+            observed.store(true, Ordering::Release);
+        });
+        (request, joined, drained)
+    }
+    #[test]
+    fn fitting_failed_lane_startup_drains_current_and_all_started_peers() {
+        let mut peers = Vec::new();
+        let mut completed = Vec::new();
+        for _ in 0..3 {
+            let (request, joined, drained) = waiting_lane();
+            completed.push(drained);
+            peers.push(Lane { request: Some(request), joined: Some(joined),
+                #[cfg(feature = "solver-diffsol")]
+                constructions: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            });
+        }
+        let (request, joined, drained) = waiting_lane();
+        completed.push(drained);
+        drain_failed_startup(&mut peers, request, joined);
+        assert!(peers.is_empty());
+        assert!(completed.iter().all(|lane| lane.load(Ordering::Acquire)), "startup failure returns only after every actual thread drains");
     }
 }

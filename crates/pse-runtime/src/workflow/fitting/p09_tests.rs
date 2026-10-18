@@ -3032,6 +3032,8 @@ async fn fitting_parallel_experiments_keep_order_and_owner_affine_workers() {
                 .as_mut()
                 .expect("fixture admits two independent lanes");
             team.require_concurrent_test_wave();
+            assert_eq!(oracle.team.as_ref().unwrap().test_constructions(), vec![1, 1],
+                "assigned experiment owners are prepared before the first callback");
             let value = oracle.objective(&[2.5]).unwrap();
             assert!((value - 1.25).abs() < 1e-6);
             assert_eq!(

@@ -4089,7 +4089,7 @@ mod tests {
             pse_backend_native::solve::Execution::new(construction, &prepared.profile.controls);
         let worker = executable
             .assembly
-            .worker_scoped(BTreeMap::new(), execution.scope().unwrap());
+            .worker_scoped(pse_kernels::ProviderBindings::new(), execution.scope().unwrap());
         let mut oracle = pse_backend_native::assembled::AlgebraicOracle::new(
             worker,
             prepared.model.values.clone(),
@@ -4409,7 +4409,7 @@ mod tests {
         );
         let worker = executable
             .assembly
-            .worker_scoped(BTreeMap::new(), execution.scope().unwrap());
+            .worker_scoped(pse_kernels::ProviderBindings::new(), execution.scope().unwrap());
         let mut oracle = pse_backend_native::assembled::AlgebraicOracle::new(
             worker,
             resolved.model.values.clone(),

@@ -118,7 +118,7 @@ fn requested_weighted_product_preserves_value_domain_without_materializing_unuse
 #[test]
 fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal() {
     use pse_ids::ContentHash;
-    use pse_kernels::{DerivativeSource, Port, ProviderError, ProviderShapes, ProviderValues};
+    use pse_kernels::{DerivativeSource, Port, ProviderError, ProviderShapes};
     use std::sync::atomic::AtomicUsize;
     #[derive(Debug)]
     struct Square {
@@ -126,35 +126,27 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
         calls: Arc<AtomicUsize>,
     }
     impl Provider for Square {
-            fn fill(
-            &mut self,
-            inputs: &[f64],
-            request: &PreparedProviderRequest,
-            _runtime: ProviderRuntime<'_>,
-            mut output: pse_kernels::ProviderOutput<'_>,
-            context: &EvaluationContext<'_>,
-        ) -> Result<(), ProviderError> {
+        fn supports(&self, _: &pse_kernels::ProviderDemand) -> bool { true }
+        fn supports_linearization(&self) -> bool { true }
+        fn completed_linearization(&self) -> Option<ContentHash> { Some(self.spec.revision) }
+        fn fill(&mut self, inputs: &[f64], request: &PreparedProviderRequest, runtime: ProviderRuntime<'_>,
+            output: pse_kernels::ProviderOutput<'_>, context: &EvaluationContext<'_>) -> Result<(), ProviderError> {
             request.check_context(context)?;
             self.calls.fetch_add(1, Ordering::Relaxed);
-            if inputs[0] < 0. {
-                return Err(ProviderError::Trial(
-                    "original provider's selected domain".into(),
-                ));
-            }
+            if inputs[0] < 0. { return Err(ProviderError::Trial("original provider's selected domain".into())); }
             assert_eq!(request.outputs, [0]);
-            output.copy_from(&ProviderValues {
-                values: vec![inputs[0] * inputs[0]],
-                jacobian: if request.order >= DerivativeOrder::First {
-                    vec![2. * inputs[0]]
-                } else {
-                    Vec::new()
-                },
-                hessians: if request.order >= DerivativeOrder::Second {
-                    vec![2.]
-                } else {
-                    Vec::new()
-                },
-            })
+            output.values[0] = inputs[0] * inputs[0];
+            output.jacobian.fill(2. * inputs[0]); output.hessians.fill(2.);
+            use pse_kernels::ProviderDemand;
+            match request.demand {
+                ProviderDemand::JacobianAction { .. } => output.jacobian[0] *= runtime.directions[0],
+                ProviderDemand::TransposeAction { .. } => output.jacobian[0] *= runtime.cotangents[0],
+                ProviderDemand::WeightedSecondAction { .. } => {
+                    output.jacobian[0] *= runtime.weights[0]; output.hessians[0] *= runtime.weights[0] * runtime.directions[0];
+                }
+                _ => {}
+            }
+            Ok(())
         }
     }
     crate::initialize().unwrap();
@@ -222,7 +214,7 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
             .find(|order| order.order == DerivativeOrder::Second)
             .unwrap();
         assert!(!census.direct_weighted);
-        assert_eq!(census.provider_stages, 1);
+        assert_eq!(census.provider_stages, if kind == ProductKind::WeightedHessianAction { 3 } else { 1 });
         let calls = Arc::new(AtomicUsize::new(0));
         let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Square {
             spec: spec.clone(),

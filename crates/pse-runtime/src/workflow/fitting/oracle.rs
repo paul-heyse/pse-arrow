@@ -154,6 +154,12 @@ struct RankDiagnostic {
 fn error(message: impl Into<String>) -> ProblemError {
     ProblemError::Contract(message.into())
 }
+pub(super) fn prepare_steady_worker(s: &Steady, execution: &Execution) -> Result<CaseWorker, ProblemError> {
+    let providers = crate::math::attempt_providers(&s.providers, &execution.scope()?).map_err(ProblemError::Provider)?;
+    let mut worker = s.case.assembly.worker_scoped(providers, execution.scope()?);
+    worker.prepare_providers()?;
+    Ok(worker)
+}
 impl FitOracle {
     pub(super) fn new(
         p: impl Into<Arc<FitProblem>>,
@@ -165,18 +171,14 @@ impl FitOracle {
         let workers = p
             .experiments
             .iter()
-            .map(|e| match e {
-                Experiment::Steady(_) if team.is_some() => Ok(None),
+            .enumerate()
+            .map(|(ei, e)| match e {
+                Experiment::Steady(_) if team.is_some() && p.layout.mappings[ei].hessian.is_empty() => Ok(None),
                 Experiment::Steady(s) => {
                     if let Some(context) = pse_diagnostics::observation::current() {
                         context.count("fit.experiment_worker_constructions", "count", 1);
                     }
-                    let providers =
-                        crate::math::attempt_providers(&s.providers, &execution.scope()?)
-                            .map_err(ProblemError::Provider)?;
-                    let mut worker = s.case.assembly.worker_scoped(providers, execution.scope()?);
-                    worker.prepare_providers()?;
-                    Ok(Some(worker))
+                    prepare_steady_worker(s, &execution).map(Some)
                 }
                 Experiment::Transient(_) => Ok(None),
             })
@@ -187,7 +189,7 @@ impl FitOracle {
             .iter()
             .map(|experiment| match experiment {
                 Experiment::Steady(_) => Ok(None),
-                Experiment::Transient(_) if team.is_some() => Ok(None),
+                Experiment::Transient(_) if team.is_some() && p.profile.solver.controls.hessian != HessianMode::Exact => Ok(None),
                 Experiment::Transient(s) => {
                     if let Some(context) = pse_diagnostics::observation::current() {
                         context.count("fit.experiment_worker_constructions", "count", 1);
@@ -639,7 +641,7 @@ impl FitOracle {
             context.count("fit.transient_curvature_integrations", "count", 1);
         }
         if self.transient_workers[ei].is_none() {
-            self.transient_workers[ei] = Some(s.worker(&self.execution)?);
+            return Err(ProblemError::internal("transient curvature owner unavailable; construct a new fit attempt"));
         }
         let outputs = s.program.contract.outputs.len();
         let mut cotangent =
@@ -905,12 +907,7 @@ impl NlpOracle for FitOracle {
                 values.scalars.insert(id, x[c.get()]);
             }
             if self.workers[ei].is_none() {
-                let providers =
-                    crate::math::attempt_providers(&s.providers, &self.execution.scope()?)
-                        .map_err(ProblemError::Provider)?;
-                let mut worker = s.case.assembly.worker_scoped(providers, self.execution.scope()?);
-                worker.prepare_providers()?;
-                self.workers[ei] = Some(worker);
+                return Err(ProblemError::internal("steady curvature owner unavailable; construct a new fit attempt"));
             }
             let local = self.workers[ei]
                 .as_mut()
@@ -1768,23 +1765,10 @@ pub(super) fn evaluate_experiment(
             Experiment::Steady(s) => {
                 if let Some(context) = pse_diagnostics::observation::current() {
                     context.text("fit.experiment_kind", "steady");
-                    context.count(
-                        if steady.is_none() {
-                            "fit.experiment_worker_constructions"
-                        } else {
-                            "fit.experiment_worker_reuses"
-                        },
-                        "count",
-                        1,
-                    );
+                    context.count("fit.experiment_worker_reuses", "count", 1);
                 }
                 if steady.is_none() {
-                    let providers =
-                        crate::math::attempt_providers(&s.providers, &execution.scope()?)
-                            .map_err(ProblemError::Provider)?;
-                    let mut worker = s.case.assembly.worker_scoped(providers, execution.scope()?);
-                    worker.prepare_providers()?;
-                    *steady = Some(worker);
+                    return Err(ProblemError::internal("steady experiment owner unavailable; construct a new fit attempt"));
                 }
                 let worker = steady
                     .as_mut()
@@ -1852,7 +1836,7 @@ pub(super) fn evaluate_experiment(
                         );
                     }
                     if transient.is_none() {
-                        *transient = Some(s.worker(execution)?);
+                        return Err(ProblemError::internal("transient experiment owner unavailable; construct a new fit attempt"));
                     }
                     let report = if combined {
                         let (report, contributions) = FitOracle::transient_gradient(

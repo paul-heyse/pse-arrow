@@ -849,6 +849,25 @@ pub(crate) struct DynamicWorker {
     observed_layout: Option<Arc<native::AnchoredLayout>>,
 }
 impl DynamicWorker {
+    /// Discard trial-derived numerical validity while retaining prepared mathematical owners.
+    /// Native integration history is invocation-owned and is never retained here.
+    #[cfg(feature = "solver-diffsol")]
+    pub(crate) fn invalidate_trial(&mut self) {
+        for function in self.functions.values_mut() {
+            function.worker.invalidate_trial();
+            function.cache = None;
+            function.jacobian = None;
+            function.values.fill(f64::NAN);
+            function.key.clear();
+            function.actions.seed.fill(f64::NAN);
+            function.actions.local.fill(f64::NAN);
+            function.actions.multipliers.fill(f64::NAN);
+            function.actions.physical.fill(f64::NAN);
+        }
+        for mode in &mut self.modes {
+            if let Some(guard) = &mut mode.guard { guard.worker.invalidate_trial(); }
+        }
+    }
     /// Borrow an anchored view without retaining native integration history. Plain
     /// views forward the base Arc; the observed quadrature transform is prepared
     /// only on first actual adjoint demand and remains owned by this lane.

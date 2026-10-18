@@ -25,8 +25,7 @@ use crate::{
 };
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::{
-    AdmittedProvider, DerivativeOrder, EvaluationContext, Port, Provider, ProviderError,
-    ProviderKey, ProviderRequest, ProviderSpec, ProviderValues,
+    AdmittedProvider, DerivativeOrder, Port, Provider, ProviderSpec, ProviderValues,
 };
 use pse_math::{
     Function,
@@ -1071,7 +1070,7 @@ fn fixed_assignment_resolve_keeps_local_analysis() {
 }
 
 #[derive(Debug)]
-struct Cube(ProviderSpec);
+struct Cube;
 impl Provider for Cube {
     fn fill(
         &mut self,
@@ -1107,7 +1106,7 @@ fn cube_providers() -> pse_kernels::ProviderBindings {
     let registry = standard_registry().unwrap();
     let spec = cube_spec(&registry);
     let key = spec.key();
-    let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Cube(spec)));
+    let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Cube));
     pse_kernels::ProviderBindings::from([(key, provider)])
 }
 
