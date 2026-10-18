@@ -5055,7 +5055,6 @@ fn evaluate_stages(
     observations: &mut Vec<ApplicabilityWitness>,
     spare_witnesses: &mut Vec<ApplicabilityWitness>,
 ) -> Result<(), MathError> {
-    let width = layout.width();
     for stage in stages {
         if context.cancelled.load(Ordering::Relaxed) {
             return Err(MathError::Cancelled);
@@ -6425,7 +6424,7 @@ mod compact_tests {
         let result = eval(&mut program.worker(), &inputs, DerivativeOrder::First).unwrap();
         assert_eq!(result.values, vec![1.; 128]);
         let packed = program.worker().evaluate_trial(
-            &inputs, DerivativeOrder::First, &mut BTreeMap::new(),
+            &inputs, DerivativeOrder::First, &mut ProviderBindings::default(),
             &Arc::new(AtomicBool::new(false)),
         ).unwrap();
         assert_eq!(packed.first.len(), 256, "two supported firsts per residual, rather than 128 times 257");
@@ -6618,13 +6617,13 @@ mod compact_tests {
             &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
         ).unwrap();
         let mut worker = program.worker();
-        let zero = worker.evaluate_trial(&[0., 3., 4.], DerivativeOrder::Second, &mut BTreeMap::new(),
+        let zero = worker.evaluate_trial(&[0., 3., 4.], DerivativeOrder::Second, &mut ProviderBindings::default(),
             &Arc::new(AtomicBool::new(false))).unwrap();
         assert_eq!(zero.first, [0.]);
         assert_eq!(zero.first_entries(0).collect::<Vec<_>>(), [(1, 0.)]);
         assert!(zero.first_entries(1).next().is_none());
         assert_eq!(zero.clone().into_evaluation().jacobian, [0.; 6]);
-        let positive = worker.evaluate_trial(&[2., 3., 4.], DerivativeOrder::Second, &mut BTreeMap::new(),
+        let positive = worker.evaluate_trial(&[2., 3., 4.], DerivativeOrder::Second, &mut ProviderBindings::default(),
             &Arc::new(AtomicBool::new(false))).unwrap();
         assert_eq!(positive.first, [4.]);
         assert_eq!(positive.into_evaluation().jacobian, [0., 4., 0., 0., 0., 0.]);
@@ -6702,6 +6701,58 @@ mod compact_tests {
         worker.set_scope(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
         assert_eq!(eval(&mut worker, &[2., 3., 1.], DerivativeOrder::Second).unwrap(),
             eval(&mut program.worker(), &[2., 3., 1.], DerivativeOrder::Second).unwrap());
+    }
+
+    #[test]
+    fn dense_and_dependent_first_regions_keep_their_qualified_taylor_route() {
+        crate::initialize().unwrap();
+        let variables = (0..3).map(|slot| library::formal(slot).unwrap()).collect::<Vec<_>>();
+        let sum = variables.iter().fold(Atom::num(0), |sum, x| sum + x);
+        let dense = PreparedBody::new(3, 5, vec![3, 4], vec![Stage::Block {
+            expressions: vec![&sum * &sum, &sum * &sum * &sum], outputs: vec![3, 4], source: SemanticId::NIL,
+        }], DerivativeOrder::First).unwrap().compile(&[0, 1], &[0, 1, 2], DerivativeOrder::First,
+            Optimization::default(), EvaluationLimits::default(),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None)).unwrap();
+        assert_eq!(dense.scalar_builds, 1, "dense firsts do not introduce an alternative scalar construction");
+        let counts = dense.census().find(|c| c.order == DerivativeOrder::First).unwrap();
+        assert_eq!((counts.arithmetic_input_entries, counts.arithmetic_output_entries), (12, 8));
+        assert_eq!(eval(&mut dense.worker(), &[1., 2., 3.], DerivativeOrder::First).unwrap().jacobian,
+            [12., 12., 12., 108., 108., 108.]);
+        let intermediate = library::formal(2).unwrap();
+        let dependent = PreparedBody::new(2, 4, vec![3], vec![
+            Stage::Block { expressions: vec![&variables[0] * &variables[0]], outputs: vec![2], source: SemanticId::NIL },
+            Stage::Block { expressions: vec![intermediate * &variables[1]], outputs: vec![3], source: SemanticId::NIL },
+        ], DerivativeOrder::First).unwrap();
+        let dependent = compiled(&dependent, &[0, 1], DerivativeOrder::First);
+        let result = eval(&mut dependent.worker(), &[2., 3.], DerivativeOrder::First).unwrap();
+        assert_eq!(result.values, [12.]);
+        assert_eq!(result.jacobian, [12., 4.]);
+    }
+
+    #[cfg(feature = "compiled-evaluator")]
+    #[test]
+    fn native_compact_selected_firsts_retain_original_value_checks_and_recover() {
+        crate::initialize().unwrap();
+        let expressions = (0..4).map(|slot| { let x = library::formal(slot).unwrap(); &x * &x }).collect();
+        let body = PreparedBody::new(8, 12, (8..12).collect(), vec![Stage::Block {
+            expressions, outputs: (8..12).collect(), source: SemanticId::NIL,
+        }], DerivativeOrder::First).unwrap();
+        let program = body.compile(&(0..4).collect::<Vec<_>>(), &(0..8).collect::<Vec<_>>(), DerivativeOrder::First,
+            Optimization { evaluator: library::Evaluator::CompiledScalar { module_bytes: 1 << 20 }, ..Optimization::default() },
+            EvaluationLimits::default(), &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None)).unwrap();
+        let counts = program.census().find(|c| c.order == DerivativeOrder::First).unwrap();
+        assert_eq!((counts.arithmetic_input_entries, counts.arithmetic_output_entries), (4, 8));
+        let mut worker = program.worker();
+        let mut point = vec![2.; 8];
+        let expected = eval(&mut worker, &point, DerivativeOrder::First).unwrap();
+        point[0] = 1e200;
+        assert!(matches!(eval(&mut worker, &point, DerivativeOrder::First), Err(MathError::Domain { .. })));
+        point[0] = 2.;
+        assert_eq!(eval(&mut worker, &point, DerivativeOrder::First).unwrap(), expected);
+        worker.detach_controls();
+        worker.reset_scratch().unwrap();
+        worker.set_scope(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
+        assert_eq!(eval(&mut worker, &point, DerivativeOrder::First).unwrap(), expected);
     }
 
     #[test]
