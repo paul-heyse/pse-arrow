@@ -730,9 +730,20 @@ authority floor; new acquisition and renewal still require current authority.
 **Physical row publication.** Each physical relation is encoded once into a bounded
 memory spool or DataFusion-managed spill. The identity hash and canonical writes consume
 those same exact bytes. Warm exact-owner cache hits precede encoding; changed exact rows
-produce their own receipt. Existing per-block operation identities, parent revision order
-and acknowledgments remain unchanged. Grouped revision publication is not assumed without
-a complete streaming retry/receipt contract.
+produce their own receipt. Accepted Plan45 RC06 (proposed ADR-0187 amendment) selects
+bounded deterministic groups within each relation: at most four original blocks and
+twice the canonical per-block payload bound. Immutable block order/length determines
+groups; memory pressure refuses rather than changing them. Prepaid payload/header
+ownership is distinct from the existing encoder/SDK scratch and spool reader. The
+grouped-v2 producer namespace binds this policy, content identity and first/end original
+ordinals without reinterpreting earlier per-block records or changing payload/scientific
+identity. Existing source planning/staging/CAS and immutable request receipts settle
+original-intent replay and unknown ACK. Only the exact returned group receipt advances
+the parent. The final per-relation revision and separate context receipt preserve
+selective replay and package/context association. Fitting relations activate coherently
+in one group; larger relations retain deterministic group closures and existing payload
+staging crossings. Atomic whole-relation publication of arbitrarily large spilled input
+is not claimed. Plan45c/C07 owns the dependent implementation and qualification.
 
 **Local export.** Exact checked reads finish, the IPC stream finishes and the file is
 synchronized before final publication. Interrupted staging remains `.incomplete`; the final
