@@ -33,7 +33,9 @@ pub(super) fn borrowed_capacity<T>(cores: usize, work: impl FnOnce() -> T) -> T 
 /// Static ownership is fixed before constructing any experiment worker. Requests
 /// carry only per-trial prior trajectories, in this lane's immutable inventory order.
 fn stride_assignment(experiments: usize, lanes: usize) -> Vec<Vec<usize>> {
-    (0..lanes).map(|lane| (lane..experiments).step_by(lanes).collect()).collect()
+    (0..lanes)
+        .map(|lane| (lane..experiments).step_by(lanes).collect())
+        .collect()
 }
 struct Request {
     observation: Option<pse_diagnostics::observation::ObservationContext>,
@@ -110,7 +112,10 @@ impl ExperimentTeam {
         Self::construct(problem, execution, assignments).map(Some)
     }
     #[cfg(all(test, feature = "solver-diffsol"))]
-    pub(super) fn fixed_affinity_for_test(problem: Arc<FitProblem>, execution: Execution) -> Result<Self, ProblemError> {
+    pub(super) fn fixed_affinity_for_test(
+        problem: Arc<FitProblem>,
+        execution: Execution,
+    ) -> Result<Self, ProblemError> {
         assert_eq!(problem.experiments.len(), 4);
         assert!(problem.profile.experiment_workers.into_inner() >= 2);
         assert!(problem.runtime.native().cores() >= 2);
@@ -118,7 +123,11 @@ impl ExperimentTeam {
         // fixes one of each on each owner; it establishes no general cost predictor.
         Self::construct(problem, execution, vec![vec![0, 1], vec![2, 3]])
     }
-    fn construct(problem: Arc<FitProblem>, execution: Execution, assignments: Vec<Vec<usize>>) -> Result<Self, ProblemError> {
+    fn construct(
+        problem: Arc<FitProblem>,
+        execution: Execution,
+        assignments: Vec<Vec<usize>>,
+    ) -> Result<Self, ProblemError> {
         let count = assignments.len();
         let service = problem.runtime.native().clone();
         let borrowed = BORROWED_CAPACITY.with(std::cell::Cell::get);
@@ -233,7 +242,12 @@ impl ExperimentTeam {
                             }
                             if request.previous.len() != assigned.len() {
                                 for &ei in &assigned {
-                                    let _ = request.reply.send((ei, Err(ProblemError::internal("fit experiment request inventory"))));
+                                    let _ = request.reply.send((
+                                        ei,
+                                        Err(ProblemError::internal(
+                                            "fit experiment request inventory",
+                                        )),
+                                    ));
                                 }
                                 continue;
                             }
@@ -244,7 +258,9 @@ impl ExperimentTeam {
                             }
                             #[cfg(all(test, feature = "solver-diffsol"))]
                             let started = std::time::Instant::now();
-                            for (local, (&ei, previous)) in assigned.iter().zip(request.previous).enumerate() {
+                            for (local, (&ei, previous)) in
+                                assigned.iter().zip(request.previous).enumerate()
+                            {
                                 let mut work = || {
                                     evaluate_experiment(
                                         &problem,
@@ -296,7 +312,10 @@ impl ExperimentTeam {
                                     }
                                 }
                                 #[cfg(all(test, feature = "solver-diffsol"))]
-                                observed_elapsed.store(u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX), std::sync::atomic::Ordering::Relaxed);
+                                observed_elapsed.store(
+                                    u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX),
+                                    std::sync::atomic::Ordering::Relaxed,
+                                );
                                 if request.reply.send((ei, result)).is_err() {
                                     replies_open = false;
                                     break;
@@ -369,10 +388,26 @@ impl ExperimentTeam {
     }
     #[cfg(all(test, feature = "solver-diffsol"))]
     pub(super) fn test_lane_completion(&self) -> (Vec<Vec<usize>>, Vec<Duration>, Duration) {
-        let elapsed = self.lanes.iter().map(|lane| Duration::from_nanos(lane.elapsed_nanos.load(std::sync::atomic::Ordering::Relaxed))).collect::<Vec<_>>();
+        let elapsed = self
+            .lanes
+            .iter()
+            .map(|lane| {
+                Duration::from_nanos(
+                    lane.elapsed_nanos
+                        .load(std::sync::atomic::Ordering::Relaxed),
+                )
+            })
+            .collect::<Vec<_>>();
         let latest = elapsed.iter().copied().max().unwrap_or_default();
         let idle = elapsed.iter().map(|&elapsed| latest - elapsed).sum();
-        (self.lanes.iter().map(|lane| lane.experiments.clone()).collect(), elapsed, idle)
+        (
+            self.lanes
+                .iter()
+                .map(|lane| lane.experiments.clone())
+                .collect(),
+            elapsed,
+            idle,
+        )
     }
     pub(super) fn evaluate(
         &mut self,
@@ -394,7 +429,9 @@ impl ExperimentTeam {
             let mut results: Vec<Option<Result<ExperimentProducts, ProblemError>>> =
                 (0..count).map(|_| None).collect();
             for owner in &self.lanes {
-                let previous = owner.experiments.iter()
+                let previous = owner
+                    .experiments
+                    .iter()
                     .map(|&ei| {
                         let prior = previous
                             .and_then(|p| {

@@ -1353,115 +1353,404 @@ fn pipeline_original_callbacks_and_fresh_validation_are_charged_once() {
 
 #[test]
 fn root_primal_affine_keeps_tiny_coefficients_bounds_and_original_inventory() {
-    let mut source=Mixed::new();
-    source.bounds[1]=(10.,10.);
-    source.facts.affine[0].as_mut().unwrap().entries.insert(0,1e-15);
-    let reduction=roots::plan(&source.contract,&roots::Primal {facts:&source.facts,bounds:&source.bounds,policy:&Policy::Auto}).unwrap().unwrap();
-    assert_eq!(reduction.n_reduced_vars(),1);
-    let mut full=vec![0.;2];
-    reduction.lift_x(&[2.],&mut full);
-    assert!((1e-15*full[0]+full[1]-4.).abs()<1e-12);
+    let mut source = Mixed::new();
+    source.bounds[1] = (10., 10.);
+    source.facts.affine[0]
+        .as_mut()
+        .unwrap()
+        .entries
+        .insert(0, 1e-15);
+    let reduction = roots::plan(
+        &source.contract,
+        &roots::Primal {
+            facts: &source.facts,
+            bounds: &source.bounds,
+            policy: &Policy::Auto,
+        },
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(reduction.n_reduced_vars(), 1);
+    let mut full = vec![0.; 2];
+    reduction.lift_x(&[2.], &mut full);
+    assert!((1e-15 * full[0] + full[1] - 4.).abs() < 1e-12);
     // Elimination transfers the eliminated original box, even at unequal scales.
-    assert!(reduction.x_l_red[0]>=0. && reduction.x_u_red[0]<=10.);
-    assert!(roots::plan(&source.contract,&roots::Primal {facts:&source.facts,bounds:&source.bounds,policy:&Policy::Off}).unwrap().is_none());
-    source.facts.structure=ContentHash::from_bytes([99;32]);
-    assert!(roots::plan(&source.contract,&roots::Primal {facts:&source.facts,bounds:&source.bounds,policy:&Policy::Auto}).is_err());
+    assert!(reduction.x_l_red[0] >= 0. && reduction.x_u_red[0] <= 10.);
+    assert!(
+        roots::plan(
+            &source.contract,
+            &roots::Primal {
+                facts: &source.facts,
+                bounds: &source.bounds,
+                policy: &Policy::Off
+            }
+        )
+        .unwrap()
+        .is_none()
+    );
+    source.facts.structure = ContentHash::from_bytes([99; 32]);
+    assert!(
+        roots::plan(
+            &source.contract,
+            &roots::Primal {
+                facts: &source.facts,
+                bounds: &source.bounds,
+                policy: &Policy::Auto
+            }
+        )
+        .is_err()
+    );
 }
-#[cfg(feature="kinsol")]
+#[cfg(feature = "kinsol")]
 #[derive(Debug)]
 struct RootMixed(Mixed);
-#[cfg(feature="kinsol")]
+#[cfg(feature = "kinsol")]
 impl crate::NleOracle for RootMixed {
-    fn contract(&self)->&OracleContract { &self.0.contract }
-    fn jacobian_pattern(&self)->faer::sparse::SymbolicSparseColMatRef<'_,usize> { self.0.j.matrix().symbolic() }
-    fn residual(&mut self,x:&[f64],out:&mut[f64])->Result<(),ProblemError> {
-        self.0.constraints(x,out)?;
-        for (v,b) in out.iter_mut().zip(&self.0.bounds) { *v-=b.0; }
+    fn contract(&self) -> &OracleContract {
+        &self.0.contract
+    }
+    fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+        self.0.j.matrix().symbolic()
+    }
+    fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.0.constraints(x, out)?;
+        for (v, b) in out.iter_mut().zip(&self.0.bounds) {
+            *v -= b.0;
+        }
         Ok(())
     }
-    fn jacobian(&mut self,x:&[f64],out:&mut[f64])->Result<(),ProblemError> { self.0.jacobian(x,out) }
-    fn jacobian_product(&mut self,x:&[f64],direction:&[f64],out:&mut[f64])->Result<(),ProblemError> {
-        let mut values=[0.;4];self.0.jacobian(x,&mut values)?;
-        out[0]=values[0]*direction[0]+values[2]*direction[1];out[1]=values[1]*direction[0]+values[3]*direction[1];Ok(())
+    fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.0.jacobian(x, out)
+    }
+    fn jacobian_product(
+        &mut self,
+        x: &[f64],
+        direction: &[f64],
+        out: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        let mut values = [0.; 4];
+        self.0.jacobian(x, &mut values)?;
+        out[0] = values[0] * direction[0] + values[2] * direction[1];
+        out[1] = values[1] * direction[0] + values[3] * direction[1];
+        Ok(())
     }
 }
-#[cfg(feature="kinsol")]
+#[cfg(feature = "kinsol")]
 #[test]
 fn actual_root_primal_affine_recovers_original_scales_and_detects_reconstruction_failure() {
-    use crate::execution::{self,BackendSettings,Retained,Roots,Step};
-    let mut source=Mixed::new();source.bounds[1]=(10.,10.);
-    for variable in &mut source.contract.variables {variable.lower=f64::NEG_INFINITY;variable.upper=f64::INFINITY;}
-    let source_calls=std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));source.native_calls=Some(source_calls.clone());
-    let facts=source.facts.clone();let bounds=source.bounds.clone();let source_contract=source.contract.clone();
-    let controls=Controls::default();let accuracy=ResolvedAccuracy::verification();let tolerances=tolerances();
-    let normalization=pse_math::normalization::Normalization {variables:vec![1e-3,1e3],rows:vec![1e-2,1e2],objective:1.};
-    let settings=BackendSettings::Kinsol(crate::settings::kinsol::Method::default());
-    let mut compatibility=stamp();compatibility.backend=Backend::Kinsol;
-    let snapshot=execution::Snapshot::observe(&execution::LINKED);
-    let mut retained=Retained::default();
-    let started=std::time::Instant::now();
-    let report=roots::execute(Step {adapter:execution::adapter(Backend::Kinsol),settings:&settings,snapshot:&snapshot,structure:None,controls:&controls,accuracy:&accuracy,execution:execution(),tolerances:&tolerances,normalization:&normalization,compatibility,warm:None},&mut retained,Roots {oracle:Box::new(RootMixed(source)),initial:&[0.5,3.5],owner:None},roots::Primal {facts:&facts,bounds:&bounds,policy:&Policy::Auto}).unwrap();
-    assert_eq!(report.metrics["root.affine.native_columns"],Metric::Integer(1));
-    assert_eq!(report.variables.len(),2);assert_eq!(report.rows.len(),2);
-    assert!(report.quality.as_ref().unwrap().feasible(),"{report:?}");
-    let point=&report.candidate.as_ref().unwrap().primal;
-    assert!((point[0]-1.).abs()<1e-7 && (point[1]-3.).abs()<1e-7);
-    eprintln!("root-affine-control reduced elapsed_us={} original_calls={}",started.elapsed().as_micros(),source_calls.load(std::sync::atomic::Ordering::Relaxed));
-    let mut baseline=Mixed::new();baseline.bounds=bounds.clone();baseline.contract=source_contract.clone();let baseline_calls=std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));baseline.native_calls=Some(baseline_calls.clone());
-    let mut original_stamp=stamp();original_stamp.backend=Backend::Kinsol;
-    let started=std::time::Instant::now();
-    let baseline_report=roots::execute(Step {adapter:execution::adapter(Backend::Kinsol),settings:&settings,snapshot:&snapshot,structure:None,controls:&controls,accuracy:&accuracy,execution:execution(),tolerances:&tolerances,normalization:&normalization,compatibility:original_stamp,warm:None},&mut Retained::default(),Roots {oracle:Box::new(RootMixed(baseline)),initial:&[0.5,3.5],owner:None},roots::Primal {facts:&facts,bounds:&bounds,policy:&Policy::Off}).unwrap();
-    assert!(baseline_report.quality.as_ref().unwrap().feasible(),"{baseline_report:?}");
-    for (reduced,original) in point.iter().zip(&baseline_report.candidate.as_ref().unwrap().primal) {assert!((reduced-original).abs()<1e-6);}
-    eprintln!("root-affine-control original elapsed_us={} original_calls={}",started.elapsed().as_micros(),baseline_calls.load(std::sync::atomic::Ordering::Relaxed));
+    use crate::execution::{self, BackendSettings, Retained, Roots, Step};
+    let mut source = Mixed::new();
+    source.bounds[1] = (10., 10.);
+    for variable in &mut source.contract.variables {
+        variable.lower = f64::NEG_INFINITY;
+        variable.upper = f64::INFINITY;
+    }
+    let source_calls = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+    source.native_calls = Some(source_calls.clone());
+    let facts = source.facts.clone();
+    let bounds = source.bounds.clone();
+    let source_contract = source.contract.clone();
+    let controls = Controls::default();
+    let accuracy = ResolvedAccuracy::verification();
+    let tolerances = tolerances();
+    let normalization = pse_math::normalization::Normalization {
+        variables: vec![1e-3, 1e3],
+        rows: vec![1e-2, 1e2],
+        objective: 1.,
+    };
+    let settings = BackendSettings::Kinsol(crate::settings::kinsol::Method::default());
+    let mut compatibility = stamp();
+    compatibility.backend = Backend::Kinsol;
+    let snapshot = execution::Snapshot::observe(&execution::LINKED);
+    let mut retained = Retained::default();
+    let started = std::time::Instant::now();
+    let report = roots::execute(
+        Step {
+            adapter: execution::adapter(Backend::Kinsol),
+            settings: &settings,
+            snapshot: &snapshot,
+            structure: None,
+            controls: &controls,
+            accuracy: &accuracy,
+            execution: execution(),
+            tolerances: &tolerances,
+            normalization: &normalization,
+            compatibility,
+            warm: None,
+        },
+        &mut retained,
+        Roots {
+            oracle: Box::new(RootMixed(source)),
+            initial: &[0.5, 3.5],
+            owner: None,
+        },
+        roots::Primal {
+            facts: &facts,
+            bounds: &bounds,
+            policy: &Policy::Auto,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        report.metrics["root.affine.native_columns"],
+        Metric::Integer(1)
+    );
+    assert_eq!(report.variables.len(), 2);
+    assert_eq!(report.rows.len(), 2);
+    assert!(report.quality.as_ref().unwrap().feasible(), "{report:?}");
+    let point = &report.candidate.as_ref().unwrap().primal;
+    assert!((point[0] - 1.).abs() < 1e-7 && (point[1] - 3.).abs() < 1e-7);
+    eprintln!(
+        "root-affine-control reduced elapsed_us={} original_calls={}",
+        started.elapsed().as_micros(),
+        source_calls.load(std::sync::atomic::Ordering::Relaxed)
+    );
+    let mut baseline = Mixed::new();
+    baseline.bounds = bounds.clone();
+    baseline.contract = source_contract.clone();
+    let baseline_calls = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+    baseline.native_calls = Some(baseline_calls.clone());
+    let mut original_stamp = stamp();
+    original_stamp.backend = Backend::Kinsol;
+    let started = std::time::Instant::now();
+    let baseline_report = roots::execute(
+        Step {
+            adapter: execution::adapter(Backend::Kinsol),
+            settings: &settings,
+            snapshot: &snapshot,
+            structure: None,
+            controls: &controls,
+            accuracy: &accuracy,
+            execution: execution(),
+            tolerances: &tolerances,
+            normalization: &normalization,
+            compatibility: original_stamp,
+            warm: None,
+        },
+        &mut Retained::default(),
+        Roots {
+            oracle: Box::new(RootMixed(baseline)),
+            initial: &[0.5, 3.5],
+            owner: None,
+        },
+        roots::Primal {
+            facts: &facts,
+            bounds: &bounds,
+            policy: &Policy::Off,
+        },
+    )
+    .unwrap();
+    assert!(
+        baseline_report.quality.as_ref().unwrap().feasible(),
+        "{baseline_report:?}"
+    );
+    for (reduced, original) in point
+        .iter()
+        .zip(&baseline_report.candidate.as_ref().unwrap().primal)
+    {
+        assert!((reduced - original).abs() < 1e-6);
+    }
+    eprintln!(
+        "root-affine-control original elapsed_us={} original_calls={}",
+        started.elapsed().as_micros(),
+        baseline_calls.load(std::sync::atomic::Ordering::Relaxed)
+    );
     // Even an inconsistent supplied reconstruction cannot replace original science.
-    let mut mismatched=facts.clone();mismatched.affine[0].as_mut().unwrap().constant=2.9;
-    mismatched.key=ContentHash::from_bytes([91;32]);
-    let mut original=Mixed::new();original.bounds=bounds.clone();original.contract=source_contract.clone();
-    let mut changed=stamp();changed.backend=Backend::Kinsol;changed.data=ContentHash::from_bytes([92;32]);
-    let rejected=roots::execute(Step {adapter:execution::adapter(Backend::Kinsol),settings:&settings,snapshot:&snapshot,structure:None,controls:&controls,accuracy:&accuracy,execution:execution(),tolerances:&tolerances,normalization:&normalization,compatibility:changed,warm:None},&mut retained,Roots {oracle:Box::new(RootMixed(original)),initial:&[0.5,3.5],owner:None},roots::Primal {facts:&mismatched,bounds:&bounds,policy:&Policy::Auto}).unwrap();
-    assert!(!rejected.quality.as_ref().is_some_and(|quality|quality.feasible()),"{rejected:?}");
-    assert_eq!(rejected.metrics["root.affine.original_rows_rechecked"],Metric::Integer(2));
+    let mut mismatched = facts.clone();
+    mismatched.affine[0].as_mut().unwrap().constant = 2.9;
+    mismatched.key = ContentHash::from_bytes([91; 32]);
+    let mut original = Mixed::new();
+    original.bounds = bounds.clone();
+    original.contract = source_contract.clone();
+    let mut changed = stamp();
+    changed.backend = Backend::Kinsol;
+    changed.data = ContentHash::from_bytes([92; 32]);
+    let rejected = roots::execute(
+        Step {
+            adapter: execution::adapter(Backend::Kinsol),
+            settings: &settings,
+            snapshot: &snapshot,
+            structure: None,
+            controls: &controls,
+            accuracy: &accuracy,
+            execution: execution(),
+            tolerances: &tolerances,
+            normalization: &normalization,
+            compatibility: changed,
+            warm: None,
+        },
+        &mut retained,
+        Roots {
+            oracle: Box::new(RootMixed(original)),
+            initial: &[0.5, 3.5],
+            owner: None,
+        },
+        roots::Primal {
+            facts: &mismatched,
+            bounds: &bounds,
+            policy: &Policy::Auto,
+        },
+    )
+    .unwrap();
+    assert!(
+        !rejected
+            .quality
+            .as_ref()
+            .is_some_and(|quality| quality.feasible()),
+        "{rejected:?}"
+    );
+    assert_eq!(
+        rejected.metrics["root.affine.original_rows_rechecked"],
+        Metric::Integer(2)
+    );
     // The evaluator's original domain remains authoritative after primal lifting.
-    let mut failed=Mixed::new();failed.bounds=bounds.clone();failed.contract=source_contract.clone();failed.fail_domain=true;
-    let mut compatibility=stamp();compatibility.backend=Backend::Kinsol;
-    let result=roots::execute(Step {adapter:execution::adapter(Backend::Kinsol),settings:&settings,snapshot:&snapshot,structure:None,controls:&controls,accuracy:&accuracy,execution:execution(),tolerances:&tolerances,normalization:&normalization,compatibility,warm:None},&mut retained,Roots {oracle:Box::new(RootMixed(failed)),initial:&[0.5,3.5],owner:None},roots::Primal {facts:&facts,bounds:&bounds,policy:&Policy::Auto});
+    let mut failed = Mixed::new();
+    failed.bounds = bounds.clone();
+    failed.contract = source_contract.clone();
+    failed.fail_domain = true;
+    let mut compatibility = stamp();
+    compatibility.backend = Backend::Kinsol;
+    let result = roots::execute(
+        Step {
+            adapter: execution::adapter(Backend::Kinsol),
+            settings: &settings,
+            snapshot: &snapshot,
+            structure: None,
+            controls: &controls,
+            accuracy: &accuracy,
+            execution: execution(),
+            tolerances: &tolerances,
+            normalization: &normalization,
+            compatibility,
+            warm: None,
+        },
+        &mut retained,
+        Roots {
+            oracle: Box::new(RootMixed(failed)),
+            initial: &[0.5, 3.5],
+            owner: None,
+        },
+        roots::Primal {
+            facts: &facts,
+            bounds: &bounds,
+            policy: &Policy::Auto,
+        },
+    );
     assert!(result.is_err() || result.unwrap().callback_failure().is_some());
 }
 
-#[cfg(feature="kinsol")]
+#[cfg(feature = "kinsol")]
 #[test]
 fn root_primal_affine_preserves_native_bound_eligibility() {
-    use crate::execution::{self,BackendSettings,Retained,Roots,Step};
-    let mut source=Mixed::new();source.bounds[1]=(10.,10.);
-    for variable in &mut source.contract.variables {variable.upper=f64::INFINITY;}
-    let facts=source.facts.clone();let bounds=source.bounds.clone();
+    use crate::execution::{self, BackendSettings, Retained, Roots, Step};
+    let mut source = Mixed::new();
+    source.bounds[1] = (10., 10.);
+    for variable in &mut source.contract.variables {
+        variable.upper = f64::INFINITY;
+    }
+    let facts = source.facts.clone();
+    let bounds = source.bounds.clone();
     // Both original half-lines are supported, but x+y=4 transfers a box to the
     // surviving variable. Automatic preprocessing must keep the original route.
-    let controls=Controls::default();let accuracy=ResolvedAccuracy::verification();let tolerances=tolerances();
-    let normalization=pse_math::normalization::Normalization::identity(2,2);
-    let settings=BackendSettings::Kinsol(crate::settings::kinsol::Method::default());
-    let snapshot=execution::Snapshot::observe(&execution::LINKED);
-    let mut compatibility=stamp();compatibility.backend=Backend::Kinsol;
-    let report=roots::execute(Step {adapter:execution::adapter(Backend::Kinsol),settings:&settings,snapshot:&snapshot,structure:None,controls:&controls,accuracy:&accuracy,execution:execution(),tolerances:&tolerances,normalization:&normalization,compatibility:compatibility.clone(),warm:None},&mut Retained::default(),Roots {oracle:Box::new(RootMixed({let mut current=Mixed::new();current.bounds=bounds.clone();current.contract=source.contract.clone();current})),initial:&[0.5,3.5],owner:None},roots::Primal {facts:&facts,bounds:&bounds,policy:&Policy::Auto}).unwrap();
+    let controls = Controls::default();
+    let accuracy = ResolvedAccuracy::verification();
+    let tolerances = tolerances();
+    let normalization = pse_math::normalization::Normalization::identity(2, 2);
+    let settings = BackendSettings::Kinsol(crate::settings::kinsol::Method::default());
+    let snapshot = execution::Snapshot::observe(&execution::LINKED);
+    let mut compatibility = stamp();
+    compatibility.backend = Backend::Kinsol;
+    let report = roots::execute(
+        Step {
+            adapter: execution::adapter(Backend::Kinsol),
+            settings: &settings,
+            snapshot: &snapshot,
+            structure: None,
+            controls: &controls,
+            accuracy: &accuracy,
+            execution: execution(),
+            tolerances: &tolerances,
+            normalization: &normalization,
+            compatibility: compatibility.clone(),
+            warm: None,
+        },
+        &mut Retained::default(),
+        Roots {
+            oracle: Box::new(RootMixed({
+                let mut current = Mixed::new();
+                current.bounds = bounds.clone();
+                current.contract = source.contract.clone();
+                current
+            })),
+            initial: &[0.5, 3.5],
+            owner: None,
+        },
+        roots::Primal {
+            facts: &facts,
+            bounds: &bounds,
+            policy: &Policy::Auto,
+        },
+    )
+    .unwrap();
     assert!(report.preprocessing.is_none());
-    assert_eq!(report.variables.len(),2);
-    assert!(report.quality.as_ref().unwrap().feasible(),"{report:?}");
-    let policy=Policy::Explicit {options:Policy::Auto.options(),required:BTreeSet::from([Pass::AffineElimination])};
-    let refused=roots::execute(Step {adapter:execution::adapter(Backend::Kinsol),settings:&settings,snapshot:&snapshot,structure:None,controls:&controls,accuracy:&accuracy,execution:execution(),tolerances:&tolerances,normalization:&normalization,compatibility,warm:None},&mut Retained::default(),Roots {oracle:Box::new(RootMixed(source)),initial:&[0.5,3.5],owner:None},roots::Primal {facts:&facts,bounds:&bounds,policy:&policy}).unwrap_err();
-    assert!(refused.to_string().contains("required root affine reduced native contract"));
+    assert_eq!(report.variables.len(), 2);
+    assert!(report.quality.as_ref().unwrap().feasible(), "{report:?}");
+    let policy = Policy::Explicit {
+        options: Policy::Auto.options(),
+        required: BTreeSet::from([Pass::AffineElimination]),
+    };
+    let refused = roots::execute(
+        Step {
+            adapter: execution::adapter(Backend::Kinsol),
+            settings: &settings,
+            snapshot: &snapshot,
+            structure: None,
+            controls: &controls,
+            accuracy: &accuracy,
+            execution: execution(),
+            tolerances: &tolerances,
+            normalization: &normalization,
+            compatibility,
+            warm: None,
+        },
+        &mut Retained::default(),
+        Roots {
+            oracle: Box::new(RootMixed(source)),
+            initial: &[0.5, 3.5],
+            owner: None,
+        },
+        roots::Primal {
+            facts: &facts,
+            bounds: &bounds,
+            policy: &policy,
+        },
+    )
+    .unwrap_err();
+    assert!(
+        refused
+            .to_string()
+            .contains("required root affine reduced native contract")
+    );
 }
 
 #[test]
 fn interval_contraction_does_not_grant_scalar_uniqueness_or_a_root_branch() {
-    let tape=FbbtTape {ops:vec![Op::Var(0),Op::PowInt(0,2)]};
-    let forward=pounce_presolve::fbbt::forward_pass(&tape,&[-3.],&[3.]).unwrap();
-    let reverse=pounce_presolve::fbbt::reverse_pass(&tape,&forward,pounce_presolve::fbbt::Interval::point(4.));
+    let tape = FbbtTape {
+        ops: vec![Op::Var(0), Op::PowInt(0, 2)],
+    };
+    let forward = pounce_presolve::fbbt::forward_pass(&tape, &[-3.], &[3.]).unwrap();
+    let reverse = pounce_presolve::fbbt::reverse_pass(
+        &tape,
+        &forward,
+        pounce_presolve::fbbt::Interval::point(4.),
+    );
     assert!(!reverse.infeasible);
     assert!(reverse.slots[0].contains(-2.) && reverse.slots[0].contains(2.));
     // A connected interval contractor cannot select between these original roots.
     assert!(reverse.slots[0].contains(0.));
-    let opaque=FbbtTape {ops:vec![Op::Opaque]};
-    let forwarded=pounce_presolve::fbbt::forward_pass(&opaque,&[-3.],&[3.]).unwrap();
+    let opaque = FbbtTape {
+        ops: vec![Op::Opaque],
+    };
+    let forwarded = pounce_presolve::fbbt::forward_pass(&opaque, &[-3.], &[3.]).unwrap();
     assert!(pounce_presolve::fbbt::forward_result(&forwarded).is_entire());
 }

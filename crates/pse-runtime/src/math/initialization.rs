@@ -18,8 +18,8 @@ use std::{
     sync::Arc,
 };
 
-mod ready;
 mod dependencies;
+mod ready;
 pub(super) use dependencies::{Dependencies, Iterations, consumed_inputs};
 
 /// Compiled predecessor-ordered blocks, with explicit conditional input coordinates.
@@ -89,7 +89,9 @@ impl PreparedInitialization {
         // Conditional maps narrow only after one complete original inventory admission.
         // Conditional views share the original coordinate universe, including unused
         // free coordinates and every frozen parameter/fixed variable.
-        if let Some(block) = self.blocks.first() { block.view.plan.structure().validate_values(values)?; }
+        if let Some(block) = self.blocks.first() {
+            block.view.plan.structure().validate_values(values)?;
+        }
         solver.controls.validate()?;
         solver.validate_block_ids(self.boundaries().map(|block| block.id))?;
         if !matches!(solver.intent, SolveIntent::Initialize | SolveIntent::Root) {
@@ -164,9 +166,14 @@ impl PreparedInitialization {
         Ok((strategies, numerics))
     }
     #[cfg(test)]
-    pub(crate) fn independent_test_chain(&self) -> (usize, usize, usize) { self.dependencies.independent_chain() }
+    pub(crate) fn independent_test_chain(&self) -> (usize, usize, usize) {
+        self.dependencies.independent_chain()
+    }
     #[cfg(test)]
-    pub(crate) fn fence_completion(&mut self, slow: usize) -> (Arc<tokio::sync::Notify>, tokio::sync::mpsc::Receiver<usize>) {
+    pub(crate) fn fence_completion(
+        &mut self,
+        slow: usize,
+    ) -> (Arc<tokio::sync::Notify>, tokio::sync::mpsc::Receiver<usize>) {
         Arc::make_mut(&mut self.dependencies).fence(slow)
     }
     /// Inspect the immutable conditional boundaries before executing native work.
@@ -750,9 +757,20 @@ impl MathService {
                 )
             })
             .and_then(|bytes| {
-                let proof_slots=prepared.view.plan.structure().instances().iter().try_fold(0usize,|count,instance|count.checked_add(instance.slots.len()))?
+                let proof_slots = prepared
+                    .view
+                    .plan
+                    .structure()
+                    .instances()
+                    .iter()
+                    .try_fold(0usize, |count, instance| {
+                        count.checked_add(instance.slots.len())
+                    })?
                     .checked_add(prepared.view.plan.structure().source_frozen_ids().count())?;
-                bytes.checked_add(proof_slots.checked_mul(256)?)?.checked_add(support)?.checked_add(8192)
+                bytes
+                    .checked_add(proof_slots.checked_mul(256)?)?
+                    .checked_add(support)?
+                    .checked_add(8192)
             })
             .ok_or_else(|| native::ProblemError::memory("conditional callback wrapper extent"))?;
         let charge = budget
@@ -782,14 +800,38 @@ impl MathService {
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let columns = prepared.view.plan.columns().iter().copied().collect::<BTreeSet<_>>();
-        let proof_ids = prepared.view.plan.structure().instances().iter()
+        let columns = prepared
+            .view
+            .plan
+            .columns()
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        let proof_ids = prepared
+            .view
+            .plan
+            .structure()
+            .instances()
+            .iter()
             .flat_map(|instance| instance.slots.iter().map(|slot| slot.source()))
             .chain(prepared.view.plan.structure().source_frozen_ids())
-            .filter(|id| !columns.contains(id)).collect::<BTreeSet<_>>();
-        let proof_values = CaseValues { scalars: proof_ids.into_iter().map(|id| {
-            value(id).filter(|v|v.is_finite()).map(|v|(id,v)).ok_or_else(||native::ProblemError::Contract("missing conditional affine assumption".into()))
-        }).collect::<Result<_,_>>()? };
+            .filter(|id| !columns.contains(id))
+            .collect::<BTreeSet<_>>();
+        let proof_values = CaseValues {
+            scalars: proof_ids
+                .into_iter()
+                .map(|id| {
+                    value(id)
+                        .filter(|v| v.is_finite())
+                        .map(|v| (id, v))
+                        .ok_or_else(|| {
+                            native::ProblemError::Contract(
+                                "missing conditional affine assumption".into(),
+                            )
+                        })
+                })
+                .collect::<Result<_, _>>()?,
+        };
         let oracle = native::assembled::AlgebraicOracle::compact(worker, value)?
             .with_structural_analysis(prepared.view.structure.clone().into())?
             .with_normalization(prepared.normalization.clone())?;
@@ -862,47 +904,99 @@ impl ConditionalUnitSession {
                     .saturating_add(prepared.profile.controls.time_limit),
             );
             nested.memory = Some(prepared.foreign_bytes);
-            for (id,value) in updates {
-                if let Some(slot)=self.proof_values.scalars.get_mut(id) { *slot=*value; }
+            for (id, value) in updates {
+                if let Some(slot) = self.proof_values.scalars.get_mut(id) {
+                    *slot = *value;
+                }
             }
-            let proof_bound = if matches!(prepared.profile.presolve,native::presolve::Policy::Off) { None } else {
-                prepared.view.plan.rebind_projection_allocation_bound(prepared.view.class_proof_work)?.map(|bytes| {
-                    native::presolve::roots::allowance(prepared.view.plan.columns().len(),prepared.view.plan.jacobian_pattern().compute_nnz()).and_then(|primal|bytes.checked_add(primal)).ok_or_else(||native::ProblemError::memory("conditional primal construction extent"))
-                }).transpose()?
-            };
-            let proof_charge = proof_bound.map(|bytes|self.budget.charge(bytes).map_err(MathRuntimeError::into_problem)).transpose()?;
-            let fresh = if proof_charge.is_some() {
-                let _phase=pse_diagnostics::observation::phase("initialization.affine_preparation");
-                let base=prepared.view.plan.presolve_domain_facts(&self.proof_values,prepared.view.class_proof_work,&nested.cancel)?;
-                Some(prepared.view.plan.affine_row_facts(&self.proof_values,&base,prepared.view.class_proof_work,&nested.cancel)?)
-            } else { None };
-            let root_bounds=prepared.view.plan.structure().rows().iter().map(|row|(row.lower,row.upper)).collect::<Vec<_>>();
-            let step = execution::Step {
-                    adapter: execution::adapter(prepared.backend),
-                    snapshot: &prepared.snapshot,
-                    structure: prepared.assessment.as_ref(),
-                    settings: &prepared.profile.backend,
-                    controls: &prepared.profile.controls,
-                    accuracy: &prepared.accuracy,
-                    execution: nested,
-                    tolerances: &prepared.tolerances,
-                    normalization: &prepared.normalization,
-                    compatibility: Compatibility {
-                        layout: prepared.view.plan.structure().key(),
-                        profile: prepared.profile_key,
-                        data: self.oracle.input_identity()?,
-                        backend: prepared.backend,
-                    },
-                    warm: None,
-                };
-            let run=execution::Roots {
-                oracle:Box::new(self.oracle.clone()), initial:&self.initial,
-                owner:proof_charge.map(|charge|->Box<dyn std::any::Any>{Box::new(charge)}),
-            };
-            let report=if let Some(facts)=fresh.as_ref() {
-                native::presolve::roots::execute(step,&mut self.retained,run,native::presolve::roots::Primal {facts,bounds:&root_bounds,policy:&prepared.profile.presolve})?
+            let proof_bound = if matches!(prepared.profile.presolve, native::presolve::Policy::Off)
+            {
+                None
             } else {
-                execution::roots(step,&mut self.retained,run)?
+                prepared
+                    .view
+                    .plan
+                    .rebind_projection_allocation_bound(prepared.view.class_proof_work)?
+                    .map(|bytes| {
+                        native::presolve::roots::allowance(
+                            prepared.view.plan.columns().len(),
+                            prepared.view.plan.jacobian_pattern().compute_nnz(),
+                        )
+                        .and_then(|primal| bytes.checked_add(primal))
+                        .ok_or_else(|| {
+                            native::ProblemError::memory("conditional primal construction extent")
+                        })
+                    })
+                    .transpose()?
+            };
+            let proof_charge = proof_bound
+                .map(|bytes| {
+                    self.budget
+                        .charge(bytes)
+                        .map_err(MathRuntimeError::into_problem)
+                })
+                .transpose()?;
+            let fresh = if proof_charge.is_some() {
+                let _phase =
+                    pse_diagnostics::observation::phase("initialization.affine_preparation");
+                let base = prepared.view.plan.presolve_domain_facts(
+                    &self.proof_values,
+                    prepared.view.class_proof_work,
+                    &nested.cancel,
+                )?;
+                Some(prepared.view.plan.affine_row_facts(
+                    &self.proof_values,
+                    &base,
+                    prepared.view.class_proof_work,
+                    &nested.cancel,
+                )?)
+            } else {
+                None
+            };
+            let root_bounds = prepared
+                .view
+                .plan
+                .structure()
+                .rows()
+                .iter()
+                .map(|row| (row.lower, row.upper))
+                .collect::<Vec<_>>();
+            let step = execution::Step {
+                adapter: execution::adapter(prepared.backend),
+                snapshot: &prepared.snapshot,
+                structure: prepared.assessment.as_ref(),
+                settings: &prepared.profile.backend,
+                controls: &prepared.profile.controls,
+                accuracy: &prepared.accuracy,
+                execution: nested,
+                tolerances: &prepared.tolerances,
+                normalization: &prepared.normalization,
+                compatibility: Compatibility {
+                    layout: prepared.view.plan.structure().key(),
+                    profile: prepared.profile_key,
+                    data: self.oracle.input_identity()?,
+                    backend: prepared.backend,
+                },
+                warm: None,
+            };
+            let run = execution::Roots {
+                oracle: Box::new(self.oracle.clone()),
+                initial: &self.initial,
+                owner: proof_charge.map(|charge| -> Box<dyn std::any::Any> { Box::new(charge) }),
+            };
+            let report = if let Some(facts) = fresh.as_ref() {
+                native::presolve::roots::execute(
+                    step,
+                    &mut self.retained,
+                    run,
+                    native::presolve::roots::Primal {
+                        facts,
+                        bounds: &root_bounds,
+                        policy: &prepared.profile.presolve,
+                    },
+                )?
+            } else {
+                execution::roots(step, &mut self.retained, run)?
             };
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.boolean(
@@ -1340,11 +1434,21 @@ impl MathService {
                 }),
             });
         }
-        let descriptor_bytes = Dependencies::allocation_bound(blocks.iter().map(|block|
-            Ok((&block.boundary, block.view.plan.as_ref(), block.executable.assembly.input_ids()))))?;
+        let descriptor_bytes = Dependencies::allocation_bound(blocks.iter().map(|block| {
+            Ok((
+                &block.boundary,
+                block.view.plan.as_ref(),
+                block.executable.assembly.input_ids(),
+            ))
+        }))?;
         let dependency_owner = self.reserve("math:block-dependencies", descriptor_bytes)?;
-        let dependencies = Arc::new(Dependencies::prepare(blocks.iter().map(|b| &b.boundary),
-            blocks.iter().map(|b| consumed_inputs(&b.view.plan, b.executable.assembly.input_ids())).collect())?);
+        let dependencies = Arc::new(Dependencies::prepare(
+            blocks.iter().map(|b| &b.boundary),
+            blocks
+                .iter()
+                .map(|b| consumed_inputs(&b.view.plan, b.executable.assembly.input_ids()))
+                .collect(),
+        )?);
         let _ = self.preparation_driver(&driver)?;
         Ok(PreparedInitialization {
             numerical_owner: self.policy_resolution_owner(),
@@ -1783,7 +1887,8 @@ impl Blocks<'_, '_> {
             Ok(BlockAssessor {
                 service: self.service.clone(),
                 case: executable.clone(),
-                values: pse_math::SharedAllocation::from(Arc::new(values.clone())).with_owner(storage.clone()),
+                values: pse_math::SharedAllocation::from(Arc::new(values.clone()))
+                    .with_owner(storage.clone()),
                 providers: self.providers.clone(),
                 numerics: self.numerics.clone(),
                 original: self.local.execution().clone(),

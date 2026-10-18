@@ -1817,10 +1817,16 @@ impl<'a> Session<'a> {
             ffi::IDAAdjInit(self.mem, steps, ffi::IDA_HERMITE),
             "adjoint initialization",
         )?;
-        let checkpoint_limit: i32 = p.adjoint.max_checkpoints.into_inner().try_into()
+        let checkpoint_limit: i32 = p
+            .adjoint
+            .max_checkpoints
+            .into_inner()
+            .try_into()
             .map_err(|_| ProblemError::unsupported("IDAS checkpoint population extent"))?;
-        native!(ffi::IDASetCheckpointLimit(self.mem, checkpoint_limit.into()),
-            "adjoint checkpoint population limit")?;
+        native!(
+            ffi::IDASetCheckpointLimit(self.mem, checkpoint_limit.into()),
+            "adjoint checkpoint population limit"
+        )?;
         let zeros = vec![0.0; n];
         let mut sensitivities = Vec::new();
         let mut rates = Vec::new();
@@ -2446,17 +2452,25 @@ impl<'a> Session<'a> {
         // Native allocation-point enforcement counts the initial checkpoint too,
         // and records the high-water mark even when a NORMAL call fails partway.
         let (mut current, mut peak, mut refused) = (0, 0, 0);
-        native!(ffi::IDAGetCheckpointUsage(self.mem, &raw mut current, &raw mut peak,
-            &raw mut refused), "checkpoint population observation")?;
+        native!(
+            ffi::IDAGetCheckpointUsage(self.mem, &raw mut current, &raw mut peak, &raw mut refused),
+            "checkpoint population observation"
+        )?;
         let held = usize::try_from(current)
             .map_err(|_| ProblemError::internal("negative IDAS checkpoint population"))?;
         let peak = usize::try_from(peak)
             .map_err(|_| ProblemError::internal("negative IDAS checkpoint peak"))?;
         b.checkpoints = b.checkpoints.max(peak);
         crate::observation::integer("idas.checkpoints.current", "checkpoints", current);
-        crate::observation::integer("idas.checkpoints.peak", "checkpoints", peak.try_into().unwrap_or(i64::MAX));
+        crate::observation::integer(
+            "idas.checkpoints.peak",
+            "checkpoints",
+            peak.try_into().unwrap_or(i64::MAX),
+        );
         if held > b.limit || peak > b.limit {
-            return Err(ProblemError::internal("IDAS checkpoint owner exceeded admitted population"));
+            return Err(ProblemError::internal(
+                "IDAS checkpoint owner exceeded admitted population",
+            ));
         }
         if refused != 0 {
             return Err(ProblemError::memory(
@@ -4987,11 +5001,18 @@ mod checkpoint_owner_tests {
         matrix: ffi::SUNMatrix,
         linear: ffi::SUNLinearSolver,
     }
-    unsafe extern "C" fn decay(_time: f64, state: ffi::N_Vector,
-        rate: ffi::N_Vector, residual: ffi::N_Vector, _data: *mut c_void) -> i32 {
+    unsafe extern "C" fn decay(
+        _time: f64,
+        state: ffi::N_Vector,
+        rate: ffi::N_Vector,
+        residual: ffi::N_Vector,
+        _data: *mut c_void,
+    ) -> i32 {
         // SAFETY: IDAS supplies the three live, one-entry serial vectors of this fixture.
-        unsafe { *ffi::N_VGetArrayPointer(residual) =
-            *ffi::N_VGetArrayPointer(rate) + *ffi::N_VGetArrayPointer(state); }
+        unsafe {
+            *ffi::N_VGetArrayPointer(residual) =
+                *ffi::N_VGetArrayPointer(rate) + *ffi::N_VGetArrayPointer(state);
+        }
         0
     }
     impl NativeForward {
@@ -5000,7 +5021,10 @@ mod checkpoint_owner_tests {
             // SAFETY: all native objects are installed immediately into this private
             // owner, with compatible one-entry vectors and release order in Drop.
             unsafe {
-                assert_eq!(ffi::SUNContext_Create(ffi::comm_no_mpi(), &raw mut context), 0);
+                assert_eq!(
+                    ffi::SUNContext_Create(ffi::comm_no_mpi(), &raw mut context),
+                    0
+                );
                 let state = ffi::N_VNew_Serial(1, context);
                 let rate = ffi::N_VNew_Serial(1, context);
                 assert!(!state.is_null() && !rate.is_null());
@@ -5009,7 +5033,14 @@ mod checkpoint_owner_tests {
                 let memory = ffi::IDACreate(context);
                 let matrix = ffi::SUNDenseMatrix(1, 1, context);
                 let linear = ffi::SUNLinSol_Dense(state, matrix, context);
-                let owner = Self { context, memory, state, rate, matrix, linear };
+                let owner = Self {
+                    context,
+                    memory,
+                    state,
+                    rate,
+                    matrix,
+                    linear,
+                };
                 assert!(!memory.is_null() && !matrix.is_null() && !linear.is_null());
                 assert_eq!(ffi::IDAInit(memory, Some(decay), 0., state, rate), 0);
                 assert_eq!(ffi::IDASStolerances(memory, 0.001, 0.001), 0);
@@ -5025,16 +5056,32 @@ mod checkpoint_owner_tests {
         fn usage(&self) -> (c_long, c_long, i32) {
             let (mut current, mut peak, mut refused) = (0, 0, 0);
             // SAFETY: live owned memory and independent initialized output storage.
-            unsafe { assert_eq!(ffi::IDAGetCheckpointUsage(self.memory,
-                &raw mut current, &raw mut peak, &raw mut refused), 0); }
+            unsafe {
+                assert_eq!(
+                    ffi::IDAGetCheckpointUsage(
+                        self.memory,
+                        &raw mut current,
+                        &raw mut peak,
+                        &raw mut refused
+                    ),
+                    0
+                );
+            }
             (current, peak, refused)
         }
         fn solve(&mut self, target: f64, task: i32) -> (i32, f64, f64) {
             let (mut time, mut stored) = (0., 0);
             // SAFETY: live native memory, matching state/rate vectors and local output.
             unsafe {
-                let flag = ffi::IDASolveF(self.memory, target, &raw mut time,
-                    self.state, self.rate, task, &raw mut stored);
+                let flag = ffi::IDASolveF(
+                    self.memory,
+                    target,
+                    &raw mut time,
+                    self.state,
+                    self.rate,
+                    task,
+                    &raw mut stored,
+                );
                 (flag, time, *ffi::N_VGetArrayPointer(self.state))
             }
         }
@@ -5061,52 +5108,80 @@ mod checkpoint_owner_tests {
         assert_eq!(native.usage(), (0, 0, 1), "initial allocation was refused");
         assert_eq!(native.limit(2), 0);
         assert_eq!(native.solve(1., ffi::IDA_NORMAL).0, ffi::IDA_MEM_FAIL);
-        assert_eq!(native.usage(), (0, 0, 1), "larger limit cannot repair a failed attempt");
+        assert_eq!(
+            native.usage(),
+            (0, 0, 1),
+            "larger limit cannot repair a failed attempt"
+        );
         // SAFETY: this owning thread reinitializes its live adjoint module.
-        unsafe { assert_eq!(ffi::IDAAdjReInit(native.memory), 0); }
+        unsafe {
+            assert_eq!(ffi::IDAAdjReInit(native.memory), 0);
+        }
         assert_eq!(native.usage(), (0, 0, 0));
         assert_eq!(native.solve(1., ffi::IDA_ONE_STEP).0, ffi::IDA_SUCCESS);
-        assert_eq!(native.usage(), (2, 2, 0), "initial plus exactly one new checkpoint");
+        assert_eq!(
+            native.usage(),
+            (2, 2, 0),
+            "initial plus exactly one new checkpoint"
+        );
         assert_eq!(native.limit(1), ffi::IDA_ILL_INPUT);
         assert_eq!(native.solve(1., ffi::IDA_NORMAL).0, ffi::IDA_MEM_FAIL);
-        assert_eq!(native.usage(), (2, 2, 1), "no excess checkpoint ever became resident");
+        assert_eq!(
+            native.usage(),
+            (2, 2, 1),
+            "no excess checkpoint ever became resident"
+        );
         // SAFETY: reset physical history and then release the checkpoint population.
         unsafe {
             *ffi::N_VGetArrayPointer(native.state) = 1.;
             *ffi::N_VGetArrayPointer(native.rate) = -1.;
-            assert_eq!(ffi::IDAReInit(native.memory, 0., native.state, native.rate), 0);
+            assert_eq!(
+                ffi::IDAReInit(native.memory, 0., native.state, native.rate),
+                0
+            );
             assert_eq!(ffi::IDAAdjReInit(native.memory), 0);
         }
-        assert_eq!(native.usage(), (0, 2, 0), "reset preserves lifetime peak and installed limit");
+        assert_eq!(
+            native.usage(),
+            (0, 2, 0),
+            "reset preserves lifetime peak and installed limit"
+        );
         assert_eq!(native.solve(1., ffi::IDA_NORMAL).0, ffi::IDA_MEM_FAIL);
         assert_eq!(native.usage(), (2, 2, 1));
     }
     #[test]
     fn checkpoint_owner_preserves_normal_interpolation_for_sparse_and_dense_outputs() {
         let mut finals = Vec::new();
-        for outputs in [vec![0.3], vec![0.05,0.1,0.15,0.2,0.3]] {
-            let mut observations=Vec::new();
-            for bounded in [false,true] {
-                let mut native=NativeForward::new(100_000);
-                if bounded { assert_eq!(native.limit(2),0); }
+        for outputs in [vec![0.3], vec![0.05, 0.1, 0.15, 0.2, 0.3]] {
+            let mut observations = Vec::new();
+            for bounded in [false, true] {
+                let mut native = NativeForward::new(100_000);
+                if bounded {
+                    assert_eq!(native.limit(2), 0);
+                }
                 // SAFETY: finite physical stop on live owned IDAS memory.
-                unsafe { assert_eq!(ffi::IDASetStopTime(native.memory,0.3),0); }
-                let mut values=Vec::new();
+                unsafe {
+                    assert_eq!(ffi::IDASetStopTime(native.memory, 0.3), 0);
+                }
+                let mut values = Vec::new();
                 for &target in &outputs {
-                    let (flag,time,value)=native.solve(target,ffi::IDA_NORMAL);
-                    assert!(flag==ffi::IDA_SUCCESS || flag==ffi::IDA_TSTOP_RETURN);
-                    assert_eq!(time,target);
-                    assert!((value-(-target).exp()).abs()<0.001);
-                    assert_eq!(native.usage(),(1,1,0));
-                    values.push((flag,time,value));
+                    let (flag, time, value) = native.solve(target, ffi::IDA_NORMAL);
+                    assert!(flag == ffi::IDA_SUCCESS || flag == ffi::IDA_TSTOP_RETURN);
+                    assert_eq!(time, target);
+                    assert!((value - (-target).exp()).abs() < 0.001);
+                    assert_eq!(native.usage(), (1, 1, 0));
+                    values.push((flag, time, value));
                 }
                 observations.push(values);
             }
-            assert_eq!(observations[0],observations[1],"population permission does not change native output/history semantics");
+            assert_eq!(
+                observations[0], observations[1],
+                "population permission does not change native output/history semantics"
+            );
             finals.push(observations[0].last().unwrap().2);
         }
         // The first requested output influences IDAS's own initial-step estimate;
         // different output schedules must agree physically, not bit-for-bit.
-        assert!((finals[0]-finals[1]).abs()<0.001);
+        assert!((finals[0] - finals[1]).abs() < 0.001);
     }
 }

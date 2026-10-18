@@ -1397,10 +1397,11 @@ impl MathService {
                 &source.source.prepared.compiled().plan,
                 &source.source.prepared.compiled().structure,
             )?)?;
-        let actual = native::assembled::AlgebraicOracle::new(worker, source.source.values.as_ref().clone())?
-            .with_structural_analysis(source.source.prepared.compiled().structure.clone())?
-            .with_presolve_facts(source.source.prepared.compiled().presolve.clone())?
-            .with_normalization(source.original.normalization.clone())?;
+        let actual =
+            native::assembled::AlgebraicOracle::new(worker, source.source.values.as_ref().clone())?
+                .with_structural_analysis(source.source.prepared.compiled().structure.clone())?
+                .with_presolve_facts(source.source.prepared.compiled().presolve.clone())?
+                .with_normalization(source.original.normalization.clone())?;
         actual.admit_nle()?;
         let mut original = ZeroRoot::new(Box::new(actual), source)?;
         let supplemental = match &prepared.domain {

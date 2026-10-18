@@ -7354,24 +7354,71 @@ fn compiled_conditional_chain_shares_original_universe_and_actual_facts() {
                 &bound.preconditions,
                 &prepared.preconditions
             ));
-            let consumed = block.plan.structure().source_frozen_ids()
+            let consumed = block
+                .plan
+                .structure()
+                .source_frozen_ids()
                 .chain(block.plan.columns().iter().copied())
-                .chain(block.plan.structure().instances().iter().flat_map(|instance| instance.slots.iter().map(|slot| slot.source())))
+                .chain(
+                    block
+                        .plan
+                        .structure()
+                        .instances()
+                        .iter()
+                        .flat_map(|instance| instance.slots.iter().map(|slot| slot.source())),
+                )
                 .collect::<BTreeSet<_>>();
-            let mut compact = CaseValues { scalars: consumed.iter().map(|id| (*id, values.scalars[id])).collect() };
-            assert!(compact.scalars.len() < values.scalars.len(), "unread authored free coordinates remain absent");
-            assert!(block.plan.structure().validate_frozen_values(&compact).is_err());
-            let compact_bound = block.bind(prepared.quantities.clone(), prepared.preconditions.clone(), &compact, &cancel).unwrap();
-            assert!(compact_bound.rebind(&compact, &cancel).is_err(), "public full rebind remains unchanged");
+            let mut compact = CaseValues {
+                scalars: consumed
+                    .iter()
+                    .map(|id| (*id, values.scalars[id]))
+                    .collect(),
+            };
+            assert!(
+                compact.scalars.len() < values.scalars.len(),
+                "unread authored free coordinates remain absent"
+            );
+            assert!(
+                block
+                    .plan
+                    .structure()
+                    .validate_frozen_values(&compact)
+                    .is_err()
+            );
+            let compact_bound = block
+                .bind(
+                    prepared.quantities.clone(),
+                    prepared.preconditions.clone(),
+                    &compact,
+                    &cancel,
+                )
+                .unwrap();
+            assert!(
+                compact_bound.rebind(&compact, &cancel).is_err(),
+                "public full rebind remains unchanged"
+            );
             assert!(compact_bound.rebind_conditional(&compact, &cancel).is_ok());
             compact.scalars.insert(p, 3.0);
             let refreshed = compact_bound.rebind_conditional(&compact, &cancel).unwrap();
             assert!(refreshed.presolve.matches(&block.plan, &compact));
-            assert!(!compact_bound.presolve.matches(&block.plan, &compact), "changed consumed assumptions cannot retain old facts");
-            assert!(refreshed.coefficient_values.iter().all(|(id, _)| consumed.contains(id)));
+            assert!(
+                !compact_bound.presolve.matches(&block.plan, &compact),
+                "changed consumed assumptions cannot retain old facts"
+            );
+            assert!(
+                refreshed
+                    .coefficient_values
+                    .iter()
+                    .all(|(id, _)| consumed.contains(id))
+            );
             for missing_id in [p, block.plan.columns()[0]] {
-                let mut malformed = compact.clone(); malformed.scalars.remove(&missing_id);
-                assert!(compact_bound.rebind_conditional(&malformed, &cancel).is_err());
+                let mut malformed = compact.clone();
+                malformed.scalars.remove(&missing_id);
+                assert!(
+                    compact_bound
+                        .rebind_conditional(&malformed, &cancel)
+                        .is_err()
+                );
             }
             let mut missing = values.clone();
             missing.scalars.remove(&p);

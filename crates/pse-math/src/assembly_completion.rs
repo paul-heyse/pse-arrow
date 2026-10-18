@@ -169,7 +169,9 @@ impl AssemblyCompletion {
         // Both actions use one completed staging buffer.
         if matches!(
             product,
-            AssembledProduct::JacobianAction | AssembledProduct::TransposeJacobianAction | AssembledProduct::HessianAction
+            AssembledProduct::JacobianAction
+                | AssembledProduct::TransposeJacobianAction
+                | AssembledProduct::HessianAction
         ) {
             self.action_point = None;
             self.receipts[AssembledProduct::JacobianAction] = None;

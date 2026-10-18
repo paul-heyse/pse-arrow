@@ -623,7 +623,12 @@ impl DynamicWorker {
                         1 + coordinates.state.len() + coordinates.parameters.len(),
                     ),
                     cache: None,
-                    pure: program.case.assembly.programs().iter().all(|p| p.census().all(|c| c.provider_stages == 0)),
+                    pure: program
+                        .case
+                        .assembly
+                        .programs()
+                        .iter()
+                        .all(|p| p.census().all(|c| c.provider_stages == 0)),
                     actions: ActionScratch::new(program, &coordinates)?,
                     #[cfg(test)]
                     evaluations: 0,
@@ -707,7 +712,11 @@ impl ActionScratch {
             if jacobian || hessian { columns } else { 0 },
             (if jacobian { rows } else { 0 }).max(if hessian || transpose { columns } else { 0 }),
             if hessian || transpose { rows } else { 0 },
-            (if jacobian { program.rows.len() } else { 0 }).max(if hessian || transpose { physical } else { 0 }),
+            (if jacobian { program.rows.len() } else { 0 }).max(if hessian || transpose {
+                physical
+            } else {
+                0
+            }),
         ])
     }
     fn allocation_bound(
@@ -1295,22 +1304,39 @@ impl Oracle for DynamicWorker {
         output.copy_from_slice(candidate);
         Ok(())
     }
-    #[allow(clippy::too_many_arguments, reason = "physical point and cotangent bindings are independent scientific inputs")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "physical point and cotangent bindings are independent scientific inputs"
+    )]
     fn jacobian_transpose_action(
-        &mut self, mode: usize, function: Function, time: f64,
-        state: &[f64], parameters: &[f64], weights: &[f64], output: &mut [f64],
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        weights: &[f64],
+        output: &mut [f64],
     ) -> Result<(), ProblemError> {
         self.bind(mode, function, time, state, parameters)?;
         let chain = &self.layout.chain;
-        let worker = self.functions.get_mut(&(mode, function))
+        let worker = self
+            .functions
+            .get_mut(&(mode, function))
             .ok_or_else(|| ProblemError::internal("missing compiled dynamic transpose function"))?;
         if !worker.worker.assembly().has_transpose_actions() {
-            return Err(ProblemError::unsupported("the selected dynamic profile did not prepare transpose actions"));
+            return Err(ProblemError::unsupported(
+                "the selected dynamic profile did not prepare transpose actions",
+            ));
         }
         let p = &worker.program;
-        if weights.len() != p.rows.len() || output.len() != chain.len()
-            || weights.iter().any(|v| !v.is_finite()) {
-            return Err(ProblemError::Contract("dynamic transpose dimensions or weights".into()));
+        if weights.len() != p.rows.len()
+            || output.len() != chain.len()
+            || weights.iter().any(|v| !v.is_finite())
+        {
+            return Err(ProblemError::Contract(
+                "dynamic transpose dimensions or weights".into(),
+            ));
         }
         worker.actions.multipliers.fill(0.);
         for (i, &row) in p.rows.iter().enumerate() {
@@ -1320,15 +1346,20 @@ impl Oracle for DynamicWorker {
         }
         worker.binding.refill(&self.modes[mode].frame)?;
         let columns = worker.worker.assembly().columns().len();
-        worker.worker.jacobian_transpose_product(worker.binding.trial()?,
-            &worker.actions.multipliers, &mut worker.actions.local[..columns])?;
+        worker.worker.jacobian_transpose_product(
+            worker.binding.trial()?,
+            &worker.actions.multipliers,
+            &mut worker.actions.local[..columns],
+        )?;
         worker.actions.physical[..chain.len()].fill(0.);
         for (local, &axis) in worker.layout.columns.iter().enumerate() {
             worker.actions.physical[axis] += worker.actions.local[local] * chain[axis];
         }
         let candidate = &worker.actions.physical[..output.len()];
         if candidate.iter().any(|v| !v.is_finite()) {
-            return Err(ProblemError::numerical("nonfinite physical transpose action"));
+            return Err(ProblemError::numerical(
+                "nonfinite physical transpose action",
+            ));
         }
         self.scope.check().map_err(ProblemError::Provider)?;
         output.copy_from_slice(candidate);
@@ -1521,10 +1552,19 @@ impl Oracle for &mut DynamicWorker {
     ) -> Result<(), ProblemError> {
         (**self).jacobian_action(mode, function, time, state, parameters, direction, output)
     }
-    #[allow(clippy::too_many_arguments, reason = "physical point and cotangent bindings are independent scientific inputs")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "physical point and cotangent bindings are independent scientific inputs"
+    )]
     fn jacobian_transpose_action(
-        &mut self, mode: usize, function: Function, time: f64,
-        state: &[f64], parameters: &[f64], weights: &[f64], output: &mut [f64],
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        weights: &[f64],
+        output: &mut [f64],
     ) -> Result<(), ProblemError> {
         (**self).jacobian_transpose_action(mode, function, time, state, parameters, weights, output)
     }

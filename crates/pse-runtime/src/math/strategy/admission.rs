@@ -7,7 +7,10 @@ use pse_backend_native::{
     ProblemError,
     solve::{NativeStorageScope, WorkAdmission, WorkEvidence},
 };
-use std::{collections::BTreeMap, sync::{Arc, Mutex}};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 
 pub(crate) struct TaskAdmission {
     state: Mutex<State>,
@@ -34,7 +37,12 @@ struct State {
     children: BTreeMap<usize, ChildWork>,
 }
 #[derive(Clone, Copy)]
-struct ChildWork { bound: Option<WorkObservation>, observed: WorkObservation, pending: WorkObservation, attempt_pending: bool }
+struct ChildWork {
+    bound: Option<WorkObservation>,
+    observed: WorkObservation,
+    pending: WorkObservation,
+    attempt_pending: bool,
+}
 impl std::fmt::Debug for TaskAdmission {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TaskAdmission")
@@ -117,56 +125,165 @@ impl TaskAdmission {
     /// Private local strategy state, sharing only original aggregate permission and
     /// actual work. Concurrent children never reset another child's local ledger.
     pub(crate) fn child(self: &Arc<Self>) -> Result<Arc<Self>, ProblemError> {
-        let index = { let mut state = self.state()?; let index = state.next_child;
-            state.next_child = index.checked_add(1).ok_or_else(|| ProblemError::memory("task child extent"))?;
-            state.children.insert(index, ChildWork { bound: None, observed: zero(), pending: zero(), attempt_pending: false }); index };
-        let mut child = Self::new_with_pressure(self.limits()?, self.scope.clone(), self.pool.clone(), self.strict_storage, self.pressure.clone());
-        Arc::get_mut(&mut child).ok_or_else(|| ProblemError::Internal("new task child escaped".into()))?.parent = Some((self.clone(), index));
+        let index = {
+            let mut state = self.state()?;
+            let index = state.next_child;
+            state.next_child = index
+                .checked_add(1)
+                .ok_or_else(|| ProblemError::memory("task child extent"))?;
+            state.children.insert(
+                index,
+                ChildWork {
+                    bound: None,
+                    observed: zero(),
+                    pending: zero(),
+                    attempt_pending: false,
+                },
+            );
+            index
+        };
+        let mut child = Self::new_with_pressure(
+            self.limits()?,
+            self.scope.clone(),
+            self.pool.clone(),
+            self.strict_storage,
+            self.pressure.clone(),
+        );
+        Arc::get_mut(&mut child)
+            .ok_or_else(|| ProblemError::Internal("new task child escaped".into()))?
+            .parent = Some((self.clone(), index));
         Ok(child)
     }
-    fn begin_child(&self, index: usize, bound: Option<WorkObservation>, hooked: bool) -> Result<(), ProblemError> {
+    fn begin_child(
+        &self,
+        index: usize,
+        bound: Option<WorkObservation>,
+        hooked: bool,
+    ) -> Result<(), ProblemError> {
         self.scope.check().map_err(ProblemError::Provider)?;
         let mut state = self.state()?;
-        let child = state.children.get(&index).ok_or_else(|| ProblemError::Contract("task child has drained".into()))?;
-        if child.attempt_pending || child.bound.is_some() { return Err(ProblemError::Contract("task child attempt already dispatched".into())); }
-        let strict = [state.ledger.limits.evaluations, state.ledger.limits.iterations, state.ledger.limits.factorizations, state.ledger.limits.proof_steps].iter().any(Option::is_some);
-        let bound = if hooked { None } else if strict {
-            Some(bound.ok_or_else(|| ProblemError::Unsupported("aggregate child work requires complete coverage or inclusive bound".into()))?)
-        } else { bound };
-        let mut held = bound.unwrap_or_else(zero); held.attempts = 1;
-        check_limits(state.ledger.limits, add_work(state.admission_budget()?, held)?)?;
-        state.pending.attempts = state.pending.attempts.checked_add(1).ok_or_else(|| ProblemError::memory("task child attempts"))?;
-        let child = state.children.get_mut(&index).ok_or_else(|| ProblemError::Contract("missing task child".into()))?;
-        child.bound = bound.map(|mut bound| { bound.attempts = 0; bound });
+        let child = state
+            .children
+            .get(&index)
+            .ok_or_else(|| ProblemError::Contract("task child has drained".into()))?;
+        if child.attempt_pending || child.bound.is_some() {
+            return Err(ProblemError::Contract(
+                "task child attempt already dispatched".into(),
+            ));
+        }
+        let strict = [
+            state.ledger.limits.evaluations,
+            state.ledger.limits.iterations,
+            state.ledger.limits.factorizations,
+            state.ledger.limits.proof_steps,
+        ]
+        .iter()
+        .any(Option::is_some);
+        let bound = if hooked {
+            None
+        } else if strict {
+            Some(bound.ok_or_else(|| {
+                ProblemError::Unsupported(
+                    "aggregate child work requires complete coverage or inclusive bound".into(),
+                )
+            })?)
+        } else {
+            bound
+        };
+        let mut held = bound.unwrap_or_else(zero);
+        held.attempts = 1;
+        check_limits(
+            state.ledger.limits,
+            add_work(state.admission_budget()?, held)?,
+        )?;
+        state.pending.attempts = state
+            .pending
+            .attempts
+            .checked_add(1)
+            .ok_or_else(|| ProblemError::memory("task child attempts"))?;
+        let child = state
+            .children
+            .get_mut(&index)
+            .ok_or_else(|| ProblemError::Contract("missing task child".into()))?;
+        child.bound = bound.map(|mut bound| {
+            bound.attempts = 0;
+            bound
+        });
         child.attempt_pending = true;
         Ok(())
     }
     fn complete_child_phase(&self, index: usize, charge: WorkCharge) -> Result<(), ProblemError> {
         let mut state = self.state()?;
-        let child = *state.children.get(&index).ok_or_else(|| ProblemError::Contract("drained child work charge".into()))?;
+        let child = *state
+            .children
+            .get(&index)
+            .ok_or_else(|| ProblemError::Contract("drained child work charge".into()))?;
         if charge.observed.attempts != u64::from(child.attempt_pending) {
-            return Err(ProblemError::Contract("child phase differs from its attempt reservation".into()));
+            return Err(ProblemError::Contract(
+                "child phase differs from its attempt reservation".into(),
+            ));
         }
         if child.attempt_pending {
-            state.pending.attempts = state.pending.attempts.checked_sub(1).ok_or_else(|| ProblemError::Contract("missing child attempt reservation".into()))?;
+            state.pending.attempts = state.pending.attempts.checked_sub(1).ok_or_else(|| {
+                ProblemError::Contract("missing child attempt reservation".into())
+            })?;
         }
-        let remaining = child.bound.map(|bound| subtract_known(bound, child.observed)).transpose()?.unwrap_or_else(zero);
-        let effective = WorkObservation { attempts: charge.observed.attempts,
+        let remaining = child
+            .bound
+            .map(|bound| subtract_known(bound, child.observed))
+            .transpose()?
+            .unwrap_or_else(zero);
+        let effective = WorkObservation {
+            attempts: charge.observed.attempts,
             evaluations: charge.observed.evaluations.or(remaining.evaluations),
             iterations: charge.observed.iterations.or(remaining.iterations),
             factorizations: charge.observed.factorizations.or(remaining.factorizations),
-            proof_steps: charge.observed.proof_steps.or(remaining.proof_steps) };
+            proof_steps: charge.observed.proof_steps.or(remaining.proof_steps),
+        };
         let upper = add_work(state.current_budget()?, effective)?;
         let ledger = &mut state.ledger;
         for (unknown, reserved, upper) in [
-            (ledger.total.evaluations.is_none() || charge.observed.evaluations.is_none(), &mut ledger.reserved.evaluations, upper.evaluations),
-            (ledger.total.iterations.is_none() || charge.observed.iterations.is_none(), &mut ledger.reserved.iterations, upper.iterations),
-            (ledger.total.factorizations.is_none() || charge.observed.factorizations.is_none(), &mut ledger.reserved.factorizations, upper.factorizations),
-            (ledger.total.proof_steps.is_none() || charge.observed.proof_steps.is_none(), &mut ledger.reserved.proof_steps, upper.proof_steps),
-        ] { if unknown { *reserved = upper; } }
-        if [charge.observed.evaluations, charge.observed.iterations, charge.observed.factorizations, charge.observed.proof_steps].iter().any(Option::is_none) { state.ledger.has_reservation = true; }
+            (
+                ledger.total.evaluations.is_none() || charge.observed.evaluations.is_none(),
+                &mut ledger.reserved.evaluations,
+                upper.evaluations,
+            ),
+            (
+                ledger.total.iterations.is_none() || charge.observed.iterations.is_none(),
+                &mut ledger.reserved.iterations,
+                upper.iterations,
+            ),
+            (
+                ledger.total.factorizations.is_none() || charge.observed.factorizations.is_none(),
+                &mut ledger.reserved.factorizations,
+                upper.factorizations,
+            ),
+            (
+                ledger.total.proof_steps.is_none() || charge.observed.proof_steps.is_none(),
+                &mut ledger.reserved.proof_steps,
+                upper.proof_steps,
+            ),
+        ] {
+            if unknown {
+                *reserved = upper;
+            }
+        }
+        if [
+            charge.observed.evaluations,
+            charge.observed.iterations,
+            charge.observed.factorizations,
+            charge.observed.proof_steps,
+        ]
+        .iter()
+        .any(Option::is_none)
+        {
+            state.ledger.has_reservation = true;
+        }
         state.ledger.charge(charge)?;
-        let child = state.children.get_mut(&index).ok_or_else(|| ProblemError::Contract("missing completed child phase".into()))?;
+        let child = state
+            .children
+            .get_mut(&index)
+            .ok_or_else(|| ProblemError::Contract("missing completed child phase".into()))?;
         child.bound = None;
         child.observed = zero();
         child.attempt_pending = false;
@@ -174,20 +291,38 @@ impl TaskAdmission {
         // the original reconciliation owner, without stealing another child's hooks.
         state.unreported = add_work(state.unreported, charge.observed)?;
         state.budget_local = state.local_effective(add_work(state.budget_local, charge.observed)?);
-        if let Some((_, work)) = &mut state.local { *work = add_work(*work, charge.observed)?; }
+        if let Some((_, work)) = &mut state.local {
+            *work = add_work(*work, charge.observed)?;
+        }
         state.retain_effective_work()?;
         check_limits(state.ledger.limits, state.admission_budget()?)
     }
     /// Only the whole issued operation may deregister a child. Native completion,
     /// independent assessment and recovery all retain the same admission identity.
     pub(crate) fn finish_child(&self) -> Result<(), ProblemError> {
-        let Some((parent, index)) = &self.parent else { return Ok(()); };
+        let Some((parent, index)) = &self.parent else {
+            return Ok(());
+        };
         let mut state = parent.state()?;
-        let child = state.children.get(index).ok_or_else(|| ProblemError::Contract("task child already drained".into()))?;
-        if child.attempt_pending || child.bound.is_some()
-            || [child.pending.evaluations, child.pending.iterations, child.pending.factorizations, child.pending.proof_steps].iter().any(|&pending| pending != Some(0)) {
+        let child = state
+            .children
+            .get(index)
+            .ok_or_else(|| ProblemError::Contract("task child already drained".into()))?;
+        if child.attempt_pending
+            || child.bound.is_some()
+            || [
+                child.pending.evaluations,
+                child.pending.iterations,
+                child.pending.factorizations,
+                child.pending.proof_steps,
+            ]
+            .iter()
+            .any(|&pending| pending != Some(0))
+        {
             // An inconsistent drain cannot release still-issued finite permission.
-            return Err(ProblemError::Contract("task child drained before issued work reconciled".into()));
+            return Err(ProblemError::Contract(
+                "task child drained before issued work reconciled".into(),
+            ));
         }
         state.children.remove(index);
         Ok(())
@@ -221,7 +356,10 @@ impl TaskAdmission {
         if let Some((parent, _)) = &self.parent {
             let state = parent.state()?;
             if state.admission_budget()?.attempts >= state.ledger.limits.attempts {
-                return Err(ProblemError::Limit { kind: pse_backend_native::LimitKind::Work, detail: "aggregate child attempt allowance exhausted".into() });
+                return Err(ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Work,
+                    detail: "aggregate child attempt allowance exhausted".into(),
+                });
             }
         }
         Ok(())
@@ -260,8 +398,12 @@ impl TaskAdmission {
         state.local = Some((local, zero()));
         state.hooked = hooked;
         state.local_bound = bound;
-        if !hooked { state.ledger.reserve(local, bound)?; }
-        if let Some((parent, index)) = &self.parent { parent.begin_child(*index, bound, hooked)?; }
+        if !hooked {
+            state.ledger.reserve(local, bound)?;
+        }
+        if let Some((parent, index)) = &self.parent {
+            parent.begin_child(*index, bound, hooked)?;
+        }
         Ok(())
     }
     #[cfg(test)]
@@ -352,7 +494,9 @@ impl TaskAdmission {
             charge.observed.proof_steps,
             &mut state.unreported.proof_steps,
         );
-        if let Some((parent, index)) = &self.parent { parent.complete_child_phase(*index, charge)?; }
+        if let Some((parent, index)) = &self.parent {
+            parent.complete_child_phase(*index, charge)?;
+        }
         state.ledger.charge(charge)?;
         state.budget_local = state.local_effective(add_work(state.budget_local, charge.observed)?);
         if let Some((_, work)) = &mut state.local {
@@ -413,20 +557,47 @@ impl TaskAdmission {
             }
         }
         let pending = add_work(state.pending, known)?;
-        let covered = child.and_then(|index| state.children.get(&index)).is_some_and(|work| work.bound.is_some());
+        let covered = child
+            .and_then(|index| state.children.get(&index))
+            .is_some_and(|work| work.bound.is_some());
         if let Some(index) = child {
-            let issued = state.children.get(&index).ok_or_else(|| ProblemError::Contract("native child has no dispatch reservation".into()))?;
+            let issued = state.children.get(&index).ok_or_else(|| {
+                ProblemError::Contract("native child has no dispatch reservation".into())
+            })?;
             if let Some(bound) = issued.bound {
                 let next = add_work(issued.observed, add_work(issued.pending, known)?)?;
-                check_limits(WorkLimits { attempts: u64::MAX, evaluations: bound.evaluations, iterations: bound.iterations, factorizations: bound.factorizations, proof_steps: bound.proof_steps }, next)?;
+                check_limits(
+                    WorkLimits {
+                        attempts: u64::MAX,
+                        evaluations: bound.evaluations,
+                        iterations: bound.iterations,
+                        factorizations: bound.factorizations,
+                        proof_steps: bound.proof_steps,
+                    },
+                    next,
+                )?;
             }
         }
-        check_limits(global, add_work(state.admission_budget()?, if covered { zero() } else { known })?)?;
+        check_limits(
+            global,
+            add_work(
+                state.admission_budget()?,
+                if covered { zero() } else { known },
+            )?,
+        )?;
         if let Some((limits, _)) = state.local {
             check_limits(limits, add_work(state.budget_local, pending)?)?;
         }
-        if let Some((parent, index)) = &self.parent { parent.admit_inner(work, Some(*index))?; }
-        if let Some(index) = child { let issued = state.children.get_mut(&index).ok_or_else(|| ProblemError::Contract("missing admitted child".into()))?; issued.pending = add_work(issued.pending, known)?; }
+        if let Some((parent, index)) = &self.parent {
+            parent.admit_inner(work, Some(*index))?;
+        }
+        if let Some(index) = child {
+            let issued = state
+                .children
+                .get_mut(&index)
+                .ok_or_else(|| ProblemError::Contract("missing admitted child".into()))?;
+            issued.pending = add_work(issued.pending, known)?;
+        }
         state.pending = pending;
         state.unknown_pending = unknown;
         Ok(())
@@ -492,9 +663,14 @@ impl TaskAdmission {
             global.proof_steps.is_some()
                 || local.is_some_and(|limits| limits.proof_steps.is_some()),
         )?;
-        if let Some((parent, index)) = &self.parent { parent.observe_inner(work, Some(*index))?; }
+        if let Some((parent, index)) = &self.parent {
+            parent.observe_inner(work, Some(*index))?;
+        }
         if let Some(index) = child {
-            let issued = state.children.get_mut(&index).ok_or_else(|| ProblemError::Contract("missing observed child".into()))?;
+            let issued = state
+                .children
+                .get_mut(&index)
+                .ok_or_else(|| ProblemError::Contract("missing observed child".into()))?;
             issued.pending = subtract_known(issued.pending, actual)?;
             issued.observed = add_work(issued.observed, actual)?;
         }
@@ -513,11 +689,31 @@ impl TaskAdmission {
             // adding them only to an already-unknown observed total loses units.
             let ledger = &mut state.ledger;
             for (total, reserved, upper) in [
-                (ledger.total.evaluations, &mut ledger.reserved.evaluations, upper.evaluations),
-                (ledger.total.iterations, &mut ledger.reserved.iterations, upper.iterations),
-                (ledger.total.factorizations, &mut ledger.reserved.factorizations, upper.factorizations),
-                (ledger.total.proof_steps, &mut ledger.reserved.proof_steps, upper.proof_steps),
-            ] { if total.is_none() { *reserved = upper; } }
+                (
+                    ledger.total.evaluations,
+                    &mut ledger.reserved.evaluations,
+                    upper.evaluations,
+                ),
+                (
+                    ledger.total.iterations,
+                    &mut ledger.reserved.iterations,
+                    upper.iterations,
+                ),
+                (
+                    ledger.total.factorizations,
+                    &mut ledger.reserved.factorizations,
+                    upper.factorizations,
+                ),
+                (
+                    ledger.total.proof_steps,
+                    &mut ledger.reserved.proof_steps,
+                    upper.proof_steps,
+                ),
+            ] {
+                if total.is_none() {
+                    *reserved = upper;
+                }
+            }
         }
         state.retain_effective_work()?;
         if let Some((limits, _)) = state.local {
@@ -562,8 +758,12 @@ impl WorkAdmission for TaskAdmission {
         }
         Ok(Some(pse_columnar::AllocationLease::new(reservation)))
     }
-    fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError> { self.admit_inner(work, None) }
-    fn observe(&self, work: WorkEvidence) -> Result<(), ProblemError> { self.observe_inner(work, None) }
+    fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+        self.admit_inner(work, None)
+    }
+    fn observe(&self, work: WorkEvidence) -> Result<(), ProblemError> {
+        self.observe_inner(work, None)
+    }
     fn admit_storage(
         &self,
         scope: NativeStorageScope,
@@ -616,9 +816,25 @@ impl WorkAdmission for TaskAdmission {
 
 fn subtract_known(a: WorkObservation, b: WorkObservation) -> Result<WorkObservation, ProblemError> {
     let sub = |a: Option<u64>, b: Option<u64>| -> Result<Option<u64>, ProblemError> {
-        match (a, b) { (Some(a), Some(b)) => a.checked_sub(b).map(Some).ok_or_else(|| ProblemError::Contract("child work exceeds its reservation".into())), (a, None) => Ok(a), (None, _) => Ok(None) }
+        match (a, b) {
+            (Some(a), Some(b)) => a
+                .checked_sub(b)
+                .map(Some)
+                .ok_or_else(|| ProblemError::Contract("child work exceeds its reservation".into())),
+            (a, None) => Ok(a),
+            (None, _) => Ok(None),
+        }
     };
-    Ok(WorkObservation { attempts: a.attempts.checked_sub(b.attempts).ok_or_else(|| ProblemError::Contract("child attempts exceed reservation".into()))?, evaluations: sub(a.evaluations, b.evaluations)?, iterations: sub(a.iterations, b.iterations)?, factorizations: sub(a.factorizations, b.factorizations)?, proof_steps: sub(a.proof_steps, b.proof_steps)? })
+    Ok(WorkObservation {
+        attempts: a
+            .attempts
+            .checked_sub(b.attempts)
+            .ok_or_else(|| ProblemError::Contract("child attempts exceed reservation".into()))?,
+        evaluations: sub(a.evaluations, b.evaluations)?,
+        iterations: sub(a.iterations, b.iterations)?,
+        factorizations: sub(a.factorizations, b.factorizations)?,
+        proof_steps: sub(a.proof_steps, b.proof_steps)?,
+    })
 }
 
 impl State {
@@ -631,7 +847,10 @@ impl State {
                 covered_pending = add_work(covered_pending, child.pending)?;
             }
         }
-        add_work(self.current_budget()?, add_work(subtract_known(self.pending, covered_pending)?, held)?)
+        add_work(
+            self.current_budget()?,
+            add_work(subtract_known(self.pending, covered_pending)?, held)?,
+        )
     }
     fn local_effective(&self, work: WorkObservation) -> WorkObservation {
         self.local_bound.map_or(work, |bound| WorkObservation {
@@ -1050,91 +1269,181 @@ mod tests {
     #[test]
     fn concurrent_children_have_private_local_reports_and_one_aggregate_cap() {
         let parent = task();
-        let one = parent.child().unwrap(); let two = parent.child().unwrap();
-        let mut local = limits(); local.evaluations = Some(1);
-        one.reserve(local, None, true).unwrap(); two.reserve(limits(), None, true).unwrap();
-        one.admit(unit()).unwrap(); two.admit(unit()).unwrap();
-        assert!(two.admit(unit()).is_err(), "issued siblings cannot spend the same remaining global unit");
+        let one = parent.child().unwrap();
+        let two = parent.child().unwrap();
+        let mut local = limits();
+        local.evaluations = Some(1);
+        one.reserve(local, None, true).unwrap();
+        two.reserve(limits(), None, true).unwrap();
+        one.admit(unit()).unwrap();
+        two.admit(unit()).unwrap();
+        assert!(
+            two.admit(unit()).is_err(),
+            "issued siblings cannot spend the same remaining global unit"
+        );
         one.observe(unit()).unwrap();
         let recorded = one.complete_charge(charge(Some(1))).unwrap();
         assert_eq!(recorded.observed.evaluations, Some(1));
-        assert!(one.admit(unit()).is_err(), "another child's larger local cap cannot overwrite this child's cap");
+        assert!(
+            one.admit(unit()).is_err(),
+            "another child's larger local cap cannot overwrite this child's cap"
+        );
         two.observe(unit()).unwrap();
-        let mut second = charge(Some(1)); second.charging_owner = pse_ids::ContentHash::from_bytes([2; 32]);
+        let mut second = charge(Some(1));
+        second.charging_owner = pse_ids::ContentHash::from_bytes([2; 32]);
         let recorded = two.complete_charge(second).unwrap();
         assert_eq!(recorded.observed.evaluations, Some(1));
         assert_eq!(parent.observation().unwrap().evaluations, Some(2));
         assert_eq!(parent.observation().unwrap().attempts, 2);
-        let third = parent.child().unwrap(); assert!(third.reserve(limits(), None, true).is_err());
-        one.finish_child().unwrap(); two.finish_child().unwrap(); third.finish_child().unwrap();
+        let third = parent.child().unwrap();
+        assert!(third.reserve(limits(), None, true).is_err());
+        one.finish_child().unwrap();
+        two.finish_child().unwrap();
+        third.finish_child().unwrap();
     }
     #[test]
     fn child_registration_survives_native_assessment_and_recovery_until_whole_drain() {
-        let mut caps = limits(); caps.attempts = 3; caps.evaluations = Some(4);
-        let parent = TaskAdmission::new(caps, pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None), None, false);
+        let mut caps = limits();
+        caps.attempts = 3;
+        caps.evaluations = Some(4);
+        let parent = TaskAdmission::new(
+            caps,
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            None,
+            false,
+        );
         let child = parent.child().unwrap();
         child.reserve(caps, None, true).unwrap();
         child.admit(unit()).unwrap();
-        assert!(child.finish_child().is_err(), "whole-child drain cannot release an issued operation");
-        child.observe(unit()).unwrap(); child.complete_charge(charge(Some(1))).unwrap();
-        child.admit(unit()).unwrap(); child.observe(unit()).unwrap();
-        let mut assessment = charge(Some(1)); assessment.phase = super::super::Phase::Assessment;
-        assessment.observed.attempts = 0; assessment.charging_owner = pse_ids::ContentHash::from_bytes([2; 32]);
+        assert!(
+            child.finish_child().is_err(),
+            "whole-child drain cannot release an issued operation"
+        );
+        child.observe(unit()).unwrap();
+        child.complete_charge(charge(Some(1))).unwrap();
+        child.admit(unit()).unwrap();
+        child.observe(unit()).unwrap();
+        let mut assessment = charge(Some(1));
+        assessment.phase = super::super::Phase::Assessment;
+        assessment.observed.attempts = 0;
+        assessment.charging_owner = pse_ids::ContentHash::from_bytes([2; 32]);
         child.complete_charge(assessment).unwrap();
         assert_eq!(parent.state().unwrap().children.len(), 1);
         child.reserve(caps, None, true).unwrap();
-        child.admit(unit()).unwrap(); child.observe(unit()).unwrap();
-        let mut recovery = charge(Some(1)); recovery.charging_owner = pse_ids::ContentHash::from_bytes([3; 32]);
+        child.admit(unit()).unwrap();
+        child.observe(unit()).unwrap();
+        let mut recovery = charge(Some(1));
+        recovery.charging_owner = pse_ids::ContentHash::from_bytes([3; 32]);
         child.complete_charge(recovery).unwrap();
-        child.admit(unit()).unwrap(); child.observe(unit()).unwrap();
-        assessment.charging_owner = pse_ids::ContentHash::from_bytes([4; 32]); child.complete_charge(assessment).unwrap();
+        child.admit(unit()).unwrap();
+        child.observe(unit()).unwrap();
+        assessment.charging_owner = pse_ids::ContentHash::from_bytes([4; 32]);
+        child.complete_charge(assessment).unwrap();
         assert_eq!(parent.observation().unwrap().evaluations, Some(4));
         assert_eq!(parent.observation().unwrap().attempts, 2);
         child.finish_child().unwrap();
         assert!(parent.state().unwrap().children.is_empty());
         assert!(child.finish_child().is_err());
-        assert!(child.admit(unit()).is_err(), "drained callbacks cannot reacquire permission");
-        let sibling = parent.child().unwrap(); sibling.reserve(caps, None, true).unwrap();
-        assert!(sibling.admit(unit()).is_err(), "phase completion never renews the original aggregate allowance");
-        let mut refused = charge(Some(0)); refused.charging_owner = pse_ids::ContentHash::from_bytes([5; 32]);
-        sibling.complete_charge(refused).unwrap(); sibling.finish_child().unwrap();
+        assert!(
+            child.admit(unit()).is_err(),
+            "drained callbacks cannot reacquire permission"
+        );
+        let sibling = parent.child().unwrap();
+        sibling.reserve(caps, None, true).unwrap();
+        assert!(
+            sibling.admit(unit()).is_err(),
+            "phase completion never renews the original aggregate allowance"
+        );
+        let mut refused = charge(Some(0));
+        refused.charging_owner = pse_ids::ContentHash::from_bytes([5; 32]);
+        sibling.complete_charge(refused).unwrap();
+        sibling.finish_child().unwrap();
     }
     #[test]
     fn unknown_child_bound_and_later_known_hooks_share_one_finite_upper() {
-        let mut caps = limits(); caps.attempts = 4; caps.evaluations = Some(10);
-        let parent = TaskAdmission::new(caps, pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None), None, false);
+        let mut caps = limits();
+        caps.attempts = 4;
+        caps.evaluations = Some(10);
+        let parent = TaskAdmission::new(
+            caps,
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            None,
+            false,
+        );
         let unknown = parent.child().unwrap();
-        unknown.reserve(caps, Some(WorkObservation { evaluations: Some(6), ..zero() }), false).unwrap();
-        unknown.complete_charge(charge(None)).unwrap(); unknown.finish_child().unwrap();
+        unknown
+            .reserve(
+                caps,
+                Some(WorkObservation {
+                    evaluations: Some(6),
+                    ..zero()
+                }),
+                false,
+            )
+            .unwrap();
+        unknown.complete_charge(charge(None)).unwrap();
+        unknown.finish_child().unwrap();
         assert_eq!(parent.observation().unwrap().evaluations, None);
-        let known = parent.child().unwrap(); known.reserve(caps, None, true).unwrap();
-        for _ in 0..4 { known.admit(unit()).unwrap(); known.observe(unit()).unwrap(); }
-        assert!(known.admit(unit()).is_err(), "unknown six plus four actual units exhaust the original ten");
-        let mut report = charge(Some(4)); report.charging_owner = pse_ids::ContentHash::from_bytes([2; 32]);
-        known.complete_charge(report).unwrap(); known.finish_child().unwrap();
+        let known = parent.child().unwrap();
+        known.reserve(caps, None, true).unwrap();
+        for _ in 0..4 {
+            known.admit(unit()).unwrap();
+            known.observe(unit()).unwrap();
+        }
+        assert!(
+            known.admit(unit()).is_err(),
+            "unknown six plus four actual units exhaust the original ten"
+        );
+        let mut report = charge(Some(4));
+        report.charging_owner = pse_ids::ContentHash::from_bytes([2; 32]);
+        known.complete_charge(report).unwrap();
+        known.finish_child().unwrap();
         assert_eq!(parent.observation().unwrap().evaluations, None);
-        assert_eq!(parent.state().unwrap().ledger.effective().evaluations, Some(10));
-        let late = parent.child().unwrap(); late.reserve(caps, None, true).unwrap();
-        assert!(late.admit(unit()).is_err(), "phase completion and whole drain cannot renew consumed permission");
-        let mut refused = charge(Some(0)); refused.charging_owner = pse_ids::ContentHash::from_bytes([3; 32]);
-        late.complete_charge(refused).unwrap(); late.finish_child().unwrap();
+        assert_eq!(
+            parent.state().unwrap().ledger.effective().evaluations,
+            Some(10)
+        );
+        let late = parent.child().unwrap();
+        late.reserve(caps, None, true).unwrap();
+        assert!(
+            late.admit(unit()).is_err(),
+            "phase completion and whole drain cannot renew consumed permission"
+        );
+        let mut refused = charge(Some(0));
+        refused.charging_owner = pse_ids::ContentHash::from_bytes([3; 32]);
+        late.complete_charge(refused).unwrap();
+        late.finish_child().unwrap();
     }
     #[test]
     fn concurrent_child_bounds_release_known_surplus_but_never_renew_unknown_permission() {
-        let mut caps = limits(); caps.attempts = 8; caps.evaluations = Some(10);
-        let parent = TaskAdmission::new(caps, pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None), None, false);
-        let bound = |n| WorkObservation { evaluations: Some(n), ..zero() };
-        let one = parent.child().unwrap(); let two = parent.child().unwrap(); let three = parent.child().unwrap();
+        let mut caps = limits();
+        caps.attempts = 8;
+        caps.evaluations = Some(10);
+        let parent = TaskAdmission::new(
+            caps,
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            None,
+            false,
+        );
+        let bound = |n| WorkObservation {
+            evaluations: Some(n),
+            ..zero()
+        };
+        let one = parent.child().unwrap();
+        let two = parent.child().unwrap();
+        let three = parent.child().unwrap();
         one.reserve(caps, Some(bound(6)), false).unwrap();
         two.reserve(caps, Some(bound(4)), false).unwrap();
         assert!(three.reserve(caps, Some(bound(1)), false).is_err());
         one.complete_charge(charge(Some(2))).unwrap();
         one.finish_child().unwrap();
         three.reserve(caps, Some(bound(4)), false).unwrap();
-        let mut unknown = charge(None); unknown.charging_owner = pse_ids::ContentHash::from_bytes([2; 32]);
+        let mut unknown = charge(None);
+        unknown.charging_owner = pse_ids::ContentHash::from_bytes([2; 32]);
         two.complete_charge(unknown).unwrap();
         two.finish_child().unwrap();
-        let mut known = charge(Some(3)); known.charging_owner = pse_ids::ContentHash::from_bytes([3; 32]);
+        let mut known = charge(Some(3));
+        known.charging_owner = pse_ids::ContentHash::from_bytes([3; 32]);
         three.complete_charge(known).unwrap();
         three.finish_child().unwrap();
         assert_eq!(parent.observation().unwrap().evaluations, None);
@@ -1144,37 +1453,67 @@ mod tests {
     }
     #[test]
     fn partially_hooked_child_consumes_its_inclusive_bound_once() {
-        let mut caps = limits(); caps.attempts = 4; caps.evaluations = Some(6);
-        let parent = TaskAdmission::new(caps, pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None), None, false);
-        let one = parent.child().unwrap(); let two = parent.child().unwrap();
-        one.reserve(caps, Some(WorkObservation { evaluations: Some(5), ..zero() }), false).unwrap();
+        let mut caps = limits();
+        caps.attempts = 4;
+        caps.evaluations = Some(6);
+        let parent = TaskAdmission::new(
+            caps,
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            None,
+            false,
+        );
+        let one = parent.child().unwrap();
+        let two = parent.child().unwrap();
+        one.reserve(
+            caps,
+            Some(WorkObservation {
+                evaluations: Some(5),
+                ..zero()
+            }),
+            false,
+        )
+        .unwrap();
         two.reserve(caps, None, true).unwrap();
-        one.admit(unit()).unwrap(); two.admit(unit()).unwrap();
+        one.admit(unit()).unwrap();
+        two.admit(unit()).unwrap();
         assert!(two.admit(unit()).is_err());
-        one.observe(unit()).unwrap(); two.observe(unit()).unwrap();
+        one.observe(unit()).unwrap();
+        two.observe(unit()).unwrap();
         one.complete_charge(charge(Some(3))).unwrap();
-        let mut second = charge(Some(1)); second.charging_owner = pse_ids::ContentHash::from_bytes([2; 32]);
+        let mut second = charge(Some(1));
+        second.charging_owner = pse_ids::ContentHash::from_bytes([2; 32]);
         two.complete_charge(second).unwrap();
         assert_eq!(parent.observation().unwrap().evaluations, Some(4));
     }
 
     #[test]
     fn simultaneous_child_admission_has_one_winner_and_reconciles_both_attempts() {
-        let mut caps = limits(); caps.evaluations = Some(1);
-        let parent = TaskAdmission::new(caps, pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None), None, false);
+        let mut caps = limits();
+        caps.evaluations = Some(1);
+        let parent = TaskAdmission::new(
+            caps,
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            None,
+            false,
+        );
         let children = [parent.child().unwrap(), parent.child().unwrap()];
-        for child in &children { child.reserve(caps, None, true).unwrap(); }
+        for child in &children {
+            child.reserve(caps, None, true).unwrap();
+        }
         let start = Arc::new(std::sync::Barrier::new(3));
         let issued = Arc::new(std::sync::Barrier::new(2));
         let winners = std::thread::scope(|scope| {
             let mut workers = Vec::new();
             for (index, child) in children.into_iter().enumerate() {
-                let start = start.clone(); let issued = issued.clone();
+                let start = start.clone();
+                let issued = issued.clone();
                 workers.push(scope.spawn(move || {
                     start.wait();
                     let admitted = child.admit(unit()).is_ok();
                     issued.wait(); // Neither actual operation can finish before both reservations contend.
-                    if admitted { child.observe(unit()).unwrap(); }
+                    if admitted {
+                        child.observe(unit()).unwrap();
+                    }
                     let mut report = charge(Some(u64::from(admitted)));
                     report.charging_owner = pse_ids::ContentHash::from_bytes([index as u8 + 1; 32]);
                     child.complete_charge(report).unwrap();
@@ -1183,7 +1522,10 @@ mod tests {
                 }));
             }
             start.wait();
-            workers.into_iter().map(|worker| worker.join().unwrap()).sum::<usize>()
+            workers
+                .into_iter()
+                .map(|worker| worker.join().unwrap())
+                .sum::<usize>()
         });
         assert_eq!(winners, 1);
         assert_eq!(parent.observation().unwrap().evaluations, Some(1));
@@ -1191,14 +1533,22 @@ mod tests {
     }
     #[test]
     fn cancelled_parent_stops_child_admission_but_observes_and_drains_issued_work() {
-        let parent = task(); let child = parent.child().unwrap();
-        child.reserve(limits(), None, true).unwrap(); child.admit(unit()).unwrap();
+        let parent = task();
+        let child = parent.child().unwrap();
+        child.reserve(limits(), None, true).unwrap();
+        child.admit(unit()).unwrap();
         parent.scope.cancellation_control().cancel();
         assert!(child.admit(unit()).is_err());
-        child.observe(unit()).unwrap(); child.complete_charge(charge(Some(1))).unwrap();
+        child.observe(unit()).unwrap();
+        child.complete_charge(charge(Some(1))).unwrap();
         child.finish_child().unwrap();
         assert_eq!(parent.observation().unwrap().evaluations, Some(1));
-        assert!(parent.child().unwrap().reserve(limits(), None, true).is_err());
+        assert!(
+            parent
+                .child()
+                .unwrap()
+                .reserve(limits(), None, true)
+                .is_err()
+        );
     }
-
 }

@@ -1093,18 +1093,35 @@ impl CaseStructure {
     /// Authored parameters and fixed variables, before any conditional free-column
     /// selection. Unselected authored free variables are not frozen assumptions.
     pub fn source_frozen_ids(&self) -> impl Iterator<Item = SemanticId> + '_ {
-        self.coordinates.parameters.iter().map(|parameter| parameter.id)
-            .chain(self.coordinates.variables.iter().filter(|variable| variable.fixed).map(|variable| variable.port.id))
+        self.coordinates
+            .parameters
+            .iter()
+            .map(|parameter| parameter.id)
+            .chain(
+                self.coordinates
+                    .variables
+                    .iter()
+                    .filter(|variable| variable.fixed)
+                    .map(|variable| variable.port.id),
+            )
     }
     /// Admit every authored frozen value for a conditional consumer. Current selected
     /// unknowns and consumed boundary inputs are validated by that consumer separately.
     /// The full and effective-frozen public admission methods remain unchanged.
     pub fn validate_source_frozen_values(&self, values: &CaseValues) -> Result<(), MathError> {
-        if values.scalars.iter().any(|(id, value)| !self.contains_coordinate(id) || !value.is_finite()) {
-            return Err(MathError::Contract("undeclared or nonfinite preparation value".into()));
+        if values
+            .scalars
+            .iter()
+            .any(|(id, value)| !self.contains_coordinate(id) || !value.is_finite())
+        {
+            return Err(MathError::Contract(
+                "undeclared or nonfinite preparation value".into(),
+            ));
         }
         for id in self.source_frozen_ids() {
-            let value = values.scalars.get(&id).copied().ok_or_else(|| MathError::Contract(format!("missing authored frozen preparation value {id}")))?;
+            let value = values.scalars.get(&id).copied().ok_or_else(|| {
+                MathError::Contract(format!("missing authored frozen preparation value {id}"))
+            })?;
             self.validate_scalar(id, value)?;
         }
         Ok(())

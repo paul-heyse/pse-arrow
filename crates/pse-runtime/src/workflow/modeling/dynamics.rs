@@ -2589,7 +2589,10 @@ impl ModelingPackage {
                 actions.push(pse_math::jets::ProductKind::JacobianAction);
                 // Integral shooting windows consume adjoints even when the
                 // ordinary trajectory requested forward or value-only outputs.
-                if profile.sensitivity == native::DynamicSensitivity::Adjoint || shooting || window_cotangents {
+                if profile.sensitivity == native::DynamicSensitivity::Adjoint
+                    || shooting
+                    || window_cotangents
+                {
                     actions.push(pse_math::jets::ProductKind::TransposeJacobianAction);
                 }
             }
@@ -6476,7 +6479,10 @@ mod tests {
         first.assert_independent_layout(&second);
         let actions = first.action_buffer_sizes(0, Function::Output);
         assert!(actions[0] > 0 && actions[1] > 0 && actions[3] > 0);
-        assert_eq!(actions[2], 0, "forward preparation has no cotangent/Hessian weights");
+        assert_eq!(
+            actions[2], 0,
+            "forward preparation has no cotangent/Hessian weights"
+        );
         let a = first
             .evaluate(0, Function::Output, 0., &[0.1], prepared.parameters(), true)
             .unwrap();
@@ -6840,21 +6846,66 @@ mod tests {
                 expected[column] += jacobian.val()[index] * weights[jacobian.row_idx()[index]];
             }
         }
-        let mut fresh = prepared.worker(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(),None)).unwrap();
-        let mut direct_jvp=vec![f64::NAN; original.values.len()];
-        fresh.jacobian_action(0,Function::Rhs,0.,&state,parameters,&direction,&mut direct_jvp).unwrap();
-        for (a,e) in direct_jvp.iter().zip(&expected_jacobian) { assert!((a-e).abs()<1e-10); }
+        let mut fresh = prepared
+            .worker(pse_kernels::ExecutionScope::new(
+                pse_diagnostics::Cancellation::default(),
+                None,
+            ))
+            .unwrap();
+        let mut direct_jvp = vec![f64::NAN; original.values.len()];
+        fresh
+            .jacobian_action(
+                0,
+                Function::Rhs,
+                0.,
+                &state,
+                parameters,
+                &direction,
+                &mut direct_jvp,
+            )
+            .unwrap();
+        for (a, e) in direct_jvp.iter().zip(&expected_jacobian) {
+            assert!((a - e).abs() < 1e-10);
+        }
         let mut actual = vec![f64::NAN; axes];
         let buffers = fresh.action_buffer_identity(0, Function::Rhs);
         for _ in 0..2 {
-            fresh.jacobian_transpose_action(0,Function::Rhs,0.,&state,parameters,&weights,&mut actual).unwrap();
-            for (a,e) in actual.iter().zip(&expected) { assert!((a-e).abs()<1e-10); }
-            assert_eq!(buffers,fresh.action_buffer_identity(0,Function::Rhs));
+            fresh
+                .jacobian_transpose_action(
+                    0,
+                    Function::Rhs,
+                    0.,
+                    &state,
+                    parameters,
+                    &weights,
+                    &mut actual,
+                )
+                .unwrap();
+            for (a, e) in actual.iter().zip(&expected) {
+                assert!((a - e).abs() < 1e-10);
+            }
+            assert_eq!(buffers, fresh.action_buffer_identity(0, Function::Rhs));
         }
-        assert_eq!(fresh.evaluation_count(0,Function::Rhs),0,"direct cotangent does not call the full derivative adapter");
-        let intact=actual.clone();
-        assert!(fresh.jacobian_transpose_action(0,Function::Rhs,0.,&state,parameters,&[f64::NAN],&mut actual).is_err());
-        assert_eq!(actual,intact);
+        assert_eq!(
+            fresh.evaluation_count(0, Function::Rhs),
+            0,
+            "direct cotangent does not call the full derivative adapter"
+        );
+        let intact = actual.clone();
+        assert!(
+            fresh
+                .jacobian_transpose_action(
+                    0,
+                    Function::Rhs,
+                    0.,
+                    &state,
+                    parameters,
+                    &[f64::NAN],
+                    &mut actual
+                )
+                .is_err()
+        );
+        assert_eq!(actual, intact);
     }
 
     #[tokio::test]

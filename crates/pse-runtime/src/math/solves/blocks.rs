@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Compiler-issued conditional equations executed in one original task.
+use super::super::initialization::{Dependencies, Iterations, consumed_inputs};
 use super::*;
+use futures_util::{FutureExt, StreamExt};
 use pse_kernels::ExecutionScope;
 use pse_model::strategy::{MechanismKind, WorkObservation};
 use std::collections::{BTreeMap, BTreeSet};
-use futures_util::{StreamExt, FutureExt};
-use super::super::initialization::{Dependencies, Iterations, consumed_inputs};
 
 /// A complete structural schedule with contextually admitted per-block native profiles.
 #[derive(Clone, Debug)]
@@ -28,12 +28,20 @@ pub struct PreparedBlocks {
 impl PreparedBlocks {
     #[cfg(test)]
     pub(super) fn canonical_test_columns(&self) -> Vec<Vec<pse_ids::SemanticId>> {
-        self.boundaries.iter().map(|block| block.boundary.members.columns.clone()).collect()
+        self.boundaries
+            .iter()
+            .map(|block| block.boundary.members.columns.clone())
+            .collect()
     }
     #[cfg(test)]
-    pub(super) fn independent_test_chain(&self) -> (usize, usize, usize) { self.dependencies.independent_chain() }
+    pub(super) fn independent_test_chain(&self) -> (usize, usize, usize) {
+        self.dependencies.independent_chain()
+    }
     #[cfg(test)]
-    pub(super) fn fence_completion(&mut self, slow: usize) -> (Arc<tokio::sync::Notify>, tokio::sync::mpsc::Receiver<usize>) {
+    pub(super) fn fence_completion(
+        &mut self,
+        slow: usize,
+    ) -> (Arc<tokio::sync::Notify>, tokio::sync::mpsc::Receiver<usize>) {
         Arc::make_mut(&mut self.dependencies).fence(slow)
     }
     /// Frozen complete original scientific source.
@@ -505,11 +513,28 @@ impl MathService {
             let quantities = source.prepared.prepared.quantities.clone();
             let preconditions = source.prepared.prepared.preconditions.clone();
             let consumed = consumed_inputs(&view.plan, executable.assembly.input_ids());
-            let value_owner = self.reserve("math:prepared-block-inputs", consumed.len().saturating_mul(96).saturating_add(256))?;
-            let values = CaseValues { scalars: consumed.into_iter().map(|id| {
-                source.values.scalars.get(&id).copied().map(|value| (id, value))
-                    .ok_or_else(|| ProblemError::Contract(format!("missing initial block binding {id}")))
-            }).collect::<Result<_, _>>()? };
+            let value_owner = self.reserve(
+                "math:prepared-block-inputs",
+                consumed.len().saturating_mul(96).saturating_add(256),
+            )?;
+            let values = CaseValues {
+                scalars: consumed
+                    .into_iter()
+                    .map(|id| {
+                        source
+                            .values
+                            .scalars
+                            .get(&id)
+                            .copied()
+                            .map(|value| (id, value))
+                            .ok_or_else(|| {
+                                ProblemError::Contract(format!(
+                                    "missing initial block binding {id}"
+                                ))
+                            })
+                    })
+                    .collect::<Result<_, _>>()?,
+            };
             let values = pse_math::SharedAllocation::from(Arc::new(values)).with_owner(value_owner);
             let binding_values = values.clone();
             let control = Cancellation::default();
@@ -593,35 +618,77 @@ impl MathService {
             key.hash(&step.preparation_identity()?);
             steps.push(step);
         }
-        let descriptor_bytes = Dependencies::allocation_bound(products.iter().zip(&steps).map(|(block, step)| {
-            let Representation::Algebraic(local) = &step.representation else { return Err(ProblemError::Internal("conditional representation changed".into())); };
-            let executable = local.case.as_ref().ok_or_else(|| ProblemError::Internal("conditional executable absent".into()))?;
-            Ok((&block.boundary, block.plan.as_ref(), executable.assembly.input_ids()))
-        }))?;
+        let descriptor_bytes =
+            Dependencies::allocation_bound(products.iter().zip(&steps).map(|(block, step)| {
+                let Representation::Algebraic(local) = &step.representation else {
+                    return Err(ProblemError::Internal(
+                        "conditional representation changed".into(),
+                    ));
+                };
+                let executable = local.case.as_ref().ok_or_else(|| {
+                    ProblemError::Internal("conditional executable absent".into())
+                })?;
+                Ok((
+                    &block.boundary,
+                    block.plan.as_ref(),
+                    executable.assembly.input_ids(),
+                ))
+            }))?;
         let dependency_owner = self.reserve("math:solve-block-dependencies", descriptor_bytes)?;
-        let consumed = steps.iter().map(|step| {
-            let Representation::Algebraic(local) = &step.representation else {
-                return Err(ProblemError::Internal("conditional representation changed".into()));
-            };
-            let executable = local.case.as_ref().ok_or_else(|| ProblemError::Internal("conditional executable absent".into()))?;
-            Ok(consumed_inputs(&local.prepared.prepared.plan, executable.assembly.input_ids()))
-        }).collect::<Result<Vec<_>, ProblemError>>()?;
-        let dependencies = Arc::new(Dependencies::prepare(products.iter().map(|block| &block.boundary), consumed)?);
+        let consumed = steps
+            .iter()
+            .map(|step| {
+                let Representation::Algebraic(local) = &step.representation else {
+                    return Err(ProblemError::Internal(
+                        "conditional representation changed".into(),
+                    ));
+                };
+                let executable = local.case.as_ref().ok_or_else(|| {
+                    ProblemError::Internal("conditional executable absent".into())
+                })?;
+                Ok(consumed_inputs(
+                    &local.prepared.prepared.plan,
+                    executable.assembly.input_ids(),
+                ))
+            })
+            .collect::<Result<Vec<_>, ProblemError>>()?;
+        let dependencies = Arc::new(Dependencies::prepare(
+            products.iter().map(|block| &block.boundary),
+            consumed,
+        )?);
         // A completion schedule can overlap blocks absent from any canonical wave.
         // Independent top-k sums bound every allowed live set, without enumerating it.
         let mut teams = Vec::with_capacity(steps.len());
         let mut residents = Vec::with_capacity(steps.len());
         for step in &steps {
-            let backend = step.backend().ok_or_else(|| ProblemError::Internal("missing prepared block team".into()))?;
-            let demand = super::super::initialization::BlockDemand::new(std::iter::once((backend, step.profile.controls.clone())), &self.policy)?;
+            let backend = step
+                .backend()
+                .ok_or_else(|| ProblemError::Internal("missing prepared block team".into()))?;
+            let demand = super::super::initialization::BlockDemand::new(
+                std::iter::once((backend, step.profile.controls.clone())),
+                &self.policy,
+            )?;
             demand.admit(self.cores)?;
             teams.push(demand.threads);
-            residents.push(demand.foreign.checked_add(demand.stacks).ok_or(MathRuntimeError::Limit("block live resident extent"))?);
+            residents.push(
+                demand
+                    .foreign
+                    .checked_add(demand.stacks)
+                    .ok_or(MathRuntimeError::Limit("block live resident extent"))?,
+            );
         }
         teams.sort_unstable_by(|a, b| b.cmp(a));
         residents.sort_unstable_by(|a, b| b.cmp(a));
-        let threads = teams.into_iter().take(workers).try_fold(0usize, |n, team| n.checked_add(team)).ok_or(MathRuntimeError::Limit("block live team extent"))?.min(self.cores);
-        let foreign_bytes = residents.into_iter().take(workers).try_fold(0usize, |n, bytes| n.checked_add(bytes))
+        let threads = teams
+            .into_iter()
+            .take(workers)
+            .try_fold(0usize, |n, team| n.checked_add(team))
+            .ok_or(MathRuntimeError::Limit("block live team extent"))?
+            .min(self.cores);
+        let foreign_bytes = residents
+            .into_iter()
+            .take(workers)
+            .try_fold(0usize, |n, bytes| n.checked_add(bytes))
             .and_then(|n| n.checked_add(workers.checked_mul(self.policy.stack_bytes)?))
             .ok_or(MathRuntimeError::Limit("block live resident extent"))?;
         Ok(PreparedBlocks {
@@ -641,27 +708,44 @@ impl MathService {
         })
     }
     async fn run_block_owner(
-        self: Arc<Self>, index: usize, step: PreparedSolve, execution: Execution,
+        self: Arc<Self>,
+        index: usize,
+        step: PreparedSolve,
+        execution: Execution,
         admission: Option<Arc<super::super::strategy::admission::TaskAdmission>>,
         #[cfg(test)] dependencies: Arc<Dependencies>,
     ) -> (usize, Result<Outcome, MathRuntimeError>) {
         let result = async {
             let affinity = step.preparation_identity()?;
-            let backend = step.backend().ok_or_else(|| ProblemError::Internal("missing block backend".into()))?;
+            let backend = step
+                .backend()
+                .ok_or_else(|| ProblemError::Internal("missing block backend".into()))?;
             let cores = step.profile.controls.threads;
             let scope = execution.scope()?;
             let cancel = crate::CancelSource::new().with_deadline(scope.deadline());
             let session = self.independent_session(affinity)?;
             let service = self.clone();
-            let outcome = session.conditional_block(cores, backend, scope.clone(), &cancel, move |retained, _, local| {
-                let budget = admission.map_or_else(|| local.clone(), |owner| local.with_admission(owner));
-                service.run_step(step, execution, None, retained, &budget)
-            }).await;
-            let _ = session.park_independent(affinity, Some(scope.clone()), &cancel).await;
+            let outcome = session
+                .conditional_block(
+                    cores,
+                    backend,
+                    scope.clone(),
+                    &cancel,
+                    move |retained, _, local| {
+                        let budget = admission
+                            .map_or_else(|| local.clone(), |owner| local.with_admission(owner));
+                        service.run_step(step, execution, None, retained, &budget)
+                    },
+                )
+                .await;
+            let _ = session
+                .park_independent(affinity, Some(scope.clone()), &cancel)
+                .await;
             #[cfg(test)]
             dependencies.delivered(index, &scope, &cancel).await;
             outcome
-        }.await;
+        }
+        .await;
         (index, result)
     }
     /// One finite schedule on the current worker, followed by fresh full-original evaluation.
@@ -725,128 +809,260 @@ impl MathService {
             // Conditional data has a different compatibility stamp; the optional schedule
             // cannot reuse a state whose source/seed belongs to another block.
             retained.clear();
-            let width = prepared.workers.min(self.policy.jobs.saturating_sub(1).max(1));
+            let width = prepared
+                .workers
+                .min(self.policy.jobs.saturating_sub(1).max(1));
             let parallel = width > 1;
             let mut iterations = Iterations::new(prepared.original.profile.controls.iterations);
             let mut readiness = prepared.dependencies.start();
             let mut outcomes = BTreeMap::new();
             let mut errors = BTreeMap::new();
             let mut refused = BTreeMap::new();
-            if parallel { execution::pause_compute(); }
+            if parallel {
+                execution::pause_compute();
+            }
             let dispatch = async {
                 let mut running = futures_util::stream::FuturesUnordered::new();
                 let mut active_threads = 0usize;
                 let mut stopped = false;
                 loop {
-                    if let Err(error) = execution.check() { errors.entry(usize::MAX).or_insert(error.into()); stopped = true; }
+                    if let Err(error) = execution.check() {
+                        errors.entry(usize::MAX).or_insert(error.into());
+                        stopped = true;
+                    }
                     let mut deferred = Vec::new();
                     let mut immediate = None;
                     while !stopped && running.len() < width {
-                        let Some(index) = readiness.take() else { break; };
+                        let Some(index) = readiness.take() else {
+                            break;
+                        };
                         let template = &prepared.blocks[index];
-                        if active_threads + template.profile.controls.threads > prepared.threads { deferred.push(index); continue; }
-                        let allowance = match iterations.reserve(index, template.controls().iterations, width - running.len()) {
+                        if active_threads + template.profile.controls.threads > prepared.threads {
+                            deferred.push(index);
+                            continue;
+                        }
+                        let allowance = match iterations.reserve(
+                            index,
+                            template.controls().iterations,
+                            width - running.len(),
+                        ) {
                             Ok(allowance) => allowance,
                             Err(error) => {
                                 readiness.defer(index);
-                                if running.is_empty() { errors.insert(index, error.into()); stopped = true; }
+                                if running.is_empty() {
+                                    errors.insert(index, error.into());
+                                    stopped = true;
+                                }
                                 break;
                             }
                         };
                         let rebound = (|| {
                             let mut step = template.clone();
                             step.profile.controls.iterations = allowance;
-                            let Representation::Algebraic(local) = &mut step.representation else { return Err(ProblemError::Internal("conditional representation changed".into()).into()); };
-                            let inputs = if prepared.dependencies.bindings_match(index, &local.values, &values)? {
+                            let Representation::Algebraic(local) = &mut step.representation else {
+                                return Err(ProblemError::Internal(
+                                    "conditional representation changed".into(),
+                                )
+                                .into());
+                            };
+                            let inputs = if prepared.dependencies.bindings_match(
+                                index,
+                                &local.values,
+                                &values,
+                            )? {
                                 local.values.clone()
                             } else {
-                                let input_owner = self.reserve("math:block-dispatch-inputs", prepared.dependencies.binding_bytes(index))?;
-                                let inputs: pse_math::SharedAllocation<CaseValues> = Arc::new(prepared.dependencies.inputs(index, &values)?).into();
+                                let input_owner = self.reserve(
+                                    "math:block-dispatch-inputs",
+                                    prepared.dependencies.binding_bytes(index),
+                                )?;
+                                let inputs: pse_math::SharedAllocation<CaseValues> =
+                                    Arc::new(prepared.dependencies.inputs(index, &values)?).into();
                                 inputs.with_owner(input_owner)
                             };
-                            let bound = local.prepared.prepared.rebind_conditional(&inputs, &execution.cancel)?;
+                            let bound = local
+                                .prepared
+                                .prepared
+                                .rebind_conditional(&inputs, &execution.cancel)?;
                             let bytes = bound.rebind_allocation_bytes(&local.prepared.prepared);
-                            local.prepared = self.own_rebind(&local.prepared, bound, self.reserve("math:block-rebind", bytes)?)?;
+                            local.prepared = self.own_rebind(
+                                &local.prepared,
+                                bound,
+                                self.reserve("math:block-rebind", bytes)?,
+                            )?;
                             local.values = inputs;
-                            step.compatibility = Some(compatibility(&local.prepared.prepared.plan, &local.values,
-                                &step.profile, &step.numerics, template.backend().ok_or_else(|| ProblemError::Internal("missing block backend".into()))?,
-                                &local.providers, &step.snapshot)?);
+                            step.compatibility = Some(compatibility(
+                                &local.prepared.prepared.plan,
+                                &local.values,
+                                &step.profile,
+                                &step.numerics,
+                                template.backend().ok_or_else(|| {
+                                    ProblemError::Internal("missing block backend".into())
+                                })?,
+                                &local.providers,
+                                &step.snapshot,
+                            )?);
                             Ok::<_, MathRuntimeError>(step)
                         })();
-                        let step = match rebound { Ok(step) => step, Err(error) => { let _ = iterations.complete(index, Some(0)); errors.insert(index, error); stopped = true; break; } };
+                        let step = match rebound {
+                            Ok(step) => step,
+                            Err(error) => {
+                                let _ = iterations.complete(index, Some(0));
+                                errors.insert(index, error);
+                                stopped = true;
+                                break;
+                            }
+                        };
                         let mut child_execution = execution.clone();
-                        child_execution.memory = Some(self.policy.foreign_allowance(&step.profile.controls));
+                        child_execution.memory =
+                            Some(self.policy.foreign_allowance(&step.profile.controls));
                         if parallel {
                             active_threads += step.profile.controls.threads;
-                            running.push(self.clone().run_block_owner(index, step, child_execution, budget.admission(), #[cfg(test)] prepared.dependencies.clone()));
+                            running.push(self.clone().run_block_owner(
+                                index,
+                                step,
+                                child_execution,
+                                budget.admission(),
+                                #[cfg(test)]
+                                prepared.dependencies.clone(),
+                            ));
                         } else {
                             // The single-owner route retains its original native session.
-                            let result = self.run_step(step, child_execution, None, retained, budget);
+                            let result =
+                                self.run_step(step, child_execution, None, retained, budget);
                             immediate = Some((index, result));
                             break;
                         }
                     }
-                    for index in deferred { readiness.defer(index); }
-                    let completion = if parallel { running.next().await } else { immediate };
-                    let Some((index, outcome)) = completion else { break; };
-                    if parallel { active_threads -= prepared.blocks[index].profile.controls.threads; }
-                    let actual = match &outcome { Ok(Outcome::Native(report)) => report.evidence.work.iterations, _ => None };
-                    if let Err(error) = iterations.complete(index, actual) { errors.entry(index).or_insert(error.into()); stopped = true; }
+                    for index in deferred {
+                        readiness.defer(index);
+                    }
+                    let completion = if parallel {
+                        running.next().await
+                    } else {
+                        immediate
+                    };
+                    let Some((index, outcome)) = completion else {
+                        break;
+                    };
+                    if parallel {
+                        active_threads -= prepared.blocks[index].profile.controls.threads;
+                    }
+                    let actual = match &outcome {
+                        Ok(Outcome::Native(report)) => report.evidence.work.iterations,
+                        _ => None,
+                    };
+                    if let Err(error) = iterations.complete(index, actual) {
+                        errors.entry(index).or_insert(error.into());
+                        stopped = true;
+                    }
                     match &outcome {
                         Ok(Outcome::Native(report)) => {
-                            match super::super::initialization::commit_block(&mut values, &prepared.boundaries[index].boundary, Some(report), &prepared.original.numerics.policy) {
-                                Ok(()) if !errors.contains_key(&index) => { if let Err(error) = readiness.commit(index) { errors.insert(index, error.into()); stopped = true; } }
-                                Ok(()) => {},
-                                Err(cause) => { refused.insert(index, cause); stopped = true; }
+                            match super::super::initialization::commit_block(
+                                &mut values,
+                                &prepared.boundaries[index].boundary,
+                                Some(report),
+                                &prepared.original.numerics.policy,
+                            ) {
+                                Ok(()) if !errors.contains_key(&index) => {
+                                    if let Err(error) = readiness.commit(index) {
+                                        errors.insert(index, error.into());
+                                        stopped = true;
+                                    }
+                                }
+                                Ok(()) => {}
+                                Err(cause) => {
+                                    refused.insert(index, cause);
+                                    stopped = true;
+                                }
                             }
                         }
                         _ => stopped = true,
                     }
                     outcomes.insert(index, outcome);
-                    if !parallel && (stopped || readiness.remaining == 0) { break; }
+                    if !parallel && (stopped || readiness.remaining == 0) {
+                        break;
+                    }
                 }
                 Ok::<_, MathRuntimeError>(())
             };
             let dispatched = if parallel {
-                tokio::runtime::Handle::try_current().map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?.block_on(dispatch)
+                tokio::runtime::Handle::try_current()
+                    .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?
+                    .block_on(dispatch)
             } else {
-                dispatch.now_or_never().ok_or_else(|| ProblemError::Internal("serial block unexpectedly suspended".into()))?
+                dispatch.now_or_never().ok_or_else(|| {
+                    ProblemError::Internal("serial block unexpectedly suspended".into())
+                })?
             };
-            let resumed = if parallel { execution::resume_compute(&execution).map_err(MathRuntimeError::from) } else { Ok(()) };
+            let resumed = if parallel {
+                execution::resume_compute(&execution).map_err(MathRuntimeError::from)
+            } else {
+                Ok(())
+            };
             // Canonical reduction observes every issued child, even after an unrelated
             // failure stopped dispatch. Only complete original assessment accepts a stage.
             let mut component_failures = BTreeMap::new();
             for (index, outcome) in outcomes {
                 let report = match outcome {
                     Ok(Outcome::Native(report)) => Some(report),
-                    Ok(Outcome::Rejected(cause)) => { errors.entry(index).or_insert(MathRuntimeError::Shared(cause)); None },
-                    Ok(_) => { errors.entry(index).or_insert(ProblemError::Internal("conditional native report unavailable".into()).into()); None },
-                    Err(error) => { errors.entry(index).or_insert(error); None },
+                    Ok(Outcome::Rejected(cause)) => {
+                        errors
+                            .entry(index)
+                            .or_insert(MathRuntimeError::Shared(cause));
+                        None
+                    }
+                    Ok(_) => {
+                        errors.entry(index).or_insert(
+                            ProblemError::Internal("conditional native report unavailable".into())
+                                .into(),
+                        );
+                        None
+                    }
+                    Err(error) => {
+                        errors.entry(index).or_insert(error);
+                        None
+                    }
                 };
                 if let Some(report) = report {
                     work = sum_work(work, report.evidence.work);
-                    if let Err(error) = capture_component(&report) { errors.entry(index).or_insert(error); }
+                    if let Err(error) = capture_component(&report) {
+                        errors.entry(index).or_insert(error);
+                    }
                     if let Some(cause) = refused.remove(&index) {
                         if !errors.contains_key(&index) {
-                            component_failures.insert(index, (cause, super::super::strategy::observe_native(&report)));
+                            component_failures.insert(
+                                index,
+                                (cause, super::super::strategy::observe_native(&report)),
+                            );
                         }
-                        errors.entry(index).or_insert(ProblemError::Unsupported("conditional block candidate refused".into()).into());
+                        errors.entry(index).or_insert(
+                            ProblemError::Unsupported("conditional block candidate refused".into())
+                                .into(),
+                        );
                     }
                     components.push((index, report));
-                } else { work = sum_work(work, WorkEvidence::default()); }
+                } else {
+                    work = sum_work(work, WorkEvidence::default());
+                }
             }
             // Pure dispatch refusals have no outcome entry. Select only after the
             // complete issued inventory is reduced, so their canonical precedence
             // is preserved against a later-index sibling's drained native failure.
             if let Some((index, error)) = errors.into_iter().next() {
                 if let Some((cause, observation)) = component_failures.remove(&index) {
-                    failure_cause = Some(cause); component_observation = Some(observation);
+                    failure_cause = Some(cause);
+                    component_observation = Some(observation);
                 }
                 return Err(error);
             }
             dispatched?;
             resumed?;
-            if readiness.remaining != 0 { return Err(ProblemError::Contract("incomplete block dependency execution".into()).into()); }
+            if readiness.remaining != 0 {
+                return Err(
+                    ProblemError::Contract("incomplete block dependency execution".into()).into(),
+                );
+            }
             execution.check()?;
             let mut original = source.clone();
             original.values = Arc::new(values.clone()).into();

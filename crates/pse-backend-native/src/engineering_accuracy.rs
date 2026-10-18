@@ -214,11 +214,19 @@ pub fn estimate_square(
         return result;
     }
     let rhs = residual.values.iter().map(|r| -*r).collect::<Vec<_>>();
-    let mut actions = match crate::square_response::SparseActionExecutor::new(factor.clone(), 1, factor.reserved_bytes(), execution) {
+    let mut actions = match crate::square_response::SparseActionExecutor::new(
+        factor.clone(),
+        1,
+        factor.reserved_bytes(),
+        execution,
+    ) {
         Ok(actions) => actions,
         Err(error) => {
             let reason = cause_reason(&error);
-            result.outputs = reasons.into_iter().map(|r| Err(r.unwrap_or(reason))).collect();
+            result.outputs = reasons
+                .into_iter()
+                .map(|r| Err(r.unwrap_or(reason)))
+                .collect();
             result.work_demands.resize_with(outputs.len(), || None);
             result.failure = Some(error);
             return result;

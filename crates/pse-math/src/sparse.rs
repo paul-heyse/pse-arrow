@@ -200,17 +200,26 @@ impl AssemblyMatrix {
         Ok(())
     }
     /// Exact transpose action through faer over this completed CSC owner.
-    pub(crate) fn transpose_product(&self, weights: &[f64], output: &mut [f64]) -> Result<(), MathError> {
-        if weights.len() != self.matrix.nrows() || output.len() != self.matrix.ncols()
-            || weights.iter().any(|v| !v.is_finite()) {
-            return Err(MathError::Contract("sparse transpose dimensions or values".into()));
+    pub(crate) fn transpose_product(
+        &self,
+        weights: &[f64],
+        output: &mut [f64],
+    ) -> Result<(), MathError> {
+        if weights.len() != self.matrix.nrows()
+            || output.len() != self.matrix.ncols()
+            || weights.iter().any(|v| !v.is_finite())
+        {
+            return Err(MathError::Contract(
+                "sparse transpose dimensions or values".into(),
+            ));
         }
         faer::sparse::linalg::matmul::sparse_dense_matmul(
             faer::MatMut::from_column_major_slice_mut(output, self.matrix.ncols(), 1),
             faer::Accum::Replace,
             self.matrix.as_ref().transpose(),
             faer::MatRef::from_column_major_slice(weights, weights.len(), 1),
-            1., faer::Par::Seq,
+            1.,
+            faer::Par::Seq,
         );
         if output.iter().any(|v| !v.is_finite()) {
             return Err(MathError::Contract("nonfinite transpose product".into()));

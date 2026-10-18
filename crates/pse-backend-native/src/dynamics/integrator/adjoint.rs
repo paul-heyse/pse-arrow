@@ -633,7 +633,7 @@ impl<'o> Passes<'_, 'o> {
         let stop = self.segments.stops[k];
         let between = p.adjoint.steps_between_checkpoints.into_inner();
         let limit = p.adjoint.max_checkpoints.into_inner();
-        let mut checkpoints = vec![store_checkpoint(count,limit,||s.state_clone())?];
+        let mut checkpoints = vec![store_checkpoint(count, limit, || s.state_clone())?];
         let mut points = Hermite::default();
         points.push(s);
         let mut since = 0usize;
@@ -714,7 +714,7 @@ impl<'o> Passes<'_, 'o> {
                     points.push(s);
                     since += 1;
                     if since > between {
-                        checkpoints.push(store_checkpoint(count,limit,||s.checkpoint())?);
+                        checkpoints.push(store_checkpoint(count, limit, || s.checkpoint())?);
                         points = Hermite::default();
                         points.push(s);
                         since = 0;
@@ -723,7 +723,7 @@ impl<'o> Passes<'_, 'o> {
             }
         }
         points.push(s);
-        checkpoints.push(store_checkpoint(count,limit,||s.state_clone())?);
+        checkpoints.push(store_checkpoint(count, limit, || s.state_clone())?);
         let start = checkpoints.len() - 2;
         Ok(Some(Checkpointing::new::<Replay<F>>(
             None,
@@ -1125,11 +1125,17 @@ where
 
 // Check population permission before cloning/resetting a checkpoint, not after
 // constructing a state which the retained population cannot admit.
-fn store_checkpoint<S>(count: &mut usize, limit: usize, make: impl FnOnce() -> S) -> Result<S,ProblemError> {
+fn store_checkpoint<S>(
+    count: &mut usize,
+    limit: usize,
+    make: impl FnOnce() -> S,
+) -> Result<S, ProblemError> {
     if *count >= limit {
-        return Err(ProblemError::memory("the adjoint forward pass needs more than max_checkpoints checkpoints"));
+        return Err(ProblemError::memory(
+            "the adjoint forward pass needs more than max_checkpoints checkpoints",
+        ));
     }
-    let state=make();
+    let state = make();
     *count += 1;
     Ok(state)
 }

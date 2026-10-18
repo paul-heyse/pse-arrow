@@ -496,10 +496,19 @@ impl PreparedCase {
     }
     /// Rebind a compiler-issued conditional block using authored frozen declarations
     /// and its current selected/proof input inventory. Public full rebind is unchanged.
-    pub fn rebind_conditional(&self, values: &CaseValues, cancel: &Arc<AtomicBool>) -> Result<Self> {
+    pub fn rebind_conditional(
+        &self,
+        values: &CaseValues,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Self> {
         self.rebind_values(values, cancel, true)
     }
-    fn rebind_values(&self, values: &CaseValues, cancel: &Arc<AtomicBool>, conditional: bool) -> Result<Self> {
+    fn rebind_values(
+        &self,
+        values: &CaseValues,
+        cancel: &Arc<AtomicBool>,
+        conditional: bool,
+    ) -> Result<Self> {
         let _phase = pse_diagnostics::observation::current().map(|context| {
             context.count("compiler.value_rebinds", "count", 1);
             context.phase("compiler.value_rebind")
@@ -513,14 +522,24 @@ impl PreparedCase {
             rebound.derived = Arc::new(self.derivation.derive(values, cancel)?).into();
         }
         let values = rebound.derived.complete(values);
-        if conditional { validate_conditional_bindings(&self.plan, &values)?; }
-        else { self.plan.structure().validate_frozen_values(&values)?; }
-        rebound.coefficient_values = Arc::new(binding_assumptions(&self.plan, &values, conditional)?).into();
+        if conditional {
+            validate_conditional_bindings(&self.plan, &values)?;
+        } else {
+            self.plan.structure().validate_frozen_values(&values)?;
+        }
+        rebound.coefficient_values =
+            Arc::new(binding_assumptions(&self.plan, &values, conditional)?).into();
         if !self.products_match(&values) {
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.count("compiler.product_consumed_value_changes", "count", 1);
             }
-            let bound = ValueProducts::bind(&self.plan, &values, self.class_proof_work, cancel, conditional)?;
+            let bound = ValueProducts::bind(
+                &self.plan,
+                &values,
+                self.class_proof_work,
+                cancel,
+                conditional,
+            )?;
             rebound.presolve = bound.presolve.into();
             rebound.coefficients = bound.coefficients.map(Into::into);
             rebound.facts = bound.facts;

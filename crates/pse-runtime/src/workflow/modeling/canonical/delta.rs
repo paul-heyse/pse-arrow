@@ -32,27 +32,54 @@ pub(super) struct Products {
 }
 impl std::fmt::Debug for Products {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DeltaProducts").field("declarations", &self.parent.rows.len()).finish_non_exhaustive()
+        f.debug_struct("DeltaProducts")
+            .field("declarations", &self.parent.rows.len())
+            .finish_non_exhaustive()
     }
 }
 impl Products {
     fn copy_parent(&self, runtime: &Runtime) -> Result<Parent, WorkflowError> {
-        let owner = runtime.shared.math().reserve("modeling:delta-product-copy", self.extent)?;
+        let owner = runtime
+            .shared
+            .math()
+            .reserve("modeling:delta-product-copy", self.extent)?;
         let mut parent = self.parent.clone();
-        if let Some(previous) = parent.product_owner.take() { parent._leases.retain(|lease| !Arc::ptr_eq(lease, &previous)); }
+        if let Some(previous) = parent.product_owner.take() {
+            parent
+                ._leases
+                .retain(|lease| !Arc::ptr_eq(lease, &previous));
+        }
         parent._leases.push(owner.clone());
         parent.product_owner = Some(owner);
         Ok(parent)
     }
 }
-fn product_extent(revision: &AdmittedModelRevision, dependencies: &BTreeMap<DeclarationId, BTreeSet<Request>>) -> Result<usize, WorkflowError> {
-    let metadata = revision.objects.values().filter(|object| object.kind != "data").try_fold(65536usize, |bytes, object| {
-        bytes.checked_add(object.payload.len().checked_mul(32)?).and_then(|bytes| bytes.checked_add(4096))
-    }).ok_or_else(|| contract("delta product metadata extent"))?;
-    dependencies.values().flatten().try_fold(metadata, |bytes, read| {
-        let name = match read { Request::Name(_, name) => name.capacity(), _ => 0 };
-        bytes.checked_add(size_of::<Request>() + 128 + name).ok_or_else(|| contract("delta dependency extent"))
-    })
+fn product_extent(
+    revision: &AdmittedModelRevision,
+    dependencies: &BTreeMap<DeclarationId, BTreeSet<Request>>,
+) -> Result<usize, WorkflowError> {
+    let metadata = revision
+        .objects
+        .values()
+        .filter(|object| object.kind != "data")
+        .try_fold(65536usize, |bytes, object| {
+            bytes
+                .checked_add(object.payload.len().checked_mul(32)?)
+                .and_then(|bytes| bytes.checked_add(4096))
+        })
+        .ok_or_else(|| contract("delta product metadata extent"))?;
+    dependencies
+        .values()
+        .flatten()
+        .try_fold(metadata, |bytes, read| {
+            let name = match read {
+                Request::Name(_, name) => name.capacity(),
+                _ => 0,
+            };
+            bytes
+                .checked_add(size_of::<Request>() + 128 + name)
+                .ok_or_else(|| contract("delta dependency extent"))
+        })
 }
 
 impl SourceIndex {
@@ -60,37 +87,78 @@ impl SourceIndex {
     /// products; changed rows replace only their buckets and parsed occurrences.
     fn copy_complete(&self) -> Self {
         Self {
-            rows: self.rows.clone(), fields: self.fields.clone(), parsed_fields: self.parsed_fields.clone(),
-            children: self.children.clone(), named_children: self.named_children.clone(), named_roots: self.named_roots.clone(),
-            guards: self.guards.clone(), imported_names: self.imported_names.clone(),
-            names: self.names.clone(), imports: self.imports.clone(), scopes: self.scopes.clone(),
-            bases: self.bases.clone(), roots_complete: self.roots_complete,
-            versions: self.versions.clone(), record_sources: self.record_sources.clone(),
+            rows: self.rows.clone(),
+            fields: self.fields.clone(),
+            parsed_fields: self.parsed_fields.clone(),
+            children: self.children.clone(),
+            named_children: self.named_children.clone(),
+            named_roots: self.named_roots.clone(),
+            guards: self.guards.clone(),
+            imported_names: self.imported_names.clone(),
+            names: self.names.clone(),
+            imports: self.imports.clone(),
+            scopes: self.scopes.clone(),
+            bases: self.bases.clone(),
+            roots_complete: self.roots_complete,
+            versions: self.versions.clone(),
+            record_sources: self.record_sources.clone(),
             ..Default::default()
         }
     }
     fn remove_complete(&mut self, id: DeclarationId) {
-        let Some(row) = self.rows.remove(&id) else { return; };
-        self.fields.remove(&id); self.parsed_fields.remove(&id); self.bases.remove(&id);
-        self.scopes.remove(&id); self.imports.remove(&id);
+        let Some(row) = self.rows.remove(&id) else {
+            return;
+        };
+        self.fields.remove(&id);
+        self.parsed_fields.remove(&id);
+        self.bases.remove(&id);
+        self.scopes.remove(&id);
+        self.imports.remove(&id);
         if let Some(parent) = row.parent_id {
-            if let Some(children) = self.children.get_mut(&parent) { children.retain(|child| *child != id); }
-            if let Some(names) = self.named_children.get_mut(&parent) {
-                if let Some(children) = names.get_mut(&row.name) { children.retain(|child| *child != id); }
+            if let Some(children) = self.children.get_mut(&parent) {
+                children.retain(|child| *child != id);
             }
-            if let Some(guards) = self.guards.get_mut(&parent) { guards.retain(|child| *child != id); }
-            if let Some(import) = &row.value.import {
-                if let Some(imports) = self.imported_names.get_mut(&parent).and_then(|names| names.get_mut(import.alias.as_deref().unwrap_or(&row.name))) {
-                    if let Some(position) = imports.iter().position(|name| *name == row.name) { imports.remove(position); }
+            if let Some(names) = self.named_children.get_mut(&parent) {
+                if let Some(children) = names.get_mut(&row.name) {
+                    children.retain(|child| *child != id);
                 }
             }
-        } else if let Some(roots) = self.named_roots.get_mut(&row.name) { roots.retain(|root| *root != id); }
+            if let Some(guards) = self.guards.get_mut(&parent) {
+                guards.retain(|child| *child != id);
+            }
+            if let Some(import) = &row.value.import {
+                if let Some(imports) = self
+                    .imported_names
+                    .get_mut(&parent)
+                    .and_then(|names| names.get_mut(import.alias.as_deref().unwrap_or(&row.name)))
+                {
+                    if let Some(position) = imports.iter().position(|name| *name == row.name) {
+                        imports.remove(position);
+                    }
+                }
+            }
+        } else if let Some(roots) = self.named_roots.get_mut(&row.name) {
+            roots.retain(|root| *root != id);
+        }
         self.invalidate_members();
     }
-    fn traced_references(&mut self, row: &Declaration) -> Result<(BTreeSet<DeclarationId>, BTreeSet<Request>), WorkflowError> {
-        *self.trace.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(BTreeSet::new());
+    fn traced_references(
+        &mut self,
+        row: &Declaration,
+    ) -> Result<(BTreeSet<DeclarationId>, BTreeSet<Request>), WorkflowError> {
+        *self
+            .trace
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(BTreeSet::new());
         let result = self.references(row);
-        let reads = self.trace.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take().unwrap_or_default();
+        let reads = self
+            .trace
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()
+            .unwrap_or_default();
         Ok((result?, reads))
     }
 }
@@ -247,19 +315,32 @@ impl ModelingPackage {
             _leases: leases,
             product_owner: None,
         };
-        let owner = self.runtime.shared.math().reserve("modeling:delta-products", parent.rows.owned_bytes().saturating_mul(32).saturating_add(65536))?;
+        let owner = self.runtime.shared.math().reserve(
+            "modeling:delta-products",
+            parent
+                .rows
+                .owned_bytes()
+                .saturating_mul(32)
+                .saturating_add(65536),
+        )?;
         parent._leases.push(owner.clone());
         parent.product_owner = Some(owner);
-        let mut index = SourceIndex { roots_complete: true, ..Default::default() };
+        let mut index = SourceIndex {
+            roots_complete: true,
+            ..Default::default()
+        };
         for row in &parent.rows {
             index.insert((row.clone(), parent.fields.get(&row.declaration_id).cloned()))?;
-            index.complete_scope(row.declaration_id); index.complete_imports(row.declaration_id);
+            index.complete_scope(row.declaration_id);
+            index.complete_imports(row.declaration_id);
         }
         // Typed ingress already owns parsed fields. Avoid serializing them again
         // merely to rediscover the same parsed-field cache key.
         for object in self.revision.admitted.objects.values() {
             if let (Some((row, _)), Some(parsed)) = (&object.declaration, &object.parsed) {
-                index.parsed_fields.insert(row.declaration_id, parsed.clone());
+                index
+                    .parsed_fields
+                    .insert(row.declaration_id, parsed.clone());
             }
         }
         let mut dependencies = BTreeMap::new();
@@ -271,12 +352,28 @@ impl ModelingPackage {
         index.requests.clear();
         let data = index.data_closure()?;
         let extent = product_extent(&self.revision.admitted, &dependencies)?;
-        let retained = self.runtime.shared.math().reserve("modeling:delta-products", extent)?;
+        let retained = self
+            .runtime
+            .shared
+            .math()
+            .reserve("modeling:delta-products", extent)?;
         parent._leases = vec![retained.clone()];
         parent.product_owner = Some(retained);
-        let products = Arc::new(Products { parent, index, data, dependencies, extent, #[cfg(test)] work: (0, 0, 0) });
+        let products = Arc::new(Products {
+            parent,
+            index,
+            data,
+            dependencies,
+            extent,
+            #[cfg(test)]
+            work: (0, 0, 0),
+        });
         let _ = self.revision.delta_products.set(products.clone());
-        self.revision.delta_products.get().unwrap_or(&products).copy_parent(&self.runtime)
+        self.revision
+            .delta_products
+            .get()
+            .unwrap_or(&products)
+            .copy_parent(&self.runtime)
     }
     /// Stage an exact local parent edit; durable recording is a separate CAS effect.
     pub async fn with_delta(
@@ -1026,42 +1123,111 @@ mod tests {
     }
 
     fn parse(text: &str) -> Vec<Declaration> {
-        pse_authoring::language::parse(text, SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap()
+        pse_authoring::language::parse(
+            text,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap()
     }
     async fn compare_fresh(package: &ModelingPackage, rows: Vec<Declaration>) {
-        let fresh = package.runtime.modeling_package(rows.clone(), crate::workflow::tests::physical()).await.unwrap();
+        let fresh = package
+            .runtime
+            .modeling_package(rows.clone(), crate::workflow::tests::physical())
+            .await
+            .unwrap();
         assert_eq!(package.revision.identity(), fresh.revision.identity());
         assert_eq!(&*package.declarations().await.unwrap(), rows.as_slice());
         for row in rows {
             let key = logical(row.declaration_id);
-            assert_eq!(package.revision.admitted.objects[&key].references, fresh.revision.admitted.objects[&key].references, "fresh binding oracle: {}", row.name);
-            assert_eq!(package.revision.admitted.objects[&key].payload, fresh.revision.admitted.objects[&key].payload);
+            assert_eq!(
+                package.revision.admitted.objects[&key].references,
+                fresh.revision.admitted.objects[&key].references,
+                "fresh binding oracle: {}",
+                row.name
+            );
+            assert_eq!(
+                package.revision.admitted.objects[&key].payload,
+                fresh.revision.admitted.objects[&key].payload
+            );
         }
     }
 
     #[tokio::test]
     async fn delta_products_local_default_reuses_unrelated_parsed_and_canonical_products() {
         for inventory in [8, 32, 128] {
-            let mut text = "package p { def Root { param k:Scalar=1; var x:Scalar; eq a:x==k; }".to_owned();
-            for i in 0..inventory { text.push_str(&format!("param spare{i}:Scalar={i};")); }
+            let mut text =
+                "package p { def Root { param k:Scalar=1; var x:Scalar; eq a:x==k; }".to_owned();
+            for i in 0..inventory {
+                text.push_str(&format!("param spare{i}:Scalar={i};"));
+            }
             text.push('}');
             let mut rows = parse(&text);
             let runtime = crate::workflow::tests::runtime();
-            let original = runtime.modeling_package(rows.clone(), crate::workflow::tests::physical()).await.unwrap();
-            let _ = original.delta_parent(&crate::CancelSource::new()).await.unwrap();
+            let original = runtime
+                .modeling_package(rows.clone(), crate::workflow::tests::physical())
+                .await
+                .unwrap();
+            let _ = original
+                .delta_parent(&crate::CancelSource::new())
+                .await
+                .unwrap();
             let retained = original.revision.delta_products.get().unwrap();
-            let id = rows.iter().find(|row| row.name == "k").unwrap().declaration_id;
-            let spare = rows.iter().find(|row| row.name == "spare0").unwrap().declaration_id;
-            let mut replacement = parse("package p { def Root { param k:Scalar=2; } }").into_iter().find(|row| row.name == "k").unwrap();
-            let old = rows.iter_mut().find(|row| row.declaration_id == id).unwrap();
-            replacement.source_start = old.source_start; replacement.source_end = old.source_end;
+            let id = rows
+                .iter()
+                .find(|row| row.name == "k")
+                .unwrap()
+                .declaration_id;
+            let spare = rows
+                .iter()
+                .find(|row| row.name == "spare0")
+                .unwrap()
+                .declaration_id;
+            let mut replacement = parse("package p { def Root { param k:Scalar=2; } }")
+                .into_iter()
+                .find(|row| row.name == "k")
+                .unwrap();
+            let old = rows
+                .iter_mut()
+                .find(|row| row.declaration_id == id)
+                .unwrap();
+            replacement.source_start = old.source_start;
+            replacement.source_end = old.source_end;
             *old = replacement.clone();
-            let changed = original.with_delta(SourceDelta { parent: original.revision_id().into(), replacements: vec![replacement], ..Default::default() }, &crate::CancelSource::new()).await.unwrap();
+            let changed = original
+                .with_delta(
+                    SourceDelta {
+                        parent: original.revision_id().into(),
+                        replacements: vec![replacement],
+                        ..Default::default()
+                    },
+                    &crate::CancelSource::new(),
+                )
+                .await
+                .unwrap();
             let products = changed.revision.delta_products.get().unwrap();
-            assert_eq!(products.work, (1, 1, 1), "unrelated inventory cannot increase local reference/serialization/index work");
-            assert!(Arc::ptr_eq(&retained.index.parsed_fields[&spare], &products.index.parsed_fields[&spare]));
-            assert!(Arc::ptr_eq(&original.revision.admitted.objects[&logical(spare)], &changed.revision.admitted.objects[&logical(spare)]));
-            eprintln!("delta-products inventory={inventory} examined={} canonical={} updated_index_rows={} copied_index_rows={} retained={}", products.work.0, products.work.1, products.work.2, products.index.rows.len(), products.parent.product_owner.as_ref().unwrap().size());
+            assert_eq!(
+                products.work,
+                (1, 1, 1),
+                "unrelated inventory cannot increase local reference/serialization/index work"
+            );
+            assert!(Arc::ptr_eq(
+                &retained.index.parsed_fields[&spare],
+                &products.index.parsed_fields[&spare]
+            ));
+            assert!(Arc::ptr_eq(
+                &original.revision.admitted.objects[&logical(spare)],
+                &changed.revision.admitted.objects[&logical(spare)]
+            ));
+            eprintln!(
+                "delta-products inventory={inventory} examined={} canonical={} updated_index_rows={} copied_index_rows={} retained={}",
+                products.work.0,
+                products.work.1,
+                products.work.2,
+                products.index.rows.len(),
+                products.parent.product_owner.as_ref().unwrap().size()
+            );
             compare_fresh(&changed, rows).await;
         }
     }
@@ -1076,7 +1242,10 @@ mod tests {
             "package q { param x:Scalar=3; } package p { param x:Scalar=1; def Root { eq a:x==missing; } }",
         ];
         let runtime = crate::workflow::tests::runtime();
-        let mut current = runtime.modeling_package(parse(sources[0]), crate::workflow::tests::physical()).await.unwrap();
+        let mut current = runtime
+            .modeling_package(parse(sources[0]), crate::workflow::tests::physical())
+            .await
+            .unwrap();
         for source in &sources[1..] {
             let rows = parse(source);
             current = current.with_declarations(rows.clone()).await.unwrap();
@@ -1086,7 +1255,10 @@ mod tests {
         rows.reverse();
         current = current.with_declarations(rows.clone()).await.unwrap();
         compare_fresh(&current, rows.clone()).await;
-        for row in &mut rows { row.source_start += 7; row.source_end += 7; }
+        for row in &mut rows {
+            row.source_start += 7;
+            row.source_end += 7;
+        }
         current = current.with_declarations(rows.clone()).await.unwrap();
         compare_fresh(&current, rows).await;
     }

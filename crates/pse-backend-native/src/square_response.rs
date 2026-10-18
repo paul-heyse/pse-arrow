@@ -6,7 +6,9 @@ use faer::Mat;
 use pse_ids::SemanticId;
 
 mod actions;
-pub use actions::{ActionEvidence, SparseFactor, SparsePredictor, SparseRequest, SparseActionExecutor, point_key};
+pub use actions::{
+    ActionEvidence, SparseActionExecutor, SparseFactor, SparsePredictor, SparseRequest, point_key,
+};
 
 /// Default relative scaled rank cutoff of public Root parameter analysis.
 pub const DEFAULT_RELATIVE_RANK_CUTOFF: f64 = 1e-10;
@@ -54,7 +56,8 @@ pub struct SquareScope {
     bounds: Vec<(f64, f64)>,
     pattern: faer::sparse::SymbolicSparseColMat<usize>,
     symbolic: std::sync::Arc<std::sync::Mutex<Option<actions::SymbolicPlan>>>,
-    symbolic_owner: std::sync::Arc<std::sync::Mutex<Option<std::sync::Arc<dyn pse_math::AllocationOwner>>>>,
+    symbolic_owner:
+        std::sync::Arc<std::sync::Mutex<Option<std::sync::Arc<dyn pse_math::AllocationOwner>>>>,
 }
 impl SquareScope {
     /// Share a symbolic preparation only for the same original support and order.
@@ -62,16 +65,32 @@ impl SquareScope {
     pub fn reuse_symbolic_from(&mut self, previous: &Self) -> bool {
         let compatible = self.contract.identity == previous.contract.identity
             && self.contract.rows == previous.contract.rows
-            && self.contract.variables.iter().map(|v| v.id).eq(previous.contract.variables.iter().map(|v| v.id))
+            && self.contract.variables.iter().map(|v| v.id).eq(previous
+                .contract
+                .variables
+                .iter()
+                .map(|v| v.id))
             && self.pattern.nrows() == previous.pattern.nrows()
             && self.pattern.ncols() == previous.pattern.ncols()
-            && (0..self.pattern.ncols()).all(|c| self.pattern.as_ref().row_idx_of_col(c).eq(previous.pattern.as_ref().row_idx_of_col(c)));
-        if compatible { self.symbolic = previous.symbolic.clone(); self.symbolic_owner = previous.symbolic_owner.clone(); }
+            && (0..self.pattern.ncols()).all(|c| {
+                self.pattern
+                    .as_ref()
+                    .row_idx_of_col(c)
+                    .eq(previous.pattern.as_ref().row_idx_of_col(c))
+            });
+        if compatible {
+            self.symbolic = previous.symbolic.clone();
+            self.symbolic_owner = previous.symbolic_owner.clone();
+        }
         compatible
     }
     /// Anchor the retained symbolic cache independently of any escaping numeric factor.
     pub fn with_owner(self, owner: std::sync::Arc<dyn pse_math::AllocationOwner>) -> Self {
-        if let Ok(mut held)=self.symbolic_owner.lock() {if held.is_none() {*held=Some(owner);}}
+        if let Ok(mut held) = self.symbolic_owner.lock() {
+            if held.is_none() {
+                *held = Some(owner);
+            }
+        }
         self
     }
     /// Validate every original row/free coordinate and its matching witness.

@@ -688,8 +688,11 @@ fn checkpoints_bounded(method: Method) {
     let limited = adjoint(&mut Reactor::new(dae), &p, &parameters);
     assert_eq!(limited.report.termination, Termination::Failed);
     assert!(limited.gradient.is_none());
-    assert!(limited.checkpoints <= p.adjoint.max_checkpoints.into_inner(),
-        "a failed call must not have allocated excess checkpoints: {}", limited.checkpoints);
+    assert!(
+        limited.checkpoints <= p.adjoint.max_checkpoints.into_inner(),
+        "a failed call must not have allocated excess checkpoints: {}",
+        limited.checkpoints
+    );
     assert!(
         matches!(
             limited.report.error,
@@ -1426,42 +1429,75 @@ fn short_forward_adjoint_checkpoint_inquiry_preserves_the_same_sampled_functiona
     profile.sensitivity = DynamicSensitivity::Forward;
     let started = Instant::now();
     let mut forward_oracle = Reactor::new(true);
-    let forward = integrate(&mut forward_oracle, &profile, &parameters, Cancellation::default()).unwrap();
-    assert_eq!(forward.termination, Termination::Completed, "{:?}", forward.error);
+    let forward = integrate(
+        &mut forward_oracle,
+        &profile,
+        &parameters,
+        Cancellation::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        forward.termination,
+        Termination::Completed,
+        "{:?}",
+        forward.error
+    );
     let weights = weights(forward.samples.len());
     let width = parameters.len();
     let mut expected = vec![0.; width];
-    for (i,sample) in forward.samples.iter().enumerate() {
+    for (i, sample) in forward.samples.iter().enumerate() {
         for output in 0..sample.outputs.len() {
-            for (axis,value) in expected.iter_mut().enumerate() {
-                *value += weights[i*sample.outputs.len()+output] * sample.output_sensitivities[output*width+axis];
+            for (axis, value) in expected.iter_mut().enumerate() {
+                *value += weights[i * sample.outputs.len() + output]
+                    * sample.output_sensitivities[output * width + axis];
             }
         }
     }
-    eprintln!("forward-adjoint-inquiry {}", serde_json::json!({"route":"forward", "axes":width,
-        "elapsed_seconds":started.elapsed().as_secs_f64(),"calls":forward_oracle.evaluations.get(),"statistics":forward.statistics}));
-    for spacing in [3,25,250] {
-        for axes in [vec![0],(0..width).collect()] {
+    eprintln!(
+        "forward-adjoint-inquiry {}",
+        serde_json::json!({"route":"forward", "axes":width,
+        "elapsed_seconds":started.elapsed().as_secs_f64(),"calls":forward_oracle.evaluations.get(),"statistics":forward.statistics})
+    );
+    for spacing in [3, 25, 250] {
+        for axes in [vec![0], (0..width).collect()] {
             profile.sensitivity = DynamicSensitivity::Adjoint;
             profile.adjoint.steps_between_checkpoints = PositiveCount::try_new(spacing).unwrap();
             profile.adjoint_parameters = AdjointParameters::Selected(axes.clone());
             let mut oracle = Reactor::new(true);
             let started = Instant::now();
-            let product = gradient(&mut oracle, &profile, &parameters,
-                &mut |_| Ok(weights.clone()), Cancellation::default(), 256 << 20).unwrap();
-            assert_eq!(product.report.termination, Termination::Completed, "{:?}", product.report.error);
+            let product = gradient(
+                &mut oracle,
+                &profile,
+                &parameters,
+                &mut |_| Ok(weights.clone()),
+                Cancellation::default(),
+                256 << 20,
+            )
+            .unwrap();
+            assert_eq!(
+                product.report.termination,
+                Termination::Completed,
+                "{:?}",
+                product.report.error
+            );
             let actual = product.gradient.as_ref().unwrap();
             assert_eq!(product.parameter_axes, axes);
-            for (value,axis) in actual.iter().zip(axes.iter()) {
+            for (value, axis) in actual.iter().zip(axes.iter()) {
                 // A 0.1 parameter perturbation must agree in its predicted effect
                 // within the practical 0.001 relative functional allowance.
-                assert!((value-expected[*axis]).abs()*0.1 <= 0.001*(1.+expected[*axis].abs()),
-                    "spacing={spacing}, axis={axis}, {value} != {}",expected[*axis]);
+                assert!(
+                    (value - expected[*axis]).abs() * 0.1 <= 0.001 * (1. + expected[*axis].abs()),
+                    "spacing={spacing}, axis={axis}, {value} != {}",
+                    expected[*axis]
+                );
             }
             assert!(product.checkpoints <= profile.adjoint.max_checkpoints.into_inner());
-            eprintln!("forward-adjoint-inquiry {}",serde_json::json!({"route":"adjoint","axes":axes,"spacing":spacing,
+            eprintln!(
+                "forward-adjoint-inquiry {}",
+                serde_json::json!({"route":"adjoint","axes":axes,"spacing":spacing,
                 "elapsed_seconds":started.elapsed().as_secs_f64(),"calls":oracle.evaluations.get(),
-                "checkpoint_peak":product.checkpoints,"reserved_bytes":product.reserved_bytes,"statistics":product.report.statistics}));
+                "checkpoint_peak":product.checkpoints,"reserved_bytes":product.reserved_bytes,"statistics":product.report.statistics})
+            );
         }
     }
 }

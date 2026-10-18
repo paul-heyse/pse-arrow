@@ -1497,12 +1497,20 @@ impl FitOracle {
                     )
                     .map_err(|e| ProblemError::unsupported(e.to_string()))?;
                     {
-                        let mut layouts = self.response_layouts.lock().map_err(|_| ProblemError::internal("steady response layout owner poisoned"))?;
-                        let reused=layouts.get(&ei).is_some_and(|previous|scope.reuse_symbolic_from(previous));
+                        let mut layouts = self.response_layouts.lock().map_err(|_| {
+                            ProblemError::internal("steady response layout owner poisoned")
+                        })?;
+                        let reused = layouts
+                            .get(&ei)
+                            .is_some_and(|previous| scope.reuse_symbolic_from(previous));
                         if !reused {
-                            let allowance=native::square_response::SparseFactor::allowance(nx).ok_or_else(||ProblemError::memory("steady symbolic cache extent"))?;
-                            let owner=pse_columnar::AllocationLease::new(reservation.split(allowance));
-                            scope=scope.with_owner(owner);
+                            let allowance = native::square_response::SparseFactor::allowance(nx)
+                                .ok_or_else(|| {
+                                    ProblemError::memory("steady symbolic cache extent")
+                                })?;
+                            let owner =
+                                pse_columnar::AllocationLease::new(reservation.split(allowance));
+                            scope = scope.with_owner(owner);
                         }
                         layouts.insert(ei, scope.clone());
                     }

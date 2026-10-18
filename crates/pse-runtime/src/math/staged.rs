@@ -1166,11 +1166,28 @@ impl NativeSession {
     /// admission owns the actual backend team and gate lifetime, including teardown.
     #[cfg(feature = "solver-kinsol")]
     pub(super) async fn conditional_block<T: Send + 'static>(
-        &self, cores: usize, backend: Backend, scope: pse_kernels::ExecutionScope,
+        &self,
+        cores: usize,
+        backend: Backend,
+        scope: pse_kernels::ExecutionScope,
         cancel: &crate::CancelSource,
-        work: impl FnOnce(&mut Retained, &pse_diagnostics::Cancellation, &Arc<WorkerBudget>) -> Result<T, MathRuntimeError> + Send + 'static,
+        work: impl FnOnce(
+            &mut Retained,
+            &pse_diagnostics::Cancellation,
+            &Arc<WorkerBudget>,
+        ) -> Result<T, MathRuntimeError>
+        + Send
+        + 'static,
     ) -> Result<T, MathRuntimeError> {
-        self.run_task(cores, vec![backend], scope.deadline(), Some(scope), cancel, work).await
+        self.run_task(
+            cores,
+            vec![backend],
+            scope.deadline(),
+            Some(scope),
+            cancel,
+            work,
+        )
+        .await
     }
     /// Queue native work under the already admitted task's cancellation owner and clock.
     #[cfg(feature = "solver-diffsol")]

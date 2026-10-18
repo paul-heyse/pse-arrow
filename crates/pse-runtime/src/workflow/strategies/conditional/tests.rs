@@ -2436,46 +2436,120 @@ async fn ready_initialization_releases_successor_before_unrelated_sibling_delive
     for (fails, cancelled) in [(false, false), (true, false), (false, true)] {
         let runtime = construction_runtime();
         let text = "package ready {def Root {param p:Scalar=1; var a:Scalar; var b:Scalar; var c:Scalar; var d:Scalar; eq first:a==p; eq second:b==2; eq chain:c==a+1; eq downstream:d==c+b; annotation start a(0); annotation start b(0); annotation start c(0); annotation start d(0);}}";
-        let text = if fails { text.replace("b==2", "b*b==-1") } else { text.to_owned() };
-        let declarations = pse_authoring::language::parse(&text,
-            id(94), pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap();
-        let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
-        let package = runtime.modeling_package(declarations, physical()).await.unwrap();
+        let text = if fails {
+            text.replace("b==2", "b*b==-1")
+        } else {
+            text.to_owned()
+        };
+        let declarations = pse_authoring::language::parse(
+            &text,
+            id(94),
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(declarations, physical())
+            .await
+            .unwrap();
         let cancel = crate::CancelSource::new();
-        let mut analysis = package.declared_execution(root, compiler_profile(),
-            super::super::tests::profile(SolveIntent::Initialize), Default::default(), Default::default(), &cancel)
-            .await.unwrap().analysis;
+        let mut analysis = package
+            .declared_execution(
+                root,
+                compiler_profile(),
+                super::super::tests::profile(SolveIntent::Initialize),
+                Default::default(),
+                Default::default(),
+                &cancel,
+            )
+            .await
+            .unwrap()
+            .analysis;
         analysis.solver.block_workers = 2;
         analysis.solver.composition.limits = Some(pse_model::strategy::WorkLimits {
-            attempts: 16, evaluations: Some(10000), iterations: None, factorizations: None, proof_steps: None,
+            attempts: 16,
+            evaluations: Some(10000),
+            iterations: None,
+            factorizations: None,
+            proof_steps: None,
         });
-        let mut prepared = package.prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel).await.unwrap();
+        let mut prepared = package
+            .prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel)
+            .await
+            .unwrap();
         let (fast, slow, child) = prepared.prepared.independent_test_chain();
         let (release, mut completed) = prepared.prepared.fence_completion(slow);
         let handle = prepared.start().unwrap();
-        assert_eq!(tokio::time::timeout(std::time::Duration::from_secs(15), completed.recv()).await.unwrap(), Some(fast));
-        assert_eq!(tokio::time::timeout(std::time::Duration::from_secs(15), completed.recv()).await.unwrap(), Some(child),
-            "checked dependency commit releases its chain while sibling delivery remains gated");
-        if cancelled { handle.cancel(); } else { release.notify_one(); }
+        assert_eq!(
+            tokio::time::timeout(std::time::Duration::from_secs(15), completed.recv())
+                .await
+                .unwrap(),
+            Some(fast)
+        );
+        assert_eq!(
+            tokio::time::timeout(std::time::Duration::from_secs(15), completed.recv())
+                .await
+                .unwrap(),
+            Some(child),
+            "checked dependency commit releases its chain while sibling delivery remains gated"
+        );
+        if cancelled {
+            handle.cancel();
+        } else {
+            release.notify_one();
+        }
         let report = handle.finish().await.unwrap();
         assert_eq!(report.completed_stages, usize::from(!fails && !cancelled));
         assert_eq!(report.cancelled, cancelled);
         if fails || cancelled {
             assert!(report.attempts.iter().all(|attempt| !attempt.committed));
-            assert!(report.values.scalars.is_empty(), "provisional descendants never become an accepted stage");
-            assert_eq!(report.attempts.len(), 3, "failure stops dispatch after draining the already-issued descendant");
+            assert!(
+                report.values.scalars.is_empty(),
+                "provisional descendants never become an accepted stage"
+            );
+            assert_eq!(
+                report.attempts.len(),
+                3,
+                "failure stops dispatch after draining the already-issued descendant"
+            );
         } else {
             assert!(report.attempts.iter().all(|attempt| attempt.committed));
             assert_eq!(report.attempts.len(), 4);
-            assert!(report.attempts.iter().all(|attempt| attempt.trace.as_ref().is_some_and(|trace|
-                trace.events.iter().any(|event| event.work.as_ref().is_some_and(|work|
-                    work.phase == pse_model::strategy::Phase::Assessment && work.observed.evaluations.is_some_and(|count| count > 0))))),
-                "aggregate child registration survives native completion through independent assessment");
+            assert!(
+                report
+                    .attempts
+                    .iter()
+                    .all(|attempt| attempt.trace.as_ref().is_some_and(|trace| trace
+                        .events
+                        .iter()
+                        .any(|event| event.work.as_ref().is_some_and(|work| work.phase
+                            == pse_model::strategy::Phase::Assessment
+                            && work.observed.evaluations.is_some_and(|count| count > 0))))),
+                "aggregate child registration survives native completion through independent assessment"
+            );
         }
-        let order = report.attempts.iter().map(|attempt| attempt.boundary.id).collect::<Vec<_>>();
-        let expected = prepared.blocks().boundaries().map(|block| block.id).filter(|id| order.contains(id)).collect::<Vec<_>>();
-        assert_eq!(order, expected, "visible outcomes reduce in canonical prepared order");
-        drop(report); drop(prepared);
+        let order = report
+            .attempts
+            .iter()
+            .map(|attempt| attempt.boundary.id)
+            .collect::<Vec<_>>();
+        let expected = prepared
+            .blocks()
+            .boundaries()
+            .map(|block| block.id)
+            .filter(|id| order.contains(id))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            order, expected,
+            "visible outcomes reduce in canonical prepared order"
+        );
+        drop(report);
+        drop(prepared);
         while completed.recv().await.is_some() {}
     }
 }

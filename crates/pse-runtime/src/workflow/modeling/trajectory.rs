@@ -619,70 +619,115 @@ impl ModelingSimulation {
         cancel: &pse_diagnostics::Cancellation,
         deadline: std::time::Instant,
     ) -> Result<crate::workflow::live_simulation::LiveProjection, WorkflowError> {
-        use crate::workflow::live_simulation::{LiveOutputLineage, LiveProjection, encoding_checkpoint};
+        use crate::workflow::live_simulation::{
+            LiveOutputLineage, LiveProjection, encoding_checkpoint,
+        };
         encoding_checkpoint(cancel, deadline)?;
         let product = self.model().compiled();
         let selected = self.contract.outputs.len();
-        let scratch_bytes = product.admitted.outputs.len()
+        let scratch_bytes = product
+            .admitted
+            .outputs
+            .len()
             .checked_add(product.admitted.case().rows().len())
             .and_then(|count| count.checked_add(selected.checked_mul(4)?))
             .and_then(|count| count.checked_mul(size_of::<SemanticId>() + size_of::<usize>() + 256))
             .and_then(|bytes| bytes.checked_add(4096))
             .ok_or_else(|| contract("live projection scratch extent"))?;
-        let _scratch = self.runtime.native().reserve("simulation:live-projection-scratch", scratch_bytes)?;
-        let retained_bytes = selected.checked_mul(size_of::<LiveOutputLineage>())
-            .and_then(|bytes| bytes.checked_add(self.modes.len().checked_mul(size_of::<ContentHash>())?))
-            .and_then(|bytes| bytes.checked_add(size_of::<LiveProjection>() + 2 * size_of::<usize>()))
+        let _scratch = self
+            .runtime
+            .native()
+            .reserve("simulation:live-projection-scratch", scratch_bytes)?;
+        let retained_bytes = selected
+            .checked_mul(size_of::<LiveOutputLineage>())
+            .and_then(|bytes| {
+                bytes.checked_add(self.modes.len().checked_mul(size_of::<ContentHash>())?)
+            })
+            .and_then(|bytes| {
+                bytes.checked_add(size_of::<LiveProjection>() + 2 * size_of::<usize>())
+            })
             .ok_or_else(|| contract("live projection retained extent"))?;
-        let owner = self.runtime.native().reserve("simulation:live-projection", retained_bytes)?;
+        let owner = self
+            .runtime
+            .native()
+            .reserve("simulation:live-projection", retained_bytes)?;
         let mut positions = BTreeMap::new();
         for (position, id) in self.contract.outputs.iter().enumerate() {
             encoding_checkpoint(cancel, deadline)?;
-            if positions.insert(*id, position).is_some() { return Err(contract("live trajectory selected output repeats")); }
+            if positions.insert(*id, position).is_some() {
+                return Err(contract("live trajectory selected output repeats"));
+            }
         }
         let mut symbols = vec![None; selected];
         let mut seen = BTreeSet::new();
         for output in &product.admitted.outputs {
             encoding_checkpoint(cancel, deadline)?;
             let id = output.row_id();
-            if !seen.insert(id) { return Err(math(pse_math::MathError::Contract("duplicate projection source identity".into()))); }
+            if !seen.insert(id) {
+                return Err(math(pse_math::MathError::Contract(
+                    "duplicate projection source identity".into(),
+                )));
+            }
             if let Some(position) = positions.get(&id) {
-                let ModelingOutput::Member(symbol) = output else { return Err(contract("trajectory output is not an authored member")); };
+                let ModelingOutput::Member(symbol) = output else {
+                    return Err(contract("trajectory output is not an authored member"));
+                };
                 symbols[*position] = Some(*symbol);
             }
         }
         for symbol in &symbols {
             encoding_checkpoint(cancel, deadline)?;
-            if symbol.is_none() { return Err(contract("trajectory output lineage absent")); }
+            if symbol.is_none() {
+                return Err(contract("trajectory output lineage absent"));
+            }
         }
         seen.clear();
         let mut lineage = vec![None; selected];
         for row in product.admitted.case().rows() {
             encoding_checkpoint(cancel, deadline)?;
-            if !seen.insert(row.id) { return Err(math(pse_math::MathError::Contract("duplicate projection source identity".into()))); }
+            if !seen.insert(row.id) {
+                return Err(math(pse_math::MathError::Contract(
+                    "duplicate projection source identity".into(),
+                )));
+            }
             if let Some(position) = positions.get(&row.id) {
-                let unit = self.quantities.quantity_type(row.quantity).map_err(math)?.canonical_unit;
+                let unit = self
+                    .quantities
+                    .quantity_type(row.quantity)
+                    .map_err(math)?
+                    .canonical_unit;
                 lineage[*position] = Some(LiveOutputLineage {
-                    symbol: symbols[*position].ok_or_else(|| contract("trajectory output lineage absent"))?,
-                    quantity: row.quantity.as_id(), unit: unit.as_id(),
+                    symbol: symbols[*position]
+                        .ok_or_else(|| contract("trajectory output lineage absent"))?,
+                    quantity: row.quantity.as_id(),
+                    unit: unit.as_id(),
                 });
             }
         }
         let mut outputs = Vec::new();
-        outputs.try_reserve_exact(selected).map_err(|_| contract("live projection allocation refused"))?;
+        outputs
+            .try_reserve_exact(selected)
+            .map_err(|_| contract("live projection allocation refused"))?;
         for entry in lineage {
             encoding_checkpoint(cancel, deadline)?;
             outputs.push(entry.ok_or_else(|| contract("trajectory physical row absent"))?);
         }
         let mut modes = Vec::new();
-        modes.try_reserve_exact(self.modes.len()).map_err(|_| contract("live mode projection allocation refused"))?;
+        modes
+            .try_reserve_exact(self.modes.len())
+            .map_err(|_| contract("live mode projection allocation refused"))?;
         for (ordinal, mode) in self.modes.iter().enumerate() {
             encoding_checkpoint(cancel, deadline)?;
             i64::try_from(ordinal).map_err(|_| contract("live trajectory mode ordinal extent"))?;
             modes.push(mode.model.compiled().admitted.case().key());
         }
         encoding_checkpoint(cancel, deadline)?;
-        Ok(LiveProjection { outputs, modes, source: product.admitted.clone(), _owner: owner })
+        Ok(LiveProjection {
+            outputs,
+            modes,
+            source: product.admitted.clone(),
+            _owner: owner,
+        })
     }
 }
 

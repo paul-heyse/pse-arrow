@@ -529,12 +529,25 @@ fn anchored_actions_match_exact_partials_without_materializing_wrapper_matrices(
             for (actual, expected) in actual.iter().zip(&expected) {
                 assert!((actual - expected).abs() < 1e-12);
             }
-            let weights=vec![0.7;matrix.nrows()];
-            let mut cotangent=vec![f64::NAN;matrix.ncols()];
-            oracle.jacobian_transpose_action(0,function,0.4,&state,&parameters,&weights,&mut cotangent).unwrap();
-            for (col,actual) in cotangent.iter().enumerate() {
-                let expected=matrix.col_range(col).map(|k| matrix.val()[k]*weights[matrix.row_idx()[k]]).sum::<f64>();
-                assert!((actual-expected).abs()<1e-12);
+            let weights = vec![0.7; matrix.nrows()];
+            let mut cotangent = vec![f64::NAN; matrix.ncols()];
+            oracle
+                .jacobian_transpose_action(
+                    0,
+                    function,
+                    0.4,
+                    &state,
+                    &parameters,
+                    &weights,
+                    &mut cotangent,
+                )
+                .unwrap();
+            for (col, actual) in cotangent.iter().enumerate() {
+                let expected = matrix
+                    .col_range(col)
+                    .map(|k| matrix.val()[k] * weights[matrix.row_idx()[k]])
+                    .sum::<f64>();
+                assert!((actual - expected).abs() < 1e-12);
             }
             let old = actual.clone();
             assert!(

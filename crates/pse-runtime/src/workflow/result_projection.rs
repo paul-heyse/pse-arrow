@@ -339,10 +339,17 @@ fn append_queue_control(
     pool: &Arc<dyn MemoryPool>,
     retained: Option<Arc<pse_columnar::AllocationLease>>,
 ) -> Option<Arc<pse_columnar::AllocationLease>> {
-    if retained.is_some() { return retained; }
+    if retained.is_some() {
+        return retained;
+    }
     let reservation = MemoryConsumer::new("canonical:append-queue-control").register(pool);
-    let owner = reservation.try_grow(256 * 1024).ok().map(|()| pse_columnar::AllocationLease::new(reservation));
-    if owner.is_some() && let Some(context) = pse_diagnostics::observation::current() {
+    let owner = reservation
+        .try_grow(256 * 1024)
+        .ok()
+        .map(|()| pse_columnar::AllocationLease::new(reservation));
+    if owner.is_some()
+        && let Some(context) = pse_diagnostics::observation::current()
+    {
         context.count("canonical.result.append_queue_control_grants", "count", 1);
     }
     owner
@@ -1015,7 +1022,10 @@ pub(super) async fn finish_result_table_prefix(
 }
 
 /// One sealed live batch advances coverage only after its actual append ACK.
-#[expect(clippy::too_many_arguments, reason = "the live position and reusable empty control have independent attempt-owned lifetimes")]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the live position and reusable empty control have independent attempt-owned lifetimes"
+)]
 pub(super) async fn append_live_sample_batch(
     store: &CanonicalStore,
     fence: &AttemptFence,
@@ -1036,7 +1046,13 @@ pub(super) async fn append_live_sample_batch(
         .origin
         .checked_add(table.batch().num_rows() as u64)
         .ok_or_else(|| contract("live sample row extent"))?;
-    let mut queue = ResultAppendQueue::with_control(store, fence, pool, acknowledgments, retained_control.take());
+    let mut queue = ResultAppendQueue::with_control(
+        store,
+        fence,
+        pool,
+        acknowledgments,
+        retained_control.take(),
+    );
     store_result_chunk(
         &mut queue,
         id,
@@ -2647,7 +2663,10 @@ mod live_append_control_unit {
         assert!(original.upgrade().is_none());
         assert_eq!(pool.reserved(), 0);
         let tiny: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1024));
-        assert!(append_queue_control(&tiny, None).is_none(), "optional queue retention refusal preserves synchronous fallback");
+        assert!(
+            append_queue_control(&tiny, None).is_none(),
+            "optional queue retention refusal preserves synchronous fallback"
+        );
         assert_eq!(tiny.reserved(), 0);
     }
 }

@@ -91,8 +91,12 @@ impl Blocks {
         } else {
             projection
         };
-        let scratch_bytes = n.checked_mul(2 * size_of::<f64>()).ok_or_else(|| ProblemError::memory("block application storage extent"))?;
-        let factor_plan = factor_plan.checked_add(scratch_bytes).ok_or_else(|| ProblemError::memory("block retained storage extent"))?;
+        let scratch_bytes = n
+            .checked_mul(2 * size_of::<f64>())
+            .ok_or_else(|| ProblemError::memory("block application storage extent"))?;
+        let factor_plan = factor_plan
+            .checked_add(scratch_bytes)
+            .ok_or_else(|| ProblemError::memory("block retained storage extent"))?;
         let required = factor_plan
             .checked_add(construction)
             .and_then(|bytes| bytes.checked_add(native_workspace))
@@ -317,7 +321,9 @@ impl Blocks {
         execution: &Execution,
     ) -> Result<&[f64], ProblemError> {
         if rhs.len() != self.result.len() || rhs.iter().any(|value| !value.is_finite()) {
-            return Err(ProblemError::Contract("block preconditioner right-hand side extent or values".into()));
+            return Err(ProblemError::Contract(
+                "block preconditioner right-hand side extent or values".into(),
+            ));
         }
         self.result.fill(0.);
         for block in &mut self.blocks {
@@ -332,8 +338,9 @@ impl Blocks {
                 .solve_calls
                 .checked_add(1)
                 .ok_or_else(|| ProblemError::Internal("block solve count overflow".into()))?;
-            let solved =
-                crate::observation::scoped("kinsol.block.feral.solve", || factor.ftran(&mut block.rhs));
+            let solved = crate::observation::scoped("kinsol.block.feral.solve", || {
+                factor.ftran(&mut block.rhs)
+            });
             crate::observation::count(
                 if solved.is_ok() {
                     "kinsol.block.feral.solve.succeeded"
@@ -532,16 +539,34 @@ mod tests {
     }
     #[test]
     fn retained_block_application_buffers_survive_repeats_failure_and_recovery() {
-        let function = Function::Equations(Box::new(Coupled::new(Arc::new(AtomicU64::new(0)), false, false)));
+        let function = Function::Equations(Box::new(Coupled::new(
+            Arc::new(AtomicU64::new(0)),
+            false,
+            false,
+        )));
         let execution = execution();
         let mut blocks = Blocks::admit(&function, &execution, linear()).unwrap();
         blocks.setup(&[0., 3., 2., 1., 4., 5.], &execution).unwrap();
         let global = blocks.result.as_ptr();
-        let local = blocks.blocks.iter().map(|b| b.rhs.as_ptr()).collect::<Vec<_>>();
+        let local = blocks
+            .blocks
+            .iter()
+            .map(|b| b.rhs.as_ptr())
+            .collect::<Vec<_>>();
         for _ in 0..32 {
-            assert_eq!(blocks.solve(&[2., 1., 14.], &execution).unwrap(), &[0., 1., 2.8]);
+            assert_eq!(
+                blocks.solve(&[2., 1., 14.], &execution).unwrap(),
+                &[0., 1., 2.8]
+            );
             assert_eq!(blocks.result.as_ptr(), global);
-            assert_eq!(blocks.blocks.iter().map(|b| b.rhs.as_ptr()).collect::<Vec<_>>(), local);
+            assert_eq!(
+                blocks
+                    .blocks
+                    .iter()
+                    .map(|b| b.rhs.as_ptr())
+                    .collect::<Vec<_>>(),
+                local
+            );
         }
         assert!(blocks.solve(&[1.; 2], &execution).is_err());
         assert!(blocks.setup(&[0.; 6], &execution).is_err());
@@ -557,16 +582,21 @@ mod tests {
     }
     #[test]
     fn repeated_block_applies_allocate_zero_after_native_scratch_warmup() {
-        let function=Function::Equations(Box::new(Coupled::new(Arc::default(),false,false)));
-        let execution=execution();
-        let mut blocks=Blocks::admit(&function,&execution,linear()).unwrap();
-        blocks.setup(&[0.,3.,2.,1.,4.,5.],&execution).unwrap();
-        blocks.solve(&[2.,1.,14.],&execution).unwrap();
-        let measured=allocation_counter::measure(|| {
-            for _ in 0..32 { std::hint::black_box(blocks.solve(&[2.,1.,14.],&execution).unwrap()); }
+        let function = Function::Equations(Box::new(Coupled::new(Arc::default(), false, false)));
+        let execution = execution();
+        let mut blocks = Blocks::admit(&function, &execution, linear()).unwrap();
+        blocks.setup(&[0., 3., 2., 1., 4., 5.], &execution).unwrap();
+        blocks.solve(&[2., 1., 14.], &execution).unwrap();
+        let measured = allocation_counter::measure(|| {
+            for _ in 0..32 {
+                std::hint::black_box(blocks.solve(&[2., 1., 14.], &execution).unwrap());
+            }
         });
-        assert_eq!(measured.count_total,0,"application only; setup/factors excluded: {measured:?}");
-        assert_eq!(measured.bytes_total,0);
+        assert_eq!(
+            measured.count_total, 0,
+            "application only; setup/factors excluded: {measured:?}"
+        );
+        assert_eq!(measured.bytes_total, 0);
     }
     #[test]
     fn library_btf_factor_action_keeps_coupling_in_true_product_and_refuses_unowned_storage() {

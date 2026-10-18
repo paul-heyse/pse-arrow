@@ -1324,7 +1324,8 @@ impl PreparedPath {
             execution.scope()?,
             budget,
         )?;
-        let oracle = native::assembled::AlgebraicOracle::new(worker, self.case.values.as_ref().clone())?;
+        let oracle =
+            native::assembled::AlgebraicOracle::new(worker, self.case.values.as_ref().clone())?;
         Ok(Supplier {
             calls: None,
             oracle,
@@ -2010,7 +2011,8 @@ impl PreparedPath {
             execution.scope()?,
             budget,
         )?;
-        let oracle = native::assembled::AlgebraicOracle::new(worker, self.case.values.as_ref().clone())?;
+        let oracle =
+            native::assembled::AlgebraicOracle::new(worker, self.case.values.as_ref().clone())?;
         Ok(Some(CurvatureSupplier {
             source: curvature.key(),
             inner: Supplier {

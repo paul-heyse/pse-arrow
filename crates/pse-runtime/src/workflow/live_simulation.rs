@@ -193,57 +193,120 @@ pub(super) enum LiveCapture {
     Event(LiveSimulationEvent),
 }
 impl LiveCapture {
-    pub(super) fn encode(self, prepared: &ModelingSimulation, projection: &LiveProjection, cancel: &pse_diagnostics::Cancellation, deadline: Instant) -> Result<LiveSimulationEvent, WorkflowError> {
+    pub(super) fn encode(
+        self,
+        prepared: &ModelingSimulation,
+        projection: &LiveProjection,
+        cancel: &pse_diagnostics::Cancellation,
+        deadline: Instant,
+    ) -> Result<LiveSimulationEvent, WorkflowError> {
         encoding_checkpoint(cancel, deadline)?;
-        let Self::Sample { run_id, canonical_attempt, accuracy_attempt, ordinal, mode, time, outputs, owner } = self else {
-            let Self::Event(event) = self else { return Err(contract("live capture variant absent")); };
+        let Self::Sample {
+            run_id,
+            canonical_attempt,
+            accuracy_attempt,
+            ordinal,
+            mode,
+            time,
+            outputs,
+            owner,
+        } = self
+        else {
+            let Self::Event(event) = self else {
+                return Err(contract("live capture variant absent"));
+            };
             return Ok(event);
         };
         let runtime = &prepared.runtime;
-        if !pse_math::SharedAllocation::ptr_eq(&projection.source, &prepared.model().compiled().admitted) {
-            return Err(contract("live projection belongs to another admitted source"));
+        if !pse_math::SharedAllocation::ptr_eq(
+            &projection.source,
+            &prepared.model().compiled().admitted,
+        ) {
+            return Err(contract(
+                "live projection belongs to another admitted source",
+            ));
         }
-        let mode_identity = *projection.modes.get(mode).ok_or_else(|| contract("live trajectory mode absent"))?;
-        if outputs.len() != projection.outputs.len() { return Err(contract("live trajectory output extent")); }
-        let mode = i64::try_from(mode).map_err(|_| contract("live trajectory mode ordinal extent"))?;
-        let attempt = i64::try_from(accuracy_attempt).map_err(|_| contract("live accuracy attempt ordinal extent"))?;
+        let mode_identity = *projection
+            .modes
+            .get(mode)
+            .ok_or_else(|| contract("live trajectory mode absent"))?;
+        if outputs.len() != projection.outputs.len() {
+            return Err(contract("live trajectory output extent"));
+        }
+        let mode =
+            i64::try_from(mode).map_err(|_| contract("live trajectory mode ordinal extent"))?;
+        let attempt = i64::try_from(accuracy_attempt)
+            .map_err(|_| contract("live accuracy attempt ordinal extent"))?;
         let sample = i64::try_from(ordinal).map_err(|_| contract("live sample ordinal extent"))?;
-        let extent = outputs.len()
-            .checked_mul(size_of::<pse_model::generated::runtime::live_simulation_samples::Row>())
+        let extent = outputs
+            .len()
+            .checked_mul(size_of::<
+                pse_model::generated::runtime::live_simulation_samples::Row,
+            >())
             .and_then(|bytes| bytes.checked_add(size_of::<LiveSampleBatch>() + 1024))
             .ok_or_else(|| contract("live physical sample extent"))?;
-        let working = runtime.native().reserve("simulation:live-row-working", extent)?;
+        let working = runtime
+            .native()
+            .reserve("simulation:live-row-working", extent)?;
         let pool = runtime.shared.pool();
         let token = pse_columnar::CancellationToken::new();
         let validation = runtime.validation_context();
         let mut columns = Collection::new(runtime.registry(), &pool, &token, &validation);
-        columns.ensure::<pse_model::generated::runtime::live_simulation_samples::Row>().map_err(relation)?;
+        columns
+            .ensure::<pse_model::generated::runtime::live_simulation_samples::Row>()
+            .map_err(relation)?;
         for (column, lineage) in projection.outputs.iter().enumerate() {
             encoding_checkpoint(cancel, deadline)?;
-            columns.push(pse_model::generated::runtime::live_simulation_samples::Row {
-                run_id, mode, mode_identity, accuracy_attempt: attempt, sample, time,
-                symbol_id: lineage.symbol, quantity_id: lineage.quantity, unit_id: lineage.unit,
-                value: outputs[column],
-            }).map_err(relation)?;
+            columns
+                .push(
+                    pse_model::generated::runtime::live_simulation_samples::Row {
+                        run_id,
+                        mode,
+                        mode_identity,
+                        accuracy_attempt: attempt,
+                        sample,
+                        time,
+                        symbol_id: lineage.symbol,
+                        quantity_id: lineage.quantity,
+                        unit_id: lineage.unit,
+                        value: outputs[column],
+                    },
+                )
+                .map_err(relation)?;
         }
-        let table = columns.finish().map_err(relation)?.pop_first().map(|(_, batch)| batch)
+        let table = columns
+            .finish()
+            .map_err(relation)?
+            .pop_first()
+            .map(|(_, batch)| batch)
             .ok_or_else(|| contract("live physical relation absent"))?;
         encoding_checkpoint(cancel, deadline)?;
         drop(outputs);
         drop(owner);
         Ok(LiveSimulationEvent::Sample(LiveSampleBatch {
-            run_id, canonical_attempt, accuracy_attempt, ordinal, table, _owner: working,
+            run_id,
+            canonical_attempt,
+            accuracy_attempt,
+            ordinal,
+            table,
+            _owner: working,
         }))
     }
 }
 
-pub(super) fn encoding_checkpoint(cancel: &pse_diagnostics::Cancellation, deadline: Instant) -> Result<(), WorkflowError> {
-    if cancel.is_cancelled() { return Err(crate::math::MathRuntimeError::Cancelled.into()); }
+pub(super) fn encoding_checkpoint(
+    cancel: &pse_diagnostics::Cancellation,
+    deadline: Instant,
+) -> Result<(), WorkflowError> {
+    if cancel.is_cancelled() {
+        return Err(crate::math::MathRuntimeError::Cancelled.into());
+    }
     if Instant::now() >= deadline {
         return Err(crate::math::MathRuntimeError::Solve(ProblemError::Limit {
             kind: pse_backend_native::LimitKind::Time,
             detail: "live encoding original deadline".into(),
-        }).into());
+        })
+        .into());
     }
     Ok(())
 }
@@ -285,7 +348,12 @@ impl LiveDispatch {
                 canonical_attempt,
                 _owner: owner.clone(),
             }),
-            channel: LiveChannel { receiver, subscriber, projection, _owner: owner.clone() },
+            channel: LiveChannel {
+                receiver,
+                subscriber,
+                projection,
+                _owner: owner.clone(),
+            },
             retention: options.retention,
             cursor: LiveSimulationCursor {
                 receiver: tokio::sync::Mutex::new(public),
@@ -350,22 +418,39 @@ impl super::SimulationSampleObserver for Observer {
         execution: &pse_backend_native::solve::Execution,
     ) -> Result<(), ProblemError> {
         execution.check()?;
-        let extent = sample.outputs.len().checked_mul(size_of::<f64>())
+        let extent = sample
+            .outputs
+            .len()
+            .checked_mul(size_of::<f64>())
             .and_then(|bytes| bytes.checked_add(size_of::<LiveCapture>()))
-            .and_then(|bytes| bytes.checked_add(self.canonical_attempt.as_ref().map_or(0, String::len)))
+            .and_then(|bytes| {
+                bytes.checked_add(self.canonical_attempt.as_ref().map_or(0, String::len))
+            })
             .ok_or_else(|| ProblemError::memory("live capture extent"))?;
-        let owner = self.prepared.runtime.native()
+        let owner = self
+            .prepared
+            .runtime
+            .native()
             .reserve("simulation:live-capture", extent)
             .map_err(crate::math::MathRuntimeError::into_problem)?;
         let mut outputs = Vec::new();
-        outputs.try_reserve_exact(sample.outputs.len())
+        outputs
+            .try_reserve_exact(sample.outputs.len())
             .map_err(|_| ProblemError::memory("live capture allocation refused"))?;
         outputs.extend_from_slice(&sample.outputs);
-        self.send(LiveCapture::Sample {
-            run_id: self.run_id,
-            canonical_attempt: self.canonical_attempt.clone(),
-            accuracy_attempt, ordinal, mode: sample.mode, time: sample.time, outputs, owner,
-        }, execution)
+        self.send(
+            LiveCapture::Sample {
+                run_id: self.run_id,
+                canonical_attempt: self.canonical_attempt.clone(),
+                accuracy_attempt,
+                ordinal,
+                mode: sample.mode,
+                time: sample.time,
+                outputs,
+                owner,
+            },
+            execution,
+        )
     }
     fn attempt_finished(
         &mut self,
@@ -386,10 +471,12 @@ impl super::SimulationSampleObserver for Observer {
             .reserve("simulation:live-coverage-summary", bytes)
             .map_err(crate::math::MathRuntimeError::into_problem)?;
         self.send(
-            LiveCapture::Event(LiveSimulationEvent::AttemptFinished(Arc::new(LiveSampleAttempt {
-                summary: summary.clone(),
-                _owner: owner,
-            }))),
+            LiveCapture::Event(LiveSimulationEvent::AttemptFinished(Arc::new(
+                LiveSampleAttempt {
+                    summary: summary.clone(),
+                    _owner: owner,
+                },
+            ))),
             execution,
         )
     }
@@ -483,16 +570,20 @@ mod tests {
         time_limit: Duration,
         unrelated: usize,
     ) -> ModelingSimulation {
-        let mut source = String::from("package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == -x[i]/1{s}; eq initial: x[0{s}] == 1{s}; annotation check x(x[i] > 0{s}); ");
+        let mut source = String::from(
+            "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == -x[i]/1{s}; eq initial: x[0{s}] == 1{s}; annotation check x(x[i] > 0{s}); ",
+        );
         for ordinal in 0..unrelated {
             source.push_str(&format!("let spare{ordinal}: Time = 1{{s}}; annotation check spare{ordinal}(spare{ordinal} > 0{{s}}); "));
         }
         source.push_str("} }");
         let rows = pse_authoring::language::parse(
             &source,
-            pse_ids::SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
+            pse_ids::SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
-        ).unwrap();
+        )
+        .unwrap();
         let root = rows
             .iter()
             .find(|row| row.name == "Root")
@@ -529,22 +620,60 @@ mod tests {
     #[tokio::test]
     async fn live_capture_keeps_only_selected_values_and_defers_checked_encoding() {
         let prepared = prepared().await;
-        let options = LiveSimulationOptions { capacity: 1, retention: SampleRetention::Compact };
+        let options = LiveSimulationOptions {
+            capacity: 1,
+            retention: SampleRetention::Compact,
+        };
         let run_id = pse_operations::mint_id();
-        let mut dispatch = LiveDispatch::new(prepared.clone(), options, run_id, Some("attempt".into()), &Default::default(), Instant::now() + Duration::from_secs(10)).unwrap();
-        let execution = pse_backend_native::solve::Execution::new(Default::default(), &Default::default());
+        let mut dispatch = LiveDispatch::new(
+            prepared.clone(),
+            options,
+            run_id,
+            Some("attempt".into()),
+            &Default::default(),
+            Instant::now() + Duration::from_secs(10),
+        )
+        .unwrap();
+        let execution =
+            pse_backend_native::solve::Execution::new(Default::default(), &Default::default());
         let sample = Sample {
-            mode: 0, time: 0.25, outputs: vec![0.75],
-            state: vec![9.; 4096], integrals: vec![8.; 4096],
-            state_sensitivities: vec![7.; 4096], output_sensitivities: vec![6.; 4096],
+            mode: 0,
+            time: 0.25,
+            outputs: vec![0.75],
+            state: vec![9.; 4096],
+            integrals: vec![8.; 4096],
+            state_sensitivities: vec![7.; 4096],
+            output_sensitivities: vec![6.; 4096],
         };
         dispatch.observer.sample(3, 2, &sample, &execution).unwrap();
         let capture = dispatch.channel.receiver.recv().await.unwrap();
-        let LiveCapture::Sample { outputs, accuracy_attempt, ordinal, owner, .. } = &capture else { panic!("sample capture absent") };
+        let LiveCapture::Sample {
+            outputs,
+            accuracy_attempt,
+            ordinal,
+            owner,
+            ..
+        } = &capture
+        else {
+            panic!("sample capture absent")
+        };
         assert_eq!(outputs, &[0.75]);
         assert_eq!((*accuracy_attempt, *ordinal), (3, 2));
-        assert!(owner.size() < 1024, "native state and sensitivity inventory cannot cross compact capture");
-        let LiveSimulationEvent::Sample(batch) = capture.encode(&prepared, dispatch.channel.projection.as_ref().unwrap(), &Default::default(), Instant::now() + Duration::from_secs(10)).unwrap() else { panic!("checked sample absent") };
+        assert!(
+            owner.size() < 1024,
+            "native state and sensitivity inventory cannot cross compact capture"
+        );
+        let LiveSimulationEvent::Sample(batch) = capture
+            .encode(
+                &prepared,
+                dispatch.channel.projection.as_ref().unwrap(),
+                &Default::default(),
+                Instant::now() + Duration::from_secs(10),
+            )
+            .unwrap()
+        else {
+            panic!("checked sample absent")
+        };
         assert_eq!(batch.run_id, run_id);
         assert_eq!(batch.canonical_attempt.as_deref(), Some("attempt"));
         assert_eq!((batch.accuracy_attempt, batch.ordinal), (3, 2));
@@ -554,49 +683,135 @@ mod tests {
     #[tokio::test]
     async fn live_capture_invalid_mode_and_output_extent_refuse_in_supervision() {
         let prepared = prepared().await;
-        let execution = pse_backend_native::solve::Execution::new(Default::default(), &Default::default());
+        let execution =
+            pse_backend_native::solve::Execution::new(Default::default(), &Default::default());
         for (mode, outputs) in [(usize::MAX, vec![1.]), (0, Vec::new()), (0, vec![1., 2.])] {
-            let mut dispatch = LiveDispatch::new(prepared.clone(), LiveSimulationOptions { capacity: 1, retention: SampleRetention::Compact }, pse_operations::mint_id(), None, &Default::default(), Instant::now() + Duration::from_secs(10)).unwrap();
-            let sample = Sample { mode, time: 0., outputs, state: Vec::new(), integrals: Vec::new(), state_sensitivities: Vec::new(), output_sensitivities: Vec::new() };
+            let mut dispatch = LiveDispatch::new(
+                prepared.clone(),
+                LiveSimulationOptions {
+                    capacity: 1,
+                    retention: SampleRetention::Compact,
+                },
+                pse_operations::mint_id(),
+                None,
+                &Default::default(),
+                Instant::now() + Duration::from_secs(10),
+            )
+            .unwrap();
+            let sample = Sample {
+                mode,
+                time: 0.,
+                outputs,
+                state: Vec::new(),
+                integrals: Vec::new(),
+                state_sensitivities: Vec::new(),
+                output_sensitivities: Vec::new(),
+            };
             dispatch.observer.sample(0, 0, &sample, &execution).unwrap();
-            assert!(dispatch.channel.receiver.recv().await.unwrap().encode(&prepared, dispatch.channel.projection.as_ref().unwrap(), &Default::default(), Instant::now() + Duration::from_secs(10)).is_err());
+            assert!(
+                dispatch
+                    .channel
+                    .receiver
+                    .recv()
+                    .await
+                    .unwrap()
+                    .encode(
+                        &prepared,
+                        dispatch.channel.projection.as_ref().unwrap(),
+                        &Default::default(),
+                        Instant::now() + Duration::from_secs(10)
+                    )
+                    .is_err()
+            );
         }
     }
 
     #[tokio::test]
     async fn live_queue_grant_outlives_dropped_cursor_and_finished_native_observer() {
         let prepared = prepared().await;
-        let dispatch = LiveDispatch::new(prepared, LiveSimulationOptions {
-            capacity: 1, retention: SampleRetention::Compact,
-        }, pse_operations::mint_id(), None, &Default::default(), Instant::now() + Duration::from_secs(10)).unwrap();
-        let LiveDispatch { mut observer, mut channel, cursor, .. } = dispatch;
+        let dispatch = LiveDispatch::new(
+            prepared,
+            LiveSimulationOptions {
+                capacity: 1,
+                retention: SampleRetention::Compact,
+            },
+            pse_operations::mint_id(),
+            None,
+            &Default::default(),
+            Instant::now() + Duration::from_secs(10),
+        )
+        .unwrap();
+        let LiveDispatch {
+            mut observer,
+            mut channel,
+            cursor,
+            ..
+        } = dispatch;
         let grant = Arc::downgrade(&channel._owner);
-        let execution = pse_backend_native::solve::Execution::new(Default::default(), &Default::default());
-        observer.sample(0, 0, &Sample {
-            mode: 0, time: 0., outputs: vec![1.], state: Vec::new(), integrals: Vec::new(),
-            state_sensitivities: Vec::new(), output_sensitivities: Vec::new(),
-        }, &execution).unwrap();
+        let execution =
+            pse_backend_native::solve::Execution::new(Default::default(), &Default::default());
+        observer
+            .sample(
+                0,
+                0,
+                &Sample {
+                    mode: 0,
+                    time: 0.,
+                    outputs: vec![1.],
+                    state: Vec::new(),
+                    integrals: Vec::new(),
+                    state_sensitivities: Vec::new(),
+                    output_sensitivities: Vec::new(),
+                },
+                &execution,
+            )
+            .unwrap();
         drop(cursor);
         drop(observer);
-        assert_eq!(channel.receiver.len(), 1, "a captured sample remains after native completion");
-        assert!(grant.upgrade().is_some(), "supervisor must own both channel envelopes while draining");
+        assert_eq!(
+            channel.receiver.len(),
+            1,
+            "a captured sample remains after native completion"
+        );
+        assert!(
+            grant.upgrade().is_some(),
+            "supervisor must own both channel envelopes while draining"
+        );
         drop(channel.receiver.recv().await.unwrap());
-        assert!(grant.upgrade().is_some(), "empty but live channels retain their envelopes");
+        assert!(
+            grant.upgrade().is_some(),
+            "empty but live channels retain their envelopes"
+        );
         drop(channel);
-        assert!(grant.upgrade().is_none(), "channel teardown releases the last envelope grant");
+        assert!(
+            grant.upgrade().is_none(),
+            "channel teardown releases the last envelope grant"
+        );
     }
 
     #[tokio::test]
     async fn live_cursor_drop_joins_native_and_releases_supervisor_queue_grant() {
         let prepared = prepared().await;
-        let (handle, cursor) = prepared.start_live(LiveSimulationOptions {
-            capacity: 1, retention: SampleRetention::Compact,
-        }).unwrap();
+        let (handle, cursor) = prepared
+            .start_live(LiveSimulationOptions {
+                capacity: 1,
+                retention: SampleRetention::Compact,
+            })
+            .unwrap();
         let grant = Arc::downgrade(&cursor._owner);
         drop(cursor);
-        let result = tokio::time::timeout(Duration::from_secs(10), handle.wait()).await.unwrap().unwrap();
-        assert!(result.report().is_ok(), "dropping the subscription cannot cancel science");
-        assert!(grant.upgrade().is_none(), "joined native work and channel teardown release their shared grant");
+        let result = tokio::time::timeout(Duration::from_secs(10), handle.wait())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            result.report().is_ok(),
+            "dropping the subscription cannot cancel science"
+        );
+        assert!(
+            grant.upgrade().is_none(),
+            "joined native work and channel teardown release their shared grant"
+        );
     }
 
     #[tokio::test]
@@ -605,30 +820,76 @@ mod tests {
         let mut inventories = Vec::new();
         for unrelated in [0, 64] {
             let prepared = prepared_with_inventory(
-                crate::workflow::tests::runtime_with_workspace(32 << 20), Duration::from_secs(300), unrelated,
-            ).await;
+                crate::workflow::tests::runtime_with_workspace(32 << 20),
+                Duration::from_secs(300),
+                unrelated,
+            )
+            .await;
             inventories.push(prepared.model().compiled().admitted.case().rows().len());
-            let mut dispatch = LiveDispatch::new(prepared.clone(), LiveSimulationOptions {
-                capacity: 1, retention: SampleRetention::Compact,
-            }, pse_operations::mint_id(), None, &Default::default(), Instant::now() + Duration::from_secs(10)).unwrap();
+            let mut dispatch = LiveDispatch::new(
+                prepared.clone(),
+                LiveSimulationOptions {
+                    capacity: 1,
+                    retention: SampleRetention::Compact,
+                },
+                pse_operations::mint_id(),
+                None,
+                &Default::default(),
+                Instant::now() + Duration::from_secs(10),
+            )
+            .unwrap();
             let projection = dispatch.channel.projection.as_ref().unwrap();
-            assert_eq!(projection.outputs.len(), 1, "unrelated authored members are not selected native outputs");
+            assert_eq!(
+                projection.outputs.len(),
+                1,
+                "unrelated authored members are not selected native outputs"
+            );
             let projection_extent = projection._owner.size();
-            let execution = pse_backend_native::solve::Execution::new(Default::default(), &Default::default());
+            let execution =
+                pse_backend_native::solve::Execution::new(Default::default(), &Default::default());
             for ordinal in 0..3 {
-                dispatch.observer.sample(0, ordinal, &Sample {
-                    mode: 0, time: ordinal as f64 * 0.25, outputs: vec![1.], state: Vec::new(), integrals: Vec::new(),
-                    state_sensitivities: Vec::new(), output_sensitivities: Vec::new(),
-                }, &execution).unwrap();
+                dispatch
+                    .observer
+                    .sample(
+                        0,
+                        ordinal,
+                        &Sample {
+                            mode: 0,
+                            time: ordinal as f64 * 0.25,
+                            outputs: vec![1.],
+                            state: Vec::new(),
+                            integrals: Vec::new(),
+                            state_sensitivities: Vec::new(),
+                            output_sensitivities: Vec::new(),
+                        },
+                        &execution,
+                    )
+                    .unwrap();
                 let capture = dispatch.channel.receiver.recv().await.unwrap();
-                let LiveSimulationEvent::Sample(batch) = capture.encode(&prepared, projection, &Default::default(), Instant::now() + Duration::from_secs(10)).unwrap() else { panic!("checked sample absent") };
+                let LiveSimulationEvent::Sample(batch) = capture
+                    .encode(
+                        &prepared,
+                        projection,
+                        &Default::default(),
+                        Instant::now() + Duration::from_secs(10),
+                    )
+                    .unwrap()
+                else {
+                    panic!("checked sample absent")
+                };
                 assert_eq!(batch.table.batch().num_rows(), 1);
                 assert_eq!(batch.ordinal, ordinal);
                 extents.push((projection_extent, batch._owner.size()));
             }
         }
-        assert!(inventories[1] >= inventories[0] + 64, "fixture must exercise the original broad physical inventory");
-        assert!(extents.iter().all(|extent| *extent == extents[0]), "only selected lineage and rows remain charged for repeated encoding");
+        assert!(
+            inventories[1] >= inventories[0] + 64,
+            "fixture must exercise the original broad physical inventory"
+        );
+        assert!(
+            extents.iter().all(|extent| *extent == extents[0]),
+            "only selected lineage and rows remain charged for repeated encoding"
+        );
     }
 
     #[tokio::test]
@@ -636,8 +897,21 @@ mod tests {
         let prepared = prepared().await;
         let cancel = pse_diagnostics::Cancellation::default();
         cancel.cancel();
-        assert!(matches!(prepared.live_projection(&cancel, Instant::now() + Duration::from_secs(10)), Err(WorkflowError::Math(crate::math::MathRuntimeError::Cancelled))));
-        assert!(matches!(prepared.live_projection(&Default::default(), Instant::now()), Err(WorkflowError::Math(crate::math::MathRuntimeError::Solve(ProblemError::Limit { kind: pse_backend_native::LimitKind::Time, .. })))));
+        assert!(matches!(
+            prepared.live_projection(&cancel, Instant::now() + Duration::from_secs(10)),
+            Err(WorkflowError::Math(
+                crate::math::MathRuntimeError::Cancelled
+            ))
+        ));
+        assert!(matches!(
+            prepared.live_projection(&Default::default(), Instant::now()),
+            Err(WorkflowError::Math(crate::math::MathRuntimeError::Solve(
+                ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Time,
+                    ..
+                }
+            )))
+        ));
     }
 
     #[test]
@@ -646,8 +920,21 @@ mod tests {
         let deadline = Instant::now() + Duration::from_secs(10);
         assert!(encoding_checkpoint(&cancel, deadline).is_ok());
         cancel.cancel();
-        assert!(matches!(encoding_checkpoint(&cancel, deadline), Err(WorkflowError::Math(crate::math::MathRuntimeError::Cancelled))));
-        assert!(matches!(encoding_checkpoint(&Default::default(), Instant::now()), Err(WorkflowError::Math(crate::math::MathRuntimeError::Solve(ProblemError::Limit { kind: pse_backend_native::LimitKind::Time, .. })))));
+        assert!(matches!(
+            encoding_checkpoint(&cancel, deadline),
+            Err(WorkflowError::Math(
+                crate::math::MathRuntimeError::Cancelled
+            ))
+        ));
+        assert!(matches!(
+            encoding_checkpoint(&Default::default(), Instant::now()),
+            Err(WorkflowError::Math(crate::math::MathRuntimeError::Solve(
+                ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Time,
+                    ..
+                }
+            )))
+        ));
     }
 
     #[tokio::test]

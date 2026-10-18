@@ -962,14 +962,26 @@ enum Request {
 struct ReferenceTrace(std::sync::Mutex<Option<BTreeSet<Request>>>);
 impl ReferenceTrace {
     fn record(&self, request: Request) {
-        if let Some(reads) = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_mut() {
+        if let Some(reads) = self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_mut()
+        {
             reads.insert(request);
         }
     }
-    fn read(&self, owner: DeclarationId) { self.record(Request::Logical(owner)); }
-    fn name(&self, parent: Option<DeclarationId>, name: &str) { self.record(Request::Name(parent, name.into())); }
+    fn read(&self, owner: DeclarationId) {
+        self.record(Request::Logical(owner));
+    }
+    fn name(&self, parent: Option<DeclarationId>, name: &str) {
+        self.record(Request::Name(parent, name.into()));
+    }
     fn active(&self) -> bool {
-        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_some()
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .is_some()
     }
 }
 
@@ -1532,7 +1544,8 @@ impl LexicalLookup for SourceIndex {
         self.trace.read(owner);
         self.trace.name(Some(owner), name);
         let root = self.probing.is_empty();
-        if root && !self.trace.active()
+        if root
+            && !self.trace.active()
             && let Some(result) = self
                 .member_memo
                 .get(&owner)

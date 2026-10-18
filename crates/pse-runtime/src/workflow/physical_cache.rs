@@ -264,7 +264,10 @@ impl PhysicalCache {
             .get(&row_key(runtime, operations, physical))
             .and_then(|entry| match entry {
                 RetainedProduct::Rows(entry)
-                    if (Arc::as_ptr(&entry.worker) as *const () as usize, Arc::as_ptr(&entry.pool) as *const () as usize) == operations.physical_owner_identity()
+                    if (
+                        Arc::as_ptr(&entry.worker) as *const () as usize,
+                        Arc::as_ptr(&entry.pool) as *const () as usize,
+                    ) == operations.physical_owner_identity()
                         && Arc::ptr_eq(entry.model.registry(), runtime.registry())
                         && Arc::ptr_eq(entry.model.factory(), runtime.sessions())
                         && entry.physical.same_sources(physical) =>
@@ -303,7 +306,9 @@ impl PhysicalCache {
         // Retain reconstructible receipt payload and exact checked support only.
         // Per-caller protection/release grants stay with active PhysicalRows;
         // every warm return still establishes fresh native protection below.
-        let bytes = physical.retained_bytes().saturating_add(operations.worker().len());
+        let bytes = physical
+            .retained_bytes()
+            .saturating_add(operations.worker().len());
         if bytes > RETAINED_BYTES {
             return;
         }
@@ -714,8 +719,14 @@ mod physical_admission_cache_unit {
         );
         let weight = RetainedProduct::Rows(held.clone()).size();
         assert!(weight >= physical.retained_bytes());
-        assert!(held.physical._source_owner.is_none(), "optional payload retention cannot own caller protection grants");
-        assert!(!Arc::ptr_eq(&first._owner, &second._owner), "every warm holder independently protects its exact receipts");
+        assert!(
+            held.physical._source_owner.is_none(),
+            "optional payload retention cannot own caller protection grants"
+        );
+        assert!(
+            !Arc::ptr_eq(&first._owner, &second._owner),
+            "every warm holder independently protects its exact receipts"
+        );
         assert!(weight <= RETAINED_BYTES);
         let escaped = Arc::downgrade(&first._owner);
         let datafusion::execution::memory_pool::MemoryLimit::Finite(limit) =
@@ -798,11 +809,19 @@ mod physical_admission_cache_unit {
                 .rows(&runtime, operations, &first)
                 .is_some()
         );
-        let retained = runtime.physical_cache.rows(&runtime, operations, &first).unwrap();
+        let retained = runtime
+            .physical_cache
+            .rows(&runtime, operations, &first)
+            .unwrap();
         assert!(retained.physical._source_owner.is_none());
         assert!(!Arc::ptr_eq(&first_rows._owner, &second_rows._owner));
         assert!(RetainedProduct::Rows(retained.clone()).size() < RETAINED_BYTES);
-        eprintln!("physical-granularity revisions={} active_grants={} retained_payload={}", first_rows.revisions.len(), first_rows._owner.allocation_bytes(), RetainedProduct::Rows(retained).size());
+        eprintln!(
+            "physical-granularity revisions={} active_grants={} retained_payload={}",
+            first_rows.revisions.len(),
+            first_rows._owner.allocation_bytes(),
+            RetainedProduct::Rows(retained).size()
+        );
         let mut changed = second.clone();
         let key = *changed
             .sources

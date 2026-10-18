@@ -663,13 +663,25 @@ impl<O: Oracle> Oracle for Anchored<O> {
         output.copy_from_slice(&candidate);
         Ok(())
     }
-    #[allow(clippy::too_many_arguments, reason = "physical point and cotangent bindings are independent scientific inputs")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "physical point and cotangent bindings are independent scientific inputs"
+    )]
     fn jacobian_transpose_action(
-        &mut self, mode: usize, function: Function, time: f64,
-        state: &[f64], parameters: &[f64], weights: &[f64], output: &mut [f64],
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        weights: &[f64],
+        output: &mut [f64],
     ) -> Result<(), ProblemError> {
-        if state.len() != self.contract.states.len() || parameters.len() != self.contract.parameters.len()
-            || output.len() != self.width() || state.iter().chain(parameters).any(|v| !v.is_finite()) {
+        if state.len() != self.contract.states.len()
+            || parameters.len() != self.contract.parameters.len()
+            || output.len() != self.width()
+            || state.iter().chain(parameters).any(|v| !v.is_finite())
+        {
             return Err(ProblemError::Contract("anchored transpose binding".into()));
         }
         // The nonlinear terms have the same cotangent restriction as curvature;
@@ -679,26 +691,41 @@ impl<O: Oracle> Oracle for Anchored<O> {
         let mut local = vec![f64::NAN; self.n + self.np];
         for (role, cotangent) in terms {
             local.fill(f64::NAN);
-            self.inner.jacobian_transpose_action(mode, role, time, &state[..self.n],
-                &parameters[..self.np], &cotangent, &mut local)?;
+            self.inner.jacobian_transpose_action(
+                mode,
+                role,
+                time,
+                &state[..self.n],
+                &parameters[..self.np],
+                &cotangent,
+                &mut local,
+            )?;
             for (column, value) in local.iter().enumerate() {
                 candidate[self.column(column)] += value;
             }
         }
         match function {
-            Function::Initial => for (k, &row) in self.anchors.iter().enumerate() {
-                candidate[self.anchor(k)] += weights[row];
-            },
-            Function::Output => for q in 0..self.states() {
-                candidate[self.n+q] += weights[self.m+q];
-            },
-            Function::Reset(_) => for q in 0..self.states() {
-                candidate[self.n+q] += weights[self.n+q];
-            },
-            _ => {},
+            Function::Initial => {
+                for (k, &row) in self.anchors.iter().enumerate() {
+                    candidate[self.anchor(k)] += weights[row];
+                }
+            }
+            Function::Output => {
+                for q in 0..self.states() {
+                    candidate[self.n + q] += weights[self.m + q];
+                }
+            }
+            Function::Reset(_) => {
+                for q in 0..self.states() {
+                    candidate[self.n + q] += weights[self.n + q];
+                }
+            }
+            _ => {}
         }
         if candidate.iter().any(|v| !v.is_finite()) {
-            return Err(ProblemError::numerical("nonfinite anchored transpose action"));
+            return Err(ProblemError::numerical(
+                "nonfinite anchored transpose action",
+            ));
         }
         output.copy_from_slice(&candidate);
         Ok(())

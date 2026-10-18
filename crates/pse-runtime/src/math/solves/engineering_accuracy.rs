@@ -251,16 +251,34 @@ impl PreparedSolve {
         execution.work_admission = budget
             .admission()
             .map(|owner| -> Arc<dyn WorkAdmission> { owner });
-        match native::square_response::SparseFactor::admit(&native::square_response::SparseRequest {scope:&square,point:&point,values:&observed.values,tolerances:&self.tolerances,normalization:&self.normalization,key:source,bytes},&execution) {
-            Ok(_)=>{},
-            Err(native::square_response::Withheld::Cause(cause)) if optional_failure(&cause)=> {
-                let failure=retained_failure(cause,budget)?;
-                let mut results=absent(goals,U::Regularity);
-                for result in &mut results {result.failure=Some(failure.clone());}
-                return Ok(results);
+        match native::square_response::SparseFactor::admit(
+            &native::square_response::SparseRequest {
+                scope: &square,
+                point: &point,
+                values: &observed.values,
+                tolerances: &self.tolerances,
+                normalization: &self.normalization,
+                key: source,
+                bytes,
             },
-            Err(native::square_response::Withheld::Cause(cause))=>return Err(ProblemError::Math(pse_math::MathError::Typed {retained:cause.retained_bytes(),cause:pse_model::diagnostic::DiagnosticCause::from_shared(cause)})),
-            Err(_)=>return Ok(absent(goals,U::Regularity)),
+            &execution,
+        ) {
+            Ok(_) => {}
+            Err(native::square_response::Withheld::Cause(cause)) if optional_failure(&cause) => {
+                let failure = retained_failure(cause, budget)?;
+                let mut results = absent(goals, U::Regularity);
+                for result in &mut results {
+                    result.failure = Some(failure.clone());
+                }
+                return Ok(results);
+            }
+            Err(native::square_response::Withheld::Cause(cause)) => {
+                return Err(ProblemError::Math(pse_math::MathError::Typed {
+                    retained: cause.retained_bytes(),
+                    cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+                }));
+            }
+            Err(_) => return Ok(absent(goals, U::Regularity)),
         }
         let mut worker = service
             .case_worker(case.case.clone(), case.providers.clone(), scope, budget)
@@ -963,13 +981,36 @@ mod refinement_tests {
         for (id, value) in case.prepared.compiled().plan.columns().iter().zip(&point) {
             values.scalars.insert(*id, *value);
         }
-        let strict = TaskAdmission::new(pse_model::strategy::WorkLimits {attempts:1,evaluations:None,iterations:None,factorizations:None,proof_steps:None},scope.clone(),None,true);
-        let strict_budget=WorkerBudget::new(64 << 20).with_admission(strict.clone());
-        let withheld=original.coordinate_accuracy(runtime.native(),&first.outcome,&values,&scope,&strict_budget).unwrap();
-        assert!(withheld.iter().all(|goal|goal.failure.is_some()));
-        let strict_work=strict.observation().unwrap();
-        assert_eq!(strict_work.evaluations,Some(0),"strict storage refusal must precede fresh derivatives");
-        assert_eq!(strict_work.factorizations,Some(0));
+        let strict = TaskAdmission::new(
+            pse_model::strategy::WorkLimits {
+                attempts: 1,
+                evaluations: None,
+                iterations: None,
+                factorizations: None,
+                proof_steps: None,
+            },
+            scope.clone(),
+            None,
+            true,
+        );
+        let strict_budget = WorkerBudget::new(64 << 20).with_admission(strict.clone());
+        let withheld = original
+            .coordinate_accuracy(
+                runtime.native(),
+                &first.outcome,
+                &values,
+                &scope,
+                &strict_budget,
+            )
+            .unwrap();
+        assert!(withheld.iter().all(|goal| goal.failure.is_some()));
+        let strict_work = strict.observation().unwrap();
+        assert_eq!(
+            strict_work.evaluations,
+            Some(0),
+            "strict storage refusal must precede fresh derivatives"
+        );
+        assert_eq!(strict_work.factorizations, Some(0));
         let budget = WorkerBudget::new(64 << 20);
         let observed = original
             .coordinate_accuracy(runtime.native(), &first.outcome, &values, &scope, &budget)

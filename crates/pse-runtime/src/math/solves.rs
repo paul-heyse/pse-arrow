@@ -3103,7 +3103,8 @@ impl MathService {
             pse_model::strategy::AffinePreparationFacts {
                 automatic: matches!(profile.presolve, native::presolve::Policy::Auto),
                 explicitly_requested: affine_requested,
-                nlp_possible: nlp_possible || matches!(profile.intent,SolveIntent::Root|SolveIntent::Initialize),
+                nlp_possible: nlp_possible
+                    || matches!(profile.intent, SolveIntent::Root | SolveIntent::Initialize),
                 missing: result.prepared.presolve.affine.iter().any(Option::is_none),
             },
         ) {
@@ -3775,7 +3776,8 @@ impl MathService {
                 prepared,
                 case,
                 pricing_case,
-                values: pse_math::SharedAllocation::from(Arc::new(values)).with_owner(owner.clone()),
+                values: pse_math::SharedAllocation::from(Arc::new(values))
+                    .with_owner(owner.clone()),
                 providers,
                 certificate,
                 factorable,
@@ -3935,7 +3937,11 @@ impl MathService {
         let plan = &prepared.prepared.plan;
         plan.structure().validate_source_frozen_values(&values)?;
         for id in plan.columns().iter().chain(executable.assembly.input_ids()) {
-            let value = values.scalars.get(id).copied().ok_or_else(|| ProblemError::Contract(format!("missing block input {id}")))?;
+            let value = values
+                .scalars
+                .get(id)
+                .copied()
+                .ok_or_else(|| ProblemError::Contract(format!("missing block input {id}")))?;
             plan.structure().validate_scalar(*id, value)?;
         }
         if !prepared.prepared.presolve.matches(plan, &values) {
@@ -5303,10 +5309,18 @@ impl MathService {
         };
         let normalization = run.normalization.clone();
         let tolerance = run.tolerances.clone();
-        let root_primal = if kind == execution::Representation::Roots && !matches!(profile.presolve,native::presolve::Policy::Off) {
-            let bytes=native::presolve::roots::allowance(plan.columns().len(),plan.jacobian_pattern().compute_nnz()).ok_or(MathRuntimeError::Limit("root primal transformation extent"))?;
+        let root_primal = if kind == execution::Representation::Roots
+            && !matches!(profile.presolve, native::presolve::Policy::Off)
+        {
+            let bytes = native::presolve::roots::allowance(
+                plan.columns().len(),
+                plan.jacobian_pattern().compute_nnz(),
+            )
+            .ok_or(MathRuntimeError::Limit("root primal transformation extent"))?;
             Some(budget.charge(bytes)?)
-        } else { None };
+        } else {
+            None
+        };
         // Retained native callbacks keep evaluator support and primal projection leases.
         let mut base_owner = Some((_case, _charge, _root_support, root_primal));
         let mut report = if kind == execution::Representation::Roots {
@@ -5322,7 +5336,11 @@ impl MathService {
                         .take()
                         .map(|owner| -> Box<dyn std::any::Any> { Box::new(owner) }),
                 },
-                native::presolve::roots::Primal { facts: &prepared.prepared.presolve, bounds: &root_bounds, policy: &profile.presolve },
+                native::presolve::roots::Primal {
+                    facts: &prepared.prepared.presolve,
+                    bounds: &root_bounds,
+                    policy: &profile.presolve,
+                },
             )?
         } else {
             execution::nlp(
@@ -5649,21 +5667,35 @@ impl MathService {
         })?;
         key.point = Some(native::square_response::point_key(primal));
         let mut execution = Execution::within(
-            scope.cancellation_control().clone(), &Controls::default(), scope.clone(),
-        ).map_err(cause)?;
-        execution.work_admission = budget.admission().map(|owner| -> Arc<dyn WorkAdmission> { owner });
+            scope.cancellation_control().clone(),
+            &Controls::default(),
+            scope.clone(),
+        )
+        .map_err(cause)?;
+        execution.work_admission = budget
+            .admission()
+            .map(|owner| -> Arc<dyn WorkAdmission> { owner });
         {
-            let mut layout = program.root_layout.lock().map_err(|_| cause(ProblemError::internal("root symbolic layout owner poisoned")))?;
-            if let Some(previous) = layout.as_ref() { square.reuse_symbolic_from(previous); }
-        SparseFactor::admit(&native::square_response::SparseRequest {
-            scope: &square,
-            point: primal,
-            values: observed,
-            tolerances,
-            normalization,
-            key,
-            bytes,
-        }, &execution)?;
+            let mut layout = program.root_layout.lock().map_err(|_| {
+                cause(ProblemError::internal(
+                    "root symbolic layout owner poisoned",
+                ))
+            })?;
+            if let Some(previous) = layout.as_ref() {
+                square.reuse_symbolic_from(previous);
+            }
+            SparseFactor::admit(
+                &native::square_response::SparseRequest {
+                    scope: &square,
+                    point: primal,
+                    values: observed,
+                    tolerances,
+                    normalization,
+                    key,
+                    bytes,
+                },
+                &execution,
+            )?;
             // Failed strict admission owns no factor or cached reservation. The
             // conservative passive anchor is published only for an admitted producer.
             square = square.with_owner(owner.clone());

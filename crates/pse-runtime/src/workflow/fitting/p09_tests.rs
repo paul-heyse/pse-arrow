@@ -3385,13 +3385,25 @@ async fn fitting_parallel_affine_exact_hessian_prepares_second_contract_and_reta
 async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
     let (package, mut profile) = source(true, 73.).await;
     profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
-    for simulation in profile.simulations.values_mut() { simulation.method = native::dynamics::Method::Diffsol; }
-    let (mut problem, _) = package.prepare_fit_problem(id(73).into(), profile, compiler_profile(),
-        Default::default(), &crate::CancelSource::new()).await.unwrap();
+    for simulation in profile.simulations.values_mut() {
+        simulation.method = native::dynamics::Method::Diffsol;
+    }
+    let (mut problem, _) = package
+        .prepare_fit_problem(
+            id(73).into(),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
     // Four real experiment occurrences have alternating expensive IVPs and affine
     // steady evaluations. Each retains its own physical worker and original ordinal.
     for source in 0..2 {
-        problem.experiments.push(problem.experiments[source].clone());
+        problem
+            .experiments
+            .push(problem.experiments[source].clone());
         let mut declaration = problem.declaration.experiments[source].clone();
         declaration.experiment_id = id(90 + source as u8).into();
         problem.declaration.experiments.push(declaration);
@@ -3399,9 +3411,18 @@ async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
         measurement.experiment += 2;
         problem.measurements.push(measurement);
     }
-    problem.layout = Arc::new(sparse::Layout::new(&problem.experiments, &problem.measurements,
-        &problem.parameter_columns, problem.contract.rows.len(), problem.contract.variables.len(),
-        DerivativeOrder::First, problem.profile.max_cells).unwrap());
+    problem.layout = Arc::new(
+        sparse::Layout::new(
+            &problem.experiments,
+            &problem.measurements,
+            &problem.parameter_columns,
+            problem.contract.rows.len(),
+            problem.contract.variables.len(),
+            DerivativeOrder::First,
+            problem.profile.max_cells,
+        )
+        .unwrap(),
+    );
     problem.bytes *= 2;
     let problem = Arc::new(problem);
     let outcome = with_admitted_fit_oracle_outcome(problem, |oracle| {
@@ -3440,5 +3461,8 @@ async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
         assert!(oracle.objective(&[1.0]).is_err());
         assert!(oracle.point.is_none());
     }).await;
-    assert!(matches!(outcome, Err(crate::math::MathRuntimeError::Cancelled)));
+    assert!(matches!(
+        outcome,
+        Err(crate::math::MathRuntimeError::Cancelled)
+    ));
 }

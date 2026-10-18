@@ -2706,25 +2706,45 @@ pub trait Oracle: std::fmt::Debug {
     }
     /// Pull back raw output weights in state/parameter order. Compiled owners
     /// override this reference matrix path with their admitted cotangent product.
-    #[allow(clippy::too_many_arguments, reason = "physical point and cotangent bindings are independent scientific inputs")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "physical point and cotangent bindings are independent scientific inputs"
+    )]
     fn jacobian_transpose_action(
-        &mut self, mode: usize, function: Function, time: f64,
-        state: &[f64], parameters: &[f64], weights: &[f64], output: &mut [f64],
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        weights: &[f64],
+        output: &mut [f64],
     ) -> Result<(), ProblemError> {
         let evaluation = self.evaluate(mode, function, time, state, parameters, true)?;
-        let jacobian = evaluation.jacobian.ok_or_else(|| ProblemError::internal("dynamic transpose partials absent"))?;
-        if jacobian.nrows() != weights.len() || jacobian.ncols() != output.len()
-            || weights.iter().chain(jacobian.val()).any(|v| !v.is_finite()) {
-            return Err(ProblemError::Contract("dynamic transpose extent or value".into()));
+        let jacobian = evaluation
+            .jacobian
+            .ok_or_else(|| ProblemError::internal("dynamic transpose partials absent"))?;
+        if jacobian.nrows() != weights.len()
+            || jacobian.ncols() != output.len()
+            || weights.iter().chain(jacobian.val()).any(|v| !v.is_finite())
+        {
+            return Err(ProblemError::Contract(
+                "dynamic transpose extent or value".into(),
+            ));
         }
         let mut candidate = vec![0.; output.len()];
         faer::sparse::linalg::matmul::sparse_dense_matmul(
             faer::MatMut::from_column_major_slice_mut(&mut candidate, output.len(), 1),
-            faer::Accum::Replace, jacobian.as_ref().as_ref().transpose(),
-            faer::MatRef::from_column_major_slice(weights, weights.len(), 1), 1., faer::Par::Seq,
+            faer::Accum::Replace,
+            jacobian.as_ref().as_ref().transpose(),
+            faer::MatRef::from_column_major_slice(weights, weights.len(), 1),
+            1.,
+            faer::Par::Seq,
         );
         if candidate.iter().any(|v| !v.is_finite()) {
-            return Err(ProblemError::numerical("nonfinite dynamic transpose action"));
+            return Err(ProblemError::numerical(
+                "nonfinite dynamic transpose action",
+            ));
         }
         output.copy_from_slice(&candidate);
         Ok(())

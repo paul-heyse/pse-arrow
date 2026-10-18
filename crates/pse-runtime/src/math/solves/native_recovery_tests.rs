@@ -59,22 +59,55 @@ async fn explicit_entry_then_screened_native_recovery_dispatches_and_retains_ori
         Some(std::time::Instant::now() + std::time::Duration::from_secs(20)),
     );
     {
-        let Representation::Algebraic(case) = &original.representation else {panic!("original algebraic fixture")};
-        let Some(ParametricPreparation::Available(program)) = case.sensitivity.as_ref() else {panic!("original root partial program")};
+        let Representation::Algebraic(case) = &original.representation else {
+            panic!("original algebraic fixture")
+        };
+        let Some(ParametricPreparation::Available(program)) = case.sensitivity.as_ref() else {
+            panic!("original root partial program")
+        };
         assert!(program.root_layout.lock().unwrap().is_none());
-        let strict=super::super::strategy::admission::TaskAdmission::new(
-            pse_model::strategy::WorkLimits {attempts:1,evaluations:None,iterations:None,factorizations:None,proof_steps:None},scope.clone(),None,true,
+        let strict = super::super::strategy::admission::TaskAdmission::new(
+            pse_model::strategy::WorkLimits {
+                attempts: 1,
+                evaluations: None,
+                iterations: None,
+                factorizations: None,
+                proof_steps: None,
+            },
+            scope.clone(),
+            None,
+            true,
         );
-        let budget=WorkerBudget::new(64<<20).with_admission(strict.clone());
-        let result=runtime.native().fresh_root_partials_at(
-            &[2.],&[0.],&case.prepared,program,&case.values,&case.providers,&scope,
-            &original.normalization,&original.tolerances,&budget,false,
+        let budget = WorkerBudget::new(64 << 20).with_admission(strict.clone());
+        let result = runtime.native().fresh_root_partials_at(
+            &[2.],
+            &[0.],
+            &case.prepared,
+            program,
+            &case.values,
+            &case.providers,
+            &scope,
+            &original.normalization,
+            &original.tolerances,
+            &budget,
+            false,
         );
-        assert!(matches!(result,Err(native::square_response::Withheld::Cause(_))));
-        assert!(program.root_layout.lock().unwrap().is_none(),"strict refusal must not publish an empty cache reservation");
-        assert_eq!(budget.used(),0,"strict refusal releases the unconstructed producer allowance");
-        let work=strict.observation().unwrap();
-        assert_eq!(work.evaluations,Some(0));assert_eq!(work.factorizations,Some(0));
+        assert!(matches!(
+            result,
+            Err(native::square_response::Withheld::Cause(_))
+        ));
+        assert!(
+            program.root_layout.lock().unwrap().is_none(),
+            "strict refusal must not publish an empty cache reservation"
+        );
+        assert_eq!(
+            budget.used(),
+            0,
+            "strict refusal releases the unconstructed producer allowance"
+        );
+        let work = strict.observation().unwrap();
+        assert_eq!(work.evaluations, Some(0));
+        assert_eq!(work.factorizations, Some(0));
     }
     let mut limits = original.numerical_strategy().limits;
     limits.attempts = 8;
