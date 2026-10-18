@@ -115,6 +115,30 @@ fn source() -> PortableRootSource {
 }
 
 #[test]
+fn native_child_value_source_keeps_unknown_jacobian_without_parameter_jet_preparation() {
+    let source = source();
+    let scope = ExecutionScope::new(Cancellation::default(), None);
+    let problem = source.problem(&scope).unwrap();
+    assert_eq!(problem.native_order(), DerivativeOrder::First);
+    let values = problem.evaluate(&source.parameters, &[2.0], DerivativeOrder::Value,
+        scope.cancellation()).unwrap();
+    assert_eq!(values.values, [0.0]);
+    assert!(values.jacobian.is_empty() && values.hessians.is_empty());
+    let unknown = problem.evaluate_unknown(&source.parameters, &[2.0], DerivativeOrder::First,
+        scope.cancellation()).unwrap();
+    assert_eq!(unknown.jacobian, [1.0]);
+    let error = problem.evaluate(&source.parameters, &[2.0], DerivativeOrder::First,
+        scope.cancellation()).unwrap_err();
+    assert!(matches!(error, pse_math::MathError::Contract(message)
+        if message == "complete implicit product was not prepared before numerical execution"));
+    // A genuine full consumer may prepare its complete product before callbacks.
+    problem.prepare_complete(DerivativeOrder::First, &scope).unwrap();
+    let complete = problem.evaluate(&source.parameters, &[2.0], DerivativeOrder::First,
+        scope.cancellation()).unwrap();
+    assert_eq!(complete.jacobian, [1.0, -1.0]);
+}
+
+#[test]
 fn native_child_source_requires_actual_physical_registry_before_launch() {
     let mut source = source();
     source.context.quantities = Arc::new(
