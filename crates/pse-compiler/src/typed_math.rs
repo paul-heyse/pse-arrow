@@ -126,7 +126,7 @@ pub struct Request<'a> {
     pub providers: &'a BTreeMap<String, ProviderCall>,
     /// Contextual literal contracts keyed by exact source range.
     pub literals: &'a BTreeMap<(u32, u32), QuantityTypeId>,
-    /// Complete physical registry content identity.
+    /// Resolver-issued consumed interpretation, or a conservative complete context.
     pub physical: ContentHash,
     /// Structural specialization content identity.
     pub structure: ContentHash,
@@ -391,6 +391,39 @@ impl Request<'_> {
         local_quantities: &BTreeMap<String, QuantityTypeId>,
         validity: &BTreeMap<String, Validity>,
     ) -> Result<AdmittedBody, MathError> {
+        self.walk_modeling_outputs(registry, checker, cancelled, functions, outputs, local_quantities, validity, false)?
+            .ok_or_else(|| MathError::Contract("executable body walk produced no mathematics".into()))
+    }
+    /// Repeat actual physical checking before issuing a compiler body request.
+    #[expect(clippy::too_many_arguments, reason = "same complete body construction inputs as numerical admission")]
+    pub(crate) fn physical_modeling_outputs(
+        &self, registry: &QuantityRegistry, checker: &pse_quantity::PhysicalPreconditions,
+        cancelled: &Arc<AtomicBool>, functions: &BTreeMap<String, pse_modeling::Function>,
+        outputs: &[QuantityTypeId], local_quantities: &BTreeMap<String, QuantityTypeId>,
+        validity: &BTreeMap<String, Validity>,
+    ) -> Result<Option<pse_quantity::premises::PhysicalPremises>, MathError> {
+        // Scientific witness passes consume additional interpretation paths. Until
+        // those paths issue their own complete premises, keep their full context.
+        if functions.values().any(|function| function.physical_operation.is_some()) {
+            return Ok(None);
+        }
+        let (_, premises) = pse_quantity::premises::capture(registry, checker, || {
+            self.walk_modeling_outputs(registry, checker, cancelled, functions, outputs, local_quantities, validity, true)
+        })?;
+        Ok(premises)
+    }
+    #[expect(clippy::too_many_arguments, reason = "one physical and numerical walker consumes identical declarations")]
+    fn walk_modeling_outputs(
+        &self,
+        registry: &QuantityRegistry,
+        checker: &dyn InvariantChecker,
+        cancelled: &Arc<AtomicBool>,
+        functions: &BTreeMap<String, pse_modeling::Function>,
+        outputs: &[QuantityTypeId],
+        local_quantities: &BTreeMap<String, QuantityTypeId>,
+        validity: &BTreeMap<String, Validity>,
+        physical_only: bool,
+    ) -> Result<Option<AdmittedBody>, MathError> {
         if !outputs.is_empty() && outputs.len() != self.expressions.len() {
             return Err(MathError::Contract("output physical contract arity".into()));
         }
@@ -422,6 +455,7 @@ impl Request<'_> {
             self.formals.len(),
             self.limits,
         )?;
+        if physical_only { builder = builder.physical_pass()?; }
         let mut paths = BTreeMap::new();
         let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV10);
         hash.u64(self.formals.len() as u64);
@@ -442,7 +476,7 @@ impl Request<'_> {
             hash,
             cancelled,
             coordinates: BTreeMap::new(),
-            physical_only: false,
+            physical_only,
             functions,
             local_quantities,
             calls: Vec::new(),
@@ -472,6 +506,7 @@ impl Request<'_> {
             .iter()
             .map(TypedValue::quantity)
             .collect::<Result<Vec<_>, _>>()?;
+        if physical_only { return Ok(None); }
         builder.frame_admissions(&mut lower.hash);
         let admissions = builder.admission_identity();
         let math = Arc::new(builder.prepare(&values)?);
@@ -487,14 +522,14 @@ impl Request<'_> {
                 .collect(),
             policy: pse_math::binding::guarded_real_policy(),
         };
-        Ok(AdmittedBody {
+        Ok(Some(AdmittedBody {
             semantic_identity: None,
             portable: None,
             spec,
             quantities,
             occurrences: lower.occurrences,
             math,
-        })
+        }))
     }
 }
 

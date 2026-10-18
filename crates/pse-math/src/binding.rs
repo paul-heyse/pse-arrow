@@ -26,7 +26,7 @@ pub struct BodySpec {
     pub definition: ContentHash,
     /// Consumed finite shape/filter/specialization facts only.
     pub structure: ContentHash,
-    /// Complete physical interpretation, including registry declarations.
+    /// Consumed physical interpretation; conservative producers include the complete registry.
     pub physical: ContentHash,
     /// Retained per-node semantic admission and declaration-owned output transitions.
     pub admissions: ContentHash,

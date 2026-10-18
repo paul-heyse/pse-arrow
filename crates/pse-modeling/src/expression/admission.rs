@@ -420,7 +420,9 @@ impl PhysicalAdmission {
         formula: Option<&pse_quantity::PhysicalFormulaAuthority>,
         at: DeclarationId,
     ) -> Result<ResolvedInference> {
-        if let Some(resolved) = &self.resolved {
+        if let Some(resolved) = &self.resolved
+            && !pse_quantity::premises::observing(registry, checker)
+        {
             return Ok(resolved.clone());
         }
         let operands = self

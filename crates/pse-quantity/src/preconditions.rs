@@ -11,7 +11,7 @@ use crate::{
 /// Immutable physical prerequisite values; no execution or native owner.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PhysicalPreconditions {
-    declarations: Vec<PhysicalPrecondition>,
+    pub(crate) declarations: Vec<PhysicalPrecondition>,
 }
 impl PhysicalPreconditions {
     /// Admit a strictly ordered complete prerequisite inventory.
@@ -47,10 +47,14 @@ impl PhysicalPreconditions {
     }
     /// Exact declared prerequisite values.
     pub fn declarations(&self) -> &[PhysicalPrecondition] {
+        crate::premises::observe_facts(self, None);
         &self.declarations
     }
 }
 impl InvariantChecker for PhysicalPreconditions {
+    #[allow(private_interfaces, reason = "sealed builtin checker identity is not a custom checker extension")]
+    fn physical_premise_owner(&self, _seal: crate::infer::CheckerSeal) -> Option<&PhysicalPreconditions> { Some(self) }
+
     fn immutable(&self) -> bool {
         true
     }
@@ -62,6 +66,7 @@ impl InvariantChecker for PhysicalPreconditions {
         operands: &[Operand<'_>],
         registry: &QuantityRegistry,
     ) -> Result<(), QuantityError> {
+        crate::premises::observe_facts(self, Some(invariant));
         let position = self
             .declarations
             .binary_search_by_key(&invariant, |declaration| declaration.id)

@@ -697,7 +697,7 @@ fn owned_frontier_inventory_includes_promoted_original_and_retains_direct_implic
 }
 
 #[test]
-fn owned_frontier_completion_refuses_changed_inventory_and_cancellation_is_retryable() {
+fn owned_frontier_completion_uses_consumed_inventory_and_cancellation_is_retryable() {
     let mut workspace = CompilerWorkspace::new(
         crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
@@ -722,6 +722,15 @@ fn owned_frontier_completion_refuses_changed_inventory_and_cancellation_is_retry
         name: "frontier_other_kind".into(),
     });
     changed.quantities = Arc::new(physical.build().unwrap());
+    let mut receiver = CompilerWorkspace::new(changed.clone(), WorkspaceLimits::default()).unwrap();
+    let received = receiver.complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false))).unwrap();
+    assert!(Arc::ptr_eq(&received.compiler_context().quantities, &changed.quantities));
+    let scalar = serde_json::to_value(changed.quantities.neutral_dimensionless().unwrap()).unwrap();
+    let mut declared = serde_json::to_value(changed.quantities.to_builder()).unwrap();
+    let declaration = declared["quantity_types"].as_array_mut().unwrap().iter_mut().find(|declaration| declaration["id"] == scalar).unwrap();
+    declaration["nominal_magnitude"] = serde_json::json!(17.0);
+    let declarations: pse_quantity::QuantityRegistryBuilder = serde_json::from_value(declared).unwrap();
+    changed.quantities = Arc::new(declarations.build().unwrap());
     let mut receiver = CompilerWorkspace::new(changed, WorkspaceLimits::default()).unwrap();
     let error = receiver
         .complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false)))

@@ -400,8 +400,11 @@ impl MathService {
             .and_then(|bytes| bytes.checked_add(2 * size_of::<PreparedCase>() + 1024))
             .ok_or(MathRuntimeError::Limit("revision attribution extent"))?;
         let lease = self.reserve("math:revision-attribution", bytes)?;
-        let mut prepared = view.compiled().clone();
-        prepared.occurrences = model.compiled().shared_occurrences().into();
+        let mut prepared = view.compiled().receive_modeling_context(model.compiled())?;
+        // The receiving model owns the actual current physical allocations. Share
+        // eligible immutable plans/programs while replacing their context shell.
+        prepared.quantities = prepared.quantities.with_owner(model._owner.clone());
+        prepared.preconditions = prepared.preconditions.with_owner(model._owner.clone());
         self.own_rebind(view, prepared, lease)
     }
     /// Retain each current allocation independently. Reused fields already carry their

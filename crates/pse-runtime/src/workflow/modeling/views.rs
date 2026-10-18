@@ -86,7 +86,7 @@ impl ModelingPackage {
             .scope(async {
                 let product = model.compiled();
                 let lookup = product
-                    .bound_lookup(states, order, compiler, &self.physical.key)
+                    .bound_lookup(states, order, compiler, &product.consumed_physical_identity())
                     .map_err(crate::math::MathRuntimeError::from)?;
                 let key = lookup.key.clone();
                 let tightenings = lookup.tightenings.clone();
@@ -109,9 +109,11 @@ impl ModelingPackage {
                 let (case, retained) = match cached {
                     Some(cached) => {
                         let case = service.rebind(&cached.view, values.clone(), cancel).await?;
-                        if cached.identity == identity {
+                        if cached.identity == identity && case.compiled().has_modeling_context(product) {
                             (case, Some(cached))
                         } else {
+                            // Equal occurrences under new physical owners still need
+                            // the receiving shell; ordinary active views stay shared.
                             (service.attribute_modeling_view(&case, model)?, None)
                         }
                     }
@@ -206,7 +208,7 @@ impl ModelingPackage {
         }
         let generation = self.runtime.shared.math().modeling_cache.generation();
         let product = model.compiled();
-        let view = product.view_key(structure, order, compiler, &self.physical.key);
+        let view = product.view_key(structure, order, compiler, &product.consumed_physical_identity());
         let key = pse_compiler::workspace::PreparedModeling::parametric_key(&view, parameters);
         if let Some(program) = self.runtime.shared.math().modeling_cache.program(key, true) {
             return Ok(program);
@@ -257,7 +259,7 @@ impl ModelingPackage {
                     &structure,
                     DerivativeOrder::Value,
                     compiler,
-                    &self.physical.key,
+                    &product.consumed_physical_identity(),
                 );
                 if let Some(program) = self
                     .runtime

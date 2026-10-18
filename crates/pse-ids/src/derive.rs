@@ -317,6 +317,12 @@ frames! {
         CompilerModelingViewV4 => "pse.compiler.modeling-view.v4",
         /// Complete compiler view policy with explicit scalar evaluator selection.
         CompilerModelingViewV5 => "pse.compiler.modeling-view.v5",
+        /// Consumed physical premises for a prepared mathematical view.
+        CompilerModelingViewV6 => "pse.compiler.modeling-view.v6",
+        /// Resolver-issued lookup questions and their complete consumed values.
+        MathPhysicalPremisesV1 => "pse.math.physical-premises.v1",
+        /// Body identity under resolver-issued consumed physical premises.
+        ModelingConsumerBodyV5 => "pse.modeling.consumer-body.v5",
         /// The parametric projection of a prepared modeling view over requested parameters.
         CompilerModelingParametricV1 => "pse.compiler.modeling-parametric.v1",
         /// A grouped consumer body, its expressions and validity ranges in canonical spelling

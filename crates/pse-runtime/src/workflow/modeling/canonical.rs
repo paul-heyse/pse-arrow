@@ -926,6 +926,7 @@ impl CheckedSelection {
                 .validation
                 .admission_scope()
                 .same_invocation(package.runtime.admission_context().admission_scope())
+            && self.admission.request.physical_owners == (Arc::as_ptr(&package.physical.quantities) as usize, Arc::as_ptr(&package.physical.preconditions) as usize)
             && self.admission.request.physical == package.physical.key
             && self.admission.request.providers.len() == package.providers.len()
             && self
@@ -1798,6 +1799,7 @@ impl ModelingPackage {
         Arc::new(super::SelectedRequest {
             roots: roots.to_vec(),
             physical: self.physical.key,
+            physical_owners: (Arc::as_ptr(&self.physical.quantities) as usize, Arc::as_ptr(&self.physical.preconditions) as usize),
             providers: self
                 .providers
                 .iter()

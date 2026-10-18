@@ -25,6 +25,9 @@ fn word(h: &mut FramedHasher, v: Option<&str>) {
     }
 }
 pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> ContentHash {
+    pse_quantity::premises::without_recording(|| inventory_identity(r, p))
+}
+fn inventory_identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> ContentHash {
     let mut h = FramedHasher::new(pse_ids::Frame::MathPhysicalInventoryV6);
     h.str("entity-kinds").u64(r.entity_kinds().count() as u64);
     for kind in r.entity_kinds() {
@@ -241,6 +244,19 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
         }
     }
     h.finish_hash()
+}
+
+pub(crate) fn complete(r: &QuantityRegistry, p: &PhysicalPreconditions) -> ContentHash {
+    let mut hash = FramedHasher::new(pse_ids::Frame::MathPhysicalPremisesV1);
+    hash.str("complete-builtin-physical-preconditions-v1").hash(&identity(r, p));
+    hash.finish_hash()
+}
+pub(crate) fn consumed(premises: &pse_quantity::premises::PhysicalPremises) -> ContentHash {
+    let mut hash = FramedHasher::new(pse_ids::Frame::MathPhysicalPremisesV1);
+    premises.frame(&mut hash);
+    let (registry, facts) = premises.context();
+    hash.hash(&identity(registry, facts));
+    hash.finish_hash()
 }
 
 #[cfg(test)]

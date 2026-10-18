@@ -54,16 +54,7 @@ pub fn resolve_literal(
         crate::convert_spec_for_type(source, registry.unit(ty.canonical_unit)?, &ty.key)?;
         return Ok(id);
     }
-    let mut candidates = Vec::new();
-    for ty in registry.quantity_types() {
-        if ty.key.shape.is_empty()
-            && registry.kind(ty.key.kind)?.dimension == source.dimension
-            && (source.reference_state.is_none()
-                || source.reference_state == ty.key.reference_state)
-        {
-            candidates.push(ty.id);
-        }
-    }
+    let candidates = registry.literal_candidates(source.dimension, source.reference_state).map(|ty|ty.id).collect::<Vec<_>>();
     if let [only] = candidates.as_slice() {
         return Ok(*only);
     }

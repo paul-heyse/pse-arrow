@@ -378,10 +378,10 @@ impl<'a> BodyBuilder<'a> {
             self.registry,
             self.checker,
         )?;
+        let mut key = self.registry.quantity_type(quantity)?.key.clone();
+        key.shape.clear();
+        let scalar = self.registry.resolve_key(&key)?;
         if !self.physical_only {
-            let mut key = self.registry.quantity_type(quantity)?.key.clone();
-            key.shape.clear();
-            let scalar = self.registry.resolve_key(&key)?;
             if self.input_quantities[slot].is_some_and(|previous| previous != scalar) {
                 return Err(MathError::Contract(
                     "one formal input has incompatible physical uses".into(),

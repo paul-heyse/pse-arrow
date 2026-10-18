@@ -130,6 +130,7 @@ pub struct ModelingPackage {
 pub(crate) struct SelectedRequest {
     roots: Vec<DeclarationId>,
     physical: pse_ids::ContentHash,
+    physical_owners: (usize, usize),
     providers: Vec<(String, pse_kernels::ProviderKey, pse_ids::ContentHash)>,
     validation: usize,
     registry: usize,

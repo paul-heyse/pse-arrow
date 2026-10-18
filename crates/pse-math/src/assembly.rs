@@ -172,6 +172,76 @@ pub struct ContributionDependencies {
     pub execution: BTreeSet<SemanticId>,
 }
 impl CasePlan {
+    /// Validate actual typed body/slot/output contracts without preparing arithmetic.
+    /// # Errors
+    /// Missing or incompatible contracts, ambiguous accumulation, or cancellation.
+    #[doc(hidden)]
+    pub fn check_physical_bindings(
+        structure: &CaseStructure, bodies: &BTreeMap<ContentHash, Arc<PreparedBody>>,
+        registry: &QuantityRegistry, cancel: &Arc<AtomicBool>,
+    ) -> Result<(), MathError> {
+        let rows: BTreeMap<_, _> = structure.rows().iter().enumerate().map(|(i,row)| (row.id, GlobalRow::new(i))).collect();
+        let mut target_counts = BTreeMap::new();
+        for binding in structure.instances() { for contribution in &binding.contributions { *target_counts.entry(contribution.target).or_insert(0usize) += 1; } }
+        for binding in structure.instances() {
+            if cancel.load(Ordering::Relaxed) { return Err(MathError::Cancelled); }
+            let body = bodies
+                .get(&binding.body)
+                .ok_or_else(|| MathError::Contract("missing prepared body".into()))?;
+            if !body
+                .checked_members()
+                .iter()
+                .eq(binding.checked_members.keys())
+                || binding
+                    .checked_members
+                    .values()
+                    .any(|id| *id == SemanticId::NIL)
+            {
+                return Err(MathError::Contract(
+                    "incomplete or invalid checked-member attribution".into(),
+                ));
+            }
+            if body.input_count() != binding.slots.len() {
+                return Err(MathError::Contract("body binding arity".into()));
+            }
+            for (q, slot) in body.input_quantities().iter().zip(binding.slots.iter()) {
+                if let Some(q) = q {
+                    pse_quantity::admission::require_same_contract(*q, slot.quantity(), registry)?;
+                }
+            }
+            for c in &binding.contributions {
+                let q = *body
+                    .output_quantities()
+                    .get(c.output)
+                    .ok_or_else(|| MathError::Contract("untyped or missing body output".into()))?;
+                let target = match c.target {
+                    Target::Row(id) => structure.rows()[rows[&id].get()].quantity,
+                    Target::Objective(level) => {
+                        structure
+                            .objectives()
+                            .get(level)
+                            .ok_or_else(|| MathError::Contract("missing objective".into()))?
+                            .quantity
+                    }
+                };
+                pse_quantity::admission::require_same_contract(q, target, registry)?;
+                if target_counts[&c.target] > 1 || c.scale != 1.0 {
+                    // Physical point values cannot be summed/scaled as residual differences.
+                    let ty = registry.quantity_type(q)?;
+                    if ty.key.scale_kind == pse_quantity::ScaleKind::Point
+                        && registry.kind(ty.key.kind)?.addition_kind
+                            != pse_quantity::QuantityAdditionKind::Additive
+                    {
+                        return Err(MathError::Contract(
+                            "point-valued output needs an explicit difference before accumulation"
+                                .into(),
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
     /// Complete original dependency projections. Body-wide control attribution is
     /// conservative; unlike solver columns this inventory retains fixed inputs.
     pub fn dependencies(
@@ -638,6 +708,7 @@ impl CasePlan {
         if columns.len() > limits.native_index || rows.len() > limits.native_index {
             return Err(MathError::Limit("native index width"));
         }
+        Self::check_physical_bindings(&structure, &bodies, registry, cancel)?;
         let mut requests = Vec::<LocalDemand>::new();
         let mut supports = Vec::<Arc<PreparedSupport>>::new();
         let mut available = DerivativeOrder::Second;
@@ -645,70 +716,11 @@ impl CasePlan {
             BTreeMap::<(ContentHash, Vec<usize>, Vec<usize>), PreparedSupport>::new();
         let mut request_indices = BTreeMap::<_, usize>::new();
         let mut instances = vec![];
-        let mut target_counts = BTreeMap::new();
-        for binding in structure.instances() {
-            for c in &binding.contributions {
-                *target_counts.entry(c.target).or_insert(0usize) += 1;
-            }
-        }
         for binding in structure.instances() {
             if cancel.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);
             }
-            let body = bodies
-                .get(&binding.body)
-                .ok_or_else(|| MathError::Contract("missing prepared body".into()))?;
-            if !body
-                .checked_members()
-                .iter()
-                .eq(binding.checked_members.keys())
-                || binding
-                    .checked_members
-                    .values()
-                    .any(|id| *id == SemanticId::NIL)
-            {
-                return Err(MathError::Contract(
-                    "incomplete or invalid checked-member attribution".into(),
-                ));
-            }
-            if body.input_count() != binding.slots.len() {
-                return Err(MathError::Contract("body binding arity".into()));
-            }
-            for (q, slot) in body.input_quantities().iter().zip(binding.slots.iter()) {
-                if let Some(q) = q {
-                    pse_quantity::admission::require_same_contract(*q, slot.quantity(), registry)?;
-                }
-            }
-            for c in &binding.contributions {
-                let q = *body
-                    .output_quantities()
-                    .get(c.output)
-                    .ok_or_else(|| MathError::Contract("untyped or missing body output".into()))?;
-                let target = match c.target {
-                    Target::Row(id) => structure.rows()[rows[&id].get()].quantity,
-                    Target::Objective(level) => {
-                        structure
-                            .objectives()
-                            .get(level)
-                            .ok_or_else(|| MathError::Contract("missing objective".into()))?
-                            .quantity
-                    }
-                };
-                pse_quantity::admission::require_same_contract(q, target, registry)?;
-                if target_counts[&c.target] > 1 || c.scale != 1.0 {
-                    // Physical point values cannot be summed/scaled as residual differences.
-                    let ty = registry.quantity_type(q)?;
-                    if ty.key.scale_kind == pse_quantity::ScaleKind::Point
-                        && registry.kind(ty.key.kind)?.addition_kind
-                            != pse_quantity::QuantityAdditionKind::Additive
-                    {
-                        return Err(MathError::Contract(
-                            "point-valued output needs an explicit difference before accumulation"
-                                .into(),
-                        ));
-                    }
-                }
-            }
+            let body = bodies.get(&binding.body).ok_or_else(|| MathError::Contract("missing prepared body".into()))?;
             let coordinates: Vec<Slot> = binding
                 .slots
                 .iter()

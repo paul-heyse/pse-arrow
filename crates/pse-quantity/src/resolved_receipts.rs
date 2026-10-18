@@ -721,6 +721,7 @@ pub(super) fn dispatch(
     authority: Option<&PhysicalFormulaAuthority>,
     calculate: impl FnOnce() -> Result<ResolvedInference, QuantityError>,
 ) -> Result<ResolvedInference, QuantityError> {
+    if SESSION.with(|s| matches!(&*s.borrow(), Some(State::Replay { .. }))) { crate::premises::unsupported(); }
     if !SESSION.with(|s| s.borrow().is_some()) {
         return calculate();
     }
@@ -806,6 +807,7 @@ pub fn boundary(
     request: pse_ids::ContentHash,
     calculate: impl FnOnce() -> Result<AdmittedOutputBoundary, QuantityError>,
 ) -> Result<AdmittedOutputBoundary, QuantityError> {
+    if SESSION.with(|s| matches!(&*s.borrow(), Some(State::Replay { .. }))) { crate::premises::unsupported(); }
     if !SESSION.with(|s| s.borrow().is_some()) {
         return calculate();
     }

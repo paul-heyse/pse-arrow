@@ -15,7 +15,21 @@ struct BodyInput {
     validity: BTreeMap<String, crate::typed_math::Validity>,
     quantity: QuantityTypeId,
     physical: ContentHash,
+    context: BodyPhysicalContext,
     limits: BodyLimits,
+}
+#[derive(Clone, Debug)]
+enum BodyPhysicalContext {
+    Consumed(Arc<pse_quantity::premises::PhysicalPremises>),
+    Complete(Arc<QuantityRegistry>, Arc<PhysicalPreconditions>),
+}
+impl BodyPhysicalContext {
+    fn context(&self) -> (&QuantityRegistry, &PhysicalPreconditions) {
+        match self { Self::Consumed(premises) => premises.context(), Self::Complete(registry, facts) => (registry, facts) }
+    }
+    fn retained_bytes(&self) -> usize {
+        match self { Self::Consumed(premises) => premises.retained_bytes(), Self::Complete(registry, facts) => registry.allocation_extent().saturating_add(facts.allocation_extent()) }
+    }
 }
 impl PartialEq for BodyInput {
     fn eq(&self, other: &Self) -> bool {
@@ -34,6 +48,7 @@ struct BodyKey<'db> {
 }
 fn body_key_heap((input,): &(Arc<BodyInput>,)) -> usize {
     size_of::<BodyInput>()
+        + input.context.retained_bytes()
         + pse_modeling::expression::retained_bytes(&input.expression)
         + input
             .formals
@@ -140,38 +155,37 @@ fn semantic_body(
     );
     let _admission = admission.enter();
     let generation = db.body_retention().map(|cache| cache.generation());
-    let mut body = crate::typed_math::Request {
-        definition: SemanticId::NIL,
-        expressions: std::slice::from_ref(&input.expression),
-        formals: &input.formals,
-        domains: &BTreeMap::new(),
-        groups: &BTreeMap::new(),
-        providers: &input.providers,
-        literals: &BTreeMap::new(),
-        physical: input.physical,
-        structure: input.identity.as_id(),
-        limits: input.limits,
-    }
-    .admit_modeling_outputs(
-        inventory.quantities(db),
-        inventory.preconditions(db).as_ref(),
-        db.cancel(),
-        &input.functions,
-        &[input.quantity],
-        &input.hints,
-        &input.validity,
-    )?;
+    let (quantities, preconditions) = input.context.context();
+    let (mut body, eligible) = match &input.context {
+        BodyPhysicalContext::Complete(_, _) => (materialize(input, quantities, preconditions, input.physical, db.cancel())?, true),
+        BodyPhysicalContext::Consumed(premises) => {
+            let result = pse_quantity::premises::capture(quantities, preconditions,
+                || materialize(input, quantities, preconditions, input.physical, db.cancel()));
+            match result {
+                Ok((body, Some(actual))) if premises.covers(&actual) => (body, true),
+                _ => {
+                    // An incomplete sparse preflight is reuse ineligibility, not
+                    // invalid science. The existing complete interpreter runs afresh;
+                    // broad tracked inputs fence its memo and it has no portable key.
+                    let registry = inventory.quantities(db);
+                    let facts = inventory.preconditions(db);
+                    pse_quantity::premises::unsupported();
+                    (materialize(input, registry, facts, crate::physical_identity::complete(registry, facts), db.cancel())?, false)
+                }
+            }
+        }
+    };
     body.math = Arc::new(
         Arc::unwrap_or_clone(body.math)
             .with_checked_members(input.validity.values().map(|range| range.target).collect())?,
     );
     checkpoint(db);
-    let body = Arc::new(body.for_semantic_identity(input.identity));
+    let body = Arc::new(if eligible { body.for_semantic_identity(input.identity) } else { body });
     admission.record("success", true);
     if let Some(context) = pse_diagnostics::observation::current() {
         context.count("compiler.semantic_body_admissions_completed", "count", 1);
     }
-    if let Some(cache) = db.body_retention() {
+    if eligible && let Some(cache) = db.body_retention() {
         return match cache.retain(generation.unwrap_or(u64::MAX), input.identity, body.clone()) {
             Ok(retained) if retained.as_ref() == body.as_ref() => Ok(retained),
             Ok(_) => body_refused(
@@ -182,6 +196,14 @@ fn semantic_body(
         };
     }
     Ok(body)
+}
+fn materialize(input: &BodyInput, registry: &QuantityRegistry, facts: &PhysicalPreconditions, physical: ContentHash, cancel: &Arc<AtomicBool>) -> Result<AdmittedBody> {
+    Ok(crate::typed_math::Request {
+        definition: SemanticId::NIL, expressions: std::slice::from_ref(&input.expression),
+        formals: &input.formals, domains: &BTreeMap::new(), groups: &BTreeMap::new(),
+        providers: &input.providers, literals: &BTreeMap::new(), physical,
+        structure: input.identity.as_id(), limits: input.limits,
+    }.admit_modeling_outputs(registry, facts, cancel, &input.functions, &[input.quantity], &input.hints, &input.validity)?)
 }
 fn body_heap(value: &Result<Arc<AdmittedBody>>) -> usize {
     value
@@ -615,6 +637,9 @@ impl PlannedModeling {
             .iter()
             .map(|instance| instance.input.identity)
     }
+    pub(super) fn providers(&self) -> BTreeMap<String, (ContentHash, usize)> {
+        self.instances.iter().flat_map(|instance| instance.input.providers.iter()).map(|(name,provider)| (name.clone(),(provider.descriptor.spec().identity(),provider.output))).collect()
+    }
     pub(super) fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + size_of_val(self.inputs.as_slice())
@@ -683,6 +708,7 @@ pub(super) fn plan(
     supplied: BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
 ) -> Result<PlannedModeling> {
     let (implicit, mut providers) = implicit::admit(db, inventory, p, supplied)?;
+    if !implicit.is_empty() { pse_quantity::premises::unsupported(); }
     for function in p.functions.values() {
         if let Some(external) = &function.external {
             let call =
@@ -817,7 +843,7 @@ pub(super) fn plan(
     };
     let mut instances = vec![];
     let mut rows = vec![];
-    let physical = physical_identity(registry, checker);
+    let complete_physical = crate::physical_identity::complete(registry, checker);
     let runtime = p
         .formals
         .iter()
@@ -855,7 +881,19 @@ pub(super) fn plan(
             .iter()
             .filter_map(|n| providers.get(n).map(|v| (n.clone(), v.clone())))
             .collect();
-        let mut h = FramedHasher::new(pse_ids::Frame::ModelingConsumerBodyV4);
+        let prepass = crate::typed_math::Request {
+            definition: SemanticId::NIL, expressions: std::slice::from_ref(&expression),
+            formals: &formals, domains: &BTreeMap::new(), groups: &BTreeMap::new(),
+            providers: &selected_providers, literals: &BTreeMap::new(),
+            physical: complete_physical, structure: complete_physical, limits: p.body_limits,
+        }.physical_modeling_outputs(registry, checker, db.cancel(), &functions,
+            &[p.quantities[index]], &hints, &validity)?;
+        let (physical, context) = match prepass {
+            Some(premises) => (crate::physical_identity::consumed(&premises), BodyPhysicalContext::Consumed(Arc::new(premises))),
+            None => { pse_quantity::premises::unsupported(); (complete_physical, BodyPhysicalContext::Complete(registry.clone(), checker.clone())) },
+        };
+        let mut h = FramedHasher::new(pse_ids::Frame::ModelingConsumerBodyV5);
+        frame_physical_scope(&mut h, &p.physical_scope);
         h.str(&dsl::render_expr(&expression))
             .id(&p.quantities[index].as_id())
             .hash(&physical)
@@ -900,6 +938,7 @@ pub(super) fn plan(
             validity,
             quantity: p.quantities[index],
             physical,
+            context,
             limits: p.body_limits,
         });
         let slots = inputs
@@ -1017,8 +1056,13 @@ pub(super) fn complete(
     let mut instances = Vec::with_capacity(planned.instances.len());
     for instance in planned.instances {
         checkpoint(db);
+        match &instance.input.context {
+            BodyPhysicalContext::Consumed(premises) => { premises.observe(inventory.quantities(db), inventory.preconditions(db)); }
+            BodyPhysicalContext::Complete(_,_) => pse_quantity::premises::unsupported(),
+        }
+        let requested = instance.input.identity;
         let key = BodyKey::new(db, instance.input);
-        let body = semantic_body(db, inventory, key).map_err(|cause| MathError::Instance {
+        let body = pse_quantity::premises::without_recording(|| semantic_body(db, inventory, key)).map_err(|cause| MathError::Instance {
             instance: instance.instance,
             checked_members: instance.checked_members.clone(),
             cause: Box::new(MathError::Typed {
@@ -1026,6 +1070,7 @@ pub(super) fn complete(
                 cause: pse_model::diagnostic::DiagnosticCause::new(cause),
             }),
         })?;
+        if body.semantic_identity() != Some(requested) { pse_quantity::premises::unsupported(); }
         let key = body.spec.key();
         bodies.insert(key, body);
         instances.push(InstanceBinding {

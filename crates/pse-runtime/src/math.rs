@@ -555,6 +555,7 @@ impl std::fmt::Debug for MathService {
 /// Runtime workspace owner, including generation storage and preparation serialization.
 #[derive(Clone, Debug)]
 pub struct Workspace {
+    desired_context: Option<CompilerContext>,
     compiler: Arc<Mutex<CompilerWorkspace>>,
     _lease: Arc<pse_columnar::AllocationLease>,
     lane_head: Arc<Mutex<Option<modeling::LaneStamp>>>,
@@ -810,13 +811,14 @@ impl MathService {
         limits.input_bytes = limits.input_bytes.min(self.policy.workspace_bytes / 2);
         limits.retained_bytes = limits.retained_bytes.min(self.policy.workspace_bytes / 2);
         let lease = self.reserve("math:compiler-workspace", self.policy.workspace_bytes)?;
-        let mut compiler = CompilerWorkspace::new(inputs, limits)?;
+        let mut compiler = CompilerWorkspace::new(inputs.clone(), limits)?;
         compiler.attach_body_retention(Arc::new(retention::BodyRetention(Arc::downgrade(self))))?;
         #[cfg(test)]
         self.preparation_effects
             .workspaces
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         Ok(Workspace {
+            desired_context: Some(inputs),
             compiler: Arc::new(Mutex::new(compiler)),
             _lease: lease,
             lane_head: Arc::default(),

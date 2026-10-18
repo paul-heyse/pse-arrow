@@ -1119,7 +1119,11 @@ impl MathService {
             return Err(MathRuntimeError::Limit("modeling source bytes"));
         }
         let mut supplier_refused = false;
-        let admitted = authority.lock()?.publish_modeling_with_validation(
+        let mut compiler = authority.lock()?;
+        if let Some(inputs) = &authority.workspace.desired_context {
+            compiler.refresh_modeling_context(inputs.clone(), cancel.clone())?;
+        }
+        let admitted = compiler.publish_modeling_with_validation(
             rows,
             scope,
             documents,
@@ -1482,10 +1486,11 @@ impl MathService {
                 MathRuntimeError::Infrastructure("compiler lane map poisoned".into())
             })?;
             if let Some(index) = lanes.iter().position(|lane| {
-                lane.historical.is_none() && lane.lineage == lineage && lane.inputs == inputs
+                lane.historical.is_none() && lane.lineage == lineage
             }) {
                 let lane = lanes.remove(index);
-                let result = lane.workspace.clone();
+                let mut result = lane.workspace.clone();
+                result.desired_context = Some(inputs.clone());
                 lanes.push(lane);
                 return Ok(result);
             }
@@ -1517,9 +1522,11 @@ impl MathService {
             .lock()
             .map_err(|_| MathRuntimeError::Infrastructure("compiler lane map poisoned".into()))?;
         if let Some(lane) = lanes.iter().find(|lane| {
-            lane.historical.is_none() && lane.lineage == lineage && lane.inputs == inputs
+            lane.historical.is_none() && lane.lineage == lineage
         }) {
-            return Ok(lane.workspace.clone());
+            let mut workspace = lane.workspace.clone();
+            workspace.desired_context = Some(inputs);
+            return Ok(workspace);
         }
         // A borrowed resident is the sole writer for its exact lineage. Evicting it
         // would allow a later request to manufacture a second concurrent writer.
@@ -1645,7 +1652,7 @@ impl MathService {
             }
             return operation(&mut compiler);
         }
-        let inputs = compiler.context();
+        let inputs = revision.admitted.compiler_context();
         drop(compiler);
         authority.release()?;
         let (detached, permit) =
@@ -1684,7 +1691,7 @@ impl MathService {
             })?;
         if head.as_ref().is_some_and(|prior| stamp.precedes(prior)) {
             drop(head);
-            let inputs = authority.lock()?.context();
+            let inputs = authority.workspace.desired_context.clone().unwrap_or(authority.lock()?.context());
             authority.release()?;
             let detached =
                 self.workspace(inputs, pse_compiler::workspace::WorkspaceLimits::default())?;
@@ -1719,3 +1726,6 @@ impl MathService {
 
 #[cfg(test)]
 mod lane_tests;
+
+#[cfg(test)]
+mod physical_refresh_tests;

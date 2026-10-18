@@ -330,6 +330,7 @@ impl PartialEq for AdmittedModeling {
 }
 #[derive(Clone, Debug, PartialEq)]
 struct Projection {
+    physical_scope: Arc<PhysicalScope>,
     /// Authored objective members grouped into levels (ADR-0111): priority, weight,
     /// normalization, and each level's tolerances and generated bound.
     objectives: pse_modeling::specialize::Objectives,
@@ -455,6 +456,7 @@ fn projection(
         }
     }
     let mut p = Projection {
+        physical_scope: Arc::new(catalog.checked(db).context().scope.clone()),
         objectives: model.objectives.clone(),
         body_limits: BodyLimits {
             occurrences: request
@@ -1378,6 +1380,20 @@ impl CompilerWorkspace {
     }
 }
 
+fn frame_physical_scope(hash: &mut FramedHasher, scope: &PhysicalScope) {
+    hash.bool(scope.package.is_some()); if let Some(package) = &scope.package { hash.str(package); }
+    hash.bool(scope.documents.is_some()); if let Some(documents) = &scope.documents { hash.u64(documents.len() as u64); for document in documents { hash.id(document); } }
+}
+fn complete_context(registry: &QuantityRegistry, facts: &PhysicalPreconditions, scope: &PhysicalScope) -> ContentHash {
+    let mut hash = FramedHasher::new(pse_ids::Frame::MathPhysicalPremisesV1);
+    hash.str("complete-compiler-product").hash(&crate::physical_identity::complete(registry, facts));
+    frame_physical_scope(&mut hash, scope); hash.finish_hash()
+}
+fn consumed_context(premises: &pse_quantity::premises::PhysicalPremises, scope: &PhysicalScope) -> ContentHash {
+    let mut hash = FramedHasher::new(pse_ids::Frame::MathPhysicalPremisesV1);
+    hash.str("compiler-product").hash(&crate::physical_identity::consumed(premises));
+    frame_physical_scope(&mut hash, scope); hash.finish_hash()
+}
 /// Complete owned planning product for one exact, instance-qualified request.
 /// Normalized consumer bodies are requested here and materialized only by completion.
 /// Direct nested implicit mathematics remains retained without a portable semantic identity.
@@ -1389,6 +1405,7 @@ pub struct ModelingPreparationFrontier {
     primary: grouped::PlannedModeling,
     original: Option<(Arc<Projection>, grouped::PlannedModeling)>,
     physical: ContentHash,
+    physical_premises: Option<Arc<pse_quantity::premises::PhysicalPremises>>,
     environment: ContentHash,
     providers: BTreeMap<String, (ContentHash, usize)>,
 }
@@ -1410,6 +1427,7 @@ impl ModelingPreparationFrontier {
     pub fn retained_bytes(&self) -> usize {
         2 * size_of::<Self>()
             + 256
+            + self.physical_premises.as_ref().map_or(0, |premises| premises.retained_bytes())
             + self.semantic.descriptor_bytes()
             + self.model.retained_bytes()
             + projection_body_bytes(&self.projection)
@@ -1428,6 +1446,8 @@ impl ModelingPreparationFrontier {
 /// Finite kernel preparation and post-specialization structural evidence.
 #[derive(Clone, Debug)]
 pub struct PreparedModeling {
+    context: CompilerContext,
+    physical: ContentHash,
     semantic: SemanticModeling,
     projection: Arc<Projection>,
     occurrences: Arc<BTreeMap<SemanticId, Vec<Occurrence>>>,
@@ -1457,6 +1477,12 @@ impl AdmittedModeling {
     }
 }
 impl PreparedModeling {
+    /// Resolver-issued consumed physical interpretation of this mathematical product.
+    #[doc(hidden)]
+    pub fn consumed_physical_identity(&self) -> ContentHash { self.physical }
+    /// Current admitted owners for a fresh receiving numerical shell.
+    #[doc(hidden)]
+    pub fn compiler_context(&self) -> CompilerContext { self.context.clone() }
     /// Complete portable body inventory, independent of which pure queries executed.
     /// Primary and original views share one entry per sealed semantic identity; direct
     /// implicit bodies are retained by their systems and have no invented portable key.
@@ -1560,13 +1586,14 @@ impl CompilerWorkspace {
         let (catalog, request) = self.modeling_request(root, instance, bindings, limits)?;
         self.db.cancel = cancel;
         let result = salsa::Cancelled::catch(|| {
-            let model = specialized(&self.db, catalog, request)?;
+            let (mut frontier, premises) = pse_quantity::premises::capture(&self.inputs.quantities, &self.inputs.preconditions, || -> Result<_> {
+            let model = pse_quantity::premises::without_recording(|| specialized(&self.db, catalog, request))?;
             let semantic = SemanticModeling::admit(
                 model.clone().into(),
                 self.inventory.quantities(&self.db),
                 self.inventory.preconditions(&self.db),
             )?;
-            let projection = projection(&self.db, self.inventory, catalog, request)?;
+            let projection = pse_quantity::premises::without_recording(|| projection(&self.db, self.inventory, catalog, request))?;
             let primary = grouped::plan(&self.db, self.inventory, &projection, BTreeMap::new())?;
             let promoted: BTreeSet<_> = primary
                 .implicit
@@ -1614,29 +1641,29 @@ impl CompilerWorkspace {
                 })
                 .transpose()?;
             checkpoint(&self.db);
+            let providers = if primary.implicit.is_empty() {
+                let mut providers = primary.providers();
+                if let Some((_, original)) = &original { providers.extend(original.providers()); }
+                providers
+            } else { self.inventory.providers(&self.db).iter().map(|(name,provider)| (name.clone(),(provider.descriptor.spec().identity(),provider.output))).collect() };
+            let physical = complete_context(&self.inputs.quantities, &self.inputs.preconditions, &projection.physical_scope);
             Ok(ModelingPreparationFrontier {
                 semantic,
                 model,
                 projection,
                 primary,
                 original,
-                physical: physical_identity(
-                    self.inventory.quantities(&self.db),
-                    self.inventory.preconditions(&self.db),
-                ),
+                physical_premises: None,
+                physical,
                 environment: *self.inventory.environment(&self.db),
-                providers: self
-                    .inventory
-                    .providers(&self.db)
-                    .iter()
-                    .map(|(name, provider)| {
-                        (
-                            name.clone(),
-                            (provider.descriptor.spec().identity(), provider.output),
-                        )
-                    })
-                    .collect(),
+                providers,
             })
+            })?;
+            if let Some(premises) = premises {
+                frontier.physical = consumed_context(&premises, &frontier.projection.physical_scope);
+                frontier.physical_premises = Some(Arc::new(premises));
+            }
+            Ok(frontier)
         })
         .map_err(|_| compiler_cancelled(&self.db))?;
         self.trim_queries()?;
@@ -1664,19 +1691,18 @@ impl CompilerWorkspace {
         // contain interior accounting state, but cancellation cannot expose a partly
         // constructed product; non-cancellation panics are rethrown by Salsa.
         let result = salsa::Cancelled::catch(std::panic::AssertUnwindSafe(|| {
+            let (mut product, premises) = pse_quantity::premises::capture(&self.inputs.quantities, &self.inputs.preconditions, || -> Result<_> {
             checkpoint(&self.db);
             let providers = self.inventory.providers(&self.db);
-            if frontier.physical
-                != physical_identity(
-                    self.inventory.quantities(&self.db),
-                    self.inventory.preconditions(&self.db),
-                )
+            let compatible = match &frontier.physical_premises {
+                Some(premises) => premises.observe(&self.inputs.quantities, &self.inputs.preconditions),
+                None => { pse_quantity::premises::unsupported(); frontier.physical == complete_context(&self.inputs.quantities, &self.inputs.preconditions, &frontier.projection.physical_scope) },
+            };
+            if !compatible
                 || frontier.environment != *self.inventory.environment(&self.db)
-                || frontier.providers.len() != providers.len()
+                || frontier.physical_premises.is_none() && frontier.providers.len() != providers.len()
                 || !frontier.providers.iter().all(|(name, identity)| {
-                    providers.get(name).is_some_and(|provider| {
-                        *identity == (provider.descriptor.spec().identity(), provider.output)
-                    })
+                    providers.get(name).is_some_and(|provider| *identity == (provider.descriptor.spec().identity(), provider.output))
                 })
             {
                 return Err(CompileError::from(MathError::Contract(
@@ -1684,7 +1710,7 @@ impl CompilerWorkspace {
                 )));
             }
             let admitted = grouped::complete(&self.db, self.inventory, frontier.primary)?;
-            let original = frontier
+            let original: Option<(Arc<Projection>, pse_math::SharedAllocation<AdmittedModeling>)> = frontier
                 .original
                 .map(|(projection, plan)| -> Result<_> {
                     Ok((
@@ -1693,6 +1719,9 @@ impl CompilerWorkspace {
                     ))
                 })
                 .transpose()?;
+            for view in std::iter::once(admitted.as_ref()).chain(original.iter().map(|(_,view)| view.as_ref())) {
+                CasePlan::check_physical_bindings(&view.case, &view.bodies.iter().map(|(key,body)|(*key,body.math.clone())).collect(), &self.inputs.quantities, self.db.cancel())?;
+            }
             checkpoint(&self.db);
             let original_portable = original.as_ref().map(
                 |(_, view): &(_, pse_math::SharedAllocation<AdmittedModeling>)| {
@@ -1730,6 +1759,8 @@ impl CompilerWorkspace {
                     .collect(),
             );
             Ok(PreparedModeling {
+                context: self.inputs.clone(),
+                physical: frontier.physical,
                 lookup_structure,
                 solver_rows,
                 occurrences,
@@ -1743,6 +1774,9 @@ impl CompilerWorkspace {
                 model: frontier.model.into(),
                 admitted: admitted.into(),
             })
+            })?;
+            if let Some(premises) = premises { product.physical = consumed_context(&premises, &product.projection.physical_scope); }
+            Ok(product)
         }))
         .map_err(|_| compiler_cancelled(&self.db))?;
         self.trim_queries()?;
@@ -1772,6 +1806,8 @@ impl PreparedModeling {
     pub fn retained_bytes(&self) -> usize {
         2 * size_of::<Self>()
             + 256
+            + self.context.quantities.allocation_extent()
+            + self.context.preconditions.allocation_extent()
             + self.semantic.descriptor_bytes()
             + size_of_val(self.portable.as_ref())
             + 32

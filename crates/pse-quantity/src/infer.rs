@@ -229,7 +229,15 @@ pub struct Inferred {
 /// Checks an invariant against actual facts applicable to this exact operation request.
 /// Implementations must inspect operation/operand/registry scope and their validated fact
 /// source; matching a declared identity or an unscoped set of IDs is insufficient.
+/// Library-private witness prevents arbitrary checker implementations from claiming
+/// builtin premise interpretation while preserving their default custom behavior.
+#[derive(Clone, Copy)]
+pub(crate) struct CheckerSeal;
 pub trait InvariantChecker {
+    #[doc(hidden)]
+    #[allow(private_interfaces, reason = "sealed optional builtin identity; custom implementations retain the default")]
+    fn physical_premise_owner(&self, _seal: CheckerSeal) -> Option<&crate::PhysicalPreconditions> { None }
+
     /// Whether all facts read by this checker remain immutable for its borrowed
     /// lifetime. Mutable or observation-based implementations must keep the default.
     fn immutable(&self) -> bool {
@@ -293,6 +301,7 @@ pub fn infer_with_evidence(
     registry: &QuantityRegistry,
     checker: &dyn InvariantChecker,
 ) -> Result<Inferred, QuantityError> {
+    crate::premises::observe_checker(registry, checker);
     let contracts = operands
         .iter()
         .map(|operand| {

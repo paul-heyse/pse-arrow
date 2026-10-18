@@ -144,9 +144,13 @@ impl QuantityRegistryBuilder {
             by_conversion: BTreeMap::new(),
             by_monomial: BTreeMap::new(),
             by_name: BTreeMap::new(),
+            by_contract: BTreeMap::new(),
+            by_entity_name: BTreeMap::new(),
+            by_literal: BTreeMap::new(),
         };
         registry.validate()?;
         registry.by_name = registry.names()?;
+        for entity in registry.entity_kinds.values() { registry.by_entity_name.entry(entity.name.clone()).or_default().push(entity.id); }
         registry.by_monomial = registry
             .kinds
             .values()
@@ -175,29 +179,41 @@ impl QuantityRegistryBuilder {
                 .or_default()
                 .push(v.id);
         }
+        for ty in registry.quantity_types.values() {
+            let monomial = registry.kind_monomial(ty.key.kind)?;
+            registry.by_contract.entry((monomial, ty.key.shape.clone())).or_default().push(ty.id);
+            if ty.key.shape.is_empty() {
+                let dimension = registry.kind(ty.key.kind)?.dimension;
+                registry.by_literal.entry((dimension, None)).or_default().push(ty.id);
+                if let Some(reference) = ty.key.reference_state { registry.by_literal.entry((dimension, Some(reference))).or_default().push(ty.id); }
+            }
+        }
         Ok(registry)
     }
 }
 /// An immutable collection of admitted physical declarations.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QuantityRegistry {
-    entity_kinds: BTreeMap<EntityKindId, EntityKind>,
-    units: BTreeMap<UnitId, Unit>,
-    kinds: BTreeMap<QuantityKindId, QuantityKind>,
-    bases: BTreeMap<BasisId, Basis>,
-    reference_states: BTreeMap<ReferenceStateId, ReferenceState>,
-    quantity_types: BTreeMap<QuantityTypeId, QuantityType>,
-    conversions: BTreeMap<ConversionId, ConversionRule>,
-    operations: BTreeMap<OperationId, QuantityOperation>,
-    reduction_domains: BTreeMap<OperationId, EntityKindId>,
-    unit_sets: BTreeMap<UnitSetId, UnitSet>,
-    neutral: Option<QuantityTypeId>,
-    by_key: BTreeMap<QuantityTypeKey, QuantityTypeId>,
-    by_symbol: BTreeMap<String, UnitId>,
-    by_opcode: BTreeMap<Opcode, Vec<OperationId>>,
-    by_conversion: BTreeMap<(QuantityTypeId, QuantityTypeId), Vec<ConversionId>>,
-    by_monomial: BTreeMap<Vec<KindFactor>, QuantityKindId>,
-    by_name: BTreeMap<String, PhysicalName>,
+    pub(crate) entity_kinds: BTreeMap<EntityKindId, EntityKind>,
+    pub(crate) units: BTreeMap<UnitId, Unit>,
+    pub(crate) kinds: BTreeMap<QuantityKindId, QuantityKind>,
+    pub(crate) bases: BTreeMap<BasisId, Basis>,
+    pub(crate) reference_states: BTreeMap<ReferenceStateId, ReferenceState>,
+    pub(crate) quantity_types: BTreeMap<QuantityTypeId, QuantityType>,
+    pub(crate) conversions: BTreeMap<ConversionId, ConversionRule>,
+    pub(crate) operations: BTreeMap<OperationId, QuantityOperation>,
+    pub(crate) reduction_domains: BTreeMap<OperationId, EntityKindId>,
+    pub(crate) unit_sets: BTreeMap<UnitSetId, UnitSet>,
+    pub(crate) neutral: Option<QuantityTypeId>,
+    pub(crate) by_key: BTreeMap<QuantityTypeKey, QuantityTypeId>,
+    pub(crate) by_symbol: BTreeMap<String, UnitId>,
+    pub(crate) by_opcode: BTreeMap<Opcode, Vec<OperationId>>,
+    pub(crate) by_conversion: BTreeMap<(QuantityTypeId, QuantityTypeId), Vec<ConversionId>>,
+    pub(crate) by_monomial: BTreeMap<Vec<KindFactor>, QuantityKindId>,
+    pub(crate) by_name: BTreeMap<String, PhysicalName>,
+    pub(crate) by_contract: BTreeMap<(Vec<KindFactor>, Vec<EntityKindId>), Vec<QuantityTypeId>>,
+    pub(crate) by_entity_name: BTreeMap<String, Vec<EntityKindId>>,
+    pub(crate) by_literal: BTreeMap<(DimensionVector, Option<ReferenceStateId>), Vec<QuantityTypeId>>,
 }
 /// What a physical name declared in the physical document denotes (ADR-0123 Outcome 6).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -208,12 +224,13 @@ pub enum PhysicalName {
     ReferenceState(ReferenceStateId),
 }
 macro_rules! lookup {
-    ($method:ident, $field:ident, $id:ty, $ty:ty) => {
+    ($method:ident, $field:ident, $id:ty, $ty:ty, $read:ident) => {
         #[doc = concat!("Resolve a declared `", stringify!($ty), "`.")]
         ///
         /// # Errors
         /// Rejects an identity absent from this admitted registry.
         pub fn $method(&self, id: $id) -> Result<&$ty, QuantityError> {
+            crate::premises::observe(self, crate::premises::Read::$read(id));
             self.$field.get(&id).ok_or(QuantityError::UnknownId {
                 kind: stringify!($method),
                 id: id.as_id(),
@@ -242,6 +259,9 @@ impl QuantityRegistry {
             self.by_conversion.len(),
             self.by_monomial.len(),
             self.by_name.len(),
+            self.by_contract.len(),
+            self.by_entity_name.len(),
+            self.by_literal.len(),
         ]
         .into_iter()
         .fold(size_of::<Self>(), |n, count| {
@@ -307,12 +327,20 @@ impl QuantityRegistry {
         for indices in self.by_conversion.values() {
             bytes = bytes.saturating_add(indices.capacity().saturating_mul(32));
         }
+        for (name, candidates) in &self.by_entity_name { bytes = bytes.saturating_add(name.capacity()).saturating_add(candidates.capacity().saturating_mul(size_of::<EntityKindId>())); }
+        for candidates in self.by_literal.values() { bytes = bytes.saturating_add(candidates.capacity().saturating_mul(size_of::<QuantityTypeId>())); }
+        for ((factors, axes), candidates) in &self.by_contract {
+            bytes = bytes.saturating_add(factors.capacity().saturating_mul(size_of::<KindFactor>()))
+                .saturating_add(axes.capacity().saturating_mul(size_of::<EntityKindId>()))
+                .saturating_add(candidates.capacity().saturating_mul(size_of::<QuantityTypeId>()));
+        }
         bytes
     }
     /// Copy admitted declarations into a builder for an explicitly extended package.
     /// The original registry remains immutable; `build` revalidates every declaration and
     /// catches duplicate identities/keys in the extended candidate.
     pub fn to_builder(&self) -> QuantityRegistryBuilder {
+        crate::premises::observe(self, crate::premises::Read::Whole);
         QuantityRegistryBuilder {
             entity_kinds: self.entity_kinds.values().cloned().collect(),
             units: self
@@ -364,44 +392,43 @@ impl QuantityRegistry {
             neutral: self.neutral.into_iter().collect(),
         }
     }
-    lookup!(entity_kind, entity_kinds, EntityKindId, EntityKind);
+    lookup!(entity_kind, entity_kinds, EntityKindId, EntityKind, Entity);
     /// Declared generic kinds in semantic identity order.
     pub fn entity_kinds(&self) -> impl ExactSizeIterator<Item = &EntityKind> {
+        crate::premises::observe(self, crate::premises::Read::Entities);
         self.entity_kinds.values()
     }
     /// Resolve an unambiguous qualified package name at a legacy source boundary.
     pub fn entity_kind_named(&self, name: &str) -> Option<EntityKindId> {
-        let mut found = self.entity_kinds.values().filter(|k| k.name == name);
-        let first = found.next()?.id;
-        if found.next().is_some() {
-            None
-        } else {
-            Some(first)
-        }
+        crate::premises::observe(self, crate::premises::Read::EntityName(name.to_owned()));
+        match self.by_entity_name.get(name).map(Vec::as_slice) { Some([one]) => Some(*one), _ => None }
     }
-    lookup!(unit, units, UnitId, Unit);
-    lookup!(kind, kinds, QuantityKindId, QuantityKind);
-    lookup!(basis, bases, BasisId, Basis);
+    lookup!(unit, units, UnitId, Unit, Unit);
+    lookup!(kind, kinds, QuantityKindId, QuantityKind, Kind);
+    lookup!(basis, bases, BasisId, Basis, Basis);
     lookup!(
         reference_state,
         reference_states,
         ReferenceStateId,
-        ReferenceState
+        ReferenceState,
+        Reference
     );
-    lookup!(quantity_type, quantity_types, QuantityTypeId, QuantityType);
-    lookup!(conversion, conversions, ConversionId, ConversionRule);
-    lookup!(operation, operations, OperationId, QuantityOperation);
+    lookup!(quantity_type, quantity_types, QuantityTypeId, QuantityType, Quantity);
+    lookup!(conversion, conversions, ConversionId, ConversionRule, Conversion);
+    lookup!(operation, operations, OperationId, QuantityOperation, Operation);
     /// Exact admitted reduction dispatch contract, separate from applicability preconditions.
     pub fn reduction_domain(&self, operation: OperationId) -> Option<EntityKindId> {
+        crate::premises::observe(self, crate::premises::Read::Reduction(operation));
         self.reduction_domains.get(&operation).copied()
     }
     /// Every exact operation/domain dispatch declaration in stable operation order.
     pub fn reduction_domains(
         &self,
     ) -> impl ExactSizeIterator<Item = (OperationId, EntityKindId)> + '_ {
+        crate::premises::observe(self, crate::premises::Read::Reductions);
         self.reduction_domains.iter().map(|(id, kind)| (*id, *kind))
     }
-    lookup!(unit_set, unit_sets, UnitSetId, UnitSet);
+    lookup!(unit_set, unit_sets, UnitSetId, UnitSet, UnitSet);
     /// Compose a unit literal (ADR-0124). Each factor symbol names an atomic unit; the
     /// result's identity, dimension and scale follow from the canonical atomic factors, so
     /// a composite literal needs no registered whole unit. A product that is one atomic
@@ -416,6 +443,7 @@ impl QuantityRegistry {
                 .factors()
                 .iter()
                 .map(|(symbol, exponent)| {
+                    crate::premises::observe(self, crate::premises::Read::Symbol(symbol.clone()));
                     let unit = self.by_symbol.get(symbol).copied().ok_or_else(|| {
                         QuantityError::UnknownUnitSymbol {
                             symbol: symbol.clone(),
@@ -443,6 +471,7 @@ impl QuantityRegistry {
             }
         }
         let id = unit_product_id(&factors);
+        crate::premises::observe(self, crate::premises::Read::Unit(id));
         if let Some(defined) = self.units.get(&id) {
             return Ok(defined.clone());
         }
@@ -478,14 +507,31 @@ impl QuantityRegistry {
     }
     /// All quantity types in stable identity order.
     pub fn quantity_types(&self) -> impl Iterator<Item = &QuantityType> {
+        crate::premises::observe(self, crate::premises::Read::Quantities);
         self.quantity_types.values()
+    }
+    /// Complete ordered candidates for anonymous intermediate name resolution.
+    /// The resolver still checks every contextual qualifier; this access path only
+    /// excludes declarations with different exact kind factors or ordered axes.
+    #[doc(hidden)]
+    pub fn contract_candidates(&self, factors: &[KindFactor], axes: &[EntityKindId]) -> impl Iterator<Item = &QuantityType> {
+        crate::premises::observe(self, crate::premises::Read::Contract(factors.to_vec(), axes.to_vec()));
+        self.by_contract.get(&(factors.to_vec(), axes.to_vec())).into_iter().flatten().filter_map(|id| self.quantity_types.get(id))
+    }
+    /// Complete scalar free-literal candidate population in stable identity order.
+    #[doc(hidden)]
+    pub fn literal_candidates(&self, dimension: DimensionVector, reference: Option<ReferenceStateId>) -> impl Iterator<Item = &QuantityType> {
+        crate::premises::observe(self, crate::premises::Read::Literal(dimension, reference));
+        self.by_literal.get(&(dimension, reference)).into_iter().flatten().filter_map(|id|self.quantity_types.get(id))
     }
     /// All admitted units in stable identity order.
     pub fn units(&self) -> impl ExactSizeIterator<Item = &Unit> {
+        crate::premises::observe(self, crate::premises::Read::Units);
         self.units.values()
     }
     /// All admitted quantity kinds in stable identity order.
     pub fn kinds(&self) -> impl ExactSizeIterator<Item = &QuantityKind> {
+        crate::premises::observe(self, crate::premises::Read::Kinds);
         self.kinds.values()
     }
     /// A kind's canonical monomial over base kinds (ADR-0124): a derived kind's expanded
@@ -508,6 +554,7 @@ impl QuantityRegistry {
     /// The declared kind whose canonical monomial this is: a base kind for itself with
     /// exponent one, otherwise the unique derived kind declaring it. Never synthesized.
     pub fn kind_by_monomial(&self, monomial: &[KindFactor]) -> Option<QuantityKindId> {
+        crate::premises::observe(self, crate::premises::Read::Monomial(monomial.to_vec()));
         if let [only] = monomial
             && only.exponent == crate::Ratio::ONE
             && self
@@ -532,22 +579,27 @@ impl QuantityRegistry {
     }
     /// All admitted bases in stable identity order.
     pub fn bases(&self) -> impl ExactSizeIterator<Item = &Basis> {
+        crate::premises::observe(self, crate::premises::Read::Bases);
         self.bases.values()
     }
     /// All admitted reference states in stable identity order.
     pub fn reference_states(&self) -> impl ExactSizeIterator<Item = &ReferenceState> {
+        crate::premises::observe(self, crate::premises::Read::References);
         self.reference_states.values()
     }
     /// All admitted conversions in stable identity order.
     pub fn conversions(&self) -> impl ExactSizeIterator<Item = &ConversionRule> {
+        crate::premises::observe(self, crate::premises::Read::Conversions);
         self.conversions.values()
     }
     /// All admitted operation contracts in stable identity order.
     pub fn operations(&self) -> impl ExactSizeIterator<Item = &QuantityOperation> {
+        crate::premises::observe(self, crate::premises::Read::Operations);
         self.operations.values()
     }
     /// All admitted unit sets in stable identity order.
     pub fn unit_sets(&self) -> impl ExactSizeIterator<Item = &UnitSet> {
+        crate::premises::observe(self, crate::premises::Read::UnitSets);
         self.unit_sets.values()
     }
     /// Resolve by exact semantic components, never by dimension or a digest.
@@ -555,6 +607,7 @@ impl QuantityRegistry {
     /// # Errors
     /// Rejects an unregistered key.
     pub fn resolve_key(&self, key: &QuantityTypeKey) -> Result<QuantityTypeId, QuantityError> {
+        crate::premises::observe(self, crate::premises::Read::Key(key.clone()));
         self.by_key.get(key).copied().ok_or_else(|| {
             error(
                 "quantity_type.registered_key",
@@ -565,6 +618,7 @@ impl QuantityRegistry {
     }
     /// Candidate operation declarations in stable identity order; inference must match them.
     pub fn operations_for(&self, opcode: Opcode) -> impl Iterator<Item = &QuantityOperation> {
+        crate::premises::observe(self, crate::premises::Read::Opcode(opcode));
         self.by_opcode
             .get(&opcode)
             .into_iter()
@@ -577,6 +631,7 @@ impl QuantityRegistry {
         from: QuantityTypeId,
         to: QuantityTypeId,
     ) -> impl Iterator<Item = &ConversionRule> {
+        crate::premises::observe(self, crate::premises::Read::Between(from, to));
         self.by_conversion
             .get(&(from, to))
             .into_iter()
@@ -585,14 +640,17 @@ impl QuantityRegistry {
     }
     /// The explicitly designated neutral scalar, if the package provides one.
     pub fn neutral_dimensionless(&self) -> Option<QuantityTypeId> {
+        crate::premises::observe(self, crate::premises::Read::Neutral);
         self.neutral
     }
     /// What a name declared in the physical document denotes (ADR-0123 Outcome 6).
     pub fn physical_name(&self, name: &str) -> Option<PhysicalName> {
+        crate::premises::observe(self, crate::premises::Read::Name(name.to_owned()));
         self.by_name.get(name).copied()
     }
     /// Every declared physical name, in name order.
     pub fn physical_names(&self) -> impl ExactSizeIterator<Item = (&str, PhysicalName)> {
+        crate::premises::observe(self, crate::premises::Read::Names);
         self.by_name
             .iter()
             .map(|(name, value)| (name.as_str(), *value))

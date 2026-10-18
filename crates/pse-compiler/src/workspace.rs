@@ -591,6 +591,7 @@ pub struct PreparedFunctions {
 /// Owned result: neither Salsa handles nor native mutable state escape.
 #[derive(Clone, Debug)]
 pub struct PreparedCase {
+    pub(crate) modeling_physical: Option<ContentHash>,
     /// Consumed finite domain/class construction policy, continued by each class demand.
     pub class_proof_work: usize,
     /// Physical registry used by this immutable compilation and numerical resolution.
@@ -1289,6 +1290,7 @@ impl PreparedBlock {
         self.plan.structure().validate_frozen_values(values)?;
         let bound = ValueProducts::bind(&self.plan, values, self.class_proof_work, cancel)?;
         Ok(PreparedCase {
+            modeling_physical: None,
             class_proof_work: self.class_proof_work,
             quantities,
             preconditions,

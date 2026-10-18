@@ -122,3 +122,7 @@ pub use preconditions::PhysicalPreconditions;
 
 /// Authored scalar-function and physical-admission handler vocabulary.
 pub mod functions;
+
+/// Resolver-owned physical dependency projections for compiler products.
+#[doc(hidden)]
+pub mod premises;
