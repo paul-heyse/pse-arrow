@@ -245,7 +245,7 @@ fn repeated_native_completed_callbacks_preserve_point_direction_and_atomic_bound
     assert_eq!(output, [7.]);
     assert!(NleOracle::jacobian_product(&mut oracle, &[3.], &[f64::INFINITY], &mut output).is_err());
     assert_eq!(output, [7.]);
-    assert!(NleOracle::jacobian_product(&mut oracle, &[f64::NAN], &[5.], &mut output).is_err());
+    assert!(matches!(NleOracle::jacobian_product(&mut oracle, &[f64::NAN], &[5.], &mut output), Err(ProblemError::Numerical { .. })));
     assert_eq!(output, [7.]);
     NlpOracle::jacobian(&mut oracle, &[4.], &mut output).unwrap();
     NleOracle::jacobian_product(&mut oracle, &[4.], &[5.], &mut output).unwrap();

@@ -447,7 +447,10 @@ impl NleOracle for SharedRootOracle {
 fn validated_trial<'a>(bound: &'a BoundValues, worker: &mut CaseWorker, x: &'a [f64]) -> Result<EvalInputs<'a>, ProblemError> {
     match bound.trial(x) {
         Ok(trial) => Ok(trial),
-        Err(cause) => { worker.invalidate_trial(); Err(cause.into()) }
+        Err(_) => {
+            worker.invalidate_trial();
+            Err(ProblemError::numerical("native trial dimensions or values"))
+        }
     }
 }
 fn copy(source: &[f64], target: &mut [f64]) -> Result<(), ProblemError> {
