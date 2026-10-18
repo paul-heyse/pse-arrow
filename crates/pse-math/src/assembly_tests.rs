@@ -4437,12 +4437,15 @@ struct ControlledJetProvider {
     calls: Arc<std::sync::atomic::AtomicUsize>,
 }
 impl pse_kernels::Provider for ControlledJetProvider {
+    fn supports(&self, _: &pse_kernels::ProviderDemand) -> bool { true }
+    fn supports_linearization(&self) -> bool { true }
+    fn completed_linearization(&self) -> Option<ContentHash> { Some(self.spec.revision) }
     fn fill(
         &mut self,
         inputs: &[f64],
         request: &pse_kernels::PreparedProviderRequest,
-        _runtime: pse_kernels::ProviderRuntime<'_>,
-        mut output: pse_kernels::ProviderOutput<'_>,
+        runtime: pse_kernels::ProviderRuntime<'_>,
+        output: pse_kernels::ProviderOutput<'_>,
         context: &pse_kernels::EvaluationContext<'_>,
     ) -> Result<(), pse_kernels::ProviderError> {
         context.check()?;
@@ -4476,21 +4479,32 @@ impl pse_kernels::Provider for ControlledJetProvider {
                 _ => {}
             }
         }
-        output.copy_from(&pse_kernels::ProviderValues {
-            values: vec![inputs[0] * inputs[1]],
-            jacobian: if request.order >= DerivativeOrder::First {
-                vec![inputs[1], inputs[0]]
-            } else {
-                vec![]
-            },
-            hessians: if request.order >= DerivativeOrder::Second {
-                vec![0., 1., 1., 0.]
-            } else {
-                vec![]
-            },
-        })
+        use pse_kernels::ProviderDemand;
+        output.values[0] = inputs[0] * inputs[1];
+        match &request.demand {
+            ProviderDemand::CompleteJets => {
+                if request.order >= DerivativeOrder::First { output.jacobian.copy_from_slice(&[inputs[1], inputs[0]]); }
+                if request.order >= DerivativeOrder::Second { output.hessians.copy_from_slice(&[0., 1., 1., 0.]); }
+            }
+            ProviderDemand::SelectedColumns { columns } => {
+                for (i, &column) in columns.iter().enumerate() { output.jacobian[i] = inputs[1 - column]; }
+                for (i, &first) in columns.iter().enumerate() { for (j, &second) in columns.iter().enumerate() {
+                    if request.order >= DerivativeOrder::Second { output.hessians[i * columns.len() + j] = f64::from(first != second); }
+                } }
+            }
+            ProviderDemand::JacobianAction { .. } => output.jacobian[0] = inputs[1] * runtime.directions[0] + inputs[0] * runtime.directions[1],
+            ProviderDemand::TransposeAction { .. } => {
+                output.jacobian[0] = runtime.cotangents[0] * inputs[1]; output.jacobian[1] = runtime.cotangents[0] * inputs[0];
+            }
+            ProviderDemand::WeightedSecondAction { .. } => {
+                output.jacobian[0] = runtime.weights[0] * inputs[1]; output.jacobian[1] = runtime.weights[0] * inputs[0];
+                output.hessians[0] = runtime.weights[0] * runtime.directions[1]; output.hessians[1] = runtime.weights[0] * runtime.directions[0];
+            }
+        }
+        Ok(())
     }
 }
+
 fn controlled_jet_provider() -> (
     ControlledJetProvider,
     Arc<std::sync::atomic::AtomicU8>,
@@ -4570,7 +4584,7 @@ fn failed_or_cancelled_upgrade_preserves_only_independently_complete_provider_re
 }
 
 #[test]
-fn provider_composition_hessian_action_uses_mixed_shape_and_library_chain_partials() {
+fn provider_composition_hessian_action_uses_narrow_actions_and_library_pullbacks() {
     let (provider, _control, _calls) = controlled_jet_provider();
     let key = provider.spec.key();
     let (original, values) = overlapping_output_fixture(
@@ -4607,8 +4621,9 @@ fn provider_composition_hessian_action_uses_mixed_shape_and_library_chain_partia
         .census()
         .find(|c| c.order == DerivativeOrder::Second)
         .unwrap();
-    assert_eq!(census.second_pairs, 2);
-    assert_eq!(census.provider_stages, 1);
+    assert_eq!(census.second_pairs, 0);
+    assert_eq!(census.derivative_components, 2);
+    assert_eq!(census.provider_stages, 3);
     assert!(!census.direct_weighted);
 }
 
@@ -4645,7 +4660,7 @@ fn weighted_provider_products_reexecute_for_same_key_changed_weights_points_and_
         .hessian_product(&values, 1., &[0., 0.], &[5., 7.], &mut output)
         .unwrap();
     assert_eq!(output, [258., 176.]);
-    assert_eq!(calls.load(Ordering::Relaxed), before + 1);
+    assert_eq!(calls.load(Ordering::Relaxed), before + 3);
     control.store(2, Ordering::Release);
     assert!(worker
         .hessian_product(&values, 1., &[0., 0.], &[5., 7.], &mut output)

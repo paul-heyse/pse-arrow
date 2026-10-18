@@ -2850,6 +2850,12 @@ pub struct OutputValue {
     pub value: f64,
 }
 impl CaseWorker {
+    /// Prepare the actual bound request set before native callbacks are attached.
+    pub fn prepare_providers(&mut self) -> Result<(), MathError> {
+        self.scope.check().map_err(crate::error::scope_error)?;
+        for worker in &mut self.workers { worker.prepare_providers(&mut self.providers)?; }
+        Ok(())
+    }
     /// Actual current evaluator realizations, in the immutable template order.
     pub fn evaluator_census(
         &self,

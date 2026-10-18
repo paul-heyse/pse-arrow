@@ -119,10 +119,11 @@ impl AlgebraicOracle {
         Self::over_bound(worker, bound, Some(values))
     }
     fn over_bound(
-        worker: CaseWorker,
+        mut worker: CaseWorker,
         bound: BoundValues,
         values: Option<CaseValues>,
     ) -> Result<Self, ProblemError> {
+        worker.prepare_providers()?;
         let assembly = worker.assembly();
         if assembly.structure().lexicographic_levels() {
             return Err(ProblemError::Unsupported(

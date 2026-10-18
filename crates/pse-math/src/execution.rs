@@ -30,6 +30,8 @@ use symbolica::{
 
 #[path = "products.rs"]
 mod products;
+#[path = "reverse.rs"]
+mod reverse;
 
 fn order_name(order: DerivativeOrder) -> &'static str {
     match order {
@@ -2222,6 +2224,7 @@ impl PreparedBody {
                 selected_first: self.stages.iter().all(|stage| matches!(stage, Stage::Block { .. }))
                     && requested == DerivativeOrder::First
                     && product == ProductKind::SelectedPartials,
+                direct_action: directional,
                 first_variables: coordinates.iter().map(|&slot| parameters[slot].clone()).collect(),
                 scalar_inputs: self.inputs,
                 selected_partial_calls: limits.operations,
@@ -2378,7 +2381,7 @@ impl PreparedBody {
             directional,
             product,
             direct_product: None,
-            transpose_product: None,
+            reverse_product: None,
             inputs: self.inputs,
             input_formals: Arc::new(self.formal_slots[..self.inputs].to_vec()),
             coordinate_offsets: Arc::new(coordinates.to_vec()),
@@ -2607,6 +2610,8 @@ enum CompiledStage {
         binding: Option<(u64, usize)>,
         buffer: ProviderBuffer,
         arguments: Vec<f64>,
+        direction: Vec<f64>,
+        linearization: Option<ProviderLinearizationToken>,
         lift: Option<ProviderLift>,
         source: SemanticId,
     },
@@ -2718,7 +2723,7 @@ pub struct CompiledBody {
     directional: bool,
     product: ProductKind,
     direct_product: Option<Arc<products::DirectProduct>>,
-    transpose_product: Option<Arc<products::TransposeProduct>>,
+    reverse_product: Option<Arc<reverse::ReverseProduct>>,
     owner: Option<Arc<dyn crate::AllocationOwner>>,
     scratch_bytes: usize,
     evaluation_cache_bytes: usize,
@@ -2813,7 +2818,7 @@ impl CompiledBody {
         }
         let check_order = if self.direct_product.is_some() {
             DerivativeOrder::Value
-        } else {
+        } else if self.reverse_product.is_some() { DerivativeOrder::First } else {
             order
         };
         if let Some(stages) = &self.programs[check_order] {
@@ -2893,8 +2898,8 @@ impl CompiledBody {
     pub fn compiled_order(&self) -> DerivativeOrder {
         if let Some(product) = &self.direct_product {
             product.order
-        } else if self.transpose_product.is_some() {
-            DerivativeOrder::First
+        } else if let Some(product) = &self.reverse_product {
+            product.order
         } else if self.layouts[DerivativeOrder::Second].is_some() {
             DerivativeOrder::Second
         } else if self.layouts[DerivativeOrder::First].is_some() {
@@ -2968,7 +2973,7 @@ impl CompiledBody {
             programs: EnumMap::default(),
             frame: Vec::new(),
             direct_product: None,
-            transpose_worker: None,
+            reverse_worker: None,
             product_scratch: Vec::new(),
             prepared_provider_bank: None,
             prepaid_bytes: self.worker_bytes,
@@ -3330,7 +3335,7 @@ pub struct Worker {
     body: CompiledBody,
     scope: Option<pse_kernels::ExecutionScope>,
     direct_product: Option<products::DirectWorker>,
-    transpose_worker: Option<Box<products::TransposeWorker>>,
+    reverse_worker: Option<reverse::ReverseWorker>,
     product_scratch: Vec<f64>,
     prepared_provider_bank: Option<u64>,
     prepaid_bytes: usize,
@@ -3372,9 +3377,7 @@ impl Worker {
             Ok(())
         }
         for stages in self.body.programs.values().flatten() { prepare(stages, providers)?; }
-        if let Some(product) = &self.body.transpose_product {
-            for stages in product.program.programs.values().flatten() { prepare(stages, providers)?; }
-        }
+        if let Some(product) = &self.body.reverse_product { product.prepare(providers)?; }
         self.prepared_provider_bank = Some(providers.identity());
         Ok(())
     }
@@ -3434,8 +3437,8 @@ impl Worker {
         if let Some(direct) = self.direct_product.take() {
             self.direct_product = Some(direct.reset()?);
         }
-        if let Some(transpose) = self.transpose_worker.take() {
-            self.transpose_worker = Some(Box::new(transpose.reset()?));
+        if let Some(reverse) = self.reverse_worker.take() {
+            self.reverse_worker = Some(reverse.reset()?);
         }
         for program in self.programs.values_mut().flatten() {
             program.instantiated = false;
@@ -3574,7 +3577,7 @@ impl Worker {
         if order >= DerivativeOrder::First {
             if let Some(direction) = direction {
                 for (axis, &slot) in self.body.coordinate_offsets.iter().enumerate() {
-                    if self.body.product == ProductKind::WeightedHessianAction {
+                    if self.body.product == ProductKind::WeightedHessianAction && self.body.reverse_product.is_none() {
                         layout.set_frame_value(frame, slot, 1 + axis, 1.0);
                         layout.set_frame_value(frame, slot, n, direction[axis]);
                     } else {
@@ -3853,6 +3856,8 @@ fn reset_stages(stages: Vec<CompiledStage>) -> Result<Vec<CompiledStage>, MathEr
                     buffer,
                     binding: _,
                     mut arguments,
+                    mut direction,
+                    linearization: _,
                     lift,
                     source,
                 } => {
@@ -3864,6 +3869,7 @@ fn reset_stages(stages: Vec<CompiledStage>) -> Result<Vec<CompiledStage>, MathEr
                         ));
                     }
                     arguments.fill(f64::NAN);
+                    direction.fill(f64::NAN);
                     CompiledStage::Provider {
                         partial,
                         inputs,
@@ -3872,6 +3878,8 @@ fn reset_stages(stages: Vec<CompiledStage>) -> Result<Vec<CompiledStage>, MathEr
                         buffer,
                         binding: None,
                         arguments,
+                        direction,
+                        linearization: None,
                         lift,
                         source,
                     }
@@ -4253,6 +4261,7 @@ struct BuildAllowance {
     /// Shared native code/template allowance, never copied into worker charges.
     modules: usize,
     selected_first: bool,
+    direct_action: bool,
     first_variables: Vec<Atom>,
     scalar_inputs: usize,
     selected_partial_calls: usize,
@@ -5030,14 +5039,16 @@ fn compile_stages(
                     .chain(partial.iter().copied()).collect::<BTreeSet<_>>()
                     .into_iter().collect::<Vec<_>>();
                 let order = provider_request_order(if differentiated { layout.order } else { DerivativeOrder::Value }, partial.len())?;
-                let selected_columns = order > DerivativeOrder::Value && columns.len() < inputs.len();
+                let direct_action = allowance.direct_action && differentiated && partial.is_empty();
+                let selected_columns = !direct_action && order > DerivativeOrder::Value && columns.len() < inputs.len();
                 let lifted_arity = if selected_columns { columns.len() } else { inputs.len() };
                 let bound_partial = partial.iter().map(|i| {
                     if selected_columns { columns.binary_search(i).map_err(|_| MathError::Contract("provider partial column missing".into())) }
                     else { Ok(*i) }
                 }).collect::<Result<Vec<_>, MathError>>()?;
                 let request = ProviderRequest {
-                    demand: if selected_columns { pse_kernels::ProviderDemand::SelectedColumns { columns: std::mem::take(&mut columns) } }
+                    demand: if direct_action { pse_kernels::ProviderDemand::JacobianAction { directions: 1 } }
+                        else if selected_columns { pse_kernels::ProviderDemand::SelectedColumns { columns: std::mem::take(&mut columns) } }
                         else { pse_kernels::ProviderDemand::CompleteJets },
                     outputs: outputs
                         .iter()
@@ -5053,7 +5064,7 @@ fn compile_stages(
                     .copied()
                     .filter(|&s| s != usize::MAX)
                     .collect();
-                let lift = if differentiated && layout.width() > 1 {
+                let lift = if !direct_action && differentiated && layout.width() > 1 {
                     Some(ProviderLift::compile(
                         lifted_arity,
                         layout,
@@ -5086,7 +5097,7 @@ fn compile_stages(
                         .ok_or(MathError::Limit("provider lift operations"))?;
                 }
                 let extents = request.extents();
-                let entries = inputs.len() + extents.values + extents.jacobian + extents.hessians;
+                let entries = inputs.len() * (1 + usize::from(direct_action)) + extents.values + extents.jacobian + extents.hessians;
                 allowance.entries = allowance
                     .entries
                     .checked_add(
@@ -5107,6 +5118,8 @@ fn compile_stages(
                     request,
                     binding: None,
                     arguments: vec![0.0; inputs.len()],
+                    direction: if direct_action { vec![0.0; inputs.len()] } else { Vec::new() },
+                    linearization: None,
                     lift,
                     source: *source,
                 }
@@ -5349,9 +5362,12 @@ fn evaluate_stages(
                 binding,
                 buffer,
                 arguments,
+                direction,
+                linearization,
                 lift,
                 source,
             } => {
+                *linearization = None;
                 let bank = providers.identity();
                 let slot = match *binding {
                     Some((identity, slot)) if identity == bank => slot,
@@ -5371,11 +5387,20 @@ fn evaluate_stages(
                     provider: request.spec().id,
                     cause,
                 };
+                for (value, &slot) in direction.iter_mut().zip(inputs.iter()) { *value = layout.frame_value(frame, slot, 1); }
+                let runtime = ProviderRuntime { directions: direction, ..Default::default() };
                 let values = providers
-                    .fill(slot, buffer, arguments, request, ProviderRuntime::default(), context)
+                    .fill(slot, buffer, arguments, request, runtime, context)
                     .map_err(error)?;
+                *linearization = values.linearization;
                 provider_visits.push(ProviderVisit { source: *source, provider: request.key(), linearization: values.linearization });
                 for (row, &slot) in outputs.iter().enumerate() {
+                    if matches!(request.demand, pse_kernels::ProviderDemand::JacobianAction { .. }) {
+                        layout.clear_frame_slot(frame, slot);
+                        layout.set_frame_value(frame, slot, 0, values.values[row]);
+                        layout.set_frame_value(frame, slot, 1, values.jacobian[row]);
+                        continue;
+                    }
                     let columns = match &request.demand {
                         pse_kernels::ProviderDemand::SelectedColumns { columns } => Some(columns.as_slice()),
                         _ => None,

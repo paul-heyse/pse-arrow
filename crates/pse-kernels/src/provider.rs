@@ -390,6 +390,7 @@ impl ProviderBindings {
     /// Bind a demand whose owner preparation was completed before numerical execution.
     pub fn bind_prepared_request(&self, slot: usize, request: &mut PreparedProviderRequest) -> Result<(), ProviderError> {
         let binding = self.slots.get(slot).ok_or_else(|| ProviderError::Contract("missing provider slot".into()))?;
+        if request.binding == Some(binding.identity) { return Ok(()); }
         request.bind(binding)
     }
     /// Execute a previously resolved slot into caller-owned admitted scratch.

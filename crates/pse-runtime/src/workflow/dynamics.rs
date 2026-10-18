@@ -605,14 +605,13 @@ impl DynamicWorker {
                 .get(&(program.mode, program.function))
                 .ok_or_else(|| ProblemError::internal("dynamic function layout absent"))?
                 .clone();
+            let mut worker = program.case.assembly.worker_scoped(provider_workers(&mode.providers, &scope)?, scope.clone());
+            worker.prepare_providers()?;
             functions.insert(
                 (program.mode, program.function),
                 FunctionWorker {
                     program: program.clone(),
-                    worker: program
-                        .case
-                        .assembly
-                        .worker_scoped(provider_workers(&mode.providers, &scope)?, scope.clone()),
+                    worker,
                     binding: FrameBinding::new(&program.case.assembly, &frames[program.mode])?,
                     jacobian: None,
                     layout: function_layout,
@@ -635,13 +634,12 @@ impl DynamicWorker {
                     .guard
                     .as_ref()
                     .map(|g| {
+                        let mut worker = g.case.assembly.worker_scoped(provider_workers(&mode.providers, &scope)?, scope.clone());
+                        worker.prepare_providers()?;
                         Ok::<_, ProblemError>(GuardWorker {
                             program: g.clone(),
                             binding: FrameBinding::new(&g.case.assembly, &frame)?,
-                            worker: g.case.assembly.worker_scoped(
-                                provider_workers(&mode.providers, &scope)?,
-                                scope.clone(),
-                            ),
+                            worker,
                         })
                     })
                     .transpose()?;

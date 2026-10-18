@@ -99,82 +99,6 @@ fn flat_expressions(
     ))
 }
 
-#[derive(Clone)]
-pub(super) struct TransposeProduct {
-    pub(super) program: CompiledBody,
-    inputs: usize,
-    worker_bytes: usize,
-    arguments_map: Vec<usize>,
-}
-pub(super) struct TransposeWorker {
-    worker: Worker,
-    arguments: Vec<f64>,
-    trial: TrialEvaluation,
-}
-impl TransposeWorker {
-    pub(super) fn reset(mut self) -> Result<Self, MathError> {
-        self.worker.detach_controls();
-        self.worker.reset_scratch()?;
-        self.arguments.fill(f64::NAN);
-        self.trial.clear();
-        Ok(self)
-    }
-}
-// A temporary weighted library product retains the original host stages and guards.
-// Its one first row is the transpose action; no residual-output-by-parameter jet is
-// materialized. This is product preparation, not another authored model authority.
-fn weighted_stages(body: &PreparedBody, weights: usize, limits: EvaluationLimits)
-    -> Result<PreparedBody, MathError> {
-    let parameters = body.parameters()?;
-    let inputs = body.inputs.checked_add(weights).ok_or(MathError::Limit("transpose inputs"))?;
-    let output = body.slots.checked_add(weights).ok_or(MathError::Limit("transpose slots"))?;
-    let offsets = (0..body.slots).map(|i| (i, if i < body.inputs { i } else { i + weights }))
-        .collect::<BTreeMap<_, _>>();
-    let temporary = body.formal_slots.iter().copied().max().unwrap_or(body.slots)
-        .checked_add(body.slots).and_then(|v| v.checked_add(weights + 2))
-        .ok_or(MathError::Limit("transpose temporary formals"))?;
-    let replacement = (0..body.slots).map(|i| Ok((parameters[i].clone(),
-        library::formal(temporary + i)?, library::formal(offsets[&i])?)))
-        .collect::<Result<Vec<_>, MathError>>()?;
-    fn rewrite(stages: &mut [Stage], replacement: &[(Atom, Atom, Atom)],
-        remaining: &mut usize) -> Result<(), MathError> {
-        for stage in stages {
-            match stage {
-                Stage::Block { expressions, .. } => {
-                    for value in expressions {
-                        *remaining = remaining.checked_sub(replacement.len().saturating_mul(2))
-                            .ok_or(MathError::Limit("transpose source rewriting"))?;
-                        for (old, temporary, _) in replacement.iter() {
-                            *value = value.replace(old.clone()).with(temporary.clone());
-                        }
-                        for (_, temporary, new) in replacement.iter() {
-                            *value = value.replace(temporary.clone()).with(new.clone());
-                        }
-                    }
-                }
-                Stage::Domain { stages, .. } | Stage::Applicability { stages, .. } => rewrite(stages, replacement, remaining)?,
-                Stage::Branch { then, otherwise, .. } => { rewrite(then, replacement, remaining)?; rewrite(otherwise, replacement, remaining)?; }
-                _ => {}
-            }
-        }
-        Ok(())
-    }
-    limits.allocation(output.checked_add(1).ok_or(MathError::Limit("transpose slots"))?)?;
-    let mut stages = body.stages.clone();
-    let mut remaining = limits.operations;
-    rewrite(&mut stages, &replacement, &mut remaining)?;
-    lower_stages(&mut stages, &offsets)?;
-    let mut weighted = Atom::num(0);
-    for (i, &slot) in body.outputs.iter().enumerate() {
-        weighted += library::formal(body.inputs + i)? * library::formal(offsets[&slot])?;
-    }
-    stages.push(Stage::Block { expressions: vec![weighted], outputs: vec![output], source: SemanticId::NIL });
-    let mut allowance = remaining;
-    let mut prepared = PreparedBody::new_with_allowance(inputs, output + 1, vec![output], stages, &mut allowance)?;
-    Arc::make_mut(&mut prepared.data).checked_members = body.checked_members.clone();
-    Ok(prepared)
-}
-
 impl PreparedSupport {
     /// Compile the mathematical product consumed by the caller. Numeric bindings do not
     /// participate in immutable program identity.
@@ -236,8 +160,8 @@ impl PreparedSupport {
                 retained,
             );
         }
-        if kind == ProductKind::TransposeJacobianAction {
-            return self.compile_transpose_product(options, limits, scope, retained);
+        if matches!(kind, ProductKind::TransposeJacobianAction | ProductKind::WeightedHessianAction) {
+            return self.compile_reverse_product(kind, options, limits, scope, retained);
         }
         self.body().compile_scope(
             &outputs,
@@ -251,40 +175,6 @@ impl PreparedSupport {
             self,
             retained,
         )
-    }
-    fn compile_transpose_product(&self, options: Optimization, limits: EvaluationLimits,
-        scope: &pse_kernels::ExecutionScope, retained: Option<&library::ScalarProducts>) -> Result<CompiledBody, MathError> {
-        let body = self.body();
-        let coordinates = self.dense_coordinates()?;
-        let weighted = weighted_stages(body, body.outputs.len(), limits)?;
-        let support = weighted.prepare_support(&[0], &coordinates, DerivativeOrder::First, scope.cancellation())?;
-        let program = support.body().compile_scope(&[0], &support.dense_coordinates()?, DerivativeOrder::First,
-            options, limits, scope, false, ProductKind::SelectedPartials, &support, retained)?;
-        let mut compiled = body.compile_scope(&(0..self.outputs().len()).collect::<Vec<_>>(),
-            &coordinates, DerivativeOrder::Value, options, limits, scope, false,
-            ProductKind::SelectedPartials, self, retained)?;
-        let argument_bytes = (body.inputs + body.outputs.len()).checked_mul(size_of::<f64>())
-            .ok_or(MathError::Limit("transpose arguments"))?;
-        let worker_bytes = program.worker_bytes.checked_add(program.evaluation_cache_bytes)
-            .and_then(|n| n.checked_add(argument_bytes)).ok_or(MathError::Limit("transpose worker"))?;
-        compiled.worker_bytes = compiled.worker_bytes.checked_add(worker_bytes).ok_or(MathError::Limit("transpose worker"))?;
-        compiled.scratch_bytes = compiled.scratch_bytes.checked_add(program.scratch_bytes)
-            .and_then(|n| n.checked_add(argument_bytes)).ok_or(MathError::Limit("transpose scratch"))?;
-        if compiled.scratch_bytes > limits.scratch_bytes { return Err(MathError::Limit("transpose scratch")); }
-        compiled.retained_bytes = compiled.retained_bytes.checked_add(program.retained_bytes)
-            .and_then(|n| n.checked_add(size_of::<TransposeProduct>())).ok_or(MathError::Limit("transpose program"))?;
-        compiled.evaluation_cache_bytes = compiled.evaluation_cache_bytes.checked_add(coordinates.len()*size_of::<f64>())
-            .ok_or(MathError::Limit("transpose cache"))?;
-        let mut census = program.census[DerivativeOrder::First].ok_or_else(|| MathError::Contract("transpose first program missing".into()))?;
-        census.product = ProductKind::TransposeJacobianAction;
-        census.result_entries = coordinates.len();
-        compiled.census[DerivativeOrder::First] = Some(census);
-        compiled.product = ProductKind::TransposeJacobianAction;
-        let arguments_map = program.input_formals().to_vec();
-        compiled.transpose_product = Some(Arc::new(TransposeProduct { arguments_map, program, inputs: body.inputs,
-            worker_bytes }));
-        scope.check().map_err(crate::error::scope_error)?;
-        Ok(compiled)
     }
     fn compile_direct_product(
         &self,
@@ -670,25 +560,9 @@ impl Worker {
         scratch.resize(output.len(), f64::NAN);
         scratch.fill(f64::NAN);
         let evaluated = (|| {
-            if let Some(template) = self.body.transpose_product.clone() {
-                if self.transpose_worker.is_none() {
-                    self.transpose_worker = Some(Box::new(TransposeWorker {
-                        worker: template.program.worker_scoped(self.scope.clone().ok_or_else(|| MathError::Contract("detached transpose controls".into()))?),
-                        arguments: vec![f64::NAN; template.arguments_map.len()],
-                        trial: TrialEvaluation::default(),
-                    }));
-                    self.used_bytes = self.used_bytes.checked_add(template.worker_bytes)
-                        .ok_or(MathError::Limit("transpose worker charge"))?;
-                    if self.used_bytes > self.prepaid_bytes { return Err(MathError::Limit("transpose worker charge")); }
-                }
-                let worker = self.transpose_worker.as_mut().ok_or_else(|| MathError::Contract("missing transpose worker".into()))?;
-                let weights = weights.ok_or_else(|| MathError::Contract("transpose weights missing".into()))?;
-                for (value, &formal) in worker.arguments.iter_mut().zip(&template.arguments_map) {
-                    *value = if formal < template.inputs { inputs[formal] } else { weights[formal - template.inputs] };
-                }
-                worker.worker.set_scope(self.scope.clone().ok_or_else(|| MathError::Contract("detached transpose controls".into()))?);
-                worker.worker.evaluate_trial_into(&worker.arguments, DerivativeOrder::First, providers, cancel, &mut worker.trial)?;
-                for (axis, value) in scratch.iter_mut().enumerate() { *value = worker.trial.first(0, axis); }
+            if self.body.reverse_product.is_some() {
+                self.evaluate_reverse_product(inputs, weights.ok_or_else(|| MathError::Contract("weights missing".into()))?,
+                    direction, providers, cancel, &mut scratch, trial)?;
             } else if let Some(template) = self.body.direct_product.clone() {
                 self.evaluate_seeded(
                     inputs,
@@ -1001,7 +875,7 @@ mod tests {
         let support = branch.prepare_support(&[0], &[1, 0], DerivativeOrder::First, &cancel).unwrap();
         let compiled = support.compile_product(ProductKind::TransposeJacobianAction,
             Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
-        assert!(compiled.transpose_product.is_some());
+        assert!(compiled.reverse_product.is_some());
         let mut worker = compiled.worker_scoped(scope);
         for (guard, expected) in [(1., [48., 72.]), (-1., [12., 24.]), (1., [48., 72.])] {
             worker.evaluate_product_into(&[2., 3., guard], ProductValues::TransposeJacobianAction { weights: &[2.] },

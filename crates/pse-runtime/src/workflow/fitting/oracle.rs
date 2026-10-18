@@ -174,9 +174,9 @@ impl FitOracle {
                     let providers =
                         crate::math::attempt_providers(&s.providers, &execution.scope()?)
                             .map_err(ProblemError::Provider)?;
-                    Ok(Some(
-                        s.case.assembly.worker_scoped(providers, execution.scope()?),
-                    ))
+                    let mut worker = s.case.assembly.worker_scoped(providers, execution.scope()?);
+                    worker.prepare_providers()?;
+                    Ok(Some(worker))
                 }
                 Experiment::Transient(_) => Ok(None),
             })
@@ -908,11 +908,9 @@ impl NlpOracle for FitOracle {
                 let providers =
                     crate::math::attempt_providers(&s.providers, &self.execution.scope()?)
                         .map_err(ProblemError::Provider)?;
-                self.workers[ei] = Some(
-                    s.case
-                        .assembly
-                        .worker_scoped(providers, self.execution.scope()?),
-                );
+                let mut worker = s.case.assembly.worker_scoped(providers, self.execution.scope()?);
+                worker.prepare_providers()?;
+                self.workers[ei] = Some(worker);
             }
             let local = self.workers[ei]
                 .as_mut()
@@ -1784,7 +1782,9 @@ pub(super) fn evaluate_experiment(
                     let providers =
                         crate::math::attempt_providers(&s.providers, &execution.scope()?)
                             .map_err(ProblemError::Provider)?;
-                    *steady = Some(s.case.assembly.worker_scoped(providers, execution.scope()?));
+                    let mut worker = s.case.assembly.worker_scoped(providers, execution.scope()?);
+                    worker.prepare_providers()?;
+                    *steady = Some(worker);
                 }
                 let worker = steady
                     .as_mut()
