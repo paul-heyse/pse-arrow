@@ -5641,12 +5641,7 @@ impl MathService {
             plan.jacobian_pattern(),
             &row_bounds,
             Some(&prepared.compiled().structure),
-        )?.with_owner(owner.clone());
-        {
-            let mut layout = program.root_layout.lock().map_err(|_| cause(ProblemError::internal("root symbolic layout owner poisoned")))?;
-            if let Some(previous) = layout.as_ref() { square.reuse_symbolic_from(previous); }
-            *layout = Some(square.clone());
-        }
+        )?;
         let mut key = program.root_source.ok_or_else(|| {
             cause(ProblemError::internal(
                 "fresh Root products lack original dependencies",
@@ -5657,6 +5652,9 @@ impl MathService {
             scope.cancellation_control().clone(), &Controls::default(), scope.clone(),
         ).map_err(cause)?;
         execution.work_admission = budget.admission().map(|owner| -> Arc<dyn WorkAdmission> { owner });
+        {
+            let mut layout = program.root_layout.lock().map_err(|_| cause(ProblemError::internal("root symbolic layout owner poisoned")))?;
+            if let Some(previous) = layout.as_ref() { square.reuse_symbolic_from(previous); }
         SparseFactor::admit(&native::square_response::SparseRequest {
             scope: &square,
             point: primal,
@@ -5666,6 +5664,11 @@ impl MathService {
             key,
             bytes,
         }, &execution)?;
+            // Failed strict admission owns no factor or cached reservation. The
+            // conservative passive anchor is published only for an admitted producer.
+            square = square.with_owner(owner.clone());
+            *layout = Some(square.clone());
+        }
         let ExecutionWorker {
             worker,
             _case,
