@@ -16,6 +16,8 @@ struct ProjectionMap {
     reads: Vec<usize>,
     witnesses: Vec<Arc<pse_model::applicability::Node>>,
     second: Arc<Vec<(usize, usize)>>,
+    first: Arc<crate::execution::FirstLayout>,
+    first_sources: Vec<Option<usize>>,
 }
 pub(super) fn allocation_bound(
     plan: &CasePlan,
@@ -89,12 +91,19 @@ fn prepare(target: &CompiledBody, donor: &CompiledBody) -> Option<ProjectionMap>
         })
         .collect::<Option<Vec<_>>>()?;
     let witnesses = target.projection_witnesses(target.compiled_order());
+    let first = target.projection_first_layout();
+    let donor_first = donor.projection_first_layout();
+    let first_sources = rows.iter().enumerate().flat_map(|(row, &donor_row)| {
+        first.entries(row).map(|(axis, _)| donor_first.offset(donor_row, axes[axis])).collect::<Vec<_>>()
+    }).collect();
     Some(ProjectionMap {
         rows,
         axes,
         reads,
         witnesses,
         second: target.projection_second_pairs(),
+        first,
+        first_sources,
     })
 }
 fn cache_pair(
@@ -190,6 +199,8 @@ pub(super) fn project_compatible(
             achieved,
             &mapping.witnesses,
             &mapping.second,
+            &mapping.first,
+            &mapping.first_sources,
             &mut target_cache.spare,
         )?;
         std::mem::swap(&mut target_cache.result, &mut target_cache.spare);

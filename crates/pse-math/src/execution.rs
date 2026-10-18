@@ -2108,6 +2108,9 @@ impl PreparedBody {
             }
             coordinate_reachability(&stages, &symbols, &mut coordinate_support)?;
         }
+        let frame_support = coordinate_support.iter().enumerate().map(|(slot, axes)| {
+            if numeric.contains(&slot) { axes.clone() } else { vec![false; axes.len()] }
+        }).collect::<Vec<_>>();
         // Ordinary artifacts retain their ceiling contract. Directional consumers
         // request only First and never construct an unused Value template.
         let mut layouts = EnumMap::<DerivativeOrder, Option<JetLayout>>::default();
@@ -2123,6 +2126,17 @@ impl PreparedBody {
         let mut scalars = retained_scalars
             .map(library::ScalarCache::from_products)
             .unwrap_or_default();
+        let first_layout = Arc::new(if directional || hessian_action {
+            FirstLayout::from_axes(selected.iter().map(|&slot| {
+                coordinate_support[slot]
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(axis, &supported)| supported.then_some(axis))
+                    .collect()
+            }))
+        } else {
+            FirstLayout::from_support(prepared_support)
+        });
         for requested in [
             DerivativeOrder::Value,
             DerivativeOrder::First,
@@ -2192,11 +2206,8 @@ impl PreparedBody {
                 requested,
                 required_pairs,
                 limits,
-            )?;
-            let frame = self
-                .slots
-                .checked_mul(layout.width())
-                .ok_or(MathError::Limit("jet frame"))?;
+            )?.with_slot_support(&frame_support, limits)?;
+            let frame = layout.frame_entries(self.slots)?;
             limits.allocation(frame)?;
             let remaining_operations_before_order = remaining_operations;
             let mut allowance = BuildAllowance {
@@ -2206,6 +2217,11 @@ impl PreparedBody {
                 instructions: 0,
                 instruction_count: 0,
                 modules: 0,
+                selected_first: self.stages.iter().all(|stage| matches!(stage, Stage::Block { .. }))
+                    && requested == DerivativeOrder::First
+                    && product == ProductKind::SelectedPartials,
+                first_variables: coordinates.iter().map(|&slot| parameters[slot].clone()).collect(),
+                scalar_inputs: self.inputs,
                 #[cfg(feature = "compiled-evaluator")]
                 native_prepaid: self.is_flat_arithmetic(),
                 local_order: if local_branches {
@@ -2239,11 +2255,11 @@ impl PreparedBody {
             used = used
                 .checked_add(allowance.entries)
                 .ok_or(MathError::Limit("compiled demand scratch"))?;
-            let output_width = layout.width();
-            used = selected
-                .len()
-                .checked_mul(output_width)
-                .and_then(|entries| used.checked_add(entries))
+            let result_entries = selected.len()
+                .checked_add(if requested >= DerivativeOrder::First { first_layout.axes.len() } else { 0 })
+                .and_then(|n| n.checked_add(if requested >= DerivativeOrder::Second { selected.len().checked_mul(layout.pairs.len())? } else { 0 }))
+                .ok_or(MathError::Limit("output derivative buffers"))?;
+            used = used.checked_add(result_entries)
                 .ok_or(MathError::Limit("output derivative buffers"))?;
             limits.allocation(used)?;
             order_worker_bytes[requested] = (allowance.entries - frame)
@@ -2260,6 +2276,8 @@ impl PreparedBody {
                 direct_weighted: false,
                 stages: counts.stages,
                 arithmetic_blocks: counts.arithmetic_blocks,
+                arithmetic_input_entries: counts.arithmetic_input_entries,
+                arithmetic_output_entries: counts.arithmetic_output_entries,
                 native_arithmetic_blocks: counts.native_arithmetic_blocks,
                 provider_stages: counts.provider_stages,
                 control_stages: counts.control_stages,
@@ -2269,7 +2287,7 @@ impl PreparedBody {
                 frame_entries: frame,
                 derivative_components: layout.width(),
                 second_pairs: layout.pairs.len(),
-                result_entries: selected.len() * output_width,
+                result_entries,
                 worker_bytes: order_worker_bytes[requested],
             });
             layouts[requested] = Some(layout);
@@ -2293,31 +2311,17 @@ impl PreparedBody {
         if scratch_bytes > limits.scratch_bytes {
             return Err(MathError::Limit("applicability observation storage"));
         }
-        let output_width = layouts[order]
+        let ceiling_layout = layouts[order]
             .as_ref()
-            .ok_or_else(|| MathError::Contract("compiled ceiling layout".into()))?
-            .width();
-        let output_width =
-            if order >= DerivativeOrder::Second && product == ProductKind::SelectedPartials {
-                1usize
-                    .checked_add(coordinates.len())
-                    .and_then(|n| {
-                        coordinates
-                            .len()
-                            .checked_mul(coordinates.len())
-                            .and_then(|v| n.checked_add(v))
-                    })
-                    .ok_or(MathError::Limit("owning evaluation extent"))?
-            } else {
-                output_width
-            };
-        let mut evaluation_cache_bytes = selected
-            .len()
-            .checked_mul(output_width)
-            .and_then(|n| n.checked_add(self.inputs))
+            .ok_or_else(|| MathError::Contract("compiled ceiling layout".into()))?;
+        let result_entries = selected.len()
+            .checked_add(if order >= DerivativeOrder::First { first_layout.axes.len() } else { 0 })
+            .and_then(|n| n.checked_add(if order >= DerivativeOrder::Second { selected.len().checked_mul(ceiling_layout.pairs.len())? } else { 0 }))
+            .ok_or(MathError::Limit("owning evaluation extent"))?;
+        let mut evaluation_cache_bytes = result_entries.checked_add(self.inputs)
             .and_then(|n| n.checked_mul(2 * size_of::<f64>()))
             .and_then(|n| n.checked_add(evidence_bytes))
-            .and_then(|n| n.checked_add(size_of::<Evaluation>() + size_of::<Vec<u64>>() + 64))
+            .and_then(|n| n.checked_add(size_of::<TrialEvaluation>() + size_of::<Vec<u64>>() + 64))
             .ok_or(MathError::Limit("evaluation cache storage"))?;
         if product != ProductKind::SelectedPartials {
             let entries = match product {
@@ -2381,6 +2385,8 @@ impl PreparedBody {
                 .and_then(|n| n.checked_add(retained_instructions))
                 .and_then(|n| n.checked_add(retained_modules))
                 .and_then(|n| n.checked_add(descriptor_bytes))
+                .and_then(|n| n.checked_add(first_layout.retained_bytes()))
+                .and_then(|n| n.checked_add(layouts.values().flatten().map(JetLayout::frame_layout_bytes).sum::<usize>()))
                 .and_then(|n| {
                     n.checked_add(size_of::<
                         EnumMap<DerivativeOrder, Option<CompiledOrderCensus>>,
@@ -2393,6 +2399,7 @@ impl PreparedBody {
                 .ok_or(MathError::Limit("retained program storage"))?,
             outputs: Arc::new(selected),
             layouts: Arc::new(layouts),
+            first_layout,
             programs: Arc::new(programs),
             limits,
             support: prepared_support.clone(),
@@ -2474,6 +2481,7 @@ struct InstantiationProbe {
 thread_local! {
     static INSTANTIATION_PROBE: std::cell::RefCell<InstantiationProbe> =
         std::cell::RefCell::new(InstantiationProbe::default());
+    static FORCE_TAYLOR_FIRST: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 fn instantiate_stages(
@@ -2551,10 +2559,13 @@ enum CompiledStage {
         components: Vec<usize>,
         inputs: Vec<usize>,
         outputs: Vec<usize>,
+        gather: Vec<(usize, usize)>,
+        scatter: Vec<(usize, Option<usize>)>,
         arguments: Vec<f64>,
         values: Vec<f64>,
         source: SemanticId,
         checks: Vec<SourceCheck>,
+        checked_ends: Vec<usize>,
     },
     Require {
         argument: usize,
@@ -2599,6 +2610,10 @@ pub struct CompiledOrderCensus {
     pub stages: usize,
     /// Library arithmetic blocks, including nested control scopes.
     pub arithmetic_blocks: usize,
+    /// Caller-owned scalar entries copied into the library across all arithmetic regions.
+    pub arithmetic_input_entries: usize,
+    /// Caller-owned scalar entries copied out of the library across all arithmetic regions.
+    pub arithmetic_output_entries: usize,
     /// Arithmetic blocks whose actual implementation is compiled native code.
     pub native_arithmetic_blocks: usize,
     /// Fallible scientific provider stages.
@@ -2617,7 +2632,7 @@ pub struct CompiledOrderCensus {
     pub derivative_components: usize,
     /// Actual symmetric second components, excluding absent mathematical support.
     pub second_pairs: usize,
-    /// Admitted result capacity in scalar entries, including dense returned partials.
+    /// Admitted result entries: selected values, supported firsts and packed seconds.
     pub result_entries: usize,
     /// Admitted per-order cloned stages and numeric scratch, excluding shared templates.
     pub worker_bytes: usize,
@@ -2626,6 +2641,8 @@ pub struct CompiledOrderCensus {
 struct StageCensus {
     stages: usize,
     arithmetic_blocks: usize,
+    arithmetic_input_entries: usize,
+    arithmetic_output_entries: usize,
     native_arithmetic_blocks: usize,
     provider_stages: usize,
     control_stages: usize,
@@ -2635,8 +2652,10 @@ impl StageCensus {
         for stage in stages {
             self.stages += 1;
             match stage {
-                CompiledStage::Block { evaluator, .. } => {
+                CompiledStage::Block { evaluator, arguments, values, .. } => {
                     self.arithmetic_blocks += 1;
+                    self.arithmetic_input_entries += arguments.len();
+                    self.arithmetic_output_entries += values.len();
                     match evaluator {
                         BlockEvaluator::Interpreted(_) => {}
                         #[cfg(feature = "compiled-evaluator")]
@@ -2696,6 +2715,7 @@ pub struct CompiledBody {
     slots: usize,
     outputs: Arc<Vec<usize>>,
     layouts: Arc<EnumMap<DerivativeOrder, Option<JetLayout>>>,
+    first_layout: Arc<FirstLayout>,
     programs: Arc<EnumMap<DerivativeOrder, Option<Vec<CompiledStage>>>>,
     limits: EvaluationLimits,
     support: PreparedSupport,
@@ -2712,6 +2732,9 @@ impl std::fmt::Debug for CompiledBody {
     }
 }
 impl CompiledBody {
+    pub(crate) fn evaluation_limits(&self) -> EvaluationLimits {
+        self.limits
+    }
     /// Compact facts from the actual admitted compilation, without support copies or
     /// library exports at inspection time. Scalar and dualized orders remain separate.
     pub fn census(&self) -> impl Iterator<Item = &CompiledOrderCensus> {
@@ -2940,6 +2963,9 @@ impl CompiledBody {
             .as_ref()
             .map_or_else(|| Arc::new(Vec::new()), |layout| layout.pairs.clone())
     }
+    pub(crate) fn projection_first_layout(&self) -> Arc<FirstLayout> {
+        self.first_layout.clone()
+    }
     pub(crate) fn projection_witnesses(
         &self,
         order: DerivativeOrder,
@@ -3010,13 +3036,52 @@ impl ApplicabilityWitness {
             .observations
     }
 }
-/// Operation-local result. Second partials retain the evaluator's triangular layout.
+/// Immutable support-indexed addresses, in output order and then coordinate order.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct FirstLayout {
+    rows: Vec<std::ops::Range<usize>>,
+    axes: Vec<usize>,
+}
+impl FirstLayout {
+    fn retained_bytes(&self) -> usize {
+        size_of::<Self>() + self.rows.capacity() * size_of::<std::ops::Range<usize>>()
+            + self.axes.capacity() * size_of::<usize>()
+    }
+    fn from_axes(rows: impl Iterator<Item = Vec<usize>>) -> Self {
+        let mut result = Self::default();
+        for axes in rows {
+            let start = result.axes.len();
+            result.axes.extend(axes);
+            result.rows.push(start..result.axes.len());
+        }
+        result
+    }
+    pub(crate) fn from_support(support: &PreparedSupport) -> Self {
+        Self::from_axes(support.support().first.iter().map(|first| {
+            support.coordinates().iter().enumerate()
+                .filter_map(|(axis, formal)| first.contains(formal).then_some(axis))
+                .collect()
+        }))
+    }
+    pub(crate) fn offset(&self, row: usize, axis: usize) -> Option<usize> {
+        let range = self.rows.get(row)?;
+        self.axes[range.clone()].binary_search(&axis).ok().map(|i| range.start + i)
+    }
+    pub(crate) fn entries(&self, row: usize) -> impl Iterator<Item = (usize, usize)> + '_ {
+        self.rows.get(row).cloned().into_iter().flatten()
+            .map(|offset| (self.axes[offset], offset))
+    }
+}
+
+/// Operation-local result. First and second partials retain support-indexed layouts.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct TrialEvaluation {
     pub applicability: Vec<ApplicabilityWitness>,
     spare_witnesses: Vec<ApplicabilityWitness>,
     pub values: Vec<f64>,
-    pub jacobian: Vec<f64>,
+    pub first: Vec<f64>,
+    first_layout: Arc<FirstLayout>,
+    first_requested: bool,
     second: Vec<f64>,
     coordinates: usize,
     second_pairs: Arc<Vec<(usize, usize)>>,
@@ -3032,12 +3097,19 @@ impl TrialEvaluation {
         }
         self.values.fill(f64::NAN);
         self.values.clear();
-        self.jacobian.fill(f64::NAN);
-        self.jacobian.clear();
+        self.first.fill(f64::NAN);
+        self.first.clear();
         self.second.fill(f64::NAN);
         self.second.clear();
         self.coordinates = 0;
+        self.first_requested = false;
         self.second_requested = false;
+    }
+    pub(crate) fn first(&self, row: usize, axis: usize) -> f64 {
+        self.first_layout.offset(row, axis).and_then(|offset| self.first.get(offset)).copied().unwrap_or(0.0)
+    }
+    pub(crate) fn first_entries(&self, row: usize) -> impl Iterator<Item = (usize, f64)> + '_ {
+        self.first_layout.entries(row).map(|(axis, offset)| (axis, self.first[offset]))
     }
     pub(crate) fn second(&self, row: usize, i: usize, j: usize) -> f64 {
         let (i, j) = (i.min(j), i.max(j));
@@ -3055,6 +3127,8 @@ impl TrialEvaluation {
         order: DerivativeOrder,
         witnesses: &[Arc<pse_model::applicability::Node>],
         pairs: &Arc<Vec<(usize, usize)>>,
+        first: &Arc<FirstLayout>,
+        first_sources: &[Option<usize>],
         target: &mut Self,
     ) -> Result<(), MathError> {
         target.clear();
@@ -3064,12 +3138,8 @@ impl TrialEvaluation {
             .map_err(|_| MathError::Limit("projected value cache"))?;
         if order >= DerivativeOrder::First {
             target
-                .jacobian
-                .try_reserve_exact(
-                    rows.len()
-                        .checked_mul(axes.len())
-                        .ok_or(MathError::Limit("projected first cache"))?,
-                )
+                .first
+                .try_reserve_exact(first.axes.len())
                 .map_err(|_| MathError::Limit("projected first cache"))?;
         }
         if order >= DerivativeOrder::Second {
@@ -3089,24 +3159,19 @@ impl TrialEvaluation {
                     .get(row)
                     .ok_or_else(|| MathError::Contract("projected output ordinal".into()))?,
             );
-            if order >= DerivativeOrder::First {
-                for &axis in axes {
-                    target.jacobian.push(
-                        *self
-                            .jacobian
-                            .get(row * self.coordinates + axis)
-                            .ok_or_else(|| {
-                                MathError::Contract("projected coordinate ordinal".into())
-                            })?,
-                    );
-                }
-            }
             if order >= DerivativeOrder::Second {
                 for &(i, j) in pairs.iter() {
                     target.second.push(self.second(row, axes[i], axes[j]));
                 }
             }
         }
+        if order >= DerivativeOrder::First {
+            for offset in first_sources {
+                target.first.push(offset.map_or(0.0, |offset| self.first[offset]));
+            }
+        }
+        target.first_layout = first.clone();
+        target.first_requested = order >= DerivativeOrder::First;
         target.second_pairs = pairs.clone();
         target.second_requested = order >= DerivativeOrder::Second;
         for witness in &self.applicability {
@@ -3162,6 +3227,17 @@ impl TrialEvaluation {
     }
     pub(crate) fn into_evaluation(self) -> Evaluation {
         let n = self.coordinates;
+        let jacobian = if !self.first_requested {
+            Vec::new()
+        } else {
+            let mut dense = vec![0.0; self.values.len() * n];
+            for row in 0..self.values.len() {
+                for (axis, value) in self.first_entries(row) {
+                    dense[row * n + axis] = value;
+                }
+            }
+            dense
+        };
         let hessians = if !self.second_requested {
             Vec::new()
         } else {
@@ -3182,7 +3258,7 @@ impl TrialEvaluation {
                 .flat_map(ApplicabilityWitness::hydrate)
                 .collect(),
             values: self.values,
-            jacobian: self.jacobian,
+            jacobian,
             hessians,
         }
     }
@@ -3427,28 +3503,25 @@ impl Worker {
         ) else {
             return Err(MathError::Contract("uncompiled derivative order".into()));
         };
-        let width = layout.width();
-        let frame = &mut self.frame[..self.body.slots * width];
-        frame.fill(f64::NAN);
+        let frame = &mut self.frame[..layout.frame_entries(self.body.slots)?];
         let n = layout.coordinates.len();
         for (slot, &value) in inputs.iter().enumerate() {
-            let jet = &mut frame[slot * width..(slot + 1) * width];
-            jet.fill(0.0);
-            jet[0] = value;
+            layout.clear_frame_slot(frame, slot);
+            layout.set_frame_value(frame, slot, 0, value);
         }
         if order >= DerivativeOrder::First {
             if let Some(direction) = direction {
                 for (axis, &slot) in self.body.coordinate_offsets.iter().enumerate() {
                     if self.body.product == ProductKind::WeightedHessianAction {
-                        frame[slot * width + 1 + axis] = 1.0;
-                        frame[slot * width + n] = direction[axis];
+                        layout.set_frame_value(frame, slot, 1 + axis, 1.0);
+                        layout.set_frame_value(frame, slot, n, direction[axis]);
                     } else {
-                        frame[slot * width + 1] = direction[axis];
+                        layout.set_frame_value(frame, slot, 1, direction[axis]);
                     }
                 }
             } else {
                 for (i, &slot) in layout.coordinates.iter().enumerate() {
-                    frame[slot * width + 1 + i] = 1.0;
+                    layout.set_frame_value(frame, slot, 1 + i, 1.0);
                 }
             }
         }
@@ -3473,6 +3546,12 @@ impl Worker {
         result.coordinates = n;
         result.second_pairs = layout.pairs.clone();
         result.second_requested = order >= DerivativeOrder::Second;
+        result.first_requested = order >= DerivativeOrder::First;
+        result.first_layout = if order >= DerivativeOrder::First {
+            self.body.first_layout.clone()
+        } else {
+            Arc::default()
+        };
         // Complete result extent belongs to the admitted operation cache; grow only
         // the actually demanded order, and retain it for the next trial.
         result
@@ -3481,8 +3560,8 @@ impl Worker {
             .map_err(|_| MathError::Limit("trial value storage"))?;
         if order >= DerivativeOrder::First {
             result
-                .jacobian
-                .try_reserve_exact(self.body.outputs.len() * n)
+                .first
+                .try_reserve_exact(self.body.first_layout.axes.len())
                 .map_err(|_| MathError::Limit("trial first storage"))?;
         }
         if order >= DerivativeOrder::Second {
@@ -3491,20 +3570,22 @@ impl Worker {
                 .try_reserve_exact(self.body.outputs.len() * layout.pairs.len())
                 .map_err(|_| MathError::Limit("trial second storage"))?;
         }
-        for &slot in self.body.outputs.iter() {
-            let jet = &frame[slot * width..(slot + 1) * width];
+        for (row, &slot) in self.body.outputs.iter().enumerate() {
+            let jet = &frame[layout.frame_slot_range(slot)];
             if jet.iter().any(|v| !v.is_finite()) {
                 return Err(MathError::Contract(
                     "nonfinite or unassigned result jet".into(),
                 ));
             }
-            result.values.push(jet[0]);
+            result.values.push(layout.frame_value(frame, slot, 0));
             if order >= DerivativeOrder::First {
-                result.jacobian.extend_from_slice(&jet[1..=n]);
+                for (axis, _) in self.body.first_layout.entries(row) {
+                    result.first.push(layout.frame_value(frame, slot, 1 + axis));
+                }
             }
             if order >= DerivativeOrder::Second {
                 for k in 0..layout.pairs.len() {
-                    let value = jet[1 + n + k] * layout.raw_factor(1 + n + k);
+                    let value = layout.frame_value(frame, slot, 1 + n + k) * layout.raw_factor(1 + n + k);
                     result.second.push(value);
                 }
             }
@@ -3527,11 +3608,7 @@ impl Worker {
         let template = self.body.programs[order]
             .as_ref()
             .ok_or_else(|| MathError::Contract("uncompiled derivative order".into()))?;
-        let entries = self
-            .body
-            .slots
-            .checked_mul(layout.width())
-            .ok_or(MathError::Limit("order worker frame"))?;
+        let entries = layout.frame_entries(self.body.slots)?;
         let frame_growth = entries
             .saturating_sub(self.frame.len())
             .checked_mul(size_of::<f64>())
@@ -3612,10 +3689,13 @@ fn reset_stages(stages: Vec<CompiledStage>) -> Result<Vec<CompiledStage>, MathEr
                     components,
                     inputs,
                     outputs,
+                    gather,
+                    scatter,
                     mut arguments,
                     mut values,
                     source,
                     checks,
+                    checked_ends,
                 } => {
                     if !resettable {
                         return Err(MathError::Contract(
@@ -3623,7 +3703,10 @@ fn reset_stages(stages: Vec<CompiledStage>) -> Result<Vec<CompiledStage>, MathEr
                         ));
                     }
                     let evaluator = evaluator.reset()?;
-                    arguments.fill(f64::NAN);
+                    // Absent structural arguments are immutable zeros. Only
+                    // caller-written argument slots lose their numeric contents.
+                    arguments.fill(0.0);
+                    for &(argument, _) in &gather { arguments[argument] = f64::NAN; }
                     values.fill(f64::NAN);
                     CompiledStage::Block {
                         evaluator,
@@ -3631,10 +3714,13 @@ fn reset_stages(stages: Vec<CompiledStage>) -> Result<Vec<CompiledStage>, MathEr
                         components,
                         inputs,
                         outputs,
+                        gather,
+                        scatter,
                         arguments,
                         values,
                         source,
                         checks,
+                        checked_ends,
                     }
                 }
                 CompiledStage::Applicability {
@@ -3989,12 +4075,18 @@ fn cloned_stage_descriptors(stages: &Vec<CompiledStage>) -> Option<usize> {
                 components,
                 inputs,
                 outputs,
+                gather,
+                scatter,
                 checks,
+                checked_ends,
                 ..
             } => indices(components)?
                 .checked_add(indices(inputs)?)?
                 .checked_add(indices(outputs)?)?
-                .checked_add(indices(checks)?)?,
+                .checked_add(indices(gather)?)?
+                .checked_add(indices(scatter)?)?
+                .checked_add(indices(checks)?)?
+                .checked_add(indices(checked_ends)?)?,
             CompiledStage::Require { .. } => 0,
             CompiledStage::Branch {
                 then, otherwise, ..
@@ -4094,10 +4186,47 @@ struct BuildAllowance {
     instruction_count: usize,
     /// Shared native code/template allowance, never copied into worker charges.
     modules: usize,
+    selected_first: bool,
+    first_variables: Vec<Atom>,
+    scalar_inputs: usize,
     /// Flat arithmetic modules were included by the selected-source preflight.
     /// Opaque control/provider construction consumes the installed owner's prepaid capacity.
     #[cfg(feature = "compiled-evaluator")]
     native_prepaid: bool,
+}
+
+struct SelectedFirstRegion {
+    expressions: Vec<Atom>,
+    scatter: Vec<(usize, Option<usize>)>,
+    output_ends: Vec<usize>,
+}
+impl SelectedFirstRegion {
+    fn new(expressions: &[Atom], outputs: &[usize], layout: &JetLayout,
+        scope: &pse_kernels::ExecutionScope, allowance: &mut BuildAllowance) -> Result<Self, MathError> {
+        let mut selected = Self { expressions: Vec::new(), scatter: Vec::new(), output_ends: Vec::new() };
+        for (expression, &slot) in expressions.iter().zip(outputs) {
+            for destination in layout.frame_slot_range(slot) {
+                scope.check().map_err(crate::error::scope_error)?;
+                let component = layout.frame_component(destination);
+                let emitted = if component == 0 {
+                    expression.clone()
+                } else {
+                    allowance.operations = allowance.operations.checked_sub(1)
+                        .ok_or(MathError::Limit("selected first construction calls"))?;
+                    crate::construction::additional(expression.as_view().get_byte_size().checked_mul(8)
+                        .ok_or(MathError::Limit("selected first construction"))?)?;
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.count("math.selected_first_constructions", "count", 1);
+                    }
+                    layout.differentiate(expression, &allowance.first_variables, component)?
+                };
+                selected.scatter.push((destination, Some(selected.expressions.len())));
+                selected.expressions.push(emitted);
+            }
+            selected.output_ends.push(selected.expressions.len());
+        }
+        Ok(selected)
+    }
 }
 fn provider_request_order(
     order: DerivativeOrder,
@@ -4633,7 +4762,22 @@ fn compile_stages(
                             .collect::<Vec<_>>()
                     })
                     .collect::<Vec<_>>();
-                let inspected = library::bounded_evaluator(
+                let selected_count = outputs.iter().map(|&slot| layout.frame_slot_range(slot).len()).sum::<usize>();
+                let selected_first = allowance.selected_first;
+                #[cfg(test)]
+                let selected_first = selected_first && !FORCE_TAYLOR_FIRST.get();
+                let selected = if selected_first
+                    && inputs.iter().all(|&slot| slot < allowance.scalar_inputs)
+                    && selected_count < outputs.len() * local.width()
+                {
+                    Some(SelectedFirstRegion::new(expressions, outputs, layout, execution_scope, allowance)?)
+                } else { None };
+                let inspected = if let Some(selected) = &selected {
+                    library::bounded_scalar_evaluator(
+                        &selected.expressions, params, options, cancelled,
+                        EvaluationLimits { operations: allowance.operations, ..limits }, scalars,
+                    )?
+                } else { library::bounded_evaluator(
                     *source,
                     expressions,
                     params,
@@ -4645,7 +4789,7 @@ fn compile_stages(
                     allowance.operations,
                     allowance.entries,
                     scalars,
-                )?;
+                )? };
                 let operations = operation_count(inspected.facts.operations);
                 allowance.operations = allowance
                     .operations
@@ -4654,8 +4798,8 @@ fn compile_stages(
                 let evaluator = inspected.evaluator;
                 let input_len = evaluator.get_input_len();
                 let output_len = evaluator.get_output_len();
-                if input_len != inputs.len() * local.width()
-                    || output_len != outputs.len() * local.width()
+                if input_len != if selected.is_some() { inputs.len() } else { inputs.len() * local.width() }
+                    || output_len != selected.as_ref().map_or(outputs.len() * local.width(), |selected| selected.expressions.len())
                 {
                     return Err(MathError::Contract("library vectorization layout".into()));
                 }
@@ -4713,16 +4857,38 @@ fn compile_stages(
                     }
                 };
                 drop(_export);
+                let checked_ends = region.checks.iter().map(|check| {
+                    selected.as_ref().map_or(check.end_output * local.width(), |selected| selected.output_ends[check.end_output - 1])
+                }).collect();
+                let (gather, scatter) = if let Some(selected) = selected {
+                    components = vec![0];
+                    (inputs.iter().enumerate().filter_map(|(argument, &slot)| layout.frame_offset(slot, 0).map(|source| (argument, source))).collect(), selected.scatter)
+                } else {
+                    let component_width = components.len();
+                    let gather = inputs.iter().enumerate().flat_map(|(row, &slot)| {
+                        components.iter().enumerate().filter_map(move |(local, &component)| layout.frame_offset(slot, component).map(|source| (row * component_width + local, source)))
+                    }).collect();
+                    let scatter = outputs.iter().enumerate().flat_map(|(row, &slot)| {
+                    layout.frame_slot_range(slot).map(|offset| {
+                        let component = layout.frame_component(offset);
+                        (offset, components.binary_search(&component).ok().map(|component_offset| row * local.width() + component_offset))
+                    }).collect::<Vec<_>>()
+                    }).collect();
+                    (gather, scatter)
+                };
                 CompiledStage::Block {
                     evaluator,
                     resettable,
                     components,
                     inputs: inputs.clone(),
                     outputs: outputs.clone(),
+                    gather,
+                    scatter,
                     arguments: vec![0.0; input_len],
                     values: vec![0.0; output_len],
                     source: *source,
                     checks: region.checks.clone(),
+                    checked_ends,
                 }
             }
             Stage::Require {
@@ -4905,9 +5071,8 @@ fn evaluate_stages(
                 token,
                 plan,
             } => {
-                local.fill(f64::NAN);
                 for (value, slot) in local.iter_mut().zip(reads) {
-                    *value = frame[*slot * width];
+                    *value = layout.frame_value(frame, *slot, 0);
                 }
                 evaluate_stages(
                     stages,
@@ -4971,7 +5136,7 @@ fn evaluate_stages(
                     return Err(MathError::Applicability(Box::new(assessment)));
                 }
                 observations.push(witness);
-                frame[*token * width..(*token + 1) * width].fill(0.);
+                layout.clear_frame_slot(frame, *token);
             }
             CompiledStage::Domain {
                 stages,
@@ -4982,9 +5147,8 @@ fn evaluate_stages(
                 token,
                 lineage,
             } => {
-                local.fill(f64::NAN);
                 for (value, slot) in local.iter_mut().zip(reads) {
-                    *value = frame[*slot * width];
+                    *value = layout.frame_value(frame, *slot, 0);
                 }
                 evaluate_stages(
                     stages,
@@ -4998,24 +5162,21 @@ fn evaluate_stages(
                 if !Condition::Positive.permits(local[*argument]) {
                     return Err(MathError::Validity(Box::new(lineage.as_ref().clone())));
                 }
-                frame[*token * width..(*token + 1) * width].fill(0.0);
+                layout.clear_frame_slot(frame, *token);
             }
             CompiledStage::Block {
                 evaluator,
-                components,
-                inputs,
-                outputs,
+                gather,
+                scatter,
                 arguments,
                 values,
                 source,
                 checks,
+                checked_ends,
                 ..
             } => {
-                let local_width = components.len();
-                for (k, &slot) in inputs.iter().enumerate() {
-                    for (j, &component) in components.iter().enumerate() {
-                        arguments[k * local_width + j] = frame[slot * width + component];
-                    }
+                for &(argument, source) in gather.iter() {
+                    arguments[argument] = frame[source];
                 }
                 evaluator
                     .evaluate(arguments, values)
@@ -5025,8 +5186,7 @@ fn evaluate_stages(
                         detail: e.to_string(),
                     })?;
                 let mut first = 0;
-                for check in checks.iter() {
-                    let end = check.end_output * local_width;
+                for (check, &end) in checks.iter().zip(checked_ends.iter()) {
                     if values[first..end].iter().any(|v| !v.is_finite()) {
                         return Err(MathError::Domain {
                             source_id: check.source,
@@ -5035,11 +5195,8 @@ fn evaluate_stages(
                     }
                     first = end;
                 }
-                for (k, &slot) in outputs.iter().enumerate() {
-                    frame[slot * width..(slot + 1) * width].fill(0.0);
-                    for (j, &component) in components.iter().enumerate() {
-                        frame[slot * width + component] = values[k * local_width + j];
-                    }
+                for &(destination, source) in scatter.iter() {
+                    frame[destination] = source.map_or(0.0, |offset| values[offset]);
                 }
             }
             CompiledStage::Require {
@@ -5049,7 +5206,7 @@ fn evaluate_stages(
                 source,
                 lineage,
             } => {
-                if layout.order >= *order && !condition.permits(frame[*argument * width]) {
+                if layout.order >= *order && !condition.permits(layout.frame_value(frame, *argument, 0)) {
                     // A closure range names its lineage (Plan 23 H5).
                     return Err(match lineage {
                         Some(lineage) => MathError::Validity(Box::new(lineage.as_ref().clone())),
@@ -5068,8 +5225,8 @@ fn evaluate_stages(
                 then,
                 otherwise,
             } => {
-                let a = frame[*left * width];
-                let b = frame[*right * width];
+                let a = layout.frame_value(frame, *left, 0);
+                let b = layout.frame_value(frame, *right, 0);
                 if !a.is_finite() || !b.is_finite() {
                     return Err(MathError::Contract("unassigned branch input".into()));
                 }
@@ -6267,6 +6424,12 @@ mod compact_tests {
         inputs[256] = 2.;
         let result = eval(&mut program.worker(), &inputs, DerivativeOrder::First).unwrap();
         assert_eq!(result.values, vec![1.; 128]);
+        let packed = program.worker().evaluate_trial(
+            &inputs, DerivativeOrder::First, &mut BTreeMap::new(),
+            &Arc::new(AtomicBool::new(false)),
+        ).unwrap();
+        assert_eq!(packed.first.len(), 256, "two supported firsts per residual, rather than 128 times 257");
+        assert_eq!(program.census().find(|c| c.order == DerivativeOrder::First).unwrap().result_entries, 384);
         for row in 0..128 {
             for coordinate in 0..257 {
                 let expected = if coordinate == row {
@@ -6320,11 +6483,10 @@ mod compact_tests {
             }
         }
         worker.frame.fill(12345.0);
-        let extent = worker.body.slots
-            * worker.body.layouts[DerivativeOrder::Value]
+        let extent = worker.body.layouts[DerivativeOrder::Value]
                 .as_ref()
                 .unwrap()
-                .width();
+                .frame_entries(worker.body.slots).unwrap();
         let value = worker
             .evaluate_trial(
                 &[2.0, 3.0, 1.0],
@@ -6364,7 +6526,7 @@ mod compact_tests {
             )
             .unwrap();
         assert_eq!(
-            (result.jacobian.capacity(), result.second.capacity()),
+            (result.first.capacity(), result.second.capacity()),
             (0, 0)
         );
         worker
@@ -6378,12 +6540,12 @@ mod compact_tests {
             .unwrap();
         let storage = (
             result.values.as_ptr(),
-            result.jacobian.as_ptr(),
+            result.first.as_ptr(),
             result.second.as_ptr(),
         );
         let capacity = (
             result.values.capacity(),
-            result.jacobian.capacity(),
+            result.first.capacity(),
             result.second.capacity(),
         );
         let escaped = result.clone().into_evaluation();
@@ -6400,7 +6562,7 @@ mod compact_tests {
             storage,
             (
                 result.values.as_ptr(),
-                result.jacobian.as_ptr(),
+                result.first.as_ptr(),
                 result.second.as_ptr()
             )
         );
@@ -6418,7 +6580,7 @@ mod compact_tests {
         );
         assert!(
             result.values.is_empty()
-                && result.jacobian.is_empty()
+                && result.first.is_empty()
                 && result.second.is_empty()
                 && result.applicability.is_empty()
         );
@@ -6426,7 +6588,7 @@ mod compact_tests {
             capacity,
             (
                 result.values.capacity(),
-                result.jacobian.capacity(),
+                result.first.capacity(),
                 result.second.capacity()
             )
         );
@@ -6440,8 +6602,106 @@ mod compact_tests {
             )
             .unwrap();
         assert_eq!(result.values, escaped.values);
-        assert!(result.jacobian.is_empty() && result.second.is_empty());
+        assert!(result.first.is_empty() && result.second.is_empty());
         assert_eq!(storage.0, result.values.as_ptr());
+    }
+
+    #[test]
+    fn compact_first_results_keep_structural_support_at_zero_and_dense_public_boundary() {
+        crate::initialize().unwrap();
+        let x = library::formal(0).unwrap();
+        let body = PreparedBody::new(3, 5, vec![3, 4], vec![
+            Stage::Block { expressions: vec![&x * &x, Atom::num(7)], outputs: vec![3, 4], source: SemanticId::NIL },
+        ], DerivativeOrder::Second).unwrap();
+        let program = body.compile(&[0, 1], &[2, 0, 1], DerivativeOrder::Second,
+            Optimization::default(), EvaluationLimits::default(),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+        ).unwrap();
+        let mut worker = program.worker();
+        let zero = worker.evaluate_trial(&[0., 3., 4.], DerivativeOrder::Second, &mut BTreeMap::new(),
+            &Arc::new(AtomicBool::new(false))).unwrap();
+        assert_eq!(zero.first, [0.]);
+        assert_eq!(zero.first_entries(0).collect::<Vec<_>>(), [(1, 0.)]);
+        assert!(zero.first_entries(1).next().is_none());
+        assert_eq!(zero.clone().into_evaluation().jacobian, [0.; 6]);
+        let positive = worker.evaluate_trial(&[2., 3., 4.], DerivativeOrder::Second, &mut BTreeMap::new(),
+            &Arc::new(AtomicBool::new(false))).unwrap();
+        assert_eq!(positive.first, [4.]);
+        assert_eq!(positive.into_evaluation().jacobian, [0., 4., 0., 0., 0., 0.]);
+        assert_eq!(program.census().find(|c| c.order == DerivativeOrder::Second).unwrap().result_entries, 5);
+    }
+
+    #[test]
+    fn compact_frame_and_selected_flat_firsts_compare_actual_region_and_result_work() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        crate::initialize().unwrap();
+        let variables = (0..8).map(|slot| library::formal(slot).unwrap()).collect::<Vec<_>>();
+        let expressions = variables.iter().map(|x| x * x).collect::<Vec<_>>();
+        let body = PreparedBody::new(16, 24, (16..24).collect(), vec![
+            Stage::Block { expressions, outputs: (16..24).collect(), source: SemanticId::NIL },
+        ], DerivativeOrder::First).unwrap();
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("selected sparse first comparison");
+        let context = operation.context();
+        let _entered = context.enter();
+        let selected = body.compile(&(0..8).collect::<Vec<_>>(), &(0..16).collect::<Vec<_>>(), DerivativeOrder::First,
+            Optimization::default(), EvaluationLimits::default(),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None)).unwrap();
+        let counts = context.reader().snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(counts.metrics.iter().find(|m| m.name == "math.selected_first_constructions").unwrap().cumulative, Value::Count(8));
+        FORCE_TAYLOR_FIRST.set(true);
+        let taylor = body.compile(&(0..8).collect::<Vec<_>>(), &(0..16).collect::<Vec<_>>(), DerivativeOrder::First,
+            Optimization::default(), EvaluationLimits::default(),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None)).unwrap();
+        FORCE_TAYLOR_FIRST.set(false);
+        let actual = selected.census().find(|c| c.order == DerivativeOrder::First).unwrap();
+        let reference = taylor.census().find(|c| c.order == DerivativeOrder::First).unwrap();
+        assert_eq!(actual.frame_entries, 40);
+        assert!(actual.frame_entries < selected.slots * actual.derivative_components);
+        assert_eq!(actual.result_entries, 16);
+        assert_eq!((actual.arithmetic_input_entries, actual.arithmetic_output_entries), (8, 16));
+        assert_eq!((reference.arithmetic_input_entries, reference.arithmetic_output_entries), (72, 72));
+        assert!(actual.library_operations < reference.library_operations);
+        assert_eq!((selected.scalar_builds, taylor.scalar_builds), (2, 1));
+        // Selected construction is paid during immutable preparation; callbacks
+        // retain original values/checks and never construct another derivative.
+        let mut worker = selected.worker();
+        let mut input = vec![2.; 16];
+        for x in [0., 2., -3., 4.] {
+            input[0] = x;
+            let first = eval(&mut worker, &input, DerivativeOrder::First).unwrap();
+            assert_eq!(first, eval(&mut taylor.worker(), &input, DerivativeOrder::First).unwrap());
+        }
+        input[0] = 1e200;
+        assert!(matches!(eval(&mut worker, &input, DerivativeOrder::First), Err(MathError::Domain { .. })));
+        input[0] = 3.;
+        assert_eq!(eval(&mut worker, &input, DerivativeOrder::First).unwrap(),
+            eval(&mut taylor.worker(), &input, DerivativeOrder::First).unwrap());
+        assert_eq!(context.reader().snapshot(std::time::Duration::from_secs(60)).metrics.iter()
+            .find(|m| m.name == "math.selected_first_constructions").unwrap().cumulative, Value::Count(8));
+        eprintln!("I01 selected: frame={} region-in={} region-out={} returned={} operations={} scalar-builds={}; Taylor: region-in={} region-out={} operations={} scalar-builds={}",
+            actual.frame_entries, actual.arithmetic_input_entries, actual.arithmetic_output_entries, actual.result_entries,
+            actual.library_operations, selected.scalar_builds, reference.arithmetic_input_entries,
+            reference.arithmetic_output_entries, reference.library_operations, taylor.scalar_builds);
+    }
+
+    #[test]
+    fn compact_branch_frames_write_union_zeros_after_failure_and_order_changes() {
+        let program = instantiation_program(Optimization::default());
+        let mut worker = program.worker();
+        for order in [DerivativeOrder::Second, DerivativeOrder::First, DerivativeOrder::Value, DerivativeOrder::Second] {
+            for point in [[2., 3., 1.], [-2., 3., 1.]] {
+                assert_eq!(eval(&mut worker, &point, order).unwrap(), eval(&mut program.worker(), &point, order).unwrap());
+            }
+            assert!(eval(&mut worker, &[2., 3., -1.], order).is_err());
+            assert_eq!(eval(&mut worker, &[-2., 4., 1.], order).unwrap(),
+                eval(&mut program.worker(), &[-2., 4., 1.], order).unwrap());
+        }
+        worker.detach_controls();
+        worker.reset_scratch().unwrap();
+        worker.set_scope(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
+        assert_eq!(eval(&mut worker, &[2., 3., 1.], DerivativeOrder::Second).unwrap(),
+            eval(&mut program.worker(), &[2., 3., 1.], DerivativeOrder::Second).unwrap());
     }
 
     #[test]
@@ -6574,7 +6834,7 @@ mod compact_tests {
                 )
                 .is_err()
         );
-        assert!(result.values.is_empty() && result.jacobian.is_empty() && result.second.is_empty());
+        assert!(result.values.is_empty() && result.first.is_empty() && result.second.is_empty());
         drop(worker);
         assert!(weak.upgrade().is_none());
     }
@@ -6710,7 +6970,7 @@ mod compact_tests {
                 &mut result,
             )
             .unwrap();
-        assert_eq!(result.jacobian.len(), 1);
+        assert_eq!(result.first.len(), 1);
         assert!(worker.programs[DerivativeOrder::Value].is_none());
         assert!(worker.programs[DerivativeOrder::First].is_some());
         assert!(worker.clone().programs.values().all(Option::is_none));
@@ -6733,11 +6993,10 @@ mod compact_tests {
         assert!(worker.frame.is_empty());
         assert_eq!(worker.used_bytes, 0);
         let first = program.order_worker_bytes[DerivativeOrder::First]
-            + program.slots
-                * program.layouts[DerivativeOrder::First]
+            + program.layouts[DerivativeOrder::First]
                     .as_ref()
                     .unwrap()
-                    .width()
+                    .frame_entries(program.slots).unwrap()
                 * size_of::<f64>();
         worker.prepaid_bytes = first - 1;
         assert!(matches!(
@@ -6752,11 +7011,10 @@ mod compact_tests {
         assert_eq!(worker.used_bytes, first);
         assert_eq!(
             worker.frame.len(),
-            program.slots
-                * program.layouts[DerivativeOrder::First]
+            program.layouts[DerivativeOrder::First]
                     .as_ref()
                     .unwrap()
-                    .width()
+                    .frame_entries(program.slots).unwrap()
         );
         assert!(worker.programs[DerivativeOrder::Value].is_none());
         assert!(worker.programs[DerivativeOrder::Second].is_none());
@@ -7606,6 +7864,8 @@ mod compact_tests {
                 DerivativeOrder::Value,
                 &plans,
                 &pairs,
+                &Arc::default(),
+                &[],
                 &mut projected,
             )
             .unwrap();
@@ -7621,6 +7881,8 @@ mod compact_tests {
                     DerivativeOrder::Value,
                     &plans,
                     &pairs,
+                    &Arc::default(),
+                    &[],
                     &mut projected,
                 )
                 .unwrap();
@@ -7657,9 +7919,12 @@ mod compact_tests {
                         assert_poisoned(stages);
                     }
                     CompiledStage::Block {
-                        arguments, values, ..
+                        arguments, values, gather, ..
                     } => {
-                        assert!(arguments.iter().all(|v| v.is_nan()));
+                        for (argument, value) in arguments.iter().enumerate() {
+                            if gather.iter().any(|&(written, _)| written == argument) { assert!(value.is_nan()); }
+                            else { assert_eq!(*value, 0.0); }
+                        }
                         assert!(values.iter().all(|v| v.is_nan()));
                     }
                     CompiledStage::Branch {

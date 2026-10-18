@@ -105,7 +105,6 @@ struct Instance {
 #[derive(Clone, Debug)]
 struct OutputTerm {
     result_row: usize,
-    first_offset: usize,
     scale: f64,
 }
 #[derive(Clone, Debug)]
@@ -116,7 +115,6 @@ struct ConstraintTerm {
 }
 #[derive(Clone, Debug)]
 struct GradientCoordinate {
-    offset: usize,
     destination: usize,
     scale: f64,
 }
@@ -124,7 +122,7 @@ struct GradientCoordinate {
 struct Term {
     instance: usize,
     output: usize,
-    result_row: usize,
+    result_offset: usize,
     i: usize,
     j: usize,
     scale: f64,
@@ -879,9 +877,6 @@ impl CasePlan {
                 match contribution.target {
                     Target::PRIMARY => objective_terms.push(OutputTerm {
                         result_row,
-                        first_offset: result_row
-                            .checked_mul(coordinates.len())
-                            .ok_or(MathError::Limit("objective derivative address"))?,
                         scale: contribution.scale,
                     }),
                     Target::Row(row) => constraint_terms.push(ConstraintTerm {
@@ -897,7 +892,6 @@ impl CasePlan {
                     .iter()
                     .enumerate()
                     .map(|(offset, formal)| GradientCoordinate {
-                        offset,
                         destination: local_columns[offset].get(),
                         scale: binding.slots[formal.get()].scale(),
                     })
@@ -2060,6 +2054,8 @@ fn case_patterns(
             .enumerate()
             .map(|(i, formal)| (formal.get(), i))
             .collect::<BTreeMap<_, _>>();
+        let first_layout = instance.groups[EvaluationDemand::Constraints].as_ref()
+            .map(|group| crate::execution::FirstLayout::from_support(&supports[group.request]));
         for contribution in &binding.contributions {
             if order >= DerivativeOrder::First
                 && let Target::Row(row) = contribution.target
@@ -2087,7 +2083,8 @@ fn case_patterns(
                     jt.push(Term {
                         instance: index,
                         output: contribution.output,
-                        result_row,
+                        result_offset: first_layout.as_ref().and_then(|layout| layout.offset(result_row, i))
+                            .ok_or_else(|| MathError::Contract("missing compact Jacobian address".into()))?,
                         i,
                         j: 0,
                         scale: contribution.scale * binding.slots[*formal].scale(),
@@ -3202,11 +3199,12 @@ impl CaseWorker {
                     .filter(|group| group.cache.is_some())
                     .ok_or_else(|| MathError::Contract("unevaluated gradient demand".into()))?
                     .result;
-                for coordinate in &instance.gradient_coordinates {
+                for (axis, value) in result.first_entries(term.result_row) {
+                    let coordinate = &instance.gradient_coordinates[axis];
                     let addend = sign
                         * term.scale
                         * coordinate.scale
-                        * result.jacobian[term.first_offset + coordinate.offset];
+                        * value;
                     self.gradient_values[coordinate.destination] += addend;
                 }
             }
@@ -3236,9 +3234,7 @@ impl CaseWorker {
                 .filter(|group| group.cache.is_some())
                 .ok_or_else(|| MathError::Contract("unevaluated Jacobian demand".into()))?
                 .result;
-            let r = t.result_row;
-            let n = self.assembly.instances[t.instance].coordinates.len();
-            let value = t.scale * v.jacobian[r * n + t.i];
+            let value = t.scale * v.first[t.result_offset];
             self.jacobian
                 .as_mut()
                 .ok_or_else(|| MathError::Contract("detached Jacobian".into()))?
