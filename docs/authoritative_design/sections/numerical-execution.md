@@ -1901,7 +1901,14 @@ Krylov/preconditioned routes remain supported. The experimental exact-CSC/settin
 required fresh numerical factors but did not establish material complete-operation benefit
 on the short 128/512-variable contrasts, so its binding/profile were removed. Repeated
 symbolic analysis remains a known limitation; a representative symbolic-dominant workload
-is the revisit trigger. Actual symbolic, numeric, refactor and substitution observations
+is the revisit trigger. The maintainer-authorized Plan45e/E05 follow-up now screens larger
+representative sparse shapes and conditionally qualifies a narrower fixed-pattern private
+KLU owner under proposed ADR-0200. It freezes analysis settings, owns canonical structure,
+invalidates numerical factors before every application including accepted starts, and
+full-factors current coefficients at first demanded setup. Only symbolic analysis may
+survive; no duplicate CSC key or per-substitution structure scan is selected. Stock generic
+behavior remains unchanged. This is a conditional target, not an implemented/adopted route.
+Actual symbolic, numeric, refactor and substitution observations
 remain distinct (§23.1).
 
 A nested implicit solve (`implicit.rs`) reuses KINSOL sessions through a per-worker-thread

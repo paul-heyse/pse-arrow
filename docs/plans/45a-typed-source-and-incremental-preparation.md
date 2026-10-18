@@ -1,6 +1,6 @@
 ---
 title: "Plan45a: Typed source and incremental preparation"
-status: done
+status: in-progress
 date: 2026-10-18
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
@@ -71,6 +71,13 @@ Select and implement the supported bounded reuse/base-description outcome, or ke
 | A03 | RC02 decision; phase/product lifetime inventory | Separate temporary candidate and retained ownership; edit/backdating/pressure/cancel controls; retained-history inflation removed | done |
 | A04 | RC03 decision; exact physical resolution premises | Investigate and implement qualified consumed closure across lane/frontier/body/view checks; invalidating and non-invalidating controls | done |
 | A05 | Existing active-view/source contracts; A03 where accounting is consumed; A04 only for finer physical eligibility | Historical/study investigation, selected bounded implementation and complete-context/pressure/drain tests | done |
+| A06 | Accepted RC03; prerequisite identity/ownership amendment | Complete resolver-issued physical premises, current-context lane refresh, migrated body/artifact/view/frontier consumers and fresh receiving wrappers; invalidation/non-invalidation/failure/ownership tests | in-progress |
+
+## A06 — Reopened physical-premise implementation
+
+Issue a sealed versioned consumed physical product from actual resolution, including positive/transitive meaning, misses, complete candidate populations, scope, checker interpretation and consumed provider meaning. Unknown classifications retain full-context dependence. Refresh current context and Salsa inputs coherently under existing single-writer ownership; re-admit current source and rebuild current prepared wrappers while sharing compatible immutable mathematics. Migrate every A04 boundary together. Full canonical/inventory identity and receiving permission remain separate. The existing revision-opening API supplies the changed-context journey; no new public API is planned.
+
+Current checkpoint: implementation authorized; prerequisite contract review and amendments precede production edits.
 
 ## Verification and checkpoint
 

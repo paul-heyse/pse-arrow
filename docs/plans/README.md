@@ -5,13 +5,11 @@ progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
 [Plan45: Pipeline execution optimization](45-pipeline-execution-optimization.md)
-is complete within its accepted bounded scope. Its [Outcome](45-pipeline-execution-optimization.md#outcome-recorded-after-implementation)
-and [45f qualification](45f-short-run-qualification-and-publication.md#outcome-recorded-after-implementation)
-record integrated corrections, ten inquiry decisions, selected functional/static acceptance,
-repaired failures and precise further-work triggers. The coordinator retains unresolved F05/F13
-under accepted RC03/RC08; bounded completion does not resolve the review's AP-07/G9 judgment.
-The highest coordinator, consumed companions and review/evidence remain retained for those
-findings and live readers. Other plans keep their own scope and status.
+is reopened for F05 physical-premise reuse and F13 conditional fixed-pattern KLU qualification.
+The [follow-up checkpoint](45-pipeline-execution-optimization.md#reopened-follow-up-checkpoint-2026-10-18)
+owns the authorized remaining scope; 45a/A06, 45e/E05 and 45f/F05 own implementation
+and acceptance. The original 28 packages and their bounded Outcomes remain complete within
+their recorded conditions. Other retained alternatives and other plans keep their owners.
 
 [Plan43: Solver diagnostics and performance](43-solver-diagnostics-and-performance.md)
 is complete after its production-completeness remediation. Its

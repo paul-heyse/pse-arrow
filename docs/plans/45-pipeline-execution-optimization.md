@@ -1,6 +1,6 @@
 ---
 title: "Plan45: Pipeline execution optimization"
-status: done
+status: in-progress
 date: 2026-10-18
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
@@ -93,7 +93,7 @@ Source links refer to the review's original F identifiers; its observations rema
 | F02 full source-index copies | S01 | resolved | 45a/A02 | 45a/A02 persistent-root delta/ownership controls and actual 8/32/128-declaration edits passed; see 45a Verification. |
 | F03 retained candidate allowances | S01/S03 | resolved | 45a/A03 | 45a/A03 current-input census, backdating/rotation/pressure and retained-product controls passed without changing reserved defaults; see 45a/45f. |
 | F04 repeated program descriptions | S03/S07 | resolved | 45b/B01 | 45b/B01 one prepared description per representation is consumed across admission/export; 81 targeted controls and six assembled optional compiled/provider controls passed. |
-| F05 broad physical invalidation | S02/S07 | deferred / unresolved under RC03 | Physical/compiler resolver; 45a/A04 owns the current bounded outcome | Retain whole-context invalidation: no resolver-issued negative/membership/scope/checker/provider closure. Revisit when that complete product can be issued and migrated across every compatibility boundary. Unrelated physical changes still invalidate eligible preparation; this is not AP-07/G9 resolution. Register R-54 retains the enduring trigger. |
+| F05 broad physical invalidation | S02/S07 | scheduled / reopened under RC03 | Physical/compiler resolver; 45a/A06 | Complete resolver-issued physical premises and migrate lane/tracked/body/artifact/view/frontier consumers. Preserve full receiving/source admission and current physical owners. A04 retains its historical conservative outcome; finer reuse is not yet qualified. |
 | F06 result inventory discovery | S04 | resolved | 45c/C01–C02 | 45c/C01–C02 full versus selected/absent constructor/first/EOF and release controls passed on four stored growth shapes, public Python and managed reads. |
 | F07 repeated promotion/analysis passes | S05 | resolved | 45c/C03 | 45c/C03 protected promotion facts/final locators passed whole-row ACK/cancellation controls and actual stored creation/reopen; 45f records public/managed acceptance. |
 | F08 repeated evidence scans | S05 | resolved | 45c/C04 | 45c/C04 bounded production permission indexes passed adverse/8000-permission controls and complete 811/2011/2411-edge graphs with independent locators; private 4096-row refusal preserves public 8000-response coverage. |
@@ -101,7 +101,7 @@ Source links refer to the review's original F identifiers; its observations rema
 | F10 duplicate IPC preflight | S04/S05 | resolved | 45c/C06 | 45c/C06 single IPC preflight passed malformed/extra-batch/schema/IEEE controls and assembled stored/public paths. |
 | F11 repeated physical encoding/publication | S01/S07 | resolved / bounded RC06 | 45c/C07 | One encoding spool and deterministic four-block/6 MiB exact-request edits passed six pure and eleven canonical controls. Arbitrarily large relation atomic closure and oversized-product warm retention remain explicit limits; see 45c Verification. |
 | F12 unconsumed adjoint coordinates | S02/S03 | resolved | 45d/D01 | 45d/D01 complete values and explicit demanded coordinates passed both native full/selected/empty controls, actual 24-route shooting and assembled native/public fitting. |
-| F13 repeated KLU symbolic analysis | S06 | deferred / unresolved under RC08 | Native sparse solver owner; 45e/E01 owns the bounded comparison | Stock KLU and explicit Krylov/Jacobi retained. The qualified experimental symbolic owner did not establish material complete-operation benefit on the short 128/512-variable contrasts. Revisit on a representative symbolic-dominant workload; no unused candidate production path is retained. Register R-53 retains the enduring trigger. |
+| F13 repeated KLU symbolic analysis | S06 | scheduled / reopened under RC08 | Native sparse solver owner; 45e/E05 | Representative short stock screen and conditional private fixed-pattern KLU owner. E01 retains its historical non-adoption. Adopt only with sound fresh-numeric lifecycle and useful complete-operation benefit; otherwise remove the experiment and retain unresolved F13. |
 
 ## Investigation outcomes
 
@@ -141,12 +141,16 @@ The series completes only when every required correction has its targeted accept
 
 **Planned verification:** package compile/targeted tests during implementation; source-established pass/work removal and before/after work counts with ordinary accuracy; one complete initial observation per short contrast, repeat only when variation changes a decision. 45f owns final Rust/native/Python/durable/managed integration and scope-end static/manual checks appropriate to the changes. No product-wide check has been run to author this plan.
 
-**Current checkpoint (2026-10-18 complete):** all 28 packages and ten bounded inquiry outcomes are complete. The selected corrections, in-bound N01–N04, targeted acceptance, assembled local/native/public/canonical/managed journeys and repaired zero-target scope-end checks are recorded in companion Outcomes and 45f. Blueprint revisions 197–203 publish the prerequisite and implemented contracts; proposed ADR statuses remain unchanged. F01–F04/F06–F12 are resolved within their recorded bounds. Accepted RC03/RC08 retain unresolved F05/F13 with actual owners, observable triggers and register R-54/R-53; series completion is not resolution of the review's AP-07/G9 judgment. The handoff in 45f identifies supported further questions without authorizing another campaign. Worktrees are integrated/removed; unrelated environment/workflow edits remain preserved.
+**Previous bounded checkpoint (2026-10-18 complete):** all 28 packages and ten bounded inquiry outcomes are complete. The selected corrections, in-bound N01–N04, targeted acceptance, assembled local/native/public/canonical/managed journeys and repaired zero-target scope-end checks are recorded in companion Outcomes and 45f. Blueprint revisions 197–203 publish the prerequisite and implemented contracts; proposed ADR statuses remain unchanged. F01–F04/F06–F12 are resolved within their recorded bounds. Accepted RC03/RC08 retain unresolved F05/F13 with actual owners, observable triggers and register R-54/R-53; series completion is not resolution of the review's AP-07/G9 judgment. The handoff in 45f identifies supported further questions without authorizing another campaign. Worktrees are integrated/removed; unrelated environment/workflow edits remain preserved.
 
 **Tested, authoring only, baseline zero:** document lifecycle validation passed with all seven new documents and 622 total native scope items checked; source-to-owner coverage and new file links passed; `just turn-end` passed; `just docs` published 488 chapters with scoped search. The initial lifecycle check found four existing uses of an undeclared `performance` topic in the consumed reviews/evidence. Declaring that existing label in the lifecycle vocabulary corrected the registration without editing their bodies. No product tests, new numerical experiments or library qualification ran during authoring, and pre-existing environment/workflow files remained unchanged. These checks establish document readiness, not completion of any product package.
 
 **Historical authoring boundary:** old plans/reviews and production remained unchanged during authoring. Only this new series and necessary index/lifecycle/publication registration are added. Required ADR/design decisions and contract revisions occur before their dependent implementation, as assigned by each RC row; F04 reconciles those owners with implemented eligibility and final evidence rather than postponing prerequisite contracts. Older-plan reconciliation/retirement is not part of this series. New plans do not inherit the right to delete other owners' data or fixtures.
 
+
+## Reopened follow-up checkpoint (2026-10-18)
+
+The maintainer selected F05 and F13 only and authorized the detailed execution approach. 45a/A06 owns the resolver and all compiler/runtime consumers; 45e/E05 owns the representative sparse screen and conditional narrow native owner; 45f/F05 owns their combined acceptance and enduring publication. Original packages, inquiries and qualification above retain their historical scope. Other retained alternatives are not reopened. No new functional acceptance is claimed at this checkpoint.
 
 ## Outcome (recorded after implementation)
 

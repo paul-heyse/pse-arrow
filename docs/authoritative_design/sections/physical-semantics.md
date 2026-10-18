@@ -25,8 +25,10 @@ Physical checking comes before Symbolica normalization ([ADR-0082](../../adr/008
 Algebraic simplification must never be the step that finds or hides a physical error.
 No hash is part of validity, type selection or the proof that a conversion applies. The
 framed identity of the admitted physical inventory
-(`pse-compiler::physical_identity`, frame `pse.math.physical-inventory.v6`) enters
-preparation keys, so editing a unit or type invalidates dependent artifacts
+(`pse-compiler::physical_identity`, frame `pse.math.physical-inventory.v6`) identifies
+complete admission/interchange context. Accepted Plan45 RC03 selects resolver-issued
+complete consumed premises for mathematical reuse (§14.4), while unsupported dependency
+classes remain conservative. Editing a consumed unit or type invalidates dependent artifacts
 ([§5](identity-and-publication.md#section-5)). Besides every declared contract, it frames
 unit compositions, derived-kind definitions, declared kind equivalences, operation contracts,
 and the names and typed conditions by which packages address quantity types and reference

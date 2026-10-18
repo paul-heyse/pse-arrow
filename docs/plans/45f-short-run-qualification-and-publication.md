@@ -1,6 +1,6 @@
 ---
 title: "Plan45f: Short-run qualification and publication"
-status: done
+status: in-progress
 date: 2026-10-18
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
@@ -78,6 +78,11 @@ If longer or materially different testing remains necessary, identify: the obser
 | F02 | Ready companion contrasts and integrated correction slices | Cross-owner short rounds, supported implementation feedback and complete-operation work/resource interpretation | done |
 | F03 | All selected functional changes and required investigation outcomes integrated | Assembled local/native/public/durable/resource acceptance and scope-end quality; zero-target accounting and obsolete paths removed | done |
 | F04 | Prior decision routes and F03 outcomes | Enduring publication, single-owner dispositions/outcomes and precise subsequent-work handoff; older plans unchanged | done |
+| F05 | Ready A06/E05 outcomes | Combined affected-scope journeys, scope-end zero-target checks, independent implementation review and enduring publication with truthful F05/F13 dispositions | open |
+
+## F05 — Reopened-scope acceptance and publication
+
+Integrate A06/E05, independently review stable combined code and run the smallest affected compiler/runtime/native/public journeys plus original residual and ownership checks. Run scope-end hygiene, complete continuing default/no-default/linked Clippy, affected feature/native/governance/documentation checks and repair failures. Preserve standard engineering accuracies and use fast editable correctness if Python execution is affected. Update the coordinator, packet Outcomes, architecture/ADR owners and R-54/R-53 according to actual implementation; no finding closes merely because its investigation finishes. Other plans and eliminated provenance work remain outside scope.
 
 ## Verification and checkpoint
 

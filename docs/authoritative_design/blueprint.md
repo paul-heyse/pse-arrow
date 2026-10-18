@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 203
+revision: 204
 date: 2026-10-18
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 204 | 2026-10-18 | Install accepted Plan45 RC03 consumed physical premises/current-owner lane refresh target (§8/§14.4/§5) and conditional RC08 private fixed-pattern KLU lifetime (§18); proposed ADR-0183/0200 amendments precede dependent implementation. | Maintainer-authorized F05/F13 follow-up; PSE_DESIGN_EDIT=1. Target installation only; behavioral qualification/adoption remain with 45a/A06, 45e/E05 and 45f/F05. Formal ADR statuses unchanged. |
 | 203 | 2026-10-18 | Reconcile implemented Plan45 exact historical accelerator (§14.4), grouped physical publication, exact retained protection accounting and admitted per-edit stack boundary (§20); refresh proposed ADR-0187/0199 implementation evidence and selected qualification (§24.2). | Maintainer-authorized Plan45 execution; PSE_DESIGN_EDIT=1; unchanged accuracy/cache/stack defaults and explicit F05/F13 limitations; selected qualification owned by 45f. |
 | 202 | 2026-10-18 | Accepted Plan45 RC06 deterministic bounded physical source groups, versioned publication namespace, exact parent/ACK/replay and prepaid payload ownership (§20); retain explicit large-relation atomic-closure limit. | PSE_DESIGN_EDIT=1; proposed ADR-0187 amendment precedes dependent C07 grouping implementation; scientific identity/payload framing unchanged. |
 | 201 | 2026-10-18 | Publish integrated Plan45 typed/persistent source and current-input ownership, prepared descriptions, explicit selected-result/evidence handoff and once-encoded physical publication; correct v11 dynamic identity and IDAS corrected quadrature-history lifecycle (§7.3/§13.6/§14.3.2/§14.4/§20). | Maintainer-authorized Plan45 execution; PSE_DESIGN_EDIT=1; targeted tests recorded at owning companions, assembled qualification remains 45f. |

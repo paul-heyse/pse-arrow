@@ -1029,7 +1029,7 @@ retain each selected value independently. Salsa handles remain local.
 | Fixed/free status, bounds, rows, bindings or contributions | case plan and its dependents | admitted bodies |
 | One definition's source, formals, units or literal contracts | that definition's body and dependent plans | other bodies with equal keys |
 | Domain membership, group tuples or provider descriptor | definitions that read them | independent definitions |
-| Quantity registry or physical preconditions | every body (complete physical identity) | nothing semantic |
+| Quantity registry or physical preconditions | receiving/source admission and products whose complete consumed physical premises change; unknown classifications remain conservative | eligible immutable products with equal resolver-issued premises; current prepared wrappers keep current owners |
 | Optimizer or evaluation profile | artifact requests and programs | bodies and plans |
 
 **Prepared views and value-only rebind.** Solver views of a modeling analysis separate
@@ -1092,10 +1092,21 @@ obsolete values through ancestry; deliberately held prior bindings keep their ow
 Assembled executable and initialization consumers preserve the same separation.
 Job reservations partition by transfer before retention, without a release/reacquire gap.
 
-A complete physical-inventory identity conservatively re-admits all bodies after any
-registry change; a finer consumed-physical fingerprint would be an optimization, not a
-correctness requirement. Registry edits also re-admit representation conversions in
-instance bindings. Diagnostic spans refresh without disturbing semantic products.
+**Plan45 accepted RC03 target (implementation in 45a/A06).** The resolver issues complete
+consumed physical premises, including positive/transitive meaning, misses, candidate
+membership/ambiguity, visibility, checker interpretation and consumed provider meaning.
+A lane refresh stages current physical context and Salsa inputs under the existing
+exclusive writer, re-admits current source, and publishes coherently or restores/destroys
+the candidate. Pure tracked products consume the issued projections; equal outputs may
+backdate. Body/artifact requests, view identities and frontier/completion use the same
+versioned dependency meaning. Current prepared wrappers carry current physical owners;
+compatible immutable mathematics may be shared. Complete inventory/source identity and
+fresh receiving qualification remain separate. Unknown dependency classes retain complete
+immutable-context dependence; unrepresentable checker/provider behavior disables retained
+reuse rather than treating inventory bytes as complete proof. Registry edits still re-admit
+representation conversions in instance bindings. Diagnostic spans refresh without disturbing
+semantic products. The prior conservative whole-context behavior remains the implementation
+until this complete migration qualifies.
 
 Retention is bounded. After each request the workspace triggers LRU eviction; if retained
 Salsa entries or known bytes still exceed `WorkspaceLimits`, it rebuilds a fresh generation

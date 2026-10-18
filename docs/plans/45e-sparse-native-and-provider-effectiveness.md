@@ -1,6 +1,6 @@
 ---
 title: "Plan45e: Sparse native and provider effectiveness"
-status: done
+status: in-progress
 date: 2026-10-18
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
@@ -66,6 +66,13 @@ Integrate a supported explicit profile or fitting library-owned improvement in t
 | E02 | Actual repeated class consumer and exact library model/update contract | Supported class-specific integration/profile changes or precise no-change; original objective/feasibility/integrality/certificate tests | done |
 | E03 | Existing valid property/implicit model and requested derivative eligibility | Provider work diagnosis and supported implementation; value/derivative/branch/stateful/stop controls | done |
 | E04 | Same declared recycle map/tear/start and explicit numerical controls | Recycle mechanism comparison and supported implementation/profile; original closure/nonconvergence/drain tests | done |
+| E05 | Accepted RC08; representative short stock screen; prerequisite native contract | Qualify simpler fixed-pattern private KLU lifetime with fresh numeric factors and real implicit-cache caller, or retain unresolved limitation with no unused candidate | in-progress |
+
+## E05 — Reopened fixed-pattern sparse qualification
+
+Screen stock KLU on 4,096/band-four, 64 units × eight variables with open/recycle coupling, and a 32×32 network. Use fixed support, changed coefficients, nonuniform manufactured roots and ordinary accuracy. Grow only an attribution-unresolved shape. A useful complete-operation case enables a dedicated private fixed-pattern KLU owner: freeze structure/settings, invalidate numeric state before every application including accepted starts, retain only valid symbolic state, full-factor current coefficients at first setup and preserve native within-call recovery. No copied CSC key or per-substitution scan. Qualify stock/eligible Krylov and the candidate with actual phase counts, original checks, failed setup/recovery/drain/accounting and the real implicit Session cache. No new public solver variant or universal default is selected. Remove any unadopted experiment; F13 remains unresolved if useful complete benefit is unestablished.
+
+Current checkpoint: the independent prerequisite review accepted the target and ADR-0200/blueprint revision 204 install it before implementation. The short stock screen passed all 30 changed-coefficient observations (one test, 0.13 seconds execution, baseline zero). At 4,096 band-four variables, complete replacement/solve was 8.64–8.83 ms with 0.536–0.598 ms symbolic work; at 32×32 grid it was 2.63–2.78 ms with 0.270–0.284 ms symbolic work. Every stock KLU application full-factored once and the original residual checks passed at ordinary 0.001 accuracy. This supplies a useful candidate qualification case, not dominance or an adoption/speedup claim. Implementation of the narrower private owner is released. The first launch compiled but stopped before tests at the unrelated default registry migration fence; the successful run used a fresh explicitly selected private test-resource registry without changing host admission or a canonical database.
 
 ## Verification and checkpoint
 
