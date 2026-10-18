@@ -71,16 +71,17 @@ fn decode_intent(bytes: &[u8]) -> Result<Artifact, WorkflowError> {
 
 /// Activation is the only permitted mutation of this exact original request.
 /// Both publication ACK and the actual subsequent read must establish it.
-pub(super) fn check_artifact_ack(expected: &Artifact, actual: &Artifact) -> Result<(), WorkflowError> {
-    let equal = actual.active && !actual.retiring
-        && expected.key == actual.key && expected.kind == actual.kind
-        && expected.revision == actual.revision && expected.primary_problem == actual.primary_problem
-        && expected.primary_authority == actual.primary_authority && expected.creation_nonce == actual.creation_nonce
-        && expected.creation_expires_at == actual.creation_expires_at
-        && expected.creation_request_digest == actual.creation_request_digest
-        && expected.interpretation == actual.interpretation && expected.provenance == actual.provenance
-        && expected.block_count == actual.block_count && expected.payload_bytes == actual.payload_bytes;
-    if !equal { return Err(contract("artifact acknowledgement differs from exact original request")); }
+pub(super) fn check_artifact_ack(pool: &Arc<dyn pse_columnar::MemoryPool>, expected: &Artifact, actual: &Artifact) -> Result<(), WorkflowError> {
+    // Compare the generated whole-row meaning. Only the acknowledged lifecycle
+    // transition differs from the original immutable publication request.
+    let scratch = MemoryConsumer::new("canonical:artifact-ack-equality").register(pool);
+    scratch.try_grow(size_of::<Artifact>().checked_add(expected.heap_bytes())
+        .ok_or_else(|| contract("artifact acknowledgement equality extent"))?)
+        .map_err(pse_engine::EngineError::from)?;
+    let mut normalized = expected.clone();
+    normalized.active = true;
+    normalized.retiring = false;
+    if &normalized != actual { return Err(contract("artifact acknowledgement differs from exact original request")); }
     Ok(())
 }
 
@@ -897,7 +898,7 @@ impl Runtime {
                 "canonical:artifact-promotion-publication-response",
                 MetadataResponse::Selection,
             )?;
-            let acknowledged = pse_operations::canonical::response_ownership_scope(
+            let publication = pse_operations::canonical::response_ownership_scope(
                 // The SDK owns metadata and the original read follower only;
                 // copied member buffers retain their separate local grant.
                 Arc::new((input.clone(), input_owner.clone(), response)),
@@ -909,9 +910,15 @@ impl Runtime {
                     owner_kind,
                     owner,
                 ),
-            )
-            .await?;
-            if check_artifact_ack(&header, &acknowledged).is_err() {
+            );
+            let acknowledged = match cancel.until_cancelled(publication).await {
+                Ok(reply) => reply?,
+                Err(_) => return Err(pse_operations::canonical::CanonicalError::ArtifactUnsettled {
+                    intent: Box::new(header),
+                    source: Box::new(pse_operations::canonical::CanonicalError::IncompleteResponse),
+                }.into()),
+            };
+            if check_artifact_ack(&self.shared.pool(), &header, &acknowledged).is_err() {
                 return Err(pse_operations::canonical::CanonicalError::ArtifactUnsettled {
                     intent: Box::new(header), source: Box::new(pse_operations::canonical::CanonicalError::IncompleteResponse),
                 }.into());
@@ -1420,13 +1427,18 @@ mod scientific_ack_unit {
     fn scientific_ack_requires_exact_original_request_and_active_independent_content() {
         let original = intent();
         let mut ack = original.clone(); ack.active = true;
-        check_artifact_ack(&original, &ack).unwrap();
+        let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(4096));
+        check_artifact_ack(&pool, &original, &ack).unwrap();
+        assert_eq!(pool.reserved(), 0, "temporary equality copy releases its charge");
+        let refused: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1));
+        assert!(check_artifact_ack(&refused, &original, &ack).is_err(), "header clone must be prepaid");
+        assert_eq!(refused.reserved(), 0);
         for kind in 0..8 {
             let mut wrong = ack.clone();
             match kind {0 => wrong.active = false, 1 => wrong.retiring = true, 2 => wrong.key.push('x'),
                 3 => wrong.creation_request_digest.push('x'), 4 => wrong.block_count += 1,
                 5 => wrong.payload_bytes += 1, 6 => wrong.provenance = vec![9].into(), _ => wrong.kind = "local-analysis".into()}
-            assert!(check_artifact_ack(&original, &wrong).is_err());
+            assert!(check_artifact_ack(&pool, &original, &wrong).is_err());
         }
     }
 }

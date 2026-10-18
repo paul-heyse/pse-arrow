@@ -680,3 +680,13 @@ pub async fn invalidate_prepared_revision(
         .bind(("key",revision.key.clone())).bind(("problem",revision.problem.clone())).bind(("sequence",crate::canonical_codec::encode_uint(revision.sequence)?))).await?;
     Ok(())
 }
+
+/// Cancel the supplied operation after its first actual artifact append-group ACK.
+/// The suspended transfer must be owned by a cancellation-aware caller.
+#[cfg(feature = "canonical-tests")]
+pub async fn cancel_after_artifact_append_ack<F: Future>(
+    cancel: impl Fn() + Send + Sync + 'static,
+    future: F,
+) -> F::Output {
+    crate::canonical_artifacts::CANCEL_AFTER_ARTIFACT_APPEND_ACK.scope(std::sync::Arc::new(cancel), future).await
+}
