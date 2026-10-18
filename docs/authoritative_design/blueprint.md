@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 193
+revision: 195
 date: 2026-10-17
 ---
 
@@ -24,6 +24,8 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 195 | 2026-10-17 | Plan44 implicit residual/hint/strict-interior programs share existing artifact/scalar ownership (§14.1), with fresh per-case native/configuration state and separately charged wrappers; conditional shooting chooses its route before effects (§13.6). | Maintainer-authorized Plan44 execution; PSE_DESIGN_EDIT=1; existing compilation contract and proposed ADR-0198. |
+| 194 | 2026-10-17 | Plan44 RC02 conditional exact IDAS forward quadrature product for combined shooting (§13.6/§19.4), retaining integral-only adjoints and existing accuracy/support boundaries. | Maintainer-authorized remaining Plan44 execution; PSE_DESIGN_EDIT=1. Proposed ADR-0198 precedes implementation. |
 | 193 | 2026-10-17 | Plan44 specified-change target: pre-dispatch invocation version-2 context (§23.1) and selected physical transient sensitivity coordinates (§13.6/§19.4), preserving public full Forward and practical accuracy. | Maintainer-authorized Plan44 tranche; PSE_DESIGN_EDIT=1. Proposed ADR-0192 extension and ADR-0197 precede implementation; investigations and older-plan reconciliation remain excluded. |
 | 192 | 2026-10-17 | Plan43 production-completeness target: one numerical-diagnostic clock/origin and per-product original permission (§23.1), separately owned gated launch profiling (§23.1), notifying compiler/proof scopes (§14.3) and paired native-gate/compute waits (§18.8). | Maintainer-authorized audit remediation; proposed ADR-0192/0195/0196 extended before dependent implementation; visible `.design-edit`. Implementation/status remain with Plan43. |
 | 191 | 2026-10-17 | Plan43 G05 publishes optional compiled-evaluator deployment forwarding at §14.5 and selected solver/diagnostic qualification at §24.2, with original scientific assertions, repaired composite/static boundaries and unchanged external-report publication limitation. | Maintainer delegated full-series execution; PSE_DESIGN_EDIT=1. Exact selected commands, conditions and exclusions stay in Plan43g; historical full basis, other plans and formal ADR statuses are unchanged. |

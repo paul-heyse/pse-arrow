@@ -307,21 +307,51 @@ fn forward_quadrature_selected_physical_axes_offsets_and_admission_are_exact() {
     #[derive(Debug)]
     struct Flux(Coupled);
     impl Oracle for Flux {
-        fn contract(&self) -> &Contract { self.0.contract() }
-        fn snapshot_owner(&self, bytes: usize) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
+        fn contract(&self) -> &Contract {
+            self.0.contract()
+        }
+        fn snapshot_owner(
+            &self,
+            bytes: usize,
+        ) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
             self.0.snapshot_owner(bytes)
         }
         fn support(&self, mode: usize, function: Function) -> Vec<SupportEntry> {
-            if function == Function::QuadratureFlux { entries(vec![(0, 0), (0, 2)]) }
-            else { self.0.support(mode, function) }
-        }
-        fn evaluate(&mut self, mode: usize, function: Function, time: f64, state: &[f64], parameters: &[f64], derivatives: bool) -> Result<Evaluation, ProblemError> {
-            if function != Function::QuadratureFlux {
-                return self.0.evaluate(mode, function, time, state, parameters, derivatives);
+            if function == Function::QuadratureFlux {
+                entries(vec![(0, 0), (0, 2)])
+            } else {
+                self.0.support(mode, function)
             }
-            let jacobian = derivatives.then(|| faer::sparse::SparseColMat::try_new_from_triplets(1, 6,
-                &[faer::sparse::Triplet::new(0, 0, 1.), faer::sparse::Triplet::new(0, 2, 3.)]).unwrap());
-            Ok(Evaluation { values: vec![state[0] + 3. * parameters[0]], jacobian: jacobian.map(|j| Arc::new(j).into()) })
+        }
+        fn evaluate(
+            &mut self,
+            mode: usize,
+            function: Function,
+            time: f64,
+            state: &[f64],
+            parameters: &[f64],
+            derivatives: bool,
+        ) -> Result<Evaluation, ProblemError> {
+            if function != Function::QuadratureFlux {
+                return self
+                    .0
+                    .evaluate(mode, function, time, state, parameters, derivatives);
+            }
+            let jacobian = derivatives.then(|| {
+                faer::sparse::SparseColMat::try_new_from_triplets(
+                    1,
+                    6,
+                    &[
+                        faer::sparse::Triplet::new(0, 0, 1.),
+                        faer::sparse::Triplet::new(0, 2, 3.),
+                    ],
+                )
+                .unwrap()
+            });
+            Ok(Evaluation {
+                values: vec![state[0] + 3. * parameters[0]],
+                jacobian: jacobian.map(|j| Arc::new(j).into()),
+            })
         }
     }
     let mut oracle = Flux(Coupled::new());
@@ -333,25 +363,82 @@ fn forward_quadrature_selected_physical_axes_offsets_and_admission_are_exact() {
     p.out_atol = vec![0.001];
     let snapshot = crate::execution::Snapshot::observe(&crate::execution::LINKED);
     let progress = || Arc::new(crate::solve::Progress::new(256));
-    let result = forward_quadratures_observed(&mut oracle, &p, &VALUES, Cancellation::default(), progress(), &snapshot, 32 << 20).unwrap();
-    assert_eq!(result.report.termination, Termination::Completed, "{:?}", result.report.error);
+    let result = forward_quadratures_observed(
+        &mut oracle,
+        &p,
+        &VALUES,
+        Cancellation::default(),
+        progress(),
+        &snapshot,
+        32 << 20,
+    )
+    .unwrap();
+    assert_eq!(
+        result.report.termination,
+        Termination::Completed,
+        "{:?}",
+        result.report.error
+    );
     assert_eq!(result.report.forward_axes, [4, 0, 2]);
     let expected = [1.625, VALUES[2] + 0.5, VALUES[0]];
     for (actual, expected) in result.derivatives.unwrap().iter().zip(expected) {
-        assert!((actual - expected).abs() <= 0.01 * expected.abs().max(1.), "{actual} vs {expected}");
+        assert!(
+            (actual - expected).abs() <= 0.01 * expected.abs().max(1.),
+            "{actual} vs {expected}"
+        );
     }
     assert!(result.reserved_bytes > 0);
-    assert!(matches!(forward_quadratures_observed(&mut oracle, &p, &VALUES, Cancellation::default(), progress(), &snapshot, 1), Err(ProblemError::Limit { .. })));
-    let stopped = forward_quadratures_observed(&mut oracle, &p, &VALUES, Cancellation::new(true), progress(), &snapshot, 32 << 20).unwrap();
+    assert!(matches!(
+        forward_quadratures_observed(
+            &mut oracle,
+            &p,
+            &VALUES,
+            Cancellation::default(),
+            progress(),
+            &snapshot,
+            1
+        ),
+        Err(ProblemError::Limit { .. })
+    ));
+    let stopped = forward_quadratures_observed(
+        &mut oracle,
+        &p,
+        &VALUES,
+        Cancellation::new(true),
+        progress(),
+        &snapshot,
+        32 << 20,
+    )
+    .unwrap();
     assert_eq!(stopped.report.termination, Termination::Cancelled);
     assert!(stopped.derivatives.is_none());
     p.forward_axes = Some(vec![]);
-    let empty = forward_quadratures_observed(&mut oracle, &p, &VALUES, Cancellation::default(), progress(), &snapshot, 32 << 20).unwrap();
+    let empty = forward_quadratures_observed(
+        &mut oracle,
+        &p,
+        &VALUES,
+        Cancellation::default(),
+        progress(),
+        &snapshot,
+        32 << 20,
+    )
+    .unwrap();
     assert_eq!(empty.report.termination, Termination::Completed);
     assert_eq!(empty.derivatives, Some(vec![]));
     p.forward_axes = Some(vec![4]);
     p.out_atol = vec![f64::MIN_POSITIVE];
     p.parameter_scales[0] = f64::MAX;
-    assert!(forward_quadratures_observed(&mut oracle, &p, &VALUES, Cancellation::default(), progress(), &snapshot, 32 << 20).is_err(),
-        "underflowed derivative tolerances must refuse before native work");
+    assert!(
+        forward_quadratures_observed(
+            &mut oracle,
+            &p,
+            &VALUES,
+            Cancellation::default(),
+            progress(),
+            &snapshot,
+            32 << 20
+        )
+        .is_err(),
+        "underflowed derivative tolerances must refuse before native work"
+    );
 }

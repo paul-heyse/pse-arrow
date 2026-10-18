@@ -1,6 +1,6 @@
 ---
 title: Integrated acceptance and follow-up
-status: proposed
+status: in-progress
 date: 2026-10-17
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_pipeline-performance-optimization_2026-10-17.md]
@@ -78,4 +78,18 @@ No other existing plan file, plan index, status reconciliation or supersession i
 
 ## Current checkpoint and verification
 
-All F packages are open. Plan creation performs metadata/native-table/link/render checks only. No numerical package, campaign or qualification was executed while authoring. The eventual overall completion claim must satisfy the coordinator and E05 boundaries; document creation, a library feasibility probe or green lint alone cannot close this series.
+F01/F02/F04 remain in progress. F03 has the source-led short-run conclusions and explicit future-review triggers below; its final coverage reconciliation awaits assembled acceptance. Historical authoring performed metadata/native-table/link/render checks only, with no numerical execution. The eventual overall completion claim must satisfy the coordinator and E05 boundaries; document creation, a library feasibility probe or green lint alone cannot close this series.
+
+## Follow-up inputs from the short campaign
+
+These are bounded future-review triggers, not newly authorized implementation or substitutes for unfinished short controls:
+
+| Question and retained consequence | Why short evidence does not select a further change | Discriminating next experiment and owner |
+| --- | --- | --- |
+| F06: KINSOL repeats KLU symbolic work on nontrivial calls | Exact SUNDIALS 7.1.1 source confirms each call initializes the direct owner; accepted exact starts bypass setup. Observed symbolic-owner wall intervals are about 1.8–10.7 microseconds including observation hooks. Stock `KLUReInit` discards symbolic and numeric state; suppressing initialization is unsound. | 44d/D02 remains the finding owner. Trigger a follow-up review when representative large sparse work shows material symbolic cost. Compare an explicitly selected owned linear binding keyed by exact CSC structure and all Common analysis settings, with fresh numeric state, failure invalidation, release/accounting and original residual checks. No retained-numeric shortcut. |
+| Combined forward quadratures versus retained adjoints with many controls | B05 removes adjoint requests where a combined consumer already needs Forward; integral-only and failed-preflight requests retain adjoints. Small one/two-window controls establish this conditional removal, not a global dimension crossover. | A workload whose control/quad/window dimensions make derivative storage or forward work material triggers a consumer-specific matched experiment. Count actual forward/backward requests, selected directions and admitted workspace, retain independent physical gradients and existing accuracy. Owner: the shooting product contract, blueprint §13.6/§19.4. |
+| Larger stiff/nonlinear physical horizons | The short linear, decay, DAE, schedule/reset and same-definition controls exercise branches and truthful work counts; 5/25 matched output density adds no native steps here. They cannot establish long-horizon convergence or a universal backend/profile ranking. | Trigger on actual rejection/setup/step growth or stalled scientific progress. Hold physical target and ordinary policy fixed, inspect native nonlinear/error-test failures, Jacobian/setup reasons, initialization and live progress before a longer horizon. Owner: native dynamics and consuming physical case. |
+| Fresh reference/property admission cost | N01 removed demonstrated irrelevant durable construction. A full reference closure still legitimately loads/admit sources; invocation and compiler spans are small compared with whole fresh-source wall time, but the old partial CPU capture does not allocate exclusive loader/schema/Serde costs. | Trigger when an actual repeated-authoring or property-heavy workflow makes admission material. Separate load/physical/model admission with aligned CPU/allocation observations and retained-source controls before selecting any representation change. Owner: existing source-admission/preparation contracts, 44c/C03 inquiry conclusion. |
+| Sustained managed throughput and large publication/retained-result populations | Tiny joined durable/managed journeys can establish actual transport/lifetime behavior; they cannot characterize saturation, external-process CPU/RSS or sustained publication throughput. | Trigger on observed queue/publication/retention growth under real use. Vary point or result population with actual worker/receiver identities, joined drain, selected/aggregate/repeated reads and original answer checks. Owner: study/result resource contracts. |
+
+No comparative elapsed performance claim follows from once-only observations. Raw stream loss and missing external-process observations remain explicit. The campaign’s purpose is to remove demonstrable unnecessary work and choose the next useful experiment; exact latency targets and a universal solver winner remain unspecified.

@@ -102,18 +102,44 @@ async fn cone(owner: &WorkflowRuntime, observations: &mut observations::Observat
     assert!(report.quality.as_ref().unwrap().feasible());
 }
 
-async fn recycle(owner: &WorkflowRuntime, observations: &mut observations::Observations) {
-    let physical = physical(owner).await;
-    let rows=pse_authoring::language::parse("package benchmark {def Root {param a:Scalar=2; var x:Scalar; let result:Scalar=x/2+a; port inlet:Scalar=x; port outlet:Scalar=result; connect outlet -> inlet; annotation start x(1);}}",id(1),pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
+pub(super) async fn recycle(
+    owner: &WorkflowRuntime,
+    spec: &Value,
+    observations: &mut observations::Observations,
+) {
+    let coupled = spec["shape"]
+        .as_str()
+        .is_some_and(|shape| matches!(shape, "coupled" | "stagnating"));
+    let runtime = if spec["operation"] == "compact-recycle" {
+        super::compact::local_runtime(owner)
+    } else {
+        runtime(owner)
+    };
+    let physical = fixture::physical_on(owner, &runtime).await;
+    let source = match spec["shape"].as_str() {
+        Some("coupled") => {
+            "package benchmark {def Root {var x:Scalar; var y:Scalar; let a:Scalar=0.4*x+0.1*y+2; let b:Scalar=0.2*x+0.3*y+2; port inlet:Scalar=x; annotation connectivity inlet(1,0); port outlet:Scalar=a; annotation connectivity outlet(0,1); port inlet_y:Scalar=y; annotation connectivity inlet_y(1,0); port outlet_y:Scalar=b; annotation connectivity outlet_y(0,1); connect outlet -> inlet; connect outlet_y -> inlet_y; annotation start x(1); annotation start y(2);}}"
+        }
+        Some("stagnating") => {
+            "package benchmark {def Root {var x:Scalar; var y:Scalar; let a:Scalar=0.97*x+0.01*y+0.08; let b:Scalar=0.01*x+0.97*y+0.08; port inlet:Scalar=x; annotation connectivity inlet(1,0); port outlet:Scalar=a; annotation connectivity outlet(0,1); port inlet_y:Scalar=y; annotation connectivity inlet_y(1,0); port outlet_y:Scalar=b; annotation connectivity outlet_y(0,1); connect outlet -> inlet; connect outlet_y -> inlet_y; annotation start x(1); annotation start y(2);}}"
+        }
+        _ => {
+            "package benchmark {def Root {param a:Scalar=2; var x:Scalar; let result:Scalar=x/2+a; port inlet:Scalar=x; annotation connectivity inlet(1,0); port outlet:Scalar=result; annotation connectivity outlet(0,1); connect outlet -> inlet; annotation start x(1);}}"
+        }
+    };
+    let rows = pse_authoring::language::parse(
+        source,
+        id(1),
+        pse_authoring::language::IdentityPolicy::Named,
+        Default::default(),
+    )
+    .unwrap();
     let root = rows
         .iter()
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime(owner)
-        .modeling_package(rows, physical)
-        .await
-        .unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     let cancel = audit::cancel_source();
     let analysis = package
         .declared_execution(
@@ -146,7 +172,12 @@ async fn recycle(owner: &WorkflowRuntime, observations: &mut observations::Obser
             .unwrap()
             .id
     };
-    let (input, output) = (port("inlet"), port("outlet"));
+    let mut inputs = BTreeSet::from([port("inlet")]);
+    let mut outputs = BTreeSet::from([port("outlet")]);
+    if coupled {
+        inputs.insert(port("inlet_y"));
+        outputs.insert(port("outlet_y"));
+    }
     let selection = pse_compiler::workspace::ModelingFlowSelection {
         nodes: BTreeSet::from([pse_modeling::specialize::root_instance(root)]),
         connections: product
@@ -187,11 +218,11 @@ async fn recycle(owner: &WorkflowRuntime, observations: &mut observations::Obser
         tears: selected.decisions,
         units: vec![workflow::CausalUnitRequest {
             node: pse_modeling::specialize::root_instance(root).into(),
-            inputs: BTreeSet::from([input]),
-            outputs: BTreeSet::from([output]),
+            inputs,
+            outputs,
             realization: workflow::CausalUnitRealization::ExplicitMap,
         }],
-        anderson: 1,
+        anderson: if coupled { 2 } else { 1 },
         anderson_delay: 0,
         restarts: None,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
@@ -203,11 +234,9 @@ async fn recycle(owner: &WorkflowRuntime, observations: &mut observations::Obser
     let result = audit::finish(prepared.start().unwrap()).await.unwrap();
     observations.strategy(&result.strategy, result.run_id, 0, owner.runtime.math());
     observations.native(&result.report);
-    near(
-        result.report.candidate.as_ref().unwrap().primal[0],
-        4.,
-        1e-6,
-    );
+    for value in &result.report.candidate.as_ref().unwrap().primal {
+        near(*value, 4., if coupled { 0.004 } else { 1e-6 });
+    }
     assert!(result.report.quality.as_ref().unwrap().feasible());
 }
 
@@ -301,7 +330,7 @@ async fn run(
             curved_fit::run(owner, observations, operation == "curved-gradient").await;
         }
         "conic" => cone(owner, observations).await,
-        "recycle" => recycle(owner, observations).await,
+        "recycle" => recycle(owner, spec, observations).await,
         "sparse-fit" => sparse_fit(owner, size, observations).await,
         "mixed-scale" | "qp" | "value-sweep" => {
             let quadratic = operation == "qp";

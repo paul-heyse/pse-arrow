@@ -422,48 +422,115 @@ impl MathService {
             // Select immutable programs under the existing admitted constructor bound.
             // The returned request descriptors remain charged while their ordinary
             // artifact flights compile/share programs independently of fresh hints.
-            let ((inner, solver, verifier, accelerators, provider_demands, requests), _request_owner) = self
-                .job_retained_construction(1, demand, control.clone(), driver.deadline(), move |flag| {
-                    let mut requests = Vec::with_capacity(inner.len());
-                    // Both the pending requests and the subsequently bound program
-                    // vector coexist across artifact waits under this same lease.
-                    let mut bytes = size_of::<Vec<(Vec<pse_compiler::workspace::ImplicitProgramRequest>, pse_compiler::workspace::ImplicitPrograms)>>()
+            let (
+                (inner, solver, verifier, accelerators, provider_demands, requests),
+                _request_owner,
+            ) = self
+                .job_retained_construction(
+                    1,
+                    demand,
+                    control.clone(),
+                    driver.deadline(),
+                    move |flag| {
+                        let mut requests = Vec::with_capacity(inner.len());
+                        // Both the pending requests and the subsequently bound program
+                        // vector coexist across artifact waits under this same lease.
+                        let mut bytes = size_of::<
+                            Vec<(
+                                Vec<pse_compiler::workspace::ImplicitProgramRequest>,
+                                pse_compiler::workspace::ImplicitPrograms,
+                            )>,
+                        >()
                         .checked_add(size_of::<Vec<pse_compiler::workspace::ImplicitPrograms>>())
-                        .and_then(|bytes| bytes.checked_add(requests.capacity().checked_mul(size_of::<(Vec<pse_compiler::workspace::ImplicitProgramRequest>, pse_compiler::workspace::ImplicitPrograms)>())?))
-                        .and_then(|bytes| bytes.checked_add(inner.len().checked_mul(size_of::<pse_compiler::workspace::ImplicitPrograms>())?))
+                        .and_then(|bytes| {
+                            bytes.checked_add(requests.capacity().checked_mul(size_of::<(
+                                Vec<pse_compiler::workspace::ImplicitProgramRequest>,
+                                pse_compiler::workspace::ImplicitPrograms,
+                            )>(
+                            ))?)
+                        })
+                        .and_then(|bytes| {
+                            bytes.checked_add(
+                                inner.len().checked_mul(size_of::<
+                                    pse_compiler::workspace::ImplicitPrograms,
+                                >())?,
+                            )
+                        })
                         .ok_or(MathRuntimeError::Limit("inner request container extent"))?;
-                    for item in &inner {
-                        let source = item.admitted.descriptor.spec().key();
-                        let requested = provider_demands.get(&source).copied().unwrap_or(pse_kernels::DerivativeOrder::Value);
-                        let selected = item.admitted.program_requests(&item.configurations,
-                            &pse_compiler::workspace::ImplicitCapabilities { solver: solver.clone(), verifier: verifier.clone(), accelerators: &accelerators },
-                            requested, &flag, profile.evaluation)?;
-                        for request in &selected.0 { bytes = bytes.checked_add(request.retained_bytes())
-                            .ok_or(MathRuntimeError::Limit("inner request extent"))?; }
-                        let spare = selected.0.capacity().saturating_sub(selected.0.len())
-                            .checked_mul(size_of::<pse_compiler::workspace::ImplicitProgramRequest>())
-                            .ok_or(MathRuntimeError::Limit("inner request spare extent"))?;
-                        bytes = bytes.checked_add(selected.1.descriptor_bytes()).and_then(|bytes| bytes.checked_add(spare))
-                            .ok_or(MathRuntimeError::Limit("inner request solver extent"))?;
-                        requests.push(selected);
-                    }
-                    Ok(((inner, solver, verifier, accelerators, provider_demands, requests), bytes))
-                }).await?;
+                        for item in &inner {
+                            let source = item.admitted.descriptor.spec().key();
+                            let requested = provider_demands
+                                .get(&source)
+                                .copied()
+                                .unwrap_or(pse_kernels::DerivativeOrder::Value);
+                            let selected = item.admitted.program_requests(
+                                &item.configurations,
+                                &pse_compiler::workspace::ImplicitCapabilities {
+                                    solver: solver.clone(),
+                                    verifier: verifier.clone(),
+                                    accelerators: &accelerators,
+                                },
+                                requested,
+                                &flag,
+                                profile.evaluation,
+                            )?;
+                            for request in &selected.0 {
+                                bytes = bytes
+                                    .checked_add(request.retained_bytes())
+                                    .ok_or(MathRuntimeError::Limit("inner request extent"))?;
+                            }
+                            let spare = selected
+                                .0
+                                .capacity()
+                                .saturating_sub(selected.0.len())
+                                .checked_mul(size_of::<
+                                    pse_compiler::workspace::ImplicitProgramRequest,
+                                >())
+                                .ok_or(MathRuntimeError::Limit("inner request spare extent"))?;
+                            bytes = bytes
+                                .checked_add(selected.1.descriptor_bytes())
+                                .and_then(|bytes| bytes.checked_add(spare))
+                                .ok_or(MathRuntimeError::Limit("inner request solver extent"))?;
+                            requests.push(selected);
+                        }
+                        Ok((
+                            (
+                                inner,
+                                solver,
+                                verifier,
+                                accelerators,
+                                provider_demands,
+                                requests,
+                            ),
+                            bytes,
+                        ))
+                    },
+                )
+                .await?;
             let mut programs = Vec::with_capacity(requests.len());
             fn derivative_cause(error: &MathRuntimeError) -> Option<&pse_math::MathError> {
                 match error {
                     MathRuntimeError::Math(error) => Some(error),
-                    MathRuntimeError::Compile(pse_compiler::workspace::CompileError::Math(error)) => Some(error),
+                    MathRuntimeError::Compile(pse_compiler::workspace::CompileError::Math(
+                        error,
+                    )) => Some(error),
                     MathRuntimeError::Shared(error) => derivative_cause(error),
                     _ => None,
                 }
             }
             for (selected, mut bound) in requests {
                 for request in selected {
-                    let artifact = Self::preparation_wait(&driver, self.artifact(request.artifact().clone())).await
-                        .map_err(|error| match derivative_cause(&error).and_then(|cause| request.attribute_refusal(cause)) {
-                            Some(attributed) => MathRuntimeError::Math(attributed), None => error,
-                        })?;
+                    let artifact =
+                        Self::preparation_wait(&driver, self.artifact(request.artifact().clone()))
+                            .await
+                            .map_err(|error| {
+                                match derivative_cause(&error)
+                                    .and_then(|cause| request.attribute_refusal(cause))
+                                {
+                                    Some(attributed) => MathRuntimeError::Math(attributed),
+                                    None => error,
+                                }
+                            })?;
                     bound.bind(request, artifact.program.clone())?;
                 }
                 programs.push(bound);
@@ -504,8 +571,13 @@ impl MathService {
                             profile.evaluation,
                             &programs,
                         )?;
-                        let (shared, wrappers) = factory.factory().separately_owned_program_bytes(&programs.allocation_identities())?;
-                        let local = factory.retained_bytes()?.checked_sub(shared).and_then(|bytes| bytes.checked_add(wrappers))
+                        let (shared, wrappers) = factory
+                            .factory()
+                            .separately_owned_program_bytes(&programs.allocation_identities())?;
+                        let local = factory
+                            .retained_bytes()?
+                            .checked_sub(shared)
+                            .and_then(|bytes| bytes.checked_add(wrappers))
                             .ok_or(MathRuntimeError::Limit("inner shared program accounting"))?;
                         retained = retained
                             .checked_add(local)

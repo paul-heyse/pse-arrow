@@ -134,14 +134,29 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
             accelerators: &accelerators,
         };
         let limits = pse_math::jets::EvaluationLimits::default();
-        let (requests, mut programs) = inner.program_requests(&configurations, &capabilities,
-            DerivativeOrder::First, &flag, limits).unwrap();
+        let (requests, mut programs) = inner
+            .program_requests(
+                &configurations,
+                &capabilities,
+                DerivativeOrder::First,
+                &flag,
+                limits,
+            )
+            .unwrap();
         for request in requests {
             let body = Arc::new(request.artifact().build(&scope).unwrap());
             programs.bind(request, body).unwrap();
         }
-        let factory = inner.factory_reusing(configurations, capabilities,
-            DerivativeOrder::First, flag.clone(), limits, &programs).unwrap();
+        let factory = inner
+            .factory_reusing(
+                configurations,
+                capabilities,
+                DerivativeOrder::First,
+                flag.clone(),
+                limits,
+                &programs,
+            )
+            .unwrap();
         let ImplicitFactory::Regimes(factory) = factory else {
             panic!("compiler-issued isolated selector")
         };

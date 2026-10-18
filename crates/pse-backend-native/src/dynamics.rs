@@ -534,7 +534,10 @@ pub struct ForwardQuadratures {
 /// Integrate selected forward quadrature derivatives for a shooting window. The caller
 /// supplies its existing admitted foreign allowance; this does not widen that allowance.
 #[cfg(feature = "idas")]
-#[allow(clippy::too_many_arguments, reason = "scientific input, original execution, observation and foreign allowance have distinct owners")]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "scientific input, original execution, observation and foreign allowance have distinct owners"
+)]
 pub fn forward_quadratures_observed(
     oracle: &mut dyn Oracle,
     profile: &Profile,
@@ -544,15 +547,31 @@ pub fn forward_quadratures_observed(
     snapshot: &crate::execution::Snapshot,
     memory: usize,
 ) -> Result<ForwardQuadratures, ProblemError> {
-    let profile = profile.resolve_for(oracle.contract(), parameters, snapshot, DynamicDemand::Base,
-        oracle.contract().derivatives, &[])?;
+    let profile = profile.resolve_for(
+        oracle.contract(),
+        parameters,
+        snapshot,
+        DynamicDemand::Base,
+        oracle.contract().derivatives,
+        &[],
+    )?;
     snapshot.validate_for(crate::execution::adapter(crate::solve::Backend::Idas))?;
     let layout = oracle.prepared_layout(memory)?;
     let bytes = profile.forward_quadrature_bytes(oracle.contract(), parameters, &layout)?;
     if bytes > memory {
-        return Err(ProblemError::memory("forward quadrature workspace exceeds foreign allowance"));
+        return Err(ProblemError::memory(
+            "forward quadrature workspace exceeds foreign allowance",
+        ));
     }
-    idas::forward_quadratures(oracle, &profile, parameters, cancel, progress, (layout, memory), bytes)
+    idas::forward_quadratures(
+        oracle,
+        &profile,
+        parameters,
+        cancel,
+        progress,
+        (layout, memory),
+        bytes,
+    )
 }
 
 /// A functional's gradient and the forward trajectory it was taken on (ADR-0110 item 3).
@@ -1854,30 +1873,49 @@ impl Profile {
     /// and native history/tolerance/callback storage are checked here (ADR-0198).
     #[cfg(feature = "idas")]
     pub fn forward_quadrature_bytes(
-        &self, c: &Contract, parameters: &[f64], layout: &PreparedLayout,
+        &self,
+        c: &Contract,
+        parameters: &[f64],
+        layout: &PreparedLayout,
     ) -> Result<usize, ProblemError> {
-        if self.resolved_method()? != Method::Idas || self.sensitivity != DynamicSensitivity::Forward {
-            return Err(ProblemError::unsupported("forward quadratures require selected IDAS Forward"));
+        if self.resolved_method()? != Method::Idas
+            || self.sensitivity != DynamicSensitivity::Forward
+        {
+            return Err(ProblemError::unsupported(
+                "forward quadratures require selected IDAS Forward",
+            ));
         }
         self.validate(c, parameters)?;
         let k = self.forward_width(c.parameters.len());
-        let cells = k.checked_mul(c.quadratures.len())
+        let cells = k
+            .checked_mul(c.quadratures.len())
             .ok_or_else(|| ProblemError::memory("forward quadrature product extent"))?;
-        if self.validate_retention(c, parameters, SampleRetention::Full, 0)?
-            .checked_add(cells).is_none_or(|total| total > self.max_cells) {
-            return Err(ProblemError::memory("forward quadrature result cell allowance"));
+        if self
+            .validate_retention(c, parameters, SampleRetention::Full, 0)?
+            .checked_add(cells)
+            .is_none_or(|total| total > self.max_cells)
+        {
+            return Err(ProblemError::memory(
+                "forward quadrature result cell allowance",
+            ));
         }
         let scales = self.integration_parameters(&self.parameter_scales);
         for axis in self.forward_axes(c.parameters.len()) {
             for tolerance in &self.out_atol {
                 let value = tolerance / scales[axis];
                 if !value.is_finite() || value <= 0. {
-                    return Err(ProblemError::unsupported("forward quadrature derivative tolerance must be finite and positive"));
+                    return Err(ProblemError::unsupported(
+                        "forward quadrature derivative tolerance must be finite and positive",
+                    ));
                 }
             }
         }
         self.native_scatter_bytes(layout, DynamicDemand::Base, c.parameters.len())?
-            .checked_add(idas::forward_quadrature_workspace(c, k, self.integration_width(c.parameters.len()))?)
+            .checked_add(idas::forward_quadrature_workspace(
+                c,
+                k,
+                self.integration_width(c.parameters.len()),
+            )?)
             .ok_or_else(|| ProblemError::memory("forward quadrature workspace extent"))
     }
     /// The estimated bytes of the adjoint forward checkpoints and their replay buffers,
@@ -2264,18 +2302,17 @@ impl Profile {
             self.admit_adjoint(c)?;
         }
         let np = self.integration_width(c.parameters.len());
-        if let Some(axes) = &self.forward_axes {
-            if self.sensitivity != DynamicSensitivity::Forward
+        if let Some(axes) = &self.forward_axes
+            && (self.sensitivity != DynamicSensitivity::Forward
                 || axes.iter().any(|axis| *axis >= np)
                 || axes
                     .iter()
                     .enumerate()
-                    .any(|(k, axis)| axes[..k].contains(axis))
-            {
-                return Err(contract(
-                    "forward axes must be unique physical integration coordinates",
-                ));
-            }
+                    .any(|(k, axis)| axes[..k].contains(axis)))
+        {
+            return Err(contract(
+                "forward axes must be unique physical integration coordinates",
+            ));
         }
         let scheduled = self
             .schedule

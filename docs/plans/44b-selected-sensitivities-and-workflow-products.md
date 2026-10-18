@@ -2,7 +2,7 @@
 title: Selected sensitivities and workflow products
 status: in-progress
 date: 2026-10-17
-adrs: [ADR-0197]
+adrs: [ADR-0197, ADR-0198]
 review_sources: [docs/design_review/reviews/design_review_pipeline-performance-optimization_2026-10-17.md]
 doc_owner: docs/plans/44-pipeline-performance-optimization.md
 doc_topics: [current-work, numerical-execution, design, libraries, validation]
@@ -71,8 +71,8 @@ Acceptance covers 5/25 outputs, an increased but still short grid, off-grid/coin
 | B01 | Existing rank/worker/structural admission contracts | Known optional refusal before derivative IVP; candidate-preserving refusal tests; remove late duplicate admission | done |
 | B02 | Exact IDAS/Diffsol realization and consumed layout decision | Selected directions across initial/scheduled/native/result/admission owners; full-Forward preservation and coupled/scaled tests; delete full-width assumptions in migrated paths | done |
 | B03 | B01 implemented; existing final oracle; B02 only where selected layout is consumed | One fresh admitted final product, live-only value fallback and original permission; remove duplicate successful final integration | done |
-| B04 | B02/B03 relevant product semantics; E03 accepted/rejected trial controls | Supported conditional scheduling decision and any selected implementation; retain default lazy route and failed-upgrade behavior | open |
-| B05 | B02 window/direction contract; accepted RC02; exact native capability and E03 crossover controls | Qualified conditional forward quadrature route or supported retained-adjoint conclusion; preserve hybrid refusals | open |
+| B04 | B02/B03 relevant product semantics; E03 accepted/rejected trial controls | Supported conditional scheduling decision and any selected implementation; retain default lazy route and failed-upgrade behavior | done |
+| B05 | B02 window/direction contract; accepted RC02; exact native capability and E03 crossover controls | Qualified conditional forward quadrature route or supported retained-adjoint conclusion; preserve hybrid refusals | done |
 | B06 | Existing coverage/endpoint/check semantics | Ordered sample checking and endpoint merge; Full/Compact/partial/event tests; delete repeated grid lookup | done |
 
 ## Verification and checkpoint
@@ -84,3 +84,11 @@ Package tests run with their implementation and selected compile checks. Feed ac
 **Implemented and targeted Tested:** B01 preflights deterministic rank cells, dimensions, overflow, numeric/scratch and structural-stack allowance before optional response work, reserving rank memory after the IVP. B03 performs one fresh final response/value evaluation independently of optimizer cache, reuses it for rank, preserves value-only fallback after derivative failure, and starts no fallback after cancellation. B02 propagates consumed physical axes through Diffsol/IDAS, initialization, schedules, anchored/shooting gathering, reduced sample/native admission and retained reports. Free semantic inputs resolve before fitting preparation admission; typed replay preserves that request or explicit physical axes. Ordinary public Forward remains full. Public response rows include `parameter_column` so scheduled intervals stay distinct, and dynamic profile framing is version10 (ADR-0197). Complete fixed values, tied scaled contributions, independent checks and practical accuracy remain. B06 merges ordered sample/coverage ordinals and a separate endpoint without repeated grid search. Native selected/full/empty, coupled/scaled/scheduled/anchor, public projection/replay, rank/fallback/cancellation and ordered endpoint controls pass in the coordinator's scoped selection. B04/B05 remain unrun; no quadrature-sensitivity choice or eager-trial policy was adopted.
 
 The coordinator owns command/result totals and the enclosing acceptance boundary. These package results do not close the 44e campaign or 44f qualification.
+
+## B04/B05 execution checkpoint
+
+**Tested — B04:** actual callback-stream controls compare lazy upgrades and the existing explicit EagerFirst shooting option for one/four windows; fitting response and gradient-only routes keep rejected value trials lazy. Eager selection avoids an accepted upgrade but computes derivatives for rejected/unconsumed trials. Native callbacks provide no promise of future derivative demand. Retain the lazy defaults and the existing explicit option for a consumer that knows its demand; no new automatic trial policy or optimizer loop was added.
+
+**Implemented; targeted controls partially Tested — B05:** proposed ADR-0198 preceded the new narrow IDAS endpoint product. Exact supplied callbacks compute state and direct physical-parameter contributions; anchored initial effects and scheduled accumulated offsets/reinitialization preserve the selected layout. Explicit derivative tolerances/error control and complete extra native/result storage are preflighted for every window. Only admitted combined requests select this route; integral-only and nonqualifying requests retain adjoints before effects. After native work starts, failure/cancellation never triggers another route. Each window product reduces immediately into the existing integral-gradient layout before issuing the next window; only a complete stronger result replaces the cache.
+
+Direct/scaled/initial/scheduled/empty/cancelled derivative controls, one/two-window analytic products, integral-only adjoints, atomic failed upgrades and actual removed adjoint requests pass. The first all-window fallback-capacity control accidentally reserved 1,000 events for a model with one scheduled transition, so neither route fit its reduced cell budget. Its repaired setup explicitly proves the old route fits before requiring new-product refusal. The repaired all-window preflight control and assembled fitting/shooting/dynamics/native selection passed (86 tests, zero failures; native-local, explicit force-validation). Practical 0.001 and hybrid/reset derivative refusals are unchanged. Independent source review found no additional B05 contract defect; it is not runtime acceptance.

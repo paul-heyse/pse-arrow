@@ -1685,6 +1685,373 @@
         "interpretation_limits": "Continuation dependencies serialize even when two workers are configured; between-point cache pressure is exercised by the named study lane unit control, not inferred from pre/post trimming."
       },
       "detail_families": []
+    },
+    {
+      "id": "compact-study-2-full-independent-nonlinear",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 2,
+      "workers": 2,
+      "retention": "full",
+      "continuation": false,
+      "trim_cache": true,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Observe actual nonlinear point-cost skew with four nonzero overlays, retained lane preparation and native roots.",
+        "assertions": "Unique original positive x=2+t under x^3+x=(2+t)^3+(2+t), for t in [0.01,1,3,7]; original residual/checks, requested start provenance and joined cleanup.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "workflow.integration.v1",
+          "audit.join"
+        ],
+        "interpretation_limits": "Monotone cubic-plus-linear authority avoids ambiguous quadratic branches. Different roots and constant fresh start produce real native work variation, not artificial delay. Continuation dependencies can serialize configured lanes; counts do not establish parallel speedup."
+      },
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "nonlinear": true
+    },
+    {
+      "id": "compact-study-2-compact-continuation-nonlinear",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 2,
+      "workers": 2,
+      "retention": "compact",
+      "continuation": true,
+      "trim_cache": true,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Observe actual nonlinear point-cost skew with four nonzero overlays, retained lane preparation and native roots.",
+        "assertions": "Unique original positive x=2+t under x^3+x=(2+t)^3+(2+t), for t in [0.01,1,3,7]; original residual/checks, requested start provenance and joined cleanup.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "workflow.integration.v1",
+          "audit.join"
+        ],
+        "interpretation_limits": "Monotone cubic-plus-linear authority avoids ambiguous quadratic branches. Different roots and constant fresh start produce real native work variation, not artificial delay. Continuation dependencies can serialize configured lanes; counts do not establish parallel speedup."
+      },
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "nonlinear": true
+    },
+    {
+      "id": "compact-recycle-basic",
+      "operation": "compact-recycle",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "shape": "basic",
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_raw_map.v1"
+      ],
+      "case_spec": {
+        "family": "C07",
+        "question": "Separate declared-port tear preparation, coupled fixed-point progress and near-stagnating actual map work.",
+        "assertions": "All tear roots equal4 with original fixed-point qualification, selected Mandatory connections and real joined native work.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "recycle.map"
+        ],
+        "interpretation_limits": "Native acceleration owns iteration. Small coupled and .98 spectral-radius maps do not qualify a large recycle network or select a universal acceleration default."
+      }
+    },
+    {
+      "id": "compact-recycle-coupled",
+      "operation": "compact-recycle",
+      "reuse": "cold",
+      "blocks": 2,
+      "threads": 1,
+      "shape": "coupled",
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_raw_map.v1"
+      ],
+      "case_spec": {
+        "family": "C07",
+        "question": "Separate declared-port tear preparation, coupled fixed-point progress and near-stagnating actual map work.",
+        "assertions": "All tear roots equal4 with original fixed-point qualification, selected Mandatory connections and real joined native work.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "recycle.map"
+        ],
+        "interpretation_limits": "Native acceleration owns iteration. Small coupled and .98 spectral-radius maps do not qualify a large recycle network or select a universal acceleration default."
+      }
+    },
+    {
+      "id": "compact-recycle-stagnating",
+      "operation": "compact-recycle",
+      "reuse": "cold",
+      "blocks": 2,
+      "threads": 1,
+      "shape": "stagnating",
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "root_raw_map.v1"
+      ],
+      "case_spec": {
+        "family": "C07",
+        "question": "Separate declared-port tear preparation, coupled fixed-point progress and near-stagnating actual map work.",
+        "assertions": "All tear roots equal4 with original fixed-point qualification, selected Mandatory connections and real joined native work.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "recycle.map"
+        ],
+        "interpretation_limits": "Native acceleration owns iteration. Small coupled and .98 spectral-radius maps do not qualify a large recycle network or select a universal acceleration default."
+      }
+    },
+    {
+      "id": "compact-root-negative-branch-refusal-4",
+      "operation": "compact-root",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C12",
+        "question": "Preserve actual native success/candidate observations when independent original positive-root checks refuse an unwanted negative branch.",
+        "assertions": "Native successful feasible negative candidates, failed positive-target original checks and unusable workflow result; real joined cleanup.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations"
+        ],
+        "interpretation_limits": "Expected original rejection is an adverse scientific-permission control, not eligible root performance coverage. The monotone C03 fixtures supply affirmative coverage."
+      },
+      "shape": "diagonal",
+      "backend": "kinsol",
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "expected_original_rejection": true
+    },
+    {
+      "id": "compact-diffsol-ode-25-unscheduled",
+      "operation": "compact-dynamics",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C08",
+        "question": "Isolate requested output density at unchanged selected axes, physical horizon and unscheduled native integration.",
+        "assertions": "Analytic x=1+2t (ODE), x=1+4t and y=4 (DAE); original checks.",
+        "observations": [
+          "workflow.integration.v1",
+          "native.work",
+          "invocation"
+        ],
+        "interpretation_limits": "Compare with the same backend ode-5 only; scheduled ode-25 also changes segments and selected axes."
+      },
+      "backend": "diffsol",
+      "shape": "ode",
+      "samples": 25,
+      "scheduled": false,
+      "detail_families": [
+        "dynamic_native_return.v1"
+      ]
+    },
+    {
+      "id": "compact-idas-ode-25-unscheduled",
+      "operation": "compact-dynamics",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "case_spec": {
+        "family": "C08",
+        "question": "Isolate requested output density at unchanged selected axes, physical horizon and unscheduled native integration.",
+        "assertions": "Analytic x=1+2t (ODE), x=1+4t and y=4 (DAE); original checks.",
+        "observations": [
+          "workflow.integration.v1",
+          "native.work",
+          "invocation"
+        ],
+        "interpretation_limits": "Compare with the same backend ode-5 only; scheduled ode-25 also changes segments and selected axes."
+      },
+      "backend": "idas",
+      "shape": "ode",
+      "samples": 25,
+      "scheduled": false,
+      "detail_families": [
+        "dynamic_native_return.v1"
+      ]
+    },
+    {
+      "id": "p44-results-admitted-retained-4-5",
+      "operation": "result_analysis",
+      "reuse": "admitted-retained",
+      "blocks": 4,
+      "threads": 1,
+      "variables": [
+        4
+      ],
+      "result_reads": 3,
+      "functional_scopes": [
+        "process",
+        "lifecycle"
+      ],
+      "samples": 5,
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "case_spec": {
+        "family": "C11",
+        "question": "Separate selected/aggregate/repeated result reads, cardinality growth and source-to-publication from native integration.",
+        "assertions": "Existing analytic trajectory, exact Arrow identities/row counts, publication/reopen/export and escaped resource checks.",
+        "observations": [
+          "invocation",
+          "result.materialization",
+          "resource.shared_pool_reserved"
+        ],
+        "interpretation_limits": "One complete observation; distinct admitted/read and source-to-published scopes, no throughput or statistical claim."
+      }
+    },
+    {
+      "id": "p44-results-admitted-retained-4-25",
+      "operation": "result_analysis",
+      "reuse": "admitted-retained",
+      "blocks": 4,
+      "threads": 1,
+      "variables": [
+        4
+      ],
+      "result_reads": 3,
+      "functional_scopes": [
+        "process",
+        "lifecycle"
+      ],
+      "samples": 25,
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "case_spec": {
+        "family": "C11",
+        "question": "Separate selected/aggregate/repeated result reads, cardinality growth and source-to-publication from native integration.",
+        "assertions": "Existing analytic trajectory, exact Arrow identities/row counts, publication/reopen/export and escaped resource checks.",
+        "observations": [
+          "invocation",
+          "result.materialization",
+          "resource.shared_pool_reserved"
+        ],
+        "interpretation_limits": "One complete observation; distinct admitted/read and source-to-published scopes, no throughput or statistical claim."
+      }
+    },
+    {
+      "id": "p44-results-admitted-retained-8-5",
+      "operation": "result_analysis",
+      "reuse": "admitted-retained",
+      "blocks": 8,
+      "threads": 1,
+      "variables": [
+        8
+      ],
+      "result_reads": 3,
+      "functional_scopes": [
+        "process",
+        "lifecycle"
+      ],
+      "samples": 5,
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "case_spec": {
+        "family": "C11",
+        "question": "Separate selected/aggregate/repeated result reads, cardinality growth and source-to-publication from native integration.",
+        "assertions": "Existing analytic trajectory, exact Arrow identities/row counts, publication/reopen/export and escaped resource checks.",
+        "observations": [
+          "invocation",
+          "result.materialization",
+          "resource.shared_pool_reserved"
+        ],
+        "interpretation_limits": "One complete observation; distinct admitted/read and source-to-published scopes, no throughput or statistical claim."
+      }
+    },
+    {
+      "id": "p44-results-publish-chain-4-5",
+      "operation": "result_analysis",
+      "reuse": "publish-chain",
+      "blocks": 4,
+      "threads": 1,
+      "variables": [
+        4
+      ],
+      "result_reads": 3,
+      "physical_padding_bytes": 0,
+      "functional_scopes": [
+        "process",
+        "lifecycle"
+      ],
+      "samples": 5,
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "case_spec": {
+        "family": "C11",
+        "question": "Separate selected/aggregate/repeated result reads, cardinality growth and source-to-publication from native integration.",
+        "assertions": "Existing analytic trajectory, exact Arrow identities/row counts, publication/reopen/export and escaped resource checks.",
+        "observations": [
+          "invocation",
+          "result.materialization",
+          "resource.shared_pool_reserved"
+        ],
+        "interpretation_limits": "One complete observation; distinct admitted/read and source-to-published scopes, no throughput or statistical claim."
+      }
     }
   ]
 }

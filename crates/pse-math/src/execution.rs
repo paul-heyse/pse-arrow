@@ -2920,7 +2920,10 @@ impl CompiledBody {
     /// blocks carry strong/weak counts; each join retains the prior and new owners.
     pub fn owner_attachment_bytes(&self) -> usize {
         let controls = 2 * size_of::<usize>();
-        let join = size_of::<(Arc<dyn crate::AllocationOwner>, Arc<dyn crate::AllocationOwner>)>() + controls;
+        let join = size_of::<(
+            Arc<dyn crate::AllocationOwner>,
+            Arc<dyn crate::AllocationOwner>,
+        )>() + controls;
         size_of::<Self>() + controls + 3 * join
     }
     /// Attach accounting to the allocation itself so evaluator/worker clones retain it.

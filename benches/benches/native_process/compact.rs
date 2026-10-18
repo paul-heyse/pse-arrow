@@ -6,6 +6,7 @@ use pse_backend_native::{self as native, dynamics, solve::SolveIntent};
 use pse_ids::{SemanticId, named_id};
 use pse_kernels::DerivativeOrder;
 use pse_model::generated::enums::NumericalTarget;
+use pse_runtime::workflow;
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -26,11 +27,19 @@ async fn package(owner: &WorkflowRuntime, source: &str) -> (ModelingPackage, Dec
         .find(|row| row.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime(owner)
-        .modeling_package(rows, physical(owner).await)
-        .await
-        .unwrap();
+    let runtime = local_runtime(owner);
+    let physical = fixture::physical_on(owner, &runtime).await;
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     (package, root)
+}
+
+/// These declarations exercise local science, not canonical publication. The
+/// durable/managed cases keep their explicitly selected storage owners.
+pub(super) fn local_runtime(owner: &WorkflowRuntime) -> workflow::Runtime {
+    let runtime =
+        workflow::Runtime::from_shared_local(owner.runtime.clone(), owner.model.clone()).unwrap();
+    assert!(runtime.canonical().is_err());
+    runtime
 }
 
 /// Analytic diagonal/banded/coupled roots, with a fixed original solution x_i=i+1.
@@ -42,10 +51,18 @@ async fn roots(
     let n = spec["blocks"].as_u64().unwrap() as usize;
     assert!(n > 0);
     let shape = spec["shape"].as_str().unwrap_or("diagonal");
+    let reject_negative = spec["expected_original_rejection"]
+        .as_bool()
+        .unwrap_or(false);
     assert!(matches!(shape, "diagonal" | "banded" | "coupled"));
     let mut source = String::from("package compact { def Root {");
     for i in 0..n {
-        source.push_str(&format!("var x{i}:Scalar; annotation start x{i}(0.5);"));
+        let start = if reject_negative {
+            -0.9 * (i + 1) as f64
+        } else {
+            0.5
+        };
+        source.push_str(&format!("var x{i}:Scalar; annotation start x{i}({start});"));
     }
     for i in 0..n {
         let extra = match shape {
@@ -58,10 +75,17 @@ async fn roots(
                 .collect(),
             _ => unreachable!(),
         };
+        let equation = if reject_negative {
+            format!("x{i}*x{i}=={}", (i + 1) * (i + 1))
+        } else {
+            format!(
+                "x{i}*x{i}*x{i}+x{i}{extra}=={}",
+                (i + 1) * (i + 1) * (i + 1) + i + 1
+            )
+        };
         source.push_str(&format!(
-            "eq row{i}:x{i}*x{i}{extra}=={}; annotation check x{i}(abs(x{i}-{})<=0.005);",
-            (i + 1) * (i + 1),
-            i + 1,
+            "eq row{i}:{equation}; annotation check x{i}(abs(x{i}-{})<=0.005);",
+            i + 1
         ));
     }
     source.push_str("} }");
@@ -106,6 +130,40 @@ async fn roots(
         })
         .collect::<Vec<_>>();
     let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+    observations.run(&result, owner.runtime.math());
+    if reject_negative {
+        let RunReport::Modeling(reports) = result.report().unwrap() else {
+            panic!("missing rejected modeling result")
+        };
+        let report = &reports[0];
+        assert!(!result.usable() && !report.accepted);
+        assert!(report.checks.iter().any(|check| !check.satisfied));
+        let native: Vec<_> = match &report.outcome {
+            pse_runtime::math::solves::Outcome::Native(native) => vec![native.as_ref()],
+            pse_runtime::math::solves::Outcome::Constant(original) => {
+                original.component_reports().collect()
+            }
+            _ => panic!("rejection must follow actual native convergence"),
+        };
+        assert!(!native.is_empty());
+        for native in native {
+            assert_eq!(
+                native.termination.category,
+                native::solve::Termination::Success
+            );
+            assert!(native.quality.as_ref().unwrap().feasible());
+            assert!(
+                native
+                    .candidate
+                    .as_ref()
+                    .unwrap()
+                    .primal
+                    .iter()
+                    .all(|value| *value < 0.)
+            );
+        }
+        return;
+    }
     let report = authored_success(&result);
     // A structural schedule retains its native components under the fresh
     // original assessment. The top-level outcome alone is not the native work.
@@ -124,7 +182,6 @@ async fn roots(
     for (i, symbol) in symbols.into_iter().enumerate() {
         near(variable(&result, symbol), (i + 1) as f64, 0.005);
     }
-    observations.run(&result, owner.runtime.math());
 }
 
 /// Checked LP/MILP commitment and bounded synthesis MINLP owner templates.
@@ -162,6 +219,7 @@ async fn classes(
     selected.presolve = native::presolve::Policy::Off;
     if backend == Backend::Uno {
         selected.controls.hessian = native::solve::HessianMode::LimitedMemory;
+        selected.numerics.native_scaling = false;
     }
     let analysis = package
         .declared_execution(
@@ -177,6 +235,7 @@ async fn classes(
         .analysis;
     let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+    observations.run(&result, owner.runtime.math());
     let report = authored_success(&result);
     let pse_runtime::math::solves::Outcome::Native(native) = &report.outcome else {
         panic!("expected native class result");
@@ -211,7 +270,6 @@ async fn classes(
             0.01,
         );
     }
-    observations.run(&result, owner.runtime.math());
 }
 
 /// ODE and index-1 DAE from modeling/dynamics.rs; physical time is two seconds.
@@ -363,7 +421,7 @@ async fn decay(
         1.0
     };
     let source = format!(
-        "package compact {{ difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0.5,0.5); def Root {{ domain t:Time from 0{{s}} to 1{{s}}; when analysis.route==analysis.integrated {{discretize native on t using integrated(elements=1,order=1);}} when analysis.route!=analysis.integrated {{discretize grid on t using backward(elements=4,order=1);}} param target:Time=2{{s}}; param tau:Time={tau}{{s}}; var x[i in t]:Time; when analysis.dynamic {{eq transient[i in t]:d(x[i])/di==(target-x[i])/tau; eq initial:x[0{{s}}]==0{{s}};}} when not analysis.dynamic {{eq stationary[i in t]:0==(target-x[i])/tau;}} annotation start x(0{{s}}); annotation check x(x[i]>=-0.01{{s}} and x[i]<=2.01{{s}}); }} }}"
+        "package compact {{ difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0.5,0.5); def Root {{ domain t:Time from 0{{s}} to 1{{s}}; when analysis.route==analysis.integrated {{discretize native on t using integrated(elements=1,order=1);}} when analysis.route!=analysis.integrated {{discretize grid on t using backward(elements=4,order=1);}} param target:Time=2{{s}}; param tau:Time={tau}{{s}}; var x[i in t]:Time; when analysis.dynamic {{eq transient[i in t]:d(x[i])/di==(target-x[i])/tau; eq initial:x[0{{s}}]==0{{s}};}} when not analysis.dynamic {{eq stationary[i in t]:0==(target-x[i])/tau;}} annotation start x(0{{s}}); annotation engineering_scale x[0{{s}}](kind=magnitude,value=2{{s}}); annotation check x(x[i]>=-0.01{{s}} and x[i]<=2.01{{s}}); }} }}"
     );
     let (package, root) = package(owner, &source).await;
     let cancel = audit::cancel_source();
@@ -442,6 +500,19 @@ async fn decay(
             NumericalTarget::Variable,
             prepared.contract().states[0],
         );
+        let engineering = prepared
+            .numerics()
+            .targets
+            .iter()
+            .find(|target| {
+                target.kind == NumericalTarget::Variable
+                    && target.id == prepared.contract().states[0]
+            })
+            .and_then(|target| target.engineering.as_ref())
+            .unwrap();
+        assert!(!engineering.canonical_fallback);
+        assert_eq!(engineering.characteristic, Some(2.));
+        near(budget, 2. * accuracy, 1e-15);
         let result = audit::wait(prepared.start().unwrap()).await.unwrap();
         assert!(result.usable(), "{:?}", result.assessments());
         let RunReport::Simulation(trajectory) = result.report().unwrap() else {
@@ -466,7 +537,7 @@ async fn reference(
     observations: &mut observations::Observations,
 ) {
     let loading = audit::stage("reference_documents_and_admission");
-    let package = seed_package(owner).await;
+    let package = seed_package_on(owner, local_runtime(owner)).await;
     assert!(
         package
             .declarations()
@@ -708,12 +779,14 @@ async fn study(
     assert_eq!(spec["blocks"].as_u64(), Some(4));
     assert_eq!(owner.runtime.budget().threads.pool_threads.get(), workers);
     let continuation = spec["continuation"].as_bool().unwrap_or(false);
+    let nonlinear = spec["nonlinear"].as_bool().unwrap_or(false);
     let compact = match spec["retention"].as_str().unwrap_or("full") {
         "full" => false,
         "compact" => true,
         retention => panic!("unsupported compact study retention {retention}"),
     };
-    let physical = physical(owner).await;
+    let runtime = local_runtime(owner);
+    let physical = fixture::physical_on(owner, &runtime).await;
     let scalar = physical.quantities().neutral_dimensionless().unwrap();
     let unit = physical
         .quantities()
@@ -721,20 +794,29 @@ async fn study(
         .unwrap()
         .canonical_unit
         .as_id();
+    let source = if nonlinear {
+        "package compact { def Root { param t:Scalar=1; var x:Scalar; eq e:x*x*x+x==(2+t)*(2+t)*(2+t)+(2+t); annotation start x(0.5); annotation check x(x>0); } }"
+    } else {
+        "package compact { def Root { param t:Scalar=1; var x:Scalar; eq e:x==2+t; annotation start x(2+t); annotation check x(x>0); } }"
+    };
     let rows = pse_authoring::language::parse(
-        "package compact { def Root { param t:Scalar=1; var x:Scalar; eq e:x==2+t; annotation start x(2+t); annotation check x(x>0); } }",
-        id("study-package"), pse_authoring::language::IdentityPolicy::Named, Default::default(),
-    ).unwrap();
+        source,
+        id("study-package"),
+        pse_authoring::language::IdentityPolicy::Named,
+        Default::default(),
+    )
+    .unwrap();
     let root = rows
         .iter()
         .find(|row| row.name == "Root")
         .unwrap()
         .declaration_id;
-    let runtime = runtime(owner)
-        .with_durability(workflow::DurabilitySelection::Ephemeral)
-        .unwrap();
     let package = runtime.modeling_package(rows, physical).await.unwrap();
-    let values = [1.0, 2.0, 3.0, 4.0];
+    let values = if nonlinear {
+        [0.01, 1.0, 3.0, 7.0]
+    } else {
+        [1.0, 2.0, 3.0, 4.0]
+    };
     let points = values
         .iter()
         .enumerate()
@@ -913,7 +995,12 @@ async fn study(
         assert_eq!(parameters.len(), 1);
         assert_eq!(unknowns.len(), 1);
         near(parameters[0].value.unwrap(), expected, 1e-12);
-        near(unknowns[0].value.unwrap(), 2.0 + expected, 1e-8);
+        if nonlinear {
+            let root = 2.0_f64 + expected;
+            near(unknowns[0].value.unwrap(), root, 0.001 * root.max(1.));
+        } else {
+            near(unknowns[0].value.unwrap(), 2.0 + expected, 1e-8);
+        }
         assert!(!checks.is_empty());
         assert!(checks.iter().all(|check| check.satisfied));
     }
@@ -925,6 +1012,7 @@ pub(super) async fn run(
     observations: &mut observations::Observations,
 ) {
     match spec["operation"].as_str().unwrap() {
+        "compact-recycle" => Box::pin(super::extended::recycle(owner, spec, observations)).await,
         "compact-root" => Box::pin(roots(owner, spec, observations)).await,
         "compact-lp" | "compact-milp" | "compact-minlp" | "compact-uno" => {
             Box::pin(classes(

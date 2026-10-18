@@ -38,35 +38,6 @@ fn sensitivity_parameters(
         .collect()
 }
 
-#[cfg(test)]
-mod sensitivity_coordinate_tests {
-    use super::*;
-    #[test]
-    fn selected_public_parameters_follow_schedule_order_and_physical_axis_identity() {
-        let profile = native::Profile {
-            schedule: vec![
-                native::ScheduledInput {
-                    parameter: 2,
-                    times: vec![0.25, 0.75],
-                },
-                native::ScheduledInput {
-                    parameter: 0,
-                    times: vec![0.5],
-                },
-            ],
-            ..Default::default()
-        };
-        assert_eq!(
-            sensitivity_parameters(&profile, 3, &[5, 0, 2, 4]).unwrap(),
-            vec![0, 1, 2, 0]
-        );
-        assert!(sensitivity_parameters(&profile, 3, &[]).unwrap().is_empty());
-        for axes in [vec![0, 0], vec![6], vec![usize::MAX]] {
-            assert!(sensitivity_parameters(&profile, 3, &axes).is_err());
-        }
-    }
-}
-
 impl ModelingTrajectory {
     pub(in crate::workflow) fn relation_ids() -> Vec<SemanticId> {
         use pse_relations::generated::runtime::*;
@@ -703,5 +674,34 @@ impl ModelingSimulation {
                 )
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod sensitivity_coordinate_tests {
+    use super::*;
+    #[test]
+    fn selected_public_parameters_follow_schedule_order_and_physical_axis_identity() {
+        let profile = native::Profile {
+            schedule: vec![
+                native::ScheduledInput {
+                    parameter: 2,
+                    times: vec![0.25, 0.75],
+                },
+                native::ScheduledInput {
+                    parameter: 0,
+                    times: vec![0.5],
+                },
+            ],
+            ..Default::default()
+        };
+        assert_eq!(
+            sensitivity_parameters(&profile, 3, &[5, 0, 2, 4]).unwrap(),
+            vec![0, 1, 2, 0]
+        );
+        assert!(sensitivity_parameters(&profile, 3, &[]).unwrap().is_empty());
+        for axes in [vec![0, 0], vec![6], vec![usize::MAX]] {
+            assert!(sensitivity_parameters(&profile, 3, &axes).is_err());
+        }
     }
 }

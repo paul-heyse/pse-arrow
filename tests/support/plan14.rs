@@ -71,6 +71,13 @@ fn package_documents(root: &std::path::Path) -> BTreeMap<String, Vec<u8>> {
 }
 pub(crate) async fn physical(owner: &WorkflowRuntime) -> pse_runtime::workflow::PhysicalContext {
     let runtime = runtime(owner);
+    physical_on(owner, &runtime).await
+}
+/// Load the same physical authority through the caller's selected durability.
+pub(crate) async fn physical_on(
+    owner: &WorkflowRuntime,
+    runtime: &Runtime,
+) -> pse_runtime::workflow::PhysicalContext {
     let root = fixture("")
         .ancestors()
         .find(|p| p.join("packages/reference").is_dir())
@@ -472,7 +479,40 @@ pub(crate) fn authored_success(result: &RunResult) -> &pse_runtime::workflow::Mo
         panic!("expected authored solve")
     };
     let report = &report[0];
-    assert!(report.accepted, "{:?}", report.diagnostic());
+    if !report.accepted {
+        // Rejection is an original scientific outcome, even when native convergence
+        // succeeded. Preserve bounded, already-returned candidate facts on failure;
+        // these component-local coordinates confer no scientific permission.
+        let native = match &report.outcome {
+            pse_runtime::math::solves::Outcome::Native(native) => vec![native.as_ref()],
+            pse_runtime::math::solves::Outcome::Constant(original) => {
+                original.component_reports().take(8).collect()
+            }
+            _ => Vec::new(),
+        };
+        let candidates = native
+            .iter()
+            .map(|native| {
+                (
+                    native.backend,
+                    native.candidate.as_ref().map(|candidate| {
+                        candidate.primal.iter().copied().take(8).collect::<Vec<_>>()
+                    }),
+                )
+            })
+            .collect::<Vec<_>>();
+        panic!(
+            "{:?}; component-local candidate prefixes: {:?}; failed original checks: {:?}",
+            report.diagnostic(),
+            candidates,
+            report
+                .checks
+                .iter()
+                .filter(|check| !check.satisfied)
+                .take(8)
+                .collect::<Vec<_>>()
+        );
+    }
     assert!(result.usable(), "{:?}", result.assessments());
     assert!(!report.checks.is_empty());
     assert!(report.checks.iter().all(|r| r.satisfied));

@@ -1693,7 +1693,8 @@ mod tests {
         assert_eq!(prepared.model.case.compiled().facts.variables, 1);
         let x = prepared.model.model.compiled().admitted.inputs[0];
         let original_identity = prepared.solve.request_identity().unwrap();
-        let before_artifacts = pse_engine::cache_service::CacheComponent::report(rt.shared.math().as_ref());
+        let before_artifacts =
+            pse_engine::cache_service::CacheComponent::report(rt.shared.math().as_ref());
         let mut case = ModelingCaseBindings::default();
         case.values.insert("root.y".into(), 1.5);
         let changed = package
@@ -1711,20 +1712,46 @@ mod tests {
             )
             .await
             .unwrap();
-        let after_artifacts = pse_engine::cache_service::CacheComponent::report(rt.shared.math().as_ref());
-        let artifact_row = |rows: Vec<pse_engine::cache_service::CacheReport>| rows.into_iter()
-            .find(|row| row.name == "pse.cache.math_artifacts").unwrap();
+        let after_artifacts =
+            pse_engine::cache_service::CacheComponent::report(rt.shared.math().as_ref());
+        let artifact_row = |rows: Vec<pse_engine::cache_service::CacheReport>| {
+            rows.into_iter()
+                .find(|row| row.name == "pse.cache.math_artifacts")
+                .unwrap()
+        };
         let before_artifacts = artifact_row(before_artifacts);
         let after_artifacts = artifact_row(after_artifacts);
-        assert!(after_artifacts.hits > before_artifacts.hits, "fresh changed hints reuse compiler-issued artifacts");
+        assert!(
+            after_artifacts.hits > before_artifacts.hits,
+            "fresh changed hints reuse compiler-issued artifacts"
+        );
         let instructions = |prepared: &ModelingSolvePreparation| {
-            prepared.providers.values().filter_map(|registration| registration.source::<pse_math::implicit::reconstruction::ReconstructionFactory>())
+            prepared
+                .providers
+                .values()
+                .filter_map(|registration| {
+                    registration
+                        .source::<pse_math::implicit::reconstruction::ReconstructionFactory>()
+                })
                 .flat_map(|source| match source.factory() {
-                    pse_math::implicit::ImplicitFactory::Root(factory) => vec![&factory.bodies.unknown, &factory.bodies.parameter]
-                        .into_iter().chain(factory.hints.iter()).chain(factory.terms.iter())
-                        .chain(factory.selection.anchor.iter()).chain(factory.selection.restriction.iter()).collect::<Vec<_>>(),
+                    pse_math::implicit::ImplicitFactory::Root(factory) => {
+                        vec![&factory.bodies.unknown, &factory.bodies.parameter]
+                            .into_iter()
+                            .chain(factory.hints.iter())
+                            .chain(factory.terms.iter())
+                            .chain(factory.selection.anchor.iter())
+                            .chain(factory.selection.restriction.iter())
+                            .collect::<Vec<_>>()
+                    }
                     pse_math::implicit::ImplicitFactory::Regimes(_) => unreachable!(),
-                }).map(|body| body.allocation_components().into_iter().find(|(name, _, _)| *name == "programs").unwrap().1)
+                })
+                .map(|body| {
+                    body.allocation_components()
+                        .into_iter()
+                        .find(|(name, _, _)| *name == "programs")
+                        .unwrap()
+                        .1
+                })
                 .collect::<Vec<_>>()
         };
         assert!(!instructions(&prepared).is_empty());
@@ -1734,16 +1761,33 @@ mod tests {
             prepared.solve.compatibility().unwrap().data,
             changed.solve.compatibility().unwrap().data
         );
-        assert_eq!(after_artifacts.misses, before_artifacts.misses, "fresh numerical hints perform no new artifact compilation");
+        assert_eq!(
+            after_artifacts.misses, before_artifacts.misses,
+            "fresh numerical hints perform no new artifact compilation"
+        );
         rt.shared.math().clear_program_cache();
-        let escaped_artifacts = artifact_row(pse_engine::cache_service::CacheComponent::report(rt.shared.math().as_ref()));
+        let escaped_artifacts = artifact_row(pse_engine::cache_service::CacheComponent::report(
+            rt.shared.math().as_ref(),
+        ));
         assert_eq!(escaped_artifacts.entries, 0);
-        assert!(escaped_artifacts.live_bytes.unwrap() > 0, "factory-owned instruction payload keeps original artifact leases after cache clear");
-        let inner_unknown = prepared.model.model.compiled().implicit_order().unwrap()[0].unknowns[0];
-        let original_options = actual_inner_options(&rt, &prepared, inner_unknown, &prepared.model.values).await;
-        let changed_options = actual_inner_options(&rt, &changed, inner_unknown, &changed.model.values).await;
-        assert_ne!(original_options.start, changed_options.start, "shared instructions do not share resolved starts");
-        let changed_result = package.solve_case(changed, compiler, &cancel).await.unwrap();
+        assert!(
+            escaped_artifacts.live_bytes.unwrap() > 0,
+            "factory-owned instruction payload keeps original artifact leases after cache clear"
+        );
+        let inner_unknown =
+            prepared.model.model.compiled().implicit_order().unwrap()[0].unknowns[0];
+        let original_options =
+            actual_inner_options(&rt, &prepared, inner_unknown, &prepared.model.values).await;
+        let changed_options =
+            actual_inner_options(&rt, &changed, inner_unknown, &changed.model.values).await;
+        assert_ne!(
+            original_options.start, changed_options.start,
+            "shared instructions do not share resolved starts"
+        );
+        let changed_result = package
+            .solve_case(changed, compiler, &cancel)
+            .await
+            .unwrap();
         assert!(changed_result.accepted, "{changed_result:?}");
         let result = package
             .solve_case(prepared, compiler, &cancel)

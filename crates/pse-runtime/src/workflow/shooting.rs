@@ -887,47 +887,99 @@ impl ShootingProblem {
     /// Every window's plain forward profile remains admissible. Select the optional
     /// exact quadrature binding only when all windows fit; only its before-effect
     /// capacity/capability refusals retain the independently admitted adjoint route.
-    fn admit_windows(&mut self, simulation: &super::ModelingSimulation) -> Result<(), WorkflowError> {
+    fn admit_windows(
+        &mut self,
+        simulation: &super::ModelingSimulation,
+    ) -> Result<(), WorkflowError> {
         let n = self.contract.variables.len();
         let forward = n > 0 && (!self.rows.is_empty() || !self.terminal.is_empty());
-        let forward_quadratures = cfg!(feature = "solver-idas") && forward && !self.integral.is_empty()
-            && self.windows.iter().all(|window| window.profile.method == native::dynamics::Method::Idas);
+        let forward_quadratures = cfg!(feature = "solver-idas")
+            && forward
+            && !self.integral.is_empty()
+            && self
+                .windows
+                .iter()
+                .all(|window| window.profile.method == native::dynamics::Method::Idas);
         #[cfg(feature = "solver-idas")]
         let mut forward_quadratures = forward_quadratures;
         let problem = |e: ProblemError| WorkflowError::Math(e.into());
         let worker = |observed| {
             native::dynamics::Anchored::new(
                 simulation.worker(pse_kernels::ExecutionScope::new(
-                    pse_diagnostics::Cancellation::new(false), None,
-                ))?, observed,
+                    pse_diagnostics::Cancellation::new(false),
+                    None,
+                ))?,
+                observed,
             )
         };
         let plain = worker(false).map_err(problem)?;
         let integration = self.experiment.parameters.clone();
         for window in &self.windows {
-            let parameters = IntegratedExperiment::window_parameters(window, &integration,
-                &vec![0.; self.differential.len()]).map_err(problem)?;
+            let parameters = IntegratedExperiment::window_parameters(
+                window,
+                &integration,
+                &vec![0.; self.differential.len()],
+            )
+            .map_err(problem)?;
             let mut profile = plain.profile(&window.profile);
-            profile.sensitivity = if forward { DynamicSensitivity::Forward } else { DynamicSensitivity::None };
-            if !forward { profile.forward_axes = None; }
-            profile.validate(native::dynamics::Oracle::contract(&plain), &parameters).map_err(problem)?;
+            profile.sensitivity = if forward {
+                DynamicSensitivity::Forward
+            } else {
+                DynamicSensitivity::None
+            };
+            if !forward {
+                profile.forward_axes = None;
+            }
+            profile
+                .validate(native::dynamics::Oracle::contract(&plain), &parameters)
+                .map_err(problem)?;
             #[cfg(feature = "solver-idas")]
             if forward_quadratures {
-                let memory = self.runtime.shared.budget().math.foreign_allowance(&self.solver.controls);
+                let memory = self
+                    .runtime
+                    .shared
+                    .budget()
+                    .math
+                    .foreign_allowance(&self.solver.controls);
                 let admitted = native::dynamics::Oracle::prepared_layout(&plain, memory)
-                    .and_then(|layout| profile.forward_quadrature_bytes(native::dynamics::Oracle::contract(&plain), &parameters, &layout))
-                    .and_then(|bytes| if bytes <= memory { Ok(()) } else {
-                        Err(ProblemError::memory("shooting forward quadrature foreign allowance"))
+                    .and_then(|layout| {
+                        profile.forward_quadrature_bytes(
+                            native::dynamics::Oracle::contract(&plain),
+                            &parameters,
+                            &layout,
+                        )
+                    })
+                    .and_then(|bytes| {
+                        if bytes <= memory {
+                            Ok(())
+                        } else {
+                            Err(ProblemError::memory(
+                                "shooting forward quadrature foreign allowance",
+                            ))
+                        }
                     });
                 match admitted {
-                    Ok(()) => {},
-                    Err(error @ (ProblemError::Unsupported(_) | ProblemError::Limit { kind: native::LimitKind::Memory, .. })) => {
+                    Ok(()) => {}
+                    Err(
+                        error @ (ProblemError::Unsupported(_)
+                        | ProblemError::Limit {
+                            kind: native::LimitKind::Memory,
+                            ..
+                        }),
+                    ) => {
                         forward_quadratures = false;
                         if let Some(context) = pse_diagnostics::observation::current() {
-                            context.count("shooting.forward_quadrature_preflight_refusals", "count", 1);
-                            context.text("shooting.forward_quadrature_preflight_refusal", &error.to_string());
+                            context.count(
+                                "shooting.forward_quadrature_preflight_refusals",
+                                "count",
+                                1,
+                            );
+                            context.text(
+                                "shooting.forward_quadrature_preflight_refusal",
+                                &error.to_string(),
+                            );
                         }
-                    },
+                    }
                     Err(error) => return Err(problem(error)),
                 }
             }
@@ -935,12 +987,18 @@ impl ShootingProblem {
         if n > 0 && !self.integral.is_empty() && !forward_quadratures {
             let observed = worker(true).map_err(problem)?;
             for window in &self.windows {
-                let parameters = IntegratedExperiment::window_parameters(window, &integration,
-                    &vec![0.; self.differential.len()]).map_err(problem)?;
+                let parameters = IntegratedExperiment::window_parameters(
+                    window,
+                    &integration,
+                    &vec![0.; self.differential.len()],
+                )
+                .map_err(problem)?;
                 let mut profile = observed.profile(&window.profile);
                 profile.sensitivity = DynamicSensitivity::Adjoint;
                 profile.forward_axes = None;
-                profile.validate(native::dynamics::Oracle::contract(&observed), &parameters).map_err(problem)?;
+                profile
+                    .validate(native::dynamics::Oracle::contract(&observed), &parameters)
+                    .map_err(problem)?;
             }
         }
         self.forward_quadratures = forward_quadratures;
@@ -1255,27 +1313,57 @@ impl ShootingOracle {
                 let result = if forward_quadratures {
                     #[cfg(feature = "solver-idas")]
                     {
-                        p.experiment.window_forward_quadratures(worker, window, &integration,
-                            p.anchors(k, x), &self.execution)
+                        p.experiment
+                            .window_forward_quadratures(
+                                worker,
+                                window,
+                                &integration,
+                                p.anchors(k, x),
+                                &self.execution,
+                            )
                             .map(|product| (product.report, product.derivatives))
                     }
                     #[cfg(not(feature = "solver-idas"))]
-                    { Err(ProblemError::unsupported("IDAS forward quadratures are not linked")) }
+                    {
+                        Err(ProblemError::unsupported(
+                            "IDAS forward quadratures are not linked",
+                        ))
+                    }
                 } else {
-                    p.experiment.integrate_window(worker, window, &integration, p.anchors(k, x),
-                        &self.execution, sensitivity).map(|report| (report, None))
+                    p.experiment
+                        .integrate_window(
+                            worker,
+                            window,
+                            &integration,
+                            p.anchors(k, x),
+                            &self.execution,
+                            sensitivity,
+                        )
+                        .map(|report| (report, None))
                 };
                 observation.finish(result.is_ok());
                 let (report, product): (native::dynamics::Report, Option<Vec<f64>>) = result?;
                 if let Some(gradient) = &mut integral_gradient {
-                    let product = product.ok_or_else(|| ProblemError::internal("missing forward integral derivatives"))?;
+                    let product = product.ok_or_else(|| {
+                        ProblemError::internal("missing forward integral derivatives")
+                    })?;
                     let axes = &report.forward_axes;
-                    let expected = p.experiment.program.contract.quadratures.len().checked_mul(axes.len())
+                    let expected = p
+                        .experiment
+                        .program
+                        .contract
+                        .quadratures
+                        .len()
+                        .checked_mul(axes.len())
                         .ok_or_else(|| ProblemError::internal("forward integral product extent"))?;
-                    if product.len() != expected { return Err(ProblemError::internal("forward integral product extent")); }
+                    if product.len() != expected {
+                        return Err(ProblemError::internal("forward integral product extent"));
+                    }
                     for (q, weight) in &p.integral {
                         for (local, axis) in axes.iter().enumerate() {
-                            let column = window.columns.get(*axis).ok_or_else(|| ProblemError::internal("forward integral physical axis"))?;
+                            let column = window.columns.get(*axis).ok_or_else(|| {
+                                ProblemError::internal("forward integral physical axis")
+                            })?;
                             if let Some(variable) = p.variable(k, column) {
                                 gradient[variable] += weight * product[q * axes.len() + local];
                             }
@@ -1288,9 +1376,15 @@ impl ShootingOracle {
             })
             .collect::<Result<Vec<_>, ProblemError>>()?;
         if let Some(gradient) = &integral_gradient {
-            if gradient.iter().any(|v| !v.is_finite()) { return Err(ProblemError::numerical("nonfinite integral gradient")); }
+            if gradient.iter().any(|v| !v.is_finite()) {
+                return Err(ProblemError::numerical("nonfinite integral gradient"));
+            }
             if let Some(context) = pse_diagnostics::observation::current() {
-                context.count("shooting.forward_quadrature_products", "count", p.windows.len() as u64);
+                context.count(
+                    "shooting.forward_quadrature_products",
+                    "count",
+                    p.windows.len() as u64,
+                );
             }
         }
         if forward {
@@ -1439,7 +1533,11 @@ impl ShootingOracle {
     /// adjoint over each window's observed quadratures.
     fn integral_gradient(&mut self, x: &[f64]) -> Result<Vec<f64>, ProblemError> {
         self.evaluate(x, DerivativeOrder::Value)?;
-        if let Some(gradient) = self.point.as_ref().and_then(|p| p.integral_gradient.clone()) {
+        if let Some(gradient) = self
+            .point
+            .as_ref()
+            .and_then(|p| p.integral_gradient.clone())
+        {
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.count("shooting.integral_gradient_cache_reuses", "count", 1);
             }

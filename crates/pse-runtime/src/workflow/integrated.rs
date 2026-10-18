@@ -502,23 +502,46 @@ impl IntegratedExperiment {
         execution: &Execution,
     ) -> Result<native::dynamics::ForwardQuadratures, ProblemError> {
         execution.check()?;
-        let memory = execution.memory.ok_or_else(|| ProblemError::Contract(
-            "forward quadratures need the worker's admitted foreign allowance".into()))?;
+        let memory = execution.memory.ok_or_else(|| {
+            ProblemError::Contract(
+                "forward quadratures need the worker's admitted foreign allowance".into(),
+            )
+        })?;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("dynamics.window_ivp_initializations", "count", 1);
-            context.count("dynamics.window_forward_quadrature_initializations", "count", 1);
+            context.count(
+                "dynamics.window_forward_quadrature_initializations",
+                "count",
+                1,
+            );
         }
         let mut oracle = worker.window(false)?;
-        let profile = oracle.profile(&attempt(&window.profile, execution, DynamicSensitivity::Forward));
+        let profile = oracle.profile(&attempt(
+            &window.profile,
+            execution,
+            DynamicSensitivity::Forward,
+        ));
         let mut product = native::dynamics::forward_quadratures_observed(
-            &mut oracle, &profile, &Self::window_parameters(window, integration, anchors)?,
+            &mut oracle,
+            &profile,
+            &Self::window_parameters(window, integration, anchors)?,
             execution.cancellation_control().clone(),
-            std::sync::Arc::new(native::solve::Progress::new(256)), &self.snapshot, memory,
+            std::sync::Arc::new(native::solve::Progress::new(256)),
+            &self.snapshot,
+            memory,
         )?;
         product.report = completed(product.report)?;
-        if product.derivatives.as_ref().is_none_or(|values| values.len() !=
-            product.report.forward_axes.len().saturating_mul(self.program.contract.quadratures.len())) {
-            return Err(ProblemError::internal("completed forward quadrature product extent"));
+        if product.derivatives.as_ref().is_none_or(|values| {
+            values.len()
+                != product
+                    .report
+                    .forward_axes
+                    .len()
+                    .saturating_mul(self.program.contract.quadratures.len())
+        }) {
+            return Err(ProblemError::internal(
+                "completed forward quadrature product extent",
+            ));
         }
         Ok(product)
     }

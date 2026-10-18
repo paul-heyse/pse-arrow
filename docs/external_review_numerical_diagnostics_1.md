@@ -1,3 +1,9 @@
+---
+title: External review of numerical diagnostics
+---
+
+# External review of numerical diagnostics
+
 ## My assessment
 
 **I would build the next stage around a consistently joined record of numerical work, execution cost, and solution quality for each complete problem execution.** Your code already has a substantial diagnostic foundation. The biggest opportunity is to make that evidence explain *why* a change is faster, and to expose a few expensive operations that currently sit inside broader timing categories.

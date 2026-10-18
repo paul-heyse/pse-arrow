@@ -398,41 +398,47 @@ fn branch_local_jets_refuse_unproved_boundaries_without_global_smoothness() {
             &pse_kernels::ExecutionScope::new(control.clone(), None),
         )
         .unwrap();
-    let support = body.prepare_support(&[0], &[0], DerivativeOrder::Second, &cancel).unwrap();
+    let support = body
+        .prepare_support(&[0], &[0], DerivativeOrder::Second, &cancel)
+        .unwrap();
     let scope = pse_kernels::ExecutionScope::new(control.clone(), None);
-    let scalars = support.prepare_scalars(Optimization::default(), limits, &scope).unwrap();
-    let reused = support.compile_branch_local_reusing(Optimization::default(), limits, &scope, &scalars).unwrap();
+    let scalars = support
+        .prepare_scalars(Optimization::default(), limits, &scope)
+        .unwrap();
+    let reused = support
+        .compile_branch_local_reusing(Optimization::default(), limits, &scope, &scalars)
+        .unwrap();
     for compiled in [direct, reused] {
-    let mut worker = compiled.worker();
-    for (x, slope) in [(-2.0, -1.0), (2.0, 1.0)] {
-        let jet = worker
-            .evaluate(&[x], DerivativeOrder::Second, &mut BTreeMap::new(), &cancel)
-            .unwrap();
-        assert_eq!(jet.values, vec![2.0]);
-        assert_eq!(jet.jacobian, vec![slope]);
-        assert_eq!(jet.hessians, vec![0.0]);
-    }
-    assert!(
-        worker
-            .evaluate(
-                &[0.0],
-                DerivativeOrder::First,
-                &mut BTreeMap::new(),
-                &cancel
-            )
-            .is_err()
-    );
-    assert_eq!(
-        worker
-            .evaluate(
-                &[0.0],
-                DerivativeOrder::Value,
-                &mut BTreeMap::new(),
-                &cancel
-            )
-            .unwrap()
-            .values,
-        vec![0.0]
-    );
+        let mut worker = compiled.worker();
+        for (x, slope) in [(-2.0, -1.0), (2.0, 1.0)] {
+            let jet = worker
+                .evaluate(&[x], DerivativeOrder::Second, &mut BTreeMap::new(), &cancel)
+                .unwrap();
+            assert_eq!(jet.values, vec![2.0]);
+            assert_eq!(jet.jacobian, vec![slope]);
+            assert_eq!(jet.hessians, vec![0.0]);
+        }
+        assert!(
+            worker
+                .evaluate(
+                    &[0.0],
+                    DerivativeOrder::First,
+                    &mut BTreeMap::new(),
+                    &cancel
+                )
+                .is_err()
+        );
+        assert_eq!(
+            worker
+                .evaluate(
+                    &[0.0],
+                    DerivativeOrder::Value,
+                    &mut BTreeMap::new(),
+                    &cancel
+                )
+                .unwrap()
+                .values,
+            vec![0.0]
+        );
     }
 }

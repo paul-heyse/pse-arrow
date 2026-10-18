@@ -176,14 +176,15 @@ impl From<MathError> for CompileError {
 type Result<T> = std::result::Result<T, CompileError>;
 mod modeling;
 pub use modeling::{
-    AdmittedImplicit, AdmittedModeling, ImplicitProgramRequest, ImplicitPrograms, AutomaticCausalUnit, BoundLookup, BoundLookupKey,
+    AdmittedImplicit, AdmittedModeling, AutomaticCausalUnit, BoundLookup, BoundLookupKey,
     BoundStructure, ConditionalUnitInventory, Derivation, Derived, FlowConnectionDocument,
-    FlowSelectionDocument, ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning, ImplicitScale,
-    ImplicitSelection, ModelingBodyRetention, ModelingCaseBindings, ModelingExpectationResult,
-    ModelingFlowSelection, ModelingHint, ModelingOccurrenceIdentity, ModelingOutput,
-    ModelingPointChecks, ModelingPreparationFrontier, ModelingRevision, ModelingTestValue,
-    ModelingValidityResult, ModelingVariableState, ObjectiveBound, PreparedModeling,
-    SelectionEquivalence, SelectionNeighborhood, SemanticModeling,
+    FlowSelectionDocument, ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning,
+    ImplicitProgramRequest, ImplicitPrograms, ImplicitScale, ImplicitSelection,
+    ModelingBodyRetention, ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection,
+    ModelingHint, ModelingOccurrenceIdentity, ModelingOutput, ModelingPointChecks,
+    ModelingPreparationFrontier, ModelingRevision, ModelingTestValue, ModelingValidityResult,
+    ModelingVariableState, ObjectiveBound, PreparedModeling, SelectionEquivalence,
+    SelectionNeighborhood, SemanticModeling,
 };
 #[salsa::db]
 trait CompilerDb: Database {
@@ -426,14 +427,21 @@ impl ArtifactRequest {
         scalars: &pse_math::library::ScalarProducts,
     ) -> std::result::Result<CompiledBody, MathError> {
         let compiled = if self.local_branches {
-            self.support.compile_branch_local_reusing(self.optimization, self.evaluation, scope, scalars)
-        } else { self.support.compile_product_reusing(
-            self.demand.product,
-            self.optimization,
-            self.evaluation,
-            scope,
-            scalars,
-        ) };
+            self.support.compile_branch_local_reusing(
+                self.optimization,
+                self.evaluation,
+                scope,
+                scalars,
+            )
+        } else {
+            self.support.compile_product_reusing(
+                self.demand.product,
+                self.optimization,
+                self.evaluation,
+                scope,
+                scalars,
+            )
+        };
         compiled.map_err(|error| error.with_derivative_body(None, self.demand.body))
     }
     /// Requested native optimizer concurrency.
@@ -462,13 +470,16 @@ impl ArtifactRequest {
     ) -> std::result::Result<CompiledBody, MathError> {
         let _span = tracing::info_span!("pse.case.program_optimization").entered();
         let compiled = if self.local_branches {
-            self.support.compile_branch_local(self.optimization, self.evaluation, scope)
-        } else { self.support.compile_product(
-            self.demand.product,
-            self.optimization,
-            self.evaluation,
-            scope,
-        ) };
+            self.support
+                .compile_branch_local(self.optimization, self.evaluation, scope)
+        } else {
+            self.support.compile_product(
+                self.demand.product,
+                self.optimization,
+                self.evaluation,
+                scope,
+            )
+        };
         compiled.map_err(|error| error.with_derivative_body(None, self.demand.body))
     }
 }
@@ -477,9 +488,21 @@ fn artifact_requests(
     profile: Profile,
     environment: &ContentHash,
 ) -> Arc<Vec<ArtifactRequest>> {
-    Arc::new(p.demands().iter().enumerate().map(|(index, demand)| {
-        artifact_request(demand, p.supports()[index].clone(), profile, environment, false)
-    }).collect())
+    Arc::new(
+        p.demands()
+            .iter()
+            .enumerate()
+            .map(|(index, demand)| {
+                artifact_request(
+                    demand,
+                    p.supports()[index].clone(),
+                    profile,
+                    environment,
+                    false,
+                )
+            })
+            .collect(),
+    )
 }
 fn artifact_request(
     d: &LocalDemand,
@@ -488,28 +511,74 @@ fn artifact_request(
     environment: &ContentHash,
     local_branches: bool,
 ) -> ArtifactRequest {
-        let mut h=FramedHasher::new(pse_ids::Frame::MathProductArtifactV1);
-        h.hash(&d.body).hash(environment)
+    let mut h = FramedHasher::new(pse_ids::Frame::MathProductArtifactV1);
+    h.hash(&d.body).hash(environment)
             .str("pse-math-evaluator-abi-v6;sparse-demanded-products;sibling-cse-v1;original-ordered-checks;real-algebra;explicit-evaluator;no-simd")
             .str(profile.optimization.evaluator.identity()).u64(profile.optimization.evaluator.module_bytes() as u64)
             .u64(d.order as u64).u64(d.outputs.len() as u64);
-        for &x in &d.outputs{h.u64(x as u64);}h.u64(d.coordinates.len() as u64);for &x in &d.coordinates{h.u64(x as u64);}
-        h.str(match d.product {
-            pse_math::jets::ProductKind::SelectedPartials => "selected-partials",
-            pse_math::jets::ProductKind::JacobianAction => "jacobian-action",
-            pse_math::jets::ProductKind::WeightedHessian => "weighted-hessian",
-            pse_math::jets::ProductKind::WeightedHessianAction => "weighted-hessian-action",
-        }).str("runtime-bindings;selected-axis-order;upper-symmetric-pairs-v1");
-        h.u64(support.remaining_occurrences() as u64);
-        for x in [profile.optimization.cores,profile.optimization.horner_iterations,profile.optimization.cpe_iterations,profile.evaluation.derivative_components,profile.evaluation.operations,profile.evaluation.scratch_bytes,profile.evaluation.provider_calls]{h.u64(x as u64);}
-        if local_branches { h.str("strict-interior-branch-derivatives-v1"); }
-        let mut scalar = FramedHasher::new(pse_ids::Frame::MathScalarFamilyV2);
-        scalar.str("pse-math-exact-scalar-family-v2;bounded-sibling-cse;original-ordered-checks").hash(&d.body).hash(environment).u64(d.outputs.len() as u64);
-        for &output in &d.outputs { scalar.u64(output as u64); }
-        scalar.u64(d.coordinates.len() as u64);
-        for &coordinate in &d.coordinates { scalar.u64(coordinate as u64); }
-        for value in [profile.optimization.cores,profile.optimization.horner_iterations,profile.optimization.cpe_iterations,profile.evaluation.derivative_components,profile.evaluation.operations,profile.evaluation.scratch_bytes,profile.evaluation.provider_calls] { scalar.u64(value as u64); }
-        ArtifactRequest{key:h.finish_hash(),scalar_key:scalar.finish_hash(),environment:*environment,demand:d.clone(),support,optimization:profile.optimization,evaluation:profile.evaluation,local_branches}
+    for &x in &d.outputs {
+        h.u64(x as u64);
+    }
+    h.u64(d.coordinates.len() as u64);
+    for &x in &d.coordinates {
+        h.u64(x as u64);
+    }
+    h.str(match d.product {
+        pse_math::jets::ProductKind::SelectedPartials => "selected-partials",
+        pse_math::jets::ProductKind::JacobianAction => "jacobian-action",
+        pse_math::jets::ProductKind::WeightedHessian => "weighted-hessian",
+        pse_math::jets::ProductKind::WeightedHessianAction => "weighted-hessian-action",
+    })
+    .str("runtime-bindings;selected-axis-order;upper-symmetric-pairs-v1");
+    h.u64(support.remaining_occurrences() as u64);
+    for x in [
+        profile.optimization.cores,
+        profile.optimization.horner_iterations,
+        profile.optimization.cpe_iterations,
+        profile.evaluation.derivative_components,
+        profile.evaluation.operations,
+        profile.evaluation.scratch_bytes,
+        profile.evaluation.provider_calls,
+    ] {
+        h.u64(x as u64);
+    }
+    if local_branches {
+        h.str("strict-interior-branch-derivatives-v1");
+    }
+    let mut scalar = FramedHasher::new(pse_ids::Frame::MathScalarFamilyV2);
+    scalar
+        .str("pse-math-exact-scalar-family-v2;bounded-sibling-cse;original-ordered-checks")
+        .hash(&d.body)
+        .hash(environment)
+        .u64(d.outputs.len() as u64);
+    for &output in &d.outputs {
+        scalar.u64(output as u64);
+    }
+    scalar.u64(d.coordinates.len() as u64);
+    for &coordinate in &d.coordinates {
+        scalar.u64(coordinate as u64);
+    }
+    for value in [
+        profile.optimization.cores,
+        profile.optimization.horner_iterations,
+        profile.optimization.cpe_iterations,
+        profile.evaluation.derivative_components,
+        profile.evaluation.operations,
+        profile.evaluation.scratch_bytes,
+        profile.evaluation.provider_calls,
+    ] {
+        scalar.u64(value as u64);
+    }
+    ArtifactRequest {
+        key: h.finish_hash(),
+        scalar_key: scalar.finish_hash(),
+        environment: *environment,
+        demand: d.clone(),
+        support,
+        optimization: profile.optimization,
+        evaluation: profile.evaluation,
+        local_branches,
+    }
 }
 /// Pure general function projection; roles are supplied by the consuming physical workflow.
 #[derive(Clone, Debug)]

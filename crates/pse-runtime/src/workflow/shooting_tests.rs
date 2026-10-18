@@ -200,7 +200,9 @@ async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral()
             let point = oracle.point.as_ref().unwrap();
             assert_eq!(point.achieved, DerivativeOrder::Value);
             assert!(
-                point.jacobian.is_empty() && point.gradient.is_empty() && point.integral_gradient.is_none()
+                point.jacobian.is_empty()
+                    && point.gradient.is_empty()
+                    && point.integral_gradient.is_none()
             );
             assert!(
                 point
@@ -236,8 +238,11 @@ async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral()
             oracle.jacobian(&x, &mut jacobian).unwrap();
             let point = oracle.point.as_ref().unwrap();
             assert_eq!(point.achieved, DerivativeOrder::First);
-            assert_eq!(point.integral_gradient.is_some(), method == Method::Idas,
-                "combined IDAS products already contain exact forward integral derivatives");
+            assert_eq!(
+                point.integral_gradient.is_some(),
+                method == Method::Idas,
+                "combined IDAS products already contain exact forward integral derivatives"
+            );
             assert!(
                 point
                     .reports
@@ -1622,8 +1627,11 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
                         .any(|field| field.name == "adjoint" && field.value == Value::Boolean(true))
             })
             .collect::<Vec<_>>();
-        assert_eq!(adjoints.len(), if method == Method::Idas { 0 } else { 2 },
-            "combined IDAS avoids both checkpointed integral adjoints");
+        assert_eq!(
+            adjoints.len(),
+            if method == Method::Idas { 0 } else { 2 },
+            "combined IDAS avoids both checkpointed integral adjoints"
+        );
         for record in adjoints {
             assert!(
                 record.values.iter().any(|field| field.name == "purpose"
@@ -1657,9 +1665,18 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
         for (name, expected) in [
             ("dynamics.workflow_worker_constructions", 1),
             ("dynamics.window_ivp_initializations", 6),
-            ("dynamics.window_adjoint_initializations", if method == Method::Idas { 0 } else { 2 }),
-            ("dynamics.window_layout_constructions", if method == Method::Idas { 0 } else { 1 }),
-            ("dynamics.window_layout_reuses", if method == Method::Idas { 0 } else { 1 }),
+            (
+                "dynamics.window_adjoint_initializations",
+                if method == Method::Idas { 0 } else { 2 },
+            ),
+            (
+                "dynamics.window_layout_constructions",
+                if method == Method::Idas { 0 } else { 1 },
+            ),
+            (
+                "dynamics.window_layout_reuses",
+                if method == Method::Idas { 0 } else { 1 },
+            ),
         ] {
             assert_eq!(
                 counts.get(name).copied().unwrap_or(0),
@@ -1713,32 +1730,64 @@ async fn shooting_trial_product_scheduling_preserves_lazy_default_and_explicit_e
     for method in methods() {
         let simulation = tracking(method).await;
         for nodes in [vec![], vec![0.5, 1., 1.5]] {
-            let shooting = if nodes.is_empty() { ShootingMethod::Single } else { ShootingMethod::Multiple };
+            let shooting = if nodes.is_empty() {
+                ShootingMethod::Single
+            } else {
+                ShootingMethod::Multiple
+            };
             let mut results = vec![];
-            for policy in [ShootingEvaluationPolicy::Demanded, ShootingEvaluationPolicy::EagerFirst] {
+            for policy in [
+                ShootingEvaluationPolicy::Demanded,
+                ShootingEvaluationPolicy::EagerFirst,
+            ] {
                 let mut profile = request(&simulation, shooting, nodes.clone(), true);
                 profile.evaluation = policy;
                 let problem = Arc::new(simulation.shooting(profile).unwrap());
-                let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
-                execution.memory = Some(problem.runtime.shared.budget().math.foreign_allowance(&solver().controls));
+                let mut execution =
+                    Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
+                execution.memory = Some(
+                    problem
+                        .runtime
+                        .shared
+                        .budget()
+                        .math
+                        .foreign_allowance(&solver().controls),
+                );
                 let mut x = vec![0.4, 1.2];
                 x.extend(std::iter::repeat_n(0.3, nodes.len()));
-                let mut oracle = ShootingOracle { observation: None,
+                let mut oracle = ShootingOracle {
+                    observation: None,
                     purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
-                    problem: problem.clone(), execution, point: None, worker: None };
+                    problem: problem.clone(),
+                    execution,
+                    point: None,
+                    worker: None,
+                };
                 let mut first_order_trials = 0;
                 for offset in [0., 0.1, -0.1, 0.] {
                     let mut trial = x.clone();
                     trial[0] += offset;
                     oracle.objective(&trial).unwrap();
-                    first_order_trials += usize::from(oracle.point.as_ref().unwrap().achieved == DerivativeOrder::First);
+                    first_order_trials += usize::from(
+                        oracle.point.as_ref().unwrap().achieved == DerivativeOrder::First,
+                    );
                 }
-                assert_eq!(first_order_trials, if policy == ShootingEvaluationPolicy::EagerFirst { 4 } else { 0 });
+                assert_eq!(
+                    first_order_trials,
+                    if policy == ShootingEvaluationPolicy::EagerFirst {
+                        4
+                    } else {
+                        0
+                    }
+                );
                 let before = oracle.execution.progress.snapshot().0.len();
                 let mut gradient = vec![0.; x.len()];
                 oracle.gradient(&x, &mut gradient).unwrap();
-                assert_eq!(oracle.execution.progress.snapshot().0.len() - before,
-                    usize::from(policy == ShootingEvaluationPolicy::Demanded), "accepted-point forward upgrade");
+                assert_eq!(
+                    oracle.execution.progress.snapshot().0.len() - before,
+                    usize::from(policy == ShootingEvaluationPolicy::Demanded),
+                    "accepted-point forward upgrade"
+                );
                 assert!(oracle.point.as_ref().unwrap().integral_gradient.is_some());
                 results.push((oracle.objective(&x).unwrap(), gradient));
             }
@@ -1761,28 +1810,50 @@ async fn shooting_integral_only_retains_adjoint_when_no_rows_consume_forward_dir
     profile.objective.terminal.clear();
     let problem = Arc::new(simulation.shooting(profile).unwrap());
     assert!(!problem.forward_quadratures());
-    let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
-    execution.memory = Some(problem.runtime.shared.budget().math.foreign_allowance(&solver().controls));
-    let mut oracle = ShootingOracle { observation: None,
+    let mut execution =
+        Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
+    execution.memory = Some(
+        problem
+            .runtime
+            .shared
+            .budget()
+            .math
+            .foreign_allowance(&solver().controls),
+    );
+    let mut oracle = ShootingOracle {
+        observation: None,
         purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
-        problem, execution, point: None, worker: None };
+        problem,
+        execution,
+        point: None,
+        worker: None,
+    };
     let x = [0.4, 1.2];
     oracle.evaluate(&x, DerivativeOrder::First).unwrap();
     let point = oracle.point.as_ref().unwrap();
     assert!(point.integral_gradient.is_none());
-    assert!(point.reports.iter().all(|report| report.forward_axes.is_empty()));
+    assert!(
+        point
+            .reports
+            .iter()
+            .all(|report| report.forward_axes.is_empty())
+    );
     let mut gradient = vec![0.; 2];
     oracle.gradient(&x, &mut gradient).unwrap();
     let e = (-1f64).exp();
     let c = 1. - e;
     let d = (1. - e * e) / 2.;
     let expected = [
-        2. * (x[0] - 1.) - 2. * (2. * x[0] - 1.) * c + 2. * x[0] * d
-            + 2. * (x[1] - 1.) * c * c + 2. * (x[0] * c - x[1]) * c * d,
+        2. * (x[0] - 1.) - 2. * (2. * x[0] - 1.) * c
+            + 2. * x[0] * d
+            + 2. * (x[1] - 1.) * c * c
+            + 2. * (x[0] * c - x[1]) * c * d,
         2. * (x[1] - 1.) + 2. * (x[0] * c - 2. * x[1] + 1.) * c - 2. * (x[0] * c - x[1]) * d,
     ];
     for (actual, expected) in gradient.iter().zip(expected) {
-        assert!((actual - expected).abs() <= 64. * simulation.profile().rtol * expected.abs().max(1.));
+        assert!(
+            (actual - expected).abs() <= 64. * simulation.profile().rtol * expected.abs().max(1.)
+        );
     }
     assert!(oracle.point.as_ref().unwrap().integral_gradient.is_some());
 }
@@ -1791,16 +1862,35 @@ async fn shooting_integral_only_retains_adjoint_when_no_rows_consume_forward_dir
 #[tokio::test]
 async fn shooting_failed_forward_quadrature_upgrade_keeps_completed_weaker_point() {
     let simulation = tracking(Method::Idas).await;
-    let problem = Arc::new(simulation.shooting(request(&simulation, ShootingMethod::Single, vec![], true)).unwrap());
-    let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
-    let memory = problem.runtime.shared.budget().math.foreign_allowance(&solver().controls);
+    let problem = Arc::new(
+        simulation
+            .shooting(request(&simulation, ShootingMethod::Single, vec![], true))
+            .unwrap(),
+    );
+    let mut execution =
+        Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
+    let memory = problem
+        .runtime
+        .shared
+        .budget()
+        .math
+        .foreign_allowance(&solver().controls);
     execution.memory = Some(memory);
-    let mut oracle = ShootingOracle { observation: None,
+    let mut oracle = ShootingOracle {
+        observation: None,
         purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
-        problem, execution, point: None, worker: None };
+        problem,
+        execution,
+        point: None,
+        worker: None,
+    };
     let x = [0.4, 1.2];
     let value = oracle.objective(&x).unwrap();
-    let samples = oracle.point.as_ref().unwrap().reports[0].samples.iter().map(|s| s.outputs.clone()).collect::<Vec<_>>();
+    let samples = oracle.point.as_ref().unwrap().reports[0]
+        .samples
+        .iter()
+        .map(|s| s.outputs.clone())
+        .collect::<Vec<_>>();
     oracle.execution.memory = None;
     let mut gradient = vec![0.; x.len()];
     assert!(oracle.gradient(&x, &mut gradient).is_err());
@@ -1808,13 +1898,26 @@ async fn shooting_failed_forward_quadrature_upgrade_keeps_completed_weaker_point
     assert_eq!(point.achieved, DerivativeOrder::Value);
     assert!(point.integral_gradient.is_none());
     assert_eq!(point.objective, value);
-    assert_eq!(point.reports[0].samples.iter().map(|s| s.outputs.clone()).collect::<Vec<_>>(), samples);
+    assert_eq!(
+        point.reports[0]
+            .samples
+            .iter()
+            .map(|s| s.outputs.clone())
+            .collect::<Vec<_>>(),
+        samples
+    );
     oracle.execution.memory = Some(memory);
     oracle.gradient(&x, &mut gradient).unwrap();
     assert!(oracle.point.as_ref().unwrap().integral_gradient.is_some());
     oracle.execution.cancellation_control().cancel();
-    assert!(matches!(oracle.gradient(&x, &mut gradient), Err(ProblemError::Cancelled)));
-    assert!(oracle.point.as_ref().unwrap().integral_gradient.is_some(), "cancelled demand cannot erase a completed product");
+    assert!(matches!(
+        oracle.gradient(&x, &mut gradient),
+        Err(ProblemError::Cancelled)
+    ));
+    assert!(
+        oracle.point.as_ref().unwrap().integral_gradient.is_some(),
+        "cancelled demand cannot erase a completed product"
+    );
 }
 
 /// A before-effect optional product refusal preserves the older supported route;
@@ -1823,12 +1926,30 @@ async fn shooting_failed_forward_quadrature_upgrade_keeps_completed_weaker_point
 #[tokio::test]
 async fn shooting_forward_quadrature_preflight_retains_adjoint_when_added_cells_do_not_fit() {
     let simulation = tracking(Method::Idas).await;
-    let mut problem = simulation.shooting(request(&simulation, ShootingMethod::Single, vec![], true)).unwrap();
+    let mut problem = simulation
+        .shooting(request(&simulation, ShootingMethod::Single, vec![], true))
+        .unwrap();
     assert!(problem.forward_quadratures());
-    let plain = native::dynamics::Anchored::new(simulation.worker(pse_kernels::ExecutionScope::new(
-        pse_diagnostics::Cancellation::default(), None)).unwrap(), false).unwrap();
-    let observed = native::dynamics::Anchored::new(simulation.worker(pse_kernels::ExecutionScope::new(
-        pse_diagnostics::Cancellation::default(), None)).unwrap(), true).unwrap();
+    let plain = native::dynamics::Anchored::new(
+        simulation
+            .worker(pse_kernels::ExecutionScope::new(
+                pse_diagnostics::Cancellation::default(),
+                None,
+            ))
+            .unwrap(),
+        false,
+    )
+    .unwrap();
+    let observed = native::dynamics::Anchored::new(
+        simulation
+            .worker(pse_kernels::ExecutionScope::new(
+                pse_diagnostics::Cancellation::default(),
+                None,
+            ))
+            .unwrap(),
+        true,
+    )
+    .unwrap();
     let integration = problem.experiment.parameters.clone();
     let anchors = vec![0.; problem.differential.len()];
     for window in &mut problem.windows {
@@ -1836,27 +1957,59 @@ async fn shooting_forward_quadrature_preflight_retains_adjoint_when_added_cells_
         // A 1000-event allowance would chiefly measure the observed adjoint's extra
         // event-state capacity rather than the additional endpoint derivative cells.
         window.profile.max_events = 1;
-        let parameters = IntegratedExperiment::window_parameters(window, &integration, &anchors).unwrap();
+        let parameters =
+            IntegratedExperiment::window_parameters(window, &integration, &anchors).unwrap();
         let mut profile = plain.profile(&window.profile);
         profile.sensitivity = DynamicSensitivity::Forward;
-        let ordinary = profile.validate_retention(native::dynamics::Oracle::contract(&plain), &parameters,
-            native::dynamics::SampleRetention::Full, 0).unwrap();
+        let ordinary = profile
+            .validate_retention(
+                native::dynamics::Oracle::contract(&plain),
+                &parameters,
+                native::dynamics::SampleRetention::Full,
+                0,
+            )
+            .unwrap();
         window.profile.max_cells = ordinary;
         let mut old_profile = observed.profile(&window.profile);
         old_profile.sensitivity = DynamicSensitivity::Adjoint;
         old_profile.forward_axes = None;
-        let old = old_profile.validate_retention(native::dynamics::Oracle::contract(&observed), &parameters,
-            native::dynamics::SampleRetention::Full, 0).unwrap();
-        assert!(old <= ordinary, "the retained adjoint must independently fit this fixture's limit");
+        let old = old_profile
+            .validate_retention(
+                native::dynamics::Oracle::contract(&observed),
+                &parameters,
+                native::dynamics::SampleRetention::Full,
+                0,
+            )
+            .unwrap();
+        assert!(
+            old <= ordinary,
+            "the retained adjoint must independently fit this fixture's limit"
+        );
     }
     problem.admit_windows(&simulation).unwrap();
-    assert!(!problem.forward_quadratures(), "optional endpoint product must fit in addition to the ordinary trajectory");
+    assert!(
+        !problem.forward_quadratures(),
+        "optional endpoint product must fit in addition to the ordinary trajectory"
+    );
     let problem = Arc::new(problem);
-    let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
-    execution.memory = Some(problem.runtime.shared.budget().math.foreign_allowance(&solver().controls));
-    let mut oracle = ShootingOracle { observation: None,
+    let mut execution =
+        Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
+    execution.memory = Some(
+        problem
+            .runtime
+            .shared
+            .budget()
+            .math
+            .foreign_allowance(&solver().controls),
+    );
+    let mut oracle = ShootingOracle {
+        observation: None,
         purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
-        problem, execution, point: None, worker: None };
+        problem,
+        execution,
+        point: None,
+        worker: None,
+    };
     let mut gradient = vec![0.; 2];
     oracle.gradient(&[0.4, 1.2], &mut gradient).unwrap();
     assert!(gradient.iter().all(|value| value.is_finite()));

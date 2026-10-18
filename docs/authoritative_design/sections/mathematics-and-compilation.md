@@ -511,6 +511,8 @@ variable inventories survive, including isolated rows and numerical zeros. Ident
 body/output/coordinate demands share one immutable program; each attempt owns its mutable
 evaluators and provider map. Graph-only planning constructs no numeric evaluator.
 
+Implicit residual, hint, anchor, restriction and assessment programs use these same artifact/scalar flights. Their complete ordered demand, physical environment, limits and strict-interior compilation mode govern sharing; numerical starts, provider workers, cancellation and native solver state remain fresh per assembly. Request-local native/accelerator admission is reused by that assembly only. Artifact leases retain shared immutable payload after lookup eviction; fresh factory wrappers, owner attachments and pending-request metadata retain separate charges. Constructor/foreign allowances stay conservative rather than being inferred from process RSS. Generic stateful provider calls remain effect boundaries; qualified nested same-point jet reuse stays inside its actual provider owner.
+
 Compiler products also feed structural analysis ([§15](numerical-execution.md#section-15)),
 dynamic algebraic-partition matching, conditional initialization blocks and flow/tear
 preparation ([§17](numerical-execution.md#section-17)). The callable surface is described in

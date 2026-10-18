@@ -2223,10 +2223,21 @@ fn implicit_constructor_bound_uses_residual_minimum_and_requested_output() {
     assert_eq!(bound(DerivativeOrder::Value), first);
     assert!(first < bound(DerivativeOrder::Second));
     let solver = pse_math::implicit::Affine::new(&inner.residuals[0].body.math, 1).unwrap();
-    let programs = inner.compile_programs(&configurations, &ImplicitCapabilities {
-        solver: Arc::new(pse_math::implicit::Affine::new(&inner.residuals[0].body.math, 1).unwrap()),
-        verifier: None, accelerators: &accelerators,
-    }, DerivativeOrder::Value, &cancel, limits).unwrap();
+    let programs = inner
+        .compile_programs(
+            &configurations,
+            &ImplicitCapabilities {
+                solver: Arc::new(
+                    pse_math::implicit::Affine::new(&inner.residuals[0].body.math, 1).unwrap(),
+                ),
+                verifier: None,
+                accelerators: &accelerators,
+            },
+            DerivativeOrder::Value,
+            &cancel,
+            limits,
+        )
+        .unwrap();
     let factory = inner
         .reconstruction_factory(
             configurations,
@@ -7447,46 +7458,144 @@ fn implicit_artifact_requests_separate_program_premises_from_fresh_hint_values()
     #[derive(Debug)]
     struct Hints(u8);
     impl HintResolver for Hints {
-        fn identity(&self) -> ContentHash { ContentHash::from_bytes([self.0; 32]) }
-        fn retained_bytes(&self) -> usize { size_of::<Self>() }
-        fn time_limit(&self) -> std::time::Duration { std::time::Duration::from_secs(1) }
-        fn resolve(&self, _: &[f64], _: Option<&[f64]>, _: Option<&[f64]>) -> std::result::Result<(Vec<Unknown>, Options), MathError> {
-            Err(MathError::Contract("this test inspects demand, not numerical hint execution".into()))
+        fn identity(&self) -> ContentHash {
+            ContentHash::from_bytes([self.0; 32])
+        }
+        fn retained_bytes(&self) -> usize {
+            size_of::<Self>()
+        }
+        fn time_limit(&self) -> std::time::Duration {
+            std::time::Duration::from_secs(1)
+        }
+        fn resolve(
+            &self,
+            _: &[f64],
+            _: Option<&[f64]>,
+            _: Option<&[f64]>,
+        ) -> std::result::Result<(Vec<Unknown>, Options), MathError> {
+            Err(MathError::Contract(
+                "this test inspects demand, not numerical hint execution".into(),
+            ))
         }
     }
     let source = "package p { def Root { var x:Scalar; implicit root select branch(y>=0) { var y:Scalar; eq residual:y==x/2; annotation start y(x/2); } realize r on root using nested; eq pin:root.y==2; } }";
     let (mut workspace, _, _, root) = setup(source);
     let admitted = admit(&mut workspace, root);
     let inner = admitted.implicit.values().next().unwrap();
-    let solver = Arc::new(pse_math::implicit::Affine::new(&inner.residuals[0].body.math, 1).unwrap());
+    let solver =
+        Arc::new(pse_math::implicit::Affine::new(&inner.residuals[0].body.math, 1).unwrap());
     let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
-    let capabilities = ImplicitCapabilities { solver, verifier: None, accelerators: &accelerators };
+    let capabilities = ImplicitCapabilities {
+        solver,
+        verifier: None,
+        accelerators: &accelerators,
+    };
     let cancel = Cancellation::new(false);
     let limits = EvaluationLimits::default();
-    let configs = |hint| BTreeMap::from([(inner.residuals[0].id, Configuration::Hints(Arc::new(Hints(hint))))]);
-    let requests = |hint, order, limits| inner.program_requests(&configs(hint), &capabilities, order, &cancel, limits).unwrap();
-    let keys = |(requests, _): (Vec<ImplicitProgramRequest>, ImplicitPrograms)| requests.into_iter().map(|request| request.artifact().key()).collect::<Vec<_>>();
-    assert_eq!(keys(requests(1, DerivativeOrder::First, limits)), keys(requests(2, DerivativeOrder::First, limits)),
-        "fresh numerical resolvers cannot recompile stable residual/hint programs");
-    assert_ne!(keys(requests(1, DerivativeOrder::First, limits)), keys(requests(1, DerivativeOrder::Second, limits)));
-    let narrower = EvaluationLimits { operations: limits.operations - 1, ..limits };
-    assert_ne!(keys(requests(1, DerivativeOrder::First, limits)), keys(requests(1, DerivativeOrder::First, narrower)));
-    let (mut changed_workspace, _, _, changed_root) = setup(&source.replace("annotation start y(x/2)", "annotation start y(x/3)"));
+    let configs = |hint| {
+        BTreeMap::from([(
+            inner.residuals[0].id,
+            Configuration::Hints(Arc::new(Hints(hint))),
+        )])
+    };
+    let requests = |hint, order, limits| {
+        inner
+            .program_requests(&configs(hint), &capabilities, order, &cancel, limits)
+            .unwrap()
+    };
+    let keys = |(requests, _): (Vec<ImplicitProgramRequest>, ImplicitPrograms)| {
+        requests
+            .into_iter()
+            .map(|request| request.artifact().key())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        keys(requests(1, DerivativeOrder::First, limits)),
+        keys(requests(2, DerivativeOrder::First, limits)),
+        "fresh numerical resolvers cannot recompile stable residual/hint programs"
+    );
+    assert_ne!(
+        keys(requests(1, DerivativeOrder::First, limits)),
+        keys(requests(1, DerivativeOrder::Second, limits))
+    );
+    let narrower = EvaluationLimits {
+        operations: limits.operations - 1,
+        ..limits
+    };
+    assert_ne!(
+        keys(requests(1, DerivativeOrder::First, limits)),
+        keys(requests(1, DerivativeOrder::First, narrower))
+    );
+    let (mut changed_workspace, _, _, changed_root) =
+        setup(&source.replace("annotation start y(x/2)", "annotation start y(x/3)"));
     let changed = admit(&mut changed_workspace, changed_root);
     let changed_inner = changed.implicit.values().next().unwrap();
-    let changed_configs = BTreeMap::from([(changed_inner.residuals[0].id, Configuration::Hints(Arc::new(Hints(1))))]);
-    let changed_requests = changed_inner.program_requests(&changed_configs, &capabilities, DerivativeOrder::First, &cancel, limits).unwrap();
-    assert_ne!(keys(requests(1, DerivativeOrder::First, limits)), keys(changed_requests), "hint expression changes immutable program demand");
+    let changed_configs = BTreeMap::from([(
+        changed_inner.residuals[0].id,
+        Configuration::Hints(Arc::new(Hints(1))),
+    )]);
+    let changed_requests = changed_inner
+        .program_requests(
+            &changed_configs,
+            &capabilities,
+            DerivativeOrder::First,
+            &cancel,
+            limits,
+        )
+        .unwrap();
+    assert_ne!(
+        keys(requests(1, DerivativeOrder::First, limits)),
+        keys(changed_requests),
+        "hint expression changes immutable program demand"
+    );
     let (selected, _) = requests(1, DerivativeOrder::First, limits);
-    let refusal = selected[0].attribute_refusal(&MathError::DerivativeDemand {
-        source_id: None, body: None, outputs: vec![0], coordinates: vec![0],
-        requested: DerivativeOrder::First, available: DerivativeOrder::Value,
-    }).unwrap();
-    assert!(matches!(refusal, MathError::DerivativeDemand { source_id: Some(source), body: Some(_), .. }
-        if source == inner.residuals[0].id));
-    let programs = inner.compile_programs(&configs(1), &capabilities, DerivativeOrder::First, &cancel, limits).unwrap();
-    assert!(inner.factory_reusing(configs(2), capabilities.clone(), DerivativeOrder::First, cancel.clone(), narrower, &programs).is_err());
-    assert!(inner.factory_reusing(configs(2), capabilities, DerivativeOrder::Second, cancel, limits, &programs).is_err());
+    let refusal = selected[0]
+        .attribute_refusal(&MathError::DerivativeDemand {
+            source_id: None,
+            body: None,
+            outputs: vec![0],
+            coordinates: vec![0],
+            requested: DerivativeOrder::First,
+            available: DerivativeOrder::Value,
+        })
+        .unwrap();
+    assert!(
+        matches!(refusal, MathError::DerivativeDemand { source_id: Some(source), body: Some(_), .. }
+        if source == inner.residuals[0].id)
+    );
+    let programs = inner
+        .compile_programs(
+            &configs(1),
+            &capabilities,
+            DerivativeOrder::First,
+            &cancel,
+            limits,
+        )
+        .unwrap();
+    assert!(
+        inner
+            .factory_reusing(
+                configs(2),
+                capabilities.clone(),
+                DerivativeOrder::First,
+                cancel.clone(),
+                narrower,
+                &programs
+            )
+            .is_err()
+    );
+    assert!(
+        inner
+            .factory_reusing(
+                configs(2),
+                capabilities,
+                DerivativeOrder::Second,
+                cancel,
+                limits,
+                &programs
+            )
+            .is_err()
+    );
 }
 
 #[test]
@@ -7495,64 +7604,161 @@ fn implicit_request_local_accelerator_is_admitted_once_then_reused_for_factory_a
     #[derive(Debug)]
     struct Counted(Arc<std::sync::atomic::AtomicUsize>);
     impl pse_math::implicit::accelerators::Accelerator for Counted {
-        fn admit(&self, body: &pse_math::guarded::PreparedBody, unknowns: usize,
-            _: EvaluationLimits, cancel: &Arc<AtomicBool>) -> std::result::Result<Arc<dyn pse_math::implicit::InnerSolver>, MathError> {
+        fn admit(
+            &self,
+            body: &pse_math::guarded::PreparedBody,
+            unknowns: usize,
+            _: EvaluationLimits,
+            cancel: &Arc<AtomicBool>,
+        ) -> std::result::Result<Arc<dyn pse_math::implicit::InnerSolver>, MathError> {
             self.0.fetch_add(1, Ordering::Relaxed);
-            if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
+            if cancel.load(Ordering::Acquire) {
+                return Err(MathError::Cancelled);
+            }
             Ok(Arc::new(pse_math::implicit::Affine::new(body, unknowns)?))
         }
     }
-    let (mut workspace, _, _, root) = setup("package p {def Root {var x:Scalar;implicit root select branch(y>=0) {var y:Scalar;eq residual:y==x/2;}realize r on root using accelerated(counter);eq pin:root.y==2;}}");
+    let (mut workspace, _, _, root) = setup(
+        "package p {def Root {var x:Scalar;implicit root select branch(y>=0) {var y:Scalar;eq residual:y==x/2;}realize r on root using accelerated(counter);eq pin:root.y==2;}}",
+    );
     let admitted = admit(&mut workspace, root);
     let inner = admitted.implicit.values().next().unwrap();
     let count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let mut accelerators = pse_math::implicit::accelerators::Accelerators::standard();
-    accelerators.register("counter".into(), Arc::new(Counted(count.clone()))).unwrap();
-    let capabilities = ImplicitCapabilities { solver: Arc::new(pse_math::implicit::Affine::new(&inner.residuals[0].body.math, 1).unwrap()), verifier: None, accelerators: &accelerators };
-    let configs = BTreeMap::from([(inner.residuals[0].id, Configuration::Fixed(
-        inner.unknowns.iter().map(|&id| Unknown {id, lower: f64::NEG_INFINITY, upper: f64::INFINITY}).collect(),
-        Options { start: vec![1.], variable_nominals: vec![1.], variable_tolerance: vec![0.001], residual_tolerance: vec![0.001],
-            iterations: 20, time_limit: std::time::Duration::from_secs(1), derivative_tolerance: 1e-9 },
-    ))]);
+    accelerators
+        .register("counter".into(), Arc::new(Counted(count.clone())))
+        .unwrap();
+    let capabilities = ImplicitCapabilities {
+        solver: Arc::new(
+            pse_math::implicit::Affine::new(&inner.residuals[0].body.math, 1).unwrap(),
+        ),
+        verifier: None,
+        accelerators: &accelerators,
+    };
+    let configs = BTreeMap::from([(
+        inner.residuals[0].id,
+        Configuration::Fixed(
+            inner
+                .unknowns
+                .iter()
+                .map(|&id| Unknown {
+                    id,
+                    lower: f64::NEG_INFINITY,
+                    upper: f64::INFINITY,
+                })
+                .collect(),
+            Options {
+                start: vec![1.],
+                variable_nominals: vec![1.],
+                variable_tolerance: vec![0.001],
+                residual_tolerance: vec![0.001],
+                iterations: 20,
+                time_limit: std::time::Duration::from_secs(1),
+                derivative_tolerance: 1e-9,
+            },
+        ),
+    )]);
     let cancel = Cancellation::default();
     let limits = EvaluationLimits::default();
-    let programs = inner.compile_programs(&configs, &capabilities, DerivativeOrder::First, &cancel, limits).unwrap();
+    let programs = inner
+        .compile_programs(
+            &configs,
+            &capabilities,
+            DerivativeOrder::First,
+            &cancel,
+            limits,
+        )
+        .unwrap();
     assert_eq!(count.load(Ordering::Relaxed), 1);
-    let factory = inner.factory_reusing(configs, capabilities, DerivativeOrder::First, cancel, limits, &programs).unwrap();
-    assert_eq!(count.load(Ordering::Relaxed), 1, "factory assembly retains its request-local capability rather than repeating admission");
+    let factory = inner
+        .factory_reusing(
+            configs,
+            capabilities,
+            DerivativeOrder::First,
+            cancel,
+            limits,
+            &programs,
+        )
+        .unwrap();
+    assert_eq!(
+        count.load(Ordering::Relaxed),
+        1,
+        "factory assembly retains its request-local capability rather than repeating admission"
+    );
     assert!(factory.retained_bytes().unwrap() > 0);
-    let (shared, wrappers) = factory.separately_owned_program_bytes(&programs.allocation_identities()).unwrap();
+    let (shared, wrappers) = factory
+        .separately_owned_program_bytes(&programs.allocation_identities())
+        .unwrap();
     assert!(shared > 0 && wrappers > 0);
-    let pse_math::implicit::ImplicitFactory::Root(root_factory) = &factory else { panic!("one branch"); };
-    let expected_wrappers = [&root_factory.bodies.unknown, &root_factory.bodies.parameter].into_iter()
-        .chain(root_factory.selection.restriction.iter()).map(|body| body.owner_attachment_bytes()).sum::<usize>();
-    assert_eq!(wrappers, expected_wrappers, "each factory occurrence retains its own header/owner joins");
-    let local = factory.retained_bytes().unwrap().checked_sub(shared).unwrap().checked_add(wrappers).unwrap();
-    assert!(local >= wrappers, "subtracting shared payload cannot remove the fresh wrapper charge");
+    let pse_math::implicit::ImplicitFactory::Root(root_factory) = &factory else {
+        panic!("one branch");
+    };
+    let expected_wrappers = [&root_factory.bodies.unknown, &root_factory.bodies.parameter]
+        .into_iter()
+        .chain(root_factory.selection.restriction.iter())
+        .map(|body| body.owner_attachment_bytes())
+        .sum::<usize>();
+    assert_eq!(
+        wrappers, expected_wrappers,
+        "each factory occurrence retains its own header/owner joins"
+    );
+    let local = factory
+        .retained_bytes()
+        .unwrap()
+        .checked_sub(shared)
+        .unwrap()
+        .checked_add(wrappers)
+        .unwrap();
+    assert!(
+        local >= wrappers,
+        "subtracting shared payload cannot remove the fresh wrapper charge"
+    );
     let barrier = Arc::new(std::sync::Barrier::new(2));
-    let tasks = [4., 6.].into_iter().enumerate().map(|(lane, input)| {
-        let factory = factory.clone();
-        let barrier = barrier.clone();
-        std::thread::spawn(move || {
-            use pse_kernels::ProviderFactory;
-            let stop = Cancellation::default();
-            let scope = pse_kernels::ExecutionScope::new(stop.clone(), None);
-            let mut worker = factory.create_scoped(scope).unwrap();
-            let request = pse_kernels::ProviderRequest::all(worker.spec(), DerivativeOrder::First);
-            barrier.wait();
-            let result = worker.evaluate(&[input], &request, &pse_kernels::EvaluationContext {
-                cancelled: &stop, max_result_bytes: 1 << 20,
-            }).unwrap();
-            assert_eq!(result.values, [input / 2.]);
-            assert_eq!(result.jacobian, [0.5]);
-            if lane == 0 {
-                stop.cancel();
-                assert!(worker.evaluate(&[input], &request, &pse_kernels::EvaluationContext {
-                    cancelled: &stop, max_result_bytes: 1 << 20,
-                }).is_err());
-            }
+    let tasks = [4., 6.]
+        .into_iter()
+        .enumerate()
+        .map(|(lane, input)| {
+            let factory = factory.clone();
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                use pse_kernels::ProviderFactory;
+                let stop = Cancellation::default();
+                let scope = pse_kernels::ExecutionScope::new(stop.clone(), None);
+                let mut worker = factory.create_scoped(scope).unwrap();
+                let request =
+                    pse_kernels::ProviderRequest::all(worker.spec(), DerivativeOrder::First);
+                barrier.wait();
+                let result = worker
+                    .evaluate(
+                        &[input],
+                        &request,
+                        &pse_kernels::EvaluationContext {
+                            cancelled: &stop,
+                            max_result_bytes: 1 << 20,
+                        },
+                    )
+                    .unwrap();
+                assert_eq!(result.values, [input / 2.]);
+                assert_eq!(result.jacobian, [0.5]);
+                if lane == 0 {
+                    stop.cancel();
+                    assert!(
+                        worker
+                            .evaluate(
+                                &[input],
+                                &request,
+                                &pse_kernels::EvaluationContext {
+                                    cancelled: &stop,
+                                    max_result_bytes: 1 << 20,
+                                }
+                            )
+                            .is_err()
+                    );
+                }
+            })
         })
-    }).collect::<Vec<_>>();
-    for task in tasks { task.join().unwrap(); }
-
+        .collect::<Vec<_>>();
+    for task in tasks {
+        task.join().unwrap();
+    }
 }

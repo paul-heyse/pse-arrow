@@ -1083,26 +1083,42 @@ impl ImplicitFactory {
     }
     /// Separately charged shared payload and fresh attachment wrappers, counted per
     /// factory occurrence exactly as retained_bytes. Mutable scratch remains local.
-    pub fn separately_owned_program_bytes(&self, allocations: &std::collections::BTreeSet<usize>) -> Result<(usize, usize), MathError> {
+    pub fn separately_owned_program_bytes(
+        &self,
+        allocations: &std::collections::BTreeSet<usize>,
+    ) -> Result<(usize, usize), MathError> {
         let add = |(payload, wrappers): (usize, usize), body: &Arc<CompiledBody>| {
-            Some((payload.checked_add(body.retained_bytes())?, wrappers.checked_add(body.owner_attachment_bytes())?))
+            Some((
+                payload.checked_add(body.retained_bytes())?,
+                wrappers.checked_add(body.owner_attachment_bytes())?,
+            ))
         };
         let root = |factory: &Factory| {
-            std::iter::once(&factory.bodies.parameter).chain(std::iter::once(&factory.bodies.unknown))
-                .chain(factory.hints.iter()).chain(factory.terms.iter())
-                .chain(factory.selection.anchor.iter()).chain(factory.selection.restriction.iter())
+            std::iter::once(&factory.bodies.parameter)
+                .chain(std::iter::once(&factory.bodies.unknown))
+                .chain(factory.hints.iter())
+                .chain(factory.terms.iter())
+                .chain(factory.selection.anchor.iter())
+                .chain(factory.selection.restriction.iter())
                 .filter(|body| allocations.contains(&(Arc::as_ptr(body) as usize)))
                 .try_fold((0usize, 0usize), add)
         };
         let bytes = match self {
             Self::Root(factory) => root(factory),
-            Self::Regimes(factory) => factory.alternatives.iter().try_fold((0usize, 0usize), |(payload, wrappers), branch| {
-                let extra = [&branch.eligibility, &branch.criterion].into_iter()
-                    .filter(|body| allocations.contains(&(Arc::as_ptr(body) as usize)))
-                    .try_fold((0usize, 0usize), add)?;
-                let local = root(&branch.residual)?;
-                Some((payload.checked_add(local.0)?.checked_add(extra.0)?, wrappers.checked_add(local.1)?.checked_add(extra.1)?))
-            }),
+            Self::Regimes(factory) => factory.alternatives.iter().try_fold(
+                (0usize, 0usize),
+                |(payload, wrappers), branch| {
+                    let extra = [&branch.eligibility, &branch.criterion]
+                        .into_iter()
+                        .filter(|body| allocations.contains(&(Arc::as_ptr(body) as usize)))
+                        .try_fold((0usize, 0usize), add)?;
+                    let local = root(&branch.residual)?;
+                    Some((
+                        payload.checked_add(local.0)?.checked_add(extra.0)?,
+                        wrappers.checked_add(local.1)?.checked_add(extra.1)?,
+                    ))
+                },
+            ),
         };
         bytes.ok_or(MathError::Limit("implicit separately owned program extent"))
     }

@@ -224,8 +224,20 @@ owner exits, retaining native joins, cleanup and the stop reason separately.
 The [short pipeline review](../design_review/reviews/design_review_pipeline-performance-optimization_2026-10-17.md)
 describes compact cases and their interpretation limits; [39d D4](../plans/39d-qualification-and-plan38-cutover.md#d4--development-context-prerequisites-and-once-only-simulation-audit)
 retains the original campaign's scope.
+Compact scientific declarations select an ephemeral local runtime and share its physical
+admission context; they do not require canonical-state or worker authority. Durable
+publication and managed cases retain their explicitly selected store/receiver owners.
 The selected reference store must be started inside its existing reference allocation
-owner and drained before that owner exits.
+owner and drained before that owner exits. Keep those populations separate when comparing
+source preparation with numerical work.
+
+Use matched declarations to isolate a cost: the unscheduled five- and 25-output ODE
+controls share the same response axes, while the scheduled 25-output controls also change
+segment and sensitivity layouts. Original-result rejection still retains returned native
+observations; feasible native convergence alone does not establish the intended physical
+answer. Once-only smoke observations identify work and branches, not comparative latency.
+Inclusive compiler/native intervals, raw loss and unobserved external processes retain
+their stated limits; do not subtract nested clocks to invent exclusive cost.
 
 Managed readiness carries the actual receiver's diagnostic identity and exact checkpoint,
 under its exact registered receiver state, database and registration nonce. The actual readiness consumer retains a compact
