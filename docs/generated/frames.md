@@ -138,6 +138,9 @@ Derived in: pse-compiler.
 | `CompilerModelingViewV3` | `pse.compiler.modeling-view.v3` | Mathematical view and compiler profile, with revision attribution bound separately. |
 | `CompilerModelingViewV4` | `pse.compiler.modeling-view.v4` | Complete compiler view policy, including assembly limits and class-proof work. |
 | `CompilerModelingViewV5` | `pse.compiler.modeling-view.v5` | Complete compiler view policy with explicit scalar evaluator selection. |
+| `CompilerModelingViewV6` | `pse.compiler.modeling-view.v6` | Consumed physical premises for a prepared mathematical view. |
+| `MathPhysicalPremisesV1` | `pse.math.physical-premises.v1` | Resolver-issued lookup questions and their complete consumed values. |
+| `ModelingConsumerBodyV5` | `pse.modeling.consumer-body.v5` | Body identity under resolver-issued consumed physical premises. |
 | `CompilerModelingParametricV1` | `pse.compiler.modeling-parametric.v1` | The parametric projection of a prepared modeling view over requested parameters. |
 | `ModelingConsumerBodyV2` | `pse.modeling.consumer-body.v2` | A grouped consumer body, its expressions and validity ranges in canonical spelling (ADR-0123 Outcome 8). |
 | `ModelingConsumerBodyV3` | `pse.modeling.consumer-body.v3` | Canonical complete identity under ADR-0150. |
