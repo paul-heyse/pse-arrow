@@ -85,6 +85,16 @@ impl RegimeFactory {
         scope: pse_kernels::ExecutionScope,
         offsets: Option<&[f64]>,
     ) -> Result<RegimeSelection, pse_kernels::ProviderError> {
+        let mut selection=self.build_selection_offsets(scope.clone(),offsets)?;
+        for r in &mut selection.alternatives {
+            r.problem.prepare_complete(DerivativeOrder::First,&scope).map_err(super::provider_error)?;
+            let mut bank=r.problem.providers.lock().map_err(|_|pse_kernels::ProviderError::Terminal("regime provider lock poisoned".into()))?;
+            r.eligibility.prepare_providers(&mut bank).map_err(super::provider_error)?;
+            r.criterion.prepare_providers(&mut bank).map_err(super::provider_error)?;
+        }
+        Ok(selection)
+    }
+    fn build_selection_offsets(&self,scope:pse_kernels::ExecutionScope,offsets:Option<&[f64]>)->Result<RegimeSelection,pse_kernels::ProviderError> {
         scope.check()?;
         if offsets.is_some_and(|values| {
             values.len() != self.spec.outputs.len() || values.iter().any(|v| !v.is_finite())
@@ -210,7 +220,7 @@ impl pse_kernels::ProviderFactory for RegimeFactory {
     ) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
         scope.check()?;
         let cancel = scope.cancellation().clone();
-        let selection = self.prepare_selection(scope.clone())?;
+        let selection = self.build_selection_offsets(scope.clone(),None)?;
         scope.check()?;
         Ok(pse_kernels::ProviderBinding::new(self.spec.clone(), Box::new(SelectedProvider {
             selection,
@@ -242,7 +252,7 @@ impl pse_kernels::Provider for SelectedProvider {
     }
     fn supports_linearization(&self)->bool {
         self.selection.alternatives.iter().all(|r| r.problem.providers.lock().is_ok_and(|bank| {
-            r.problem.parameter_source.required_provider_keys().iter().chain(r.eligibility_source.required_provider_keys()).chain(r.criterion_source.required_provider_keys()).all(|key| bank.supports_linearization(*key))
+            r.problem.required_provider_keys.as_slice().iter().chain(r.eligibility_source.required_provider_keys()).chain(r.criterion_source.required_provider_keys()).all(|key| bank.supports_linearization(*key))
         }))
     }
     fn completed_linearization(&self)->Option<pse_ids::ContentHash> { self.linearization }

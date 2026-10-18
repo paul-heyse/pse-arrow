@@ -133,13 +133,13 @@ pub struct Options {
 pub struct ResidualBodies {
     /// Unknown-only native/Newton product; parameters remain ordinary value inputs.
     pub unknown: Arc<CompiledBody>,
-    /// Parameter and unknown partials required by implicit-function differentiation.
-    pub parameter: Arc<CompiledBody>,
+    /// Original Value source, optimizer policy and limits for demanded derivative preparation.
+    pub source: Arc<CompiledBody>,
 }
 impl ResidualBodies {
     fn check(&self, unknowns: usize, inputs: usize) -> Result<(), MathError> {
         let a = self.unknown.prepared_support();
-        let b = self.parameter.prepared_support();
+        let b = self.source.prepared_support();
         let axes = if self.unknown.compiled_order() >= DerivativeOrder::First {
             (0..unknowns).collect::<Vec<_>>()
         } else {
@@ -148,28 +148,14 @@ impl ResidualBodies {
         let width = unknowns
             .checked_add(inputs)
             .ok_or_else(|| MathError::Contract("implicit formal extent".into()))?;
-        let parameter_axes = if self.parameter.compiled_order() >= DerivativeOrder::First {
-            (0..width).collect::<Vec<_>>()
-        } else {
-            Vec::new()
-        };
         if !a.same_source(b)
-            || a.outputs() != b.outputs()
-            || self.unknown.product_kind() != crate::guarded::ProductKind::SelectedPartials
-            || self.parameter.product_kind() != crate::guarded::ProductKind::SelectedPartials
-            || self.unknown.compiled_order() > DerivativeOrder::First
-            || self.unknown.coordinates() != axes
-            || self.parameter.coordinates() != parameter_axes
-            || self
-                .unknown
-                .input_formals()
-                .iter()
-                .any(|formal| !self.parameter.input_formals().contains(formal))
-            || self
-                .parameter
-                .input_formals()
-                .iter()
-                .any(|formal| *formal >= width)
+            || a.outputs()!=b.outputs()
+            || self.unknown.product_kind()!=crate::guarded::ProductKind::SelectedPartials
+            || self.source.product_kind()!=crate::guarded::ProductKind::SelectedPartials
+            || self.source.compiled_order()!=DerivativeOrder::Value || !self.source.coordinates().is_empty()
+            || b.source_input_count()!=width
+            || self.unknown.compiled_order()>DerivativeOrder::First || self.unknown.coordinates()!=axes
+            || self.unknown.input_formals().iter().chain(self.source.input_formals()).any(|formal|*formal>=width)
         {
             return Err(MathError::Contract(
                 "implicit residual programs have different source/output/input premises".into(),
@@ -192,12 +178,10 @@ pub struct Problem {
     pub rows: Vec<SemanticId>,
     /// Number of independent inputs after the unknowns.
     pub inputs: usize,
-    /// Actual compiled residual order shared with the native oracle.
-    pub compiled_order: DerivativeOrder,
     /// Resolved derivative facts shared with provider and native contracts.
     pub requirements: pse_kernels::DerivativeRequirements,
     residual_offsets: Vec<f64>,
-    worker: Mutex<ResidualWorker>,
+    source_worker: Mutex<ResidualWorker>,
     unknown_worker: Mutex<ResidualWorker>,
     providers: Mutex<pse_kernels::ProviderBindings>,
     pattern: SymbolicSparseColMat<usize>,
@@ -208,6 +192,8 @@ pub struct Problem {
     product_scratch: Mutex<products::ProductScratch>,
     max_entries: usize,
     effectful_residual: bool,
+    required_provider_keys:Vec<pse_kernels::ProviderKey>,
+    native_order:DerivativeOrder,
     construction_owner: Option<Arc<dyn crate::construction::ConstructionAdmission>>,
     prepared_bytes: Mutex<usize>,
     prepared_demands: Mutex<Vec<pse_kernels::ProviderRequest>>,
@@ -337,7 +323,7 @@ impl Problem {
     ) -> Result<Self, MathError> {
         let n = unknowns.len();
         bodies.check(n, inputs)?;
-        let body = &bodies.parameter;
+        let body = &bodies.source;
         // Construction admits the complete state solve. Parameter derivative
         // populations belong to the actual prepared invocation, before effects.
         let extent = if bodies.unknown.compiled_order() >= DerivativeOrder::First { n.checked_mul(n) } else { Some(n) };
@@ -362,7 +348,7 @@ impl Problem {
                 "implicit identities or intervals".into(),
             ));
         }
-        let incidence = body.incidence(&Arc::new(AtomicBool::new(false)))?;
+        let incidence = body.prepared_support().incidence(&(0..n).collect::<Vec<_>>(),&Arc::new(AtomicBool::new(false)))?;
         if incidence.support().first.len() != n {
             return Err(MathError::Contract(
                 "implicit residual support extent".into(),
@@ -414,23 +400,24 @@ impl Problem {
             sums: vec![0.; n], scales: vec![0.; n],
         };
         let residual_offsets = vec![0.0; rows.len()];
+        let required_provider_keys=body.prepared_support().source_providers().iter().map(pse_kernels::ProviderSpec::key).collect::<Vec<_>>();
+        let available=body.prepared_support().source_available_order().max(bodies.unknown.compiled_order());
         Ok(Self {
             id,
             identity,
             unknowns,
             rows,
             inputs,
-            compiled_order: body.compiled_order(),
             requirements: pse_kernels::DerivativeRequirements::new(
-                body.compiled_order(),
-                body.compiled_order(),
-                body.compiled_order(),
-                DerivativeOrder::Value,
-                body.compiled_order(),
+                available,
+                available,
+                available,
+                bodies.unknown.compiled_order(),
+                available,
             )
             .map_err(|e| MathError::Contract(e.to_string()))?,
             residual_offsets,
-            worker: Mutex::new(ResidualWorker::new(body)),
+            source_worker: Mutex::new(ResidualWorker::new(body)),
             unknown_worker: Mutex::new(ResidualWorker::new(&bodies.unknown)),
             providers: Mutex::new(pse_kernels::ProviderBindings::new()),
             pattern,
@@ -438,7 +425,7 @@ impl Problem {
             factor: Mutex::new(factor),
             parameter_source: body.clone(), product_workers: Mutex::new(Vec::new()), max_entries,
             product_scratch: Mutex::new(products::ProductScratch::new(n)),
-            effectful_residual: body.census().any(|order| order.provider_stages > 0),
+            effectful_residual: !required_provider_keys.is_empty(),required_provider_keys,native_order:bodies.unknown.compiled_order(),
             construction_owner: crate::construction::current(), prepared_bytes: Mutex::new(0), prepared_demands: Mutex::new(Vec::new()),
         })
     }
@@ -474,14 +461,11 @@ impl Problem {
         mut self,
         requirements: pse_kernels::DerivativeRequirements,
     ) -> Result<Self, MathError> {
-        if self.compiled_order != requirements.residual_compilation {
-            return Err(MathError::Contract(
-                "implicit requirements compilation order mismatch".into(),
-            ));
-        }
         self.requirements = requirements;
         Ok(self)
     }
+    /// Exact derivative capacity of the eagerly prepared native unknown product.
+    pub fn native_order(&self)->DerivativeOrder { self.native_order }
     /// Structural Jacobian support of the residuals with respect to the unknowns.
     pub fn pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
         self.pattern.as_ref()
@@ -494,7 +478,8 @@ impl Problem {
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Evaluation, MathError> {
-        self.with_trial_evaluation(&self.worker, parameters, unknowns, order, cancel, |jet| {
+        let program=if order==DerivativeOrder::Value { None } else { Some(self.complete_program(order)?) };
+        self.with_trial_evaluation(program.as_ref().map_or(&self.source_worker,|p|&p.worker), parameters, unknowns, order, cancel, |jet| {
             Ok(owned_evaluation(jet, self.unknowns.len() + self.inputs, order))
         })
     }
@@ -786,6 +771,7 @@ impl Problem {
             DerivativeOrder::Second => width.and_then(|w| self.unknowns.len().checked_mul(w)?.checked_mul(w)),
         };
         if extent.is_none_or(|v| v > self.max_entries) { return Err(MathError::Limit("implicit demanded derivative extent")); }
+        if order>=DerivativeOrder::First { self.complete_program(order)?; }
         let result = self.verify(parameters, point, options, cancel).and_then(|()| {
             self.derivatives_at_verified_point(parameters, point, order, options, cancel,
                 numerical_product_key(self, parameters, options, solver_identity("implicit.public-ift.v1")))
@@ -803,9 +789,9 @@ impl Problem {
         premise: ContentHash,
     ) -> Result<ProviderValues, MathError> {
         let columns = (0..self.inputs).collect::<Vec<_>>();
-        let prepared=self.product_workers.lock().map_err(|_| MathError::Contract("implicit product lock poisoned".into()))?.iter()
-            .find(|p| p.kind==crate::jets::ProductKind::SelectedPartials && p.order==order && p.columns==columns).cloned();
-        self.derivatives_from_worker(parameters, point, order, options, cancel, premise, prepared.as_ref().map_or(&self.worker,|p| &p.worker), &columns)
+        if order==DerivativeOrder::Value { return Ok(ProviderValues {values:point.to_vec(),jacobian:Vec::new(),hessians:Vec::new()}); }
+        let prepared=self.complete_program(order)?;
+        self.derivatives_from_worker(parameters,point,order,options,cancel,premise,&prepared.worker,&columns)
     }
     fn derivatives_from_worker(
         &self, parameters: &[f64], point: &[f64], order: DerivativeOrder, options: &Options,
@@ -1158,7 +1144,7 @@ pub(super) fn numerical_product_key(
         .hash(&problem.identity)
         .hash(&solver)
         .u64(problem.inputs as u64)
-        .u64(problem.compiled_order as u64);
+        .u64(problem.requirements.residual_compilation as u64);
     h.u64(problem.unknowns.len() as u64);
     for unknown in &problem.unknowns {
         h.id(&unknown.id).f64(unknown.lower).f64(unknown.upper);
@@ -1279,7 +1265,7 @@ impl ImplicitFactory {
             ))
         };
         let root = |factory: &Factory| {
-            std::iter::once(&factory.bodies.parameter)
+            std::iter::once(&factory.bodies.source)
                 .chain(std::iter::once(&factory.bodies.unknown))
                 .chain(factory.hints.iter())
                 .chain(factory.terms.iter())
@@ -1310,14 +1296,14 @@ impl ImplicitFactory {
     fn root_bytes(factory: &Factory) -> Option<usize> {
         factory
             .bodies
-            .parameter
+            .source
             .retained_bytes()
             .checked_add(size_of::<ResidualWorker>())?
             .checked_add(factory.bodies.unknown.retained_bytes())?
             .checked_add(factory.bodies.unknown.worker_bytes())?
             .checked_add(
                 (factory.bodies.unknown.input_formals().len()
-                    + factory.bodies.parameter.input_formals().len())
+                    + factory.bodies.source.input_formals().len())
                 .checked_mul(size_of::<f64>())?,
             )?
             .checked_add(factory.solver.retained_bytes())?
@@ -1397,7 +1383,7 @@ impl ImplicitFactory {
         };
         match self {
             Self::Root(factory) => {
-                retain(&mut factory.bodies.parameter);
+                retain(&mut factory.bodies.source);
                 retain(&mut factory.bodies.unknown);
                 for body in factory.hints.iter_mut().chain(&mut factory.terms) {
                     retain(body);
@@ -1413,7 +1399,7 @@ impl ImplicitFactory {
             }
             Self::Regimes(factory) => {
                 for branch in &mut factory.alternatives {
-                    retain(&mut branch.residual.bodies.parameter);
+                    retain(&mut branch.residual.bodies.source);
                     retain(&mut branch.residual.bodies.unknown);
                     for body in branch
                         .residual
@@ -1543,7 +1529,6 @@ impl Factory {
     ) -> Result<Arc<Problem>, pse_kernels::ProviderError> {
         scope.check()?;
         if self.requirements.inner_minimum != self.solver.minimum_order()
-            || self.bodies.parameter.compiled_order() != self.requirements.residual_compilation
             || self.bodies.unknown.compiled_order() < self.requirements.inner_minimum
         {
             return Err(pse_kernels::ProviderError::Contract(
@@ -1596,7 +1581,7 @@ impl Factory {
         .map_err(provider_error)?
         .with_providers(providers);
         problem
-            .worker
+            .source_worker
             .get_mut()
             .map_err(|_| {
                 pse_kernels::ProviderError::Terminal("implicit worker lock poisoned".into())
@@ -1643,7 +1628,7 @@ impl pse_kernels::Provider for Nested {
         matches!(demand, pse_kernels::ProviderDemand::CompleteJets | pse_kernels::ProviderDemand::SelectedColumns { .. }) || self.supports_linearization()
     }
     fn supports_linearization(&self) -> bool {
-        self.problem.providers.lock().is_ok_and(|bank| self.problem.parameter_source.required_provider_keys().iter().all(|key| bank.supports_linearization(*key)))
+        self.problem.providers.lock().is_ok_and(|bank| self.problem.required_provider_keys.as_slice().iter().all(|key| bank.supports_linearization(*key)))
     }
     fn completed_linearization(&self) -> Option<ContentHash> { self.linearization }
     fn prepare_demand(&mut self, request: &pse_kernels::PreparedProviderRequest) -> Result<(), pse_kernels::ProviderError> {
@@ -1938,7 +1923,8 @@ pub(crate) fn residual_bodies_for_test(parameter: Arc<CompiledBody>) -> Residual
             )
             .unwrap(),
     );
-    ResidualBodies { unknown, parameter }
+    let source=Arc::new(parameter.prepared_support().incidence(&[],&cancel).unwrap().at_order(DerivativeOrder::Value).unwrap().compile(parameter.optimization(),parameter.evaluation_limits(),&pse_kernels::ExecutionScope::new(compile_control,None)).unwrap());
+    ResidualBodies { unknown, source }
 }
 
 #[cfg(test)]
@@ -2320,7 +2306,7 @@ mod tests {
         for axes in [&[1, 0][..], &[0][..], &[1][..]] {
             let bodies = ResidualBodies {
                 unknown: unknown.clone(),
-                parameter: compile(axes, DerivativeOrder::First),
+                source: compile(axes, DerivativeOrder::First),
             };
             assert!(
                 matches!(bodies.check(1, 1), Err(MathError::Contract(_))),
@@ -2339,7 +2325,7 @@ mod tests {
         for order in [DerivativeOrder::First, DerivativeOrder::Second] {
             let bodies = ResidualBodies {
                 unknown: unknown.clone(),
-                parameter: compile(&[0, 1], order),
+                source: compile(&[0, 1], order),
             };
             let problem = Problem::new(
                 id,
@@ -2417,7 +2403,7 @@ mod tests {
         }
         let value = ResidualBodies {
             unknown: compile(&[], DerivativeOrder::Value),
-            parameter: compile(&[], DerivativeOrder::Value),
+            source: compile(&[], DerivativeOrder::Value),
         };
         value.check(1, 1).unwrap();
     }
@@ -2456,7 +2442,7 @@ mod tests {
         };
         let bodies = ResidualBodies {
             unknown: compile(&x - &p, &[0]),
-            parameter: compile(&x + &p, &[0, 1]),
+            source: compile(&x + &p, &[0, 1]),
         };
         assert!(matches!(bodies.check(1, 1), Err(MathError::Contract(_))));
     }

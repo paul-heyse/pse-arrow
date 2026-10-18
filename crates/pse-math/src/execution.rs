@@ -172,6 +172,10 @@ impl PreparedSupport {
     fn body(&self) -> &PreparedBody {
         &self.data.body
     }
+    /// Declared selected-source capability without constructing numerical jets.
+    pub(crate) fn source_available_order(&self)->DerivativeOrder { self.body().available_order() }
+    pub(crate) fn source_input_count(&self)->usize { self.data.source_inputs }
+    pub(crate) fn source_providers(&self)->&[ProviderSpec] { self.body().providers() }
     /// Match the original admitted body without retaining its allocation or lease.
     /// A separately admitted equal body matches while the source still exists. A dropped
     /// source conservatively prevents reuse rather than inventing semantic identity.

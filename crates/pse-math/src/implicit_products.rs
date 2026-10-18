@@ -77,20 +77,36 @@ impl Problem {
             .iter().find(|p| p.kind == kind && p.order == order && p.columns == columns).cloned()
             .ok_or_else(|| MathError::Contract("implicit product was not prepared before numerical execution".into()))
     }
-    pub(super) fn prepare_product(&self, request: &PreparedProviderRequest, scope: &pse_kernels::ExecutionScope) -> Result<(), MathError> {
-        scope.check().map_err(crate::error::scope_error)?;
-        let prepare = || {
-            let mut demands=self.prepared_demands.lock().map_err(|_| MathError::Contract("implicit preparation lock poisoned".into()))?;
-            if demands.contains(request.request()) { return Ok(()); }
-            self.prepare_product_inner(request, scope)?;
-            crate::construction::additional(2*size_of::<pse_kernels::ProviderRequest>()+(request.outputs.len()+match &request.demand { ProviderDemand::SelectedColumns { columns }=>columns.len(),_=>0 })*size_of::<usize>())?;
-            demands.try_reserve_exact(1).map_err(|_| MathError::Limit("implicit prepared demand slots"))?;
-            demands.push(request.request().clone());
-            Ok(())
-        };
-        match &self.construction_owner { Some(owner) => crate::construction::scoped(owner.clone(), prepare), None => prepare() }
+    pub(super) fn complete_program(&self,order:DerivativeOrder)->Result<Arc<ResidualProduct>,MathError> {
+        let columns=(0..self.inputs).collect::<Vec<_>>();
+        self.product_workers.lock().map_err(|_|MathError::Contract("implicit product lock poisoned".into()))?.iter()
+            .find(|p|p.kind==ProductKind::SelectedPartials && p.order==order && p.columns==columns).cloned()
+            .ok_or_else(||MathError::Contract("complete implicit product was not prepared before numerical execution".into()))
     }
-    fn prepare_product_inner(&self, request: &PreparedProviderRequest, scope: &pse_kernels::ExecutionScope) -> Result<(), MathError> {
+    /// Prepare an explicitly consumed complete residual/IFT product before native callbacks.
+    pub fn prepare_complete(&self,order:DerivativeOrder,scope:&pse_kernels::ExecutionScope)->Result<(),MathError> {
+        let n=self.unknowns.len();let p=self.inputs;
+        let first=if order>=DerivativeOrder::First { n.checked_mul(p) } else { Some(0) };
+        let second=if order>=DerivativeOrder::Second { n.checked_mul(p).and_then(|v|v.checked_mul(p)) } else { Some(0) };
+        let extents=pse_kernels::ProviderExtents { values:n,jacobian:first.ok_or(MathError::Limit("complete implicit extent"))?,hessians:second.ok_or(MathError::Limit("complete implicit extent"))? };
+        let request=pse_kernels::ProviderRequest { outputs:(0..n).collect(),order,demand:ProviderDemand::CompleteJets };
+        self.prepare_request(&request,extents,scope)
+    }
+    pub(super) fn prepare_product(&self,request:&PreparedProviderRequest,scope:&pse_kernels::ExecutionScope)->Result<(),MathError> {
+        self.prepare_request(request.request(),request.extents(),scope)
+    }
+    fn prepare_request(&self,request:&pse_kernels::ProviderRequest,extents:pse_kernels::ProviderExtents,scope:&pse_kernels::ExecutionScope)->Result<(),MathError> {
+        scope.check().map_err(crate::error::scope_error)?;
+        let prepare=|| {
+            let mut demands=self.prepared_demands.lock().map_err(|_|MathError::Contract("implicit preparation lock poisoned".into()))?;
+            if demands.contains(request) {return Ok(());}
+            self.prepare_product_inner(request,extents,scope)?;
+            crate::construction::additional(2*size_of::<pse_kernels::ProviderRequest>()+(request.outputs.len()+match &request.demand {ProviderDemand::SelectedColumns {columns}=>columns.len(),_=>0})*size_of::<usize>())?;
+            demands.try_reserve_exact(1).map_err(|_|MathError::Limit("implicit prepared demand slots"))?;demands.push(request.clone());Ok(())
+        };
+        match &self.construction_owner {Some(owner)=>crate::construction::scoped(owner.clone(),prepare),None=>prepare()}
+    }
+    fn prepare_product_inner(&self, request: &pse_kernels::ProviderRequest, extents:pse_kernels::ProviderExtents, scope: &pse_kernels::ExecutionScope) -> Result<(), MathError> {
         let n = self.unknowns.len();
         if request.order == DerivativeOrder::Value { return Ok(()); }
         let partial_extent = |k: usize| {
@@ -106,7 +122,7 @@ impl Problem {
             ProviderDemand::WeightedSecondAction { directions } => n.checked_mul(*directions).map(|v| v.max(n+self.inputs)),
         };
         let extent = extent.and_then(|v| if request.order >= DerivativeOrder::First { n.checked_mul(n).map(|state| v.max(state)) } else { Some(v) });
-        if request.extents().jacobian > self.max_entries || request.extents().hessians > self.max_entries || extent.is_none_or(|v| v > self.max_entries) { return Err(MathError::Limit("implicit demanded derivative extent")); }
+        if extents.jacobian > self.max_entries || extents.hessians > self.max_entries || extent.is_none_or(|v| v > self.max_entries) { return Err(MathError::Limit("implicit demanded derivative extent")); }
         let batch = match &request.demand {
             ProviderDemand::JacobianAction { directions } | ProviderDemand::WeightedSecondAction { directions } => *directions,
             ProviderDemand::TransposeAction { cotangents } => *cotangents,
