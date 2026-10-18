@@ -826,6 +826,7 @@ impl MathService {
         let columns = prepared.view.plan.columns().iter().copied().collect::<BTreeSet<_>>();
         let proof_ids = prepared.view.plan.structure().instances().iter()
             .flat_map(|instance| instance.slots.iter().map(|slot| slot.source()))
+            .chain(prepared.view.plan.structure().source_frozen_ids())
             .filter(|id| !columns.contains(id)).collect::<BTreeSet<_>>();
         let proof_values = CaseValues { scalars: proof_ids.into_iter().map(|id| {
             value(id).filter(|v|v.is_finite()).map(|v|(id,v)).ok_or_else(||native::ProblemError::Contract("missing conditional affine assumption".into()))

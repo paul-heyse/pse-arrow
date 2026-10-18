@@ -157,6 +157,8 @@ fn case(factory: &Factory) -> (Arc<CaseAssembly>, CaseValues) {
     .unwrap()
     .with_directional_actions(&factory.cancel.flag())
     .unwrap()
+    .with_transpose_actions(&factory.cancel.flag())
+    .unwrap()
     .with_hessian_actions(&factory.cancel.flag())
     .unwrap();
     let assembly = Arc::new(
@@ -180,6 +182,7 @@ enum Demand {
     Weighted,
     HessianAction,
     JacobianAction,
+    TransposeJacobianAction,
 }
 impl Demand {
     fn visits(self) -> usize {
@@ -202,6 +205,11 @@ impl Demand {
             Self::JacobianAction => {
                 let mut out = vec![f64::NAN];
                 worker.jacobian_product(values, &[5., 7.], &mut out)?;
+                Ok(out)
+            }
+            Self::TransposeJacobianAction => {
+                let mut out = vec![f64::NAN; 2];
+                worker.jacobian_transpose_product(values, &[3.], &mut out)?;
                 Ok(out)
             }
         }
@@ -233,6 +241,7 @@ impl Demand {
                 })
                 .collect(),
             Self::JacobianAction => vec![jet.jacobian[axes[0]] * 5. + jet.jacobian[axes[1]] * 7.],
+            Self::TransposeJacobianAction => axes.iter().map(|&i| 3. * jet.jacobian[i]).collect(),
         }
     }
 }
@@ -257,6 +266,7 @@ fn case_worker_same_key_visits_operational_anchor_and_restriction_for_partials_a
             Demand::Weighted,
             Demand::HessianAction,
             Demand::JacobianAction,
+            Demand::TransposeJacobianAction,
         ] {
             let control = pse_diagnostics::Cancellation::default();
             let (factory, work, effect) = operational_factory(&control, restriction);
@@ -369,6 +379,7 @@ fn case_worker_unchanged_key_configuration_change_refusal_and_recovery() {
         Demand::Weighted,
         Demand::HessianAction,
         Demand::JacobianAction,
+        Demand::TransposeJacobianAction,
     ] {
         let control = pse_diagnostics::Cancellation::default();
         let (mut factory, work) = factory(&control);
