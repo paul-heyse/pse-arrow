@@ -1050,7 +1050,7 @@ mod tests {
                 if name == "sparse" { 1 } else { 2 });
             let mut matrix_values = vec![f64::NAN; matrix.product_len()];
             matrix.worker_scoped(scope.clone()).evaluate_product_into(&point,
-                ProductValues::WeightedHessian { weights: &[1.] }, &mut pse_kernels::ProviderBindings::default(),
+                ProductValues::WeightedHessian { weights: &[1.] }, &mut ProviderBindings::default(),
                 &cancel, &mut matrix_values).unwrap();
             let mut expected = vec![0.; n];
             for (&(i, j), &value) in matrix.product_pairs().iter().zip(&matrix_values) {
@@ -1078,7 +1078,7 @@ mod tests {
             let start = std::time::Instant::now();
             for _ in 0..16 {
                 worker.evaluate_product_into(&point, ProductValues::WeightedHessianAction {
-                    weights: &[1.], direction: &direction }, &mut pse_kernels::ProviderBindings::default(), &cancel,
+                    weights: &[1.], direction: &direction }, &mut ProviderBindings::default(), &cancel,
                     &mut actual).unwrap();
             }
             let execute = start.elapsed();

@@ -4135,6 +4135,7 @@ fn cloned_stage_descriptors(stages: &Vec<CompiledStage>) -> Option<usize> {
                     .checked_add(indices(inputs)?)?
                     .checked_add(indices(outputs)?)?
                     .checked_add(indices(&request.outputs)?)?
+                    .checked_add(match &request.demand { pse_kernels::ProviderDemand::SelectedColumns { columns } => indices(columns)?, _ => 0 })?
                     .checked_add(lift.as_ref().map_or(Some(0), |l| indices(&l.inputs))?)?
             }
         };
@@ -4962,21 +4963,29 @@ fn compile_stages(
                     && inputs
                         .iter()
                         .any(|&i| coordinate_support[i].iter().any(|&dependent| dependent));
+                // Numerical columns follow consumed outer coordinate support. Every
+                // physical input is still gathered, including inputs that are constant
+                // with respect to this derivative demand.
+                let mut columns = inputs.iter().enumerate()
+                    .filter_map(|(i, &slot)| (differentiated && coordinate_support[slot].iter().any(|&v| v)).then_some(i))
+                    .chain(partial.iter().copied()).collect::<BTreeSet<_>>()
+                    .into_iter().collect::<Vec<_>>();
+                let order = provider_request_order(if differentiated { layout.order } else { DerivativeOrder::Value }, partial.len())?;
+                let selected_columns = order > DerivativeOrder::Value && columns.len() < inputs.len();
+                let lifted_arity = if selected_columns { columns.len() } else { inputs.len() };
+                let bound_partial = partial.iter().map(|i| {
+                    if selected_columns { columns.binary_search(i).map_err(|_| MathError::Contract("provider partial column missing".into())) }
+                    else { Ok(*i) }
+                }).collect::<Result<Vec<_>, MathError>>()?;
                 let request = ProviderRequest {
-                    demand: pse_kernels::ProviderDemand::CompleteJets,
+                    demand: if selected_columns { pse_kernels::ProviderDemand::SelectedColumns { columns: std::mem::take(&mut columns) } }
+                        else { pse_kernels::ProviderDemand::CompleteJets },
                     outputs: outputs
                         .iter()
                         .enumerate()
                         .filter_map(|(i, &slot)| (slot != usize::MAX).then_some(i))
                         .collect(),
-                    order: provider_request_order(
-                        if differentiated {
-                            layout.order
-                        } else {
-                            DerivativeOrder::Value
-                        },
-                        partial.len(),
-                    )?,
+                    order,
                 };
                 let request = PreparedProviderRequest::new(Arc::new(spec.clone()), request)
                     .map_err(|e| MathError::Contract(e.to_string()))?;
@@ -4987,7 +4996,7 @@ fn compile_stages(
                     .collect();
                 let lift = if differentiated && layout.width() > 1 {
                     Some(ProviderLift::compile(
-                        inputs.len(),
+                        lifted_arity,
                         layout,
                         options,
                         EvaluationLimits {
@@ -5032,7 +5041,7 @@ fn compile_stages(
                     .ok_or(MathError::Limit("provider scratch"))?;
                 limits.allocation(allowance.entries)?;
                 CompiledStage::Provider {
-                    partial: partial.clone(),
+                    partial: bound_partial,
                     inputs: inputs.clone(),
                     outputs: destinations,
                     buffer: ProviderBuffer::new(&request),
@@ -5290,7 +5299,11 @@ fn evaluate_stages(
                     .fill(slot, buffer, arguments, request, ProviderRuntime::default(), context)
                     .map_err(error)?;
                 for (row, &slot) in outputs.iter().enumerate() {
-                    let n = inputs.len();
+                    let columns = match &request.demand {
+                        pse_kernels::ProviderDemand::SelectedColumns { columns } => Some(columns.as_slice()),
+                        _ => None,
+                    };
+                    let n = columns.map_or(inputs.len(), <[usize]>::len);
                     let selected = match partial.as_slice() {
                         [] => values.values[row],
                         [i] => values.jacobian[row * n + i],
@@ -5298,7 +5311,6 @@ fn evaluate_stages(
                         _ => return Err(MathError::Contract("external partial order".into())),
                     };
                     if let Some(lift) = lift.as_mut() {
-                        let n = inputs.len();
                         for (parameter, value) in lift.inputs.iter().zip(&mut lift.scratch) {
                             *value = match *parameter {
                                 LiftInput::Value => selected,
@@ -5311,7 +5323,7 @@ fn evaluate_stages(
                                 }
                                 LiftInput::Second(i, j) => values.hessians[row * n * n + i * n + j],
                                 LiftInput::Argument(i, k) => {
-                                    layout.frame_value(frame, inputs[i], k) * layout.raw_factor(k)
+                                    layout.frame_value(frame, inputs[columns.map_or(i, |columns| columns[i])], k) * layout.raw_factor(k)
                                 }
                             };
                         }
@@ -8149,18 +8161,78 @@ mod compact_tests {
     }
 
     #[test]
+    fn selected_provider_columns_keep_all_physical_inputs_under_narrow_admission() {
+        use pse_kernels::{ProviderDemand, ProviderOutput, ProviderError, ProviderSpec, Port, ProviderShapes, DerivativeSource};
+        #[derive(Debug)]
+        struct Wide(Arc<std::sync::Mutex<Vec<ProviderRequest>>>);
+        impl Provider for Wide {
+            fn supports(&self, demand: &ProviderDemand) -> bool { matches!(demand,
+                ProviderDemand::CompleteJets | ProviderDemand::SelectedColumns { .. }) }
+            fn fill(&mut self, inputs: &[f64], request: &PreparedProviderRequest,
+                _runtime: ProviderRuntime<'_>, output: ProviderOutput<'_>,
+                _context: &EvaluationContext<'_>) -> Result<(), ProviderError> {
+                assert_eq!(inputs.len(), 64);
+                self.0.lock().unwrap().push(request.request().clone());
+                output.values[0] = inputs.iter().map(|x| x * x).sum();
+                let columns = match &request.demand { ProviderDemand::SelectedColumns { columns } => columns.clone(), _ => (0..64).collect() };
+                if request.order >= DerivativeOrder::First {
+                    for (value, &i) in output.jacobian.iter_mut().zip(&columns) { *value = 2. * inputs[i]; }
+                }
+                if request.order >= DerivativeOrder::Second {
+                    for (i, &a) in columns.iter().enumerate() {
+                        for (j, &b) in columns.iter().enumerate() { output.hessians[i * columns.len() + j] = if a == b { 2. } else { 0. }; }
+                    }
+                }
+                Ok(())
+            }
+        }
+        crate::initialize().unwrap();
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let quantity = pse_quantity::standard::ids::quantity("neutral");
+        let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+        let port = |n| Port { id: SemanticId::from_bytes([n;16]), quantity, unit };
+        let spec = ProviderSpec { id: SemanticId::from_bytes([200;16]),
+            revision: pse_ids::ContentHash::from_bytes([201;32]), data: pse_ids::ContentHash::from_bytes([202;32]),
+            inputs: (0..64).map(port).collect(), outputs: vec![port(127)], shapes: ProviderShapes::default(),
+            derivative_source: DerivativeSource::Analytic, derivatives: DerivativeOrder::Second, smoothness: DerivativeOrder::Second };
+        spec.validate(&registry).unwrap();
+        let body = PreparedBody::new(64, 65, vec![64], vec![Stage::Provider { spec: spec.clone(), partial: vec![],
+            inputs: (0..64).collect(), outputs: vec![64], source: SemanticId::NIL }], DerivativeOrder::Second).unwrap();
+        let control = pse_diagnostics::Cancellation::default();
+        let limits = EvaluationLimits { scratch_bytes: 16 * 1024, ..EvaluationLimits::default() };
+        let compiled = body.compile(&[0], &[17], DerivativeOrder::Second, Optimization::default(), limits,
+            &pse_kernels::ExecutionScope::new(control.clone(), None)).unwrap();
+        let requests = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut providers = ProviderBindings::from([(spec.key(), pse_kernels::ProviderBinding::new(spec,
+            Box::new(Wide(requests.clone()))))]);
+        let mut worker = compiled.worker_scoped(pse_kernels::ExecutionScope::new(control.clone(), None));
+        let mut inputs = vec![0.1;64];
+        for last in [0.7, 0.9] {
+            inputs[63] = last;
+            let actual = worker.evaluate(&inputs, DerivativeOrder::Second, &mut providers, &control.flag()).unwrap();
+            assert!((actual.values[0] - (0.63 + last * last)).abs() < 1e-12);
+            assert_eq!(actual.jacobian, [0.2]);
+            assert_eq!(actual.hessians, [2.]);
+        }
+        assert!(requests.lock().unwrap().iter().all(|r| r.demand == ProviderDemand::SelectedColumns { columns: vec![17] }));
+    }
+
+    #[test]
     fn compact_provider_retains_required_inputs_and_original_output_ordinal() {
         use pse_ids::ContentHash;
-        use pse_kernels::{DerivativeSource, Port, ProviderError, ProviderShapes, ProviderValues};
+        use pse_kernels::{DerivativeSource, Port, ProviderError, ProviderShapes};
         #[derive(Debug)]
         struct ProductProvider(ProviderSpec);
         impl Provider for ProductProvider {
+            fn supports(&self, demand: &pse_kernels::ProviderDemand) -> bool {
+                matches!(demand, pse_kernels::ProviderDemand::CompleteJets | pse_kernels::ProviderDemand::SelectedColumns { .. })
+            }
                     fn fill(
                 &mut self,
                 inputs: &[f64],
                 request: &PreparedProviderRequest,
                 _runtime: ProviderRuntime<'_>,
-                mut output: pse_kernels::ProviderOutput<'_>,
+                output: pse_kernels::ProviderOutput<'_>,
                 context: &EvaluationContext<'_>,
             ) -> Result<(), ProviderError> {
                 request.check_context(context)?;
@@ -8169,19 +8241,24 @@ mod compact_tests {
                 if inputs[2] <= 0. {
                     return Err(ProviderError::Trial("guard-only provider argument".into()));
                 }
-                output.copy_from(&ProviderValues {
-                    values: vec![inputs[0] * inputs[1]],
-                    jacobian: if request.order >= DerivativeOrder::First {
-                        vec![inputs[1], inputs[0], 0.]
-                    } else {
-                        vec![]
-                    },
-                    hessians: if request.order >= DerivativeOrder::Second {
-                        vec![0., 1., 0., 1., 0., 0., 0., 0., 0.]
-                    } else {
-                        vec![]
-                    },
-                })
+                let columns = match &request.demand {
+                    pse_kernels::ProviderDemand::SelectedColumns { columns } => columns.clone(),
+                    _ => (0..self.0.inputs.len()).collect(),
+                };
+                output.values[0] = inputs[0] * inputs[1];
+                if request.order >= DerivativeOrder::First {
+                    for (value, &i) in output.jacobian.iter_mut().zip(&columns) {
+                        *value = match i { 0 => inputs[1], 1 => inputs[0], _ => 0. };
+                    }
+                }
+                if request.order >= DerivativeOrder::Second {
+                    for (i, &a) in columns.iter().enumerate() {
+                        for (j, &b) in columns.iter().enumerate() {
+                            output.hessians[i * columns.len() + j] = f64::from((a == 0 && b == 1) || (a == 1 && b == 0));
+                        }
+                    }
+                }
+                Ok(())
             }
         }
         crate::initialize().unwrap();
@@ -8239,6 +8316,7 @@ mod compact_tests {
             failed: bool,
         }
         impl Provider for LatchedProvider {
+            fn supports(&self, demand: &pse_kernels::ProviderDemand) -> bool { self.inner.supports(demand) }
                     fn fill(
                 &mut self,
                 inputs: &[f64],
