@@ -2162,7 +2162,7 @@ impl AdmittedModeling {
             }
             let order = order.max(match demand.product {
                 pse_math::jets::ProductKind::SelectedPartials => demand.order,
-                pse_math::jets::ProductKind::JacobianAction => DerivativeOrder::First,
+                pse_math::jets::ProductKind::JacobianAction | pse_math::jets::ProductKind::TransposeJacobianAction => DerivativeOrder::First,
                 pse_math::jets::ProductKind::WeightedHessian
                 | pse_math::jets::ProductKind::WeightedHessianAction => DerivativeOrder::Second,
             });

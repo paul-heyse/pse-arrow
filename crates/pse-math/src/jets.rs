@@ -33,6 +33,8 @@ pub enum ProductKind {
     SelectedPartials,
     /// One first directional action with runtime coordinate seeds.
     JacobianAction,
+    /// Transpose Jacobian applied to runtime selected-output cotangents.
+    TransposeJacobianAction,
     /// Lower sparse Hessian of a runtime-weighted output sum.
     WeightedHessian,
     /// Hessian of a runtime-weighted output sum applied to a runtime direction.
@@ -47,6 +49,11 @@ pub enum ProductValues<'a> {
     JacobianAction {
         /// Ordered derivative-coordinate seeds.
         direction: &'a [f64],
+    },
+    /// Cotangent entries correspond to selected output ordinals.
+    TransposeJacobianAction {
+        /// Ordered selected-output coefficients.
+        weights: &'a [f64],
     },
     /// Weights correspond to selected output ordinals.
     WeightedHessian {
@@ -67,6 +74,7 @@ impl ProductValues<'_> {
         match self {
             Self::SelectedPartials => ProductKind::SelectedPartials,
             Self::JacobianAction { .. } => ProductKind::JacobianAction,
+            Self::TransposeJacobianAction { .. } => ProductKind::TransposeJacobianAction,
             Self::WeightedHessian { .. } => ProductKind::WeightedHessian,
             Self::WeightedHessianAction { .. } => ProductKind::WeightedHessianAction,
         }

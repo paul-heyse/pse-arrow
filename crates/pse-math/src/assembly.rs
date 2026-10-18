@@ -3501,6 +3501,7 @@ impl CaseWorker {
                     ProductKind::JacobianAction => ProductValues::JacobianAction {
                         direction: &cache.direction,
                     },
+                    ProductKind::TransposeJacobianAction => ProductValues::TransposeJacobianAction { weights: &cache.weights },
                     ProductKind::WeightedHessian => ProductValues::WeightedHessian {
                         weights: &cache.weights,
                     },

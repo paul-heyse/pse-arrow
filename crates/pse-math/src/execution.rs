@@ -563,9 +563,9 @@ impl PreparedSupport {
     ) -> Result<Option<usize>, MathError> {
         if matches!(
             product,
-            ProductKind::WeightedHessian | ProductKind::WeightedHessianAction
+            ProductKind::WeightedHessian | ProductKind::WeightedHessianAction | ProductKind::TransposeJacobianAction
         ) {
-            if self.order() != DerivativeOrder::Second {
+            if self.order() != (if product == ProductKind::TransposeJacobianAction { DerivativeOrder::First } else { DerivativeOrder::Second }) {
                 return Err(MathError::Contract(
                     "weighted construction requires Second support".into(),
                 ));
@@ -2132,7 +2132,7 @@ impl PreparedBody {
             *requested <= order
                 && match product {
                     ProductKind::SelectedPartials => true,
-                    ProductKind::JacobianAction => *requested == DerivativeOrder::First,
+                    ProductKind::JacobianAction | ProductKind::TransposeJacobianAction => *requested == DerivativeOrder::First,
                     ProductKind::WeightedHessian | ProductKind::WeightedHessianAction => {
                         *requested == DerivativeOrder::Second
                     }
@@ -2321,7 +2321,7 @@ impl PreparedBody {
         if product != ProductKind::SelectedPartials {
             let entries = match product {
                 ProductKind::SelectedPartials => 0,
-                ProductKind::JacobianAction => selected.len() + coordinates.len(),
+                ProductKind::JacobianAction | ProductKind::TransposeJacobianAction => selected.len() + coordinates.len(),
                 ProductKind::WeightedHessian => {
                     layouts[order]
                         .as_ref()
@@ -2359,6 +2359,7 @@ impl PreparedBody {
             directional,
             product,
             direct_product: None,
+            transpose_product: None,
             inputs: self.inputs,
             input_formals: Arc::new(self.formal_slots[..self.inputs].to_vec()),
             coordinate_offsets: Arc::new(coordinates.to_vec()),
@@ -2679,6 +2680,7 @@ pub struct CompiledBody {
     directional: bool,
     product: ProductKind,
     direct_product: Option<Arc<products::DirectProduct>>,
+    transpose_product: Option<Arc<products::TransposeProduct>>,
     owner: Option<Arc<dyn crate::AllocationOwner>>,
     scratch_bytes: usize,
     evaluation_cache_bytes: usize,
@@ -2843,7 +2845,11 @@ impl CompiledBody {
     }
     /// Highest residual order actually compiled, distinct from symbolic availability.
     pub fn compiled_order(&self) -> DerivativeOrder {
-        if self.direct_product.is_some() || self.layouts[DerivativeOrder::Second].is_some() {
+        if let Some(product) = &self.direct_product {
+            product.order
+        } else if self.transpose_product.is_some() {
+            DerivativeOrder::First
+        } else if self.layouts[DerivativeOrder::Second].is_some() {
             DerivativeOrder::Second
         } else if self.layouts[DerivativeOrder::First].is_some() {
             DerivativeOrder::First
@@ -2916,6 +2922,7 @@ impl CompiledBody {
             programs: EnumMap::default(),
             frame: Vec::new(),
             direct_product: None,
+            transpose_worker: None,
             product_scratch: Vec::new(),
             prepaid_bytes: self.worker_bytes,
             used_bytes: 0,
@@ -3209,6 +3216,7 @@ pub struct Worker {
     body: CompiledBody,
     scope: Option<pse_kernels::ExecutionScope>,
     direct_product: Option<products::DirectWorker>,
+    transpose_worker: Option<Box<products::TransposeWorker>>,
     product_scratch: Vec<f64>,
     prepaid_bytes: usize,
     used_bytes: usize,
@@ -3286,6 +3294,9 @@ impl Worker {
         self.product_scratch.fill(f64::NAN);
         if let Some(direct) = self.direct_product.take() {
             self.direct_product = Some(direct.reset()?);
+        }
+        if let Some(transpose) = self.transpose_worker.take() {
+            self.transpose_worker = Some(Box::new(transpose.reset()?));
         }
         for program in self.programs.values_mut().flatten() {
             program.instantiated = false;
