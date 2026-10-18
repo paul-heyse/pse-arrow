@@ -333,6 +333,21 @@ struct PendingBatch {
     outputs: Vec<Output>,
     owner: Arc<pse_columnar::AllocationLease>,
 }
+/// Empty control storage may remain with one live attempt across synchronous
+/// per-sample flushes. No scientific payload or unacknowledged extent is reused.
+fn append_queue_control(
+    pool: &Arc<dyn MemoryPool>,
+    retained: Option<Arc<pse_columnar::AllocationLease>>,
+) -> Option<Arc<pse_columnar::AllocationLease>> {
+    if retained.is_some() { return retained; }
+    let reservation = MemoryConsumer::new("canonical:append-queue-control").register(pool);
+    let owner = reservation.try_grow(256 * 1024).ok().map(|()| pse_columnar::AllocationLease::new(reservation));
+    if owner.is_some() && let Some(context) = pse_diagnostics::observation::current() {
+        context.count("canonical.result.append_queue_control_grants", "count", 1);
+    }
+    owner
+}
+
 impl<'a> ResultAppendQueue<'a> {
     pub(super) fn new(
         store: &'a CanonicalStore,
@@ -340,15 +355,16 @@ impl<'a> ResultAppendQueue<'a> {
         pool: &'a Arc<dyn MemoryPool>,
         acknowledgments: &'a super::durable::PublicationAcks,
     ) -> Self {
-        let reservation = MemoryConsumer::new("canonical:append-queue-control").register(pool);
-        // Maximum advertised set population, copied names and queue/control Arc
-        // envelopes. Per-item encoded bytes have separate actual-sized grants.
-        // Batching is optional: a denied queue envelope preserves the original
-        // synchronous append path, with no retained item or completion vectors.
-        let owner = reservation
-            .try_grow(256 * 1024)
-            .ok()
-            .map(|()| pse_columnar::AllocationLease::new(reservation));
+        Self::with_control(store, fence, pool, acknowledgments, None)
+    }
+    fn with_control(
+        store: &'a CanonicalStore,
+        fence: &'a AttemptFence,
+        pool: &'a Arc<dyn MemoryPool>,
+        acknowledgments: &'a super::durable::PublicationAcks,
+        retained: Option<Arc<pse_columnar::AllocationLease>>,
+    ) -> Self {
+        let owner = append_queue_control(pool, retained);
         Self {
             store,
             fence,
@@ -1005,6 +1021,7 @@ pub(super) async fn append_live_sample_batch(
     pool: &Arc<dyn MemoryPool>,
     acknowledgments: &super::durable::PublicationAcks,
     position: &mut ResultStreamPosition,
+    retained_control: &mut Option<Arc<pse_columnar::AllocationLease>>,
     table: &FieldCheckedBatch,
 ) -> Result<(), WorkflowError> {
     let id = pse_relations::generated::runtime::live_simulation_samples::RELATION_ID;
@@ -1018,7 +1035,7 @@ pub(super) async fn append_live_sample_batch(
         .origin
         .checked_add(table.batch().num_rows() as u64)
         .ok_or_else(|| contract("live sample row extent"))?;
-    let mut queue = ResultAppendQueue::new(store, fence, pool, acknowledgments);
+    let mut queue = ResultAppendQueue::with_control(store, fence, pool, acknowledgments, retained_control.take());
     store_result_chunk(
         &mut queue,
         id,
@@ -1028,6 +1045,7 @@ pub(super) async fn append_live_sample_batch(
     )
     .await?;
     queue.flush().await?;
+    *retained_control = queue._owner.take();
     position.origin = end;
     Ok(())
 }
@@ -2607,5 +2625,28 @@ mod result_projection_unit {
             metadata_prefix(&[pse_operations::canonical_execution::EXECUTION_METADATA_BYTES])
                 .is_err()
         );
+    }
+}
+
+#[cfg(test)]
+mod live_append_control_unit {
+    use super::*;
+    #[test]
+    fn live_append_control_reuses_one_bounded_grant_and_releases_final_charge() {
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(512 * 1024));
+        let mut control = append_queue_control(&pool, None);
+        let original = Arc::downgrade(control.as_ref().unwrap());
+        for _ in 0..32 {
+            let prior = control.as_ref().unwrap().clone();
+            control = append_queue_control(&pool, control.take());
+            assert!(Arc::ptr_eq(&prior, control.as_ref().unwrap()));
+            assert_eq!(pool.reserved(), 256 * 1024);
+        }
+        drop(control);
+        assert!(original.upgrade().is_none());
+        assert_eq!(pool.reserved(), 0);
+        let tiny: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1024));
+        assert!(append_queue_control(&tiny, None).is_none(), "optional queue retention refusal preserves synchronous fallback");
+        assert_eq!(tiny.reserved(), 0);
     }
 }

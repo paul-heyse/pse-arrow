@@ -839,6 +839,7 @@ impl PublicationAcks {
 pub(crate) struct DurableAttempt {
     live_prefix: super::result_projection::ResultStreamPosition,
     live_prefix_failed: bool,
+    live_append_control: Option<Arc<pse_columnar::AllocationLease>>,
     horizon_prefix: Option<
         std::collections::BTreeMap<SemanticId, super::result_projection::ResultStreamPosition>,
     >,
@@ -880,6 +881,7 @@ impl DurableAttempt {
         Ok(Self {
             live_prefix: Default::default(),
             live_prefix_failed: false,
+            live_append_control: None,
             horizon_prefix: None,
             #[cfg(any(
                 feature = "solver-diffsol",
@@ -924,6 +926,7 @@ impl DurableAttempt {
         Ok(Self {
             live_prefix: Default::default(),
             live_prefix_failed: false,
+            live_append_control: None,
             horizon_prefix: None,
             #[cfg(any(
                 feature = "solver-diffsol",
@@ -1147,6 +1150,7 @@ impl DurableAttempt {
             &self.operations.pool,
             &self.acknowledgments,
             &mut self.live_prefix,
+            &mut self.live_append_control,
             table,
         )
         .await;
@@ -1158,8 +1162,10 @@ impl DurableAttempt {
     }
     pub(super) fn fail_live_samples(&mut self) {
         self.live_prefix_failed = true;
+        self.live_append_control = None;
     }
     pub(super) async fn close_live_samples(&mut self) -> Result<(), WorkflowError> {
+        self.live_append_control = None;
         if self.live_prefix_failed {
             return Err(contract("live sample recording remains incomplete"));
         }
