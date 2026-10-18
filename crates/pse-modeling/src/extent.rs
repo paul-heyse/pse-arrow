@@ -197,7 +197,7 @@ fn lineage(v: &Lineage) -> usize {
     v.path.capacity()
         + (v.demand.capacity() + v.presets.capacity()) * size_of::<pse_ids::SemanticId>()
 }
-fn function(v: &Function) -> usize {
+pub(crate) fn function(v: &Function) -> usize {
     v.applicability.capacity() * size_of::<Expr>()
         + v.prerequisites.capacity() * size_of::<usize>()
         + v.applicability.iter().map(expression).sum::<usize>()
