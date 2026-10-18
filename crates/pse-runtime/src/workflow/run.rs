@@ -918,16 +918,20 @@ impl super::ModelingSimulation {
             let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
             let canonical_attempt = durable.as_ref().map(|attempt| attempt.canonical_keys(run_id).1);
             let live = live.map(|options| super::live_simulation::LiveDispatch::new(
-                self.clone(), options, run_id, canonical_attempt,
+                self.clone(), options, run_id, canonical_attempt, &cancel, deadline,
             )).transpose()?;
-            let (observer, mut live_receiver, subscriber, mut cursor) = match live {
-                Some(live) => (Some((live.retention, live.observer)), Some(live.receiver), Some(live.subscriber), Some(live.cursor)),
-                None => (None, None, None, None),
+            let (observer, mut live_channel, mut cursor) = match live {
+                Some(live) => (Some((live.retention, live.observer)), Some(live.channel), Some(live.cursor)),
+                None => (None, None, None),
             };
             let dispatch_source = self.clone();
-            let mut dispatch = Some(move || match observer {
-                Some((retention, observer)) => dispatch_source.submit_with_samples(run_id, submission, retention, observer),
-                None => dispatch_source.submit(run_id, submission),
+            let live_refusal = live_channel.as_ref().and_then(|channel| channel.projection.as_ref().err()).cloned();
+            let mut dispatch = Some(move || {
+                if let Some(error) = live_refusal { return Err(WorkflowError::Shared(error)); }
+                match observer {
+                    Some((retention, observer)) => dispatch_source.submit_with_samples(run_id, submission, retention, observer),
+                    None => dispatch_source.submit(run_id, submission),
+                }
             });
             let handle = if durable.is_none() {
                 Some(dispatch
@@ -1022,34 +1026,34 @@ impl super::ModelingSimulation {
                             sender.send_replace(Some(Arc::new(refused)));
                             return;
                         }
-                        if live_receiver.is_some() && let Some(attempt) = durable.as_mut()
-                            && let Err(error) = attempt.begin_live_samples()
-                                && let Some(subscriber) = &subscriber {
-                                    super::live_simulation::deliver(subscriber, super::LiveSimulationEvent::RecordingUnknown(Arc::new(error)), &cancel, deadline).await;
-                                }
+                        if let Some(channel) = &live_channel && let Some(attempt) = durable.as_mut()
+                            && let Err(error) = attempt.begin_live_samples() {
+                                super::live_simulation::deliver(&channel.subscriber, super::LiveSimulationEvent::RecordingUnknown(Arc::new(error)), &cancel, deadline).await;
+                            }
                         let join = crate::invocation::stage("native_join_and_workflow_postsolve");
                         let finished = handle.finish();
                         tokio::pin!(finished);
                         let mut joined = None;
                         let mut selected = false;
                         let mut live_encoding_error = None;
-                        if let Some(receiver) = live_receiver.as_mut() {
+                        if let Some(channel) = live_channel.as_mut() {
                             loop {
                                 tokio::select! {
                                     result = &mut finished, if joined.is_none() => { joined = Some(result); }
-                                    event = receiver.recv() => {
+                                    event = channel.receiver.recv() => {
                                         let Some(event) = event else { break; };
-                                        let event = match event.encode(&prepared, &cancel, deadline) {
+                                        let encoded = channel.projection.as_ref()
+                                            .map_err(|error| WorkflowError::Shared(error.clone()))
+                                            .and_then(|projection| event.encode(&prepared, projection, &cancel, deadline));
+                                        let event = match encoded {
                                             Ok(event) => event,
                                             Err(error) => {
                                                 let error = Arc::new(error);
                                                 cancel.cancel();
-                                                receiver.close();
-                                                while receiver.try_recv().is_ok() {}
+                                                channel.receiver.close();
+                                                while channel.receiver.try_recv().is_ok() {}
                                                 if let Some(attempt) = durable.as_mut() { attempt.fail_live_samples(); }
-                                                if let Some(subscriber) = &subscriber {
-                                                    super::live_simulation::deliver(subscriber, super::LiveSimulationEvent::RecordingUnknown(error.clone()), &cancel, deadline).await;
-                                                }
+                                                super::live_simulation::deliver(&channel.subscriber, super::LiveSimulationEvent::RecordingUnknown(error.clone()), &cancel, deadline).await;
                                                 live_encoding_error = Some(error);
                                                 break;
                                             }
@@ -1059,17 +1063,13 @@ impl super::ModelingSimulation {
                                             super::LiveSimulationEvent::Selected { .. } => { selected = true; None },
                                             _ => None,
                                         };
-                                        if let Some(subscriber) = &subscriber {
-                                            super::live_simulation::deliver(subscriber, event, &cancel, deadline).await;
-                                        }
+                                        super::live_simulation::deliver(&channel.subscriber, event, &cancel, deadline).await;
                                         if let (Some(table), Some(attempt)) = (append, durable.as_mut()) {
                                             let event = match attempt.publish_live_samples(&table).await {
                                                 Ok(rows) => super::LiveSimulationEvent::Recorded { rows },
                                                 Err(error) => super::LiveSimulationEvent::RecordingUnknown(Arc::new(error)),
                                             };
-                                            if let Some(subscriber) = &subscriber {
-                                                super::live_simulation::deliver(subscriber, event, &cancel, deadline).await;
-                                            }
+                                            super::live_simulation::deliver(&channel.subscriber, event, &cancel, deadline).await;
                                         }
                                     }
                                 }
@@ -1079,12 +1079,11 @@ impl super::ModelingSimulation {
                                     Ok(()) => super::LiveSimulationEvent::RecordingClosed,
                                     Err(error) => super::LiveSimulationEvent::RecordingUnknown(Arc::new(error)),
                                 };
-                                if let Some(subscriber) = &subscriber {
-                                    super::live_simulation::deliver(subscriber, event, &cancel, deadline).await;
-                                }
+                                super::live_simulation::deliver(&channel.subscriber, event, &cancel, deadline).await;
                             }
                         }
                         let joined = match joined { Some(result) => result, None => finished.await };
+                        drop(live_channel);
                         let report = match (live_encoding_error, joined) {
                             (Some(error), _) => Err(error),
                             (None, Ok(((report, checks, accuracy), owner))) => prepared
