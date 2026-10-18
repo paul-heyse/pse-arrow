@@ -4,6 +4,15 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
+[Plan45: Pipeline execution optimization](45-pipeline-execution-optimization.md)
+is a new standalone draft covering the post-Plan44 review's thirteen findings, ten
+investigations and supported implementation follow-through. Its
+[rule decisions](45-pipeline-execution-optimization.md#rule-decisions) record all ten
+recommendations accepted on 2026-10-18; its [checkpoint](45-pipeline-execution-optimization.md#completion-verification-and-current-checkpoint)
+owns authoring readiness and the product-execution boundary. Companions 45a–45f own
+source/preparation, mathematical programs, result/artifact/analysis, dynamics/derivatives,
+native/provider work and assembled qualification. Older plans retain their own scope/status.
+
 [Plan43: Solver diagnostics and performance](43-solver-diagnostics-and-performance.md)
 is complete after its production-completeness remediation. Its
 [current checkpoint](43-solver-diagnostics-and-performance.md#current-checkpoint) records

@@ -14,6 +14,7 @@ topics = [
   "environment",
   "preparation",
   "numerical-execution",
+  "performance",
   "storage",
 ]
 
@@ -1612,6 +1613,110 @@ status_column = 3
 
 [[scope_tables]]
 path = "docs/plans/44f-integrated-acceptance-and-follow-up.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(F[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+# Plan 45 owns finding dispositions and inquiry outcomes; companions own packet progress.
+
+[[scope_tables]]
+path = "docs/plans/45-pipeline-execution-optimization.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision / work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^((?:F|N)[0-9]+)\b'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/45-pipeline-execution-optimization.md"
+name = "investigation-outcomes"
+heading = "Investigation outcomes"
+headers = [
+  "Inquiry",
+  "Decision question",
+  "State",
+  "Decision / work owner",
+  "Completion or next trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)\b'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/45a-typed-source-and-incremental-preparation.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/45b-mathematical-program-preparation-and-execution.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/45c-result-selection-artifacts-and-analysis.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/45d-demanded-derivatives-and-dynamics.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/45e-sparse-native-and-provider-effectiveness.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/45f-short-run-qualification-and-publication.md"
 name = "work-packages"
 heading = "Work packages"
 headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]

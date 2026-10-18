@@ -19,8 +19,10 @@ The [post-Plan44 optimization review](reviews/design_review_post-plan44-pipeline
 combines in-depth short-case interpretation, current source and exact-release library research,
 public local controls, a disposable evidence-join prototype and independent assessment.
 It identifies thirteen current optimization findings and ten follow-up investigations covering
-source/preparation, native execution and result/artifact/analysis work. Recommendations and
-rule impacts await subsequent plan creation; existing implementation status remains with its owners.
+source/preparation, native execution and result/artifact/analysis work.
+[Plan45](../plans/45-pipeline-execution-optimization.md) owns their adopted dispositions,
+investigative follow-through and ten operator-accepted rule choices; product execution is unstarted.
+Other plans' implementation status remains with their owners.
 Its [evidence index](evidence/post-plan44-pipeline-optimization-2026-10-18/index.md) records
 what ran, what was source-inspected and what remains unexamined.
 
