@@ -436,6 +436,14 @@ mod tests {
     }
     #[test]
     fn composed_actions_use_owner_qualified_narrow_provider_products_and_library_pullbacks() {
+        composed_actions(Optimization::default());
+    }
+    #[cfg(feature = "compiled-evaluator")]
+    #[test]
+    fn composed_actions_compiled_local_pullbacks_preserve_owner_qualified_provider_actions() {
+        composed_actions(Optimization { evaluator: library::Evaluator::CompiledScalar { module_bytes: 1 << 20 }, ..Default::default() });
+    }
+    fn composed_actions(options: Optimization) {
         let n=128;let (body,spec)=fixture(n);
         let stop=pse_diagnostics::Cancellation::new(false);let scope=pse_kernels::ExecutionScope::new(stop.clone(),None);
         let mut point=vec![0.;n];point[..3].copy_from_slice(&[2.,3.,4.]);
@@ -443,8 +451,11 @@ mod tests {
         for kind in [ProductKind::TransposeJacobianAction,ProductKind::WeightedHessianAction] {
             let order=if kind==ProductKind::TransposeJacobianAction{DerivativeOrder::First}else{DerivativeOrder::Second};
             let support=body.prepare_support(&[0],&(0..n).collect::<Vec<_>>(),order,&stop).unwrap();
-            let program=support.compile_product(kind,Optimization::default(),EvaluationLimits{scratch_bytes:128*1024,..Default::default()},&scope).unwrap();
+            let program=support.compile_product(kind,options,EvaluationLimits{scratch_bytes:128*1024,..Default::default()},&scope).unwrap();
             assert!(program.census().all(|c|c.derivative_components==2));
+            if matches!(options.evaluator, library::Evaluator::CompiledScalar { .. }) {
+                assert!(program.census().all(|c| c.native_arithmetic_blocks == c.arithmetic_blocks));
+            }
             let calls=Arc::new(std::array::from_fn(|_|AtomicUsize::new(0)));
             let provider=ProviderBinding::new(spec.clone(),Box::new(Actions{calls:calls.clone(),coefficient:Arc::new(AtomicUsize::new(1)),drift:false,key:None}));
             let mut bank=ProviderBindings::from([(spec.key(),provider)]);let mut worker=program.worker_scoped(scope.clone());
