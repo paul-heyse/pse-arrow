@@ -528,6 +528,8 @@ impl PreparedSupport {
             direct_weighted: true,
             stages: 1,
             arithmetic_blocks: 1,
+            arithmetic_input_entries: direct.arguments,
+            arithmetic_output_entries: direct.results,
             native_arithmetic_blocks: usize::from(modules > 0),
             provider_stages: 0,
             control_stages: 0,
@@ -686,7 +688,7 @@ impl Worker {
                 }
                 worker.worker.set_scope(self.scope.clone().ok_or_else(|| MathError::Contract("detached transpose controls".into()))?);
                 worker.worker.evaluate_trial_into(&worker.arguments, DerivativeOrder::First, providers, cancel, &mut worker.trial)?;
-                scratch.copy_from_slice(&worker.trial.jacobian);
+                for (axis, value) in scratch.iter_mut().enumerate() { *value = worker.trial.first(0, axis); }
             } else if let Some(template) = self.body.direct_product.clone() {
                 self.evaluate_seeded(
                     inputs,
@@ -760,7 +762,7 @@ impl Worker {
                         cancel,
                         trial,
                     )?;
-                    scratch.copy_from_slice(&trial.jacobian);
+                    for (row, value) in scratch.iter_mut().enumerate() { *value = trial.first(row, 0); }
                 } else {
                     self.evaluate_seeded(
                         inputs,
@@ -985,7 +987,7 @@ mod tests {
         let mut result = [f64::NAN; 2];
         for (weights, expected) in [([2., 3.], [18., 17.]), ([0., -1.], [-2., -3.])] {
             worker.evaluate_product_into(&[2., 3.], ProductValues::TransposeJacobianAction { weights: &weights },
-                &mut BTreeMap::new(), &cancel, &mut result).unwrap();
+                &mut pse_kernels::ProviderBindings::default(), &cancel, &mut result).unwrap();
             assert_eq!(result, expected);
         }
         let x = library::formal(0).unwrap();
@@ -1003,16 +1005,16 @@ mod tests {
         let mut worker = compiled.worker_scoped(scope);
         for (guard, expected) in [(1., [48., 72.]), (-1., [12., 24.]), (1., [48., 72.])] {
             worker.evaluate_product_into(&[2., 3., guard], ProductValues::TransposeJacobianAction { weights: &[2.] },
-                &mut BTreeMap::new(), &cancel, &mut result).unwrap();
+                &mut pse_kernels::ProviderBindings::default(), &cancel, &mut result).unwrap();
             assert_eq!(result, expected);
         }
         let saved = result;
         assert!(worker.evaluate_product_into(&[1e200, 3., 1.],
-            ProductValues::TransposeJacobianAction { weights: &[0.] }, &mut BTreeMap::new(), &cancel, &mut result).is_err());
+            ProductValues::TransposeJacobianAction { weights: &[0.] }, &mut pse_kernels::ProviderBindings::default(), &cancel, &mut result).is_err());
         assert_eq!(result, saved);
         cancel.cancel();
         assert!(matches!(worker.evaluate_product_into(&[2., 3., 1.],
-            ProductValues::TransposeJacobianAction { weights: &[2.] }, &mut BTreeMap::new(), &cancel, &mut result), Err(MathError::Cancelled)));
+            ProductValues::TransposeJacobianAction { weights: &[2.] }, &mut pse_kernels::ProviderBindings::default(), &cancel, &mut result), Err(MathError::Cancelled)));
         assert_eq!(result, saved);
     }
 
@@ -1048,7 +1050,7 @@ mod tests {
                 if name == "sparse" { 1 } else { 2 });
             let mut matrix_values = vec![f64::NAN; matrix.product_len()];
             matrix.worker_scoped(scope.clone()).evaluate_product_into(&point,
-                ProductValues::WeightedHessian { weights: &[1.] }, &mut BTreeMap::new(),
+                ProductValues::WeightedHessian { weights: &[1.] }, &mut pse_kernels::ProviderBindings::default(),
                 &cancel, &mut matrix_values).unwrap();
             let mut expected = vec![0.; n];
             for (&(i, j), &value) in matrix.product_pairs().iter().zip(&matrix_values) {
@@ -1076,7 +1078,7 @@ mod tests {
             let start = std::time::Instant::now();
             for _ in 0..16 {
                 worker.evaluate_product_into(&point, ProductValues::WeightedHessianAction {
-                    weights: &[1.], direction: &direction }, &mut BTreeMap::new(), &cancel,
+                    weights: &[1.], direction: &direction }, &mut pse_kernels::ProviderBindings::default(), &cancel,
                     &mut actual).unwrap();
             }
             let execute = start.elapsed();
