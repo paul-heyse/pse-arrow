@@ -2317,13 +2317,20 @@ DEFINE FUNCTION fn::pse_analysis_v1::append($rpc_expiry: int, $key: string,$node
         IF $old!=NONE { IF object::remove($old,['id'])!=$node { THROW 'immutable analysis node changed'; }; }
         ELSE { IF $row.active { THROW 'analysis graph closed'; }; CREATE ONLY type::record('canonical_analysis_nodes',$node.key) CONTENT $node; };
     };
+    LET $endpoint_keys=array::distinct(array::concat($edges.source,$edges.target));
+    LET $endpoints=$endpoint_keys.map(|$endpoint| SELECT key,analysis FROM ONLY type::record('canonical_analysis_nodes',$endpoint));
+    LET $evidenced=$edges.filter(|$edge| $edge.evidence_artifact!=NONE);
+    LET $artifacts=array::distinct($evidenced.evidence_artifact);
+    LET $inputs=$artifacts.map(|$artifact| {artifact:$artifact,matches:(SELECT key FROM canonical_analysis_inputs WHERE analysis=$key AND artifact=$artifact LIMIT 1)});
+    LET $coordinates=array::distinct($evidenced.map(|$edge| {artifact:$edge.evidence_artifact,ordinal:$edge.evidence_block}));
+    LET $blocks=$coordinates.map(|$coordinate| {artifact:$coordinate.artifact,ordinal:$coordinate.ordinal,matches:(SELECT rows FROM canonical_artifact_blocks WHERE artifact=$coordinate.artifact AND ordinal=$coordinate.ordinal LIMIT 1)});
     FOR $edge IN $edges {
-        IF $edge.analysis!=$key OR type::record('canonical_analysis_nodes',$edge.source).analysis!=$key OR type::record('canonical_analysis_nodes',$edge.target).analysis!=$key { THROW 'analysis edge membership'; };
+        IF $edge.analysis!=$key OR array::len($endpoints.filter(|$endpoint| $endpoint.key=$edge.source AND $endpoint.analysis=$key))!=1 OR array::len($endpoints.filter(|$endpoint| $endpoint.key=$edge.target AND $endpoint.analysis=$key))!=1 { THROW 'analysis edge membership'; };
         IF ($edge.evidence_artifact=NONE)!=($edge.evidence_block=NONE) OR ($edge.evidence_artifact=NONE AND ($edge.evidence_row!=NONE OR $edge.evidence_field!=NONE)) { THROW 'analysis typed evidence incomplete'; };
         IF $edge.evidence_artifact!=NONE {
-            LET $inputs=SELECT key FROM canonical_analysis_inputs WHERE analysis=$key AND artifact=$edge.evidence_artifact LIMIT 1;
-            LET $blocks=SELECT rows FROM canonical_artifact_blocks WHERE artifact=$edge.evidence_artifact AND ordinal=$edge.evidence_block LIMIT 1;
-            IF array::len($inputs)!=1 OR array::len($blocks)!=1 OR ($edge.evidence_row!=NONE AND $edge.evidence_row>=$blocks[0].rows) { THROW 'analysis evidence outside retained artifact'; };
+            LET $input=$inputs.filter(|$input| $input.artifact=$edge.evidence_artifact);
+            LET $block=$blocks.filter(|$block| $block.artifact=$edge.evidence_artifact AND $block.ordinal=$edge.evidence_block);
+            IF array::len($input)!=1 OR array::len($input[0].matches)!=1 OR array::len($block)!=1 OR array::len($block[0].matches)!=1 OR ($edge.evidence_row!=NONE AND $edge.evidence_row>=$block[0].matches[0].rows) { THROW 'analysis evidence outside retained artifact'; };
         };
         LET $old=SELECT * FROM ONLY type::record('canonical_analysis_edges',$edge.key);
         IF $old!=NONE { IF $old.key!=$edge.key OR $old.analysis!=$edge.analysis OR $old.source!=$edge.source OR $old.target!=$edge.target OR $old.kind!=$edge.kind OR $old.evidence_artifact!=$edge.evidence_artifact OR $old.evidence_block!=$edge.evidence_block OR $old.evidence_row!=$edge.evidence_row OR $old.evidence_field!=$edge.evidence_field { THROW 'immutable analysis edge changed'; }; }
