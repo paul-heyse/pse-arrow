@@ -22,22 +22,27 @@ fn coupled(parameters: usize, max_entries: usize) -> (Factory, Vec<f64>, Arc<Ato
     coupled_with_optimization(parameters,max_entries,Optimization::default())
 }
 fn coupled_with_optimization(parameters: usize, max_entries: usize,optimization:Optimization) -> (Factory, Vec<f64>, Arc<AtomicUsize>) {
+    coupled_source(parameters,max_entries,optimization,false)
+}
+fn coupled_source(parameters:usize,max_entries:usize,optimization:Optimization,dense:bool)->(Factory,Vec<f64>,Arc<AtomicUsize>) {
     crate::initialize().unwrap();
     let id = pse_ids::named_id(SemanticId::NIL, "coupled implicit product oracle");
     let control = pse_diagnostics::Cancellation::default();
     let formals = (0..parameters+2).map(|i| crate::library::formal(i).unwrap()).collect::<Vec<_>>();
     let a = &formals[2]; let b = &formals[3];
     let tail = (2..parameters).fold(Atom::num(0), |sum,j| sum + &formals[j+2]*Atom::num((j+1) as i64));
-    let u = a.clone().pow(2)+b+tail;
+    let u = if dense { (2..parameters+2).fold(Atom::num(0),|sum,j|sum+&formals[j]).pow(2) } else { a.clone().pow(2)+b+tail };
     // A=[[1,1],[2,-1]] is deliberately nonsymmetric; z0=(u+ab)/3,z1=(2u-ab)/3.
-    let body = PreparedBody::new(parameters+2, parameters+4, vec![parameters+2,parameters+3], vec![Stage::Block {
+    let mut allowance=if dense {1_000_000} else {crate::typed::BodyLimits::default().occurrences};
+    let body = PreparedBody::new_with_allowance(parameters+2, parameters+4, vec![parameters+2,parameters+3], vec![Stage::Block {
         expressions: vec![&formals[0]+&formals[1]-u, Atom::num(2)*&formals[0]-&formals[1]-a*b],
         outputs: vec![parameters+2,parameters+3], source: id,
-    }], DerivativeOrder::Second).unwrap();
+    }], &mut allowance).unwrap();
     let calls = Arc::new(AtomicUsize::new(0));
     let solver = Arc::new(CountedAffine { actual: Affine::new(&body,2).unwrap(), calls: calls.clone() });
-    let compiled = Arc::new(body.compile(&[0,1], &(0..parameters+2).collect::<Vec<_>>(), DerivativeOrder::Second,
-        optimization, EvaluationLimits::default(), &ExecutionScope::new(control.clone(),None)).unwrap());
+    let scope=ExecutionScope::new(control.clone(),None);
+    let source=Arc::new(body.compile(&[0,1],&[],DerivativeOrder::Value,optimization,EvaluationLimits::default(),&scope).unwrap());
+    let unknown=Arc::new(body.compile(&[0,1],&[0,1],DerivativeOrder::First,optimization,EvaluationLimits::default(),&scope).unwrap());
     let registry = pse_quantity::standard::standard_registry().unwrap(); let q = registry.neutral_dimensionless().unwrap();
     let unit = registry.quantity_type(q).unwrap().canonical_unit;
     let port = |name: &str| pse_kernels::Port { id: pse_ids::named_id(id,name), quantity:q, unit };
@@ -49,7 +54,7 @@ fn coupled_with_optimization(parameters: usize, max_entries: usize,optimization:
         spec: ProviderSpec { id,revision:ContentHash::from_bytes([46;32]),data:ContentHash::from_bytes([47;32]),
             inputs:(0..parameters).map(|i| port(&format!("p{i}"))).collect(),outputs,shapes:Default::default(),
             derivative_source:pse_kernels::DerivativeSource::Analytic,derivatives:DerivativeOrder::Second,smoothness:DerivativeOrder::Second },
-        bodies:residual_bodies_for_test(compiled),unknowns:unknowns.clone(),rows:vec![port("f0").id,port("f1").id],
+        bodies:ResidualBodies {unknown,source},unknowns:unknowns.clone(),rows:vec![port("f0").id,port("f1").id],
         configuration:Configuration::Fixed(unknowns,Options { start:vec![0.;2],variable_nominals:vec![1.;2],variable_tolerance:vec![1e-10;2],
             residual_tolerance:vec![1e-10;2],iterations:10,time_limit:Duration::from_secs(10),derivative_tolerance:1e-11 }),
         hints:None,terms:None,solver,cancel:control,max_entries,providers:BTreeMap::new(),
@@ -169,14 +174,15 @@ fn selected_implicit_nonlinear_second_actions_use_the_full_adjoint_equation() {
 #[test]
 fn implicit_factor_first_upgrade_affine_use_and_failure_preserve_exact_associations() {
     let (factory,parameters,_)=coupled(2,128);let scope=ExecutionScope::new(factory.cancel.clone(),None);
-    let problem=factory.problem(scope).unwrap();let expected=analytic(&parameters);let options=match &factory.configuration { Configuration::Fixed(_,options)=>options.clone(),_=>unreachable!() };
+    let problem=factory.problem(scope.clone()).unwrap();problem.prepare_complete(DerivativeOrder::First,&scope).unwrap();problem.prepare_complete(DerivativeOrder::Second,&scope).unwrap();let expected=analytic(&parameters);let options=match &factory.configuration { Configuration::Fixed(_,options)=>options.clone(),_=>unreachable!() };
     let cancel=factory.cancel.flag();
     let hub=pse_diagnostics::observation::ObservationHub::new(Default::default());let operation=hub.start("IFT association controls");let observation=operation.context();let _entered=observation.enter();
     problem.derivatives(&parameters,&expected.values,DerivativeOrder::First,&options,&cancel).unwrap();
-    let worker_before={ let worker=problem.worker.lock().unwrap();(worker.evaluation.values.as_ptr(),worker.evaluation.first.as_ptr()) };
+    let full_first=problem.complete_program(DerivativeOrder::First).unwrap();
+    let worker_before={ let worker=full_first.worker.lock().unwrap();(worker.evaluation.values.as_ptr(),worker.evaluation.first.as_ptr()) };
     problem.derivatives(&parameters,&expected.values,DerivativeOrder::First,&options,&cancel).unwrap();
     assert_eq!(count(&observation,"implicit.factor.numeric_reuse"),1);assert_eq!(count(&observation,"implicit.derivatives.first_reuse"),1);
-    assert_eq!({ let worker=problem.worker.lock().unwrap();(worker.evaluation.values.as_ptr(),worker.evaluation.first.as_ptr()) },worker_before,"completed residual buffers remain borrowed and retained");
+    assert_eq!({ let worker=full_first.worker.lock().unwrap();(worker.evaluation.values.as_ptr(),worker.evaluation.first.as_ptr()) },worker_before,"completed residual buffers remain borrowed and retained");
     problem.derivatives(&parameters,&expected.values,DerivativeOrder::Second,&options,&cancel).unwrap();
     assert_eq!(count(&observation,"implicit.factor.numeric_reuse"),2);assert_eq!(count(&observation,"implicit.derivatives.first_reuse"),2,"Second upgrade consumes the identical cached first solve");
     let mut solver=factory.solver.worker();solver.solve(problem.clone(),&parameters,&options,&factory.cancel).unwrap();
@@ -360,4 +366,40 @@ fn native_implicit_preparation_preserves_selected_evaluator_policy() {
     let actual=problem.demanded_derivatives(&parameters,&expected.values,&request,Default::default(),options,ContentHash::from_bytes([81;32]),&scope).unwrap();
     close(&actual.values,&expected.values);close(&actual.jacobian,&[expected.jacobian[0],expected.jacobian[1],expected.jacobian[12],expected.jacobian[13]]);
     let programs=problem.product_workers.lock().unwrap();assert_eq!(programs.len(),1);assert!(programs[0].worker.lock().unwrap().worker.census().instantiated_orders[DerivativeOrder::Second as usize]);
+}
+
+#[test]
+fn wide_dense_implicit_value_source_prepares_only_consumed_parameter_products() {
+    let p=128;let (factory,parameters,solves)=coupled_source(p,1_000_000,Optimization::default(),true);
+    assert_eq!(factory.bodies.source.compiled_order(),DerivativeOrder::Value);
+    assert!(factory.bodies.source.coordinates().is_empty());
+    assert_eq!(factory.bodies.unknown.coordinates(),&[0,1]);
+    let scope=ExecutionScope::new(factory.cancel.clone(),None);let problem=factory.problem(scope).unwrap();
+    assert!(problem.product_workers.lock().unwrap().is_empty(),"fresh factory constructs no parameter derivative artifact");
+    assert!(problem.derivatives(&parameters,&[0.,0.],DerivativeOrder::First,
+        match &factory.configuration {Configuration::Fixed(_,options)=>options,_=>unreachable!()},&factory.cancel.flag()).is_err(),"numerical calls cannot prepare a missing demand");
+    let mut provider=factory.create().unwrap();let flag=factory.cancel.flag();
+    let context=EvaluationContext {cancelled:&flag,max_result_bytes:1<<20};
+    let sum=parameters.iter().sum::<f64>();let ab=parameters[0]*parameters[1];
+    let values=[(sum*sum+ab)/3.,(2.*sum*sum-ab)/3.];
+    let direction=vec![1.;p];let weights=[1.,0.];
+    let mut token=None;
+    for demand in [ProviderDemand::SelectedColumns {columns:vec![0,127]},ProviderDemand::JacobianAction {directions:1},ProviderDemand::TransposeAction {cotangents:1},ProviderDemand::WeightedSecondAction {directions:1}] {
+        let order=if matches!(demand,ProviderDemand::JacobianAction {..}|ProviderDemand::TransposeAction {..}) {DerivativeOrder::First} else {DerivativeOrder::Second};
+        let request=provider.prepare(ProviderRequest {outputs:vec![0,1],order,demand:demand.clone()}).unwrap();
+        let mut buffer=ProviderBuffer::new(&request);
+        let actual=buffer.fill(&mut provider,&parameters,&request,ProviderRuntime {directions:if matches!(demand,ProviderDemand::JacobianAction {..}|ProviderDemand::WeightedSecondAction {..}) {&direction} else {&[]},cotangents:if matches!(demand,ProviderDemand::TransposeAction {..}) {&weights} else {&[]},weights:if matches!(demand,ProviderDemand::WeightedSecondAction {..}) {&weights} else {&[]},expected_linearization:token},&context).unwrap();
+        close(actual.values,&values);if token.is_none() {token=actual.linearization;}
+        let gradient=(0..p).map(|j|(2.*sum+if j==0 {parameters[1]} else if j==1 {parameters[0]} else {0.})/3.).collect::<Vec<_>>();
+        match demand {
+            ProviderDemand::SelectedColumns {..}=>{close(&actual.jacobian[..2],&[gradient[0],gradient[127]]);close(&actual.hessians[..4],&[2./3.;4]);},
+            ProviderDemand::JacobianAction {..}=>close(actual.jacobian,&[(2.*sum*p as f64+parameters[0]+parameters[1])/3.,(4.*sum*p as f64-parameters[0]-parameters[1])/3.]),
+            ProviderDemand::TransposeAction {..}=>close(actual.jacobian,&gradient),
+            ProviderDemand::WeightedSecondAction {..}=>{close(actual.jacobian,&gradient);close(actual.hessians,&(0..p).map(|j|(2.*p as f64+if j<2 {1.} else {0.})/3.).collect::<Vec<_>>());},_=>unreachable!()
+        }
+    }
+    let before=solves.load(Ordering::Relaxed);
+    let refusal=provider.prepare(ProviderRequest::all(&factory.spec,DerivativeOrder::Second)).unwrap_err();
+    assert!(refusal.to_string().contains("derivative component"),"{refusal}");
+    assert_eq!(solves.load(Ordering::Relaxed),before,"4096-component full tensor refusal occurs before native effects");
 }

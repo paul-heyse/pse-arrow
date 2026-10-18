@@ -512,6 +512,8 @@ mod tests {
                     )
                     .unwrap(),
                 );
+                problem.prepare_complete(DerivativeOrder::First,&pse_kernels::ExecutionScope::new(cancel.clone(),None)).unwrap();
+                problem.prepare_complete(DerivativeOrder::Second,&pse_kernels::ExecutionScope::new(cancel.clone(),None)).unwrap();
                 let options = Options {
                     start: vec![value],
                     variable_nominals: vec![1.],
@@ -1299,6 +1301,8 @@ mod tests {
             )
             .unwrap(),
         );
+        selected.alternatives[0].problem.prepare_complete(DerivativeOrder::First,&pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false),None)).unwrap();
+        selected.alternatives[0].problem.prepare_complete(DerivativeOrder::Second,&pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false),None)).unwrap();
         let mut projection = selected.alternatives[0]
             .isolation
             .as_ref()

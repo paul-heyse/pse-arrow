@@ -2190,6 +2190,7 @@ mod tests {
                 10_000,
             )
             .unwrap();
+            problem.prepare_complete(DerivativeOrder::Second,&pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
             let point = (0..n)
                 .map(|i| 4.0 * (i + 1) as f64 + 15.0)
                 .collect::<Vec<_>>();
@@ -2325,7 +2326,7 @@ mod tests {
         for order in [DerivativeOrder::First, DerivativeOrder::Second] {
             let bodies = ResidualBodies {
                 unknown: unknown.clone(),
-                source: compile(&[0, 1], order),
+                source: compile(&[], DerivativeOrder::Value),
             };
             let problem = Problem::new(
                 id,
@@ -2341,6 +2342,7 @@ mod tests {
                 1024,
             )
             .unwrap();
+            problem.prepare_complete(order,&pse_kernels::ExecutionScope::new(compile_control.clone(),None)).unwrap();
             let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
             let operation = hub.start("implicit.ift.stage_control");
             let _entered = operation.context().enter();
@@ -2598,7 +2600,7 @@ mod tests {
         );
         assert!(
             !problem
-                .worker
+                .source_worker
                 .lock()
                 .unwrap()
                 .worker
@@ -3121,6 +3123,8 @@ mod tests {
             Par::rayon(2),
         )
         .unwrap();
+        problem.prepare_complete(DerivativeOrder::First,&pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
+        problem.prepare_complete(DerivativeOrder::Second,&pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
         assert_eq!(problem.factor.lock().unwrap().parallel, Par::rayon(2));
         let options = Options {
             start: vec![1.0],

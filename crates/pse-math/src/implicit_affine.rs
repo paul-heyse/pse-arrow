@@ -189,6 +189,7 @@ mod tests {
             )
             .unwrap(),
         );
+        problem.prepare_complete(DerivativeOrder::Second,&pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
         let options = Options {
             start: vec![0.0, 0.0],
             variable_nominals: vec![1.0; 2],
@@ -300,6 +301,7 @@ mod tests {
             )
             .unwrap(),
         );
+        problem.prepare_complete(DerivativeOrder::Second,&pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
         let options = Options {
             start: vec![0.],
             variable_nominals: vec![1.],

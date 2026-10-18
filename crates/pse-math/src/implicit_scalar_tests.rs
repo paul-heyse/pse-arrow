@@ -272,6 +272,7 @@ fn real_worker_uses_original_residual_and_derivatives_and_does_not_certify_uniqu
         )
         .unwrap(),
     );
+    problem.prepare_complete(DerivativeOrder::Second,&pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
     let options = Options {
         start: vec![1.0],
         variable_nominals: vec![1.0],
