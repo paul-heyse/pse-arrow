@@ -184,7 +184,7 @@ def Root {{child root:vessels.Vessel=vessels.Vessel(selected=bt_ideal.aromatics,
         )
         .unwrap(),
     );
-    let mut worker = assembly.worker(BTreeMap::new(), cancel);
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
     // A 0.1 J energy drift is within the authored 100 J engineering allowance.
     // Exercise a real refusal with 200 J, while the molar drift exceeds 0.001 mol.
     for (amount_drift, energy_drift, closes) in [(0.0, 0.0, true), (0.1, 200.0, false)] {

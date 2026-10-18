@@ -301,13 +301,13 @@ impl ProviderFactory for ReconstructionFactory {
         }
         h.finish_hash()
     }
-    fn create(&self) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+    fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
         self.factory.create()
     }
     fn create_scoped(
         &self,
         scope: ExecutionScope,
-    ) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+    ) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
         self.factory.create_scoped(scope)
     }
 }

@@ -126,7 +126,7 @@ fn physical_intermediates_lower_ua_delta_t_and_qualified_cancellation() {
         .evaluate(
             &[3.0, 4.0, 5.0],
             DerivativeOrder::First,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &Arc::new(AtomicBool::new(false)),
         )
         .unwrap();
@@ -281,7 +281,7 @@ fn physical_point_subtraction_precedes_normalization() {
             .evaluate(
                 &[300.0, 290.0],
                 DerivativeOrder::Value,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &Arc::new(AtomicBool::new(false))
             )
             .unwrap()
@@ -325,7 +325,7 @@ fn nested_domain_dependencies_execute_before_division_and_log() {
                 .evaluate(
                     &[1.0, invalid],
                     DerivativeOrder::Value,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &Arc::new(AtomicBool::new(false))
                 )
                 .is_err()
@@ -335,7 +335,7 @@ fn nested_domain_dependencies_execute_before_division_and_log() {
         .evaluate(
             &[1.0, 2.0],
             DerivativeOrder::Second,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &Arc::new(AtomicBool::new(false)),
         )
         .unwrap()
@@ -556,7 +556,7 @@ fn connection_equation_binds_distinct_units_before_point_subtraction() {
         body.evaluate(
             &instance.values(&values).unwrap(),
             DerivativeOrder::Value,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &cancel
         )
         .unwrap()
@@ -568,7 +568,7 @@ fn connection_equation_binds_distinct_units_before_point_subtraction() {
         body.evaluate(
             &instance.values(&values).unwrap(),
             DerivativeOrder::Value,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &cancel
         )
         .unwrap()
@@ -706,7 +706,7 @@ fn formal_pool_extends_to_the_declared_limit_and_refuses_beyond() {
         .evaluate(
             &[2.5],
             DerivativeOrder::First,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &Arc::new(AtomicBool::new(false)),
         )
         .unwrap();
@@ -1003,7 +1003,7 @@ fn symbolic_order_child() {
             .evaluate(
                 &[2.0],
                 DerivativeOrder::Second,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &Arc::new(AtomicBool::new(false)),
             )
             .unwrap();
@@ -1095,7 +1095,7 @@ fn shared_let_blocks_bound_repeated_nonlinear_tree_growth() {
         .evaluate(
             &[0.2],
             DerivativeOrder::Second,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &Arc::new(AtomicBool::new(false)),
         )
         .unwrap();
@@ -1151,7 +1151,7 @@ fn body_construction_allowance_can_be_explicitly_larger_than_default() {
                 .unwrap()
                 .worker();
             let jet = worker
-                .evaluate(&[2.], DerivativeOrder::First, &mut BTreeMap::new(), &cancel)
+                .evaluate(&[2.], DerivativeOrder::First, &mut pse_kernels::ProviderBindings::new(), &cancel)
                 .unwrap();
             assert_eq!(jet.values, vec![32772.]);
             assert_eq!(jet.jacobian, vec![16386.]);
@@ -1228,7 +1228,7 @@ fn shared_nonlinear_coefficients_preserve_affine_rate_support() {
             .evaluate(
                 &[3., 0.2_f64.exp()],
                 DerivativeOrder::Second,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
             )
             .unwrap();
@@ -1240,7 +1240,7 @@ fn shared_nonlinear_coefficients_preserve_affine_rate_support() {
                 .evaluate(
                     &[3., -1.],
                     DerivativeOrder::Second,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel
                 )
                 .is_err()
@@ -1326,7 +1326,7 @@ fn exponential_of_nested_logarithms_preserves_values_and_derivatives() {
                     .evaluate(
                         &if fixed { vec![] } else { vec![x] },
                         order,
-                        &mut BTreeMap::new(),
+                        &mut pse_kernels::ProviderBindings::new(),
                         &cancel,
                     )
                     .unwrap();
@@ -1390,7 +1390,7 @@ fn shared_aliases_reuse_slots_but_partial_arguments_remain_independent() {
         .evaluate(
             &[3.],
             DerivativeOrder::Second,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &cancel,
         )
         .unwrap();
@@ -1577,7 +1577,7 @@ fn retained_finite_reduction_accepts_anonymous_prototype_even_when_empty() {
         .evaluate(
             &[2.0, 3.0, 5.0],
             DerivativeOrder::First,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &cancellation,
         )
         .unwrap();

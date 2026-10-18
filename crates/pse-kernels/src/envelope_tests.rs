@@ -16,16 +16,15 @@ struct Bounded {
     outputs: Vec<f64>,
 }
 impl Provider for Bounded {
-    fn spec(&self) -> &ProviderSpec {
-        &self.spec
-    }
-    fn evaluate(
+    fn fill(
         &mut self,
         _: &[f64],
-        request: &ProviderRequest,
+        request: &PreparedProviderRequest,
+        _runtime: ProviderRuntime<'_>,
+        mut output: ProviderOutput<'_>,
         _: &EvaluationContext<'_>,
-    ) -> Result<ProviderValues, ProviderError> {
-        Ok(ProviderValues {
+    ) -> Result<(), ProviderError> {
+        output.copy_from(&ProviderValues {
             values: request.outputs.iter().map(|&o| self.outputs[o]).collect(),
             jacobian: Vec::new(),
             hessians: Vec::new(),
@@ -36,12 +35,12 @@ impl ProviderFactory for Bounded {
     fn spec(&self) -> &ProviderSpec {
         &self.spec
     }
-    fn create(&self) -> Result<Box<dyn Provider>, ProviderError> {
-        Ok(Box::new(Self {
+    fn create(&self) -> Result<ProviderBinding, ProviderError> {
+        Ok(ProviderBinding::new(self.spec().clone(), Box::new(Self {
             spec: self.spec.clone(),
             envelope: self.envelope.clone(),
             outputs: self.outputs.clone(),
-        }))
+        })))
     }
     fn envelope(&self) -> Option<Vec<(f64, f64)>> {
         self.envelope.clone()
@@ -153,11 +152,11 @@ fn envelope_violation_is_typed_contract_error() {
     let all = ProviderRequest::all(&spec(), DerivativeOrder::Value);
     // Values inside the envelope pass through unchanged.
     let inside = register(envelope.clone(), vec![27.0, -0.5]).unwrap();
+    let mut inside_worker = inside.worker().unwrap();
+    let prepared = inside_worker.prepare(all.clone()).unwrap();
+    let mut buffer = ProviderBuffer::new(&prepared);
     assert_eq!(
-        inside
-            .worker()
-            .unwrap()
-            .evaluate(&[1.0], &all, &context)
+        buffer.fill(&mut inside_worker, &[1.0], &prepared, ProviderRuntime::default(), &context)
             .unwrap()
             .values,
         vec![27.0, -0.5]
@@ -167,47 +166,55 @@ fn envelope_violation_is_typed_contract_error() {
     // the declaration is false.
     let outside = register(envelope, vec![1.0, 1.5]).unwrap();
     let mut worker = outside.worker().unwrap();
-    let failure = worker.evaluate(&[1.0], &all, &context).unwrap_err();
+    let prepared = worker.prepare(all.clone()).unwrap();
+    let failure = buffer.fill(&mut worker, &[1.0], &prepared, ProviderRuntime::default(), &context).unwrap_err();
     let ProviderError::Contract(message) = &failure else {
         panic!("expected a contract error, got {failure:?}");
     };
     assert!(message.contains("output 1"), "{message}");
     // A request for only the first output does not evaluate the broken one.
     let first = ProviderRequest {
+        demand: ProviderDemand::CompleteJets,
         outputs: vec![0],
         order: DerivativeOrder::Value,
     };
+    let first = worker.prepare(first).unwrap();
+    let mut first_buffer = ProviderBuffer::new(&first);
     assert_eq!(
-        worker.evaluate(&[1.0], &first, &context).unwrap().values,
+        first_buffer.fill(&mut worker, &[1.0], &first, ProviderRuntime::default(), &context).unwrap().values,
         vec![1.0]
     );
     // A request that reorders outputs is checked against each output's own interval.
     let reordered = ProviderRequest {
+        demand: ProviderDemand::CompleteJets,
         outputs: vec![1, 0],
         order: DerivativeOrder::Value,
     };
+    let reordered = worker.prepare(reordered).unwrap();
     assert!(matches!(
-        worker.evaluate(&[1.0], &reordered, &context),
+        buffer.fill(&mut worker, &[1.0], &reordered, ProviderRuntime::default(), &context),
         Err(ProviderError::Contract(_))
     ));
     // Scoped workers are checked the same way.
-    assert!(matches!(
-        outside
+    let mut scoped = outside
             .worker_scoped(ExecutionScope::new(
                 pse_diagnostics::Cancellation::default(),
                 None
             ))
-            .unwrap()
-            .evaluate(&[1.0], &all, &context),
+            .unwrap();
+    let prepared = scoped.prepare(all.clone()).unwrap();
+    assert!(matches!(
+        buffer.fill(&mut scoped, &[1.0], &prepared, ProviderRuntime::default(), &context),
         Err(ProviderError::Contract(_))
     ));
     // Without a declaration, the same outputs are returned unchecked.
-    assert_eq!(
-        register(None, vec![1.0, 1.5])
+    let mut undeclared = register(None, vec![1.0, 1.5])
             .unwrap()
             .worker()
-            .unwrap()
-            .evaluate(&[1.0], &all, &context)
+            .unwrap();
+    let prepared = undeclared.prepare(all).unwrap();
+    assert_eq!(
+        buffer.fill(&mut undeclared, &[1.0], &prepared, ProviderRuntime::default(), &context)
             .unwrap()
             .values,
         vec![1.0, 1.5]
@@ -262,8 +269,8 @@ fn observation_counts_only_actual_requested_provider_work_and_envelope_failure()
         fn spec(&self) -> &ProviderSpec {
             &self.inner.spec
         }
-        fn create(&self) -> Result<Box<dyn Provider>, ProviderError> {
-            Ok(Box::new(Self {
+        fn create(&self) -> Result<ProviderBinding, ProviderError> {
+            Ok(ProviderBinding::new(self.spec().clone(), Box::new(Self {
                 inner: Bounded {
                     spec: self.inner.spec.clone(),
                     envelope: self.inner.envelope.clone(),
@@ -271,22 +278,21 @@ fn observation_counts_only_actual_requested_provider_work_and_envelope_failure()
                 },
                 calls: self.calls.clone(),
                 inspect: self.inspect,
-            }))
+            })))
         }
         fn envelope(&self) -> Option<Vec<(f64, f64)>> {
             self.inner.envelope.clone()
         }
     }
     impl Provider for Counted {
-        fn spec(&self) -> &ProviderSpec {
-            &self.inner.spec
-        }
-        fn evaluate(
+            fn fill(
             &mut self,
             inputs: &[f64],
-            request: &ProviderRequest,
+            request: &PreparedProviderRequest,
+            _runtime: ProviderRuntime<'_>,
+            output: ProviderOutput<'_>,
             context: &EvaluationContext<'_>,
-        ) -> Result<ProviderValues, ProviderError> {
+        ) -> Result<(), ProviderError> {
             self.calls.fetch_add(1, Ordering::SeqCst);
             if self.inspect {
                 let live = pse_diagnostics::observation::current()
@@ -299,7 +305,7 @@ fn observation_counts_only_actual_requested_provider_work_and_envelope_failure()
                         .any(|phase| phase.kind == "kernel.provider.evaluate")
                 );
             }
-            self.inner.evaluate(inputs, request, context)
+            self.inner.fill(inputs, request, _runtime, output, context)
         }
     }
     for enabled in [false, true] {
@@ -336,17 +342,23 @@ fn observation_counts_only_actual_requested_provider_work_and_envelope_failure()
             max_result_bytes: 1 << 20,
         };
         let first = ProviderRequest {
+        demand: ProviderDemand::CompleteJets,
             outputs: vec![0],
             order: DerivativeOrder::Value,
         };
+        let first = worker.prepare(first).unwrap();
+        let mut buffer = ProviderBuffer::new(&first);
         assert_eq!(
-            worker.evaluate(&[1.0], &first, &context).unwrap().values,
+            buffer.fill(&mut worker, &[1.0], &first, ProviderRuntime::default(), &context).unwrap().values,
             vec![1.0]
         );
+        let all = worker.prepare(ProviderRequest::all(&spec(), DerivativeOrder::Value)).unwrap();
+        let mut buffer = ProviderBuffer::new(&all);
         assert!(matches!(
-            worker.evaluate(
+            buffer.fill(&mut worker,
                 &[1.0],
-                &ProviderRequest::all(&spec(), DerivativeOrder::Value),
+                &all,
+                ProviderRuntime::default(),
                 &context
             ),
             Err(ProviderError::Contract(_))

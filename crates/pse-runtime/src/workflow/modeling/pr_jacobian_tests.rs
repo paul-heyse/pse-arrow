@@ -205,42 +205,41 @@ impl ProviderFactory for ObservedFactory {
     fn envelope(&self) -> Option<Vec<(f64, f64)>> {
         self.original.envelope().map(<[_]>::to_vec)
     }
-    fn create(&self) -> Result<Box<dyn Provider>, ProviderError> {
+    fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
         self.create_scoped(self.scope.clone())
     }
-    fn create_scoped(&self, scope: ExecutionScope) -> Result<Box<dyn Provider>, ProviderError> {
+    fn create_scoped(&self, scope: ExecutionScope) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
         assert!(Arc::ptr_eq(scope.cancellation(), self.scope.cancellation()));
         assert_eq!(scope.deadline(), self.scope.deadline());
-        Ok(Box::new(ObservedProvider {
+        Ok(pse_kernels::ProviderBinding::new(self.spec().clone(), Box::new(ObservedProvider {
             inner: self.original.worker_scoped(scope)?,
             observations: self.observations.clone(),
             source_key: self.source_key,
-        }))
+        })))
     }
 }
 #[derive(Debug)]
 struct ObservedProvider {
-    inner: Box<dyn Provider>,
+    inner: pse_kernels::ProviderBinding,
     observations: Observations,
     source_key: ProviderKey,
 }
 impl Provider for ObservedProvider {
-    fn spec(&self) -> &ProviderSpec {
-        self.inner.spec()
-    }
-    fn evaluate(
+    fn fill(
         &mut self,
         inputs: &[f64],
-        request: &ProviderRequest,
-        context: &EvaluationContext<'_>,
-    ) -> Result<ProviderValues, ProviderError> {
-        request.validate(self.spec(), context)?;
+        request: &pse_kernels::PreparedProviderRequest,
+        _runtime: pse_kernels::ProviderRuntime<'_>,
+        mut output: pse_kernels::ProviderOutput<'_>,
+        context: &pse_kernels::EvaluationContext<'_>,
+    ) -> Result<(), pse_kernels::ProviderError> {
+        request.check_context(context)?;
         // The implicit factory already computes the full root jet before projecting.
         // Requesting all outputs observes that jet; it adds no perturbed inner solve.
-        let all = ProviderRequest::all(self.spec(), request.order);
-        all.validate(self.spec(), context)?;
-        let full = self.inner.evaluate(inputs, &all, context)?;
-        full.validate(self.spec(), &all)?;
+        let all = self.inner.prepare(ProviderRequest::all(self.inner.spec(), request.order))?;
+        all.check_context(context)?;
+        let mut buffer = pse_kernels::ProviderBuffer::new(&all);
+        let full = buffer.fill(&mut self.inner, inputs, &all, _runtime, context)?;
         let mut observations = self
             .observations
             .lock()
@@ -255,12 +254,16 @@ impl Provider for ObservedProvider {
                 ObservedJet {
                     inputs: inputs.to_vec(),
                     order: request.order,
-                    values: full.clone(),
+                    values: ProviderValues {
+                        values: full.values.to_vec(),
+                        jacobian: full.jacobian.to_vec(),
+                        hessians: full.hessians.to_vec(),
+                    },
                 },
             );
         }
         drop(observations);
-        let n = self.spec().inputs.len();
+        let n = self.inner.spec().inputs.len();
         let mut projected = ProviderValues {
             values: Vec::new(),
             jacobian: Vec::new(),
@@ -279,8 +282,8 @@ impl Provider for ObservedProvider {
                     .extend_from_slice(&full.hessians[output * n * n..(output + 1) * n * n]);
             }
         }
-        projected.validate(self.spec(), request)?;
-        Ok(projected)
+        projected.validate(self.inner.spec(), request)?;
+        output.copy_from(&projected)
     }
 }
 
@@ -398,7 +401,7 @@ fn evaluate_compact(
         .collect::<Result<Vec<_>, _>>()?;
     // This fixture's primitive residual and hint programs are explicit. Any hidden
     // provider dependency is a capability gap, rather than another nested oracle.
-    worker.evaluate(&inputs, order, &mut BTreeMap::new(), scope.cancellation())
+    worker.evaluate(&inputs, order, &mut pse_kernels::ProviderBindings::new(), scope.cancellation())
 }
 
 /// Invoke the retained production resolver on its actual hints and original terms.
@@ -1246,8 +1249,7 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
                         cancelled: &flag,
                         max_result_bytes: diagnostic_bytes,
                     };
-                    let changed_values = supplier
-                        .evaluate(&changed, &request, &context)
+                    let changed_values = completed_provider_values(&mut supplier, &changed, &request, &context)
                         .map_err(pse_backend_native::ProblemError::Provider)?;
                     changed_values
                         .validate(&root.spec, &request)
@@ -1430,4 +1432,16 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
         assert_eq!(root.second_condition_backward_errors.len(), 7 * 4 * 4);
     }
     Ok(())
+}
+
+// Test-only dense assessment boundary: copy only a successfully completed fill.
+#[cfg(test)]
+fn completed_provider_values(provider: &mut pse_kernels::ProviderBinding, inputs: &[f64],
+    request: &pse_kernels::ProviderRequest, context: &pse_kernels::EvaluationContext<'_>)
+    -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+    let prepared = provider.prepare(request.clone())?;
+    prepared.check_context(context)?;
+    let mut buffer = pse_kernels::ProviderBuffer::new(&prepared);
+    let completed = buffer.fill(provider, inputs, &prepared, pse_kernels::ProviderRuntime::default(), context)?;
+    Ok(pse_kernels::ProviderValues { values: completed.values.to_vec(), jacobian: completed.jacobian.to_vec(), hessians: completed.hessians.to_vec() })
 }

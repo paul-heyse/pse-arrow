@@ -97,7 +97,7 @@ fn evaluate(
             })
             .collect(),
     };
-    let mut worker = assembly.worker(BTreeMap::new(), cancel);
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
     let objective = worker.objective(&values).unwrap();
     let rows = model
         .admitted

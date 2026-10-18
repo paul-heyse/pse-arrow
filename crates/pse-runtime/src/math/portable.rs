@@ -2872,7 +2872,7 @@ mod canonical_portable_body_tests {
             .evaluate(
                 &values,
                 pse_kernels::DerivativeOrder::First,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
             )
             .unwrap();
@@ -3378,7 +3378,7 @@ mod canonical_portable_body_tests {
             .evaluate(
                 &[9.0],
                 pse_kernels::DerivativeOrder::First,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancelled,
             )
             .unwrap();
@@ -3642,7 +3642,7 @@ mod canonical_portable_body_tests {
                 .evaluate(
                     &[x],
                     pse_kernels::DerivativeOrder::First,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel,
                 )
                 .unwrap();

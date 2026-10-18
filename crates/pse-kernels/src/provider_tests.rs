@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+use super::*;
+use std::sync::atomic::{AtomicU8, AtomicUsize};
+
+fn descriptor(n: usize, m: usize) -> ProviderSpec {
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let quantity = pse_quantity::standard::ids::quantity("neutral");
+    let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+    let ports = |count| (0..count).map(|i: usize| Port {
+        id: pse_ids::named_id(SemanticId::NIL, &i.to_string()), quantity, unit,
+    }).collect();
+    ProviderSpec { shapes: ProviderShapes::default(), derivative_source: DerivativeSource::Analytic,
+        id: SemanticId::NIL, revision: ContentHash::from_bytes([1; 32]), data: ContentHash::from_bytes([2; 32]),
+        inputs: ports(n), outputs: ports(m), derivatives: DerivativeOrder::Second, smoothness: DerivativeOrder::Second }
+}
+
+#[derive(Debug)]
+struct Controlled {
+    mode: Arc<AtomicU8>,
+    calls: Arc<AtomicUsize>,
+    capabilities: Arc<AtomicUsize>,
+    cancel: Arc<AtomicBool>,
+}
+impl Provider for Controlled {
+    fn supports(&self, demand: &ProviderDemand) -> bool {
+        self.capabilities.fetch_add(1, Ordering::Relaxed);
+        matches!(demand, ProviderDemand::CompleteJets)
+    }
+    fn fill(&mut self, _: &[f64], _: &PreparedProviderRequest, _: ProviderRuntime<'_>, output: ProviderOutput<'_>,
+        _: &EvaluationContext<'_>) -> Result<(), ProviderError> {
+        self.calls.fetch_add(1, Ordering::Relaxed);
+        output.values[0] = 17.;
+        match self.mode.load(Ordering::Relaxed) {
+            1 => return Err(ProviderError::Trial("late partial fill refusal".into())),
+            2 => return Ok(()),
+            _ => {}
+        }
+        output.values.fill(3.);
+        output.jacobian.fill(4.);
+        output.hessians.fill(5.);
+        if self.mode.load(Ordering::Relaxed) == 3 { self.cancel.store(true, Ordering::Release); }
+        Ok(())
+    }
+}
+
+#[test]
+fn provider_fill_refusal_missing_cells_and_late_cancellation_publish_no_completion() {
+    let cancel = Arc::new(AtomicBool::new(false));
+    let context = EvaluationContext { cancelled: &cancel, max_result_bytes: 1 << 20 };
+    let mode = Arc::new(AtomicU8::new(0));
+    let calls = Arc::new(AtomicUsize::new(0));
+    let capabilities = Arc::new(AtomicUsize::new(0));
+    let mut provider = ProviderBinding::new(descriptor(1, 2), Box::new(Controlled {
+        mode: mode.clone(), calls: calls.clone(), capabilities: capabilities.clone(), cancel: cancel.clone(),
+    }));
+    let request = provider.prepare(ProviderRequest::all(provider.spec(), DerivativeOrder::Second)).unwrap();
+    let mut buffer = ProviderBuffer::new(&request);
+    for code in [0, 1, 0, 2, 0, 3, 0] {
+        mode.store(code, Ordering::Relaxed);
+        cancel.store(false, Ordering::Release);
+        let result = buffer.fill(&mut provider, &[2.], &request, ProviderRuntime::default(), &context);
+        match code {
+            1 | 2 => assert!(matches!(result, Err(ProviderError::Trial(_)))),
+            3 => assert!(matches!(result, Err(ProviderError::Cancelled))),
+            _ => {
+                let complete = result.unwrap();
+                assert_eq!(complete.values, [3., 3.]);
+                assert_eq!(complete.jacobian, [4., 4.]);
+                assert_eq!(complete.hessians, [5., 5.]);
+            }
+        }
+    }
+    assert_eq!(calls.load(Ordering::Relaxed), 7);
+    assert_eq!(capabilities.load(Ordering::Relaxed), 1);
+}
+
+#[test]
+fn prepared_wide_provider_bank_reuses_validated_binding_and_refuses_malformed_demand() {
+    let cancel = Arc::new(AtomicBool::new(false));
+    let calls = Arc::new(AtomicUsize::new(0));
+    let capabilities = Arc::new(AtomicUsize::new(0));
+    let mut source = descriptor(256, 128);
+    let provider = ProviderBinding::new(source.clone(), Box::new(Controlled {
+        mode: Arc::new(AtomicU8::new(0)), calls: calls.clone(), capabilities: capabilities.clone(), cancel: cancel.clone(),
+    }));
+    source.outputs.clear();
+    assert_eq!(provider.spec().outputs.len(), 128, "the binding owns its immutable descriptor");
+    for request in [ProviderRequest { outputs: vec![0, 0], order: DerivativeOrder::First, demand: ProviderDemand::CompleteJets },
+        ProviderRequest { outputs: vec![128], order: DerivativeOrder::First, demand: ProviderDemand::CompleteJets },
+        ProviderRequest { outputs: vec![0], order: DerivativeOrder::First, demand: ProviderDemand::SelectedColumns { columns: vec![1, 1] } },
+        ProviderRequest { outputs: vec![0], order: DerivativeOrder::First, demand: ProviderDemand::JacobianAction { directions: 1 } }] {
+        assert!(provider.prepare(request).is_err());
+    }
+    let before = capabilities.load(Ordering::Relaxed);
+    let key = provider.key();
+    let mut request = PreparedProviderRequest::new(Arc::new(provider.spec().clone()), ProviderRequest::all(provider.spec(), DerivativeOrder::Value)).unwrap();
+    let mut bank = ProviderBindings::from([(key, provider)]);
+    let slot = bank.resolve(key).unwrap();
+    bank.bind_request(slot, &mut request).unwrap();
+    let mut buffer = ProviderBuffer::new(&request);
+    let inputs = vec![1.; 256];
+    let context = EvaluationContext { cancelled: &cancel, max_result_bytes: 1 << 20 };
+    for _ in 0..8 {
+        assert_eq!(bank.fill(slot, &mut buffer, &inputs, &request, ProviderRuntime::default(), &context).unwrap().values.len(), 128);
+    }
+    assert_eq!(capabilities.load(Ordering::Relaxed), before + 1);
+    assert_eq!(calls.load(Ordering::Relaxed), 8);
+    let limited = EvaluationContext { cancelled: &cancel, max_result_bytes: 1 };
+    assert!(matches!(bank.fill(slot, &mut buffer, &inputs, &request, ProviderRuntime::default(), &limited), Err(ProviderError::Limit(_))));
+    assert_eq!(calls.load(Ordering::Relaxed), 8, "current admission refuses before effects");
+}

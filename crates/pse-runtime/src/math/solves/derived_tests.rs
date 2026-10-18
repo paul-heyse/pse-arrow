@@ -354,8 +354,7 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
     // controls, verifies its residual/bounds, then computes the actual library IFT.
     // This is a numerical reference, not certified accuracy evidence.
     let mut reference_worker = reference.create_scoped(scope.clone()).unwrap();
-    let reference_values = reference_worker
-        .evaluate(
+    let reference_values = completed_provider_values(&mut reference_worker,
             &input,
             &ProviderRequest::all(&reference.spec, DerivativeOrder::First),
             &EvaluationContext {
@@ -4244,4 +4243,16 @@ async fn native_component_records_survive_success_and_failed_block_before_report
         assert_eq!(records.last().unwrap().termination.code, status);
         assert_eq!(records.last().unwrap().variables, names);
     }
+}
+
+// Test-only dense assessment boundary: copy only a successfully completed fill.
+#[cfg(test)]
+fn completed_provider_values(provider: &mut pse_kernels::ProviderBinding, inputs: &[f64],
+    request: &pse_kernels::ProviderRequest, context: &pse_kernels::EvaluationContext<'_>)
+    -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+    let prepared = provider.prepare(request.clone())?;
+    prepared.check_context(context)?;
+    let mut buffer = pse_kernels::ProviderBuffer::new(&prepared);
+    let completed = buffer.fill(provider, inputs, &prepared, pse_kernels::ProviderRuntime::default(), context)?;
+    Ok(pse_kernels::ProviderValues { values: completed.values.to_vec(), jacobian: completed.jacobian.to_vec(), hessians: completed.hessians.to_vec() })
 }

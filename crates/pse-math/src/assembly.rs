@@ -2467,7 +2467,7 @@ impl CaseAssembly {
     /// An attempt owns all mutable evaluator and provider state.
     pub fn worker(
         self: &Arc<Self>,
-        providers: BTreeMap<ProviderKey, Box<dyn Provider>>,
+        providers: pse_kernels::ProviderBindings,
         cancel: pse_diagnostics::Cancellation,
     ) -> CaseWorker {
         self.worker_scoped(providers, pse_kernels::ExecutionScope::new(cancel, None))
@@ -2475,7 +2475,7 @@ impl CaseAssembly {
     /// Attach the original enclosing deadline to every primitive and nested callback.
     pub fn worker_scoped(
         self: &Arc<Self>,
-        providers: BTreeMap<ProviderKey, Box<dyn Provider>>,
+        providers: pse_kernels::ProviderBindings,
         scope: pse_kernels::ExecutionScope,
     ) -> CaseWorker {
         let groups = self
@@ -2545,7 +2545,7 @@ impl CaseAssembly {
     pub fn worker_from_scratch(
         self: &Arc<Self>,
         scratch: CaseScratch,
-        providers: BTreeMap<ProviderKey, Box<dyn Provider>>,
+        providers: pse_kernels::ProviderBindings,
         scope: pse_kernels::ExecutionScope,
     ) -> Result<CaseWorker, MathError> {
         scope.check().map_err(crate::error::scope_error)?;
@@ -2719,7 +2719,7 @@ pub struct CaseWorker {
     // Evaluation is serial under &mut self; scratch is shared only inside this attempt.
     workers: Vec<Worker>,
     projections: Vec<ProjectionRelationship>,
-    providers: BTreeMap<ProviderKey, Box<dyn Provider>>,
+    providers: pse_kernels::ProviderBindings,
     cancel: Arc<AtomicBool>,
     jacobian: Option<AssemblyMatrix>,
     hessian: Option<AssemblyMatrix>,

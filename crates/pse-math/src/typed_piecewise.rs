@@ -281,7 +281,7 @@ impl BodyBuilder<'_> {
             let arguments = arguments.iter().map(|a| a.atom.clone()).collect::<Vec<_>>();
             let count = prove(
                 &mut stages,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &arguments,
                 order,
                 self.limits.occurrences,

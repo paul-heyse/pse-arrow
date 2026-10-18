@@ -52,7 +52,7 @@ fn requested_weighted_product_preserves_value_domain_without_materializing_unuse
     assert!((0.5 / tiny.sqrt()).is_finite());
     assert!(!(-0.25 / tiny.powf(1.5)).is_finite());
     assert!(
-        matches!(selected.evaluate(&[tiny], DerivativeOrder::Second, &mut BTreeMap::new(), &cancel),
+        matches!(selected.evaluate(&[tiny], DerivativeOrder::Second, &mut pse_kernels::ProviderBindings::new(), &cancel),
         Err(MathError::Domain { source_id, .. }) if source_id == source_s)
     );
     for kind in [
@@ -85,7 +85,7 @@ fn requested_weighted_product_preserves_value_domain_without_materializing_unuse
         };
         let mut actual = [73.];
         worker
-            .evaluate_product_into(&[tiny], binding, &mut BTreeMap::new(), &cancel, &mut actual)
+            .evaluate_product_into(&[tiny], binding, &mut pse_kernels::ProviderBindings::new(), &cancel, &mut actual)
             .unwrap();
         assert_eq!(
             actual,
@@ -104,13 +104,13 @@ fn requested_weighted_product_preserves_value_domain_without_materializing_unuse
         // Algebraic flattening gives a finite polynomial at x<0. It still cannot
         // erase the original sqrt value/domain refusal or overwrite prior output.
         assert!(
-            matches!(worker.evaluate_product_into(&[-1.], binding, &mut BTreeMap::new(), &cancel, &mut actual),
+            matches!(worker.evaluate_product_into(&[-1.], binding, &mut pse_kernels::ProviderBindings::new(), &cancel, &mut actual),
             Err(MathError::Domain { source_id, .. }) if source_id == source_s)
         );
         assert_eq!(actual, [2.]);
     }
     assert!(
-        matches!(selected.evaluate(&[-1.], DerivativeOrder::Second, &mut BTreeMap::new(), &cancel),
+        matches!(selected.evaluate(&[-1.], DerivativeOrder::Second, &mut pse_kernels::ProviderBindings::new(), &cancel),
         Err(MathError::Domain { source_id, .. }) if source_id == source_s)
     );
 }
@@ -126,15 +126,14 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
         calls: Arc<AtomicUsize>,
     }
     impl Provider for Square {
-        fn spec(&self) -> &ProviderSpec {
-            &self.spec
-        }
-        fn evaluate(
+            fn fill(
             &mut self,
             inputs: &[f64],
-            request: &ProviderRequest,
-            context: &EvaluationContext<'_>,
-        ) -> Result<ProviderValues, ProviderError> {
+            request: &pse_kernels::PreparedProviderRequest,
+            _runtime: pse_kernels::ProviderRuntime<'_>,
+            mut output: pse_kernels::ProviderOutput<'_>,
+            context: &pse_kernels::EvaluationContext<'_>,
+        ) -> Result<(), pse_kernels::ProviderError> {
             request.validate(&self.spec, context)?;
             self.calls.fetch_add(1, Ordering::Relaxed);
             if inputs[0] < 0. {
@@ -143,7 +142,7 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
                 ));
             }
             assert_eq!(request.outputs, [0]);
-            Ok(ProviderValues {
+            output.copy_from(&ProviderValues {
                 values: vec![inputs[0] * inputs[0]],
                 jacobian: if request.order >= DerivativeOrder::First {
                     vec![2. * inputs[0]]
@@ -225,12 +224,12 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
         assert!(!census.direct_weighted);
         assert_eq!(census.provider_stages, 1);
         let calls = Arc::new(AtomicUsize::new(0));
-        let provider: Box<dyn Provider> = Box::new(Square {
+        let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Square {
             spec: spec.clone(),
             calls: calls.clone(),
-        });
-        let mut providers: BTreeMap<ProviderKey, Box<dyn Provider>> =
-            BTreeMap::from([(spec.key(), provider)]);
+        }));
+        let mut providers: pse_kernels::ProviderBindings =
+            pse_kernels::ProviderBindings::from([(spec.key(), provider)]);
         let binding = if kind == ProductKind::WeightedHessian {
             ProductValues::WeightedHessian { weights: &[2.] }
         } else {
@@ -344,7 +343,7 @@ fn weighted_product_branch_barrier_keeps_actual_arm_and_original_domain_source()
             .evaluate_product_into(
                 &[-1., 1.],
                 binding,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
                 &mut actual,
             )
@@ -362,7 +361,7 @@ fn weighted_product_branch_barrier_keeps_actual_arm_and_original_domain_source()
             .evaluate_product_into(
                 &[4., -1.],
                 binding,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
                 &mut actual,
             )
@@ -378,7 +377,7 @@ fn weighted_product_branch_barrier_keeps_actual_arm_and_original_domain_source()
         );
         let complete = actual;
         assert!(
-            matches!(worker.evaluate_product_into(&[-1., -1.], binding, &mut BTreeMap::new(), &cancel, &mut actual),
+            matches!(worker.evaluate_product_into(&[-1., -1.], binding, &mut pse_kernels::ProviderBindings::new(), &cancel, &mut actual),
             Err(MathError::Domain { source_id, .. }) if source_id == root_source)
         );
         assert_eq!(actual, complete);

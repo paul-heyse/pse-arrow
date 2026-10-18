@@ -79,7 +79,7 @@ fn evaluate(
             &pse_kernels::ExecutionScope::new(flag.clone(), None),
         )?
         .worker();
-    worker.evaluate(&[x], order, &mut BTreeMap::new(), &flag)
+    worker.evaluate(&[x], order, &mut pse_kernels::ProviderBindings::new(), &flag)
 }
 #[test]
 fn applicability_observations_survive_erased_value_and_second_partials() {
@@ -296,7 +296,7 @@ fn numerical_prerequisite_keeps_input_value_and_partials_but_requires_source_eff
         let result = body.worker().evaluate(
             &[7., 999.],
             DerivativeOrder::Second,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &cancelled,
         );
         if allowed {

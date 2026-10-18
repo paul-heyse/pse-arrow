@@ -294,7 +294,7 @@ impl CompilerWorkspace {
             profile.evaluation,
             &pse_kernels::ExecutionScope::new(cancel.clone(), None),
         )?);
-        let mut worker = assembly.worker(BTreeMap::new(), cancel);
+        let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
         let output = worker.constraints(&inputs)?;
         let rows = prepared
             .plan

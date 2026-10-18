@@ -690,7 +690,7 @@ pub struct ExecutableCase {
 pub(crate) fn attempt_providers(
     registrations: &BTreeMap<ProviderKey, pse_kernels::Registration>,
     scope: &pse_kernels::ExecutionScope,
-) -> Result<BTreeMap<ProviderKey, Box<dyn Provider>>, pse_kernels::ProviderError> {
+) -> Result<pse_kernels::ProviderBindings, pse_kernels::ProviderError> {
     registrations
         .iter()
         .map(|(key, registration)| {

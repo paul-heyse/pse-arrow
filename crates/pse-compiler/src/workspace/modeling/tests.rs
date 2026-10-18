@@ -343,7 +343,7 @@ fn kernel_body_construction_limits_are_tracked_without_changing_mathematics() {
         let values = CaseValues {
             scalars: admitted.inputs.iter().map(|id| (*id, 3.0)).collect(),
         };
-        let mut worker = artifact.assembly.worker(BTreeMap::new(), cancel.clone());
+        let mut worker = artifact.assembly.worker(pse_kernels::ProviderBindings::new(), cancel.clone());
         let residuals = worker.constraints(&values).unwrap().to_vec();
         let jacobian = worker.jacobian(&values).unwrap();
         let jacobian = (
@@ -652,7 +652,7 @@ fn kernel_functions_and_repeated_partials_use_library_derivatives() {
         .evaluate(
             &[2.],
             DerivativeOrder::Second,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &cancel,
         )
         .unwrap();
@@ -677,12 +677,12 @@ fn kernel_partial_preserves_erased_division_guard() {
     let mut worker = artifact.worker();
     assert!(
         worker
-            .evaluate(&[0.], DerivativeOrder::Value, &mut BTreeMap::new(), &cancel)
+            .evaluate(&[0.], DerivativeOrder::Value, &mut pse_kernels::ProviderBindings::new(), &cancel)
             .is_err()
     );
     assert_eq!(
         worker
-            .evaluate(&[2.], DerivativeOrder::Value, &mut BTreeMap::new(), &cancel)
+            .evaluate(&[2.], DerivativeOrder::Value, &mut pse_kernels::ProviderBindings::new(), &cancel)
             .unwrap()
             .equations(&admitted),
         vec![0.]
@@ -709,7 +709,7 @@ fn kernel_indexed_functions_and_coordinate_partials() {
         .evaluate(
             &[3., 3.],
             DerivativeOrder::Second,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &cancel,
         )
         .unwrap();
@@ -789,7 +789,7 @@ fn kernel_literals_keep_physical_context_after_source_spans_are_removed() {
     .unwrap();
     let mut values = artifact
         .worker()
-        .evaluate(&[300.], DerivativeOrder::Value, &mut BTreeMap::new(), &flag)
+        .evaluate(&[300.], DerivativeOrder::Value, &mut pse_kernels::ProviderBindings::new(), &flag)
         .unwrap()
         .values;
     values.sort_by(f64::total_cmp);
@@ -874,7 +874,7 @@ fn kernel_compiled_original_terms_feed_independent_closure() {
         .collect::<Vec<_>>();
     let mut values = artifact
         .worker()
-        .evaluate(&input, DerivativeOrder::Value, &mut BTreeMap::new(), &flag)
+        .evaluate(&input, DerivativeOrder::Value, &mut pse_kernels::ProviderBindings::new(), &flag)
         .unwrap()
         .values;
     for (meaning, value) in prepared.admitted.outputs.iter().zip(&mut values) {
@@ -989,7 +989,7 @@ fn kernel_conservation_assembles_local_derivatives() {
         )
         .unwrap(),
     );
-    let mut worker = assembly.worker(BTreeMap::new(), flag);
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), flag);
     let values = CaseValues {
         scalars: a
             .inputs
@@ -1050,7 +1050,7 @@ fn kernel_empty_indexed_polymorphic_sum_retains_physical_type() {
     assert_eq!(
         artifact
             .worker()
-            .evaluate(&[], DerivativeOrder::Value, &mut BTreeMap::new(), &cancel)
+            .evaluate(&[], DerivativeOrder::Value, &mut pse_kernels::ProviderBindings::new(), &cancel)
             .unwrap()
             .values,
         vec![0.]
@@ -1094,7 +1094,7 @@ fn kernel_table_function_references_dispatch_and_share_specializations() {
         .evaluate(
             &[2., 2., 2.],
             DerivativeOrder::Value,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &cancel,
         )
         .unwrap()
@@ -1162,7 +1162,7 @@ fn ref_calls_dispatch_one_body_per_concrete_kind() {
         .evaluate(
             &[2., 2., 2., 2.],
             DerivativeOrder::Value,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &cancel,
         )
         .unwrap()
@@ -1227,7 +1227,7 @@ fn package_declared_axis_indexes_a_sum_without_a_registered_shaped_type() {
             .evaluate(
                 values,
                 DerivativeOrder::Value,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
             )
             .unwrap()
@@ -1268,7 +1268,7 @@ fn kernel_original_terms_survive_exact_cancellation_for_scaling() {
         &flag,
     )
     .unwrap();
-    let mut worker = f.assembly.worker(BTreeMap::new(), flag);
+    let mut worker = f.assembly.worker(pse_kernels::ProviderBindings::new(), flag);
     let observations = worker
         .constraints(&CaseValues {
             scalars: BTreeMap::from([(admitted.inputs[0], 4.0)]),
@@ -1334,7 +1334,7 @@ fn kernel_inline_implicit_block_has_explicit_capture_gathers() {
             .evaluate(
                 &inputs,
                 DerivativeOrder::Second,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &flag
             )
             .unwrap()
@@ -1383,7 +1383,7 @@ fn kernel_repeated_consumers_share_one_library_body_and_local_gathers() {
             .evaluate(
                 &[2., 2.],
                 DerivativeOrder::Second,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel
             )
             .unwrap()
@@ -1413,7 +1413,7 @@ fn kernel_collocation_preserves_equations_continuity_and_quadrature() {
             .evaluate(
                 &vec![3.; admitted.inputs.len()],
                 DerivativeOrder::Second,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
             )
             .unwrap()
@@ -1451,7 +1451,7 @@ fn kernel_function_validity_guards_survive_simplification_and_partial_derivative
             &cancel,
         )
         .unwrap();
-        let mut worker = f.assembly.worker(BTreeMap::new(), cancel);
+        let mut worker = f.assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
         let values = |x| CaseValues {
             scalars: BTreeMap::from([(admitted.inputs[0], x)]),
         };
@@ -1633,7 +1633,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
             scalars: BTreeMap::from([(admitted.inputs[0], 4.)]),
         };
         let mut first_worker = first.assembly.worker(
-            BTreeMap::from([(
+            pse_kernels::ProviderBindings::from([(
                 inner.descriptor.spec().key(),
                 bound
                     .worker_scoped(pse_kernels::ExecutionScope::new(cancel.clone(), None))
@@ -1644,7 +1644,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
         first_worker.constraints(&point).unwrap();
         assert!(first_worker.jacobian(&point).is_ok());
         let mut unavailable = f.assembly.worker(
-            BTreeMap::from([(
+            pse_kernels::ProviderBindings::from([(
                 inner.descriptor.spec().key(),
                 bound
                     .worker_scoped(pse_kernels::ExecutionScope::new(cancel.clone(), None))
@@ -1661,7 +1661,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
                 .contains("bound derivative capability")
         );
         let mut worker = f.assembly.worker(
-            BTreeMap::from([(inner.descriptor.spec().key(), factory.create().unwrap())]),
+            pse_kernels::ProviderBindings::from([(inner.descriptor.spec().key(), factory.create().unwrap())]),
             cancel.clone(),
         );
         let values = CaseValues {
@@ -1945,10 +1945,10 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
         );
         assert_eq!(root_factory.bodies.unknown.coordinates(), [0]);
         let mut provider = factory.create().unwrap();
-        let values = provider
-            .evaluate(
+        let values = completed_provider_values(&mut provider,
                 &[4.],
                 &ProviderRequest {
+        demand: pse_kernels::ProviderDemand::CompleteJets,
                     outputs: vec![0],
                     order: DerivativeOrder::Value,
                 },
@@ -2393,7 +2393,7 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
         )
         .unwrap();
     let mut workers =
-        BTreeMap::from([(child.descriptor.spec().key(), child_value.create().unwrap())]);
+        pse_kernels::ProviderBindings::from([(child.descriptor.spec().key(), child_value.create().unwrap())]);
     assert!(
         evaluator
             .evaluate(&[2., 4.], DerivativeOrder::First, &mut workers, &cancel)
@@ -2510,7 +2510,7 @@ fn kernel_elastic_variants_preserve_originals_and_normalize_penalties() {
             other => panic!("unexpected elastic row {other}"),
         }
     }
-    let mut worker = f.assembly.worker(BTreeMap::new(), cancel);
+    let mut worker = f.assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
     let values = CaseValues { scalars: values };
     let rows = worker.constraints(&values).unwrap();
     let public = a.ordered_values(rows).unwrap();
@@ -2568,7 +2568,7 @@ fn kernel_stage_variants_preserve_variables_and_restore_final_structure() {
                 .evaluate(
                     &[3.0],
                     DerivativeOrder::Second,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel
                 )
                 .unwrap()
@@ -2618,7 +2618,7 @@ fn kernel_piecewise_proves_boundary_jets_and_keeps_lazy_regions() {
             .evaluate(
                 &values,
                 DerivativeOrder::Second,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
             )
             .unwrap()
@@ -2648,15 +2648,14 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
     #[derive(Debug)]
     struct Vector(ProviderSpec);
     impl Provider for Vector {
-        fn spec(&self) -> &ProviderSpec {
-            &self.0
-        }
-        fn evaluate(
+            fn fill(
             &mut self,
             x: &[f64],
-            r: &ProviderRequest,
-            c: &EvaluationContext<'_>,
-        ) -> std::result::Result<ProviderValues, ProviderError> {
+            r: &pse_kernels::PreparedProviderRequest,
+            _runtime: pse_kernels::ProviderRuntime<'_>,
+            mut output: pse_kernels::ProviderOutput<'_>,
+            c: &pse_kernels::EvaluationContext<'_>,
+        ) -> std::result::Result<(), pse_kernels::ProviderError> {
             r.validate(&self.0, c)?;
             if x.len() != 2 {
                 return Err(ProviderError::Contract("vector input extent".into()));
@@ -2772,10 +2771,10 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         &cancel,
     )
     .unwrap();
-    let provider: Box<dyn Provider> = Box::new(Vector(spec.clone()));
+    let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Vector(spec.clone())));
     let mut worker = f
         .assembly
-        .worker(BTreeMap::from([(spec.key(), provider)]), cancel);
+        .worker(pse_kernels::ProviderBindings::from([(spec.key(), provider)]), cancel);
     let point = CaseValues {
         scalars: a.inputs.iter().map(|id| (*id, 2.0)).collect(),
     };
@@ -2814,10 +2813,10 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         let a = admit(&mut w, root);
         let cancel = Cancellation::new(false);
         let f = fixture(&a, w.inputs.quantities.clone(), order, &cancel).unwrap();
-        let provider: Box<dyn Provider> = Box::new(Vector(spec.clone()));
+        let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Vector(spec.clone())));
         let mut worker = f
             .assembly
-            .worker(BTreeMap::from([(spec.key(), provider)]), cancel.clone());
+            .worker(pse_kernels::ProviderBindings::from([(spec.key(), provider)]), cancel.clone());
         let point = CaseValues {
             scalars: a.inputs.iter().map(|id| (*id, 2.)).collect(),
         };
@@ -2943,7 +2942,7 @@ fn kernel_case_projection_excludes_observations_and_preserves_specification() {
     );
     assert_eq!(
         assembly
-            .worker(BTreeMap::new(), Cancellation::new(false))
+            .worker(pse_kernels::ProviderBindings::new(), Cancellation::new(false))
             .constraints(&values)
             .unwrap(),
         vec![0.0]
@@ -3461,7 +3460,7 @@ impl Fixture {
     fn worker(&self) -> FixtureWorker<'_> {
         FixtureWorker {
             fixture: self,
-            worker: self.assembly.worker(BTreeMap::new(), self.cancel.clone()),
+            worker: self.assembly.worker(pse_kernels::ProviderBindings::new(), self.cancel.clone()),
         }
     }
 }
@@ -3470,7 +3469,7 @@ impl FixtureWorker<'_> {
         &mut self,
         values: &[f64],
         order: DerivativeOrder,
-        _providers: &mut BTreeMap<pse_kernels::ProviderKey, Box<dyn pse_kernels::Provider>>,
+        _providers: &mut pse_kernels::ProviderBindings,
         _cancel: &Arc<AtomicBool>,
     ) -> Result<FixtureResult> {
         let case = CaseValues {
@@ -3518,7 +3517,7 @@ fn kernel_validity_obligations_survive_cancellation_and_cover_derived_members() 
                 .evaluate(
                     &[0.],
                     DerivativeOrder::Second,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel
                 )
                 .is_err()
@@ -3528,7 +3527,7 @@ fn kernel_validity_obligations_survive_cancellation_and_cover_derived_members() 
                 .evaluate(
                     &[2.],
                     DerivativeOrder::Second,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel
                 )
                 .is_ok()
@@ -3538,7 +3537,7 @@ fn kernel_validity_obligations_survive_cancellation_and_cover_derived_members() 
                 .evaluate(
                     &[4.],
                     DerivativeOrder::Second,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel
                 )
                 .is_err()
@@ -3615,7 +3614,7 @@ fn affine_row_demand_keeps_opaque_rows_and_original_domain_execution() {
             &pse_kernels::ExecutionScope::new(cancel.clone(), None),
         )
         .unwrap();
-    let mut worker = Arc::new(assembly).worker(BTreeMap::new(), cancel.clone());
+    let mut worker = Arc::new(assembly).worker(pse_kernels::ProviderBindings::new(), cancel.clone());
     worker
         .constraints(&values)
         .expect("the explicitly bound original point must satisfy its validity guards");
@@ -3787,7 +3786,7 @@ fn kernel_piecewise_chained_breakpoints_and_explicit_partials_keep_proved_order(
     for x in [-1.0, 0.0, 0.5, 1.0, 2.0] {
         let jet = compiled
             .worker()
-            .evaluate(&[x], DerivativeOrder::First, &mut BTreeMap::new(), &cancel)
+            .evaluate(&[x], DerivativeOrder::First, &mut pse_kernels::ProviderBindings::new(), &cancel)
             .unwrap();
         let expected = if x < 0. {
             0.
@@ -3800,7 +3799,7 @@ fn kernel_piecewise_chained_breakpoints_and_explicit_partials_keep_proved_order(
         } else {
             6. * x + if x > 1. { 6. * (x - 1.) } else { 0. }
         };
-        let mut worker = compiled.assembly.worker(BTreeMap::new(), cancel.clone());
+        let mut worker = compiled.assembly.worker(pse_kernels::ProviderBindings::new(), cancel.clone());
         let jacobian = worker
             .jacobian(&CaseValues {
                 scalars: BTreeMap::from([(admitted.inputs[0], x)]),
@@ -4075,7 +4074,7 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
             .evaluate(
                 &[-1.0, 1.0],
                 DerivativeOrder::Value,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
             )
             .unwrap()
@@ -4100,6 +4099,7 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
         .unwrap();
     let mut provider = factory.create().unwrap();
     let request = ProviderRequest {
+        demand: pse_kernels::ProviderDemand::CompleteJets,
         outputs: vec![0],
         order: DerivativeOrder::Second,
     };
@@ -4107,12 +4107,12 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
         cancelled: &cancel,
         max_result_bytes: 1024,
     };
-    let jet = provider.evaluate(&[4.0], &request, &context).unwrap();
+    let jet = completed_provider_values(&mut provider, &[4.0], &request, &context).unwrap();
     assert_eq!(jet.values, vec![-2.0]);
     assert!((jet.jacobian[0] + 0.25).abs() < 1e-12);
     assert!((jet.hessians[0] - 0.03125).abs() < 1e-12);
-    assert!(provider.evaluate(&[0.0], &request, &context).is_err());
-    assert!(provider.evaluate(&[9.0], &request, &context).is_err());
+    assert!(completed_provider_values(&mut provider, &[0.0], &request, &context).is_err());
+    assert!(completed_provider_values(&mut provider, &[9.0], &request, &context).is_err());
 }
 
 #[test]
@@ -4250,10 +4250,10 @@ fn implicit_minimum_score_unproved_native_roots_are_value_only() {
             cancelled: &cancel,
             max_result_bytes: 1024,
         };
-        let value = provider
-            .evaluate(
+        let value = completed_provider_values(&mut provider,
                 &[0.],
                 &ProviderRequest {
+        demand: pse_kernels::ProviderDemand::CompleteJets,
                     outputs: vec![0],
                     order: DerivativeOrder::Value,
                 },
@@ -4263,10 +4263,10 @@ fn implicit_minimum_score_unproved_native_roots_are_value_only() {
         assert_eq!(value.values, vec![candidate]);
         for requested in [DerivativeOrder::First, DerivativeOrder::Second] {
             assert!(
-                provider
-                    .evaluate(
+                completed_provider_values(&mut provider,
                         &[0.],
                         &ProviderRequest {
+        demand: pse_kernels::ProviderDemand::CompleteJets,
                             outputs: vec![0],
                             order: requested
                         },
@@ -4477,7 +4477,7 @@ mod nonlinear_selection_isolation_tests {
                     .evaluate(
                         &[-1.0, 4.0],
                         DerivativeOrder::Value,
-                        &mut BTreeMap::new(),
+                        &mut pse_kernels::ProviderBindings::new(),
                         cancel,
                     )
                     .unwrap()
@@ -4592,10 +4592,10 @@ mod nonlinear_selection_isolation_tests {
             cancelled: &cancel,
             max_result_bytes: 1024,
         };
-        let values = provider
-            .evaluate(
+        let values = completed_provider_values(&mut provider,
                 &[4.0],
                 &ProviderRequest {
+        demand: pse_kernels::ProviderDemand::CompleteJets,
                     outputs: vec![0],
                     order: DerivativeOrder::Value,
                 },
@@ -4673,10 +4673,10 @@ mod nonlinear_selection_isolation_tests {
                 max_result_bytes: 1024,
             };
             let before = verifier.calls.load(Ordering::Relaxed);
-            let jet = provider
-                .evaluate(
+            let jet = completed_provider_values(&mut provider,
                     &[4.0],
                     &ProviderRequest {
+        demand: pse_kernels::ProviderDemand::CompleteJets,
                         outputs: vec![0],
                         order: requested,
                     },
@@ -4741,10 +4741,10 @@ mod nonlinear_selection_isolation_tests {
                     cancelled: &cancel,
                     max_result_bytes: 1024,
                 };
-                let error = provider
-                    .evaluate(
+                let error = completed_provider_values(&mut provider,
                         &[4.0],
                         &ProviderRequest {
+        demand: pse_kernels::ProviderDemand::CompleteJets,
                             outputs: vec![0],
                             order: requested,
                         },
@@ -4790,10 +4790,10 @@ mod nonlinear_selection_isolation_tests {
                 )
                 .unwrap();
             let mut provider = factory.create().unwrap();
-            let error = provider
-                .evaluate(
+            let error = completed_provider_values(&mut provider,
                     &[4.0],
                     &ProviderRequest {
+        demand: pse_kernels::ProviderDemand::CompleteJets,
                         outputs: vec![0],
                         order: DerivativeOrder::First,
                     },
@@ -4856,10 +4856,10 @@ mod nonlinear_selection_isolation_tests {
         let mut provider = factory.create().unwrap();
         // This injected certificate tests consumption of the entire source union;
         // the native verifier separately proves competitive-root exclusion.
-        let jet = provider
-            .evaluate(
+        let jet = completed_provider_values(&mut provider,
                 &[4.0],
                 &ProviderRequest {
+        demand: pse_kernels::ProviderDemand::CompleteJets,
                     outputs: vec![0],
                     order: DerivativeOrder::Second,
                 },
@@ -5440,7 +5440,7 @@ fn kernel_shared_partials_preserve_lets_and_mixed_derivatives() {
         .evaluate(
             &values,
             DerivativeOrder::Second,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &cancel,
         )
         .unwrap();
@@ -5488,7 +5488,7 @@ fn kernel_implicit_functions_read_enclosing_indexed_members() {
             .evaluate(
                 &values,
                 DerivativeOrder::First,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel
             )
             .unwrap()
@@ -5615,7 +5615,7 @@ fn kernel_finite_reductions_retain_domains_prototypes_and_derivatives() {
         .evaluate(
             &[3., 4.],
             DerivativeOrder::Second,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &cancel,
         )
         .unwrap()
@@ -5625,7 +5625,7 @@ fn kernel_finite_reductions_retain_domains_prototypes_and_derivatives() {
     let case = CaseValues {
         scalars: admitted.inputs.iter().copied().zip([3., 4.]).collect(),
     };
-    let mut numeric = compiled.assembly.worker(BTreeMap::new(), cancel);
+    let mut numeric = compiled.assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
     let jacobian = numeric.jacobian(&case).unwrap();
     let (rows, columns, values) = (
         jacobian.row_idx().to_vec(),
@@ -5784,7 +5784,7 @@ fn kernel_indexed_accounting_values_are_readable_in_checks_and_ports() {
         .evaluate(
             &inputs,
             DerivativeOrder::Second,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &cancel,
         )
         .unwrap()
@@ -5897,7 +5897,7 @@ fn kernel_partial_distinguishes_equal_argument_values_through_aliases() {
         .evaluate(
             &[3.],
             DerivativeOrder::Second,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &cancel,
         )
         .unwrap();
@@ -5980,7 +5980,7 @@ fn kernel_objective_selection_preserves_values_derivatives_and_penalty_direction
                     2.0,
                 );
             }
-            let mut worker = f.assembly.worker(BTreeMap::new(), cancel);
+            let mut worker = f.assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
             assert!(
                 (worker.objective(&values).unwrap()
                     - (sign * 4.0 + if elastic { 1.0 } else { 0.0 }))
@@ -6358,7 +6358,7 @@ fn objective_bound_check_classified() {
                 .evaluate(
                     &inputs,
                     DerivativeOrder::Value,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel,
                 )
                 .unwrap()
@@ -6423,7 +6423,7 @@ fn evaluate_named(
         };
         artifact
             .assembly
-            .worker(BTreeMap::new(), cancel.clone())
+            .worker(pse_kernels::ProviderBindings::new(), cancel.clone())
             .constraints(&case)
             .map(<[f64]>::to_vec)
     }
@@ -6629,7 +6629,7 @@ fn kernel_conservation_scatter_preserves_mixed_contracts_and_homogeneous_control
             )
             .unwrap(),
         );
-        let mut worker = assembly.worker(BTreeMap::new(), cancel);
+        let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
         let values = CaseValues {
             scalars: a
                 .inputs
@@ -6789,7 +6789,7 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
     assert_eq!(inners.len(), 2);
     let registry = &workspace.inputs.quantities;
     let quantity = registry.neutral_dimensionless().unwrap();
-    let providers = BTreeMap::from([
+    let providers = pse_kernels::ProviderBindings::from([
         (
             "first".into(),
             ProviderCall {
@@ -6925,15 +6925,14 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
     #[derive(Debug)]
     struct IdentityProvider(pse_kernels::ProviderSpec);
     impl pse_kernels::Provider for IdentityProvider {
-        fn spec(&self) -> &pse_kernels::ProviderSpec {
-            &self.0
-        }
-        fn evaluate(
+            fn fill(
             &mut self,
             inputs: &[f64],
-            request: &pse_kernels::ProviderRequest,
+            request: &pse_kernels::PreparedProviderRequest,
+            _runtime: pse_kernels::ProviderRuntime<'_>,
+            mut output: pse_kernels::ProviderOutput<'_>,
             context: &pse_kernels::EvaluationContext<'_>,
-        ) -> std::result::Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+        ) -> std::result::Result<(), pse_kernels::ProviderError> {
             request.validate(&self.0, context)?;
             let values = pse_kernels::ProviderValues {
                 values: vec![inputs[0]; request.outputs.len()],
@@ -6949,7 +6948,7 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
                 },
             };
             values.validate(&self.0, request)?;
-            Ok(values)
+            output.copy_from(&values)
         }
     }
     let assembly = Arc::new(
@@ -6965,8 +6964,8 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
         scalars: BTreeMap::from([(variable.id, 2.0)]),
     };
     let first = inners[0].descriptor.spec();
-    let provider: Box<dyn pse_kernels::Provider> = Box::new(IdentityProvider(first.clone()));
-    let mut worker = assembly.worker(BTreeMap::from([(first.key(), provider)]), cancel.clone());
+    let provider = pse_kernels::ProviderBinding::new(first.clone(), Box::new(IdentityProvider(first.clone())));
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::from([(first.key(), provider)]), cancel.clone());
     assert_eq!(
         worker.constraints(&values).unwrap(),
         vec![2.0],
@@ -6983,7 +6982,7 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
     );
     assert!(
         assembly
-            .worker(BTreeMap::new(), cancel.clone())
+            .worker(pse_kernels::ProviderBindings::new(), cancel.clone())
             .constraints(&values)
             .is_err(),
         "the selected provider remains required"
@@ -7270,7 +7269,7 @@ fn compiled_conditional_chain_shares_original_universe_and_actual_facts() {
         );
         assert_eq!(
             original
-                .worker(BTreeMap::new(), cancel.clone())
+                .worker(pse_kernels::ProviderBindings::new(), cancel.clone())
                 .constraints(&values)
                 .unwrap(),
             vec![0.0; count]
@@ -7347,6 +7346,7 @@ fn authored_affine_accelerator_uses_registered_solver_and_original_ift_guards() 
     );
     let mut provider = factory.create().unwrap();
     let request = ProviderRequest {
+        demand: pse_kernels::ProviderDemand::CompleteJets,
         outputs: vec![0],
         order: DerivativeOrder::Second,
     };
@@ -7357,22 +7357,21 @@ fn authored_affine_accelerator_uses_registered_solver_and_original_ift_guards() 
     for (parameter, value, first, second) in
         [(2.0, 0.5, -0.25, 0.25), (4.0, 0.25, -0.0625, 0.03125)]
     {
-        let output = provider.evaluate(&[parameter], &request, &context).unwrap();
+        let output = completed_provider_values(&mut provider, &[parameter], &request, &context).unwrap();
         assert!((output.values[0] - value).abs() < 1e-12);
         assert!((output.jacobian[0] - first).abs() < 1e-12);
         assert!((output.hessians[0] - second).abs() < 1e-12);
     }
     assert!(
-        provider.evaluate(&[0.0], &request, &context).is_err(),
+        completed_provider_values(&mut provider, &[0.0], &request, &context).is_err(),
         "original reciprocal guard"
     );
     assert!(
-        provider.evaluate(&[-1.0], &request, &context).is_err(),
+        completed_provider_values(&mut provider, &[-1.0], &request, &context).is_err(),
         "original unknown bounds"
     );
     assert_eq!(
-        provider
-            .evaluate(&[2.0], &request, &context)
+        completed_provider_values(&mut provider, &[2.0], &request, &context)
             .unwrap()
             .values,
         vec![0.5]
@@ -7728,8 +7727,7 @@ fn implicit_request_local_accelerator_is_admitted_once_then_reused_for_factory_a
                 let request =
                     pse_kernels::ProviderRequest::all(worker.spec(), DerivativeOrder::First);
                 barrier.wait();
-                let result = worker
-                    .evaluate(
+                let result = completed_provider_values(&mut worker,
                         &[input],
                         &request,
                         &pse_kernels::EvaluationContext {
@@ -7743,8 +7741,7 @@ fn implicit_request_local_accelerator_is_admitted_once_then_reused_for_factory_a
                 if lane == 0 {
                     stop.cancel();
                     assert!(
-                        worker
-                            .evaluate(
+                        completed_provider_values(&mut worker,
                                 &[input],
                                 &request,
                                 &pse_kernels::EvaluationContext {
@@ -7761,4 +7758,16 @@ fn implicit_request_local_accelerator_is_admitted_once_then_reused_for_factory_a
     for task in tasks {
         task.join().unwrap();
     }
+}
+
+// Test-only dense assessment boundary: copy only a successfully completed fill.
+#[cfg(test)]
+fn completed_provider_values(provider: &mut pse_kernels::ProviderBinding, inputs: &[f64],
+    request: &pse_kernels::ProviderRequest, context: &pse_kernels::EvaluationContext<'_>)
+    -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+    let prepared = provider.prepare(request.clone())?;
+    prepared.check_context(context)?;
+    let mut buffer = pse_kernels::ProviderBuffer::new(&prepared);
+    let completed = buffer.fill(provider, inputs, &prepared, pse_kernels::ProviderRuntime::default(), context)?;
+    Ok(pse_kernels::ProviderValues { values: completed.values.to_vec(), jacobian: completed.jacobian.to_vec(), hessians: completed.hessians.to_vec() })
 }

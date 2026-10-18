@@ -947,8 +947,7 @@ mod tests {
                 Some(std::time::Instant::now() + allowance),
             );
             let mut provider = factory.create_scoped(scope).unwrap();
-            let error = provider
-                .evaluate(
+            let error = completed_provider_values(&mut provider,
                     &[3.],
                     &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
                     &pse_kernels::EvaluationContext {
@@ -985,8 +984,7 @@ mod tests {
             let original = Arc::new(original);
             let (factory, calls, _) = native_failure_factory(Some(original.clone()));
             let mut provider = factory.create().unwrap();
-            let error = provider
-                .evaluate(
+            let error = completed_provider_values(&mut provider,
                     &[3.],
                     &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
                     &pse_kernels::EvaluationContext {
@@ -1061,8 +1059,7 @@ mod tests {
         let (mut factory, calls, _) = native_failure_factory(None);
         factory.solver = Arc::new(DomainRefusal);
         let mut provider = factory.create().unwrap();
-        let error = provider
-            .evaluate(
+        let error = completed_provider_values(&mut provider,
                 &[3.],
                 &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
                 &pse_kernels::EvaluationContext {
@@ -1628,4 +1625,16 @@ mod tests {
         assert!((jet.jacobian[0] - 0.25).abs() < 1e-8);
         assert!(Kinsol.solve(problem, &[9.0], &options, &cancel).is_err());
     }
+}
+
+// Test-only dense assessment boundary: copy only a successfully completed fill.
+#[cfg(test)]
+fn completed_provider_values(provider: &mut pse_kernels::ProviderBinding, inputs: &[f64],
+    request: &pse_kernels::ProviderRequest, context: &pse_kernels::EvaluationContext<'_>)
+    -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+    let prepared = provider.prepare(request.clone())?;
+    prepared.check_context(context)?;
+    let mut buffer = pse_kernels::ProviderBuffer::new(&prepared);
+    let completed = buffer.fill(provider, inputs, &prepared, pse_kernels::ProviderRuntime::default(), context)?;
+    Ok(pse_kernels::ProviderValues { values: completed.values.to_vec(), jacobian: completed.jacobian.to_vec(), hessians: completed.hessians.to_vec() })
 }

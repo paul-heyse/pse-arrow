@@ -177,7 +177,7 @@ fn contributions(text: &str, point: &str) -> Vec<(String, f64)> {
             })
             .collect(),
     };
-    let mut worker = assembly.worker(BTreeMap::new(), cancel);
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
     let computed = worker.constraints(&values).unwrap();
     let ordered = admitted.ordered_values(computed).unwrap();
     let mut result = Vec::new();

@@ -1514,7 +1514,7 @@ mod dependency_tests {
             )
             .unwrap(),
         );
-        let mut worker = assembly.worker(BTreeMap::new(), cancellation);
+        let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), cancellation);
         let mut values = CaseValues {
             scalars: admitted.inputs.iter().map(|id| (*id, 2.0)).collect(),
         };

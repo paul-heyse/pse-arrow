@@ -185,7 +185,7 @@ impl GuardWorker {
 fn provider_workers(
     providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     scope: &pse_kernels::ExecutionScope,
-) -> Result<BTreeMap<pse_kernels::ProviderKey, Box<dyn pse_kernels::Provider>>, ProblemError> {
+) -> Result<pse_kernels::ProviderBindings, ProblemError> {
     crate::math::attempt_providers(providers, scope).map_err(ProblemError::Provider)
 }
 /// Immutable function execution inputs, independent of their source representation.

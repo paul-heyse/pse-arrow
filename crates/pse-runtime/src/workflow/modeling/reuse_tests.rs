@@ -754,7 +754,7 @@ impl pse_kernels::ProviderFactory for SelectedProviderConfiguration {
     fn configuration_key(&self) -> pse_ids::ContentHash {
         self.configuration
     }
-    fn create(&self) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+    fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
         Err(pse_kernels::ProviderError::Contract(
             "selected admission must not instantiate a provider worker".into(),
         ))

@@ -501,7 +501,7 @@ mod tests {
     }
     #[derive(Debug)]
     struct ObservedInputsProvider {
-        original: Box<dyn pse_kernels::Provider>,
+        original: pse_kernels::ProviderBinding,
         inputs: Arc<Mutex<Option<Vec<f64>>>>,
     }
     impl pse_kernels::ProviderFactory for ObservedInputsFactory {
@@ -511,36 +511,35 @@ mod tests {
         fn configuration_key(&self) -> pse_ids::ContentHash {
             self.original.configuration_key()
         }
-        fn create(&self) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
-            Ok(Box::new(ObservedInputsProvider {
+        fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
+            Ok(pse_kernels::ProviderBinding::new(self.spec().clone(), Box::new(ObservedInputsProvider {
                 original: self.original.worker()?,
                 inputs: self.inputs.clone(),
-            }))
+            })))
         }
         fn create_scoped(
             &self,
             scope: pse_kernels::ExecutionScope,
-        ) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
-            Ok(Box::new(ObservedInputsProvider {
+        ) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
+            Ok(pse_kernels::ProviderBinding::new(self.spec().clone(), Box::new(ObservedInputsProvider {
                 original: self.original.worker_scoped(scope)?,
                 inputs: self.inputs.clone(),
-            }))
+            })))
         }
         fn envelope(&self) -> Option<Vec<(f64, f64)>> {
             self.original.envelope().map(<[_]>::to_vec)
         }
     }
     impl pse_kernels::Provider for ObservedInputsProvider {
-        fn spec(&self) -> &pse_kernels::ProviderSpec {
-            self.original.spec()
-        }
-        fn evaluate(
+            fn fill(
             &mut self,
             inputs: &[f64],
-            request: &pse_kernels::ProviderRequest,
+            request: &pse_kernels::PreparedProviderRequest,
+            _runtime: pse_kernels::ProviderRuntime<'_>,
+            mut output: pse_kernels::ProviderOutput<'_>,
             context: &pse_kernels::EvaluationContext<'_>,
-        ) -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
-            let result = self.original.evaluate(inputs, request, context)?;
+        ) -> Result<(), pse_kernels::ProviderError> {
+            let _completed = self.original.fill(inputs, request, _runtime, output, context)?;
             let mut captured = self.inputs.lock().unwrap();
             if let Some(previous) = captured.as_ref() {
                 assert!(
@@ -552,7 +551,7 @@ mod tests {
             } else {
                 *captured = Some(inputs.to_vec());
             }
-            Ok(result)
+            Ok(())
         }
     }
     /// Resolve retained production configuration at the returned outer inputs.

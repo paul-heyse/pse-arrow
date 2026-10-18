@@ -88,7 +88,7 @@ impl Case {
                 )
                 .unwrap(),
         );
-        let mut worker = assembly.worker(BTreeMap::new(), cancel);
+        let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
         let rows = worker.constraints(&values).unwrap();
         self.prepared
             .plan

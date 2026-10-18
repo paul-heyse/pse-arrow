@@ -3370,13 +3370,13 @@ mod tests {
         fn configuration_key(&self) -> pse_ids::ContentHash {
             self.original.configuration_key()
         }
-        fn create(&self) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+        fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
             self.original.worker()
         }
         fn create_scoped(
             &self,
             scope: pse_kernels::ExecutionScope,
-        ) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+        ) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
             self.scopes.lock().unwrap().push(scope.clone());
             let provider = self.original.worker_scoped(scope.clone())?;
             std::thread::sleep(self.delay);

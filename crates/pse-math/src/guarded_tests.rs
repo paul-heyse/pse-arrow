@@ -70,7 +70,7 @@ fn run(
         .evaluate(
             inputs,
             order,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &pse_diagnostics::Cancellation::new(false),
         )
         .map(|r| r.values)
@@ -216,7 +216,7 @@ fn bounded_layout_and_cancellation_reject_before_execution() {
             .evaluate(
                 &[2.0],
                 DerivativeOrder::Value,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancelled
             )
             .is_err()
@@ -412,7 +412,7 @@ fn branch_local_jets_refuse_unproved_boundaries_without_global_smoothness() {
         let mut worker = compiled.worker();
         for (x, slope) in [(-2.0, -1.0), (2.0, 1.0)] {
             let jet = worker
-                .evaluate(&[x], DerivativeOrder::Second, &mut BTreeMap::new(), &cancel)
+                .evaluate(&[x], DerivativeOrder::Second, &mut pse_kernels::ProviderBindings::new(), &cancel)
                 .unwrap();
             assert_eq!(jet.values, vec![2.0]);
             assert_eq!(jet.jacobian, vec![slope]);
@@ -423,7 +423,7 @@ fn branch_local_jets_refuse_unproved_boundaries_without_global_smoothness() {
                 .evaluate(
                     &[0.0],
                     DerivativeOrder::First,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel
                 )
                 .is_err()
@@ -433,7 +433,7 @@ fn branch_local_jets_refuse_unproved_boundaries_without_global_smoothness() {
                 .evaluate(
                     &[0.0],
                     DerivativeOrder::Value,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel
                 )
                 .unwrap()

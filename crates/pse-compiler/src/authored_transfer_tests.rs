@@ -180,7 +180,7 @@ fn authored_vessel_amount_and_energy_equations_evaluate_without_adapters() {
             })
             .collect(),
     };
-    let mut worker = assembly.worker(BTreeMap::new(), cancel);
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
     let computed = worker.constraints(&values).unwrap();
     let ordered = admitted.ordered_values(computed).unwrap();
     let mut equations = 0;

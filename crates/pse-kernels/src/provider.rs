@@ -301,8 +301,21 @@ impl ProviderBindings {
     pub fn identity(&self) -> u64 { self.identity }
     /// Resolve a prepared key once when a stage first joins this attempt.
     pub fn resolve(&self, key: ProviderKey) -> Option<usize> { self.index.get(&key).copied() }
-    /// Access a previously resolved stable ordinal.
-    pub fn get_slot_mut(&mut self, slot: usize) -> Option<&mut ProviderBinding> { self.slots.get_mut(slot) }
+    /// Validate a prepared request against a stable slot without exposing membership mutation.
+    pub fn bind_request(&self, slot: usize, request: &mut PreparedProviderRequest) -> Result<(), ProviderError> {
+        let binding = self.slots.get(slot).ok_or_else(|| ProviderError::Contract("missing provider slot".into()))?;
+        request.bind(binding)
+    }
+    /// Execute a previously resolved slot into caller-owned admitted scratch.
+    pub fn fill<'a>(&mut self, slot: usize, buffer: &'a mut ProviderBuffer, inputs: &[f64],
+        request: &PreparedProviderRequest, runtime: ProviderRuntime<'_>, context: &EvaluationContext<'_>)
+        -> Result<ProviderCompletion<'a>, ProviderError> {
+        let binding = self.slots.get_mut(slot).ok_or_else(|| ProviderError::Contract("missing provider slot".into()))?;
+        if request.binding != Some(binding.identity) {
+            return Err(ProviderError::Contract("provider request belongs to a different binding".into()));
+        }
+        buffer.fill(binding, inputs, request, runtime, context)
+    }
     /// Number of fresh bound workers.
     pub fn len(&self) -> usize { self.slots.len() }
     /// Whether this attempt has no provider workers.
@@ -319,4 +332,7 @@ impl FromIterator<(ProviderKey, ProviderBinding)> for ProviderBindings {
         }
         bank
     }
+}
+impl<const N: usize> From<[(ProviderKey, ProviderBinding); N]> for ProviderBindings {
+    fn from(bindings: [(ProviderKey, ProviderBinding); N]) -> Self { bindings.into_iter().collect() }
 }

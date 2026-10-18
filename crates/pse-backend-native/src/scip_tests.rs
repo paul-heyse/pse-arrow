@@ -130,10 +130,10 @@ impl<'r> Body<'r> {
 struct Case {
     assembly: Arc<CaseAssembly>,
     values: CaseValues,
-    providers: fn() -> BTreeMap<ProviderKey, Box<dyn Provider>>,
+    providers: fn() -> pse_kernels::ProviderBindings,
 }
-fn no_providers() -> BTreeMap<ProviderKey, Box<dyn Provider>> {
-    BTreeMap::new()
+fn no_providers() -> pse_kernels::ProviderBindings {
+    pse_kernels::ProviderBindings::new()
 }
 fn case(
     registry: &QuantityRegistry,
@@ -1073,18 +1073,17 @@ fn fixed_assignment_resolve_keeps_local_analysis() {
 #[derive(Debug)]
 struct Cube(ProviderSpec);
 impl Provider for Cube {
-    fn spec(&self) -> &ProviderSpec {
-        &self.0
-    }
-    fn evaluate(
+    fn fill(
         &mut self,
         inputs: &[f64],
-        request: &ProviderRequest,
-        context: &EvaluationContext<'_>,
-    ) -> Result<ProviderValues, ProviderError> {
+        request: &pse_kernels::PreparedProviderRequest,
+        _runtime: pse_kernels::ProviderRuntime<'_>,
+        mut output: pse_kernels::ProviderOutput<'_>,
+        context: &pse_kernels::EvaluationContext<'_>,
+    ) -> Result<(), pse_kernels::ProviderError> {
         request.validate(&self.0, context)?;
         let x = inputs[0];
-        Ok(ProviderValues {
+        output.copy_from(&ProviderValues {
             values: request.outputs.iter().map(|_| x * x * x).collect(),
             jacobian: vec![],
             hessians: vec![],
@@ -1104,12 +1103,12 @@ fn cube_spec(registry: &QuantityRegistry) -> ProviderSpec {
         smoothness: DerivativeOrder::Value,
     }
 }
-fn cube_providers() -> BTreeMap<ProviderKey, Box<dyn Provider>> {
+fn cube_providers() -> pse_kernels::ProviderBindings {
     let registry = standard_registry().unwrap();
     let spec = cube_spec(&registry);
     let key = spec.key();
-    let provider: Box<dyn Provider> = Box::new(Cube(spec));
-    BTreeMap::from([(key, provider)])
+    let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Cube(spec)));
+    pse_kernels::ProviderBindings::from([(key, provider)])
 }
 
 #[test]

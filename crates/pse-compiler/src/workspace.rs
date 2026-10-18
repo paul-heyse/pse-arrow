@@ -1867,7 +1867,7 @@ mod directional_identity_tests {
         };
         let mut output = [0.0];
         assembly
-            .worker(BTreeMap::new(), cancel)
+            .worker(pse_kernels::ProviderBindings::new(), cancel)
             .jacobian_product(&inputs, &[5.0, 7.0, 11.0], &mut output)
             .unwrap();
         assert_eq!(output, [40.0]);

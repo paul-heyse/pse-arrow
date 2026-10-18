@@ -12,6 +12,7 @@ use enum_map::EnumMap;
 use pse_ids::SemanticId;
 use pse_kernels::{
     DerivativeOrder, EvaluationContext, Provider, ProviderKey, ProviderRequest, ProviderSpec,
+    PreparedProviderRequest, ProviderBindings, ProviderBuffer, ProviderRuntime,
 };
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
@@ -1535,7 +1536,7 @@ impl PreparedBody {
                 &mut facts,
                 &mut support.controls,
                 &mut BTreeSet::new(),
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &mut vec![],
                 &mut allowance,
                 order,
@@ -2571,11 +2572,12 @@ enum CompiledStage {
         otherwise: Vec<Self>,
     },
     Provider {
-        spec: ProviderSpec,
         partial: Vec<usize>,
         inputs: Vec<usize>,
         outputs: Vec<usize>,
-        request: ProviderRequest,
+        request: PreparedProviderRequest,
+        binding: Option<(u64, usize)>,
+        buffer: ProviderBuffer,
         arguments: Vec<f64>,
         lift: Option<ProviderLift>,
         source: SemanticId,
@@ -3309,7 +3311,7 @@ impl Worker {
         &mut self,
         inputs: &[f64],
         order: DerivativeOrder,
-        providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
+        providers: &mut pse_kernels::ProviderBindings,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<Evaluation, MathError> {
         self.evaluate_trial(inputs, order, providers, cancelled)
@@ -3319,7 +3321,7 @@ impl Worker {
         &mut self,
         inputs: &[f64],
         order: DerivativeOrder,
-        providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
+        providers: &mut pse_kernels::ProviderBindings,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<TrialEvaluation, MathError> {
         let mut result = TrialEvaluation::default();
@@ -3330,7 +3332,7 @@ impl Worker {
         &mut self,
         inputs: &[f64],
         order: DerivativeOrder,
-        providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
+        providers: &mut pse_kernels::ProviderBindings,
         cancelled: &Arc<AtomicBool>,
         result: &mut TrialEvaluation,
     ) -> Result<(), MathError> {
@@ -3352,7 +3354,7 @@ impl Worker {
         &mut self,
         inputs: &[f64],
         direction: &[f64],
-        providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
+        providers: &mut pse_kernels::ProviderBindings,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<Evaluation, MathError> {
         self.evaluate_directional_trial(inputs, direction, providers, cancelled)
@@ -3362,7 +3364,7 @@ impl Worker {
         &mut self,
         inputs: &[f64],
         direction: &[f64],
-        providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
+        providers: &mut pse_kernels::ProviderBindings,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<TrialEvaluation, MathError> {
         let mut result = TrialEvaluation::default();
@@ -3373,7 +3375,7 @@ impl Worker {
         &mut self,
         inputs: &[f64],
         direction: &[f64],
-        providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
+        providers: &mut pse_kernels::ProviderBindings,
         cancelled: &Arc<AtomicBool>,
         result: &mut TrialEvaluation,
     ) -> Result<(), MathError> {
@@ -3404,7 +3406,7 @@ impl Worker {
         inputs: &[f64],
         order: DerivativeOrder,
         direction: Option<&[f64]>,
-        providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
+        providers: &mut pse_kernels::ProviderBindings,
         cancelled: &Arc<AtomicBool>,
         result: &mut TrialEvaluation,
     ) -> Result<(), MathError> {
@@ -3693,11 +3695,12 @@ fn reset_stages(stages: Vec<CompiledStage>) -> Result<Vec<CompiledStage>, MathEr
                     otherwise: reset_stages(otherwise)?,
                 },
                 CompiledStage::Provider {
-                    spec,
                     partial,
                     inputs,
                     outputs,
                     request,
+                    buffer,
+                    binding: _,
                     mut arguments,
                     lift,
                     source,
@@ -3711,11 +3714,12 @@ fn reset_stages(stages: Vec<CompiledStage>) -> Result<Vec<CompiledStage>, MathEr
                     }
                     arguments.fill(f64::NAN);
                     CompiledStage::Provider {
-                        spec,
                         partial,
                         inputs,
                         outputs,
                         request,
+                        buffer,
+                        binding: None,
                         arguments,
                         lift,
                         source,
@@ -3998,7 +4002,6 @@ fn cloned_stage_descriptors(stages: &Vec<CompiledStage>) -> Option<usize> {
                 cloned_stage_descriptors(then)?.checked_add(cloned_stage_descriptors(otherwise)?)?
             }
             CompiledStage::Provider {
-                spec,
                 partial,
                 inputs,
                 outputs,
@@ -4006,6 +4009,7 @@ fn cloned_stage_descriptors(stages: &Vec<CompiledStage>) -> Option<usize> {
                 lift,
                 ..
             } => {
+                let spec = request.spec();
                 let shapes = spec
                     .shapes
                     .inputs
@@ -4786,6 +4790,7 @@ fn compile_stages(
                         .iter()
                         .any(|&i| coordinate_support[i].iter().any(|&dependent| dependent));
                 let request = ProviderRequest {
+                    demand: pse_kernels::ProviderDemand::CompleteJets,
                     outputs: outputs
                         .iter()
                         .enumerate()
@@ -4800,6 +4805,8 @@ fn compile_stages(
                         partial.len(),
                     )?,
                 };
+                let request = PreparedProviderRequest::new(Arc::new(spec.clone()), request)
+                    .map_err(|e| MathError::Contract(e.to_string()))?;
                 let destinations = outputs
                     .iter()
                     .copied()
@@ -4837,8 +4844,8 @@ fn compile_stages(
                         .checked_sub(operation_count(lift.facts.operations))
                         .ok_or(MathError::Limit("provider lift operations"))?;
                 }
-                let entries = inputs.len()
-                    + request.outputs.len() * (1 + inputs.len() + inputs.len() * inputs.len());
+                let extents = request.extents();
+                let entries = inputs.len() + extents.values + extents.jacobian + extents.hessians;
                 allowance.entries = allowance
                     .entries
                     .checked_add(
@@ -4852,11 +4859,12 @@ fn compile_stages(
                     .ok_or(MathError::Limit("provider scratch"))?;
                 limits.allocation(allowance.entries)?;
                 CompiledStage::Provider {
-                    spec: spec.clone(),
                     partial: partial.clone(),
                     inputs: inputs.clone(),
                     outputs: destinations,
+                    buffer: ProviderBuffer::new(&request),
                     request,
+                    binding: None,
                     arguments: vec![0.0; inputs.len()],
                     lift,
                     source: *source,
@@ -4876,7 +4884,7 @@ fn evaluate_stages(
     stages: &mut [CompiledStage],
     frame: &mut [f64],
     layout: &JetLayout,
-    providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
+    providers: &mut pse_kernels::ProviderBindings,
     context: &EvaluationContext<'_>,
     observations: &mut Vec<ApplicabilityWitness>,
     spare_witnesses: &mut Vec<ApplicabilityWitness>,
@@ -5086,35 +5094,38 @@ fn evaluate_stages(
                 )?;
             }
             CompiledStage::Provider {
-                spec,
                 partial,
                 inputs,
                 outputs,
                 request,
+                binding,
+                buffer,
                 arguments,
                 lift,
                 source,
             } => {
-                let provider = providers
-                    .get_mut(&spec.key())
-                    .ok_or_else(|| MathError::Contract("missing provider worker".into()))?;
-                provider
-                    .spec()
-                    .check_bound(spec, request.order)
-                    .map_err(|e| MathError::Contract(e.to_string()))?;
+                let bank = providers.identity();
+                let slot = match *binding {
+                    Some((identity, slot)) if identity == bank => slot,
+                    _ => {
+                        let slot = providers.resolve(request.key())
+                            .ok_or_else(|| MathError::Contract("missing provider worker".into()))?;
+                        providers.bind_request(slot, request).map_err(|e| MathError::Contract(e.to_string()))?;
+                        *binding = Some((bank, slot));
+                        slot
+                    }
+                };
                 for (value, &slot) in arguments.iter_mut().zip(inputs.iter()) {
-                    *value = frame[slot * width];
+                    *value = layout.frame_value(frame, slot, 0);
                 }
                 let error = |cause| MathError::Provider {
                     source_id: *source,
-                    provider: spec.id,
+                    provider: request.spec().id,
                     cause,
                 };
-                request.validate(spec, context).map_err(error)?;
-                let values = provider
-                    .evaluate(arguments, request, context)
+                let values = providers
+                    .fill(slot, buffer, arguments, request, ProviderRuntime::default(), context)
                     .map_err(error)?;
-                values.validate(spec, request).map_err(error)?;
                 for (row, &slot) in outputs.iter().enumerate() {
                     let n = inputs.len();
                     let selected = match partial.as_slice() {
@@ -5137,7 +5148,7 @@ fn evaluate_stages(
                                 }
                                 LiftInput::Second(i, j) => values.hessians[row * n * n + i * n + j],
                                 LiftInput::Argument(i, k) => {
-                                    frame[inputs[i] * width + k] * layout.raw_factor(k)
+                                    layout.frame_value(frame, inputs[i], k) * layout.raw_factor(k)
                                 }
                             };
                         }
@@ -5154,10 +5165,13 @@ fn evaluate_stages(
                                 requirement: "finite composed provider jet",
                             });
                         }
-                        frame[slot * width..(slot + 1) * width].copy_from_slice(&lift.output);
+                        layout.clear_frame_slot(frame, slot);
+                        for (component, &value) in lift.output.iter().enumerate() {
+                            layout.set_frame_value(frame, slot, component, value);
+                        }
                     } else {
-                        frame[slot * width..(slot + 1) * width].fill(0.0);
-                        frame[slot * width] = selected;
+                        layout.clear_frame_slot(frame, slot);
+                        layout.set_frame_value(frame, slot, 0, selected);
                     }
                 }
             }
@@ -6119,7 +6133,7 @@ mod compact_tests {
         worker.evaluate(
             values,
             order,
-            &mut BTreeMap::new(),
+            &mut pse_kernels::ProviderBindings::new(),
             &Arc::new(AtomicBool::new(false)),
         )
     }
@@ -6288,7 +6302,7 @@ mod compact_tests {
             .evaluate_trial(
                 &[2.0, 3.0, 1.0],
                 DerivativeOrder::Second,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
             )
             .unwrap();
@@ -6315,7 +6329,7 @@ mod compact_tests {
             .evaluate_trial(
                 &[2.0, 3.0, 1.0],
                 DerivativeOrder::Value,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
             )
             .unwrap();
@@ -6543,7 +6557,7 @@ mod compact_tests {
             .evaluate_trial_into(
                 &[2., 3., 1.],
                 DerivativeOrder::Second,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
                 &mut result,
             )
@@ -6554,7 +6568,7 @@ mod compact_tests {
                 .evaluate_trial_into(
                     &[2., 3., 0.],
                     DerivativeOrder::Second,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel,
                     &mut result
                 )
@@ -6691,7 +6705,7 @@ mod compact_tests {
             .evaluate_directional_trial_into(
                 &[2., 3., 1.],
                 &[1., 0.],
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
                 &mut result,
             )
@@ -6816,7 +6830,7 @@ mod compact_tests {
             cancelled_worker.evaluate(
                 &[2., 3., 1.],
                 DerivativeOrder::Second,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel
             ),
             Err(MathError::Cancelled)
@@ -7184,7 +7198,7 @@ mod compact_tests {
         let seeds = (0..axes).map(|axis| (axis + 1) as f64).collect::<Vec<_>>();
         let action = direction
             .worker()
-            .evaluate_directional(&values, &seeds, &mut BTreeMap::new(), &cancel)
+            .evaluate_directional(&values, &seeds, &mut pse_kernels::ProviderBindings::new(), &cancel)
             .unwrap();
         for (row, &actual) in action.jacobian.iter().enumerate() {
             let expected = result.jacobian[row * axes..(row + 1) * axes]
@@ -7302,7 +7316,7 @@ mod compact_tests {
         assert_eq!(directional.input_formals(), [X, Y, GUARD]);
         let result = directional
             .worker()
-            .evaluate_directional(&[2., 3., 1.], &[5., 4.], &mut BTreeMap::new(), &cancel)
+            .evaluate_directional(&[2., 3., 1.], &[5., 4.], &mut pse_kernels::ProviderBindings::new(), &cancel)
             .unwrap();
         assert_eq!(result.values, [22.]);
         assert_eq!(result.jacobian, [82.]);
@@ -7518,7 +7532,7 @@ mod compact_tests {
             .evaluate_trial(
                 &[2., 3., 1.],
                 DerivativeOrder::Value,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &Arc::new(AtomicBool::new(false)),
             )
             .unwrap();
@@ -7534,7 +7548,7 @@ mod compact_tests {
             .evaluate_trial_into(
                 &[-2., 3., 2.],
                 DerivativeOrder::Value,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &Arc::new(AtomicBool::new(false)),
                 &mut trial,
             )
@@ -7553,7 +7567,7 @@ mod compact_tests {
                 .evaluate_trial_into(
                     &[2., 3., -1.],
                     DerivativeOrder::Value,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &Arc::new(AtomicBool::new(false)),
                     &mut trial
                 )
@@ -7570,7 +7584,7 @@ mod compact_tests {
             .evaluate_trial_into(
                 &[2., 3., 1.],
                 DerivativeOrder::Value,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &Arc::new(AtomicBool::new(false)),
                 &mut trial,
             )
@@ -7818,22 +7832,21 @@ mod compact_tests {
         #[derive(Debug)]
         struct ProductProvider(ProviderSpec);
         impl Provider for ProductProvider {
-            fn spec(&self) -> &ProviderSpec {
-                &self.0
-            }
-            fn evaluate(
+                    fn fill(
                 &mut self,
                 inputs: &[f64],
-                request: &ProviderRequest,
-                context: &EvaluationContext<'_>,
-            ) -> Result<ProviderValues, ProviderError> {
+                request: &pse_kernels::PreparedProviderRequest,
+                _runtime: pse_kernels::ProviderRuntime<'_>,
+                mut output: pse_kernels::ProviderOutput<'_>,
+                context: &pse_kernels::EvaluationContext<'_>,
+            ) -> Result<(), pse_kernels::ProviderError> {
                 request.validate(&self.0, context)?;
                 assert_eq!(request.outputs, [1]);
                 assert_eq!(inputs.len(), 3);
                 if inputs[2] <= 0. {
                     return Err(ProviderError::Trial("guard-only provider argument".into()));
                 }
-                Ok(ProviderValues {
+                output.copy_from(&ProviderValues {
                     values: vec![inputs[0] * inputs[1]],
                     jacobian: if request.order >= DerivativeOrder::First {
                         vec![inputs[1], inputs[0], 0.]
@@ -7903,33 +7916,32 @@ mod compact_tests {
             failed: bool,
         }
         impl Provider for LatchedProvider {
-            fn spec(&self) -> &ProviderSpec {
-                self.inner.spec()
-            }
-            fn evaluate(
+                    fn fill(
                 &mut self,
                 inputs: &[f64],
-                request: &ProviderRequest,
-                context: &EvaluationContext<'_>,
-            ) -> Result<ProviderValues, ProviderError> {
+                request: &pse_kernels::PreparedProviderRequest,
+                _runtime: pse_kernels::ProviderRuntime<'_>,
+                mut output: pse_kernels::ProviderOutput<'_>,
+                context: &pse_kernels::EvaluationContext<'_>,
+            ) -> Result<(), pse_kernels::ProviderError> {
                 if self.failed {
                     return Err(ProviderError::Trial("old provider failure latch".into()));
                 }
-                let result = self.inner.evaluate(inputs, request, context);
+                let result = self.inner.fill(inputs, request, _runtime, output, context);
                 if result.is_err() {
                     self.failed = true;
                 }
                 result
             }
         }
-        let fresh_provider = || -> Box<dyn Provider> {
-            Box::new(LatchedProvider {
+        let fresh_provider = || {
+            pse_kernels::ProviderBinding::new(spec.clone(), Box::new(LatchedProvider {
                 inner: ProductProvider(spec.clone()),
                 failed: false,
-            })
+            }))
         };
         let mut scalar = product.worker();
-        let mut prior_providers = BTreeMap::from([(key, fresh_provider())]);
+        let mut prior_providers = pse_kernels::ProviderBindings::from([(key, fresh_provider())]);
         assert_eq!(
             scalar
                 .evaluate(
@@ -7969,7 +7981,7 @@ mod compact_tests {
             pse_diagnostics::Cancellation::default(),
             None,
         ));
-        let mut fresh_providers = BTreeMap::from([(key, fresh_provider())]);
+        let mut fresh_providers = pse_kernels::ProviderBindings::from([(key, fresh_provider())]);
         assert_eq!(
             scalar
                 .evaluate(
@@ -7982,8 +7994,8 @@ mod compact_tests {
                 .values,
             [20.]
         );
-        let provider: Box<dyn Provider> = Box::new(ProductProvider(spec));
-        let mut providers = BTreeMap::from([(key, provider)]);
+        let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(ProductProvider(spec)));
+        let mut providers = pse_kernels::ProviderBindings::from([(key, provider)]);
         let mut worker = product.worker();
         let result = worker
             .evaluate(
@@ -8550,7 +8562,7 @@ mod compact_tests {
         assert!(eval(&mut worker, &[f64::INFINITY], DerivativeOrder::Value).is_err());
         control.cancel();
         assert!(matches!(
-            worker.evaluate(&[1.], DerivativeOrder::Value, &mut BTreeMap::new(), &cancel),
+            worker.evaluate(&[1.], DerivativeOrder::Value, &mut pse_kernels::ProviderBindings::new(), &cancel),
             Err(MathError::Cancelled)
         ));
     }

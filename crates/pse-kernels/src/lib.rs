@@ -1051,6 +1051,9 @@ mod execution_scope_tests;
 #[cfg(test)]
 mod envelope_tests;
 
+#[cfg(test)]
+mod provider_tests;
+
 impl pse_model::diagnostic::DiagnosticProjection for ProviderError {
     fn boundary_diagnostic(
         &self,

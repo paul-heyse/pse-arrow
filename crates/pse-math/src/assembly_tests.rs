@@ -154,7 +154,7 @@ fn assembled_jacobian_action(
 fn aliases_repeated_rows_isolates_and_stable_refill() {
     crate::initialize().unwrap();
     let (a, mut x) = fixture(true, false);
-    let mut w = a.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+    let mut w = a.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
     assert_eq!(a.columns(), &[id(1), id(2)]);
     assert_eq!(w.objective(&x).unwrap(), 4.0);
     assert_eq!(w.gradient(&x).unwrap(), vec![4.0, 0.0]);
@@ -215,7 +215,7 @@ fn presolve_projection_keeps_alias_coefficients_and_parameter_identity() {
 fn distinct_columns_keep_one_off_diagonal_and_coefficient_views() {
     crate::initialize().unwrap();
     let (a, x) = fixture(false, false);
-    let mut w = a.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+    let mut w = a.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
     assert_eq!(w.gradient(&x).unwrap(), vec![3.0, 2.0]);
     let h = w.hessian(&x, 1.0, &[0.0, 0.0]).unwrap().to_dense();
     assert_eq!(h[(1, 0)], 1.0);
@@ -315,7 +315,7 @@ fn numerical_convexity_distinguishes_psd_indefinite_and_inconclusive() {
 fn all_fixed_uses_constant_math_and_parameter_changes_reclassify() {
     crate::initialize().unwrap();
     let (a, mut x) = fixture(true, true);
-    let mut w = a.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+    let mut w = a.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
     assert!(a.columns().is_empty());
     assert_eq!(w.objective(&x).unwrap(), 4.0);
     assert!(w.gradient(&x).unwrap().is_empty());
@@ -600,7 +600,7 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
     let mut values = CaseValues {
         scalars: BTreeMap::from([(id(1), 2.0), (id(2), 1.0)]),
     };
-    let mut worker = a.worker(BTreeMap::new(), control.clone());
+    let mut worker = a.worker(pse_kernels::ProviderBindings::new(), control.clone());
     assert_eq!(worker.objective(&values).unwrap(), 49.0);
     assert_eq!(worker.gradient(&values).unwrap(), vec![42.0]);
     assert_eq!(worker.hessian(&values, 1.0, &[0.0]).unwrap().val(), &[18.0]);
@@ -774,7 +774,7 @@ fn exhausted_factorable_projection_refuses_facts_and_preserves_original_evaluati
         assembly.presolve_domain_facts(&values, 2, &cancel),
         Err(crate::MathError::Limit("factorable projection extent"))
     ));
-    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
     assert_eq!(worker.constraints(&values).unwrap(), vec![20., 0.]);
     let proof_work = 10_000;
     let complete = assembly
@@ -916,7 +916,7 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
             )
             .unwrap(),
     );
-    let mut first_worker = first_assembly.worker(BTreeMap::new(), control.clone());
+    let mut first_worker = first_assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
     let first_values = CaseValues {
         scalars: BTreeMap::from([(id(1), 2.), (id(2), 3.)]),
     };
@@ -957,7 +957,7 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
             )
             .unwrap(),
     );
-    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
     let values = CaseValues {
         scalars: BTreeMap::from([(id(1), 2.0), (id(2), 3.0)]),
     };
@@ -1125,7 +1125,7 @@ fn lexicographic_structure_projects_every_level() {
             )
             .unwrap(),
     );
-    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
     assert_eq!(worker.objective(&values).unwrap(), -4.0);
     let proof_work = 10_000;
     let coefficients = linear.coefficients(&values, proof_work, &cancel).unwrap();
@@ -1786,7 +1786,7 @@ fn repeated_occurrences_share_serial_scratch_and_keep_bound_caches_under_finite_
             .assemble(assembly.programs().to_vec())
             .unwrap(),
     );
-    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
     for (x, objective, row, gradient) in [
         (2.0, 416.0, 8320.0, 128.0),
         (5.0, 1088.0, 21760.0, 320.0),
@@ -1841,7 +1841,7 @@ fn repeated_occurrences_share_serial_scratch_and_keep_bound_caches_under_finite_
         );
     }
     // Separate attempts have separate scratch and caches even over the same assembly.
-    let mut other = assembly.worker(BTreeMap::new(), control.clone());
+    let mut other = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
     values.scalars.insert(id(1), 5.0);
     assert_eq!(other.objective(&values).unwrap(), 1088.0);
     values.scalars.insert(id(1), 2.0);
@@ -2012,8 +2012,8 @@ fn demanded_directional_case_actions_preserve_aliases_rows_cache_and_value_only_
                 )
                 .unwrap(),
         );
-        let mut actual = action.worker(BTreeMap::new(), control.clone());
-        let mut assembled = reference.worker(BTreeMap::new(), control.clone());
+        let mut actual = action.worker(pse_kernels::ProviderBindings::new(), control.clone());
+        let mut assembled = reference.worker(pse_kernels::ProviderBindings::new(), control.clone());
         for direction in [[2.0, -3.0], [-5.0, 7.0], [0.0, 0.0]] {
             let mut expected = [0.0; 2];
             assembled_jacobian_action(&mut assembled, &values, &direction, &mut expected);
@@ -2205,14 +2205,14 @@ fn demanded_directional_case_actions_apply_affine_physical_gather_scales_once_pe
     );
     let mut expected = [0.0];
     assembled_jacobian_action(
-        &mut reference.worker(BTreeMap::new(), control.clone()),
+        &mut reference.worker(pse_kernels::ProviderBindings::new(), control.clone()),
         &values,
         &[9.0, 4.0],
         &mut expected,
     );
     let mut output = [0.0];
     direct
-        .worker(BTreeMap::new(), control.clone())
+        .worker(pse_kernels::ProviderBindings::new(), control.clone())
         .jacobian_product(&values, &[9.0, 4.0], &mut output)
         .unwrap();
     assert_eq!(output, expected);
@@ -2458,8 +2458,8 @@ fn conditional_blocks_share_original_coordinates_and_binding_inputs() {
                 )
                 .unwrap(),
         );
-        let mut first = assembly.worker(BTreeMap::new(), control.clone());
-        let mut second = assembly.worker(BTreeMap::new(), control.clone());
+        let mut first = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
+        let mut second = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
         assert_eq!(first.constraints(&values).unwrap(), [1.5]);
         values.scalars.insert(id(1), 8.0);
         assert_eq!(second.constraints(&values).unwrap(), [8.5]);
@@ -2499,8 +2499,8 @@ fn dense_trials_preserve_aliases_axes_fixed_rebinding_and_original_assessment() 
                 .collect();
             let trial = bound.trial(&coordinates).unwrap();
             let control = pse_diagnostics::Cancellation::new(false);
-            let mut original = assembly.worker(BTreeMap::new(), control.clone());
-            let mut dense = assembly.worker(BTreeMap::new(), control.clone());
+            let mut original = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
+            let mut dense = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
             assert_eq!(
                 dense.objective(trial).unwrap().to_bits(),
                 original.objective(&values).unwrap().to_bits()
@@ -2553,7 +2553,7 @@ fn dense_trials_refuse_other_layout_and_failed_values_clear_observations() {
     let (assembly, values) = fixture(false, false);
     let (other, _) = fixture(false, false);
     let bound = other.bind_values(&values).unwrap();
-    let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
     assert!(worker.objective(bound.trial(&[2.0, 3.0]).unwrap()).is_err());
     worker.objective(&values).unwrap();
     let mut missing = values;
@@ -2576,7 +2576,7 @@ fn compiled_gathers_refuse_duplicate_and_unknown_formals_before_evaluation() {
 #[test]
 fn assembly_first_order_callbacks_leave_second_order_workers_cold() {
     let (assembly, values) = fixture(false, false);
-    let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
     assert!(worker.instantiated_orders().iter().all(Vec::is_empty));
     assert_eq!(worker.objective(&values).unwrap(), 6.0);
     assert_eq!(worker.gradient(&values).unwrap(), vec![3.0, 2.0]);
@@ -2607,7 +2607,7 @@ fn assembly_first_order_callbacks_leave_second_order_workers_cold() {
     );
     assert_eq!(orders.iter().filter(|orders| !orders.is_empty()).count(), 3);
     let mut independent =
-        assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+        assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
     assert!(independent.instantiated_orders().iter().all(Vec::is_empty));
     assert_eq!(independent.gradient(&values).unwrap(), vec![3.0, 2.0]);
     assert!(
@@ -2722,7 +2722,7 @@ fn assembly_reuses_exact_compact_artifacts_after_original_source_expires() {
     }
     let current_plan = Arc::new(CasePlan::clone(&current));
     let reassembled = Arc::new(current_plan.assemble(programs.clone()).unwrap());
-    let mut worker = reassembled.worker(BTreeMap::new(), control.clone());
+    let mut worker = reassembled.worker(pse_kernels::ProviderBindings::new(), control.clone());
     assert_eq!(worker.objective(&values).unwrap(), 6.0);
     assert_eq!(worker.gradient(&values).unwrap(), [3.0, 2.0]);
     assert_eq!(worker.constraints(&values).unwrap(), [25.0, 0.0]);
@@ -2797,7 +2797,7 @@ fn compact_refill_is_atomic_and_hashes_only_consumed_inputs() {
             })
             .unwrap();
         assert_eq!(reads.get(), if alias { 1 } else { 2 });
-        let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+        let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
         let before = bound.input_identity();
         let expected = worker.objective(bound.trial(&[]).unwrap()).unwrap();
         let source = bound
@@ -2868,15 +2868,14 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
         }
     }
     impl pse_kernels::Provider for DepartingProvider {
-        fn spec(&self) -> &pse_kernels::ProviderSpec {
-            &self.spec
-        }
-        fn evaluate(
+            fn fill(
             &mut self,
             _: &[f64],
             _: &pse_kernels::ProviderRequest,
+            _runtime: pse_kernels::ProviderRuntime<'_>,
+            mut output: pse_kernels::ProviderOutput<'_>,
             _: &pse_kernels::EvaluationContext<'_>,
-        ) -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+        ) -> Result<(), pse_kernels::ProviderError> {
             Err(pse_kernels::ProviderError::Trial(
                 "unused provider in arithmetic assembly".into(),
             ))
@@ -2901,14 +2900,14 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
         derivatives: DerivativeOrder::Value,
         smoothness: DerivativeOrder::Value,
     };
-    let provider: Box<dyn pse_kernels::Provider> = Box::new(DepartingProvider {
+    let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(DepartingProvider {
         spec: spec.clone(),
         dropped: dropped.clone(),
-    });
+    }));
     let returned = Arc::new(std::sync::Mutex::new(None));
     let output = returned.clone();
     let mut worker = assembly.worker(
-        BTreeMap::from([(spec.key(), provider)]),
+        pse_kernels::ProviderBindings::from([(spec.key(), provider)]),
         stop_control.clone(),
     );
     worker.recycle_on_drop(move |scratch| {
@@ -2952,7 +2951,7 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
     values.scalars.insert(id(1), 4.0);
     assert_eq!(next.objective(&values).unwrap(), 12.0);
     assert_eq!(next.constraints(&values).unwrap(), vec![35.0, 0.0]);
-    let reference = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+    let reference = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
     assert!(reference.instantiated_orders().iter().all(Vec::is_empty));
     assert!(returned.lock().unwrap().is_none());
 }
@@ -3074,7 +3073,7 @@ fn affine_original_rows_cancel_across_bodies_before_proof_and_reuse_bound_output
         )
         .unwrap(),
     );
-    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
     for x in [-2.0, 0.0, 5.0] {
         values.scalars.insert(id(1), x);
         assert!(facts.matches(&assembly, &values));
@@ -3661,8 +3660,8 @@ fn selected_functions_prepare_once_keep_contributions_coordinates_and_complete_u
         };
         let direct = compile(direct);
         let projected = compile(projected);
-        let mut worker = direct.worker(BTreeMap::new(), control.clone());
-        let mut reference = projected.worker(BTreeMap::new(), control.clone());
+        let mut worker = direct.worker(pse_kernels::ProviderBindings::new(), control.clone());
+        let mut reference = projected.worker(pse_kernels::ProviderBindings::new(), control.clone());
         assert_eq!(worker.constraints(&values).unwrap(), vec![12.0, 10.0]);
         assert_eq!(
             worker.constraints(&values).unwrap(),
@@ -3791,12 +3790,12 @@ fn selected_functions_ignore_unselected_bad_guard_and_preserve_selected_guard() 
     };
     let selected = prepare(&[id(10)]);
     assert_eq!(selected.bodies().len(), 1);
-    let mut worker = selected.worker(BTreeMap::new(), control.clone());
+    let mut worker = selected.worker(pse_kernels::ProviderBindings::new(), control.clone());
     assert_eq!(worker.constraints(&values).unwrap(), vec![5.0]);
     let selected = prepare(&[id(11)]);
     assert_eq!(selected.bodies().len(), 1);
     assert!(Arc::ptr_eq(&selected.bodies()[&key], &guarded));
-    let mut worker = selected.worker(BTreeMap::new(), control.clone());
+    let mut worker = selected.worker(pse_kernels::ProviderBindings::new(), control.clone());
     assert!(worker.constraints(&values).is_err());
 }
 
@@ -3851,7 +3850,7 @@ fn selected_functions_differentiate_fixed_variables_and_parameters_in_request_or
             )
             .unwrap(),
     );
-    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
     assert_eq!(worker.constraints(&values).unwrap(), vec![45.0]);
     assert_eq!(worker.jacobian(&values).unwrap().to_dense()[(0, 0)], 5.0);
     assert_eq!(worker.jacobian(&values).unwrap().to_dense()[(0, 1)], 5.0);
@@ -3864,7 +3863,7 @@ fn demand_observations_distinguish_order_projection_inputs_and_failed_trials() {
     let operation = hub.start("math.demand.control");
     let _entered = operation.context().enter();
     let control = pse_diagnostics::Cancellation::new(false);
-    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
     let counts = |worker: &CaseWorker, requested| {
         *worker
             .demand_statistics()
@@ -3965,7 +3964,7 @@ fn compact_census_borrows_actual_products_and_separates_addends_from_nnz() {
 #[test]
 fn evaluator_census_leaves_unused_derivative_realizations_cold() {
     let (assembly, values) = fixture(false, false);
-    let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
     assert!(worker.evaluator_census().all(|(_, census)| {
         census.frame_entries == 0
             && census.instantiated_orders == [false; 3]
@@ -3995,7 +3994,7 @@ fn evaluator_census_leaves_unused_derivative_realizations_cold() {
 fn demand_collection_refusal_and_operation_rebind_preserve_scientific_reuse() {
     use pse_diagnostics::observation::{ObservationHub, Policy};
     let (assembly, values) = fixture(false, false);
-    let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
     assert_eq!(
         worker.demand_observation_status(),
         DemandObservationStatus::NotRequested
@@ -4130,7 +4129,7 @@ fn selected_demand_rows_preserve_occurrences_and_actual_order_without_eager_work
     let operation = hub.start("math.selected_demands.control");
     let tap = Arc::new(Tap::default());
     let _entered = operation.context().with_record_tap(tap.clone()).enter();
-    let mut worker = assembly.worker(BTreeMap::new(), control.clone());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
     assert_eq!(worker.gradient(&values).unwrap(), vec![6.0, 4.0]);
     assert_eq!(worker.objective(&values).unwrap(), 12.0);
     assert!(
@@ -4193,7 +4192,7 @@ fn indexed_row_pressure_keeps_admitted_aggregate_work_and_science_independent() 
         });
         let operation = hub.start("math.indexed_pressure.control");
         let _entered = operation.context().enter();
-        let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+        let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
         assert_eq!(worker.objective(&values).unwrap(), 6.0);
         if worker.demand_observation_status() == DemandObservationStatus::AggregateOnly {
             observed_aggregate_only = true;
@@ -4223,7 +4222,7 @@ fn indexed_row_pressure_keeps_admitted_aggregate_work_and_science_independent() 
 #[test]
 fn complete_constraint_and_gradient_results_reuse_owned_storage_after_failed_trial() {
     let (assembly, mut values) = fixture(false, false);
-    let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
     let constraints = worker.constraints(&values).unwrap().as_ptr();
     let gradient = worker.gradient(&values).unwrap().as_ptr();
     values.scalars.insert(id(1), 3.);
@@ -4259,7 +4258,7 @@ fn weighted_case_hessian_actions_preserve_aliases_scales_and_runtime_bindings() 
                 )
                 .unwrap(),
         );
-        let mut worker = assembly.worker(BTreeMap::new(), control.clone());
+        let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
         let mut action = [91.; 2];
         worker
             .hessian_product(&values, 3., &[5., 7.], &[5., 7.], &mut action)
@@ -4298,7 +4297,7 @@ fn weighted_case_hessian_actions_preserve_aliases_scales_and_runtime_bindings() 
 }
 
 fn overlapping_output_fixture(
-    provider: Option<Box<dyn pse_kernels::Provider>>,
+    provider: Option<&pse_kernels::ProviderSpec>,
     second: bool,
 ) -> (Arc<CaseAssembly>, CaseValues) {
     use symbolica::atom::AtomCore;
@@ -4320,7 +4319,7 @@ fn overlapping_output_fixture(
     );
     let bodies = if let Some(provider) = provider {
         use crate::guarded::Stage;
-        let spec = provider.spec().clone();
+        let spec = provider.clone();
         let formal = crate::library::formal(2).unwrap();
         let mut body = PreparedBody::new(
             2,
@@ -4387,7 +4386,7 @@ fn lazy_cross_demand_projection_tracks_changed_inputs_and_skips_evaluator_work()
     let operation = hub.start("cross-demand projection");
     let _entered = operation.context().enter();
     let (assembly, mut values) = overlapping_output_fixture(None, false);
-    let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
     assert_eq!(worker.gradient(&values).unwrap(), [3., 2.]);
     assert_eq!(worker.constraints(&values).unwrap(), [30., 0.]);
     assert_eq!(worker.jacobian(&values).unwrap().to_dense()[(0, 0)], 15.);
@@ -4435,15 +4434,14 @@ struct ControlledJetProvider {
     calls: Arc<std::sync::atomic::AtomicUsize>,
 }
 impl pse_kernels::Provider for ControlledJetProvider {
-    fn spec(&self) -> &pse_kernels::ProviderSpec {
-        &self.spec
-    }
-    fn evaluate(
+    fn fill(
         &mut self,
         inputs: &[f64],
-        request: &pse_kernels::ProviderRequest,
+        request: &pse_kernels::PreparedProviderRequest,
+        _runtime: pse_kernels::ProviderRuntime<'_>,
+        mut output: pse_kernels::ProviderOutput<'_>,
         context: &pse_kernels::EvaluationContext<'_>,
-    ) -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+    ) -> Result<(), pse_kernels::ProviderError> {
         context.check()?;
         self.calls
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -4468,7 +4466,7 @@ impl pse_kernels::Provider for ControlledJetProvider {
                 _ => {}
             }
         }
-        Ok(pse_kernels::ProviderValues {
+        output.copy_from(&pse_kernels::ProviderValues {
             values: vec![inputs[0] * inputs[1]],
             jacobian: if request.order >= DerivativeOrder::First {
                 vec![inputs[1], inputs[0]]
@@ -4524,16 +4522,12 @@ fn failed_or_cancelled_upgrade_preserves_only_independently_complete_provider_re
         let (provider, control, calls) = controlled_jet_provider();
         let key = provider.spec.key();
         let (assembly, values) = overlapping_output_fixture(
-            Some(Box::new(ControlledJetProvider {
-                spec: provider.spec.clone(),
-                control: control.clone(),
-                calls: calls.clone(),
-            })),
+            Some(&provider.spec),
             false,
         );
-        let provider: Box<dyn pse_kernels::Provider> = Box::new(provider);
+        let provider = pse_kernels::ProviderBinding::new(provider.spec.clone(), Box::new(provider));
         let mut worker = assembly.worker(
-            BTreeMap::from([(key, provider)]),
+            pse_kernels::ProviderBindings::from([(key, provider)]),
             pse_diagnostics::Cancellation::default(),
         );
         assert_eq!(worker.objective(&values).unwrap(), 36.);
@@ -4570,11 +4564,7 @@ fn provider_composition_hessian_action_uses_mixed_shape_and_library_chain_partia
     let (provider, control, calls) = controlled_jet_provider();
     let key = provider.spec.key();
     let (original, values) = overlapping_output_fixture(
-        Some(Box::new(ControlledJetProvider {
-            spec: provider.spec.clone(),
-            control,
-            calls,
-        })),
+        Some(&provider.spec),
         true,
     );
     let compile_control = pse_diagnostics::Cancellation::new(false);
@@ -4589,9 +4579,9 @@ fn provider_composition_hessian_action_uses_mixed_shape_and_library_chain_partia
             )
             .unwrap(),
     );
-    let provider: Box<dyn pse_kernels::Provider> = Box::new(provider);
+    let provider = pse_kernels::ProviderBinding::new(provider.spec.clone(), Box::new(provider));
     let mut worker = assembly.worker(
-        BTreeMap::from([(key, provider)]),
+        pse_kernels::ProviderBindings::from([(key, provider)]),
         pse_diagnostics::Cancellation::default(),
     );
     let mut output = [f64::NAN; 2];
@@ -4618,11 +4608,7 @@ fn weighted_provider_products_reexecute_for_same_key_changed_weights_points_and_
     let (provider, control, calls) = controlled_jet_provider();
     let key = provider.spec.key();
     let (original, mut values) = overlapping_output_fixture(
-        Some(Box::new(ControlledJetProvider {
-            spec: provider.spec.clone(),
-            control: control.clone(),
-            calls: calls.clone(),
-        })),
+        Some(&provider.spec),
         true,
     );
     let compile_control = pse_diagnostics::Cancellation::new(false);
@@ -4637,8 +4623,8 @@ fn weighted_provider_products_reexecute_for_same_key_changed_weights_points_and_
             .unwrap(),
     );
     let stop = pse_diagnostics::Cancellation::default();
-    let provider: Box<dyn pse_kernels::Provider> = Box::new(provider);
-    let mut worker = assembly.worker(BTreeMap::from([(key, provider)]), stop.clone());
+    let provider = pse_kernels::ProviderBinding::new(provider.spec.clone(), Box::new(provider));
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::from([(key, provider)]), stop.clone());
     let mut output = [f64::NAN; 2];
     worker
         .hessian_product(&values, 1., &[0., 0.], &[5., 7.], &mut output)
@@ -4722,15 +4708,14 @@ fn concurrent_exclusive_case_lanes_isolate_stateful_providers_failure_and_cancel
         }
     }
     impl pse_kernels::Provider for ConcurrentProvider {
-        fn spec(&self) -> &pse_kernels::ProviderSpec {
-            &self.inner.spec
-        }
-        fn evaluate(
+            fn fill(
             &mut self,
             inputs: &[f64],
-            request: &pse_kernels::ProviderRequest,
+            request: &pse_kernels::PreparedProviderRequest,
+            _runtime: pse_kernels::ProviderRuntime<'_>,
+            mut output: pse_kernels::ProviderOutput<'_>,
             context: &pse_kernels::EvaluationContext<'_>,
-        ) -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+        ) -> Result<(), pse_kernels::ProviderError> {
             if !self.entered {
                 self.entered = true;
                 self.barrier.wait();
@@ -4739,7 +4724,7 @@ fn concurrent_exclusive_case_lanes_isolate_stateful_providers_failure_and_cancel
         }
     }
     let (template, _, _) = controlled_jet_provider();
-    let (assembly, values) = overlapping_output_fixture(Some(Box::new(template)), false);
+    let (assembly, values) = overlapping_output_fixture(Some(&template.spec), false);
     let barrier = Arc::new(Barrier::new(2));
     let mut lanes = Vec::new();
     for lane in 0..2 {
@@ -4750,15 +4735,15 @@ fn concurrent_exclusive_case_lanes_isolate_stateful_providers_failure_and_cancel
             let (provider, refusal, calls) = controlled_jet_provider();
             let key = provider.spec.key();
             let dropped = Arc::new(AtomicBool::new(false));
-            let provider: Box<dyn pse_kernels::Provider> = Box::new(ConcurrentProvider {
+            let provider = pse_kernels::ProviderBinding::new(provider.spec.clone(), Box::new(ConcurrentProvider {
                 inner: provider,
                 barrier,
                 entered: false,
                 dropped: dropped.clone(),
-            });
+            }));
             let control = pse_diagnostics::Cancellation::default();
             let old_control = Arc::downgrade(&control.flag());
-            let mut worker = assembly.worker(BTreeMap::from([(key, provider)]), control.clone());
+            let mut worker = assembly.worker(pse_kernels::ProviderBindings::from([(key, provider)]), control.clone());
             let returned = Arc::new(Mutex::new(None));
             let captured = returned.clone();
             worker.recycle_on_drop(move |scratch| {
@@ -4880,7 +4865,7 @@ fn prepared_callback_addresses_preserve_reordered_outputs_duplicates_aliases_and
             plan.compile(Optimization::default(), EvaluationLimits::default(), &scope)
                 .unwrap(),
         );
-        let mut worker = assembly.worker(BTreeMap::new(), control);
+        let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), control);
         assert_eq!(
             worker.objective(&values).unwrap(),
             if alias { 10.0 } else { 12.0 }

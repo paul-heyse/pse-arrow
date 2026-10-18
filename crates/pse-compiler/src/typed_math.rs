@@ -2203,7 +2203,7 @@ mod tests {
             .evaluate(
                 &[3.0],
                 DerivativeOrder::Second,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancelled,
             )
             .unwrap();
@@ -2332,7 +2332,7 @@ mod tests {
                         .evaluate(
                             &[x],
                             DerivativeOrder::Value,
-                            &mut BTreeMap::new(),
+                            &mut pse_kernels::ProviderBindings::new(),
                             &cancelled
                         )
                         .unwrap()
@@ -2474,7 +2474,7 @@ mod tests {
                     .evaluate(
                         &[3.0],
                         DerivativeOrder::Value,
-                        &mut BTreeMap::new(),
+                        &mut pse_kernels::ProviderBindings::new(),
                         &cancelled
                     )
                     .unwrap()
@@ -2559,7 +2559,7 @@ mod tests {
             .evaluate(
                 &[3.0, 10.0],
                 DerivativeOrder::First,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &Arc::new(AtomicBool::new(false)),
             )
             .unwrap();
@@ -2613,7 +2613,7 @@ mod tests {
             .evaluate(
                 &[300.0, 400.0, 10.0, 0.5],
                 DerivativeOrder::First,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &Arc::new(AtomicBool::new(false)),
             )
             .unwrap();
@@ -2649,7 +2649,7 @@ mod tests {
             let body = compile(text, &formals, DerivativeOrder::Second).unwrap();
             let jet = body
                 .worker()
-                .evaluate(&[x], DerivativeOrder::Second, &mut BTreeMap::new(), &cancel)
+                .evaluate(&[x], DerivativeOrder::Second, &mut pse_kernels::ProviderBindings::new(), &cancel)
                 .unwrap();
             for (actual, expected) in [
                 (jet.values[0], value),
@@ -2670,7 +2670,7 @@ mod tests {
                     .evaluate(
                         &[0.0],
                         DerivativeOrder::Second,
-                        &mut BTreeMap::new(),
+                        &mut pse_kernels::ProviderBindings::new(),
                         &cancel
                     )
                     .is_err()
@@ -2700,7 +2700,7 @@ mod tests {
             .evaluate(
                 &[500.0],
                 DerivativeOrder::Second,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &Arc::new(AtomicBool::new(false)),
             )
             .unwrap();
@@ -2723,7 +2723,7 @@ mod tests {
                     .evaluate(
                         &[0.0],
                         DerivativeOrder::Value,
-                        &mut BTreeMap::new(),
+                        &mut pse_kernels::ProviderBindings::new(),
                         &Arc::new(AtomicBool::new(false))
                     )
                     .is_err()
@@ -2733,7 +2733,7 @@ mod tests {
                     .evaluate(
                         &[2.0],
                         DerivativeOrder::Value,
-                        &mut BTreeMap::new(),
+                        &mut pse_kernels::ProviderBindings::new(),
                         &Arc::new(AtomicBool::new(false))
                     )
                     .is_ok()
@@ -2857,7 +2857,7 @@ mod tests {
             .evaluate(
                 values,
                 DerivativeOrder::Value,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &Arc::new(AtomicBool::new(false)),
             )
             .unwrap()
@@ -2934,7 +2934,7 @@ mod tests {
                 .evaluate(
                     &[x],
                     DerivativeOrder::Value,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &Arc::new(AtomicBool::new(false)),
                 )
                 .unwrap();
@@ -2953,7 +2953,7 @@ mod tests {
                 .evaluate(
                     &[2.0],
                     DerivativeOrder::Second,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &Arc::new(AtomicBool::new(false))
                 )
                 .unwrap()
@@ -3017,7 +3017,7 @@ mod tests {
                 .evaluate(
                     &[2.0],
                     DerivativeOrder::Second,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel
                 )
                 .unwrap()
@@ -3049,15 +3049,14 @@ mod tests {
         #[derive(Debug, Clone)]
         struct Square(ProviderSpec);
         impl Provider for Square {
-            fn spec(&self) -> &ProviderSpec {
-                &self.0
-            }
-            fn evaluate(
+                    fn fill(
                 &mut self,
                 x: &[f64],
-                request: &pse_kernels::ProviderRequest,
+                request: &pse_kernels::PreparedProviderRequest,
+                _runtime: pse_kernels::ProviderRuntime<'_>,
+                mut output: pse_kernels::ProviderOutput<'_>,
                 context: &pse_kernels::EvaluationContext<'_>,
-            ) -> Result<ProviderValues, ProviderError> {
+            ) -> Result<(), pse_kernels::ProviderError> {
                 request.validate(&self.0, context)?;
                 let order = request.order;
                 if x.len() != 1 || x[0] < 0.0 {
@@ -3066,7 +3065,7 @@ mod tests {
                 if order != DerivativeOrder::Value {
                     return Err(ProviderError::Contract("value-only implementation".into()));
                 }
-                Ok(ProviderValues {
+                output.copy_from(&ProviderValues {
                     values: vec![x[0] * x[0]],
                     jacobian: vec![],
                     hessians: vec![],
@@ -3077,8 +3076,8 @@ mod tests {
             fn spec(&self) -> &ProviderSpec {
                 &self.0
             }
-            fn create(&self) -> Result<Box<dyn Provider>, ProviderError> {
-                Ok(Box::new(self.clone()))
+            fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
+                Ok(pse_kernels::ProviderBinding::new(self.spec().clone(), Box::new(self.clone())))
             }
         }
         let registry = standard_registry().unwrap();
@@ -3103,7 +3102,7 @@ mod tests {
             &registry,
         )
         .unwrap();
-        let providers = BTreeMap::from([(
+        let providers = pse_kernels::ProviderBindings::from([(
             "square".into(),
             ProviderCall {
                 descriptor: registration.descriptor(),
@@ -3189,7 +3188,7 @@ mod tests {
             .unwrap();
         let mut worker = restored_math.worker();
         let mut workers =
-            BTreeMap::from([(registration.spec().key(), registration.worker().unwrap())]);
+            pse_kernels::ProviderBindings::from([(registration.spec().key(), registration.worker().unwrap())]);
         assert!(
             matches!(worker.evaluate(&[-1.0],DerivativeOrder::Value,&mut workers,&cancel),Err(MathError::Provider{source_id,..}) if body.occurrences.iter().any(|o|o.id==source_id))
         );
@@ -3263,7 +3262,7 @@ mod tests {
                 .evaluate(
                     &[4.0],
                     DerivativeOrder::Value,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel
                 )
                 .unwrap()
@@ -3317,7 +3316,7 @@ mod tests {
                 .evaluate(
                     &[x, x],
                     DerivativeOrder::First,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel,
                 )
                 .unwrap();

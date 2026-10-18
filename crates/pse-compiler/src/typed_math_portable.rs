@@ -659,7 +659,7 @@ mod tests {
             .evaluate(
                 &[2.0],
                 DerivativeOrder::First,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
             )
             .unwrap();
@@ -734,7 +734,7 @@ mod tests {
             (2.0, 8.0, 12.0, 12.0),
         ] {
             let jet = worker
-                .evaluate(&[x], DerivativeOrder::Second, &mut BTreeMap::new(), &cancel)
+                .evaluate(&[x], DerivativeOrder::Second, &mut pse_kernels::ProviderBindings::new(), &cancel)
                 .unwrap();
             assert_eq!(jet.values, vec![value]);
             assert_eq!(jet.jacobian, vec![first]);
@@ -835,7 +835,7 @@ mod tests {
             .evaluate(
                 &[5.0],
                 DerivativeOrder::First,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
             )
             .unwrap();
@@ -973,7 +973,7 @@ mod tests {
         let mut x = 9.0;
         for _ in 0..3 {
             let jet = worker
-                .evaluate(&[x], DerivativeOrder::First, &mut BTreeMap::new(), &cancel)
+                .evaluate(&[x], DerivativeOrder::First, &mut pse_kernels::ProviderBindings::new(), &cancel)
                 .unwrap();
             if jet.values[0].abs() < 1e-12 {
                 break;
@@ -982,7 +982,7 @@ mod tests {
         }
         assert_eq!(x, 2.0);
         let jet = worker
-            .evaluate(&[x], DerivativeOrder::First, &mut BTreeMap::new(), &cancel)
+            .evaluate(&[x], DerivativeOrder::First, &mut pse_kernels::ProviderBindings::new(), &cancel)
             .unwrap();
         assert_eq!(jet.values, vec![0.0]);
         assert_eq!(jet.jacobian, vec![1.0]);

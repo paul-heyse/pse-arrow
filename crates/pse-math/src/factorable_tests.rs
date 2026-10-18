@@ -265,7 +265,7 @@ fn assert_rows_match(
     assembly: &Arc<CaseAssembly>,
     program: &FactorableProgram,
     points: &[Vec<f64>],
-    providers: impl Fn() -> BTreeMap<ProviderKey, Box<dyn Provider>>,
+    providers: impl Fn() -> pse_kernels::ProviderBindings,
     auxiliary: impl Fn(&[f64]) -> Vec<f64>,
 ) {
     for point in points {
@@ -509,18 +509,17 @@ fn point_arithmetic_value_projects_selected_abs_and_retains_demanded_obligations
 #[derive(Debug)]
 struct Cube(ProviderSpec);
 impl Provider for Cube {
-    fn spec(&self) -> &ProviderSpec {
-        &self.0
-    }
-    fn evaluate(
+    fn fill(
         &mut self,
         inputs: &[f64],
-        request: &ProviderRequest,
-        context: &EvaluationContext<'_>,
-    ) -> Result<ProviderValues, ProviderError> {
+        request: &pse_kernels::PreparedProviderRequest,
+        _runtime: pse_kernels::ProviderRuntime<'_>,
+        mut output: pse_kernels::ProviderOutput<'_>,
+        context: &pse_kernels::EvaluationContext<'_>,
+    ) -> Result<(), pse_kernels::ProviderError> {
         request.validate(&self.0, context)?;
         let x = inputs[0];
-        Ok(ProviderValues {
+        output.copy_from(&ProviderValues {
             values: request.outputs.iter().map(|_| x * x * x).collect(),
             jacobian: vec![],
             hessians: vec![],
@@ -530,17 +529,16 @@ impl Provider for Cube {
 #[derive(Debug)]
 struct Root(ProviderSpec);
 impl Provider for Root {
-    fn spec(&self) -> &ProviderSpec {
-        &self.0
-    }
-    fn evaluate(
+    fn fill(
         &mut self,
         inputs: &[f64],
-        request: &ProviderRequest,
-        context: &EvaluationContext<'_>,
-    ) -> Result<ProviderValues, ProviderError> {
+        request: &pse_kernels::PreparedProviderRequest,
+        _runtime: pse_kernels::ProviderRuntime<'_>,
+        mut output: pse_kernels::ProviderOutput<'_>,
+        context: &pse_kernels::EvaluationContext<'_>,
+    ) -> Result<(), pse_kernels::ProviderError> {
         request.validate(&self.0, context)?;
-        Ok(ProviderValues {
+        output.copy_from(&ProviderValues {
             values: request.outputs.iter().map(|_| inputs[0].sqrt()).collect(),
             jacobian: vec![],
             hessians: vec![],
@@ -550,8 +548,8 @@ impl Provider for Root {
 fn registered(
     spec: &ProviderSpec,
     provider: Box<dyn Provider>,
-) -> BTreeMap<ProviderKey, Box<dyn Provider>> {
-    BTreeMap::from([(spec.key(), provider)])
+) -> pse_kernels::ProviderBindings {
+    pse_kernels::ProviderBindings::from([(spec.key(), pse_kernels::ProviderBinding::new(spec.clone(), provider))])
 }
 fn spec(registry: &QuantityRegistry, n: u8) -> ProviderSpec {
     ProviderSpec {
@@ -1103,7 +1101,7 @@ fn pcsaft_valid_guard_projects_exactly() {
         BTreeMap::new,
         |_| vec![],
     );
-    let mut worker = assembly.worker(BTreeMap::new(), pse_diagnostics::Cancellation::default());
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
     let outside = CaseValues {
         scalars: BTreeMap::from([
             (id(1), 300.0),
@@ -2076,14 +2074,14 @@ fn root_isolation_projects_general_rational_powers_under_original_positive_guard
             .evaluate(
                 &[8.0],
                 DerivativeOrder::Value,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel,
             )
             .unwrap();
         assert!((original.values[0] - 8.0_f64.powf(exponent.to_f64())).abs() < 1e-10);
         for invalid in [0.0, -1.0] {
             assert!(
-                matches!(worker.evaluate(&[invalid], DerivativeOrder::Value, &mut BTreeMap::new(), &cancel),
+                matches!(worker.evaluate(&[invalid], DerivativeOrder::Value, &mut pse_kernels::ProviderBindings::new(), &cancel),
                 Err(MathError::Domain { source_id, .. }) if source_id == id(249))
             );
         }
@@ -2128,7 +2126,7 @@ fn root_isolation_raw_dyadic_powers_preserve_zero_and_negative_power_poles() {
                     .evaluate(
                         &[0.0],
                         DerivativeOrder::Value,
-                        &mut BTreeMap::new(),
+                        &mut pse_kernels::ProviderBindings::new(),
                         &cancel
                     )
                     .unwrap()
@@ -2141,7 +2139,7 @@ fn root_isolation_raw_dyadic_powers_preserve_zero_and_negative_power_poles() {
                     .evaluate(
                         &[0.0],
                         DerivativeOrder::Value,
-                        &mut BTreeMap::new(),
+                        &mut pse_kernels::ProviderBindings::new(),
                         &cancel
                     )
                     .is_err()
@@ -2154,7 +2152,7 @@ fn root_isolation_raw_dyadic_powers_preserve_zero_and_negative_power_poles() {
                 .evaluate(
                     &[-1.0],
                     DerivativeOrder::Value,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel
                 )
                 .is_err()
@@ -2204,7 +2202,7 @@ fn root_isolation_integer_negative_base_domain_is_unchanged() {
             .evaluate(
                 &[-2.0],
                 DerivativeOrder::Value,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel
             )
             .unwrap()
@@ -2216,7 +2214,7 @@ fn root_isolation_integer_negative_base_domain_is_unchanged() {
             .evaluate(
                 &[0.0],
                 DerivativeOrder::Value,
-                &mut BTreeMap::new(),
+                &mut pse_kernels::ProviderBindings::new(),
                 &cancel
             )
             .is_err()
