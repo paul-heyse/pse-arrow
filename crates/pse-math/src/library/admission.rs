@@ -570,6 +570,40 @@ pub(crate) fn bounded_evaluator(
 mod tests {
     use super::*;
     #[test]
+    fn retained_symbolica_subprogram_refuses_demanded_taylor_while_inlining_expands_it() {
+        use symbolica::evaluate::{FunctionRegistrationOptions, InliningPolicy};
+        use symbolica::{parse, symbol};
+        crate::initialize().unwrap();
+        let parameters = [parse!("p45_subprogram_x")];
+        let expression = parse!("p45_subprogram_f(p45_subprogram_x)");
+        let function = parse!("p45_subprogram_x^2+1");
+        let layout = JetLayout::new(vec![0], pse_kernels::DerivativeOrder::Second,
+            EvaluationLimits::default()).unwrap();
+        for policy in [InliningPolicy::Never, InliningPolicy::Always] {
+            let evaluator = expression.evaluator(&parameters)
+                .add_function_with_options(symbol!("p45_subprogram_f"), vec![symbol!("p45_subprogram_x")],
+                    function.clone(), FunctionRegistrationOptions::default().inlining(policy))
+                .unwrap().build().unwrap();
+            let mut scalar = evaluator.clone().map_coeff(&|coefficient| coefficient.re.to_f64());
+            assert_eq!(scalar.evaluate_single(&[2.]), 5., "both policies compute the same scalar function");
+            let expanded = evaluator.vectorize(&symbolica::prelude::Dualizer::new(
+                symbolica::prelude::HyperDual::<Complex<Rational>>::new(layout.shape.clone()), vec![]));
+            match policy {
+                InliningPolicy::Never => {
+                    let refusal = expanded.unwrap_err();
+                    assert!(refusal.contains("Sub-evaluator") && refusal.contains("cannot be vectorized"), "{refusal}");
+                }
+                InliningPolicy::Always => {
+                    let mut floating = expanded.unwrap().map_coeff(&|coefficient| coefficient.re.to_f64());
+                    let mut output = [f64::NAN; 3];
+                    floating.evaluate(&[2., 1., 0.], &mut output);
+                    assert_eq!(output, [5., 4., 1.], "the inlined route emits Second Taylor coefficients");
+                }
+                InliningPolicy::Auto => unreachable!(),
+            }
+        }
+    }
+    #[test]
     fn source_construction_counts_builtin_functions_and_checks_taylor_payload() {
         crate::initialize().unwrap();
         let x = formal(0).unwrap();
