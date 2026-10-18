@@ -608,11 +608,20 @@ mod physical_admission_cache_unit {
             runtime.physical_cache.hits.load(Ordering::Relaxed),
             changed_hits + 1,
         );
-        assert_eq!(
-            runtime.physical_cache.rows(&runtime, operations, &first),
-            Some(first_rows.revisions.clone()),
-            "changed publication never replaces the retained original receipt",
-        );
+        // The optional cache may replace an entry at the same coarse key.
+        // Escaped receipts retain independent protection of their exact rows.
+        assert_eq!(first_rows._owner.pins.len(), first_rows.revisions.len());
+        for (pin, original) in first_rows._owner.pins.iter().zip(&first_rows.revisions) {
+            assert_eq!(pin.revision(), original);
+            pin.renew(std::time::Duration::from_secs(3600))
+                .await
+                .unwrap();
+            assert_eq!(
+                operations.store().revision(&original.key).await.unwrap().as_ref(),
+                Some(original),
+                "changed publication preserves the independently protected original revision",
+            );
+        }
         let mut package_changed = second.clone();
         package_changed
             .package
