@@ -71,20 +71,26 @@ impl Oracle for Coupled {
             Function::Output => (vec![x[0]], vec![(0, 0, 1.)]),
             _ => (vec![], vec![]),
         };
-        let jacobian = d.then(|| {
-            Arc::new(
-                faer::sparse::SparseColMat::try_new_from_triplets(
-                    values.len(),
-                    3,
-                    &partials
-                        .into_iter()
-                        .map(|(r, c, v)| faer::sparse::Triplet::new(r, c, v))
-                        .collect::<Vec<_>>(),
+        let jacobian = if d {
+            Some(
+                Arc::new(
+                    faer::sparse::SparseColMat::try_new_from_triplets(
+                        values.len(),
+                        3,
+                        &partials
+                            .into_iter()
+                            .map(|(r, c, v)| faer::sparse::Triplet::new(r, c, v))
+                            .collect::<Vec<_>>(),
+                    )
+                    .map_err(|error| {
+                        ProblemError::internal(format!("coupled DAE control matrix: {error}"))
+                    })?,
                 )
-                .unwrap(),
+                .into(),
             )
-            .into()
-        });
+        } else {
+            None
+        };
         Ok(Evaluation { values, jacobian })
     }
 }

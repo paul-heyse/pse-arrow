@@ -137,6 +137,10 @@ impl ReverseWorker {
         Ok(self)
     }
 }
+#[allow(
+    clippy::too_many_arguments,
+    reason = "pullback compilation preserves separate prepared stages, forward association, library cache, work allowance and original scope"
+)]
 fn compile_pullbacks(
     prepared: &PreparedStages,
     forward: &[CompiledStage],
@@ -508,14 +512,17 @@ impl PreparedSupport {
             require_order(
                 Arc::make_mut(&mut compiled.programs)[DerivativeOrder::First]
                     .as_mut()
-                    .unwrap(),
+                    .ok_or_else(|| {
+                        MathError::Contract("missing mutable pullback forward program".into())
+                    })?,
             );
         }
         let buffers = (2 * compiled.slots + coordinates.len())
             .checked_mul(size_of::<f64>())
             .ok_or(MathError::Limit("pullback frame storage"))?;
         cost.add_bytes(buffers, limits)?;
-        let forward = compiled.census[DerivativeOrder::First].unwrap();
+        let forward = compiled.census[DerivativeOrder::First]
+            .ok_or_else(|| MathError::Contract("missing pullback forward census".into()))?;
         if forward
             .library_operations
             .checked_add(cost.operations)
@@ -600,6 +607,10 @@ fn instantiate(stages: &mut [Pullback]) -> Result<(), MathError> {
     }
     Ok(())
 }
+#[allow(
+    clippy::too_many_arguments,
+    reason = "reverse execution borrows independent primal, cotangent, tangent and provider buffers under the original scope"
+)]
 fn evaluate_pullbacks(
     stages: &mut [Pullback],
     forward: &mut [CompiledStage],
@@ -818,6 +829,10 @@ fn evaluate_pullbacks(
     Ok(())
 }
 impl Worker {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "product evaluation keeps caller inputs, weights, direction, providers, scope and atomic trial output explicit"
+    )]
     pub(super) fn evaluate_reverse_product(
         &mut self,
         inputs: &[f64],

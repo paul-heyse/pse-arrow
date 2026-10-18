@@ -660,7 +660,7 @@ fn implicit_factor_first_upgrade_affine_use_and_failure_preserve_exact_associati
     let expected = analytic(&parameters);
     let options = match &factory.configuration {
         Configuration::Fixed(_, options) => options.clone(),
-        _ => unreachable!(),
+        _ => panic!("expected fixed fixture options"),
     };
     let cancel = factory.cancel.flag();
     let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
@@ -1366,7 +1366,7 @@ fn implicit_regime_narrow_products_keep_full_first_scientific_demand_without_ful
                         .collect::<Vec<_>>(),
                 );
             }
-            _ => unreachable!(),
+            _ => panic!("expected declared first product fixture"),
         }
     }
     assert!(
@@ -1531,7 +1531,7 @@ fn implicit_recursive_nested_actions_compose_actual_child_linearizations() {
                         .collect::<Vec<_>>(),
                 );
             }
-            _ => unreachable!(),
+            _ => panic!("expected declared derivative product fixture"),
         }
     }
 }
@@ -1582,7 +1582,7 @@ fn native_implicit_preparation_preserves_selected_evaluator_policy() {
     let expected = analytic(&parameters);
     let options = match &factory.configuration {
         Configuration::Fixed(_, options) => options,
-        _ => unreachable!(),
+        _ => panic!("expected fixed fixture options"),
     };
     problem
         .verify(
@@ -1650,7 +1650,7 @@ fn wide_dense_implicit_value_source_prepares_only_consumed_parameter_products() 
                 DerivativeOrder::First,
                 match &factory.configuration {
                     Configuration::Fixed(_, options) => options,
-                    _ => unreachable!(),
+                    _ => panic!("expected fixed fixture options"),
                 },
                 &factory.cancel.flag()
             )
@@ -1762,7 +1762,7 @@ fn wide_dense_implicit_value_source_prepares_only_consumed_parameter_products() 
                         .collect::<Vec<_>>(),
                 );
             }
-            _ => unreachable!(),
+            _ => panic!("expected declared weighted product fixture"),
         }
     }
     let before = solves.load(Ordering::Relaxed);
@@ -1816,7 +1816,7 @@ fn complete_implicit_preparation_and_cached_lookup_respect_admitted_residual_ord
     let expected = analytic(&parameters);
     let options = match &factory.configuration {
         Configuration::Fixed(_, options) => options,
-        _ => unreachable!(),
+        _ => panic!("expected fixed fixture options"),
     };
     close(
         &problem

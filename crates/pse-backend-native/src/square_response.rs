@@ -86,10 +86,10 @@ impl SquareScope {
     }
     /// Anchor the retained symbolic cache independently of any escaping numeric factor.
     pub fn with_owner(self, owner: std::sync::Arc<dyn pse_math::AllocationOwner>) -> Self {
-        if let Ok(mut held) = self.symbolic_owner.lock() {
-            if held.is_none() {
-                *held = Some(owner);
-            }
+        if let Ok(mut held) = self.symbolic_owner.lock()
+            && held.is_none()
+        {
+            *held = Some(owner);
         }
         self
     }

@@ -293,10 +293,10 @@ impl SparseFactor {
     }
     /// Bind the actual escaping reservation, without reporting it as measured bytes.
     pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
-        if let Ok(mut held) = self.held.symbolic.owner.lock() {
-            if held.is_none() {
-                *held = Some(owner.clone());
-            }
+        if let Ok(mut held) = self.held.symbolic.owner.lock()
+            && held.is_none()
+        {
+            *held = Some(owner.clone());
         }
         self.owner = Some(pse_math::retain_allocation_owner(self.owner.take(), owner));
         self
@@ -1007,7 +1007,7 @@ mod tests {
         };
         SparseFactor::prepare(
             SparseRequest {
-                scope: &scope,
+                scope,
                 point,
                 values: &[0., 0.],
                 tolerances: &tolerance,

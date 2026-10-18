@@ -118,24 +118,22 @@ impl SourceIndex {
             if let Some(children) = self.children.get_mut(&parent) {
                 children.retain(|child| *child != id);
             }
-            if let Some(names) = self.named_children.get_mut(&parent) {
-                if let Some(children) = names.get_mut(&row.name) {
-                    children.retain(|child| *child != id);
-                }
+            if let Some(names) = self.named_children.get_mut(&parent)
+                && let Some(children) = names.get_mut(&row.name)
+            {
+                children.retain(|child| *child != id);
             }
             if let Some(guards) = self.guards.get_mut(&parent) {
                 guards.retain(|child| *child != id);
             }
-            if let Some(import) = &row.value.import {
-                if let Some(imports) = self
+            if let Some(import) = &row.value.import
+                && let Some(imports) = self
                     .imported_names
                     .get_mut(&parent)
                     .and_then(|names| names.get_mut(import.alias.as_deref().unwrap_or(&row.name)))
-                {
-                    if let Some(position) = imports.iter().position(|name| *name == row.name) {
-                        imports.remove(position);
-                    }
-                }
+                && let Some(position) = imports.iter().position(|name| *name == row.name)
+            {
+                imports.remove(position);
             }
         } else if let Some(roots) = self.named_roots.get_mut(&row.name) {
             roots.retain(|root| *root != id);

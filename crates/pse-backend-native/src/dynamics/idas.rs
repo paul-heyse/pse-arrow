@@ -5001,6 +5001,22 @@ mod checkpoint_owner_tests {
         matrix: ffi::SUNMatrix,
         linear: ffi::SUNLinearSolver,
     }
+    /// Read one entry from a live one-entry serial vector.
+    unsafe fn scalar(vector: ffi::N_Vector) -> f64 {
+        // SAFETY: the caller supplies a live serial vector with one scalar.
+        let pointer = unsafe { ffi::N_VGetArrayPointer(vector) };
+        // SAFETY: that vector owns this initialized scalar until the call returns.
+        unsafe { *pointer }
+    }
+    /// Write one entry in an exclusively borrowed one-entry serial vector.
+    unsafe fn set_scalar(vector: ffi::N_Vector, value: f64) {
+        // SAFETY: the caller supplies a live, exclusively owned serial vector.
+        let pointer = unsafe { ffi::N_VGetArrayPointer(vector) };
+        // SAFETY: its one scalar is writable and no other access overlaps.
+        unsafe {
+            *pointer = value;
+        }
+    }
     unsafe extern "C" fn decay(
         _time: f64,
         state: ffi::N_Vector,
@@ -5008,46 +5024,71 @@ mod checkpoint_owner_tests {
         residual: ffi::N_Vector,
         _data: *mut c_void,
     ) -> i32 {
-        // SAFETY: IDAS supplies the three live, one-entry serial vectors of this fixture.
+        // SAFETY: IDAS supplies the live one-entry state vector of this fixture.
+        let state = unsafe { scalar(state) };
+        // SAFETY: IDAS supplies the live one-entry rate vector of this fixture.
+        let rate = unsafe { scalar(rate) };
+        // SAFETY: IDAS supplies exclusive writable residual storage of the same size.
         unsafe {
-            *ffi::N_VGetArrayPointer(residual) =
-                *ffi::N_VGetArrayPointer(rate) + *ffi::N_VGetArrayPointer(state);
+            set_scalar(residual, rate + state);
         }
         0
     }
     impl NativeForward {
         fn new(spacing: c_long) -> Self {
             let mut context = std::ptr::null_mut();
-            // SAFETY: all native objects are installed immediately into this private
-            // owner, with compatible one-entry vectors and release order in Drop.
+            // SAFETY: the local output is writable and the serial fixture uses no MPI.
+            assert_eq!(
+                unsafe { ffi::SUNContext_Create(ffi::comm_no_mpi(), &raw mut context) },
+                0
+            );
+            // SAFETY: context is live and this owner requests exactly one scalar.
+            let state = unsafe { ffi::N_VNew_Serial(1, context) };
+            // SAFETY: the same live context owns the matching one-entry rate vector.
+            let rate = unsafe { ffi::N_VNew_Serial(1, context) };
+            assert!(!state.is_null() && !rate.is_null());
+            // SAFETY: state is live, one-entry and exclusively owned here.
             unsafe {
-                assert_eq!(
-                    ffi::SUNContext_Create(ffi::comm_no_mpi(), &raw mut context),
-                    0
-                );
-                let state = ffi::N_VNew_Serial(1, context);
-                let rate = ffi::N_VNew_Serial(1, context);
-                assert!(!state.is_null() && !rate.is_null());
-                *ffi::N_VGetArrayPointer(state) = 1.;
-                *ffi::N_VGetArrayPointer(rate) = -1.;
-                let memory = ffi::IDACreate(context);
-                let matrix = ffi::SUNDenseMatrix(1, 1, context);
-                let linear = ffi::SUNLinSol_Dense(state, matrix, context);
-                let owner = Self {
-                    context,
-                    memory,
-                    state,
-                    rate,
-                    matrix,
-                    linear,
-                };
-                assert!(!memory.is_null() && !matrix.is_null() && !linear.is_null());
-                assert_eq!(ffi::IDAInit(memory, Some(decay), 0., state, rate), 0);
-                assert_eq!(ffi::IDASStolerances(memory, 0.001, 0.001), 0);
-                assert_eq!(ffi::IDASetLinearSolver(memory, linear, matrix), 0);
-                assert_eq!(ffi::IDAAdjInit(memory, spacing, ffi::IDA_HERMITE), 0);
-                owner
+                set_scalar(state, 1.);
             }
+            // SAFETY: rate is live, one-entry and exclusively owned here.
+            unsafe {
+                set_scalar(rate, -1.);
+            }
+            // SAFETY: this fixture exclusively owns the initialized context.
+            let memory = unsafe { ffi::IDACreate(context) };
+            // SAFETY: a one-by-one matrix matches both owned vectors.
+            let matrix = unsafe { ffi::SUNDenseMatrix(1, 1, context) };
+            assert!(!memory.is_null() && !matrix.is_null());
+            // SAFETY: state, matrix and context are live and dimensionally compatible.
+            let linear = unsafe { ffi::SUNLinSol_Dense(state, matrix, context) };
+            let owner = Self {
+                context,
+                memory,
+                state,
+                rate,
+                matrix,
+                linear,
+            };
+            assert!(!linear.is_null());
+            // SAFETY: decay uses the matching live vectors owned through final teardown.
+            assert_eq!(
+                unsafe { ffi::IDAInit(memory, Some(decay), 0., state, rate) },
+                0
+            );
+            // SAFETY: initialized memory receives finite positive scalar tolerances.
+            assert_eq!(unsafe { ffi::IDASStolerances(memory, 0.001, 0.001) }, 0);
+            // SAFETY: the solver and matrix share the memory's context and dimensions.
+            assert_eq!(
+                unsafe { ffi::IDASetLinearSolver(memory, linear, matrix) },
+                0
+            );
+            // SAFETY: initialized private memory receives the supplied positive spacing.
+            assert_eq!(
+                unsafe { ffi::IDAAdjInit(memory, spacing, ffi::IDA_HERMITE) },
+                0
+            );
+            owner
         }
         fn limit(&mut self, maximum: c_long) -> i32 {
             // SAFETY: the owner retains initialized adjoint memory on this thread.
@@ -5056,24 +5097,24 @@ mod checkpoint_owner_tests {
         fn usage(&self) -> (c_long, c_long, i32) {
             let (mut current, mut peak, mut refused) = (0, 0, 0);
             // SAFETY: live owned memory and independent initialized output storage.
-            unsafe {
-                assert_eq!(
+            assert_eq!(
+                unsafe {
                     ffi::IDAGetCheckpointUsage(
                         self.memory,
                         &raw mut current,
                         &raw mut peak,
-                        &raw mut refused
-                    ),
-                    0
-                );
-            }
+                        &raw mut refused,
+                    )
+                },
+                0
+            );
             (current, peak, refused)
         }
         fn solve(&mut self, target: f64, task: i32) -> (i32, f64, f64) {
             let (mut time, mut stored) = (0., 0);
             // SAFETY: live native memory, matching state/rate vectors and local output.
-            unsafe {
-                let flag = ffi::IDASolveF(
+            let flag = unsafe {
+                ffi::IDASolveF(
                     self.memory,
                     target,
                     &raw mut time,
@@ -5081,20 +5122,37 @@ mod checkpoint_owner_tests {
                     self.rate,
                     task,
                     &raw mut stored,
-                );
-                (flag, time, *ffi::N_VGetArrayPointer(self.state))
-            }
+                )
+            };
+            // SAFETY: this owner still retains the one-entry state after native return.
+            let state = unsafe { scalar(self.state) };
+            (flag, time, state)
         }
     }
     impl Drop for NativeForward {
         fn drop(&mut self) {
-            // SAFETY: each resource is private and freed once, consumers before inputs.
+            // SAFETY: this owner frees its private IDAS consumer before its inputs.
             unsafe {
                 ffi::IDAFree(&raw mut self.memory);
+            }
+            // SAFETY: the private solver has no remaining IDAS consumer.
+            unsafe {
                 ffi::SUNLinSolFree(self.linear);
+            }
+            // SAFETY: the private matrix has no remaining native consumer.
+            unsafe {
                 ffi::SUNMatDestroy(self.matrix);
+            }
+            // SAFETY: the private state vector is released exactly once.
+            unsafe {
                 ffi::N_VDestroy(self.state);
+            }
+            // SAFETY: the private rate vector is released exactly once.
+            unsafe {
                 ffi::N_VDestroy(self.rate);
+            }
+            // SAFETY: all objects belonging to this private context are now freed.
+            unsafe {
                 ffi::SUNContext_Free(&raw mut self.context);
             }
         }
@@ -5131,16 +5189,21 @@ mod checkpoint_owner_tests {
             (2, 2, 1),
             "no excess checkpoint ever became resident"
         );
-        // SAFETY: reset physical history and then release the checkpoint population.
+        // SAFETY: this owner exclusively retains its live one-entry state.
         unsafe {
-            *ffi::N_VGetArrayPointer(native.state) = 1.;
-            *ffi::N_VGetArrayPointer(native.rate) = -1.;
-            assert_eq!(
-                ffi::IDAReInit(native.memory, 0., native.state, native.rate),
-                0
-            );
-            assert_eq!(ffi::IDAAdjReInit(native.memory), 0);
+            set_scalar(native.state, 1.);
         }
+        // SAFETY: this owner exclusively retains its live one-entry rate.
+        unsafe {
+            set_scalar(native.rate, -1.);
+        }
+        // SAFETY: reset private memory with its matching owned vectors.
+        assert_eq!(
+            unsafe { ffi::IDAReInit(native.memory, 0., native.state, native.rate) },
+            0
+        );
+        // SAFETY: release the checkpoint population on its sole owning thread.
+        assert_eq!(unsafe { ffi::IDAAdjReInit(native.memory) }, 0);
         assert_eq!(
             native.usage(),
             (0, 2, 0),

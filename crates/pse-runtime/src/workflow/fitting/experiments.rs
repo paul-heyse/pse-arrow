@@ -433,12 +433,11 @@ impl ExperimentTeam {
                     .experiments
                     .iter()
                     .map(|&ei| {
-                        let prior = previous
+                        previous
                             .and_then(|p| {
                                 p.get(&self.problem.declaration.experiments[ei].experiment_id)
                             })
-                            .cloned();
-                        prior
+                            .cloned()
                     })
                     .collect::<Vec<_>>();
                 let request = Request {

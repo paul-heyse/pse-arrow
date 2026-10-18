@@ -4375,10 +4375,9 @@ async fn compiled_blocks_release_successor_before_unrelated_sibling_delivery() {
             );
             assert_eq!(captured.len(), 3);
         } else if fails {
-            let failure = outcome
-                .unwrap()
-                .err()
-                .expect("incomplete original stage must refuse");
+            let Err(failure) = outcome.unwrap() else {
+                panic!("incomplete original stage must refuse");
+            };
             assert!(
                 failure.observed.iterations.is_some(),
                 "all issued native work remains accounted after drain"

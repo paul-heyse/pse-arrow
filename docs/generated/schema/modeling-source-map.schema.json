@@ -147,6 +147,11 @@
           "type": "string"
         },
         {
+          "const": "transpose_directional",
+          "description": "Constraint cotangent pulled back to global coordinates.",
+          "type": "string"
+        },
+        {
           "const": "hessian_action",
           "description": "Weighted second derivative applied directly to one global direction.",
           "type": "string"
@@ -164,6 +169,11 @@
         {
           "const": "jacobian_action",
           "description": "One first directional action with runtime coordinate seeds.",
+          "type": "string"
+        },
+        {
+          "const": "transpose_jacobian_action",
+          "description": "Transpose Jacobian applied to runtime selected-output cotangents.",
           "type": "string"
         },
         {

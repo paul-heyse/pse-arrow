@@ -34,7 +34,7 @@ DetailOutcome = Literal["active", "complete", "sampled", "incomplete"]
 
 DetailRequirement = Literal["sampled", "complete"]
 
-EvaluationDemand = Literal["objective", "constraints", "all", "directional", "hessian_action"]
+EvaluationDemand = Literal["objective", "constraints", "all", "directional", "transpose_directional", "hessian_action"]
 
 FiniteBound = float
 
@@ -62,7 +62,7 @@ ProducerRole = Literal["native_callback", "coordinate_transport", "original_orac
 
 ProductAvailability = Literal["available", "unavailable", "not_requested"]
 
-ProductKind = Literal["selected_partials", "jacobian_action", "weighted_hessian", "weighted_hessian_action"]
+ProductKind = Literal["selected_partials", "jacobian_action", "transpose_jacobian_action", "weighted_hessian", "weighted_hessian_action"]
 
 RawMapContextKind = Literal["unavailable", "inapplicable", "frozen"]
 

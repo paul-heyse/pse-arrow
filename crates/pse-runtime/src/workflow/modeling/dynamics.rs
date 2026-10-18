@@ -6841,9 +6841,9 @@ mod tests {
         }
         let weights = vec![2.; original.values.len()];
         let mut expected = vec![0.; axes];
-        for column in 0..axes {
+        for (column, value) in expected.iter_mut().enumerate() {
             for index in jacobian.col_range(column) {
-                expected[column] += jacobian.val()[index] * weights[jacobian.row_idx()[index]];
+                *value += jacobian.val()[index] * weights[jacobian.row_idx()[index]];
             }
         }
         let mut fresh = prepared

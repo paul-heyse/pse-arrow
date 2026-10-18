@@ -618,7 +618,7 @@ mod tests {
         };
         let mut actual = vec![0.; 3];
         oracle
-            .jacobian_product(&[0.; 3], &action, &mut actual)
+            .jacobian_product(&[0.; 3], action, &mut actual)
             .unwrap();
         assert_eq!(actual, vec![2., 1., 18.]);
         assert_eq!(products.load(Ordering::Relaxed), 1);

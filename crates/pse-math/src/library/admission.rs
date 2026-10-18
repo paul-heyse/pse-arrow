@@ -848,8 +848,8 @@ mod tests {
         let other_cancel = Arc::new(AtomicBool::new(false));
         cache
             .admit_prepare(
-                &expressions.to_vec(),
-                &parameters.to_vec(),
+                expressions.as_ref(),
+                parameters.as_ref(),
                 Optimization {
                     evaluator: Evaluator::CompiledScalar { module_bytes: 4096 },
                     ..options

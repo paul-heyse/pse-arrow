@@ -449,8 +449,8 @@ pub fn execute(
     // An algebraically valid map may transfer one-sided native bounds into a box.
     // Keep the original admitted route unless this selected adapter admits the actual
     // reduced contract and its physical budgets. A required pass reports the refusal.
-    if !initial.is_empty() {
-        if let Err(cause) = step.adapter.admit_contract(
+    if !initial.is_empty()
+        && let Err(cause) = step.adapter.admit_contract(
             &Reduced::contract(&original_contract, &plan, layout_identity),
             &std::collections::BTreeMap::new(),
             step.settings,
@@ -459,15 +459,15 @@ pub fn execute(
                 tolerances: &tolerances,
                 normalization: &normalization,
             },
-        ) {
-            if matches!(input.policy,Policy::Explicit {required,..} if required.contains(&Pass::AffineElimination))
-            {
-                return Err(ProblemError::unsupported(format!(
-                    "required root affine reduced native contract: {cause}"
-                )));
-            }
-            return execution::roots(step, retained, run);
+        )
+    {
+        if matches!(input.policy,Policy::Explicit {required,..} if required.contains(&Pass::AffineElimination))
+        {
+            return Err(ProblemError::unsupported(format!(
+                "required root affine reduced native contract: {cause}"
+            )));
         }
+        return execution::roots(step, retained, run);
     }
     let original = Rc::new(RefCell::new(run.oracle));
     let reduced = Reduced::new(original.clone(), plan.clone(), layout_identity)?;

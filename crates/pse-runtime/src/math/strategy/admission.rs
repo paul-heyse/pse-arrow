@@ -33,6 +33,7 @@ struct State {
     local_bound: Option<WorkObservation>,
     budget_base: WorkObservation,
     budget_local: WorkObservation,
+    #[cfg(any(test, feature = "solver-kinsol"))]
     next_child: usize,
     children: BTreeMap<usize, ChildWork>,
 }
@@ -112,6 +113,7 @@ impl TaskAdmission {
                 local_bound: None,
                 budget_base: zero(),
                 budget_local: zero(),
+                #[cfg(any(test, feature = "solver-kinsol"))]
                 next_child: 0,
                 children: BTreeMap::new(),
             }),
@@ -124,6 +126,7 @@ impl TaskAdmission {
     }
     /// Private local strategy state, sharing only original aggregate permission and
     /// actual work. Concurrent children never reset another child's local ledger.
+    #[cfg(any(test, feature = "solver-kinsol"))]
     pub(crate) fn child(self: &Arc<Self>) -> Result<Arc<Self>, ProblemError> {
         let index = {
             let mut state = self.state()?;
@@ -299,6 +302,7 @@ impl TaskAdmission {
     }
     /// Only the whole issued operation may deregister a child. Native completion,
     /// independent assessment and recovery all retain the same admission identity.
+    #[cfg(any(test, feature = "solver-kinsol"))]
     pub(crate) fn finish_child(&self) -> Result<(), ProblemError> {
         let Some((parent, index)) = &self.parent else {
             return Ok(());

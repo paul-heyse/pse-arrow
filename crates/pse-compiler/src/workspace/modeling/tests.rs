@@ -8017,7 +8017,7 @@ fn implicit_dense_parameter_actions_do_not_construct_unused_complete_jets() {
             .map(|pair| match pair {
                 [left, right] => format!("({left}+{right})"),
                 [only] => only.clone(),
-                _ => unreachable!(),
+                _ => panic!("expected one or two expression terms"),
             })
             .collect();
     }

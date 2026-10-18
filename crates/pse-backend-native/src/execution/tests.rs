@@ -871,7 +871,7 @@ fn settings_identity_is_type_name_independent() {
                     mu_strategy: current.mu_strategy,
                     bound_push: current.bound_push,
                     bound_frac: current.bound_frac,
-                    restart: current.restart.clone(),
+                    restart: current.restart,
                 });
                 pse_ids::document::of(pse_ids::Frame::BackendSettingsV4, &Some(&original))
             } else {

@@ -497,6 +497,10 @@ impl Problem {
         }
         Ok(())
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "one guarded implicit product combines current physical parameters, solved point, exact demand, scope and borrowed consumer"
+    )]
     fn with_product<R>(
         &self,
         program: &ResidualProduct,
@@ -578,6 +582,10 @@ impl Problem {
             Ok(())
         })
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "checked response solve retains caller-owned factor, RHS, solution and error scratch with original tolerance and cancellation"
+    )]
     fn checked_solve(
         &self,
         matrix: &SparseColMat<usize, f64>,
@@ -604,6 +612,10 @@ impl Problem {
             &mut factor.scales,
         )
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "implicit derivative demand retains physical parameters, solved point, current premise, numerical options and original scope"
+    )]
     pub(super) fn demanded_derivatives(
         &self,
         parameters: &[f64],
@@ -746,7 +758,7 @@ impl Problem {
                         &forward,
                         parameters,
                         point,
-                        ProductValues::JacobianAction { direction: &seed },
+                        ProductValues::JacobianAction { direction: seed },
                         cancel,
                         Some(children),
                         |values, _| {
@@ -814,7 +826,7 @@ impl Problem {
                         &transpose,
                         parameters,
                         point,
-                        ProductValues::TransposeJacobianAction { weights: &weights },
+                        ProductValues::TransposeJacobianAction { weights },
                         cancel,
                         Some(children),
                         |values, _| {
@@ -859,7 +871,7 @@ impl Problem {
                         &forward,
                         parameters,
                         point,
-                        ProductValues::JacobianAction { direction: &seed },
+                        ProductValues::JacobianAction { direction: seed },
                         cancel,
                         Some(children),
                         |values, _| {
@@ -906,7 +918,7 @@ impl Problem {
                     &transpose,
                     parameters,
                     point,
-                    ProductValues::TransposeJacobianAction { weights: &weights },
+                    ProductValues::TransposeJacobianAction { weights },
                     cancel,
                     Some(children),
                     |values, _| {
@@ -929,8 +941,8 @@ impl Problem {
                         parameters,
                         point,
                         ProductValues::WeightedHessianAction {
-                            weights: &weights,
-                            direction: &seed,
+                            weights,
+                            direction: seed,
                         },
                         cancel,
                         Some(children),
@@ -954,7 +966,7 @@ impl Problem {
                         &transpose,
                         parameters,
                         point,
-                        ProductValues::TransposeJacobianAction { weights: &dual },
+                        ProductValues::TransposeJacobianAction { weights: dual },
                         cancel,
                         Some(children),
                         |values, _| {

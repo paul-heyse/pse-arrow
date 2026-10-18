@@ -474,12 +474,12 @@ impl ProviderBinding {
         }
         request.check_context(context)?;
         request.check_runtime(runtime)?;
-        if let Some(expected) = runtime.expected_linearization {
-            if expected.binding != self.identity || !self.supports_linearization() {
-                return Err(ProviderError::Contract(
-                    "foreign or unavailable provider linearization".into(),
-                ));
-            }
+        if let Some(expected) = runtime.expected_linearization
+            && (expected.binding != self.identity || !self.supports_linearization())
+        {
+            return Err(ProviderError::Contract(
+                "foreign or unavailable provider linearization".into(),
+            ));
         }
         if inputs.len() != self.spec.inputs.len() || inputs.iter().any(|x| !x.is_finite()) {
             return Err(ProviderError::Contract(

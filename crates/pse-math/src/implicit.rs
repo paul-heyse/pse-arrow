@@ -1009,6 +1009,10 @@ impl Problem {
             &columns,
         )
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "implicit derivatives distinguish solved state, physical parameters, selected columns, numerical premise and private worker ownership"
+    )]
     fn derivatives_from_worker(
         &self,
         parameters: &[f64],
@@ -1237,6 +1241,10 @@ fn check_solve(
         &mut vec![0.; x.nrows()],
     )
 }
+#[allow(
+    clippy::too_many_arguments,
+    reason = "backward-error checking retains independent matrix, solution, RHS and reusable sums/scales under the stated tolerance"
+)]
 fn check_solve_into(
     matrix: &SparseColMat<usize, f64>,
     x: &Mat<f64>,

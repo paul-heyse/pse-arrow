@@ -3276,6 +3276,10 @@ impl TrialEvaluation {
                 self.second[row * self.second_pairs.len() + offset]
             })
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "allocation-reusing projection keeps selected rows, derivative layouts, witnesses and mutable target ownership explicit"
+    )]
     pub(crate) fn project_into(
         &self,
         rows: &[usize],
@@ -5437,6 +5441,10 @@ fn collect_provider_keys(stages: &[CompiledStage], keys: &mut Vec<ProviderKey>) 
         }
     }
 }
+#[allow(
+    clippy::too_many_arguments,
+    reason = "stage evaluation borrows independent frames, layouts, providers, scope and completed visit storage"
+)]
 fn evaluate_stages(
     stages: &mut [CompiledStage],
     frame: &mut [f64],

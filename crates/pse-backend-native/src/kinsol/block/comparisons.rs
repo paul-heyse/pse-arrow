@@ -89,10 +89,10 @@ impl NleOracle for MatrixRoot {
     }
     fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         out.fill(0.);
-        for column in 0..x.len() {
+        for (column, &value) in x.iter().enumerate() {
             for index in self.matrix.symbolic().col_range(column) {
                 out[self.matrix.symbolic().row_idx()[index]] +=
-                    self.matrix.val()[index] * (x[column] - 1.);
+                    self.matrix.val()[index] * (value - 1.);
             }
         }
         for (out, x) in out.iter_mut().zip(x) {
@@ -102,10 +102,10 @@ impl NleOracle for MatrixRoot {
     }
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         out.copy_from_slice(self.matrix.val());
-        for column in 0..x.len() {
+        for (column, &value) in x.iter().enumerate() {
             for index in self.matrix.symbolic().col_range(column) {
                 if self.matrix.symbolic().row_idx()[index] == column {
-                    out[index] += 3. * self.nonlinear * (x[column] - 1.).powi(2);
+                    out[index] += 3. * self.nonlinear * (value - 1.).powi(2);
                 }
             }
         }
@@ -118,10 +118,9 @@ impl NleOracle for MatrixRoot {
         out: &mut [f64],
     ) -> Result<(), ProblemError> {
         out.fill(0.);
-        for column in 0..x.len() {
+        for (column, &seed) in direction.iter().enumerate() {
             for index in self.matrix.symbolic().col_range(column) {
-                out[self.matrix.symbolic().row_idx()[index]] +=
-                    self.matrix.val()[index] * direction[column];
+                out[self.matrix.symbolic().row_idx()[index]] += self.matrix.val()[index] * seed;
             }
         }
         for i in 0..x.len() {
