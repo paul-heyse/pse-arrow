@@ -54,12 +54,14 @@ struct Capture {
     suppressed: usize,
 }
 thread_local! { static ACTIVE: RefCell<Vec<Capture>> = const { RefCell::new(Vec::new()) }; }
-struct Reset;
+struct Reset(bool);
 impl Drop for Reset {
     fn drop(&mut self) {
-        ACTIVE.with(|active| {
-            active.borrow_mut().pop();
-        });
+        if self.0 {
+            ACTIVE.with(|active| {
+                active.borrow_mut().pop();
+            });
+        }
     }
 }
 /// Opaque complete values of actual resolver reads for one successful product.
@@ -90,12 +92,12 @@ pub fn capture<T, E>(
             suppressed: 0,
         })
     });
-    let reset = Reset;
+    let mut reset = Reset(true);
     let value = check()?;
     // Snapshot construction reads underlying maps directly, never recording accessors. It copies
     // only the observed rows and queried index outcomes, never the full context first.
     let state = ACTIVE.with(|active| active.borrow_mut().pop());
-    std::mem::forget(reset);
+    reset.0 = false;
     let Some(state) = state else {
         return Ok((value, None));
     };
@@ -689,39 +691,39 @@ fn project(registry: &QuantityRegistry, reads: &BTreeSet<Read>) -> QuantityRegis
 mod tests {
     use super::*;
     use crate::standard::{StandardInvariantChecker, standard_registry};
-    fn temperature(registry: &QuantityRegistry) -> QuantityTypeId {
-        match registry.physical_name("Temperature").unwrap() {
-            PhysicalName::QuantityType(id) => id,
-            _ => panic!("quantity"),
+    fn temperature(registry: &QuantityRegistry) -> Option<QuantityTypeId> {
+        match registry.physical_name("Temperature")? {
+            PhysicalName::QuantityType(id) => Some(id),
+            PhysicalName::ReferenceState(_) => None,
         }
     }
-    fn facts() -> PhysicalPreconditions {
-        PhysicalPreconditions::new(generated::standard_preconditions()).unwrap()
+    fn facts() -> Result<PhysicalPreconditions, QuantityError> {
+        PhysicalPreconditions::new(generated::standard_preconditions())
     }
-    fn entity(registry: &QuantityRegistry, byte: u8, name: &str) -> QuantityRegistry {
+    fn entity(registry: &QuantityRegistry, byte: u8, name: &str) -> Result<QuantityRegistry, QuantityError> {
         let mut builder = registry.to_builder();
         builder.entity_kind(EntityKind {
             id: EntityKindId::from_id(pse_ids::SemanticId::from_bytes([byte; 16])),
             name: name.into(),
         });
-        builder.build().unwrap()
+        builder.build()
     }
     #[test]
     fn consumed_direct_transitive_and_absent_reads_preserve_unrelated_declarations() {
         let registry = standard_registry().unwrap();
-        let facts = facts();
+        let facts = facts().unwrap();
         let (_, premises) = capture(&registry, &facts, || -> Result<_, QuantityError> {
-            let ty = registry.quantity_type(temperature(&registry))?;
+            let ty = registry.quantity_type(temperature(&registry).unwrap())?;
             registry.unit(ty.canonical_unit)?;
             assert!(registry.physical_name("NeverDeclared").is_none());
             Ok(())
         })
         .unwrap();
         let premises = premises.unwrap();
-        assert!(premises.matches(&entity(&registry, 250, "unrelated"), &facts));
+        assert!(premises.matches(&entity(&registry, 250, "unrelated").unwrap(), &facts));
         let mut builder = registry.to_builder();
         let mut changed = registry
-            .quantity_type(temperature(&registry))
+            .quantity_type(temperature(&registry).unwrap())
             .unwrap()
             .clone();
         changed.id = QuantityTypeId::from_id(pse_ids::SemanticId::from_bytes([249; 16]));
@@ -741,7 +743,7 @@ mod tests {
         assert!(!premises.matches(&builder.build().unwrap(), &facts));
         let mut changed = registry.clone();
         let unit = registry
-            .quantity_type(temperature(&registry))
+            .quantity_type(temperature(&registry).unwrap())
             .unwrap()
             .canonical_unit;
         changed.units.get_mut(&unit).unwrap().scale_to_canonical *= 2.0;
@@ -750,7 +752,7 @@ mod tests {
     #[test]
     fn complete_candidate_buckets_capture_ambiguity_before_short_circuit() {
         let registry = standard_registry().unwrap();
-        let facts = facts();
+        let facts = facts().unwrap();
         let (operation, premises) = capture(&registry, &facts, || -> Result<_, QuantityError> {
             Ok(registry.operations_for(Opcode::Mul).next().unwrap().clone())
         })
@@ -764,16 +766,16 @@ mod tests {
             Ok(registry.entity_kind_named("new-kind"))
         })
         .unwrap();
-        let first = entity(&registry, 246, "new-kind");
-        let second = entity(&first, 245, "new-kind");
+        let first = entity(&registry, 246, "new-kind").unwrap();
+        let second = entity(&first, 245, "new-kind").unwrap();
         assert!(!premises.unwrap().matches(&second, &facts));
     }
     #[test]
     fn negative_complete_key_and_composed_unit_registration_are_dependencies() {
         let registry = standard_registry().unwrap();
-        let facts = facts();
+        let facts = facts().unwrap();
         let mut key = registry
-            .quantity_type(temperature(&registry))
+            .quantity_type(temperature(&registry).unwrap())
             .unwrap()
             .key
             .clone();
@@ -790,7 +792,7 @@ mod tests {
             name: "axis".into(),
         });
         let mut ty = registry
-            .quantity_type(temperature(&registry))
+            .quantity_type(temperature(&registry).unwrap())
             .unwrap()
             .clone();
         ty.id = QuantityTypeId::from_id(pse_ids::SemanticId::from_bytes([243; 16]));
@@ -813,7 +815,7 @@ mod tests {
     #[test]
     fn caught_failures_nested_owners_custom_checker_and_unwind_are_conservative() {
         let registry = standard_registry().unwrap();
-        let facts = facts();
+        let facts = facts().unwrap();
         let (_, outer) = capture(&registry, &facts, || -> Result<_, QuantityError> {
             let inner = capture(&registry, &facts, || -> Result<(), QuantityError> {
                 registry.quantity_type(QuantityTypeId::from_id(
@@ -835,7 +837,7 @@ mod tests {
         let foreign = registry.clone();
         let (_, outer) = capture(&registry, &facts, || -> Result<_, QuantityError> {
             let _ = capture(&foreign, &facts, || {
-                foreign.quantity_type(temperature(&registry))
+                foreign.quantity_type(temperature(&registry).unwrap())
             })?;
             Ok(())
         })
@@ -853,7 +855,7 @@ mod tests {
             });
         });
         let (_, clean) = capture(&registry, &facts, || -> Result<_, QuantityError> {
-            registry.quantity_type(temperature(&registry))?;
+            registry.quantity_type(temperature(&registry).unwrap())?;
             Ok(())
         })
         .unwrap();
@@ -862,7 +864,7 @@ mod tests {
     #[test]
     fn indexed_literal_candidates_preserve_vectors_and_capture_new_scalar_candidate() {
         let registry = standard_registry().unwrap();
-        let facts = facts();
+        let facts = facts().unwrap();
         let scalar = registry.neutral_dimensionless().unwrap();
         let source = registry
             .unit(registry.quantity_type(scalar).unwrap().canonical_unit)
@@ -914,7 +916,7 @@ mod tests {
     #[test]
     fn sparse_declaration_names_are_charged_independently_of_name_indexes() {
         let registry = standard_registry().unwrap();
-        let facts = facts();
+        let facts = facts().unwrap();
         let mut builder = registry.to_builder();
         let scalar = registry.neutral_dimensionless().unwrap();
         let axis = EntityKindId::from_id(pse_ids::SemanticId::from_bytes([233; 16]));
@@ -950,11 +952,11 @@ mod tests {
     #[test]
     fn administrative_suspension_keeps_new_nested_audits_active() {
         let registry = standard_registry().unwrap();
-        let facts = facts();
+        let facts = facts().unwrap();
         let (_, outer) = capture(&registry, &facts, || -> Result<_, QuantityError> {
             without_recording(|| {
                 let (_, inner) = capture(&registry, &facts, || {
-                    registry.quantity_type(temperature(&registry))
+                    registry.quantity_type(temperature(&registry).unwrap())
                 })
                 .unwrap();
                 assert!(!inner.unwrap().reads.is_empty());
