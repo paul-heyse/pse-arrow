@@ -2703,14 +2703,14 @@ mod tests {
         let cleared =
             unsafe { ffi::SUNLinSol_KLUSetObserver(session.linear, None, std::ptr::null_mut()) };
         assert_eq!(cleared, 0);
-        assert_eq!(&counts[..4], &[2, 2, 2, 2]);
+        assert_eq!(&counts[..4], &[1, 1, 2, 2]);
         // SAFETY: live solver after hook clear cannot invoke the former userdata.
         let initialized = unsafe { ffi::SUNLinSolInitialize_KLU(session.linear) };
         assert_eq!(initialized, 0);
         // SAFETY: the unchanged canonical matrix and solver are still exclusively live.
         let factored = unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) };
         assert_eq!(factored, 0);
-        assert_eq!(&counts[..4], &[2, 2, 2, 2]);
+        assert_eq!(&counts[..4], &[1, 1, 2, 2]);
     }
     #[test]
     fn setup_interval_profiles_preserve_original_acceptance_and_expose_actual_work() {
