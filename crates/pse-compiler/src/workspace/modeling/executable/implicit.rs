@@ -566,9 +566,10 @@ impl AdmittedImplicit {
         requirements: pse_kernels::DerivativeRequirements,
     ) -> Result<BTreeMap<pse_kernels::ProviderKey, DerivativeOrder>> {
         let mut demands = BTreeMap::new();
-        let mut add = |body: &Arc<AdmittedBody>, order| -> Result<()> {
-            for (key, required) in body.math.provider_demands_for_outputs(
+        let mut add = |body: &Arc<AdmittedBody>, coordinates: &[usize], order| -> Result<()> {
+            for (key, required) in body.math.provider_demands_for_selection(
                 &(0..body.math.output_count()).collect::<Vec<_>>(),
+                coordinates,
                 order,
             )? {
                 demands
@@ -584,20 +585,21 @@ impl AdmittedImplicit {
             DerivativeOrder::Value
         };
         for residual in &self.residuals {
-            add(&residual.body, requirements.residual_compilation)?;
+            add(&residual.body, &(0..self.unknowns.len()).collect::<Vec<_>>(), requirements.inner_minimum)?;
+            add(&residual.body, &(0..residual.body.math.input_count()).collect::<Vec<_>>(), requirements.requested_output)?;
             for body in residual.hints.iter().chain(&residual.terms) {
-                add(body, DerivativeOrder::Value)?;
+                add(body, &[], DerivativeOrder::Value)?;
             }
             if let Some(assessment) = &residual.assessment {
-                add(&assessment.eligibility, local)?;
-                add(&assessment.criterion, local)?;
+                add(&assessment.eligibility, &(0..assessment.eligibility.math.input_count()).collect::<Vec<_>>(), local)?;
+                add(&assessment.criterion, &(0..assessment.criterion.math.input_count()).collect::<Vec<_>>(), local)?;
             }
         }
         if let Some(body) = &self.selection.anchors {
-            add(body, DerivativeOrder::Value)?;
+            add(body, &[], DerivativeOrder::Value)?;
         }
         if let Some(body) = &self.selection.restriction {
-            add(body, local)?;
+            add(body, &(0..body.math.input_count()).collect::<Vec<_>>(), local)?;
         }
         Ok(demands)
     }
@@ -675,7 +677,7 @@ impl AdmittedImplicit {
                 DerivativeOrder::Value
             };
             let mut bodies = vec![
-                (&residual.body, requirements.residual_compilation, false),
+                (&residual.body, DerivativeOrder::Value, false),
                 (&residual.body, requirements.inner_minimum, true),
             ];
             if matches!(configuration, pse_math::implicit::Configuration::Hints(_)) {
@@ -848,7 +850,7 @@ impl AdmittedImplicit {
             add(&residual.body, requirements.inner_minimum, true, false)?;
             add(
                 &residual.body,
-                requirements.residual_compilation,
+                DerivativeOrder::Value,
                 false,
                 false,
             )?;
@@ -1139,7 +1141,7 @@ impl AdmittedImplicit {
                 spec,
                 bodies: pse_math::implicit::ResidualBodies {
                     unknown: unknown_body,
-                    parameter: compile(&residual.body, requirements.residual_compilation)?,
+                    source: compile(&residual.body, DerivativeOrder::Value)?,
                 },
                 unknowns,
                 rows: residual.rows.clone(),
