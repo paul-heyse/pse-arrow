@@ -123,7 +123,6 @@ impl AlgebraicOracle {
         bound: BoundValues,
         values: Option<CaseValues>,
     ) -> Result<Self, ProblemError> {
-        worker.prepare_providers()?;
         let assembly = worker.assembly();
         if assembly.structure().lexicographic_levels() {
             return Err(ProblemError::Unsupported(
@@ -139,6 +138,7 @@ impl AlgebraicOracle {
             .iter()
             .map(|r| (r.lower, r.upper))
             .collect();
+        worker.prepare_providers()?;
         Ok(Self {
             worker,
             values,
