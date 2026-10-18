@@ -174,3 +174,47 @@ fn narrowed_worker_capability_binds_to_admitted_provider_identity() {
         ProviderRequest::all(&admitted, DerivativeOrder::Second)).unwrap();
     assert!(matches!(bank.bind_request(slot, &mut second), Err(ProviderError::Contract(_))));
 }
+
+#[test]
+fn provider_linearization_rechecks_current_effects_and_refuses_changed_derivative_context() {
+    #[derive(Debug)]
+    struct Linearized { coefficient: Arc<AtomicUsize>, calls: Arc<AtomicUsize>, completed: Option<ContentHash> }
+    impl Provider for Linearized {
+        fn supports_linearization(&self) -> bool { true }
+        fn completed_linearization(&self) -> Option<ContentHash> { self.completed }
+        fn fill(&mut self, _: &[f64], _: &PreparedProviderRequest, _: ProviderRuntime<'_>,
+            output: ProviderOutput<'_>, _: &EvaluationContext<'_>) -> Result<(), ProviderError> {
+            self.calls.fetch_add(1, Ordering::Relaxed);
+            let coefficient = self.coefficient.load(Ordering::Relaxed);
+            output.values.fill(0.);
+            output.jacobian.fill(coefficient as f64);
+            output.hessians.fill(0.);
+            self.completed = Some(ContentHash::from_bytes([coefficient as u8; 32]));
+            Ok(())
+        }
+    }
+    let cancel = Arc::new(AtomicBool::new(false));
+    let context = EvaluationContext { cancelled: &cancel, max_result_bytes: 1024 };
+    let coefficient = Arc::new(AtomicUsize::new(2));
+    let calls = Arc::new(AtomicUsize::new(0));
+    let fresh = || ProviderBinding::new(descriptor(1, 1), Box::new(Linearized {
+        coefficient: coefficient.clone(), calls: calls.clone(), completed: None,
+    }));
+    let mut provider = fresh();
+    let request = provider.prepare(ProviderRequest::all(provider.spec(), DerivativeOrder::First)).unwrap();
+    let mut buffer = ProviderBuffer::new(&request);
+    let token = buffer.fill(&mut provider, &[0.], &request, ProviderRuntime::default(), &context)
+        .unwrap().linearization.unwrap();
+    let runtime = ProviderRuntime { expected_linearization: Some(token), ..Default::default() };
+    assert_eq!(buffer.fill(&mut provider, &[0.], &request, runtime, &context).unwrap().linearization, Some(token));
+    assert_eq!(calls.load(Ordering::Relaxed), 2, "same context still visits current effects");
+    coefficient.store(3, Ordering::Relaxed);
+    assert!(matches!(buffer.fill(&mut provider, &[0.], &request, runtime, &context), Err(ProviderError::LinearizationChanged)));
+    assert_eq!(calls.load(Ordering::Relaxed), 3, "same point and values do not certify derivatives");
+    coefficient.store(2, Ordering::Relaxed);
+    assert!(matches!(buffer.fill(&mut provider, &[1.], &request, runtime, &context), Err(ProviderError::LinearizationChanged)));
+    let mut other = fresh();
+    assert!(matches!(buffer.fill(&mut other, &[0.], &request, runtime, &context), Err(ProviderError::Contract(_))));
+    assert_eq!(calls.load(Ordering::Relaxed), 4, "foreign owner refused before effects");
+    assert!(ProviderError::LinearizationChanged.recoverable());
+}

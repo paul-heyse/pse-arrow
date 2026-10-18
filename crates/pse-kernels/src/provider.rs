@@ -35,6 +35,29 @@ pub struct ProviderRuntime<'a> {
     pub cotangents: &'a [f64],
     /// One weight per selected output for the weighted second product.
     pub weights: &'a [f64],
+    /// Prior owner-sealed context; current effects must re-establish it.
+    pub expected_linearization: Option<ProviderLinearizationToken>,
+}
+
+/// Attempt-local proof of one provider owner's complete derivative context.
+/// It never grants permission to omit a current invocation's effects.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ProviderLinearizationToken {
+    binding: u64,
+    context: ContentHash,
+    inputs: ContentHash,
+}
+impl ProviderLinearizationToken {
+    /// Include an actually visited child premise in its enclosing owner's proof.
+    pub fn frame(&self, hasher: &mut pse_ids::FramedHasher) {
+        hasher.part(&self.binding.to_le_bytes()).part(self.context.as_bytes()).part(self.inputs.as_bytes());
+    }
+    fn seal(binding: u64, context: ContentHash, inputs: &[f64]) -> Self {
+        let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::ProviderConfigurationV1);
+        hash.part(b"attempt-linearization-inputs");
+        for input in inputs { hash.part(&input.to_bits().to_le_bytes()); }
+        Self { binding, context, inputs: hash.finish_hash() }
+    }
 }
 
 /// Checked result extents, in scalar cells.
@@ -203,6 +226,8 @@ pub struct ProviderCompletion<'a> {
     pub jacobian: &'a [f64],
     /// Successfully completed second derivatives or actions.
     pub hessians: &'a [f64],
+    /// Complete derivative premise issued by this actual successful invocation.
+    pub linearization: Option<ProviderLinearizationToken>,
 }
 
 /// Caller-owned admitted scratch; stale or partially filled cells have no read view.
@@ -260,6 +285,11 @@ impl ProviderBinding {
     }
     /// Forward immutable capability through a wrapping binding.
     pub fn supports(&self, demand: &ProviderDemand) -> bool { self.worker.supports(demand) }
+    /// Whether the owner can certify its complete derivative context.
+    pub fn supports_linearization(&self) -> bool { self.worker.supports_linearization() }
+    pub(super) fn completed_linearization(&self) -> Option<ContentHash> {
+        self.worker.completed_linearization()
+    }
     pub(super) fn fill_inner(&mut self, inputs: &[f64], request: &PreparedProviderRequest,
         runtime: ProviderRuntime<'_>, output: ProviderOutput<'_>, context: &EvaluationContext<'_>)
         -> Result<(), ProviderError> {
@@ -278,6 +308,11 @@ impl ProviderBinding {
         }
         request.check_context(context)?;
         request.check_runtime(runtime)?;
+        if let Some(expected) = runtime.expected_linearization {
+            if expected.binding != self.identity || !self.supports_linearization() {
+                return Err(ProviderError::Contract("foreign or unavailable provider linearization".into()));
+            }
+        }
         if inputs.len() != self.spec.inputs.len() || inputs.iter().any(|x| !x.is_finite()) {
             return Err(ProviderError::Contract("provider binding or physical inputs".into()));
         }
@@ -293,7 +328,13 @@ impl ProviderBinding {
         if output.values.iter().chain(output.jacobian.iter()).chain(output.hessians.iter()).any(|x| !x.is_finite()) {
             return Err(ProviderError::Trial("nonfinite or incomplete provider fill".into()));
         }
-        Ok(ProviderCompletion { values: output.values, jacobian: output.jacobian, hessians: output.hessians })
+        let linearization = if self.supports_linearization() {
+            self.completed_linearization().map(|key| ProviderLinearizationToken::seal(self.identity, key, inputs))
+        } else { None };
+        if runtime.expected_linearization.is_some() && runtime.expected_linearization != linearization {
+            return Err(ProviderError::LinearizationChanged);
+        }
+        Ok(ProviderCompletion { values: output.values, jacobian: output.jacobian, hessians: output.hessians, linearization })
     }
 }
 
@@ -321,6 +362,10 @@ impl ProviderBindings {
             context.count("kernel.provider.slot_resolutions", "count", 1);
         }
         self.index.get(&key).copied()
+    }
+    /// Inspect only a selected binding's owner capability before effects.
+    pub fn supports_linearization(&self, key: ProviderKey) -> bool {
+        self.index.get(&key).is_some_and(|&slot| self.slots[slot].supports_linearization())
     }
     /// Validate a prepared request against a stable slot without exposing membership mutation.
     pub fn bind_request(&self, slot: usize, request: &mut PreparedProviderRequest) -> Result<(), ProviderError> {

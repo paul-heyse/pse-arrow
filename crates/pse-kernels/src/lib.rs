@@ -17,7 +17,7 @@ pub mod portable;
 mod shape;
 mod provider;
 pub use provider::{PreparedProviderRequest, ProviderBinding, ProviderBindings, ProviderBuffer,
-    ProviderCompletion, ProviderDemand, ProviderExtents, ProviderOutput, ProviderRuntime};
+    ProviderCompletion, ProviderLinearizationToken, ProviderDemand, ProviderExtents, ProviderOutput, ProviderRuntime};
 pub use pse_model::generated::enums::ExternalDerivativeSource as DerivativeSource;
 pub use shape::{ProviderShape, ProviderShapes};
 
@@ -454,6 +454,11 @@ pub trait Provider: std::fmt::Debug + Send {
     fn supports(&self, demand: &ProviderDemand) -> bool {
         matches!(demand, ProviderDemand::CompleteJets)
     }
+    /// Owner can certify the entire derivative context, including visited children.
+    fn supports_linearization(&self) -> bool { false }
+    /// Complete context from the last successful fill, independent of action seeds.
+    /// None means no complete derivative context was established at that invocation.
+    fn completed_linearization(&self) -> Option<ContentHash> { None }
     /// Compute one coherent state and requested partials.
     /// # Errors
     /// Recoverable trial rejection or terminal library failure.
@@ -493,6 +498,9 @@ pub enum ProviderError {
         /// Actual selected unknown identities, attached by the binding owner.
         members: Vec<SemanticId>,
     },
+    /// Current effects changed the owner-certified complete derivative context.
+    #[error("provider linearization changed during composed derivative evaluation")]
+    LinearizationChanged,
     /// Inadmissible trial point.
     #[error("provider trial rejected: {0}")]
     Trial(String),
@@ -549,7 +557,7 @@ impl ProviderError {
             Self::DerivativeUnavailable { members, .. } => {
                 members.capacity() * size_of::<SemanticId>()
             }
-            Self::Cancelled | Self::Deadline | Self::Limit(_) | Self::RegimeCrossing { .. } => 0,
+            Self::Cancelled | Self::Deadline | Self::Limit(_) | Self::RegimeCrossing { .. } | Self::LinearizationChanged => 0,
         })
     }
     /// A recoverable trial refusal: the outer method may shorten or change its step.
@@ -563,7 +571,7 @@ impl ProviderError {
         }
         matches!(
             self,
-            Self::Trial(_)
+            Self::LinearizationChanged | Self::Trial(_)
                 | Self::OutsideEnvelope { .. }
                 | Self::Singular(_)
                 | Self::RegimeCrossing { .. }
@@ -580,7 +588,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Contract(_) => Some(pse_diagnostics::DiagnosticCode::KernelUnboundParameter),
         Self::DerivativeUnavailable { .. } => Some(pse_diagnostics::DiagnosticCode::CapabilityBackend),
         Self::Terminal(_) => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
-        Self::Trial(_) | Self::OutsideEnvelope {..} | Self::Singular(_) | Self::RegimeCrossing {..} => Some(pse_diagnostics::DiagnosticCode::MathProvider),
+        Self::LinearizationChanged | Self::Trial(_) | Self::OutsideEnvelope {..} | Self::Singular(_) | Self::RegimeCrossing {..} => Some(pse_diagnostics::DiagnosticCode::MathProvider),
     } },
     forward(this) { match this { Self::Nested {cause,..} => Some(cause.as_ref()), _ => None } }, help(_this) { None }, related(_this) { None }, source(_this) { None },
     facts(this) {
@@ -601,7 +609,7 @@ pse_diagnostics::impl_diagnostic! {
                 facts.observe("requested_derivative_order", O::Integer(order(*requested)));
                 facts.observe("available_derivative_order", O::Integer(order(*available)));
             }
-            Self::Nested {..} | Self::Cancelled | Self::Deadline | Self::Limit(_) | Self::Contract(_) | Self::Trial(_) | Self::Singular(_) | Self::Terminal(_) => {}
+            Self::LinearizationChanged | Self::Nested {..} | Self::Cancelled | Self::Deadline | Self::Limit(_) | Self::Contract(_) | Self::Trial(_) | Self::Singular(_) | Self::Terminal(_) => {}
         }
         facts
     }
@@ -675,6 +683,8 @@ impl Provider for ScopedProvider {
     fn supports(&self, demand: &ProviderDemand) -> bool {
         self.inner.supports(demand)
     }
+    fn supports_linearization(&self) -> bool { self.inner.supports_linearization() }
+    fn completed_linearization(&self) -> Option<ContentHash> { self.inner.completed_linearization() }
     fn fill(
         &mut self,
         inputs: &[f64],
@@ -730,6 +740,8 @@ impl Provider for Enveloped {
     fn supports(&self, demand: &ProviderDemand) -> bool {
         self.inner.supports(demand)
     }
+    fn supports_linearization(&self) -> bool { self.inner.supports_linearization() }
+    fn completed_linearization(&self) -> Option<ContentHash> { self.inner.completed_linearization() }
     fn fill(
         &mut self,
         inputs: &[f64],
@@ -830,6 +842,8 @@ impl Provider for ObservedProvider {
     fn supports(&self, demand: &ProviderDemand) -> bool {
         self.inner.supports(demand)
     }
+    fn supports_linearization(&self) -> bool { self.inner.supports_linearization() }
+    fn completed_linearization(&self) -> Option<ContentHash> { self.inner.completed_linearization() }
     fn fill(
         &mut self,
         inputs: &[f64],
