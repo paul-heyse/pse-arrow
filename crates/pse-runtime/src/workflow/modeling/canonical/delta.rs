@@ -7,6 +7,7 @@ use super::*;
 use crate::workflow::SourceDelta;
 use pse_model::generated::authored::documents as document_wire;
 
+#[derive(Clone)]
 pub(in crate::workflow::modeling) struct Parent {
     pub(in crate::workflow::modeling) rows: Vec<Declaration>,
     pub(super) frame: IngressFrame,
@@ -15,6 +16,72 @@ pub(in crate::workflow::modeling) struct Parent {
     pub(super) members: BTreeMap<String, SourceMember>,
     pub(super) fields: BTreeMap<DeclarationId, FieldSpans>,
     pub(super) _leases: Vec<Arc<pse_columnar::AllocationLease>>,
+    product_owner: Option<Arc<pse_columnar::AllocationLease>>,
+}
+
+/// Reconstructible products of one completely admitted immutable revision.
+/// These never supply transport trust or publication authority.
+pub(super) struct Products {
+    parent: Parent,
+    index: SourceIndex,
+    data: Vec<Declaration>,
+    dependencies: BTreeMap<DeclarationId, BTreeSet<Request>>,
+    #[cfg(test)]
+    work: (usize, usize, usize),
+}
+impl std::fmt::Debug for Products {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DeltaProducts").field("declarations", &self.parent.rows.len()).finish_non_exhaustive()
+    }
+}
+impl Products {
+    fn copy_parent(&self, runtime: &Runtime) -> Result<Parent, WorkflowError> {
+        let owner = runtime.shared.math().reserve("modeling:delta-product-copy", self.parent.rows.owned_bytes().saturating_mul(32).saturating_add(65536))?;
+        let mut parent = self.parent.clone();
+        if let Some(previous) = parent.product_owner.take() { parent._leases.retain(|lease| !Arc::ptr_eq(lease, &previous)); }
+        parent._leases.push(owner.clone());
+        parent.product_owner = Some(owner);
+        Ok(parent)
+    }
+}
+impl SourceIndex {
+    /// Full ingress indexes have no pending discovery. Clone immutable admitted
+    /// products; changed rows replace only their buckets and parsed occurrences.
+    fn copy_complete(&self) -> Self {
+        Self {
+            rows: self.rows.clone(), fields: self.fields.clone(), parsed_fields: self.parsed_fields.clone(),
+            children: self.children.clone(), named_children: self.named_children.clone(), named_roots: self.named_roots.clone(),
+            guards: self.guards.clone(), imported_names: self.imported_names.clone(),
+            names: self.names.clone(), imports: self.imports.clone(), scopes: self.scopes.clone(),
+            bases: self.bases.clone(), roots_complete: self.roots_complete,
+            versions: self.versions.clone(), record_sources: self.record_sources.clone(),
+            ..Default::default()
+        }
+    }
+    fn remove_complete(&mut self, id: DeclarationId) {
+        let Some(row) = self.rows.remove(&id) else { return; };
+        self.fields.remove(&id); self.parsed_fields.remove(&id); self.bases.remove(&id);
+        self.scopes.remove(&id); self.imports.remove(&id);
+        if let Some(parent) = row.parent_id {
+            if let Some(children) = self.children.get_mut(&parent) { children.retain(|child| *child != id); }
+            if let Some(names) = self.named_children.get_mut(&parent) {
+                if let Some(children) = names.get_mut(&row.name) { children.retain(|child| *child != id); }
+            }
+            if let Some(guards) = self.guards.get_mut(&parent) { guards.retain(|child| *child != id); }
+            if let Some(import) = &row.value.import {
+                if let Some(imports) = self.imported_names.get_mut(&parent).and_then(|names| names.get_mut(import.alias.as_deref().unwrap_or(&row.name))) {
+                    if let Some(position) = imports.iter().position(|name| *name == row.name) { imports.remove(position); }
+                }
+            }
+        } else if let Some(roots) = self.named_roots.get_mut(&row.name) { roots.retain(|root| *root != id); }
+        self.invalidate_members();
+    }
+    fn traced_references(&mut self, row: &Declaration) -> Result<(BTreeSet<DeclarationId>, BTreeSet<Request>), WorkflowError> {
+        *self.trace.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(BTreeSet::new());
+        let result = self.references(row);
+        let reads = self.trace.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take().unwrap_or_default();
+        Ok((result?, reads))
+    }
 }
 
 /// Validate disjoint intent and existence before any publication or mutation.
@@ -44,28 +111,6 @@ fn intentions<K: Ord + Clone>(
         }
     }
     Ok(touched)
-}
-
-fn source_index(
-    runtime: &Runtime,
-    rows: &[Declaration],
-    fields: &BTreeMap<DeclarationId, FieldSpans>,
-) -> Result<SourceIndex, WorkflowError> {
-    let mut index = SourceIndex {
-        roots_complete: true,
-        ..Default::default()
-    };
-    for row in rows {
-        index.insert((row.clone(), fields.get(&row.declaration_id).cloned()))?;
-        index.parsed_fields.insert(
-            row.declaration_id,
-            parsed_fields(runtime, row, fields.get(&row.declaration_id))?,
-        );
-        index.complete_scope(row.declaration_id);
-        index.complete_imports(row.declaration_id);
-    }
-    index.requests.clear();
-    Ok(index)
 }
 
 /// Only consumed document interpretation premises can invalidate retained data
@@ -98,6 +143,9 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<Parent, WorkflowError> {
         checkpoint(cancel)?;
+        if let Some(products) = self.revision.delta_products.get() {
+            return products.copy_parent(&self.runtime);
+        }
         let (frame, frame_lease) =
             self.source_decode::<IngressFrame>(self.local_object(INGRESS_FRAME)?.as_ref())?;
         let (mut physical, physical_lease) = self
@@ -178,7 +226,7 @@ impl ModelingPackage {
                 "ordered parent metadata differs from semantic source identity",
             ));
         }
-        Ok(Parent {
+        let mut parent = Parent {
             rows,
             frame,
             physical,
@@ -186,7 +234,34 @@ impl ModelingPackage {
             members,
             fields: index.fields,
             _leases: leases,
-        })
+            product_owner: None,
+        };
+        let owner = self.runtime.shared.math().reserve("modeling:delta-products", parent.rows.owned_bytes().saturating_mul(32).saturating_add(65536))?;
+        parent._leases.push(owner.clone());
+        parent.product_owner = Some(owner);
+        let mut index = SourceIndex { roots_complete: true, ..Default::default() };
+        for row in &parent.rows {
+            index.insert((row.clone(), parent.fields.get(&row.declaration_id).cloned()))?;
+            index.complete_scope(row.declaration_id); index.complete_imports(row.declaration_id);
+        }
+        // Typed ingress already owns parsed fields. Avoid serializing them again
+        // merely to rediscover the same parsed-field cache key.
+        for object in self.revision.admitted.objects.values() {
+            if let (Some((row, _)), Some(parsed)) = (&object.declaration, &object.parsed) {
+                index.parsed_fields.insert(row.declaration_id, parsed.clone());
+            }
+        }
+        let mut dependencies = BTreeMap::new();
+        for row in &parent.rows {
+            checkpoint(cancel)?;
+            let (_, reads) = index.traced_references(row)?;
+            dependencies.insert(row.declaration_id, reads);
+        }
+        index.requests.clear();
+        let data = index.data_closure()?;
+        let products = Arc::new(Products { parent, index, data, dependencies, #[cfg(test)] work: (0, 0, 0) });
+        let _ = self.revision.delta_products.set(products.clone());
+        self.revision.delta_products.get().unwrap_or(&products).copy_parent(&self.runtime)
     }
     /// Stage an exact local parent edit; durable recording is a separate CAS effect.
     pub async fn with_delta(
@@ -407,8 +482,9 @@ impl ModelingPackage {
                 .map_err(super::super::super::relation)?,
         );
 
-        let old_data = source_index(&self.runtime, &parent.rows, &parent.fields)?.data_closure()?;
-        let old_data_documents = data_documents(&old_data, &parent.documents)?;
+        let products = self.revision.delta_products.get().ok_or_else(|| contract("delta products absent after exact parent admission"))?;
+        let old_data = &products.data;
+        let old_data_documents = data_documents(old_data, &parent.documents)?;
         let edited_documents = parent
             .rows
             .iter()
@@ -565,30 +641,65 @@ impl ModelingPackage {
             ));
         }
         inventory.field_spans = parent.fields.clone();
-        let mut index = source_index(&self.runtime, &parent.rows, &parent.fields)?;
+        let mut index = products.index.copy_complete();
+        #[cfg(test)]
+        let mut work = (0, 0, 0);
+        let mut invalidated = changed.iter().copied().map(Request::Logical).collect::<BTreeSet<_>>();
+        let mut source_changes = BTreeSet::new();
+        let mut namespace_changed = false;
+        let current = parent.rows.iter().map(|row| (row.declaration_id, row)).collect::<BTreeMap<_, _>>();
+        for id in products.index.rows.keys().chain(current.keys()).copied().collect::<BTreeSet<_>>() {
+            let before = products.index.rows.get(&id);
+            let after = current.get(&id).copied();
+            if before == after && products.index.fields.get(&id) == parent.fields.get(&id) { continue; }
+            source_changes.insert(id);
+            #[cfg(test)] { work.2 += 1; }
+            let same_namespace = before.zip(after).is_some_and(|(a, b)| a.parent_id == b.parent_id && a.name == b.name && a.value.kind == b.value.kind && a.value.import == b.value.import);
+            if !same_namespace {
+                namespace_changed = true;
+                for row in before.into_iter().chain(after) {
+                    invalidated.insert(Request::Name(row.parent_id, row.name.clone()));
+                    if let Some(parent) = row.parent_id {
+                        if row.value.import.is_some() { invalidated.insert(Request::Imports(parent)); }
+                        if row.value.kind == Kind::When { invalidated.insert(Request::Members(parent)); }
+                    }
+                }
+            }
+            index.remove_complete(id);
+            if let Some(row) = after {
+                let fields = parent.fields.get(&id).cloned();
+                index.insert((row.clone(), fields.clone()))?;
+                index.parsed_fields.insert(id, parsed_fields(&self.runtime, row, fields.as_ref())?);
+                index.complete_scope(id); index.complete_imports(id);
+            }
+        }
+        let ranks = parent.rows.iter().enumerate().map(|(rank, row)| (row.declaration_id, rank)).collect::<BTreeMap<_, _>>();
+        for ids in index.children.values_mut().chain(index.guards.values_mut()).chain(index.named_children.values_mut().flat_map(|names| names.values_mut())) {
+            ids.sort_by_key(|id| ranks.get(id).copied());
+        }
+        index.requests.clear();
         inventory.parsed_fields = index.parsed_fields.clone();
-        // Re-resolve every outgoing reference against the merged namespace. This
-        // conservatively covers positive/absent/shadowed/imported bindings and stable
-        // names whose expression bytes changed, without trusting a spelling shortcut.
+        let mut dependencies = products.dependencies.clone();
+        dependencies.retain(|id, _| current.contains_key(id));
         for row in &parent.rows {
             checkpoint(cancel)?;
-            let references = index
-                .references(row)?
-                .into_iter()
-                .map(|id| {
-                    let target = &index.rows[&id];
-                    (scope(target.parent_id), target.name.clone())
-                })
-                .collect();
-            edits.insert(
-                logical(row.declaration_id),
-                typed.declaration(
-                    row,
-                    parent.fields.get(&row.declaration_id).cloned(),
-                    index.parsed_fields[&row.declaration_id].clone(),
-                    references,
-                )?,
-            );
+            let affected = source_changes.contains(&row.declaration_id)
+                || dependencies.get(&row.declaration_id).is_none_or(|reads| !reads.is_disjoint(&invalidated))
+                || parent.physical != original_physical;
+            if !affected { continue; }
+            if let Some(context) = pse_diagnostics::observation::current() { context.count("modeling.delta.examined_references", "declarations", 1); }
+            #[cfg(test)] { work.0 += 1; }
+            let (references, reads) = index.traced_references(row)?;
+            dependencies.insert(row.declaration_id, reads);
+            let references = references.into_iter().map(|id| {
+                let target = &index.rows[&id];
+                (scope(target.parent_id), target.name.clone())
+            }).collect::<Vec<_>>();
+            let previous = self.revision.admitted.objects.get(&logical(row.declaration_id));
+            if !source_changes.contains(&row.declaration_id) && previous.is_some_and(|old| old.references == references) { continue; }
+            if let Some(context) = pse_diagnostics::observation::current() { context.count("modeling.delta.canonical_declarations", "declarations", 1); }
+            #[cfg(test)] { work.1 += 1; }
+            edits.insert(logical(row.declaration_id), typed.declaration(row, parent.fields.get(&row.declaration_id).cloned(), index.parsed_fields[&row.declaration_id].clone(), references)?);
         }
         for id in removals {
             let member = parent
@@ -598,9 +709,13 @@ impl ModelingPackage {
             edits.insert(member.logical.clone(), removal(member));
         }
         index.requests.clear();
-        let new_data = index.data_closure()?;
+        // Data closure depends on resolved namespace and actual supplier rows.
+        // Source-only scalar/default edits outside the retained closure reuse it.
+        let old_data_ids = old_data.iter().map(|row| row.declaration_id).collect::<BTreeSet<_>>();
+        let data_changed = namespace_changed || changed.iter().any(|id| old_data_ids.contains(id) || current.get(id).is_some_and(|row| row.value.entity.is_some() || row.value.dataset.is_some() || matches!(row.value.kind, Kind::EntityKind | Kind::IdentifierScheme)));
+        let new_data = if data_changed { index.data_closure()? } else { old_data.clone() };
         let new_data_documents = data_documents(&new_data, &parent.documents)?;
-        if new_data != old_data
+        if &new_data != old_data
             || new_data_documents != old_data_documents
             || parent.physical != original_physical
             || document_changes
@@ -663,7 +778,7 @@ impl ModelingPackage {
                 )?;
                 let data = self.runtime.shared.math().modeling_revision(
                     &workspace,
-                    new_data,
+                    new_data.clone(),
                     parent.physical.clone(),
                     Arc::new(inventory),
                     &self.physical.key,
@@ -833,6 +948,13 @@ impl ModelingPackage {
             let admitted = AdmittedModelRevision::apply_inputs(&self.runtime, Some(&self.revision.admitted), &edits, &typed, Some(cancel))?;
             SourceRevision::admitted(admitted, identity, None, None)?
         };
+        let retained = self.runtime.shared.math().reserve("modeling:delta-products", parent.rows.owned_bytes().saturating_mul(32).saturating_add(65536))?;
+        if let Some(previous) = parent.product_owner.take() { parent._leases.retain(|lease| !Arc::ptr_eq(lease, &previous)); }
+        parent._leases.push(retained.clone());
+        parent.product_owner = Some(retained);
+        parent.members = revision.admitted.objects.values().map(|object| (object.logical.clone(), SourceMember::from(object.as_ref()))).collect();
+        let next_products = Arc::new(Products { parent, index, data: new_data, dependencies, #[cfg(test)] work });
+        let _ = revision.delta_products.set(next_products);
         Ok(Self {revision,held_preparation:None,..self.clone()})
 
         }).await
@@ -883,6 +1005,72 @@ mod tests {
             .delta_parent(&crate::CancelSource::new())
             .await
             .unwrap()
+    }
+
+    fn parse(text: &str) -> Vec<Declaration> {
+        pse_authoring::language::parse(text, SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap()
+    }
+    async fn compare_fresh(package: &ModelingPackage, rows: Vec<Declaration>) {
+        let fresh = package.runtime.modeling_package(rows.clone(), crate::workflow::tests::physical()).await.unwrap();
+        assert_eq!(package.revision.identity(), fresh.revision.identity());
+        assert_eq!(&*package.declarations().await.unwrap(), rows.as_slice());
+        for row in rows {
+            let key = logical(row.declaration_id);
+            assert_eq!(package.revision.admitted.objects[&key].references, fresh.revision.admitted.objects[&key].references, "fresh binding oracle: {}", row.name);
+            assert_eq!(package.revision.admitted.objects[&key].payload, fresh.revision.admitted.objects[&key].payload);
+        }
+    }
+
+    #[tokio::test]
+    async fn delta_products_local_default_reuses_unrelated_parsed_and_canonical_products() {
+        for inventory in [8, 32, 128] {
+            let mut text = "package p { def Root { param k:Scalar=1; var x:Scalar; eq a:x==k; }".to_owned();
+            for i in 0..inventory { text.push_str(&format!("param spare{i}:Scalar={i};")); }
+            text.push('}');
+            let mut rows = parse(&text);
+            let runtime = crate::workflow::tests::runtime();
+            let original = runtime.modeling_package(rows.clone(), crate::workflow::tests::physical()).await.unwrap();
+            let _ = original.delta_parent(&crate::CancelSource::new()).await.unwrap();
+            let retained = original.revision.delta_products.get().unwrap();
+            let id = rows.iter().find(|row| row.name == "k").unwrap().declaration_id;
+            let spare = rows.iter().find(|row| row.name == "spare0").unwrap().declaration_id;
+            let mut replacement = parse("package p { def Root { param k:Scalar=2; } }").into_iter().find(|row| row.name == "k").unwrap();
+            let old = rows.iter_mut().find(|row| row.declaration_id == id).unwrap();
+            replacement.source_start = old.source_start; replacement.source_end = old.source_end;
+            *old = replacement.clone();
+            let changed = original.with_delta(SourceDelta { parent: original.revision_id().into(), replacements: vec![replacement], ..Default::default() }, &crate::CancelSource::new()).await.unwrap();
+            let products = changed.revision.delta_products.get().unwrap();
+            assert_eq!(products.work, (1, 1, 1), "unrelated inventory cannot increase local reference/serialization/index work");
+            assert!(Arc::ptr_eq(&retained.index.parsed_fields[&spare], &products.index.parsed_fields[&spare]));
+            assert!(Arc::ptr_eq(&original.revision.admitted.objects[&logical(spare)], &changed.revision.admitted.objects[&logical(spare)]));
+            eprintln!("delta-products inventory={inventory} examined={} canonical={} updated_index_rows={} copied_index_rows={} retained={}", products.work.0, products.work.1, products.work.2, products.index.rows.len(), products.parent.product_owner.as_ref().unwrap().size());
+            compare_fresh(&changed, rows).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn delta_products_absence_shadow_import_delete_order_and_span_match_fresh() {
+        let sources = [
+            "package q { param x:Scalar=3; } package p { param x:Scalar=1; def Root { eq a:x==missing; } }",
+            "package q { param x:Scalar=3; } package p { param x:Scalar=1; def Root { param missing:Scalar=4; eq a:x==missing; } }",
+            "package q { param x:Scalar=3; } package p { param x:Scalar=1; def Root { param x:Scalar=2; param missing:Scalar=4; eq a:x==missing; } }",
+            "package q { param x:Scalar=3; } package p { import q; param x:Scalar=1; def Root { param missing:Scalar=4; eq a:q.x==missing; } }",
+            "package q { param x:Scalar=3; } package p { param x:Scalar=1; def Root { eq a:x==missing; } }",
+        ];
+        let runtime = crate::workflow::tests::runtime();
+        let mut current = runtime.modeling_package(parse(sources[0]), crate::workflow::tests::physical()).await.unwrap();
+        for source in &sources[1..] {
+            let rows = parse(source);
+            current = current.with_declarations(rows.clone()).await.unwrap();
+            compare_fresh(&current, rows).await;
+        }
+        let mut rows = current.declarations().await.unwrap().to_vec();
+        rows.reverse();
+        current = current.with_declarations(rows.clone()).await.unwrap();
+        compare_fresh(&current, rows.clone()).await;
+        for row in &mut rows { row.source_start += 7; row.source_end += 7; }
+        current = current.with_declarations(rows.clone()).await.unwrap();
+        compare_fresh(&current, rows).await;
     }
 
     #[tokio::test]

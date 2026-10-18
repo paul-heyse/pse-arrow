@@ -136,6 +136,7 @@ pub(in crate::workflow) struct SourceRevision {
     lineage_id: String,
     generation: i64,
     head: Arc<std::sync::Mutex<local::LocalHead>>,
+    delta_products: Arc<std::sync::OnceLock<Arc<delta::Products>>>,
 }
 impl SourceRevision {
     pub(in crate::workflow) fn identity(&self) -> SourceRevisionHash {
@@ -320,6 +321,7 @@ impl SourceRevision {
                     lineage_id: previous.lineage_id.clone(),
                     generation,
                     head: previous.head.clone(),
+                    delta_products: Default::default(),
                 });
             }
         }
@@ -336,6 +338,7 @@ impl SourceRevision {
             lineage_id,
             generation: 0,
             head,
+            delta_products: Default::default(),
         })
     }
 }
@@ -956,7 +959,23 @@ enum Request {
 }
 
 #[derive(Default)]
+struct ReferenceTrace(std::sync::Mutex<Option<BTreeSet<Request>>>);
+impl ReferenceTrace {
+    fn record(&self, request: Request) {
+        if let Some(reads) = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_mut() {
+            reads.insert(request);
+        }
+    }
+    fn read(&self, owner: DeclarationId) { self.record(Request::Logical(owner)); }
+    fn name(&self, parent: Option<DeclarationId>, name: &str) { self.record(Request::Name(parent, name.into())); }
+    fn active(&self) -> bool {
+        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_some()
+    }
+}
+
+#[derive(Default)]
 struct SourceIndex {
+    trace: ReferenceTrace,
     rows: BTreeMap<DeclarationId, Declaration>,
     fields: BTreeMap<DeclarationId, FieldSpans>,
     parsed_fields:
@@ -1302,6 +1321,7 @@ impl SourceIndex {
     fn type_bound(&self, mut owner: DeclarationId, name: &str) -> bool {
         let mut seen = BTreeSet::new();
         while seen.insert(owner) {
+            self.trace.read(owner);
             let Some(row) = self.rows.get(&owner) else {
                 return false;
             };
@@ -1333,6 +1353,9 @@ impl SourceIndex {
         name: &str,
         found: &mut BTreeSet<DeclarationId>,
     ) -> bool {
+        self.trace.read(owner);
+        self.trace.name(Some(owner), name);
+        self.trace.record(Request::Members(owner));
         let mut ready = true;
         found.extend(
             self.named_children
@@ -1417,9 +1440,11 @@ impl SourceIndex {
 }
 impl LexicalLookup for SourceIndex {
     fn declaration(&self, id: DeclarationId) -> Option<&Declaration> {
+        self.trace.read(id);
         self.rows.get(&id)
     }
     fn bound(&self, owner: DeclarationId, name: &str) -> bool {
+        self.trace.read(owner);
         self.rows.get(&owner).is_some_and(|row| {
             row.value
                 .scope
@@ -1459,6 +1484,8 @@ impl LexicalLookup for SourceIndex {
         })
     }
     fn imported(&mut self, owner: DeclarationId, name: &str) -> Lookup {
+        self.trace.read(owner);
+        self.trace.record(Request::Imports(owner));
         if self
             .rows
             .get(&owner)
@@ -1480,6 +1507,7 @@ impl LexicalLookup for SourceIndex {
         }
         let mut found = Vec::new();
         for import in imports {
+            self.trace.name(None, import);
             if !self.roots_complete && !self.has_name(None, import) {
                 self.requests.insert(Request::Name(None, import.clone()));
                 return Lookup::Pending;
@@ -1501,8 +1529,10 @@ impl LexicalLookup for SourceIndex {
         }
     }
     fn member(&mut self, owner: DeclarationId, name: &str) -> Lookup {
+        self.trace.read(owner);
+        self.trace.name(Some(owner), name);
         let root = self.probing.is_empty();
-        if root
+        if root && !self.trace.active()
             && let Some(result) = self
                 .member_memo
                 .get(&owner)
