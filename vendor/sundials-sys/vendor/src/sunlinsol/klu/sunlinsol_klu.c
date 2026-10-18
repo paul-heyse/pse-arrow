@@ -17,10 +17,8 @@
  * -----------------------------------------------------------------*/
 
 #include <stdint.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include <sundials/sundials_errors.h>
 #include <sundials/sundials_math.h>
@@ -56,126 +54,6 @@ static void observe_work(SUNLinearSolver S, int phase, int begin) {
   if (KLU_CONTENT(S)->observer) {
     KLU_CONTENT(S)->observer(phase, begin, KLU_CONTENT(S)->observer_data);
   }
-}
-
-/* This key owns only structure and explicit input settings. KLU output
- * statistics, matrix allocation capacity and addresses grant no compatibility. */
-struct SUNLinearSolver_KLUSymbolicKey {
-  sunindextype n, nnz;
-  double tol, memgrow, initmem_amd, initmem, maxwork;
-  sunindextype btf, ordering, scale, halt_if_singular;
-  sunindextype* indices;
-};
-#define KEY(S) (KLU_CONTENT(S)->symbolic_key)
-#define RETAIN(S) (KLU_CONTENT(S)->retain_symbolic)
-#define VALID(S) (KLU_CONTENT(S)->numeric_valid)
-
-size_t SUNLinSol_KLUSymbolicKeyCapacity(sunindextype n, sunindextype nnz)
-{
-  if (n < 0 || nnz < 0 || (uint64_t)n >= SIZE_MAX / sizeof(sunindextype) ||
-      (uint64_t)nnz > SIZE_MAX / sizeof(sunindextype) - (size_t)n - 1)
-    return SIZE_MAX;
-  size_t payload = ((size_t)n + 1 + (size_t)nnz) * sizeof(sunindextype);
-  if (payload > SIZE_MAX - sizeof(struct SUNLinearSolver_KLUSymbolicKey)) return SIZE_MAX;
-  return payload + sizeof(struct SUNLinearSolver_KLUSymbolicKey);
-}
-
-size_t SUNLinSol_KLUSymbolicKeyBytes(SUNLinearSolver S)
-{
-  if (!S || !S->content || SUNLinSolGetID(S) != SUNLINEARSOLVER_KLU || !KEY(S)) return 0;
-  return SUNLinSol_KLUSymbolicKeyCapacity(KEY(S)->n, KEY(S)->nnz);
-}
-
-static void free_key(SUNLinearSolver S)
-{
-  if (KEY(S)) { free(KEY(S)->indices); free(KEY(S)); KEY(S) = NULL; }
-}
-
-static int key_eligible(SUNLinearSolver S, SUNMatrix A)
-{
-  if (!A || SUNMatGetID(A) != SUNMATRIX_SPARSE) return 0;
-  if (KLU_CONTENT(S)->sparse_type != CSC_MAT || SUNSparseMatrix_SparseType(A) != CSC_MAT ||
-      SUNSparseMatrix_Rows(A) != SUNSparseMatrix_Columns(A) ||
-      SUNSparseMatrix_NP(A) != SUNSparseMatrix_Columns(A) ||
-      COMMON(S).ordering < 0 || COMMON(S).ordering > 1 ||
-      COMMON(S).user_order || COMMON(S).user_data || COMMON(S).halt_if_singular != 1 ||
-      !isfinite(COMMON(S).tol) || COMMON(S).tol < 0.0 || COMMON(S).tol > 1.0 ||
-      !isfinite(COMMON(S).memgrow) || COMMON(S).memgrow < 1.0 ||
-      !isfinite(COMMON(S).initmem_amd) || COMMON(S).initmem_amd < 1.0 ||
-      !isfinite(COMMON(S).initmem) || COMMON(S).initmem < 1.0 ||
-      !isfinite(COMMON(S).maxwork))
-    return 0;
-  sunindextype n = SUNSparseMatrix_NP(A);
-  sunindextype* p = SUNSparseMatrix_IndexPointers(A);
-  sunindextype* r = SUNSparseMatrix_IndexValues(A);
-  if (n <= 0 || !p || p[0] != 0 || p[n] < 0 || p[n] > SUNSparseMatrix_NNZ(A) ||
-      (p[n] && !r)) return 0;
-  for (sunindextype c = 0; c < n; ++c) {
-    if (p[c] < 0 || p[c] > p[c+1] || p[c+1] > p[n]) return 0;
-    for (sunindextype k = p[c]; k < p[c+1]; ++k)
-      if (r[k] < 0 || r[k] >= n || (k > p[c] && r[k-1] >= r[k])) return 0;
-  }
-  return SUNLinSol_KLUSymbolicKeyCapacity(n, p[n]) != SIZE_MAX;
-}
-
-static int key_matches(SUNLinearSolver S, SUNMatrix A)
-{
-  struct SUNLinearSolver_KLUSymbolicKey* k = KEY(S);
-  if (!k || !key_eligible(S, A)) return 0;
-  sunindextype n = SUNSparseMatrix_NP(A);
-  sunindextype* p = SUNSparseMatrix_IndexPointers(A);
-  if (n != k->n || p[n] != k->nnz) return 0;
-#define SAME_REAL(field) (memcmp(&k->field, &COMMON(S).field, sizeof(double)) == 0)
-  if (!SAME_REAL(tol) || !SAME_REAL(memgrow) || !SAME_REAL(initmem_amd) ||
-      !SAME_REAL(initmem) || !SAME_REAL(maxwork) || k->btf != COMMON(S).btf ||
-      k->ordering != COMMON(S).ordering || k->scale != COMMON(S).scale ||
-      k->halt_if_singular != COMMON(S).halt_if_singular) return 0;
-#undef SAME_REAL
-  return !memcmp(k->indices, p, ((size_t)n + 1) * sizeof(sunindextype)) &&
-    (!k->nnz || !memcmp(k->indices + n + 1, SUNSparseMatrix_IndexValues(A),
-                       (size_t)k->nnz * sizeof(sunindextype)));
-}
-
-static int save_key(SUNLinearSolver S, SUNMatrix A)
-{
-  sunindextype n = SUNSparseMatrix_NP(A);
-  sunindextype nnz = SUNSparseMatrix_IndexPointers(A)[n];
-  size_t bytes = SUNLinSol_KLUSymbolicKeyCapacity(n, nnz);
-  struct SUNLinearSolver_KLUSymbolicKey* k = malloc(sizeof *k);
-  if (!k) return 0;
-  k->indices = malloc(bytes - sizeof *k);
-  if (!k->indices) { free(k); return 0; }
-  k->n = n; k->nnz = nnz;
-#define COPY_INPUT(field) k->field = COMMON(S).field
-  COPY_INPUT(tol); COPY_INPUT(memgrow); COPY_INPUT(initmem_amd); COPY_INPUT(initmem);
-  COPY_INPUT(maxwork); COPY_INPUT(btf); COPY_INPUT(ordering); COPY_INPUT(scale);
-  COPY_INPUT(halt_if_singular);
-#undef COPY_INPUT
-  memcpy(k->indices, SUNSparseMatrix_IndexPointers(A), ((size_t)n + 1) * sizeof(sunindextype));
-  if (nnz) memcpy(k->indices + n + 1, SUNSparseMatrix_IndexValues(A), (size_t)nnz * sizeof(sunindextype));
-  KEY(S) = k;
-  return 1;
-}
-
-SUNErrCode SUNLinSol_KLUInvalidateNumeric(SUNLinearSolver S)
-{
-  if (!S || !S->content) return SUN_ERR_ARG_CORRUPT;
-  if (SUNLinSolGetID(S) != SUNLINEARSOLVER_KLU) return SUN_ERR_ARG_INCOMPATIBLE;
-  VALID(S) = 0; FIRSTFACTORIZE(S) = 1;
-  if (NUMERIC(S)) sun_klu_free_numeric(&NUMERIC(S), &COMMON(S));
-  return SUN_SUCCESS;
-}
-
-SUNErrCode SUNLinSol_KLUSetSymbolicReuse(SUNLinearSolver S, int enabled)
-{
-  if (!S || !S->content) return SUN_ERR_ARG_CORRUPT;
-  if (SUNLinSolGetID(S) != SUNLINEARSOLVER_KLU || (enabled != 0 && enabled != 1))
-    return SUN_ERR_ARG_INCOMPATIBLE;
-  SUNLinSol_KLUInvalidateNumeric(S);
-  if (SYMBOLIC(S)) sun_klu_free_symbolic(&SYMBOLIC(S), &COMMON(S));
-  free_key(S);
-  RETAIN(S) = enabled;
-  return SUN_SUCCESS;
 }
 
 /*
@@ -238,10 +116,6 @@ SUNLinearSolver SUNLinSol_KLU(N_Vector y, SUNMatrix A, SUNContext sunctx)
   /* Fill content */
   content->last_flag       = 0;
   content->first_factorize = 1;
-  content->retain_symbolic = 0;
-  content->sparse_type = SUNSparseMatrix_SparseType(A);
-  content->numeric_valid = 0;
-  content->symbolic_key = NULL;
   content->work = (SUNLinearSolver_KLUWork){0};
   content->observer = NULL;
   content->observer_data = NULL;
@@ -305,8 +179,6 @@ SUNErrCode SUNLinSol_KLUReInit(SUNLinearSolver S, SUNMatrix A, sunindextype nnz,
   if (SYMBOLIC(S) != NULL) { sun_klu_free_symbolic(&SYMBOLIC(S), &COMMON(S)); }
   if (NUMERIC(S) != NULL) { sun_klu_free_numeric(&NUMERIC(S), &COMMON(S)); }
   FIRSTFACTORIZE(S) = 1;
-  VALID(S) = 0;
-  free_key(S);
 
   LASTFLAG(S) = SUN_SUCCESS;
   return SUN_SUCCESS;
@@ -390,10 +262,8 @@ SUNLinearSolver_ID SUNLinSolGetID_KLU(SUNDIALS_MAYBE_UNUSED SUNLinearSolver S)
 
 SUNErrCode SUNLinSolInitialize_KLU(SUNLinearSolver S)
 {
-  if (!S || !S->content) return SUN_ERR_ARG_CORRUPT;
-  /* Candidate retains only symbolic state; each application factors afresh. */
-  if (RETAIN(S)) SUNLinSol_KLUInvalidateNumeric(S);
-  else FIRSTFACTORIZE(S) = 1;
+  /* Force factorization */
+  FIRSTFACTORIZE(S) = 1;
 
   LASTFLAG(S) = SUN_SUCCESS;
   return (LASTFLAG(S));
@@ -406,10 +276,6 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
 
   if (!S || !S->content) { return SUN_ERR_ARG_CORRUPT; }
   COUNT_WORK(S, setup_issued);
-  if (RETAIN(S)) {
-    if (!VALID(S)) SUNLinSol_KLUInvalidateNumeric(S);
-    VALID(S) = 0;
-  }
   if (!A) { LASTFLAG(S) = SUN_ERR_ARG_CORRUPT; return LASTFLAG(S); }
   uround_twothirds = SUNRpowerR(SUN_UNIT_ROUNDOFF, TWOTHIRDS);
 
@@ -420,42 +286,24 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
     return (LASTFLAG(S));
   }
 
-  if (RETAIN(S)) {
-    if (!key_eligible(S, A)) {
-      SUNLinSol_KLUInvalidateNumeric(S);
-      if (SYMBOLIC(S)) sun_klu_free_symbolic(&SYMBOLIC(S), &COMMON(S));
-      free_key(S);
-      LASTFLAG(S) = SUN_ERR_ARG_INCOMPATIBLE;
-      return LASTFLAG(S);
-    }
-    if (!key_matches(S, A)) {
-      SUNLinSol_KLUInvalidateNumeric(S);
-      if (SYMBOLIC(S)) sun_klu_free_symbolic(&SYMBOLIC(S), &COMMON(S));
-      free_key(S);
-      if (!save_key(S, A)) { LASTFLAG(S) = SUN_ERR_MEM_FAIL; return LASTFLAG(S); }
-    }
-  }
-
   /* On first decomposition, get the symbolic factorization */
   if (FIRSTFACTORIZE(S))
   {
-    /* Perform analysis unless the complete opt-in key still qualifies. */
-    if (!RETAIN(S) || !SYMBOLIC(S)) {
-      if (SYMBOLIC(S)) { sun_klu_free_symbolic(&SYMBOLIC(S), &COMMON(S)); }
-      COUNT_WORK(S, symbolic_issued);
-      observe_work(S, 1, 1);
-      SYMBOLIC(S) = sun_klu_analyze(SUNSparseMatrix_NP(A),
-                                    SUNSparseMatrix_IndexPointers(A),
-                                    SUNSparseMatrix_IndexValues(A), &COMMON(S));
-      observe_work(S, 1, 0);
-      if (SYMBOLIC(S) == NULL)
-      {
-        LASTFLAG(S) = SUN_ERR_EXT_FAIL;
-        return (LASTFLAG(S));
-      }
-  
-      COUNT_WORK(S, symbolic_completed);
+    /* Perform symbolic analysis of sparsity structure */
+    if (SYMBOLIC(S)) { sun_klu_free_symbolic(&SYMBOLIC(S), &COMMON(S)); }
+    COUNT_WORK(S, symbolic_issued);
+    observe_work(S, 1, 1);
+    SYMBOLIC(S) = sun_klu_analyze(SUNSparseMatrix_NP(A),
+                                  SUNSparseMatrix_IndexPointers(A),
+                                  SUNSparseMatrix_IndexValues(A), &COMMON(S));
+    observe_work(S, 1, 0);
+    if (SYMBOLIC(S) == NULL)
+    {
+      LASTFLAG(S) = SUN_ERR_EXT_FAIL;
+      return (LASTFLAG(S));
     }
+
+    COUNT_WORK(S, symbolic_completed);
 
     /* ------------------------------------------------------------
        Compute the LU factorization of the matrix
@@ -550,7 +398,6 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
     }
   }
 
-  if (RETAIN(S)) VALID(S) = 1;
   COUNT_WORK(S, setup_completed);
   LASTFLAG(S) = SUN_SUCCESS;
   return (LASTFLAG(S));
@@ -564,15 +411,9 @@ int SUNLinSolSolve_KLU(SUNLinearSolver S, SUNMatrix A, N_Vector x, N_Vector b,
 
   if (S && S->content) { COUNT_WORK(S, solve_issued); }
   /* check for valid inputs */
-  if ((A == NULL) || (S == NULL) || !S->content || (x == NULL) || (b == NULL))
+  if ((A == NULL) || (S == NULL) || (x == NULL) || (b == NULL))
   {
     return SUN_ERR_ARG_CORRUPT;
-  }
-
-  if (RETAIN(S) && (!VALID(S) || !NUMERIC(S) || !key_matches(S, A))) {
-    SUNLinSol_KLUInvalidateNumeric(S);
-    LASTFLAG(S) = SUN_ERR_ARG_INCOMPATIBLE;
-    return LASTFLAG(S);
   }
 
   /* copy b into x */
@@ -624,7 +465,6 @@ SUNErrCode SUNLinSolFree_KLU(SUNLinearSolver S)
   {
     if (NUMERIC(S)) { sun_klu_free_numeric(&NUMERIC(S), &COMMON(S)); }
     if (SYMBOLIC(S)) { sun_klu_free_symbolic(&SYMBOLIC(S), &COMMON(S)); }
-    free_key(S);
     free(S->content);
     S->content = NULL;
   }

@@ -27,7 +27,6 @@
 #define _SUNLINSOL_KLU_H
 
 #include <stdint.h>
-#include <stddef.h>
 #include <sundials/sundials_linearsolver.h>
 #include <sundials/sundials_matrix.h>
 #include <sundials/sundials_nvector.h>
@@ -110,16 +109,10 @@ typedef struct {
  * is taken from this observer; caller owns userdata until it clears the hook. */
 typedef void (*SUNLinearSolver_KLUObserver)(int phase, int begin, void* userdata);
 
-struct SUNLinearSolver_KLUSymbolicKey;
-
 struct _SUNLinearSolverContent_KLU
 {
   int last_flag;
   int first_factorize;
-  int retain_symbolic;
-  int sparse_type;
-  int numeric_valid;
-  struct SUNLinearSolver_KLUSymbolicKey* symbolic_key;
   SUNLinearSolver_KLUWork work;
   SUNLinearSolver_KLUObserver observer;
   void* observer_data;
@@ -141,14 +134,6 @@ SUNDIALS_EXPORT int SUNLinSol_KLUReInit(SUNLinearSolver S, SUNMatrix A,
                                         sunindextype nnz, int reinit_type);
 SUNDIALS_EXPORT int SUNLinSol_KLUSetOrdering(SUNLinearSolver S,
                                              int ordering_choice);
-
-/* Opt-in exact CSC/settings retention. Application entry must invalidate even
- * when the nonlinear solver accepts its initial guess without Initialize. */
-SUNDIALS_EXPORT SUNErrCode SUNLinSol_KLUSetSymbolicReuse(SUNLinearSolver S, int enabled);
-SUNDIALS_EXPORT SUNErrCode SUNLinSol_KLUInvalidateNumeric(SUNLinearSolver S);
-SUNDIALS_EXPORT size_t SUNLinSol_KLUSymbolicKeyBytes(SUNLinearSolver S);
-/* Bound before key allocation; SIZE_MAX denotes an invalid/overflowing extent. */
-SUNDIALS_EXPORT size_t SUNLinSol_KLUSymbolicKeyCapacity(sunindextype n, sunindextype nnz);
 
 /* --------------------
  *  Accessor functions
