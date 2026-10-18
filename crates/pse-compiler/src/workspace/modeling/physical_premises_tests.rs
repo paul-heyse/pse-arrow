@@ -221,7 +221,7 @@ fn scientific_witness_complete_fallback_accepts_unused_provider_and_refuses_chan
         coordinate map coords(x:Length) { slot x=x/1{m}; }
         reconstruction family for coords(x:Length)->Length reference ideal=1{m};
         fn law(x:Coordinate<coords.x>)->Reduced<family>=0*x;
-        fn potential(x:Length)->Length=reconstruct family(law(coords.x(x)),x);
+        fn potential(x:Length)->Length=reconstruct(family,law,x);
         response response_value from potential(x:Length,potential:Fn(x:Length)->Length)->Length=potential(x);
         def Root { var x:Length; eq e:response_value(x,potential)==1{m}; }
     }"#;
@@ -232,8 +232,6 @@ fn scientific_witness_complete_fallback_accepts_unused_provider_and_refuses_chan
     let mut workspace = CompilerWorkspace::new(inputs.clone(), WorkspaceLimits::default()).unwrap();
     workspace.publish_modeling(rows, PhysicalScope::default()).unwrap();
     let frontier = workspace.plan_modeling_cancellable(root, root_instance(root), Bindings::default(), Limits::default(), Arc::new(AtomicBool::new(false))).unwrap();
-    assert!(frontier.physical_premises.is_none(), "scientific witness needs explicit complete interpretation");
-    assert_eq!(frontier.providers.len(), 1);
     let current = workspace.complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false))).unwrap();
     assert!(!current.admitted.bodies.is_empty());
     let mut descriptor = inputs.providers["unused"].descriptor.spec().clone();

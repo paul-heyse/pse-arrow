@@ -143,7 +143,7 @@ impl PhysicalPremises {
     pub fn context(&self) -> (&QuantityRegistry, &PhysicalPreconditions) { (&self.registry, &self.facts) }
     /// Conservative complete retained extent, including sparse access paths.
     pub fn retained_bytes(&self) -> usize {
-        size_of::<Self>().saturating_add(self.registry.allocation_extent())
+        size_of::<Self>().saturating_add(self.invariants.len().saturating_mul(size_of::<InvariantId>() + 128)).saturating_add(self.registry.allocation_extent())
             .saturating_add(self.facts.allocation_extent()).saturating_add(
                 self.reads.iter().map(|read| size_of::<Read>() + 128 + match read {
                     Read::Name(s) | Read::Symbol(s) | Read::EntityName(s) => s.capacity(),
