@@ -5,6 +5,9 @@
 //! This counts its convolution and primitive expansion, not a differentiation engine.
 use super::*;
 use crate::jets::{EvaluationLimits, JetLayout};
+use hashbrown::{Equivalent, HashMap, hash_map::EntryRef};
+use std::collections::hash_map::RandomState;
+use std::hash::{Hash, Hasher};
 use std::sync::{Arc, atomic::AtomicBool};
 use symbolica::atom::AtomView;
 #[cfg(test)]
@@ -231,12 +234,55 @@ fn reserve_facts(facts: &EvaluatorFacts, initial: EvaluatorConstruction) -> Resu
 }
 
 type ScalarProductKey = (Vec<Atom>, Vec<Atom>, Optimization);
+type ScalarProductMap = HashMap<Arc<ScalarProductKey>, Arc<ScalarProduct>, RandomState>;
+
+/// Borrow the exact ordered scalar identity. Both hashing and owned construction
+/// use the same tuple fields; only the later execution selector is irrelevant.
+struct ScalarProductQuery<'a> {
+    expressions: &'a [Atom],
+    parameters: &'a [Atom],
+    options: Optimization,
+}
+impl<'a> ScalarProductQuery<'a> {
+    fn new(expressions: &'a [Atom], parameters: &'a [Atom], options: Optimization) -> Self {
+        Self {
+            expressions,
+            parameters,
+            options: Optimization {
+                evaluator: Evaluator::Interpreted,
+                ..options
+            },
+        }
+    }
+    fn owned_key(&self) -> Arc<ScalarProductKey> {
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("math.scalar_key_constructions", "count", 1);
+            context.count(
+                "math.scalar_key_vector_allocations",
+                "count",
+                u64::from(!self.expressions.is_empty())
+                    + u64::from(!self.parameters.is_empty()),
+            );
+        }
+        Arc::new((self.expressions.to_vec(), self.parameters.to_vec(), self.options))
+    }
+}
+impl Hash for ScalarProductQuery<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (self.expressions, self.parameters, self.options).hash(state);
+    }
+}
+impl Equivalent<Arc<ScalarProductKey>> for ScalarProductQuery<'_> {
+    fn equivalent(&self, key: &Arc<ScalarProductKey>) -> bool {
+        self.expressions == key.0 && self.parameters == key.1 && self.options == key.2
+    }
+}
 
 /// Immutable exact scalar products. Every entry retains the allocation owner that
 /// first published it; borrowing a bundle never transfers that charge to a worker.
 #[derive(Clone, Default)]
 pub struct ScalarProducts {
-    evaluators: Arc<std::collections::HashMap<Arc<ScalarProductKey>, Arc<ScalarProduct>>>,
+    evaluators: Arc<ScalarProductMap>,
     owner: Option<Arc<dyn crate::AllocationOwner>>,
     foreign_bytes: usize,
 }
@@ -341,7 +387,7 @@ impl SourceOperationLimit {
 /// mutable evaluator state nor cancellation controls enter the retained bundle.
 #[derive(Default)]
 pub(crate) struct ScalarCache {
-    evaluators: std::collections::HashMap<Arc<ScalarProductKey>, Arc<ScalarProduct>>,
+    evaluators: ScalarProductMap,
     builds: usize,
     foreign_bytes: usize,
 }
@@ -404,15 +450,18 @@ impl ScalarCache {
         }
         // Scalar optimization does not consume the later execution selector.
         // Share exact scalar preparation across interpreted/native Value routes.
-        let scalar_options = Optimization {
-            evaluator: Evaluator::Interpreted,
-            ..options
-        };
-        let key = (expressions.to_vec(), parameters.to_vec(), scalar_options);
+        let query = ScalarProductQuery::new(expressions, parameters, options);
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("math.scalar_cache_lookups", "count", 1);
         }
-        if !self.evaluators.contains_key(&key) {
+        let product = match self.evaluators.entry_ref(&query) {
+            EntryRef::Occupied(entry) => {
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("math.scalar_cache_reuses", "count", 1);
+                }
+                entry.into_mut()
+            }
+            EntryRef::Vacant(entry) => {
             let _construction = pse_diagnostics::observation::current().map(|context| {
                 context.count("math.scalar_constructions", "count", 1);
                 context.phase("math.scalar_construction")
@@ -466,8 +515,8 @@ impl ScalarCache {
             if cancelled.load(std::sync::atomic::Ordering::Acquire) {
                 return Err(MathError::Cancelled);
             }
-            self.evaluators.insert(
-                Arc::new(key.clone()),
+            let product = entry.insert_with_key(
+                query.owned_key(),
                 Arc::new(ScalarProduct {
                     evaluator,
                     bytes,
@@ -482,16 +531,11 @@ impl ScalarCache {
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.count("math.scalar_constructions_completed", "count", 1);
             }
-        } else if let Some(context) = pse_diagnostics::observation::current() {
-            context.count("math.scalar_cache_reuses", "count", 1);
-        }
-        let product = self
-            .evaluators
-            .get(&key)
-            .map(Arc::as_ref)
-            .ok_or_else(|| MathError::Contract("missing prepared scalar evaluator".into()))?;
+            product
+            }
+        };
         source_limit.check(product.source_operations, product.source_atom_operations)?;
-        Ok(product)
+        Ok(product.as_ref())
     }
 }
 
@@ -664,6 +708,153 @@ pub(crate) fn bounded_evaluator(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn scalar_count(context: &pse_diagnostics::observation::ObservationContext, name: &str) -> u64 {
+        context
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60))
+            .metrics
+            .iter()
+            .find_map(|metric| match metric.cumulative {
+                pse_diagnostics::observation::Value::Count(count) if metric.name == name => Some(count),
+                _ => None,
+            })
+            .unwrap_or(0)
+    }
+
+    #[test]
+    fn scalar_borrowed_key_hash_and_equivalence_preserve_order_and_options() {
+        use std::hash::BuildHasher;
+        crate::initialize().unwrap();
+        let x = formal(0).unwrap();
+        let y = formal(1).unwrap();
+        let options = Optimization::default();
+        let expressions = [x.clone() + &y, x.clone() * &y];
+        let parameters = [x.clone(), y.clone()];
+        let baseline = ScalarProductQuery::new(&expressions, &parameters, options).owned_key();
+        let cases = [
+            (expressions.to_vec(), parameters.to_vec(), options, true),
+            (expressions.to_vec(), parameters.to_vec(), Optimization {
+                evaluator: Evaluator::CompiledScalar { module_bytes: 4096 },
+                ..options
+            }, true),
+            (vec![], vec![], options, false),
+            (vec![expressions[1].clone(), expressions[0].clone()], parameters.to_vec(), options, false),
+            (expressions.to_vec(), vec![y, x], options, false),
+            (expressions.to_vec(), parameters.to_vec(), Optimization { cores: 2, ..options }, false),
+            (expressions.to_vec(), parameters.to_vec(), Optimization { horner_iterations: 0, ..options }, false),
+            (expressions.to_vec(), parameters.to_vec(), Optimization { cpe_iterations: 0, ..options }, false),
+        ];
+        for (expressions, parameters, options, equivalent) in cases {
+            let query = ScalarProductQuery::new(&expressions, &parameters, options);
+            let key = query.owned_key();
+            assert!(query.equivalent(&key));
+            assert_eq!(query.equivalent(&baseline), equivalent);
+            for _ in 0..4 {
+                let hasher = RandomState::new();
+                assert_eq!(hasher.hash_one(&query), hasher.hash_one(&key));
+            }
+        }
+    }
+
+    #[test]
+    fn scalar_borrowed_lookup_owns_keys_only_on_successful_misses() {
+        crate::initialize().unwrap();
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("scalar.borrowed_lookup");
+        let context = operation.context();
+        let _entered = context.enter();
+        let x = formal(0).unwrap();
+        let y = formal(1).unwrap();
+        let expressions = [x.clone() * &x + &y];
+        let parameters = [x.clone(), y.clone()];
+        let options = Optimization::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut cache = ScalarCache::default();
+        assert!(matches!(crate::construction::scoped(Arc::new(Refuse), || {
+            cache.admit_prepare(&expressions, &parameters, options, &cancel, EvaluationLimits::default())
+        }), Err(MathError::Limit("test pool full"))));
+        assert_eq!(cache.len(), 0);
+        assert_eq!(scalar_count(&context, "math.scalar_key_constructions"), 0);
+        assert_eq!(scalar_count(&context, "math.scalar_key_vector_allocations"), 0);
+        assert_eq!(scalar_count(&context, "math.scalar_constructions"), 1);
+
+        cache.admit_prepare(&expressions, &parameters, options, &cancel, EvaluationLimits::default()).unwrap();
+        let product = cache.evaluators.values().next().unwrap().clone();
+        let retained = cache.freeze();
+        let mut cache = ScalarCache::from_products(&retained);
+        // Equal contents at different addresses and a different execution route
+        // borrow the same exact preparation without retaining this attempt.
+        let other_cancel = Arc::new(AtomicBool::new(false));
+        cache.admit_prepare(&expressions.to_vec(), &parameters.to_vec(), Optimization {
+            evaluator: Evaluator::CompiledScalar { module_bytes: 4096 },
+            ..options
+        }, &other_cancel, EvaluationLimits::default()).unwrap();
+        assert_eq!(Arc::strong_count(&other_cancel), 1);
+        assert!(Arc::ptr_eq(&product, cache.evaluators.values().next().unwrap()));
+        assert_eq!(cache.builds(), 0);
+        assert_eq!(scalar_count(&context, "math.scalar_key_constructions"), 1);
+        assert_eq!(scalar_count(&context, "math.scalar_key_vector_allocations"), 2);
+        assert_eq!(scalar_count(&context, "math.scalar_constructions"), 2);
+        assert_eq!(scalar_count(&context, "math.scalar_cache_reuses"), 1);
+
+        for limits in [EvaluationLimits { operations: 0, ..Default::default() }, EvaluationLimits { scratch_bytes: 0, ..Default::default() }] {
+            assert!(matches!(cache.admit_prepare(&expressions, &parameters, options, &cancel, limits), Err(MathError::Limit(_))));
+        }
+        assert_eq!(cache.builds(), 0);
+        assert_eq!(scalar_count(&context, "math.scalar_key_constructions"), 1);
+        for (expressions, parameters, options) in [
+            (vec![x.clone() * &x + &y + 1], parameters.to_vec(), options),
+            (expressions.to_vec(), vec![y, x], options),
+            (expressions.to_vec(), parameters.to_vec(), Optimization { horner_iterations: 0, ..options }),
+        ] {
+            cache.admit_prepare(&expressions, &parameters, options, &cancel, EvaluationLimits::default()).unwrap();
+        }
+        assert_eq!(cache.len(), 4);
+        assert_eq!(cache.builds(), 3);
+        assert_eq!(scalar_count(&context, "math.scalar_key_constructions"), 4);
+        assert_eq!(scalar_count(&context, "math.scalar_key_vector_allocations"), 8);
+        assert_eq!(scalar_count(&context, "math.scalar_constructions_completed"), 4);
+        assert_eq!(retained.len(), 1);
+    }
+
+    #[test]
+    fn scalar_borrowed_entry_failure_and_eviction_preserve_escaped_lease() {
+        #[derive(Debug)]
+        struct Owner;
+        crate::initialize().unwrap();
+        let x = formal(0).unwrap();
+        let expressions = [x.clone() * &x + 1];
+        let parameters = [x];
+        let cancel = Arc::new(AtomicBool::new(false));
+        let options = Optimization::default();
+        let mut cache = ScalarCache::default();
+        assert!(matches!(cache.admit_prepare(&expressions, &parameters,
+            Optimization { cores: 0, ..options }, &cancel, EvaluationLimits::default()),
+            Err(MathError::Contract(_))));
+        assert_eq!(cache.len(), 0);
+        assert_eq!(cache.builds(), 0);
+        cache.admit_prepare(&expressions, &parameters, options, &cancel, EvaluationLimits::default()).unwrap();
+        let owner = Arc::new(Owner);
+        let weak_owner = Arc::downgrade(&owner);
+        let retained = cache.freeze().with_owner(owner.clone());
+        let mut cache = ScalarCache::from_products(&retained);
+        let query = ScalarProductQuery::new(&expressions, &parameters, options);
+        let escaped = cache.evaluators.remove(&query).unwrap();
+        assert_eq!(cache.len(), 0);
+        drop(retained);
+        drop(owner);
+        assert!(weak_owner.upgrade().is_some());
+        let mut evaluator = escaped.evaluator.clone().map_coeff(&|c| c.re.to_f64());
+        assert_eq!(evaluator.evaluate_single(&[3.]), 10.);
+        cache.admit_prepare(&expressions, &parameters, options, &cancel, EvaluationLimits::default()).unwrap();
+        assert_eq!(cache.builds(), 1);
+        assert!(!Arc::ptr_eq(&escaped, cache.evaluators.get(&query).unwrap()));
+        drop(escaped);
+        assert!(weak_owner.upgrade().is_none());
+        assert_eq!(cache.len(), 1);
+    }
+
     #[test]
     fn retained_symbolica_subprogram_refuses_demanded_taylor_while_inlining_expands_it() {
         use symbolica::evaluate::{FunctionRegistrationOptions, InliningPolicy};

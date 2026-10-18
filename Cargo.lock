@@ -6381,6 +6381,7 @@ dependencies = [
  "enum-map",
  "faer",
  "gmp-mpfr-sys",
+ "hashbrown 0.17.1",
  "miette",
  "pounce-nlp",
  "pounce-presolve",

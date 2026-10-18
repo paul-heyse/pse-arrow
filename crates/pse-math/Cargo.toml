@@ -27,6 +27,7 @@ tempfile = { workspace = true, optional = true }
 rustix = { workspace = true, optional = true }
 rayon.workspace = true
 rustc-hash.workspace = true
+hashbrown.workspace = true
 schemars.workspace = true
 gmp-mpfr-sys.workspace = true
 pse-model.workspace = true
