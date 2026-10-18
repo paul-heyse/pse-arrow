@@ -83,41 +83,26 @@ impl InnerWorker for Affine {
         }
         let started = std::time::Instant::now();
         let n = self.unknowns;
-        let width = n;
-        let jet =
-            problem.evaluate_unknown(parameters, &options.start, DerivativeOrder::First, cancel)?;
-        if jet.values.len() != n || jet.jacobian.len() != n * width {
-            return Err(MathError::Contract("affine residual jet extent".into()));
-        }
-        let values = (0..n)
-            .flat_map(|j| {
-                problem
-                    .pattern
-                    .as_ref()
-                    .row_idx_of_col(j)
-                    .map(move |i| (i, j))
-            })
-            .map(|(i, j)| jet.jacobian[i * width + j])
-            .collect();
+        let residual = problem.evaluate_trial_with(&problem.unknown_worker, parameters, &options.start, DerivativeOrder::First, cancel)?;
+        let jet = &residual.evaluation;
+        if jet.values.len() != n { return Err(MathError::Contract("affine residual jet extent".into())); }
+        let values = (0..n).flat_map(|j| problem.pattern.as_ref().row_idx_of_col(j).map(move |i| (i,j)))
+            .map(|(i,j)| jet.first(i,j)).collect();
         let matrix = SparseColMat::new(problem.pattern.clone(), values);
-        let mut factor =
-            problem.factorize_matrix(&matrix, "affine residual matrix is singular", cancel)?;
-        let mut delta = Mat::from_fn(n, 1, |i, _| -jet.values[i]);
-        let rhs = delta.clone();
-        problem.solve_factor(&mut factor, delta.as_mut(), cancel)?;
-        let FactorWorkspace { sums, scales, .. } = &mut *factor;
-        check_solve_into(
-            &matrix,
-            &delta,
-            &rhs,
-            options.derivative_tolerance,
-            problem.id,
-            false, sums, scales,
-        )?;
+        let mut factor = problem.factorize_matrix(&matrix, "affine residual matrix is singular", cancel)?;
+        let mut delta = std::mem::replace(&mut factor.rhs, Mat::zeros(n,0));
+        let mut original = std::mem::replace(&mut factor.original, Mat::zeros(n,0));
+        delta.resize_with(n,1,|_,_|0.); original.resize_with(n,1,|_,_|0.);
+        for i in 0..n { delta[(i,0)]=-jet.values[i]; original[(i,0)]=delta[(i,0)]; }
+        drop(residual);
+        let checked = problem.solve_factor(&mut factor, delta.as_mut(), cancel).and_then(|()| {
+            let FactorWorkspace { sums, scales, .. } = &mut *factor;
+            check_solve_into(&matrix, &delta, &original, options.derivative_tolerance, problem.id, false, sums, scales)
+        });
+        let point = (0..n).map(|i| options.start[i]+delta[(i,0)]).collect::<Vec<_>>();
+        factor.rhs=delta; factor.original=original;
+        checked?;
         drop(factor);
-        let point = (0..n)
-            .map(|i| options.start[i] + delta[(i, 0)])
-            .collect::<Vec<_>>();
         problem.verify(parameters, &point, options, cancel)?;
         if cancel.load(Ordering::Acquire) {
             return Err(MathError::Cancelled);

@@ -13,6 +13,8 @@ use symbolica::atom::{Atom, AtomCore};
 
 #[path = "implicit_case_effect_tests.rs"]
 mod case_effects;
+#[path = "implicit_product_tests.rs"]
+mod demanded_products;
 
 #[derive(Debug, Default)]
 struct Work {
