@@ -3416,20 +3416,24 @@ async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
             let construction = started.elapsed();
             let resident = oracle.prepared.runtime.shared.pool().reserved() - resident_before;
             let started = std::time::Instant::now();
+            let mut completion = Vec::new();
             for x in [2.5, 0.7, 2.5] {
                 let objective = oracle.objective(&[x]).unwrap();
+                let objective_completion = oracle.team.as_ref().unwrap().test_lane_completion();
                 let expected = if x == 2.5 { 2.5 } else { 1.78 };
                 assert!((objective - expected).abs() < 1e-6);
                 let mut gradient = [0.]; oracle.gradient(&[x], &mut gradient).unwrap();
+                let gradient_completion = oracle.team.as_ref().unwrap().test_lane_completion();
+                completion.push((x, objective_completion, gradient_completion));
                 let expected = if x == 2.5 { 4. } else { -3.2 };
                 assert!((gradient[0] - expected).abs() < 1e-6);
                 assert_eq!(oracle.team.as_ref().unwrap().test_constructions(), vec![2, 2]);
                 let predictions = &oracle.point.as_ref().unwrap().predictions;
                 assert_eq!(predictions[0], predictions[2]); assert_eq!(predictions[1], predictions[3]);
             }
-            measured.push((stride, construction, resident, started.elapsed()));
+            measured.push((stride, construction, resident, started.elapsed(), completion));
         }
-        eprintln!("I07 real uneven repeated fitting (stride, construction, resident_bytes, callbacks): {measured:?}");
+        eprintln!("I07 real uneven repeated fitting (stride, construction, resident_bytes, callbacks, trials(objective/gradient assignments, lane_completion, relative_idle)): {measured:?}");
         oracle.execution.cancellation_control().cancel();
         assert!(oracle.objective(&[1.0]).is_err());
         assert!(oracle.point.is_none());

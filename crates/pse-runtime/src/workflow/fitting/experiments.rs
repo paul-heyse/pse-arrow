@@ -80,6 +80,8 @@ struct Lane {
     joined: Option<JoinHandle<()>>,
     #[cfg(all(test, feature = "solver-diffsol"))]
     constructions: Arc<std::sync::atomic::AtomicUsize>,
+    #[cfg(all(test, feature = "solver-diffsol"))]
+    elapsed_nanos: Arc<std::sync::atomic::AtomicU64>,
 }
 impl Drop for Lane {
     fn drop(&mut self) {
@@ -179,6 +181,10 @@ impl ExperimentTeam {
                 let constructions = Arc::new(std::sync::atomic::AtomicUsize::new(0));
                 #[cfg(all(test, feature = "solver-diffsol"))]
                 let observed_constructions = constructions.clone();
+                #[cfg(all(test, feature = "solver-diffsol"))]
+                let elapsed_nanos = Arc::new(std::sync::atomic::AtomicU64::new(0));
+                #[cfg(all(test, feature = "solver-diffsol"))]
+                let observed_elapsed = elapsed_nanos.clone();
                 let joined = std::thread::Builder::new()
                     .name(format!("pse-fit-{lane}"))
                     .stack_size(stack)
@@ -262,6 +268,8 @@ impl ExperimentTeam {
                             if let Some(gate) = &request.gate {
                                 let _ = gate.wait();
                             }
+                            #[cfg(all(test, feature = "solver-diffsol"))]
+                            let started = std::time::Instant::now();
                             for (local, (&ei, previous)) in assigned.iter().zip(request.previous).enumerate() {
                                 let mut work = || {
                                     evaluate_experiment(
@@ -313,6 +321,8 @@ impl ExperimentTeam {
                                         }
                                     }
                                 }
+                                #[cfg(all(test, feature = "solver-diffsol"))]
+                                observed_elapsed.store(u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX), std::sync::atomic::Ordering::Relaxed);
                                 if request.reply.send((ei, result)).is_err() {
                                     replies_open = false;
                                     break;
@@ -347,6 +357,8 @@ impl ExperimentTeam {
                     joined: Some(joined),
                     #[cfg(all(test, feature = "solver-diffsol"))]
                     constructions,
+                    #[cfg(all(test, feature = "solver-diffsol"))]
+                    elapsed_nanos,
                 });
             }
             Ok::<_, ProblemError>(lanes)
@@ -380,6 +392,13 @@ impl ExperimentTeam {
                     .load(std::sync::atomic::Ordering::Relaxed)
             })
             .collect()
+    }
+    #[cfg(all(test, feature = "solver-diffsol"))]
+    pub(super) fn test_lane_completion(&self) -> (Vec<Vec<usize>>, Vec<Duration>, Duration) {
+        let elapsed = self.lanes.iter().map(|lane| Duration::from_nanos(lane.elapsed_nanos.load(std::sync::atomic::Ordering::Relaxed))).collect::<Vec<_>>();
+        let latest = elapsed.iter().copied().max().unwrap_or_default();
+        let idle = elapsed.iter().map(|&elapsed| latest - elapsed).sum();
+        (self.lanes.iter().map(|lane| lane.experiments.clone()).collect(), elapsed, idle)
     }
     pub(super) fn evaluate(
         &mut self,
