@@ -52,7 +52,7 @@ fn requested_weighted_product_preserves_value_domain_without_materializing_unuse
     assert!((0.5 / tiny.sqrt()).is_finite());
     assert!(!(-0.25 / tiny.powf(1.5)).is_finite());
     assert!(
-        matches!(selected.evaluate(&[tiny], DerivativeOrder::Second, &mut pse_kernels::ProviderBindings::new(), &cancel),
+        matches!(selected.evaluate(&[tiny], DerivativeOrder::Second, &mut ProviderBindings::new(), &cancel),
         Err(MathError::Domain { source_id, .. }) if source_id == source_s)
     );
     for kind in [
@@ -85,7 +85,7 @@ fn requested_weighted_product_preserves_value_domain_without_materializing_unuse
         };
         let mut actual = [73.];
         worker
-            .evaluate_product_into(&[tiny], binding, &mut pse_kernels::ProviderBindings::new(), &cancel, &mut actual)
+            .evaluate_product_into(&[tiny], binding, &mut ProviderBindings::new(), &cancel, &mut actual)
             .unwrap();
         assert_eq!(
             actual,
@@ -104,13 +104,13 @@ fn requested_weighted_product_preserves_value_domain_without_materializing_unuse
         // Algebraic flattening gives a finite polynomial at x<0. It still cannot
         // erase the original sqrt value/domain refusal or overwrite prior output.
         assert!(
-            matches!(worker.evaluate_product_into(&[-1.], binding, &mut pse_kernels::ProviderBindings::new(), &cancel, &mut actual),
+            matches!(worker.evaluate_product_into(&[-1.], binding, &mut ProviderBindings::new(), &cancel, &mut actual),
             Err(MathError::Domain { source_id, .. }) if source_id == source_s)
         );
         assert_eq!(actual, [2.]);
     }
     assert!(
-        matches!(selected.evaluate(&[-1.], DerivativeOrder::Second, &mut pse_kernels::ProviderBindings::new(), &cancel),
+        matches!(selected.evaluate(&[-1.], DerivativeOrder::Second, &mut ProviderBindings::new(), &cancel),
         Err(MathError::Domain { source_id, .. }) if source_id == source_s)
     );
 }
@@ -129,11 +129,11 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
             fn fill(
             &mut self,
             inputs: &[f64],
-            request: &pse_kernels::PreparedProviderRequest,
-            _runtime: pse_kernels::ProviderRuntime<'_>,
+            request: &PreparedProviderRequest,
+            _runtime: ProviderRuntime<'_>,
             mut output: pse_kernels::ProviderOutput<'_>,
-            context: &pse_kernels::EvaluationContext<'_>,
-        ) -> Result<(), pse_kernels::ProviderError> {
+            context: &EvaluationContext<'_>,
+        ) -> Result<(), ProviderError> {
             request.check_context(context)?;
             self.calls.fetch_add(1, Ordering::Relaxed);
             if inputs[0] < 0. {
@@ -228,8 +228,8 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
             spec: spec.clone(),
             calls: calls.clone(),
         }));
-        let mut providers: pse_kernels::ProviderBindings =
-            pse_kernels::ProviderBindings::from([(spec.key(), provider)]);
+        let mut providers: ProviderBindings =
+            ProviderBindings::from([(spec.key(), provider)]);
         let binding = if kind == ProductKind::WeightedHessian {
             ProductValues::WeightedHessian { weights: &[2.] }
         } else {
@@ -343,7 +343,7 @@ fn weighted_product_branch_barrier_keeps_actual_arm_and_original_domain_source()
             .evaluate_product_into(
                 &[-1., 1.],
                 binding,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel,
                 &mut actual,
             )
@@ -361,7 +361,7 @@ fn weighted_product_branch_barrier_keeps_actual_arm_and_original_domain_source()
             .evaluate_product_into(
                 &[4., -1.],
                 binding,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel,
                 &mut actual,
             )
@@ -377,7 +377,7 @@ fn weighted_product_branch_barrier_keeps_actual_arm_and_original_domain_source()
         );
         let complete = actual;
         assert!(
-            matches!(worker.evaluate_product_into(&[-1., -1.], binding, &mut pse_kernels::ProviderBindings::new(), &cancel, &mut actual),
+            matches!(worker.evaluate_product_into(&[-1., -1.], binding, &mut ProviderBindings::new(), &cancel, &mut actual),
             Err(MathError::Domain { source_id, .. }) if source_id == root_source)
         );
         assert_eq!(actual, complete);

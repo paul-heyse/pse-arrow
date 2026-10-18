@@ -7,7 +7,6 @@ use crate::{
 };
 use pse_ids::SemanticId;
 use pse_kernels::DerivativeOrder;
-use std::collections::BTreeMap;
 use symbolica::atom::{Atom, AtomCore};
 
 fn compile_artifact(

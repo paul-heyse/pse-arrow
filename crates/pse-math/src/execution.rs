@@ -11,9 +11,11 @@ use crate::{
 use enum_map::EnumMap;
 use pse_ids::SemanticId;
 use pse_kernels::{
-    DerivativeOrder, EvaluationContext, Provider, ProviderKey, ProviderRequest, ProviderSpec,
+    DerivativeOrder, EvaluationContext, ProviderKey, ProviderRequest, ProviderSpec,
     PreparedProviderRequest, ProviderBindings, ProviderBuffer, ProviderRuntime,
 };
+#[cfg(test)]
+use pse_kernels::Provider;
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     sync::{
@@ -1274,7 +1276,7 @@ impl PreparedBody {
                 }),
             );
         }
-        let mut providers = BTreeMap::new();
+        let mut providers = ProviderBindings::new();
         let mut obligations = vec![];
         analyze(
             &stages,
@@ -5467,7 +5469,7 @@ fn lower_stages(stages: &mut [Stage], offsets: &BTreeMap<usize, usize>) -> Resul
     Ok(())
 }
 fn stage_providers(stages: &[Stage]) -> BTreeMap<ProviderKey, ProviderSpec> {
-    let mut providers = BTreeMap::new();
+    let mut providers = ProviderBindings::new();
     for stage in stages {
         match stage {
             Stage::Provider { spec, .. } => {
@@ -6514,7 +6516,7 @@ mod compact_tests {
             .unwrap();
         let mut worker = program.worker();
         let mut result = TrialEvaluation::default();
-        let mut providers = BTreeMap::new();
+        let mut providers = ProviderBindings::new();
         worker
             .evaluate_trial_into(
                 &[2., 3., 1.],
@@ -8151,11 +8153,11 @@ mod compact_tests {
                     fn fill(
                 &mut self,
                 inputs: &[f64],
-                request: &pse_kernels::PreparedProviderRequest,
-                _runtime: pse_kernels::ProviderRuntime<'_>,
+                request: &PreparedProviderRequest,
+                _runtime: ProviderRuntime<'_>,
                 mut output: pse_kernels::ProviderOutput<'_>,
-                context: &pse_kernels::EvaluationContext<'_>,
-            ) -> Result<(), pse_kernels::ProviderError> {
+                context: &EvaluationContext<'_>,
+            ) -> Result<(), ProviderError> {
                 request.check_context(context)?;
                 assert_eq!(request.outputs, [1]);
                 assert_eq!(inputs.len(), 3);
@@ -8235,11 +8237,11 @@ mod compact_tests {
                     fn fill(
                 &mut self,
                 inputs: &[f64],
-                request: &pse_kernels::PreparedProviderRequest,
-                _runtime: pse_kernels::ProviderRuntime<'_>,
-                mut output: pse_kernels::ProviderOutput<'_>,
-                context: &pse_kernels::EvaluationContext<'_>,
-            ) -> Result<(), pse_kernels::ProviderError> {
+                request: &PreparedProviderRequest,
+                _runtime: ProviderRuntime<'_>,
+                output: pse_kernels::ProviderOutput<'_>,
+                context: &EvaluationContext<'_>,
+            ) -> Result<(), ProviderError> {
                 if self.failed {
                     return Err(ProviderError::Trial("old provider failure latch".into()));
                 }
@@ -8310,7 +8312,7 @@ mod compact_tests {
                 .values,
             [20.]
         );
-        let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(ProductProvider(spec)));
+        let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(ProductProvider(spec.clone())));
         let mut providers = ProviderBindings::from([(key, provider)]);
         let mut worker = product.worker();
         let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());

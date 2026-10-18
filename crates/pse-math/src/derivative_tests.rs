@@ -103,7 +103,7 @@ fn wide_opaque_affine_support_retains_sparse_derivatives() {
             .evaluate(
                 &inputs,
                 DerivativeOrder::Second,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &Arc::new(AtomicBool::new(false)),
             )
             .unwrap();
@@ -169,7 +169,7 @@ fn shared_branch_snapshots_keep_distinct_alternatives_isolated() {
             .evaluate(
                 &[2.0, 3.0, guard],
                 DerivativeOrder::Second,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel,
             )
             .unwrap();
@@ -238,7 +238,7 @@ fn separately_reconstructed_equal_branch_facts_remain_symbolic() {
             .evaluate(
                 &[2.0, 3.0, guard],
                 DerivativeOrder::Second,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel,
             )
             .unwrap();
@@ -299,7 +299,7 @@ fn local_guard_facts_do_not_copy_the_enclosing_slot_inventory() {
         .evaluate(
             &[2.0, 3.0],
             DerivativeOrder::Second,
-            &mut pse_kernels::ProviderBindings::new(),
+            &mut ProviderBindings::new(),
             &cancel,
         )
         .unwrap();
@@ -311,7 +311,7 @@ fn local_guard_facts_do_not_copy_the_enclosing_slot_inventory() {
     );
     assert!(
         matches!(worker.evaluate(&[-2.0, 3.0], DerivativeOrder::Second,
-        &mut pse_kernels::ProviderBindings::new(), &cancel), Err(MathError::Validity(actual)) if actual.as_ref() == lineage.as_ref())
+        &mut ProviderBindings::new(), &cancel), Err(MathError::Validity(actual)) if actual.as_ref() == lineage.as_ref())
     );
 }
 
@@ -372,7 +372,7 @@ fn shared_domain_snapshots_preserve_dense_support_and_local_isolation() {
         .evaluate(
             &inputs,
             DerivativeOrder::Second,
-            &mut pse_kernels::ProviderBindings::new(),
+            &mut ProviderBindings::new(),
             &cancel,
         )
         .unwrap();
@@ -384,7 +384,7 @@ fn shared_domain_snapshots_preserve_dense_support_and_local_isolation() {
     );
     inputs[0] = -1.0;
     assert!(matches!(worker.evaluate(
-        &inputs, DerivativeOrder::Second, &mut pse_kernels::ProviderBindings::new(), &cancel,
+        &inputs, DerivativeOrder::Second, &mut ProviderBindings::new(), &cancel,
     ), Err(MathError::Validity(actual)) if actual.as_ref() == lineage.as_ref()));
 }
 
@@ -442,7 +442,7 @@ fn opaque_nonlinear_support_refuses_actual_work_and_preserves_complete_pairs() {
         .evaluate(
             &vec![1.0; n + 1],
             DerivativeOrder::Second,
-            &mut pse_kernels::ProviderBindings::new(),
+            &mut ProviderBindings::new(),
             &Arc::new(AtomicBool::new(false)),
         )
         .unwrap();
@@ -568,7 +568,7 @@ fn conditional_first_reuses_exhausted_support_and_restricts_formal_coordinates()
         .evaluate(
             &[4.0, 3.0],
             DerivativeOrder::First,
-            &mut pse_kernels::ProviderBindings::new(),
+            &mut ProviderBindings::new(),
             &cancel,
         )
         .unwrap();
@@ -807,7 +807,7 @@ fn conditional_second_reuses_exhausted_support_and_projects_selected_controls() 
         .evaluate(
             &[3.0],
             DerivativeOrder::Second,
-            &mut pse_kernels::ProviderBindings::new(),
+            &mut ProviderBindings::new(),
             &cancel,
         )
         .unwrap();
@@ -818,7 +818,7 @@ fn conditional_second_reuses_exhausted_support_and_projects_selected_controls() 
         worker.evaluate(
             &[-3.0],
             DerivativeOrder::Second,
-            &mut pse_kernels::ProviderBindings::new(),
+            &mut ProviderBindings::new(),
             &cancel
         ),
         Err(MathError::Validity(_))
@@ -987,7 +987,7 @@ fn numerica_raw_diagonal_mixed_and_multi_output_derivatives() {
     let control = pse_diagnostics::Cancellation::new(false);
     let cancel = control.flag();
     let mut worker = body.worker();
-    let mut providers = BTreeMap::new();
+    let mut providers = ProviderBindings::new();
     let v = worker
         .evaluate(
             &[2.0, 3.0],
@@ -1019,11 +1019,11 @@ impl Provider for Cubic {
     fn fill(
         &mut self,
         inputs: &[f64],
-        request: &pse_kernels::PreparedProviderRequest,
-        _runtime: pse_kernels::ProviderRuntime<'_>,
-        mut output: pse_kernels::ProviderOutput<'_>,
-        context: &pse_kernels::EvaluationContext<'_>,
-    ) -> Result<(), pse_kernels::ProviderError> {
+        request: &PreparedProviderRequest,
+        _runtime: ProviderRuntime<'_>,
+        mut output: ProviderOutput<'_>,
+        context: &EvaluationContext<'_>,
+    ) -> Result<(), ProviderError> {
         request.check_context(context)?;
         self.calls.fetch_add(1, Ordering::Relaxed);
         if inputs[0] <= 0.0 {
@@ -1045,7 +1045,7 @@ impl Provider for Cubic {
         })
     }
 }
-fn provider() -> (ProviderSpec, pse_kernels::ProviderBinding, Arc<AtomicUsize>) {
+fn provider() -> (ProviderSpec, ProviderBinding, Arc<AtomicUsize>) {
     let registry = pse_quantity::standard::standard_registry().unwrap();
     let q = pse_quantity::standard::ids::quantity("neutral");
     let u = registry.quantity_type(q).unwrap().canonical_unit;
@@ -1073,7 +1073,7 @@ fn provider() -> (ProviderSpec, pse_kernels::ProviderBinding, Arc<AtomicUsize>) 
     let calls = Arc::new(AtomicUsize::new(0));
     (
         spec.clone(),
-        pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Cubic {
+        ProviderBinding::new(spec.clone(), Box::new(Cubic {
             spec,
             calls: calls.clone(),
         })),
@@ -1123,11 +1123,11 @@ fn domain_predicates_use_value_only_providers_and_remain_demand_scoped() {
     let control = pse_diagnostics::Cancellation::new(false);
     let cancel = control.flag();
     let key = spec.key();
-    let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Cubic {
+    let provider = ProviderBinding::new(spec.clone(), Box::new(Cubic {
         spec,
         calls: calls.clone(),
     }));
-    let mut workers = pse_kernels::ProviderBindings::from([(key, provider)]);
+    let mut workers = ProviderBindings::from([(key, provider)]);
     let mut guarded = prepared
         .compile(
             &[0],
@@ -1225,7 +1225,7 @@ fn composed_external_partials_use_symbolica_chain_rule_through_nested_calls() {
             )
             .unwrap()
             .worker();
-        let mut providers = pse_kernels::ProviderBindings::from([(spec.key(), provider)]);
+        let mut providers = ProviderBindings::from([(spec.key(), provider)]);
         let result = compiled
             .evaluate(&[2.], order, &mut providers, &cancel)
             .unwrap();
@@ -1272,7 +1272,7 @@ fn symbolica_composes_provider_partials_after_arithmetic_barriers() {
     let mut worker = body.worker();
     let control = pse_diagnostics::Cancellation::new(false);
     let cancel = control.flag();
-    let mut providers = pse_kernels::ProviderBindings::from([(spec.key(), provider)]);
+    let mut providers = ProviderBindings::from([(spec.key(), provider)]);
     let v = worker
         .evaluate(&[2.0], DerivativeOrder::Second, &mut providers, &cancel)
         .unwrap();
@@ -1345,7 +1345,7 @@ fn derivative_budget_cancellation_and_numeric_zero_support() {
             .evaluate(
                 &[0.0],
                 DerivativeOrder::Second,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel
             )
             .unwrap()
@@ -1358,7 +1358,7 @@ fn derivative_budget_cancellation_and_numeric_zero_support() {
         worker.evaluate(
             &[2.0],
             DerivativeOrder::Value,
-            &mut pse_kernels::ProviderBindings::new(),
+            &mut ProviderBindings::new(),
             &cancel
         ),
         Err(MathError::Cancelled)
@@ -1416,7 +1416,7 @@ fn parameter_only_switches_preserve_all_branch_support() {
         .evaluate(
             &[2.0, 1.0],
             DerivativeOrder::Second,
-            &mut pse_kernels::ProviderBindings::new(),
+            &mut ProviderBindings::new(),
             &cancel,
         )
         .unwrap();
@@ -1425,7 +1425,7 @@ fn parameter_only_switches_preserve_all_branch_support() {
         .evaluate(
             &[2.0, -1.0],
             DerivativeOrder::Second,
-            &mut pse_kernels::ProviderBindings::new(),
+            &mut ProviderBindings::new(),
             &cancel,
         )
         .unwrap();
@@ -1449,11 +1449,11 @@ fn multi_input_provider_lift_preserves_mixed_raw_partials() {
             fn fill(
             &mut self,
             x: &[f64],
-            r: &pse_kernels::PreparedProviderRequest,
-            _runtime: pse_kernels::ProviderRuntime<'_>,
-            mut output: pse_kernels::ProviderOutput<'_>,
-            c: &pse_kernels::EvaluationContext<'_>,
-        ) -> Result<(), pse_kernels::ProviderError> {
+            r: &PreparedProviderRequest,
+            _runtime: ProviderRuntime<'_>,
+            mut output: ProviderOutput<'_>,
+            c: &EvaluationContext<'_>,
+        ) -> Result<(), ProviderError> {
             r.check_context(c)?;
             output.copy_from(&ProviderValues {
                 values: vec![x[0] * x[1]],
@@ -1493,8 +1493,8 @@ fn multi_input_provider_lift_preserves_mixed_raw_partials() {
         vec![4],
         DerivativeOrder::Second,
     );
-    let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Product { spec }));
-    let mut providers: pse_kernels::ProviderBindings = pse_kernels::ProviderBindings::from([(key, provider)]);
+    let provider = ProviderBinding::new(spec.clone(), Box::new(Product { spec }));
+    let mut providers: ProviderBindings = ProviderBindings::from([(key, provider)]);
     let v = body
         .worker()
         .evaluate(
@@ -1530,13 +1530,13 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
             fn fill(
             &mut self,
             x: &[f64],
-            r: &pse_kernels::PreparedProviderRequest,
-            _runtime: pse_kernels::ProviderRuntime<'_>,
-            mut output: pse_kernels::ProviderOutput<'_>,
-            c: &pse_kernels::EvaluationContext<'_>,
-        ) -> Result<(), pse_kernels::ProviderError> {
+            r: &PreparedProviderRequest,
+            _runtime: ProviderRuntime<'_>,
+            mut output: ProviderOutput<'_>,
+            c: &EvaluationContext<'_>,
+        ) -> Result<(), ProviderError> {
             r.check_context(c)?;
-            self.requests.lock().unwrap().push(r.clone());
+            self.requests.lock().unwrap().push(r.request().clone());
             if x[0] <= 0.0 {
                 return Err(ProviderError::Trial("positive property input".into()));
             }
@@ -1560,15 +1560,15 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
                         .push(if o == 0 { 2.0 } else { -1.0 / (x[0] * x[0]) });
                 }
             }
-            Ok(result)
+            output.copy_from(&result)
         }
     }
     impl ProviderFactory for Factory {
         fn spec(&self) -> &ProviderSpec {
             &self.spec
         }
-        fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
-            Ok(pse_kernels::ProviderBinding::new(self.spec().clone(), Box::new(Properties {
+        fn create(&self) -> Result<ProviderBinding, ProviderError> {
+            Ok(ProviderBinding::new(self.spec().clone(), Box::new(Properties {
                 spec: self.spec.clone(),
                 requests: self.requests.clone(),
             })))
@@ -1613,7 +1613,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
     assert_eq!(prepared.providers().len(), 1);
     let control = pse_diagnostics::Cancellation::new(false);
     let cancel = control.flag();
-    let mut workers = pse_kernels::ProviderBindings::from([(key, registration.worker().unwrap())]);
+    let mut workers = ProviderBindings::from([(key, registration.worker().unwrap())]);
     let compile = |outputs: &[usize]| {
         prepared
             .compile(
@@ -1655,7 +1655,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
     assert_eq!(
         requests.lock().unwrap()[0],
         ProviderRequest {
-        demand: pse_kernels::ProviderDemand::CompleteJets,
+        demand: ProviderDemand::CompleteJets,
             outputs: vec![1],
             order: DerivativeOrder::Value
         }
@@ -1746,12 +1746,12 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
         requests.lock().unwrap().as_slice(),
         &[
             ProviderRequest {
-        demand: pse_kernels::ProviderDemand::CompleteJets,
+        demand: ProviderDemand::CompleteJets,
                 outputs: vec![0, 1],
                 order: DerivativeOrder::Second
             },
             ProviderRequest {
-        demand: pse_kernels::ProviderDemand::CompleteJets,
+        demand: ProviderDemand::CompleteJets,
                 outputs: vec![0, 1],
                 order: DerivativeOrder::Second
             },
@@ -1788,7 +1788,7 @@ fn full_twenty_and_forty_four_coordinate_jets_fit_real_convolution_budget() {
             .evaluate(
                 &x,
                 DerivativeOrder::Second,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &Arc::new(AtomicBool::new(false)),
             )
             .unwrap();
@@ -1834,7 +1834,7 @@ fn supported_taylor_primitives_reconcile_with_admitted_expansion() {
         .evaluate(
             &[2.0, 1.5],
             DerivativeOrder::Second,
-            &mut pse_kernels::ProviderBindings::new(),
+            &mut ProviderBindings::new(),
             &Arc::new(AtomicBool::new(false)),
         )
         .unwrap();
@@ -1913,7 +1913,7 @@ fn local_taylor_coordinates_preserve_transitive_and_permuted_derivatives() {
         .evaluate(
             &inputs,
             DerivativeOrder::Second,
-            &mut pse_kernels::ProviderBindings::new(),
+            &mut ProviderBindings::new(),
             &cancel,
         )
         .unwrap();
@@ -2039,11 +2039,11 @@ fn selected_provider_demand_matches_fixed_coordinate_program_and_authored_partia
         )
         .unwrap()
         .worker();
-    let selected_provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Cubic {
+    let selected_provider = ProviderBinding::new(spec.clone(), Box::new(Cubic {
         spec: spec.clone(),
         calls: calls.clone(),
     }));
-    let mut providers = pse_kernels::ProviderBindings::from([(spec.key(), selected_provider)]);
+    let mut providers = ProviderBindings::from([(spec.key(), selected_provider)]);
     let result = worker
         .evaluate(&[3., 2.], DerivativeOrder::Second, &mut providers, &cancel)
         .unwrap();
@@ -2177,7 +2177,7 @@ fn selected_output_availability_and_incidence_ignore_unrelated_value_provider() 
         .evaluate(
             &[3.0],
             DerivativeOrder::Second,
-            &mut pse_kernels::ProviderBindings::new(),
+            &mut ProviderBindings::new(),
             &cancel,
         )
         .unwrap();
@@ -2196,11 +2196,11 @@ fn selected_output_availability_and_incidence_ignore_unrelated_value_provider() 
         DerivativeOrder::Value
     );
     let calls = Arc::new(AtomicUsize::new(0));
-    let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Cubic {
+    let provider = ProviderBinding::new(spec.clone(), Box::new(Cubic {
         spec,
         calls: calls.clone(),
     }));
-    let mut providers = pse_kernels::ProviderBindings::from([(provider.spec().key(), provider)]);
+    let mut providers = ProviderBindings::from([(provider.spec().key(), provider)]);
     let mut effect_worker = body
         .compile(
             &[2],
@@ -2377,13 +2377,13 @@ fn demanded_directional_taylor_axis_preserves_all_support_under_two_component_li
         .evaluate(
             &inputs,
             DerivativeOrder::First,
-            &mut pse_kernels::ProviderBindings::new(),
+            &mut ProviderBindings::new(),
             &cancel,
         )
         .unwrap();
     let mut worker = action.worker();
     let result = worker
-        .evaluate_directional(&inputs, &direction, &mut pse_kernels::ProviderBindings::new(), &cancel)
+        .evaluate_directional(&inputs, &direction, &mut ProviderBindings::new(), &cancel)
         .unwrap();
     assert_eq!(result.values, reference.values);
     assert_eq!(
@@ -2403,20 +2403,20 @@ fn demanded_directional_taylor_axis_preserves_all_support_under_two_component_li
             .evaluate(
                 &inputs,
                 DerivativeOrder::First,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel
             )
             .is_err()
     );
     assert!(
         worker
-            .evaluate_directional(&inputs, &direction[..n - 1], &mut pse_kernels::ProviderBindings::new(), &cancel)
+            .evaluate_directional(&inputs, &direction[..n - 1], &mut ProviderBindings::new(), &cancel)
             .is_err()
     );
     control.cancel();
     assert!(
         worker
-            .evaluate_directional(&inputs, &direction, &mut pse_kernels::ProviderBindings::new(), &cancel)
+            .evaluate_directional(&inputs, &direction, &mut ProviderBindings::new(), &cancel)
             .is_err()
     );
 }
@@ -2469,7 +2469,7 @@ fn demanded_directional_provider_composition_keeps_original_guard_and_first_part
         )
         .unwrap()
         .worker();
-    let mut providers = pse_kernels::ProviderBindings::from([(spec.key(), provider)]);
+    let mut providers = ProviderBindings::from([(spec.key(), provider)]);
     let result = worker
         .evaluate_directional(&[2.0, 3.0], &[4.0, -1.0], &mut providers, &cancel)
         .unwrap();
@@ -2682,11 +2682,11 @@ fn conditional_block_keeps_actual_guard_provider_execution_inputs() {
             )
             .unwrap(),
     );
-    let selected_provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Cubic {
+    let selected_provider = ProviderBinding::new(spec.clone(), Box::new(Cubic {
         spec: spec.clone(),
         calls: calls.clone(),
     }));
-    let providers = pse_kernels::ProviderBindings::from([(spec.key(), selected_provider)]);
+    let providers = ProviderBindings::from([(spec.key(), selected_provider)]);
     let mut worker = guarded.worker(providers, control.clone());
     let mut values = CaseValues {
         scalars: BTreeMap::from([(id(1), 3.0), (id(2), 2.0)]),
@@ -2709,7 +2709,7 @@ fn conditional_block_keeps_actual_guard_provider_execution_inputs() {
     );
     assert_eq!(
         plain
-            .worker(pse_kernels::ProviderBindings::new(), control.clone())
+            .worker(ProviderBindings::new(), control.clone())
             .constraints(&values)
             .unwrap(),
         [9.0]

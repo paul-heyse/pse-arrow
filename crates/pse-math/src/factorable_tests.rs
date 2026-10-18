@@ -13,8 +13,7 @@ use crate::{
 };
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::{
-    AdmittedProvider, DerivativeOrder, EvaluationContext, Port, Provider, ProviderError,
-    ProviderKey, ProviderRequest, ProviderSpec, ProviderValues,
+    AdmittedProvider, DerivativeOrder, Port, Provider, ProviderSpec, ProviderValues,
 };
 use pse_model::generated::enums::ModelingVariableDomain;
 use pse_quantity::{
@@ -392,7 +391,7 @@ fn projection_exact_rows_match_evaluator() {
         &assembly,
         &program,
         &sample(&boxes, 64, 7),
-        BTreeMap::new,
+        pse_kernels::ProviderBindings::new,
         |_| vec![],
     );
 }
@@ -429,7 +428,7 @@ fn min_max_exported_exactly() {
         vec![-1.0, 1.0],
         vec![1.5, 1.0],
     ]);
-    assert_rows_match(&assembly, &program, &points, BTreeMap::new, |_| vec![]);
+    assert_rows_match(&assembly, &program, &points, pse_kernels::ProviderBindings::new, |_| vec![]);
 }
 
 #[test]
@@ -1098,7 +1097,7 @@ fn pcsaft_valid_guard_projects_exactly() {
         &assembly,
         &program,
         &sample(&boxes, 16, 13),
-        BTreeMap::new,
+        pse_kernels::ProviderBindings::new,
         |_| vec![],
     );
     let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());

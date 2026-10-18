@@ -866,7 +866,7 @@ mod tests {
             "no per-output second-jet program"
         );
         let mut worker = matrix.worker();
-        let mut providers = BTreeMap::new();
+        let mut providers = ProviderBindings::new();
         let mut output = [f64::NAN; 3];
         for (weights, expected) in [
             ([2., 3.], [4., 3., 4.]),

@@ -2873,7 +2873,7 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
             _: &[f64],
             _: &pse_kernels::PreparedProviderRequest,
             _runtime: pse_kernels::ProviderRuntime<'_>,
-            mut output: pse_kernels::ProviderOutput<'_>,
+            output: pse_kernels::ProviderOutput<'_>,
             _: &pse_kernels::EvaluationContext<'_>,
         ) -> Result<(), pse_kernels::ProviderError> {
             Err(pse_kernels::ProviderError::Trial(
@@ -2938,7 +2938,7 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
     let mut next = assembly
         .worker_from_scratch(
             scratch,
-            BTreeMap::new(),
+            pse_kernels::ProviderBindings::new(),
             pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
         )
         .unwrap();
@@ -4561,7 +4561,7 @@ fn failed_or_cancelled_upgrade_preserves_only_independently_complete_provider_re
 
 #[test]
 fn provider_composition_hessian_action_uses_mixed_shape_and_library_chain_partials() {
-    let (provider, control, calls) = controlled_jet_provider();
+    let (provider, _control, _calls) = controlled_jet_provider();
     let key = provider.spec.key();
     let (original, values) = overlapping_output_fixture(
         Some(&provider.spec),
@@ -4720,7 +4720,7 @@ fn concurrent_exclusive_case_lanes_isolate_stateful_providers_failure_and_cancel
                 self.entered = true;
                 self.barrier.wait();
             }
-            pse_kernels::Provider::evaluate(&mut self.inner, inputs, request, context)
+            pse_kernels::Provider::fill(&mut self.inner, inputs, request, _runtime, output, context)
         }
     }
     let (template, _, _) = controlled_jet_provider();

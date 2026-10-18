@@ -76,7 +76,7 @@ fn typed_sqrt_weighted_products(options: Optimization) {
         assert_eq!(compiled.product_len(), 1);
         assert!(compiled.census().any(|entry| entry.direct_weighted));
         let mut worker = compiled.worker();
-        let mut providers = BTreeMap::new();
+        let mut providers = pse_kernels::ProviderBindings::new();
         let mut result = [93.];
 
         for expected_unchanged in [93., 2.] {
