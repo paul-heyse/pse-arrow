@@ -2459,18 +2459,52 @@ impl BlockEvaluator {
         }
     }
 }
-fn instantiate_stages(stages: &mut [CompiledStage]) -> Result<(), MathError> {
+#[cfg(test)]
+#[derive(Default)]
+struct InstantiationProbe {
+    visits: usize,
+    evaluator_calls: usize,
+    template_clones: usize,
+    fail_at: Option<usize>,
+    cancel_at: Option<usize>,
+}
+#[cfg(test)]
+thread_local! {
+    static INSTANTIATION_PROBE: std::cell::RefCell<InstantiationProbe> =
+        std::cell::RefCell::new(InstantiationProbe::default());
+}
+
+fn instantiate_stages(
+    stages: &mut [CompiledStage],
+    scope: &pse_kernels::ExecutionScope,
+) -> Result<(), MathError> {
     for stage in stages {
+        scope.check().map_err(crate::error::scope_error)?;
+        #[cfg(test)]
+        INSTANTIATION_PROBE.with_borrow_mut(|probe| {
+            probe.visits += 1;
+            if probe.cancel_at == Some(probe.visits) {
+                scope.cancellation_control().cancel();
+            }
+            if probe.fail_at == Some(probe.visits) {
+                return Err(MathError::Library("injected instantiation failure".into()));
+            }
+            Ok(())
+        })?;
         match stage {
-            CompiledStage::Block { evaluator, .. } => evaluator.instantiate()?,
+            CompiledStage::Block { evaluator, .. } => {
+                evaluator.instantiate()?;
+                #[cfg(test)]
+                INSTANTIATION_PROBE.with_borrow_mut(|probe| probe.evaluator_calls += 1);
+            }
             CompiledStage::Applicability { stages, .. } | CompiledStage::Domain { stages, .. } => {
-                instantiate_stages(stages)?
+                instantiate_stages(stages, scope)?
             }
             CompiledStage::Branch {
                 then, otherwise, ..
             } => {
-                instantiate_stages(then)?;
-                instantiate_stages(otherwise)?;
+                instantiate_stages(then, scope)?;
+                instantiate_stages(otherwise, scope)?;
             }
             _ => {}
         }
@@ -3159,11 +3193,18 @@ pub struct WorkerCensus {
     /// This is conservative owner accounting, not allocator-observed bytes or RSS.
     pub used_allowance_bytes: usize,
 }
+/// One order's private executable scratch and its completed instantiation state.
+struct WorkerProgram {
+    stages: Vec<CompiledStage>,
+    // This records executable readiness, never numerical result validity.
+    instantiated: bool,
+}
+
 /// Worker-local numeric frame and Symbolica scratch.
 pub struct Worker {
     // Private native evaluators and numeric frames must drain before the shared
     // body/support allocation owners and execution scope are released.
-    programs: EnumMap<DerivativeOrder, Option<Vec<CompiledStage>>>,
+    programs: EnumMap<DerivativeOrder, Option<WorkerProgram>>,
     frame: Vec<f64>,
     body: CompiledBody,
     scope: Option<pse_kernels::ExecutionScope>,
@@ -3247,7 +3288,8 @@ impl Worker {
             self.direct_product = Some(direct.reset()?);
         }
         for program in self.programs.values_mut().flatten() {
-            *program = reset_stages(std::mem::take(program))?;
+            program.instantiated = false;
+            program.stages = reset_stages(std::mem::take(&mut program.stages))?;
         }
         Ok(())
     }
@@ -3402,7 +3444,7 @@ impl Worker {
             max_result_bytes: self.body.limits.scratch_bytes,
         };
         evaluate_stages(
-            program,
+            &mut program.stages,
             frame,
             layout,
             providers,
@@ -3460,6 +3502,12 @@ impl Worker {
 
     fn prepare_order(&mut self, order: DerivativeOrder) -> Result<(), MathError> {
         self.check_scope()?;
+        if self.programs[order]
+            .as_ref()
+            .is_some_and(|program| program.instantiated)
+        {
+            return Ok(());
+        }
         let layout = self.body.layouts[order]
             .as_ref()
             .ok_or_else(|| MathError::Contract("uncompiled derivative order".into()))?;
@@ -3494,6 +3542,8 @@ impl Worker {
                 .try_reserve_exact(entries - self.frame.len())
                 .map_err(|_| MathError::Limit("order worker frame allocation"))?;
             self.frame.resize(entries, f64::NAN);
+            // A failed instantiation retains the grown frame for its retry.
+            self.used_bytes += frame_growth;
         }
         if self.programs[order].is_none() {
             let _phase = pse_diagnostics::observation::current().map(|context| {
@@ -3501,8 +3551,19 @@ impl Worker {
                 context.phase("math.evaluator_template_instantiation")
             });
             let mut stages = template.clone();
-            instantiate_stages(&mut stages)?;
-            self.programs[order] = Some(stages);
+            #[cfg(test)]
+            INSTANTIATION_PROBE.with_borrow_mut(|probe| probe.template_clones += 1);
+            instantiate_stages(
+                &mut stages,
+                self.scope.as_ref().ok_or_else(|| {
+                    MathError::Contract("detached numeric scratch".into())
+                })?,
+            )?;
+            self.check_scope()?;
+            self.programs[order] = Some(WorkerProgram {
+                stages,
+                instantiated: true,
+            });
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.count(
                     "math.evaluator_template_instantiations_completed",
@@ -3510,12 +3571,16 @@ impl Worker {
                     1,
                 );
             }
-        }
-        if let Some(stages) = &mut self.programs[order] {
-            instantiate_stages(stages)?;
+        } else if let Some(program) = &mut self.programs[order] {
+            let scope = self.scope.as_ref().ok_or_else(|| {
+                MathError::Contract("detached numeric scratch".into())
+            })?;
+            instantiate_stages(&mut program.stages, scope)?;
+            scope.check().map_err(crate::error::scope_error)?;
+            program.instantiated = true;
         }
         self.used_bytes = used;
-        self.check_scope()
+        Ok(())
     }
 }
 
@@ -6673,6 +6738,7 @@ mod compact_tests {
         let first_program = worker.programs[DerivativeOrder::First]
             .as_ref()
             .unwrap()
+            .stages
             .as_ptr();
         let used = worker.used_bytes;
         assert_eq!(
@@ -6686,6 +6752,7 @@ mod compact_tests {
             worker.programs[DerivativeOrder::First]
                 .as_ref()
                 .unwrap()
+                .stages
                 .as_ptr(),
             first_program
         );
@@ -6820,7 +6887,7 @@ mod compact_tests {
             }
             false
         }
-        assert!(disqualify(stages));
+        assert!(disqualify(&mut stages.stages));
         worker.detach_controls();
         assert!(matches!(
             worker.reset_scratch(),
@@ -7305,8 +7372,7 @@ mod compact_tests {
         assert!(support.remaining_occurrences() > 0);
     }
 
-    #[test]
-    fn compact_nested_domain_applicability_and_both_branch_arms_capture_sparse_inputs() {
+    fn nested_branch_body() -> PreparedBody {
         use pse_model::{
             applicability::{Claim, Node, Region},
             generated::enums::ModelingValidityLayer,
@@ -7348,7 +7414,7 @@ mod compact_tests {
         let x = library::formal(X).unwrap();
         let y = library::formal(Y).unwrap();
         let g = library::formal(GUARD).unwrap();
-        let body = PreparedBody::new(
+        PreparedBody::new(
             GUARD + 1,
             4096,
             vec![RESULT],
@@ -7378,7 +7444,12 @@ mod compact_tests {
             ],
             DerivativeOrder::Value,
         )
-        .unwrap();
+        .unwrap()
+    }
+
+    #[test]
+    fn compact_nested_domain_applicability_and_both_branch_arms_capture_sparse_inputs() {
+        let body = nested_branch_body();
         for order in [
             DerivativeOrder::Value,
             DerivativeOrder::First,
@@ -7542,7 +7613,7 @@ mod compact_tests {
             );
         }
         let slots = worker.body.slots;
-        for stage in worker.programs[DerivativeOrder::Value].as_ref().unwrap() {
+        for stage in &worker.programs[DerivativeOrder::Value].as_ref().unwrap().stages {
             if let CompiledStage::Domain { frame, .. }
             | CompiledStage::Applicability { frame, .. } = stage
             {
@@ -7576,7 +7647,7 @@ mod compact_tests {
                 }
             }
         }
-        assert_poisoned(worker.programs[DerivativeOrder::Value].as_ref().unwrap());
+        assert_poisoned(&worker.programs[DerivativeOrder::Value].as_ref().unwrap().stages);
         worker.set_scope(pse_kernels::ExecutionScope::new(
             pse_diagnostics::Cancellation::default(),
             None,
@@ -7587,6 +7658,146 @@ mod compact_tests {
                 .values,
             [16.]
         );
+    }
+
+    fn instantiation_counts() -> (usize, usize, usize) {
+        INSTANTIATION_PROBE.with_borrow(|probe| {
+            (probe.visits, probe.evaluator_calls, probe.template_clones)
+        })
+    }
+
+    fn instantiation_program(options: Optimization) -> CompiledBody {
+        nested_branch_body()
+            .compile(
+                &[0],
+                &[X, Y],
+                DerivativeOrder::Second,
+                options,
+                EvaluationLimits::default(),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            )
+            .unwrap()
+    }
+
+    fn check_successful_order_instantiation(options: Optimization) {
+        let program = instantiation_program(options);
+        INSTANTIATION_PROBE.set(InstantiationProbe::default());
+        let mut worker = program.worker();
+        for (index, order) in [
+            DerivativeOrder::Value,
+            DerivativeOrder::First,
+            DerivativeOrder::Second,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            worker.prepare_order(order).unwrap();
+            let expected = (8 * (index + 1), 5 * (index + 1), index + 1);
+            assert_eq!(instantiation_counts(), expected);
+            worker.prepare_order(order).unwrap();
+            assert_eq!(instantiation_counts(), expected, "warm preparation never walks stages");
+            let positive = eval(&mut worker, &[2., 3., 1.], order).unwrap();
+            let negative = eval(&mut worker, &[-2., 3., 1.], order).unwrap();
+            assert_eq!(positive.values, [4.]);
+            assert_eq!(negative.values, [9.]);
+            if order >= DerivativeOrder::First {
+                assert_eq!(positive.jacobian, [4., 0.]);
+                assert_eq!(negative.jacobian, [0., 6.]);
+            }
+            if order >= DerivativeOrder::Second {
+                assert_eq!(positive.hessians, [2., 0., 0., 0.]);
+                assert_eq!(negative.hessians, [0., 0., 0., 2.]);
+            }
+            assert_eq!(instantiation_counts(), expected, "both branch arms were already instantiated");
+        }
+        let ready = instantiation_counts();
+        let cancelled = pse_diagnostics::Cancellation::new(true);
+        worker.set_scope(pse_kernels::ExecutionScope::new(cancelled, None));
+        assert!(matches!(worker.prepare_order(DerivativeOrder::Value), Err(MathError::Cancelled)));
+        worker.set_scope(pse_kernels::ExecutionScope::new(
+            pse_diagnostics::Cancellation::default(),
+            Some(std::time::Instant::now()),
+        ));
+        assert!(matches!(
+            worker.prepare_order(DerivativeOrder::Value),
+            Err(MathError::Scope(pse_kernels::ProviderError::Deadline))
+        ));
+        assert_eq!(instantiation_counts(), ready, "scope rejection still precedes a warm hit");
+        worker.detach_controls();
+        worker.reset_scratch().unwrap();
+        assert!(worker.programs.values().flatten().all(|program| !program.instantiated));
+        worker.set_scope(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
+        worker.prepare_order(DerivativeOrder::Value).unwrap();
+        assert_eq!(instantiation_counts(), (32, 20, 3), "reset retries without cloning templates");
+        worker.prepare_order(DerivativeOrder::Value).unwrap();
+        assert_eq!(instantiation_counts(), (32, 20, 3));
+        assert_eq!(eval(&mut worker, &[4., 5., 1.], DerivativeOrder::Value).unwrap().values, [16.]);
+        let mut replacement = worker.clone();
+        replacement.prepare_order(DerivativeOrder::Value).unwrap();
+        assert_eq!(instantiation_counts(), (40, 25, 4), "replacement worker inherits no successful state");
+    }
+
+    #[test]
+    fn successful_order_instantiation_walks_nested_branches_once_and_resets() {
+        check_successful_order_instantiation(Optimization::default());
+    }
+
+    #[cfg(feature = "compiled-evaluator")]
+    #[test]
+    fn native_successful_order_instantiation_walks_nested_branches_once_and_resets() {
+        check_successful_order_instantiation(Optimization {
+            evaluator: library::Evaluator::CompiledScalar { module_bytes: 1 << 20 },
+            ..Optimization::default()
+        });
+    }
+
+    #[test]
+    fn incomplete_order_instantiation_retries_and_accounts_retained_frame() {
+        let program = instantiation_program(Optimization::default());
+        INSTANTIATION_PROBE.set(InstantiationProbe { fail_at: Some(4), ..InstantiationProbe::default() });
+        let mut worker = program.worker();
+        assert!(matches!(worker.prepare_order(DerivativeOrder::First), Err(MathError::Library(_))));
+        assert_eq!(instantiation_counts(), (4, 1, 1));
+        assert!(worker.programs[DerivativeOrder::First].is_none());
+        assert_eq!(worker.used_bytes, worker.frame.len() * size_of::<f64>());
+        INSTANTIATION_PROBE.with_borrow_mut(|probe| probe.fail_at = None);
+        worker.prepare_order(DerivativeOrder::First).unwrap();
+        assert_eq!(instantiation_counts(), (12, 6, 2));
+        assert_eq!(worker.used_bytes, worker.frame.len() * size_of::<f64>() + program.order_worker_bytes[DerivativeOrder::First]);
+        assert!(worker.programs[DerivativeOrder::First].as_ref().unwrap().instantiated);
+        worker.prepare_order(DerivativeOrder::First).unwrap();
+        assert_eq!(instantiation_counts(), (12, 6, 2));
+    }
+
+    #[test]
+    fn cancelled_order_instantiation_publishes_only_after_final_scope_check() {
+        let program = instantiation_program(Optimization::default());
+        INSTANTIATION_PROBE.set(InstantiationProbe { cancel_at: Some(8), ..InstantiationProbe::default() });
+        let mut worker = program.worker();
+        // Cancellation in the last leaf is detected before publishing even though
+        // every evaluator has been instantiated and there is no next stage check.
+        assert!(matches!(worker.prepare_order(DerivativeOrder::Value), Err(MathError::Cancelled)));
+        assert_eq!(instantiation_counts(), (8, 5, 1));
+        assert!(worker.programs[DerivativeOrder::Value].is_none());
+        assert_eq!(worker.used_bytes, worker.frame.len() * size_of::<f64>());
+        INSTANTIATION_PROBE.with_borrow_mut(|probe| probe.cancel_at = None);
+        worker.set_scope(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
+        worker.prepare_order(DerivativeOrder::Value).unwrap();
+        assert_eq!(instantiation_counts(), (16, 10, 2));
+        worker.detach_controls();
+        worker.reset_scratch().unwrap();
+        worker.set_scope(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
+        INSTANTIATION_PROBE.with_borrow_mut(|probe| probe.cancel_at = Some(18));
+        assert!(matches!(worker.prepare_order(DerivativeOrder::Value), Err(MathError::Cancelled)));
+        assert_eq!(instantiation_counts(), (18, 11, 2));
+        assert!(!worker.programs[DerivativeOrder::Value].as_ref().unwrap().instantiated);
+        INSTANTIATION_PROBE.with_borrow_mut(|probe| probe.cancel_at = None);
+        worker.set_scope(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
+        worker.prepare_order(DerivativeOrder::Value).unwrap();
+        assert_eq!(instantiation_counts(), (26, 16, 2));
+        worker.prepare_order(DerivativeOrder::Value).unwrap();
+        assert_eq!(instantiation_counts(), (26, 16, 2));
+        assert_eq!(eval(&mut worker, &[2., 3., 1.], DerivativeOrder::Value).unwrap().values, [4.]);
     }
 
     #[test]
