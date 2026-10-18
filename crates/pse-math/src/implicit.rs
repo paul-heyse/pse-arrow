@@ -765,7 +765,6 @@ impl Problem {
         observed!("implicit.derivatives", {
             let n = self.unknowns.len();
             let p = self.inputs;
-            let width = n + p;
             let mut output = ProviderValues {
                 values: point.to_vec(),
                 jacobian: vec![],
@@ -2175,6 +2174,7 @@ mod tests {
                     DerivativeOrder::Second,
                     &options,
                     &cancel,
+                    ContentHash::from_bytes([0; 32]),
                 ),
                 Err(MathError::Cancelled)
             ));
@@ -2409,7 +2409,7 @@ mod tests {
                 .evaluate(
                     &values,
                     DerivativeOrder::Value,
-                    &mut BTreeMap::new(),
+                    &mut pse_kernels::ProviderBindings::new(),
                     &cancel
                 )
                 .unwrap()
@@ -3162,6 +3162,7 @@ mod tests {
                     DerivativeOrder::Second,
                     &options,
                     &cancel,
+                    ContentHash::from_bytes([0; 32]),
                 ),
                 Err(MathError::Cancelled)
             ));
