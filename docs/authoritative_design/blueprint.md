@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 200
+revision: 201
 date: 2026-10-18
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 201 | 2026-10-18 | Publish integrated Plan45 typed/persistent source and current-input ownership, prepared descriptions, explicit selected-result/evidence handoff and once-encoded physical publication; correct v11 dynamic identity and IDAS corrected quadrature-history lifecycle (§7.3/§13.6/§14.3.2/§14.4/§20). | Maintainer-authorized Plan45 execution; PSE_DESIGN_EDIT=1; targeted tests recorded at owning companions, assembled qualification remains 45f. |
 | 200 | 2026-10-18 | Plan45 E01 bounded non-adoption retains stock KLU/explicit Krylov (§18), removes the experimental symbolic owner and preserves F13; clarify provider-backed operational selector effects before same-point reuse (§14.1). | Maintainer-authorized RC08 and N01 correction; PSE_DESIGN_EDIT=1; proposed ADR-0200 reconciled without a formal status transition. |
 | 199 | 2026-10-18 | Proposed ADR-0200 opt-in symbolic-retaining KLU application contract (§18/§23.1), exact structure/settings eligibility and fresh numerical validity; stock default retained pending Plan45e qualification. | Maintainer-authorized Plan45 RC08 execution; PSE_DESIGN_EDIT=1; prerequisite publication precedes binding implementation. |
 | 198 | 2026-10-18 | Plan45 RC04 explicit selected reader/snapshot target (§20), preserving full snapshots and Python stream meaning; acknowledged protected evidence handoff within ADR-0182 (§20.4). | Maintainer-authorized execution; PSE_DESIGN_EDIT=1; proposed ADR-0187 amendment precedes selected API implementation; qualification remains Plan45c/f. |

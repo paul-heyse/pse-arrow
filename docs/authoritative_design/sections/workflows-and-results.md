@@ -218,16 +218,21 @@ IDAS events together with forward sensitivities, because Diffsol owns reset sens
 sign-constraint vector that is neither empty nor one entry per state, or that constrains
 nothing; a zero or oversized Krylov dimension; and an unlinked backend. At each scheduled
 change or reset IDAS restarts the same native memory (`IDAReInit`, `IDASensReInit`,
-`IDAQuadReInit` and `IDACalcIC`, with consistent sensitivity starts from
+`IDAQuadReInit`, optional `IDAQuadSensReInit` and `IDACalcIC`, with consistent sensitivity starts from
 `IDAGetSensConsistentIC`); each segment keeps its own native statistics, and output
-quadratures continue across the restart. Both routes consume the same compiled functions
+quadratures continue across the restart. Optional quadrature sensitivities are installed
+before initial consistent setup. After successful consistent initialization, the bundled
+IDAS owner refreshes primal and sensitivity quadrature derivative history from corrected
+states and sensitivities, including backward owners using the same IC routine. It does
+not reinitialize physical history, reset native work counters or change quadrature totals
+and scheduled offsets; callback failures remain failures before physical advance. Both routes consume the same compiled functions
 (`Rhs`, `Initial`, `Output`, `BalanceFlux`, `Roots`, `Reset`); IDAS is a residual adapter,
 not a second compiler.
 
 Profile identity comes from serde, never from a hand-written field list. `profile_json` is
 the complete encoding of the profile plus the resolved method; Diffsol's native option types
 enter through remote serde definitions, so a new field in a pinned option type fails to
-compile rather than escaping identity. `pse.dynamic.profile.v6` frames that encoding, which
+compile rather than escaping identity. `pse.dynamic.profile.v11` frames that encoding, which
 includes the scheduled inputs and the typed sensitivity, with the numerical policy key; the
 IDAS settings (document version 2) no longer carry signs, which come from authored bounds. A
 modeling dynamic simulation's preparation (`pse.modeling.dynamic.v2`) also frames the
@@ -298,7 +303,10 @@ Single shooting integrates one window over the horizon; multiple
 shooting integrates one window per node interval, each anchored at its start state
 (`dynamics::Anchored`), with the differential states at the inner nodes as variables closed
 by continuity rows. A terminal objective takes its gradient from the forward sensitivities
-the rows need anyway, and an integral one from the adjoint. The shooting NLP supplies first
+the rows need anyway. Eligible IDAS combined consumers use selected-axis endpoint
+quadrature sensitivities in that same forward integration; integral-only consumers use the
+admitted adjoint route. Complete before-effect preflight selects the route, and a failed
+upgrade preserves only the original weaker usable product without post-effect fallback. The shooting NLP supplies first
 derivatives only, so it requires the limited-memory Hessian and refuses any other mode. A
 `ShootingReport` returns the solve, controls, node states, objective, continuity residual,
 trajectory and checks. A fixture selects it with `route integrated; procedure shooting;`, a `shoot single;` or
