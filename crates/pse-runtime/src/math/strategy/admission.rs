@@ -500,11 +500,24 @@ impl TaskAdmission {
         }
         state.pending = pending;
         state.unknown_pending = unknown;
+        let upper = add_work(state.current_budget()?, actual)?;
         state.ledger.total = add_work(state.ledger.total, actual)?;
         state.unreported = add_work(state.unreported, actual)?;
         state.budget_local = add_work(state.budget_local, actual)?;
         if let Some((_, work)) = &mut state.local {
             *work = add_work(*work, actual)?;
+        }
+        if state.local.is_none() {
+            // The aggregate parent has no local strategy interval. Known hooks
+            // must advance a retained unknown-work upper bound immediately;
+            // adding them only to an already-unknown observed total loses units.
+            let ledger = &mut state.ledger;
+            for (total, reserved, upper) in [
+                (ledger.total.evaluations, &mut ledger.reserved.evaluations, upper.evaluations),
+                (ledger.total.iterations, &mut ledger.reserved.iterations, upper.iterations),
+                (ledger.total.factorizations, &mut ledger.reserved.factorizations, upper.factorizations),
+                (ledger.total.proof_steps, &mut ledger.reserved.proof_steps, upper.proof_steps),
+            ] { if total.is_none() { *reserved = upper; } }
         }
         state.retain_effective_work()?;
         if let Some((limits, _)) = state.local {
@@ -1085,6 +1098,26 @@ mod tests {
         assert!(sibling.admit(unit()).is_err(), "phase completion never renews the original aggregate allowance");
         let mut refused = charge(Some(0)); refused.charging_owner = pse_ids::ContentHash::from_bytes([5; 32]);
         sibling.complete_charge(refused).unwrap(); sibling.finish_child().unwrap();
+    }
+    #[test]
+    fn unknown_child_bound_and_later_known_hooks_share_one_finite_upper() {
+        let mut caps = limits(); caps.attempts = 4; caps.evaluations = Some(10);
+        let parent = TaskAdmission::new(caps, pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None), None, false);
+        let unknown = parent.child().unwrap();
+        unknown.reserve(caps, Some(WorkObservation { evaluations: Some(6), ..zero() }), false).unwrap();
+        unknown.complete_charge(charge(None)).unwrap(); unknown.finish_child().unwrap();
+        assert_eq!(parent.observation().unwrap().evaluations, None);
+        let known = parent.child().unwrap(); known.reserve(caps, None, true).unwrap();
+        for _ in 0..4 { known.admit(unit()).unwrap(); known.observe(unit()).unwrap(); }
+        assert!(known.admit(unit()).is_err(), "unknown six plus four actual units exhaust the original ten");
+        let mut report = charge(Some(4)); report.charging_owner = pse_ids::ContentHash::from_bytes([2; 32]);
+        known.complete_charge(report).unwrap(); known.finish_child().unwrap();
+        assert_eq!(parent.observation().unwrap().evaluations, None);
+        assert_eq!(parent.state().unwrap().ledger.effective().evaluations, Some(10));
+        let late = parent.child().unwrap(); late.reserve(caps, None, true).unwrap();
+        assert!(late.admit(unit()).is_err(), "phase completion and whole drain cannot renew consumed permission");
+        let mut refused = charge(Some(0)); refused.charging_owner = pse_ids::ContentHash::from_bytes([3; 32]);
+        late.complete_charge(refused).unwrap(); late.finish_child().unwrap();
     }
     #[test]
     fn concurrent_child_bounds_release_known_surplus_but_never_renew_unknown_permission() {
