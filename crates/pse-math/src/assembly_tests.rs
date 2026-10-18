@@ -4453,16 +4453,23 @@ impl pse_kernels::Provider for ControlledJetProvider {
         if request.order >= DerivativeOrder::First {
             match self.control.swap(0, std::sync::atomic::Ordering::AcqRel) {
                 1 => {
+                    // An admitted fill can modify its destinations before a late
+                    // refusal. The enclosing worker must keep this unpublished.
+                    output.values[0] = 97.;
                     return Err(pse_kernels::ProviderError::Limit(
                         "controlled upgrade allowance",
                     ));
                 }
                 2 => {
+                    output.values[0] = 98.;
                     return Err(pse_kernels::ProviderError::Trial(
                         "controlled original contradiction".into(),
                     ));
                 }
-                3 => return Err(pse_kernels::ProviderError::Cancelled),
+                3 => {
+                    output.values[0] = 99.;
+                    return Err(pse_kernels::ProviderError::Cancelled);
+                }
                 _ => {}
             }
         }
