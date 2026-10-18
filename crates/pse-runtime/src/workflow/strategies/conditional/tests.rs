@@ -11,10 +11,17 @@ async fn recycle_short_controls_compare_same_map_and_preserve_original_accuracy(
     use pse_model::generated::enums::KinsolOrthogonalization as Orthogonalization;
     for rho in [0.5, 0.95] {
         let runtime = runtime();
-        let source = format!(
-            "package p {{def Root {{var x:Scalar; let result:Scalar=x*{rho}+{}; port inlet:Scalar=x; port outlet:Scalar=result; annotation connectivity inlet(1,0); annotation connectivity outlet(0,1); connect outlet -> inlet; annotation start x(0);}}}}",
-            1.0 - rho,
-        );
+        // Distinct rates make three tear coordinates nonredundant. History
+        // depth three is eligible only for a map of at least that dimension.
+        let rates = [rho - 0.02, rho - 0.01, rho];
+        let mut source = String::from("package p {def Root {");
+        for (index, rate) in rates.iter().enumerate() {
+            source.push_str(&format!(
+                "var x{index}:Scalar; let result{index}:Scalar=x{index}*{rate}+{}; port inlet{index}:Scalar=x{index}; port outlet{index}:Scalar=result{index}; annotation connectivity inlet{index}(1,0); annotation connectivity outlet{index}(0,1); connect outlet{index} -> inlet{index}; annotation start x{index}(0);",
+                1.0 - rate,
+            ));
+        }
+        source.push_str("}}");
         let declarations = pse_authoring::language::parse(
             &source, id(97), pse_authoring::language::IdentityPolicy::Named, Default::default(),
         ).unwrap();
@@ -36,8 +43,8 @@ async fn recycle_short_controls_compare_same_map_and_preserve_original_accuracy(
             tears: selection.connections.keys().copied().collect(),
             units: vec![CausalUnitRequest {
                 node: analysis.instance.as_id(),
-                inputs: BTreeSet::from([port("inlet")]),
-                outputs: BTreeSet::from([port("outlet")]),
+                inputs: (0..3).map(|index| port(&format!("inlet{index}"))).collect(),
+                outputs: (0..3).map(|index| port(&format!("outlet{index}"))).collect(),
                 realization: CausalUnitRealization::ExplicitMap,
             }],
             anderson: 0, anderson_delay: 0, orthogonalization: None,
@@ -58,15 +65,23 @@ async fn recycle_short_controls_compare_same_map_and_preserve_original_accuracy(
             selected.orthogonalization = orthogonalization;
             let prepared = package.prepare_recycle(&analysis, selection.clone(), selected, &cancel).await.unwrap();
             assert_eq!(prepared.settings.method.orthogonalization, orthogonalization.unwrap_or(Orthogonalization::ModifiedGramSchmidt));
-            let budget = prepared.tolerances.rows[0];
+            let coordinates: Vec<_> = prepared.contract.variables.iter()
+                .zip(&prepared.tolerances.rows)
+                .map(|(variable, budget)| {
+                    let index = (0..3).find(|index| port(&format!("inlet{index}")) == variable.id).unwrap();
+                    (rates[index], *budget)
+                }).collect();
             let started = std::time::Instant::now();
             let result = prepared.start().unwrap().finish().await.unwrap();
             let elapsed = started.elapsed();
             eprintln!("recycle rho={rho} depth={depth} delay={delay} damping={damping} orthogonalization={orthogonalization:?} elapsed={elapsed:?} map={:?} iterations={:?} qualification={:?}", result.report.metrics.get("KINGetNumFuncEvals"), result.report.metrics.get("KINGetNumNonlinSolvIters"), result.report.qualification);
             assert_eq!(result.report.qualification, Qualification::Feasible, "{:?}", result.report);
-            let x = result.report.candidate.as_ref().unwrap().primal[0];
-            assert!((rho * x + (1.0 - rho) - x).abs() <= 2.0 * budget);
-            assert!((x - 1.0).abs() <= 2.0 * budget / (1.0 - rho) + 1e-9);
+            let candidate = &result.report.candidate.as_ref().unwrap().primal;
+            assert_eq!(candidate.len(), coordinates.len());
+            for (x, (rate, budget)) in candidate.iter().zip(&coordinates) {
+                assert!((rate * x + (1.0 - rate) - x).abs() <= 2.0 * budget);
+                assert!((x - 1.0).abs() <= 2.0 * budget / (1.0 - rate) + 1e-9);
+            }
             let Metric::Integer(count) = result.report.metrics["KINGetNumFuncEvals"] else { panic!("missing native fixed-point map evaluations"); };
             evaluations.push(count);
         }
