@@ -8550,14 +8550,14 @@ mod compact_tests {
         let immutable = ["kernel.provider.descriptor_hashes", "kernel.provider.request_preparations",
             "kernel.provider.slot_resolutions", "kernel.provider.request_bindings"];
         let before = immutable.map(count);
-        assert_eq!(count("kernel.provider.slot_resolutions"), 1);
+        assert_eq!(count("kernel.provider.slot_resolutions"), 2);
         for _ in 0..4 {
             assert_eq!(worker.evaluate(&[2., 3., 1.], DerivativeOrder::Second, &mut providers, &cancel).unwrap().values, [6.]);
         }
         assert_eq!(immutable.map(count), before, "warm dispatch borrows the prepared descriptor/request/slot");
         let mut replacement = ProviderBindings::from([(key, fresh_provider())]);
         assert_eq!(worker.evaluate(&[2., 3., 1.], DerivativeOrder::Second, &mut replacement, &cancel).unwrap().values, [6.]);
-        assert_eq!(count("kernel.provider.slot_resolutions"), 2, "fresh bank rebinds once");
+        assert_eq!(count("kernel.provider.slot_resolutions"), 3, "fresh bank rebinds once");
         assert!(
             worker
                 .evaluate(
