@@ -758,9 +758,13 @@ impl MathService {
                             let mut step = template.clone();
                             step.profile.controls.iterations = allowance;
                             let Representation::Algebraic(local) = &mut step.representation else { return Err(ProblemError::Internal("conditional representation changed".into()).into()); };
-                            let input_owner = self.reserve("math:block-dispatch-inputs", prepared.dependencies.binding_bytes(index))?;
-                            let inputs: pse_math::SharedAllocation<CaseValues> = Arc::new(prepared.dependencies.inputs(index, &values)?).into();
-                            let inputs = inputs.with_owner(input_owner);
+                            let inputs = if prepared.dependencies.bindings_match(index, &local.values, &values)? {
+                                local.values.clone()
+                            } else {
+                                let input_owner = self.reserve("math:block-dispatch-inputs", prepared.dependencies.binding_bytes(index))?;
+                                let inputs: pse_math::SharedAllocation<CaseValues> = Arc::new(prepared.dependencies.inputs(index, &values)?).into();
+                                inputs.with_owner(input_owner)
+                            };
                             let bound = local.prepared.prepared.rebind(&inputs, &execution.cancel)?;
                             let bytes = bound.rebind_allocation_bytes(&local.prepared.prepared);
                             local.prepared = self.own_rebind(&local.prepared, bound, self.reserve("math:block-rebind", bytes)?)?;

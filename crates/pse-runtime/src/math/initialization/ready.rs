@@ -78,6 +78,7 @@ impl MathService {
             };
             let mut completed_stages = 0;
             let mut iterations = Iterations::new(profile.solver.controls.iterations);
+            let mut bindings = vec![None::<pse_math::SharedAllocation<CaseValues>>; prepared.blocks.len()];
             let previous_accepted = profile.solver.controls.start == StartPolicy::PreviousAccepted;
             for (stage, updates) in profile.stages.iter().enumerate() {
                 let mut values = original.clone();
@@ -110,10 +111,15 @@ impl MathService {
                             Err(_) => { readiness.defer(index); break; }
                         };
                         let dispatch = (|| {
-                            let input_owner = service.reserve("math:block-dispatch-inputs", prepared.dependencies.binding_bytes(index))?;
-                            let inputs: pse_math::SharedAllocation<CaseValues> = Arc::new(prepared.dependencies.inputs(index, &values)?).into();
+                            let reusable = bindings[index].as_mut().map(|inputs| prepared.dependencies.refresh_inputs(index, inputs, &values)).transpose()?.unwrap_or(false);
+                            if !reusable {
+                                let input_owner = service.reserve("math:block-dispatch-inputs", prepared.dependencies.binding_bytes(index))?;
+                                let inputs: pse_math::SharedAllocation<CaseValues> = Arc::new(prepared.dependencies.inputs(index, &values)?).into();
+                                bindings[index] = Some(inputs.with_owner(input_owner));
+                            }
+                            let inputs = bindings[index].as_ref().ok_or_else(|| native::ProblemError::Internal("conditional binding base absent".into()))?.clone();
                             let admission = admission.as_ref().map(|parent| parent.child()).transpose()?;
-                            Ok::<_, MathRuntimeError>((inputs.with_owner(input_owner), admission))
+                            Ok::<_, MathRuntimeError>((inputs, admission))
                         })();
                         let (inputs, child_admission) = match dispatch {
                             Ok(dispatch) => dispatch,

@@ -100,6 +100,30 @@ impl Dependencies {
             committed: vec![false; self.predecessors.len()], remaining: self.predecessors.len() }
     }
     pub(in crate::math) fn binding_bytes(&self, index: usize) -> usize { self.consumed[index].len().saturating_mul(96).saturating_add(256) }
+    pub(in crate::math) fn bindings_match(&self, index: usize, inputs: &CaseValues, current: &CaseValues) -> Result<bool, native::ProblemError> {
+        let mut matches = true;
+        for id in &self.consumed[index] {
+            let value = current.scalars.get(id).ok_or_else(|| native::ProblemError::Contract(format!("missing conditional binding {id}")))?;
+            matches &= inputs.scalars.get(id).is_some_and(|bound| bound.to_bits() == value.to_bits());
+        }
+        Ok(matches)
+    }
+    /// Refresh an exclusive request-local base after all previous child aliases drain.
+    /// A nonexclusive base must be replaced by a newly admitted compact allocation.
+    pub(in crate::math) fn refresh_inputs(&self, index: usize, inputs: &mut pse_math::SharedAllocation<CaseValues>, current: &CaseValues) -> Result<bool, native::ProblemError> {
+        if self.bindings_match(index, inputs, current)? { return Ok(true); }
+        let Some(inputs) = inputs.get_mut() else { return Ok(false); };
+        let mut copied = 0;
+        for id in &self.consumed[index] {
+            let value = current.scalars[id];
+            let bound = inputs.scalars.get_mut(id).ok_or_else(|| native::ProblemError::Contract(format!("missing prepared conditional binding {id}")))?;
+            if bound.to_bits() != value.to_bits() { *bound = value; copied += 1; }
+        }
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("math.block_bound_input_copies", "count", copied);
+        }
+        Ok(true)
+    }
     pub(in crate::math) fn inputs(&self, index: usize, values: &CaseValues) -> Result<CaseValues, native::ProblemError> {
         let scalars = self.consumed[index].iter().map(|id| {
             values.scalars.get(id).copied().map(|value| (*id, value))
@@ -209,6 +233,27 @@ mod tests {
         values.scalars.insert(id(9), 3.0);
         assert_eq!(graph.inputs(0, &values).unwrap().scalars[&id(9)], 3.0);
         values.scalars.remove(&id(9)); assert!(graph.inputs(0, &values).is_err());
+    }
+    #[test]
+    fn retained_binding_base_updates_only_after_aliases_drain() {
+        let blocks = [block(1, vec![id(9)])];
+        let graph = Dependencies::prepare(blocks.iter(), vec![vec![id(1), id(9)]]).unwrap();
+        let mut current = CaseValues { scalars: BTreeMap::from([(id(1), 1.0), (id(9), 2.0), (id(8), 99.0)]) };
+        let mut inputs: pse_math::SharedAllocation<_> = Arc::new(graph.inputs(0, &current).unwrap()).into();
+        let identity = inputs.allocation_identity();
+        let alias = inputs.clone();
+        assert!(graph.refresh_inputs(0, &mut inputs, &current).unwrap());
+        current.scalars.insert(id(9), 3.0);
+        assert!(!graph.refresh_inputs(0, &mut inputs, &current).unwrap());
+        assert_eq!(alias.scalars[&id(9)], 2.0);
+        drop(alias);
+        assert!(graph.refresh_inputs(0, &mut inputs, &current).unwrap());
+        assert_eq!(inputs.allocation_identity(), identity);
+        assert_eq!(inputs.scalars[&id(9)], 3.0);
+        assert_eq!(inputs.scalars.len(), 2);
+        current.scalars.remove(&id(9));
+        assert!(graph.refresh_inputs(0, &mut inputs, &current).is_err());
+        assert_eq!(inputs.scalars[&id(9)], 3.0);
     }
     #[test]
     fn aggregate_issued_budget_cannot_double_spend_or_refund_unknown_work() {
