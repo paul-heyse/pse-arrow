@@ -58,6 +58,7 @@
  */
 
 extern int IDAInitialSetup(IDAMem IDA_mem);
+extern int IDAInitialQuadDerivatives(IDAMem IDA_mem);
 
 extern int IDASensEwtSet(IDAMem IDA_mem, N_Vector* yScur, N_Vector* weightS);
 
@@ -375,8 +376,9 @@ int IDACalcIC(void* ida_mem, int icopt, sunrealtype tout1)
       N_VDestroyVectorArray(IDA_mem->ida_ypS0, IDA_mem->ida_Ns);
     }
 
+    icret = IDAInitialQuadDerivatives(IDA_mem);
     SUNDIALS_MARK_FUNCTION_END(IDA_PROFILER);
-    return (IDA_SUCCESS);
+    return (icret);
   }
 
   /* Find consistent I.C. for sensitivities using a staggered approach */
@@ -475,9 +477,10 @@ int IDACalcIC(void* ida_mem, int icopt, sunrealtype tout1)
     return (icret);
   }
 
-  /* Otherwise return success flag. */
+  /* Refresh derivatives using the corrected state and sensitivity history. */
+  icret = IDAInitialQuadDerivatives(IDA_mem);
   SUNDIALS_MARK_FUNCTION_END(IDA_PROFILER);
-  return (IDA_SUCCESS);
+  return (icret);
 }
 
 /*

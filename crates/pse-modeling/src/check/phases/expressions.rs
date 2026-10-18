@@ -104,6 +104,20 @@ impl Environment {
             bodies: Arc::new(bodies),
         })
     }
+    /// Include each actual shared candidate root once, including older snapshots
+    /// still borrowed by unchanged input phases.
+    pub fn collect_retained_inputs<'a>(&'a self, census: &mut RetainedInputs<'a>) {
+        use pse_model::HeapUsage;
+        if census.include_shared(&self.package) { census.add(self.package.retained_bytes()); }
+        if census.include_shared(&self.metadata) { census.add(self.metadata.retained_bytes()); }
+        if census.include_shared(&self.declarations) {
+            census.add(self.declarations.values().map(|row| row.owned_bytes() + 128).sum());
+        }
+        if census.include_shared(&self.bodies) {
+            census.add(self.bodies.len().saturating_mul(size_of::<(DeclarationId, Arc<Body>)>() + 128));
+            for body in self.bodies.values() { body.collect_retained_inputs(census); }
+        }
+    }
     /// Compare the shared enclosing population once per candidate, then reuse its
     /// immutable owner so per-declaration input equality does not rescan N rows N times.
     pub fn reuse_metadata(&mut self, previous: &Self) {
@@ -180,6 +194,16 @@ pub struct ReferenceInput {
     declaration: DeclarationId,
     body: Arc<Body>,
 }
+impl Body {
+    fn collect_retained_inputs<'a>(self: &'a Arc<Self>, census: &mut RetainedInputs<'a>) {
+        use pse_model::HeapUsage;
+        if census.include_shared(self) {
+            census.add(self.declaration.owned_bytes());
+            census.add(self.fields.iter().map(|(key, field)| expression::occurrences::field_retained_bytes(key, field, true)).sum());
+            census.add(self.function.as_ref().map_or(0, |function| size_of::<Function>() + crate::extent::function(function)));
+        }
+    }
+}
 impl Environment {
     /// Capture the one exact source/body owner consumed by reference resolution.
     /// # Errors
@@ -198,6 +222,11 @@ impl Environment {
     }
 }
 impl ReferenceInput {
+    /// Include the exact environment and source body retained by this input.
+    pub fn collect_retained_inputs<'a>(&'a self, census: &mut RetainedInputs<'a>) {
+        self.environment.collect_retained_inputs(census);
+        self.body.collect_retained_inputs(census);
+    }
     /// Resolve generated roots through the same complete lexical namespace as normal
     /// occurrence binding. The caller retains this actual work as an incremental phase.
     pub fn resolve(&self) -> BTreeSet<DeclarationId> {
@@ -225,6 +254,13 @@ impl ReferenceInput {
     }
 }
 impl Input {
+    /// Include this input's own dependency maps and each shared source owner once.
+    pub fn collect_retained_inputs<'a>(&'a self, census: &mut RetainedInputs<'a>) {
+        self.environment.collect_retained_inputs(census);
+        census.add(self.owners.len().saturating_mul(size_of::<DeclarationId>() + 128));
+        census.add(self.bodies.len().saturating_mul(size_of::<(DeclarationId, Arc<Body>)>() + 128));
+        for body in self.bodies.values() { body.collect_retained_inputs(census); }
+    }
     /// Capture actual bound dependencies and lexical ancestor guards before retaining
     /// any cloned body inventory. Generated function roots use the same source resolver.
     /// # Errors

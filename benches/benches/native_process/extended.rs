@@ -224,6 +224,7 @@ pub(super) async fn recycle(
         }],
         anderson: if coupled { 2 } else { 1 },
         anderson_delay: 0,
+        orthogonalization: None,
         restarts: None,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
     };

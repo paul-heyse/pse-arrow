@@ -24,6 +24,14 @@ async fn tracking_with_integration_accuracy(
     method: Method,
     allowance: f64,
 ) -> crate::workflow::ModelingSimulation {
+    tracking_dimensions(method, allowance, 1, vec![1.]).await
+}
+async fn tracking_dimensions(
+    method: Method,
+    allowance: f64,
+    channels: usize,
+    changes: Vec<f64>,
+) -> crate::workflow::ModelingSimulation {
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -31,8 +39,13 @@ async fn tracking_with_integration_accuracy(
     );
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
+    let source = "package p { def Tracking { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 0.5; var x[i in t]: Scalar; var y[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == (u - x[i])/1{s}; eq square[i in t]: y[i] == x[i]*x[i]; eq initial: x[0{s}] == 0; annotation start x(0); annotation start y(0); let cost: Scalar = integral(i in t | (x[i]-1)*(x[i]-1)/1{s}); annotation check cost(cost >= 0); let miss[i in t]: Scalar = (x[i]-1.5)*(x[i]-1.5); annotation report miss(\"terminal miss\"); } }";
+    let additional: String = (2..=channels).map(|i| format!(
+        "let cost{i}: Scalar = integral(i in t | {i}*(x[i]-1)*(x[i]-1)/1{{s}}); annotation check cost{i}(cost{i} >= 0);"
+    )).collect();
+    let source = source.replace("annotation report miss(\"terminal miss\");", &format!("annotation report miss(\"terminal miss\");{additional}"));
     let rows = pse_authoring::language::parse(
-        "package p { def Tracking { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 0.5; var x[i in t]: Scalar; var y[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == (u - x[i])/1{s}; eq square[i in t]: y[i] == x[i]*x[i]; eq initial: x[0{s}] == 0; annotation start x(0); annotation start y(0); let cost: Scalar = integral(i in t | (x[i]-1)*(x[i]-1)/1{s}); annotation check cost(cost >= 0); let miss[i in t]: Scalar = (x[i]-1.5)*(x[i]-1.5); annotation report miss(\"terminal miss\"); } }",
+        &source,
         id(30),
         pse_authoring::language::IdentityPolicy::Named,
         pse_authoring::ParseBudget::default(),
@@ -54,12 +67,12 @@ async fn tracking_with_integration_accuracy(
         rtol: allowance,
         atol: vec![allowance; 2],
         out_rtol: Some(allowance),
-        out_atol: vec![allowance],
+        out_atol: vec![allowance; channels],
         initial_step: 1e-4,
         parameter_scales: vec![1.],
         schedule: vec![ScheduledInput {
             parameter: 0,
-            times: vec![1.],
+            times: changes,
         }],
         ..Default::default()
     };
@@ -1810,6 +1823,10 @@ async fn shooting_integral_only_retains_adjoint_when_no_rows_consume_forward_dir
     profile.objective.terminal.clear();
     let problem = Arc::new(simulation.shooting(profile).unwrap());
     assert!(!problem.forward_quadratures());
+    let selected = problem.adjoint_axes(0);
+    assert_eq!(selected.len(), problem.controls.len());
+    assert!(selected.len() < problem.windows[0].columns.len(), "fixed first-window anchors are physical values, not gradient demand");
+    assert!(selected.iter().all(|axis| matches!(problem.windows[0].columns[*axis], WindowColumn::Integration(_))));
     let mut execution =
         Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
     execution.memory = Some(
@@ -2014,4 +2031,130 @@ async fn shooting_forward_quadrature_preflight_retains_adjoint_when_added_cells_
     oracle.gradient(&[0.4, 1.2], &mut gradient).unwrap();
     assert!(gradient.iter().all(|value| value.is_finite()));
     assert!(oracle.point.as_ref().unwrap().integral_gradient.is_some());
+}
+
+
+/// Same objective and physical trial, with independently varied quadrature channels,
+/// scheduled controls and windows. The forced adjoint is a before-effect test control
+/// for the already-supported route, not a production fallback or crossover policy.
+#[cfg(feature = "solver-idas")]
+#[tokio::test]
+async fn shooting_exact_functional_routes_at_fixed_engineering_policy() {
+    use pse_diagnostics::observation::{ObservationHub, Policy};
+    let allowance = pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction;
+    let mut failures = Vec::new();
+    for channels in [1, 3] {
+        for changes in [vec![1.], vec![0.5, 1.]] {
+            let simulation = tracking_dimensions(Method::Idas, allowance, channels, changes.clone()).await;
+            assert_eq!(simulation.contract().quadratures.len(), channels);
+            for nodes in [vec![], vec![1.]] {
+                for combined in [false, true] {
+                    let method = if nodes.is_empty() { ShootingMethod::Single } else { ShootingMethod::Multiple };
+                    let mut request = request(&simulation, method, nodes.clone(), true);
+                    let total_flux = channels * (channels + 1) / 2;
+                    request.objective.integral = simulation.contract().quadratures.iter()
+                        .map(|id| (*id, 1. / total_flux as f64)).collect();
+                    if !combined { request.objective.terminal.clear(); }
+                    let mut route_results = Vec::new();
+                    for force_adjoint in [false, true] {
+                        if !combined && force_adjoint { continue; }
+                        let mut problem = simulation.shooting(request.clone()).unwrap();
+                        assert_eq!(problem.forward_quadratures(), combined || !nodes.is_empty());
+                        if force_adjoint { problem.forward_quadratures = false; }
+                        let forward = problem.forward_quadratures();
+                        let problem = Arc::new(problem);
+                        let mut x = vec![0.7; problem.controls.len()];
+                        x.extend(nodes.iter().map(|t| 0.7 * (1. - (-t).exp())));
+                        let mut execution = Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
+                        execution.memory = Some(problem.runtime.shared.budget().math.foreign_allowance(&solver().controls));
+                        let hub = ObservationHub::new(Policy { max_metrics: 512, budget_bytes: 64 << 20, ..Default::default() });
+                        let operation = hub.start("functional-crossover");
+                        let entered = operation.context().enter();
+                        for name in ["dynamics.window_ivp_initializations", "dynamics.window_adjoint_initializations", "dynamics.window_forward_quadrature_initializations"] {
+                            pse_diagnostics::observation::current().unwrap().count(name, "count", 0);
+                        }
+                        let mut oracle = ShootingOracle { observation: None, purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
+                            problem: problem.clone(), execution, point: None, worker: None };
+                        let started = Instant::now();
+                        let value = oracle.objective(&x).unwrap();
+                        let mut actual = vec![0.; x.len()];
+                        if let Err(error) = oracle.gradient(&x, &mut actual) {
+                            failures.push(format!("channels={channels} changes={changes:?} nodes={nodes:?} combined={combined} forward={forward}: {error}"));
+                            assert_eq!(oracle.point.as_ref().unwrap().achieved, DerivativeOrder::Value);
+                            assert_eq!(oracle.objective(&x).unwrap(), value, "failed upgrade retains weaker value");
+                            let counts = crate::workflow::tests::observation_counts(&hub, operation.reader());
+                            if forward { assert_eq!(counts.get("dynamics.window_adjoint_initializations").copied().unwrap_or(0), 0, "no fallback after effects"); }
+                            eprintln!("functional-failure channels={channels} changes={changes:?} nodes={nodes:?} combined={combined} forward={forward} error={error}");
+                            drop(entered);
+                            continue;
+                        }
+                        let elapsed = started.elapsed();
+                        let mut exact_value = 0.; let mut exact_gradient = vec![0.; x.len()];
+                        let mut endpoint = 0.; let mut endpoint_gradient = vec![0.; x.len()];
+                        let times: Vec<_> = std::iter::once(0.).chain(nodes.iter().copied()).chain(std::iter::once(2.)).collect();
+                        for (window, pair) in times.windows(2).enumerate() {
+                            let mut a = if window == 0 { 0. } else { x[problem.controls.len() + window - 1] };
+                            let mut da = vec![0.; x.len()];
+                            if window > 0 { da[problem.controls.len() + window - 1] = 1.; }
+                            let cuts: Vec<_> = std::iter::once(pair[0]).chain(changes.iter().copied().filter(|t| *t > pair[0] && *t < pair[1])).chain(std::iter::once(pair[1])).collect();
+                            for interval in cuts.windows(2) {
+                                let control = changes.iter().filter(|t| **t <= interval[0]).count();
+                                let u = x[control]; let dt = interval[1] - interval[0];
+                                let e = (-dt).exp(); let c = 1. - e; let d = (1. - (-2. * dt).exp()) / 2.;
+                                exact_value += (u - 1.).powi(2) * dt + 2. * (u - 1.) * (a - u) * c + (a - u).powi(2) * d;
+                                let derivative_a = 2. * (u - 1.) * c + 2. * (a - u) * d;
+                                let derivative_u = 2. * (u - 1.) * dt + 2. * (a - 2. * u + 1.) * c - 2. * (a - u) * d;
+                                for (gradient, da) in exact_gradient.iter_mut().zip(&da) { *gradient += derivative_a * da; }
+                                exact_gradient[control] += derivative_u;
+                                a = a * e + u * c;
+                                for derivative in &mut da { *derivative *= e; } da[control] += c;
+                            }
+                            endpoint = a; endpoint_gradient = da;
+                        }
+                        if combined {
+                            exact_value += (endpoint - 1.5).powi(2);
+                            for (gradient, da) in exact_gradient.iter_mut().zip(endpoint_gradient) { *gradient += 2. * (endpoint - 1.5) * da; }
+                        }
+                        let agreement = 64. * allowance;
+                        assert!((value - exact_value).abs() <= agreement * exact_value.abs().max(1.));
+                        for (actual, exact) in actual.iter().zip(&exact_gradient) {
+                            assert!((actual - exact).abs() <= agreement * exact.abs().max(1.), "channels={channels} changes={changes:?} nodes={nodes:?} combined={combined} forward={forward}: {actual} vs {exact}");
+                        }
+                        let counts = crate::workflow::tests::observation_counts(&hub, operation.reader());
+                        let selected_counts: BTreeMap<_, _> = counts.iter().filter(|(name, _)| name.starts_with("dynamics.") || (name.starts_with("callback.idas.") && name.ends_with(".calls")) || name.as_str() == "idas.consistent_initialization.calls" || (name.starts_with("implicit.factor.") && name.ends_with(".calls"))).collect();
+                        assert_eq!(counts.get("dynamics.window_adjoint_initializations").copied().unwrap_or(0), if forward { 0 } else { problem.windows.len() as u64 });
+                        let point = oracle.point.as_ref().unwrap();
+                        let simultaneous_reports: usize = point.reports.iter().map(native::dynamics::Report::numeric_bytes).sum();
+                        // Query the same source-owned admission formulas separately from
+                        // clocks. These are conservative workspace estimates, not RSS.
+                        let worker = simulation.worker(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None)).unwrap();
+                        let view = native::dynamics::Anchored::new(worker, !forward).unwrap();
+                        let mut maximum_window_workspace = 0;
+                        for (window_index, window) in problem.windows.iter().enumerate() {
+                            let parameters = IntegratedExperiment::window_parameters(window, &problem.integration(&x), problem.anchors(window_index, &x)).unwrap();
+                            let mut profile = view.profile(&window.profile);
+                            let layout = native::dynamics::Oracle::prepared_layout(&view, 32 << 20).unwrap();
+                            let bytes = if forward {
+                                profile.sensitivity = DynamicSensitivity::Forward;
+                                profile.forward_quadrature_bytes(native::dynamics::Oracle::contract(&view), &parameters, &layout).unwrap()
+                            } else {
+                                profile.sensitivity = DynamicSensitivity::Adjoint;
+                                profile.adjoint_parameters = native::dynamics::AdjointParameters::Selected(problem.adjoint_axes(window_index));
+                                profile.checkpoint_bytes(native::dynamics::Oracle::contract(&view), &layout).unwrap()
+                            };
+                            maximum_window_workspace = maximum_window_workspace.max(bytes);
+                        }
+                        eprintln!("functional channels={channels} controls={} windows={} combined={combined} forward_quadratures={forward} wall_ns={} returned_report_numeric_bytes={simultaneous_reports} maximum_window_admitted_workspace_bytes={maximum_window_workspace} counts={selected_counts:?}", problem.controls.len(), problem.windows.len(), elapsed.as_nanos());
+                        route_results.push((value, actual));
+                        drop(entered);
+                    }
+                    if combined && route_results.len() == 2 {
+                        assert!((route_results[0].0 - route_results[1].0).abs() <= 64. * allowance);
+                        for (a, b) in route_results[0].1.iter().zip(&route_results[1].1) { assert!((a - b).abs() <= 64. * allowance * a.abs().max(1.)); }
+                    }
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }

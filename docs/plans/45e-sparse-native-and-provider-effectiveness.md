@@ -1,6 +1,6 @@
 ---
 title: "Plan45e: Sparse native and provider effectiveness"
-status: draft
+status: in-progress
 date: 2026-10-18
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
@@ -62,13 +62,17 @@ Integrate a supported explicit profile or fitting library-owned improvement in t
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| E01 | Exact sparse/native controls; RC08 before new binding | Meaningful repeated sparse comparison and selected qualified implementation/retained limitation; fresh-numeric and failure/drain tests | open |
-| E02 | Actual repeated class consumer and exact library model/update contract | Supported class-specific integration/profile changes or precise no-change; original objective/feasibility/integrality/certificate tests | open |
-| E03 | Existing valid property/implicit model and requested derivative eligibility | Provider work diagnosis and supported implementation; value/derivative/branch/stateful/stop controls | open |
-| E04 | Same declared recycle map/tear/start and explicit numerical controls | Recycle mechanism comparison and supported implementation/profile; original closure/nonconvergence/drain tests | open |
+| E01 | Exact sparse/native controls; RC08 before new binding | Meaningful repeated sparse comparison and selected qualified implementation/retained limitation; fresh-numeric and failure/drain tests | in-progress |
+| E02 | Actual repeated class consumer and exact library model/update contract | Supported class-specific integration/profile changes or precise no-change; original objective/feasibility/integrality/certificate tests | in-progress |
+| E03 | Existing valid property/implicit model and requested derivative eligibility | Provider work diagnosis and supported implementation; value/derivative/branch/stateful/stop controls | in-progress |
+| E04 | Same declared recycle map/tear/start and explicit numerical controls | Recycle mechanism comparison and supported implementation/profile; original closure/nonconvergence/drain tests | in-progress |
 
 ## Verification and checkpoint
 
 **Planned:** touched native/math/runtime compile checks and targeted force-validated units through existing recipes. Source feasibility is Interface-checked; production integration is Implemented; actual scoped checks are Tested; work/time/capacity are Measured only under their named conditions. A successful test body with failed enclosing drain is not assembled acceptance. 45f owns final selected native/public/resource integration and quality after functional scope.
 
 All four packages remain open. No new source/library/runtime qualification was performed merely to write this plan; existing exact evidence supplies the initial branches. E01's potentially retained F13 limitation stays separate from investigation completion. E02–E04 preserve established mechanisms where the experiment finds no better sound complete realization.
+
+Current execution checkpoint: proposed ADR-0200 and blueprint revision 199 preceded the experimental symbolic-retaining KLU binding. Exact compatibility, fresh-numeric transitions, failure/recovery, accepted starts, admission and private-owner release were tested and independently inspected. The short 128/512-variable comparisons did not establish material complete-operation benefit sufficient to justify the extra state and bundled adapter maintenance, so RC08 selects stock KLU and the existing explicit Krylov/Jacobi route. The experimental production path is removed; experiment commits remain in Git history. I06 is settled, while F13 remains unresolved with the native sparse solver owner and a representative symbolic-dominant workload as its revisit trigger. F04 will reconcile the proposed decision/architecture publication without changing formal ADR status. E02 class-specific comparisons are open. E03's real local Peng–Robinson root/IFT controls are authored and compiled; this does not claim full selected-regime/reference-model qualification. E04's actual recycle-map contrast and explicit orthogonalization composition are in progress. Final adoption and assembled/static acceptance remain open.
+
+E03's real local Peng–Robinson controls passed independent Value/First/Second and weighted-product checks at nontrivial points, point/configuration/branch/order/stop/private-worker controls, and actual factor/RHS work counts. The inquiry exposed coordinator N01 and implemented provider-effect-aware selector reuse eligibility. Pure selectors retain fast reuse; current provider-backed anchors/restrictions cannot be skipped. The combined nine-control optional compiled-evaluator selection passed with zero failures. This does not claim qualification of the broader 120×120 selected-regime reference model. Accelerator acceptance and Nested original assessment remain separate: the inner solver returns a vector, not an issuer-owned verified-result permission that would allow either assessment to disappear.

@@ -18,8 +18,10 @@ use std::{
 mod delta;
 mod local;
 mod rebind;
+#[cfg(test)]
+mod incremental_tests;
 pub(crate) use local::{AdmittedModelRevision, LocalSourcePremises};
-use local::{LocalInventory, LocalSourceObject, SourceMember};
+use local::{LocalInventory, LocalSourceObject, SourceMember, TypedObjectPayload, TypedSourceInputs};
 pub(crate) mod reload;
 
 fn checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
@@ -200,6 +202,7 @@ impl SourceRevision {
                 roots_complete: true,
                 ..Default::default()
             };
+            let mut typed = TypedSourceInputs::default();
             for object in &imported {
                 if object.logical.starts_with("modeling:")
                     && object.logical != CONTEXT_LOGICAL
@@ -213,10 +216,9 @@ impl SourceRevision {
                             .payload
                             .as_slice(),
                     )?;
-                    index.parsed_fields.insert(
-                        row.0.declaration_id,
-                        parsed_fields(runtime, &row.0, row.1.as_ref())?,
-                    );
+                    let parsed = parsed_fields(runtime, &row.0, row.1.as_ref())?;
+                    typed.decoded(object, row.clone(), parsed.clone())?;
+                    index.parsed_fields.insert(row.0.declaration_id, parsed);
                     index.complete_scope(row.0.declaration_id);
                     index.complete_imports(row.0.declaration_id);
                     index.insert(row)?;
@@ -228,16 +230,10 @@ impl SourceRevision {
                     && object.logical != CONTEXT_LOGICAL
                     && object.logical != PHYSICAL_SCOPE_LOGICAL
                 {
-                    let (row, _): SourcePayload = decode(
-                        object
-                            .version
-                            .as_ref()
-                            .ok_or_else(|| contract("imported version absent"))?
-                            .payload
-                            .as_slice(),
-                    )?;
+                    let (row, _) = typed.source(&object.logical)
+                        .ok_or_else(|| contract("imported typed source absent"))?;
                     object.references = index
-                        .references(&row)?
+                        .references(row)?
                         .iter()
                         .map(|id| {
                             let target = &index.rows[id];
@@ -277,7 +273,7 @@ impl SourceRevision {
                     ));
                 }
             }
-            let admitted = AdmittedModelRevision::apply(runtime, None, &imported, Some(&cancel))?;
+            let admitted = AdmittedModelRevision::apply_inputs(runtime, None, &imported, &typed, Some(&cancel))?;
             Ok((admitted, identity))
         }
         .await;
@@ -337,6 +333,25 @@ impl SourceRevision {
 
 type FieldSpans = BTreeMap<String, SourceSpan>;
 type SourcePayload = (Declaration, Option<FieldSpans>);
+
+trait LocalSourceRow: Clone {
+    fn carried(_source: &TypedObjectPayload) -> Option<&Self> { None }
+}
+macro_rules! carried_source_row {
+    ($variant:ident, $row:ty) => {
+        impl LocalSourceRow for $row {
+            fn carried(source: &TypedObjectPayload) -> Option<&Self> {
+                match source { TypedObjectPayload::$variant(row) => Some(row.as_ref()), _ => None }
+            }
+        }
+    };
+}
+carried_source_row!(Fit, pse_model::generated::authored::fit_cases::Row);
+carried_source_row!(Document, pse_model::generated::authored::documents::Row);
+carried_source_row!(Package, pse_model::generated::authored::packages::Row);
+impl LocalSourceRow for IngressFrame {}
+impl LocalSourceRow for PhysicalScope {}
+impl LocalSourceRow for DeclarationId {}
 
 fn payload<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, WorkflowError> {
     serde_json::to_vec(value)
@@ -592,6 +607,7 @@ pub(super) async fn persist(
     }
     index.requests.clear();
     let mut edits = Vec::with_capacity(rows.len() + sources.len() + fits.fits.len() + 1);
+    let mut typed = TypedSourceInputs::default();
     for row in &rows {
         let references = index
             .references(row)?
@@ -601,14 +617,12 @@ pub(super) async fn persist(
                 (scope(target.parent_id), target.name.clone())
             })
             .collect();
-        edits.push(edit(
-            logical(row.declaration_id),
-            scope(row.parent_id),
-            row.name.clone(),
-            kind(row),
-            payload(&(row, documents.field_spans.get(&row.declaration_id).cloned()))?,
+        edits.push(typed.declaration(
+            row,
+            documents.field_spans.get(&row.declaration_id).cloned(),
+            index.parsed_fields[&row.declaration_id].clone(),
             references,
-        ));
+        )?);
     }
     index.requests.clear();
     let data_rows = index.data_closure()?;
@@ -681,14 +695,7 @@ pub(super) async fn persist(
         for row in pse_relations::generated::authored::packages::Row::rows(batch)
             .map_err(super::super::relation)?
         {
-            edits.push(edit(
-                format!("package:{}", row.package_id),
-                "packages".into(),
-                row.package_id.to_string(),
-                "package".into(),
-                payload(&row)?,
-                Vec::new(),
-            ));
+            edits.push(typed.package(row)?);
         }
     }
     if let Some(batch) = sources.get(&pse_relations::generated::authored::documents::RELATION_ID) {
@@ -705,25 +712,11 @@ pub(super) async fn persist(
                     Vec::new(),
                 ));
             }
-            edits.push(edit(
-                format!("document:{}", row.document_id),
-                "documents".into(),
-                row.document_id.to_string(),
-                "document".into(),
-                payload(&row)?,
-                Vec::new(),
-            ));
+            edits.push(typed.document(row)?);
         }
     }
     for row in &fits.fits {
-        edits.push(edit(
-            format!("fit:{}", row.fit_id),
-            "fits".into(),
-            row.fit_id.to_string(),
-            "fit".into(),
-            payload(row)?,
-            Vec::new(),
-        ));
+        edits.push(typed.fit(row.clone())?);
     }
     let mut frame = IngressFrame::new(&rows, documents);
     if let Some(loader) = loader {
@@ -786,7 +779,7 @@ pub(super) async fn persist(
         }
     }
     checkpoint(cancel)?;
-    admit_revision(runtime, previous, identity, &edits, Some(cancel)).await
+    admit_revision(runtime, previous, identity, &edits, &typed, Some(cancel)).await
 }
 
 /// Stage complete local ownership before issuing the existing durable effect.
@@ -795,12 +788,14 @@ async fn admit_revision(
     previous: Option<&SourceRevision>,
     identity: SourceRevisionHash,
     edits: &[ObjectEdit],
+    typed: &TypedSourceInputs,
     cancel: Option<&crate::CancelSource>,
 ) -> Result<SourceRevision, WorkflowError> {
-    let admitted = AdmittedModelRevision::apply(
+    let admitted = AdmittedModelRevision::apply_inputs(
         runtime,
         previous.map(|p| p.admitted.as_ref()),
         edits,
+        typed,
         cancel,
     )?;
     let origin = match runtime.durability() {
@@ -1538,7 +1533,7 @@ impl ModelingPackage {
             .cloned()
             .ok_or_else(|| contract(format!("owned source object absent: {logical}")))
     }
-    fn source_decode<T: serde::de::DeserializeOwned>(
+    fn source_decode<T: serde::de::DeserializeOwned + LocalSourceRow>(
         &self,
         object: &LocalSourceObject,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), WorkflowError> {
@@ -1553,7 +1548,9 @@ impl ModelingPackage {
             .shared
             .math()
             .reserve("modeling:owned-source-decode", extent)?;
-        Ok((decode(&object.payload)?, owner))
+        let value = object.typed.as_ref().and_then(T::carried).cloned()
+            .map(Ok).unwrap_or_else(|| decode(&object.payload))?;
+        Ok((value, owner))
     }
     pub(super) async fn declaration_inventory(
         &self,
@@ -2673,7 +2670,8 @@ impl Runtime {
             roots_complete: true,
             ..Default::default()
         };
-        for object in &document.objects {
+        let mut typed = TypedSourceInputs::default();
+        for (object, edited) in document.objects.iter().zip(&edits) {
             if object.kind.starts_with("modeling:") && object.kind != CONTEXT {
                 let source: SourcePayload = decode(&object.payload)?;
                 if object.logical != logical(source.0.declaration_id)
@@ -2685,10 +2683,9 @@ impl Runtime {
                         "replay declaration membership differs from its body",
                     ));
                 }
-                index.parsed_fields.insert(
-                    source.0.declaration_id,
-                    parsed_fields(self, &source.0, source.1.as_ref())?,
-                );
+                let parsed = parsed_fields(self, &source.0, source.1.as_ref())?;
+                typed.decoded(edited, source.clone(), parsed.clone())?;
+                index.parsed_fields.insert(source.0.declaration_id, parsed);
                 index.complete_scope(source.0.declaration_id);
                 index.complete_imports(source.0.declaration_id);
                 index.insert(source)?;
@@ -2771,7 +2768,7 @@ impl Runtime {
                 "replay source context differs from actual complete scientific inputs",
             ));
         }
-        let admitted = AdmittedModelRevision::apply(self, None, &edits, None)?;
+        let admitted = AdmittedModelRevision::apply_inputs(self, None, &edits, &typed, None)?;
         let revision = SourceRevision::admitted(admitted, identity, None, None)?;
         let package = self.package_from_revision(revision, physical, providers)?;
         rebind::admit_rows(&package, self, &validation, &cancel)?;

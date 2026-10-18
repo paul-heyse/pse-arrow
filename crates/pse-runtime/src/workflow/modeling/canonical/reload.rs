@@ -878,6 +878,7 @@ mod tests {
                 payload(&frame).unwrap(),
                 Vec::new(),
             )],
+            &TypedSourceInputs::default(),
             None,
         )
         .await

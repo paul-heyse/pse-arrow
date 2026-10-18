@@ -1,6 +1,6 @@
 ---
 title: "Plan45: Pipeline execution optimization"
-status: draft
+status: in-progress
 date: 2026-10-18
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
@@ -93,7 +93,7 @@ Source links refer to the review's original F identifiers; its observations rema
 | F02 full source-index copies | S01 | open | 45a/A02 | Changed-path index construction, cold-load and bounded shared ownership controls |
 | F03 retained candidate allowances | S01/S03 | open | 45a/A03 | Edit/backdating/rotation ladder with actual retained old products and sound charges |
 | F04 repeated program descriptions | S03/S07 | open | 45b/B01 | One prepared region/export through admission and all consumers |
-| F05 broad physical invalidation | S02/S07 | open | 45a/A04 | Complete consumed positive/negative premises or explicit unresolved limitation |
+| F05 broad physical invalidation | S02/S07 | deferred / unresolved under RC03 | Physical/compiler resolver; 45a/A04 owns the current bounded outcome | Retain whole-context invalidation: no resolver-issued negative/membership/scope/checker/provider closure. Revisit when that complete product can be issued and migrated across every compatibility boundary. Unrelated physical changes still invalidate eligible preparation; this is not AP-07/G9 resolution. |
 | F06 result inventory discovery | S04 | open | 45c/C01–C02 | Full-reader reuse and selected constructor/first/EOF access work under exact protection |
 | F07 repeated promotion/analysis passes | S05 | open | 45c/C03 | Shared protected selection and byte-bound evidence with final locators/ACK transitions |
 | F08 repeated evidence scans | S05 | open | 45c/C04 | Production bounded indexes/grouping with complete permission/adverse controls |
@@ -101,7 +101,7 @@ Source links refer to the review's original F identifiers; its observations rema
 | F10 duplicate IPC preflight | S04/S05 | open | 45c/C06 | One bounded preflight with malformed/extra-batch/schema/IEEE controls |
 | F11 repeated physical encoding/publication | S01/S07 | open | 45c/C07 | Single bounded spool and chosen exact publication/retry semantics |
 | F12 unconsumed adjoint coordinates | S02/S03 | open | 45d/D01 | Complete physical inputs with demanded gradient products and independent derivatives |
-| F13 repeated KLU symbolic analysis | S06 | open | 45e/E01 | Representative sparse fill/cost and qualified alternative, or explicitly retained limitation |
+| F13 repeated KLU symbolic analysis | S06 | deferred / unresolved under RC08 | Native sparse solver owner; 45e/E01 owns the bounded comparison | Stock KLU and explicit Krylov/Jacobi retained. The qualified experimental symbolic owner did not establish material complete-operation benefit on the short 128/512-variable contrasts. Revisit on a representative symbolic-dominant workload; no unused candidate production path is retained. |
 
 ## Investigation outcomes
 
@@ -110,11 +110,11 @@ This table owns the decision outcome, not companion package progress. An investi
 | Inquiry | Decision question | State | Decision / work owner | Completion or next trigger |
 | --- | --- | --- | --- | --- |
 | I01 | Typed incremental ingress and retained ownership | open | 45a/A01–A03 | Current work removed, exact identity/validation and bounded retained/candidate accounting |
-| I02 | Consumed physical dependency closure | open | 45a/A04 | Sound closure/adoption or named unresolved premise; positive-ID-only keys rejected |
+| I02 | Consumed physical dependency closure | settled / retain conservative route | 45a/A04 | Actual fact-boundary control passed; exact negative lookup, candidate membership, package visibility and checker/provider premises are not issued. Accepted RC03 explicitly permits retaining the current safe rule; F05 remains unresolved. |
 | I03 | Arithmetic composition and conservative JIT | open | 45b/B01–B03 | Qualified realization/eligibility and implemented consumers, or supported retained route |
 | I04 | Complete result/artifact/analysis operation | open | 45c/C01–C08 | Selected snapshot, shared handoff, joins, publication and qualified projection/file choices |
 | I05 | Consumed derivative and functional-route crossover | open | 45d/D01–D02 | Consumer-specific exact route and gradient/layout controls; no universal count threshold |
-| I06 | Repeated sparse native preparation | open | 45e/E01 | Complete alternative comparison at meaningful sparse shape, fresh numerical validity |
+| I06 | Repeated sparse native preparation | settled / retain current routes | 45e/E01 | Exact-key/fresh-numeric candidate tested, independently inspected and not adopted: complete-operation gain did not justify extra storage and bundled-owner maintenance. Accepted RC08 covers this outcome; F13 remains unresolved. |
 | I07 | Dynamics methods, stiffness and linear shape | open | 45d/D03 | Conditional qualified routes at unchanged physics/accuracy, including explicit refusals |
 | I08 | Checkpoint and scheduled adjoint lifetimes | open | 45d/D04 | Recording/replay/backward and simultaneous storage distinguished; selected correction |
 | I09 | Historical preparation/studies/retained pressure | open | 45a/A05 | Exact historical reuse decision and implementation without rewinding live authority |
@@ -126,13 +126,20 @@ The review's unnumbered recommendations are part of the scope: projected registr
 
 Preserve rather than repeat Plan44's completed selected-forward, fresh final-fit, rank-preflight, active-view, sparse-IFT, invocation/terminal, ordered-trajectory, provider-stateful-barrier, lazy-default and HiGHS update work. This review's F08 is a different analysis join from Plan44's repaired trajectory checker. Existing active plans and their scope are neither superseded nor silently imported.
 
+## Additional in-bound findings
+
+| Identifier | Diagnosis and consequence | Corrective contract / preservation | State and owner |
+| --- | --- | --- | --- |
+| N01 | Fixed-configuration same-point implicit reuse could skip provider-backed operational anchors and restrictions. A current start change or refusal could therefore be bypassed by an earlier numerical jet. Provider factories issue no purity/retained-premise capability. | The compiled owner identifies provider effects once. Effectful anchors execute before the numerical key is resolved; effectful restrictions execute even when that key/jet is reusable. Pure selector programs retain the original fast path, and refusal clears numerical validity. Complete physical inputs, exact derivatives, original assessment and private worker/cancellation ownership remain. | Implemented and targeted-tested in 45e/E03: the real local Peng–Robinson operational-selector regression covers pure/effectful anchors and restrictions, changed starts, refusal/recovery and release. The nine-control E03/B02 selection passed; assembled acceptance remains 45f. |
+| N02 | IDAS forward quadrature sensitivities were initialized after consistent initialization had already completed initial setup, leaving their first history derivative uninitialized. Further inspection found that native consistent initialization corrects primal/sensitivity states without refreshing primal or sensitivity quadrature derivatives; initial and scheduled algebraic fluxes can therefore retain guessed-state derivatives. | Install optional sensitivities before initial setup, then refresh only quadrature derivative history after successful consistent initialization from the corrected states, including backward owners using that same native function. Preserve quadrature totals/offsets, physical history, native counters, original callback errors, before-effect route selection and ordinary 0.001 accuracy. | The first ordering repair passed its deterministic control; the bounded bundled-library derivative refresh and corrected-algebraic/scheduled regressions are in progress under 45d/D02. Full shooting composition and assembled acceptance remain pending. |
+
 ## Completion, verification and current checkpoint
 
 The series completes only when every required correction has its targeted acceptance and migrated consumers, every inquiry has its bounded decision plus implemented selected outcome, accepted rule routes have run before dependent changes, and 45f's assembled qualification/publication is complete. A supported no-change choice can settle an alternative; it cannot erase a confirmed unresolved finding. A finding retained/deferred needs its consequence, actual owner, observable trigger and explicit maintainer disposition. A recorded bounded rule decision can supply that disposition only when it unambiguously covers the observed outcome; otherwise present the concrete remaining choice at closeout. Bounded series completion does not imply resolution of the review's AP-07/G9 judgment while a material finding remains unresolved. No packet becomes done merely because its probe was time-limited or an unqualified winner looks faster.
 
 **Planned verification:** package compile/targeted tests during implementation; source-established pass/work removal and before/after work counts with ordinary accuracy; one complete initial observation per short contrast, repeat only when variation changes a decision. 45f owns final Rust/native/Python/durable/managed integration and scope-end static/manual checks appropriate to the changes. No product-wide check has been run to author this plan.
 
-**Current checkpoint:** the coordinator and six companions are authored, with 28 product packages, all thirteen findings and all ten inquiries open. RC01–RC10 were explicitly accepted as written on 2026-10-18, fixing the stated target choices and bounded investigation/adoption routes without selecting unknown winners. Focused independent plan assessment confirmed numbered/unnumbered coverage and preservation boundaries; its prerequisite-publication and unresolved-finding closeout clarifications are incorporated. Document creation is complete. The next product action, once separately authorized, is the early F01 observation slice and ready direct corrections, completing required prerequisite contract routes before dependent behavior.
+**Current checkpoint (2026-10-18 execution):** execution is authorized across all 28 packages. RC01–RC10 remain accepted. Root owns source/compiler changes and cross-owner contracts; isolated math, result and native executors own ready B01, C01/C04/C06 and D01 work. Proposed ADR-0199 and blueprint revisions 197–198 publish prerequisite adjoint/selected-reader targets before dependent changes. Typed ingress, persistent source indexes, current retained-input accounting, prepared mathematical descriptions, historical accelerator retention and selected adjoint changes are integrated with targeted acceptance. C01/C04/C06 and the once-encoded physical spool have targeted controls; selected discovery/promotion, server facts and the native investigations remain in progress. Proposed ADR-0200 and blueprint revision 199 preceded the experimental KLU candidate; its bounded investigation now selects non-adoption under RC08 and F04 will reconcile the publication with that retained target. I02 retains conservative invalidation under RC03 and leaves F05 explicitly unresolved. No assembled package/series acceptance is claimed. Targeted compilation/testing precedes dependent integration; final assembled/static acceptance remains F03. Existing environment/workflow edits are preserved.
 
 **Tested, authoring only, baseline zero:** document lifecycle validation passed with all seven new documents and 622 total native scope items checked; source-to-owner coverage and new file links passed; `just turn-end` passed; `just docs` published 488 chapters with scoped search. The initial lifecycle check found four existing uses of an undeclared `performance` topic in the consumed reviews/evidence. Declaring that existing label in the lifecycle vocabulary corrected the registration without editing their bodies. No product tests, new numerical experiments or library qualification ran during authoring, and pre-existing environment/workflow files remained unchanged. These checks establish document readiness, not completion of any product package.
 

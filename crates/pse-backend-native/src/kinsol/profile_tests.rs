@@ -43,6 +43,7 @@ impl Shape {
 struct Calls {
     residuals: usize,
     jacobians: usize,
+    products: usize,
     residual_nanos: u128,
     jacobian_nanos: u128,
     rejected: usize,
@@ -53,12 +54,17 @@ struct Root {
     matrix: faer::sparse::SparseColMat<usize, f64>,
     shape: Shape,
     coupling: f64,
+    band: usize,
     target: f64,
     calls: Rc<RefCell<Calls>>,
 }
 impl Root {
     fn new(n: usize, coupled: bool, shape: Shape, target: f64) -> Self {
-        let id = |i| pse_ids::SemanticId::from_bytes([u8::try_from(i).unwrap(); 16]);
+        Self::banded(n, usize::from(coupled), shape, target)
+    }
+    fn banded(n: usize, band: usize, shape: Shape, target: f64) -> Self {
+        assert!(band < n);
+        let id = |i: usize| pse_ids::SemanticId::from_bytes((i as u128).to_le_bytes());
         let mut contract = crate::solver_tests::contract();
         contract.variables = (0..n)
             .map(|i| crate::Variable {
@@ -71,15 +77,16 @@ impl Root {
         let mut support = Vec::new();
         for i in 0..n {
             support.push(faer::sparse::Triplet::new(i, i, 1.));
-            if coupled {
-                support.push(faer::sparse::Triplet::new(i, (i + n - 1) % n, 1.));
+            for distance in 1..=band {
+                support.push(faer::sparse::Triplet::new(i, (i + n - distance) % n, 1.));
             }
         }
         Self {
             contract,
             matrix: faer::sparse::SparseColMat::try_new_from_triplets(n, n, &support).unwrap(),
             shape,
-            coupling: if coupled { 0.1 } else { 0. },
+            coupling: if band > 0 { 0.1 } else { 0. },
+            band,
             target,
             calls: Rc::default(),
         }
@@ -103,7 +110,9 @@ impl NleOracle for Root {
         }
         for (i, value) in out.iter_mut().enumerate() {
             *value = self.shape.value(x[i]) - self.shape.value(self.target)
-                + self.coupling * (x[i] - x[(i + x.len() - 1) % x.len()]);
+                + self.coupling * (1..=self.band)
+                    .map(|distance| x[i] - x[(i + x.len() - distance) % x.len()])
+                    .sum::<f64>();
         }
         calls.residual_nanos += started.elapsed().as_nanos();
         Ok(())
@@ -117,7 +126,7 @@ impl NleOracle for Root {
         for (col, coordinate) in x.iter().enumerate() {
             for row in self.matrix.symbolic().row_idx_of_col(col) {
                 out[offset] = if row == col {
-                    self.shape.derivative(*coordinate) + self.coupling
+                    self.shape.derivative(*coordinate) + self.coupling * self.band as f64
                 } else {
                     -self.coupling
                 };
@@ -135,9 +144,12 @@ impl NleOracle for Root {
         direction: &[f64],
         out: &mut [f64],
     ) -> Result<(), ProblemError> {
+        self.calls.borrow_mut().products += 1;
         for (i, value) in out.iter_mut().enumerate() {
-            *value = (self.shape.derivative(x[i]) + self.coupling) * direction[i]
-                - self.coupling * direction[(i + x.len() - 1) % x.len()];
+            *value = self.shape.derivative(x[i]) * direction[i]
+                + self.coupling * (1..=self.band)
+                    .map(|distance| direction[i] - direction[(i + x.len() - distance) % x.len()])
+                    .sum::<f64>();
         }
         Ok(())
     }
@@ -424,6 +436,49 @@ fn short_recycle_profiles_cover_slow_and_oscillatory_maps_without_new_default() 
                 count(&report, "KINGetNumFuncEvals"),
                 report.quality.as_ref().unwrap().normalized_max
             );
+        }
+    }
+}
+
+
+#[test]
+fn repeated_banded_sparse_stock_and_krylov_complete_operation_contrast() {
+    for (n, band) in [(128, 4), (512, 12)] {
+        for linear in [Linear::Klu, Linear::Spgmr { dimension: pse_model::scalars::PositiveCount::try_new(20).unwrap() }] {
+            let mut settings = settings(n, 10);
+            settings.method.linear = linear;
+            if linear.krylov().is_some() { settings.method.preconditioner = Preconditioner::Jacobi; }
+            let stamp = crate::solver_tests::stamp(Backend::Kinsol);
+            let mut session = Session::new(Function::Equations(Box::new(Root::banded(n, band, Shape::Cubic, 1.))),
+                settings.clone(), execution(), stamp.clone()).unwrap();
+            for (generation, target, coupling) in [(1_u8, 1., 0.1), (2, 1.2, 0.2), (3, 0.9, 0.05)] {
+                let mut root = Root::banded(n, band, Shape::Cubic, target);
+                root.coupling = coupling;
+                let calls = root.calls.clone();
+                let mut current = stamp.clone(); current.data = pse_ids::ContentHash::from_bytes([generation; 32]);
+                let started = Instant::now();
+                session.replace(Function::Equations(Box::new(root)), settings.clone(), current).unwrap();
+                let initial: Vec<_> = (0..n).map(|i| 0.5 + (i % 7) as f64 * 0.01).collect();
+                let (report, phases) = if linear == Linear::Klu { solve_observed(&mut session, &initial) }
+                    else { (solve(&mut session, &initial), LinearPhases::default()) };
+                let elapsed = started.elapsed();
+                assert_eq!(report.termination.category, Termination::Success, "{linear:?} n={n} generation={generation}");
+                assert!(report.quality.as_ref().unwrap().feasible());
+                let x = &report.candidate.as_ref().unwrap().primal;
+                assert!(x.iter().all(|v| (*v - target).abs() < 0.001));
+                // Independent original physical residual, including every band contribution.
+                for i in 0..n {
+                    let residual = x[i].powi(3) - target.powi(3) + coupling * (1..=band)
+                        .map(|distance| x[i] - x[(i + n - distance) % n]).sum::<f64>();
+                    assert!(residual.abs() <= 0.001, "original row {i}: {residual}");
+                }
+                if linear == Linear::Klu {
+                    assert_eq!(count(&report, "klu.symbolic.completed"), 1);
+                    assert!(count(&report, "klu.numeric_factor.completed") >= 1, "fresh first factor every application");
+                }
+                eprintln!("sparse n={n} band={band} linear={linear:?} generation={generation} wall_ns={} retained_bytes={} calls={:?} native_phase_ns={:?} symbolic={:?} numeric={:?} refactor={:?} substitutions={:?}", elapsed.as_nanos(), session.retained_bytes(), calls.borrow(), phases.nanos,
+                    report.metrics.get("klu.symbolic.completed"), report.metrics.get("klu.numeric_factor.completed"), report.metrics.get("klu.refactor.completed"), report.metrics.get("klu.solve.completed"));
+            }
         }
     }
 }

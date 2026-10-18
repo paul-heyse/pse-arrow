@@ -314,6 +314,7 @@ pub(crate) fn function(slot: usize, arguments: &[Atom]) -> Result<Atom, MathErro
 
 /// What one immutable evaluator retains, measured from the library's exported
 /// representation.
+#[derive(Clone, Copy)]
 pub(crate) struct Storage {
     /// Owned scalar stack slots: inputs, constants and temporaries.
     pub(crate) numeric_entries: usize,
@@ -323,61 +324,97 @@ pub(crate) struct Storage {
     /// Exported instruction population, including exported sub-evaluator occurrences.
     pub(crate) instruction_count: usize,
 }
-/// The retained storage of `evaluator`: its numeric stack and its instruction stream.
-pub(crate) fn storage(evaluator: &ExpressionEvaluator<f64>) -> Result<Storage, MathError> {
-    let export = evaluator.export_instructions();
-    Ok(Storage {
-        numeric_entries: export
-            .input_count
-            .checked_add(export.constants.len())
-            .and_then(|n| n.checked_add(export.temporary_count))
-            .ok_or(MathError::Limit("evaluator stack extent"))?,
-        instruction_bytes: instruction_bytes(&export)
-            .ok_or(MathError::Limit("evaluator instruction extent"))?,
-        instruction_count: instruction_count(&export)
-            .ok_or(MathError::Limit("evaluator instruction population"))?,
-    })
+/// Facts inspected once for one immutable library representation. A policy change
+/// rechecks these premises; it never reuses an earlier admission decision.
+#[derive(Clone, Copy)]
+pub(crate) struct EvaluatorFacts {
+    pub(crate) storage: Storage,
+    pub(crate) operations: symbolica::evaluate::OperationCount,
+    pub(crate) constants: usize,
+    pub(crate) instructions: usize,
+    pub(crate) taylor_supported: bool,
+    pub(crate) resettable: bool,
 }
-fn instruction_count<T>(export: &ExportedInstructions<T>) -> Option<usize> {
-    export
-        .sub_evaluators
-        .iter()
-        .try_fold(export.instructions.len(), |count, sub| {
-            count.checked_add(instruction_count(&sub.instructions)?)
+impl EvaluatorFacts {
+    pub(crate) fn inspect<T>(
+        export: &ExportedInstructions<T>,
+        operations: symbolica::evaluate::OperationCount,
+        representation: &'static str,
+    ) -> Result<Self, MathError> {
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count(representation, "count", 1);
+        }
+        let description = instruction_description(export)
+            .ok_or(MathError::Limit("evaluator instruction extent"))?;
+        Ok(Self {
+            storage: Storage {
+                numeric_entries: export.input_count.checked_add(export.constants.len())
+                    .and_then(|n| n.checked_add(export.temporary_count))
+                    .ok_or(MathError::Limit("evaluator stack extent"))?,
+                instruction_bytes: description.bytes,
+                instruction_count: description.count,
+            },
+            operations,
+            constants: export.constants.len(),
+            instructions: export.instructions.len(),
+            taylor_supported: description.taylor_supported,
+            resettable: description.resettable,
         })
+    }
 }
-fn instruction_bytes<T>(export: &ExportedInstructions<T>) -> Option<usize> {
-    let listed = size_of_val(export.instructions.as_slice())
-        .checked_add(export.output_count.checked_mul(size_of::<usize>())?)?;
-    let arguments = export.instructions.iter().try_fold(listed, |bytes, i| {
-        bytes.checked_add(match i {
-            Instruction::Add(_, arguments, _) | Instruction::Mul(_, arguments, _) => {
-                size_of_val(arguments.as_slice())
-            }
+/// Final floating representation and the single export shared by all construction
+/// consumers. Mutable workers receive only the evaluator, never this inspection copy.
+pub(crate) struct FloatingEvaluator {
+    pub(crate) evaluator: ExpressionEvaluator<f64>,
+    pub(crate) facts: EvaluatorFacts,
+    pub(crate) export: ExportedInstructions<f64>,
+}
+impl FloatingEvaluator {
+    fn new(evaluator: ExpressionEvaluator<f64>) -> Result<Self, MathError> {
+        let export = evaluator.export_instructions();
+        let facts = EvaluatorFacts::inspect(&export, evaluator.count_operations(), "math.floating_representation_inspections")?;
+        Ok(Self { evaluator, facts, export })
+    }
+}
+struct InstructionDescription {
+    bytes: usize,
+    count: usize,
+    taylor_supported: bool,
+    resettable: bool,
+}
+/// One recursive census supplies storage and eligibility for this export.
+fn instruction_description<T>(export: &ExportedInstructions<T>) -> Option<InstructionDescription> {
+    let mut result = InstructionDescription {
+        bytes: size_of_val(export.instructions.as_slice())
+            .checked_add(export.output_count.checked_mul(size_of::<usize>())?)?,
+        count: export.instructions.len(),
+        taylor_supported: export.sub_evaluators.is_empty(),
+        resettable: export.constant_functions.is_empty() && export.sub_evaluators.is_empty(),
+    };
+    for instruction in &export.instructions {
+        let bytes = match instruction {
+            Instruction::Add(_, arguments, _) | Instruction::Mul(_, arguments, _) => size_of_val(arguments.as_slice()),
             Instruction::Fun(_, call, _) => {
-                let (_, tags, arguments) = call.as_ref();
-                size_of_val(call.as_ref())
-                    + size_of_val(tags.as_slice())
-                    + tags.iter().map(String::len).sum::<usize>()
-                    + size_of_val(arguments.as_slice())
+                let (symbol, tags, arguments) = call.as_ref();
+                result.resettable = false;
+                result.taylor_supported &= [Symbol::SQRT, Symbol::EXP, Symbol::LOG,
+                    Symbol::SIN, Symbol::COS, Symbol::ABS, Symbol::CONJ].contains(symbol);
+                size_of_val(call.as_ref()) + size_of_val(tags.as_slice())
+                    + tags.iter().map(String::len).sum::<usize>() + size_of_val(arguments.as_slice())
             }
             _ => 0,
-        })
-    })?;
-    export
-        .sub_evaluators
-        .iter()
-        .try_fold(arguments, |bytes, sub| {
-            let own = &sub.instructions;
-            let numeric = own
-                .input_count
-                .checked_add(own.constants.len())?
-                .checked_add(own.temporary_count)?
-                .checked_mul(size_of::<f64>())?;
-            bytes
-                .checked_add(numeric)?
-                .checked_add(instruction_bytes(own)?)
-        })
+        };
+        result.bytes = result.bytes.checked_add(bytes)?;
+    }
+    for sub in &export.sub_evaluators {
+        let own = &sub.instructions;
+        let numeric = own.input_count.checked_add(own.constants.len())?
+            .checked_add(own.temporary_count)?.checked_mul(size_of::<f64>())?;
+        let nested = instruction_description(own)?;
+        result.bytes = result.bytes.checked_add(numeric)?.checked_add(nested.bytes)?;
+        result.count = result.count.checked_add(nested.count)?;
+    }
+    Some(result)
 }
 
 #[cfg(test)]

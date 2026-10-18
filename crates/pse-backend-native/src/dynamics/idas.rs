@@ -59,9 +59,11 @@ struct Context<'a> {
     parameters: Vec<f64>,
     /// The integration parameter vector: the sensitivity parameters.
     integration: Vec<f64>,
-    /// Physical integration axis for each native sensitivity vector. Adjoint and
-    /// exact-curvature sessions preserve their complete integration layout.
+    /// Physical integration axis for each native forward sensitivity vector.
+    /// Exact-curvature sessions preserve their complete forward layout.
     axes: Vec<usize>,
+    /// Ordered physical coordinates of parameter quadratures; independent of state adjoints.
+    gradient_axes: Vec<usize>,
     /// The integration column of each contract parameter in the current segment.
     map: Vec<usize>,
     mode: usize,
@@ -983,7 +985,9 @@ unsafe extern "C" fn residual_b(
         let lambda = unsafe { read(yb, n) };
         // SAFETY: as above.
         let rate = unsafe { read(ypb, n) };
-        let product = transposed(&j, &lambda);
+        let symbolic = j.symbolic();
+        let product = (0..n).map(|col| symbolic.col_range(col)
+            .map(|e| j.val()[e] * lambda[symbolic.row_idx()[e]]).sum::<f64>()).collect::<Vec<_>>();
         let out: Vec<_> = (0..n)
             .map(|i| {
                 let mass = if c.contract.differential[i] {
@@ -1083,10 +1087,15 @@ unsafe extern "C" fn quadrature_b(
             return c.failure();
         };
         // SAFETY: as above.
-        let product = transposed(&j, &unsafe { read(yb, n) });
-        let mut rate = vec![0.0; c.integration.len()];
-        for (q, column) in c.map.iter().enumerate() {
-            rate[*column] = -product[n + q];
+        let lambda = unsafe { read(yb, n) };
+        let symbolic = j.symbolic();
+        let mut rate = vec![0.0; c.gradient_axes.len()];
+        for (selected, axis) in c.gradient_axes.iter().enumerate() {
+            if let Some(q) = c.map.iter().position(|column| column == axis) {
+                rate[selected] = symbolic.col_range(n + q)
+                    .map(|e| -j.val()[e] * lambda[symbolic.row_idx()[e]])
+                    .sum();
+            }
         }
         // SAFETY: `out` is the problem's quadrature vector of one value per integration
         // column (`create_backward`), the extent of `rate`.
@@ -1332,6 +1341,7 @@ struct Problem {
     y: ffi::N_Vector,
     yp: ffi::N_Vector,
     quadrature: ffi::N_Vector,
+    quadrature_width: usize,
     /// The second-order user data, boxed so its address is stable while IDAS holds it.
     direction: Option<Box<Direction>>,
     counters: Counters,
@@ -1574,6 +1584,7 @@ impl<'a> Session<'a> {
                 parameters: config.parameters,
                 integration: integration.to_vec(),
                 axes: Vec::new(),
+                gradient_axes: Vec::new(),
                 map,
                 mode: 0,
                 trial_policy: config.trial_failures,
@@ -1667,6 +1678,7 @@ impl<'a> Session<'a> {
         directions: &[usize],
         layout: Option<Arc<PreparedLayout>>,
         execution: Execution,
+        forward_quadratures: bool,
     ) -> Result<Self, ProblemError> {
         let forward = p.forward() || !directions.is_empty();
         let map = p.columns_at(oracle.contract().parameters.len(), p.start);
@@ -1695,6 +1707,9 @@ impl<'a> Session<'a> {
         } else {
             Vec::new()
         };
+        s.callback.gradient_axes = if p.sensitivity == DynamicSensitivity::Adjoint {
+            p.adjoint_axes(s.callback.contract.parameters.len())
+        } else { Vec::new() };
         if forward {
             let j = initial
                 .jacobian
@@ -1765,6 +1780,12 @@ impl<'a> Session<'a> {
             s.adjoint_init(p, directions)?;
         }
         s.initialize_roots()?;
+        if forward_quadratures {
+            // IDACalcIC runs IDAInitialSetup and marks it complete. Install the
+            // quadrature sensitivity module first so that setup initializes its
+            // initial derivative history, before the first physical step.
+            s.enable_forward_quadratures(p)?;
+        }
         s.consistent(p.start, p, initialization_option(p.idas.initialization))?;
         Ok(s)
     }
@@ -1773,7 +1794,7 @@ impl<'a> Session<'a> {
     /// state sensitivities at its checkpoints when the second-order route integrates them.
     fn adjoint_init(&mut self, p: &Profile, directions: &[usize]) -> Result<(), ProblemError> {
         let n = self.callback.contract.states.len();
-        let width = self.callback.integration.len();
+        let width = self.callback.gradient_axes.len();
         let steps: c_long = p
             .adjoint
             .steps_between_checkpoints
@@ -2878,11 +2899,11 @@ impl Session<'_> {
             crate::observation::boolean("idas.adjoint.zero_cotangent", true);
             let directions = self.backward_mut()?.directions.len();
             let hessian = (directions > 0).then(|| (faer::Mat::zeros(directions, directions), 0.));
-            return Ok((vec![0.; self.callback.integration.len()], hessian));
+            return Ok((vec![0.; self.callback.gradient_axes.len()], hessian));
         }
         let n = self.callback.contract.states.len();
         let np = self.callback.contract.parameters.len();
-        let width = self.callback.integration.len();
+        let width = self.callback.gradient_axes.len();
         let boundaries = p.boundaries();
         let b = self.backward_mut()?;
         let starts = std::mem::take(&mut b.starts);
@@ -3154,15 +3175,20 @@ impl Session<'_> {
             // SAFETY: as above.
             unsafe { write(problem.yp, &vec![0.0; values.0.len()]) };
             // SAFETY: as above.
-            unsafe { write(problem.quadrature, values.1) };
+            if !problem.quadrature.is_null() {
+                // SAFETY: the nonempty admitted quadrature vector has the sum extent.
+                unsafe { write(problem.quadrature, values.1) };
+            }
             native!(
                 ffi::IDAReInitB(mem, problem.which, t, problem.y, problem.yp),
                 "adjoint reinitialization",
             )?;
-            native!(
-                ffi::IDAQuadReInitB(mem, problem.which, problem.quadrature),
-                "adjoint quadrature reinitialization",
-            )?;
+            if !problem.quadrature.is_null() {
+                native!(
+                    ffi::IDAQuadReInitB(mem, problem.which, problem.quadrature),
+                    "adjoint quadrature reinitialization",
+                )?;
+            }
         }
         // `tout1` only orients and scales the initialization step toward the start.
         let toward = t - (t - start).min(p.initial_step);
@@ -3204,7 +3230,7 @@ impl Session<'_> {
     /// block lower-triangular pattern, whose callbacks read the forward sensitivities.
     fn create_backward(&mut self, t: f64, p: &Profile) -> Result<(), ProblemError> {
         let n = self.callback.contract.states.len();
-        let width = self.callback.integration.len();
+        let width = self.callback.gradient_axes.len();
         let context: *mut c_void = (&raw mut *self.callback).cast();
         let directions = self.backward_mut()?.directions.clone();
         let second = !directions.is_empty();
@@ -3213,6 +3239,7 @@ impl Session<'_> {
         } else {
             (n, width, self.callback.layout.rows_b.len())
         };
+        crate::observation::integer("idas.adjoint.parameter_quadrature_width", "count", width as i64);
         let opaque_fill = size
             .checked_mul(size)
             .and_then(|cells| cells.checked_mul(32))
@@ -3255,7 +3282,7 @@ impl Session<'_> {
         for target in targets {
             let y = self.vector(&vec![0.0; size])?;
             let yp = self.vector(&vec![0.0; size])?;
-            let quadrature = self.vector(&vec![0.0; quadratures])?;
+            let quadrature = if quadratures == 0 { std::ptr::null_mut() } else { self.vector(&vec![0.0; quadratures])? };
             let mut problem = Problem {
                 which: 0,
                 matrix: std::ptr::null_mut(),
@@ -3263,6 +3290,7 @@ impl Session<'_> {
                 y,
                 yp,
                 quadrature,
+                quadrature_width: quadratures,
                 direction: target.map(|column| Box::new(Direction { context, column })),
                 counters: [0; 4],
                 steps: StepBudget::new(p.max_steps),
@@ -3348,19 +3376,23 @@ impl Session<'_> {
                     ffi::IDASetJacFnB(mem, which, Some(jacobian_b)),
                     "backward analytic Jacobian",
                 )?;
+                if quadratures != 0 {
+                    native!(
+                        ffi::IDAQuadInitB(mem, which, Some(quadrature_b), problem.quadrature),
+                        "backward quadrature",
+                    )?;
+                }
+            }
+            if quadratures != 0 {
                 native!(
-                    ffi::IDAQuadInitB(mem, which, Some(quadrature_b), problem.quadrature),
-                    "backward quadrature",
+                    ffi::IDAQuadSStolerancesB(mem, which, p.rtol, smallest),
+                    "backward quadrature tolerances",
+                )?;
+                native!(
+                    ffi::IDASetQuadErrConB(mem, which, 1),
+                    "backward quadrature error control",
                 )?;
             }
-            native!(
-                ffi::IDAQuadSStolerancesB(mem, which, p.rtol, smallest),
-                "backward quadrature tolerances",
-            )?;
-            native!(
-                ffi::IDASetQuadErrConB(mem, which, 1),
-                "backward quadrature error control",
-            )?;
         }
         Ok(())
     }
@@ -3445,7 +3477,7 @@ impl Session<'_> {
             return Err(self.callback.native_failure(flag, "adjoint step"));
         }
         let n = self.callback.contract.states.len();
-        let width = self.callback.integration.len();
+        let width = self.callback.gradient_axes.len();
         let b = self.backward_mut()?;
         let (size, quadratures) = if b.second_order() {
             (2 * n, 2 * width)
@@ -3460,14 +3492,19 @@ impl Session<'_> {
                 ffi::IDAGetB(mem, problem.which, &raw mut time, problem.y, problem.yp),
                 "adjoint state",
             )?;
-            native!(
-                ffi::IDAGetQuadB(mem, problem.which, &raw mut time, problem.quadrature),
-                "adjoint quadrature",
-            )?;
+            if !problem.quadrature.is_null() {
+                native!(
+                    ffi::IDAGetQuadB(mem, problem.which, &raw mut time, problem.quadrature),
+                    "adjoint quadrature",
+                )?;
+            }
             // SAFETY: the problem's adjoint vector holds `size` values (`create_backward`).
             states.push(unsafe { read(problem.y, size) });
             // SAFETY: its quadrature vector holds `quadratures` values.
-            sums.push(unsafe { read(problem.quadrature, quadratures) });
+            sums.push(if quadratures == 0 { vec![] } else {
+                // SAFETY: the live quadrature vector has the admitted nonzero extent.
+                unsafe { read(problem.quadrature, quadratures) }
+            });
         }
         Ok((states, sums))
     }
@@ -3488,7 +3525,7 @@ impl Session<'_> {
         let sample = &r.samples[i];
         let n = self.callback.contract.states.len();
         let m = self.callback.contract.outputs.len();
-        let width = self.callback.integration.len();
+        let width = self.callback.gradient_axes.len();
         let cotangent = &weights[i * m..(i + 1) * m];
         let Some(output) = self
             .callback
@@ -3512,15 +3549,17 @@ impl Session<'_> {
             output.ncols(),
             &mut self.callback.sample_elimination,
         )?;
-        let first = elimination.solve(transposed_product(output.as_ref().as_ref(), cotangent))?;
+        let parameter_columns = self.callback.gradient_axes.iter()
+            .map(|axis| self.callback.map.iter().position(|column| column == axis)).collect::<Vec<_>>();
+        let first = elimination.solve_selected(selected_transposed_product(
+            output.as_ref().as_ref(), cotangent, n, &parameter_columns)?, &parameter_columns)?;
         let directions = self.backward_mut()?.directions.clone();
         for (index, (state, sum)) in states.iter_mut().zip(sums.iter_mut()).enumerate() {
             for (a, d) in state.iter_mut().zip(&first.state) {
                 *a += d;
             }
-            for (q, d) in first.parameters.iter().enumerate() {
-                *sum.get_mut(self.callback.map[q])
-                    .ok_or_else(|| ProblemError::internal("adjoint jump columns"))? += d;
+            for (slot, value) in sum[..width].iter_mut().zip(&first.parameters) {
+                *slot += value;
             }
             let Some(&column) = directions.get(index) else {
                 continue;
@@ -3577,7 +3616,8 @@ impl Session<'_> {
         sums: &mut [Vec<f64>],
     ) -> Result<(), ProblemError> {
         let n = self.callback.contract.states.len();
-        let width = self.callback.integration.len();
+        let width = self.callback.gradient_axes.len();
+        if width == 0 { return Ok(()); }
         let zeros = vec![0.0; n];
         let Some(j) = self
             .callback
@@ -3597,9 +3637,12 @@ impl Session<'_> {
         };
         for (index, (state, sum)) in states.iter().zip(sums.iter_mut()).enumerate() {
             let lambda = differential(&state[..n]);
-            let product = transposed(&j, &lambda);
-            for (q, column) in self.callback.map.iter().enumerate() {
-                sum[*column] += product[n + q];
+            let symbolic = j.symbolic();
+            for (selected, axis) in self.callback.gradient_axes.iter().enumerate() {
+                if let Some(q) = self.callback.map.iter().position(|column| column == axis) {
+                    sum[selected] += symbolic.col_range(n + q)
+                        .map(|e| j.val()[e] * lambda[symbolic.row_idx()[e]]).sum::<f64>();
+                }
             }
             let Some(&column) = directions.get(index) else {
                 continue;
@@ -3638,6 +3681,8 @@ impl Session<'_> {
                 .map(|q| {
                     serde_json::json!({
                         "direction": q.direction.as_ref().map(|d| d.column),
+                        "parameter_quadrature_width": q.quadrature_width,
+                        "quadrature_allocated": !q.quadrature.is_null(),
                         "steps": q.counters[0],
                         "accepted_step_allowance": q.steps.used() + q.steps.remaining(),
                         "accepted_steps_charged": q.steps.used(),
@@ -4201,6 +4246,7 @@ fn backward_route(
         None => (None, None),
     };
     Ok(Gradient {
+        parameter_axes: p.adjoint_axes(p.contract_width(integration.len()).unwrap_or(integration.len())),
         gradient: gradient.filter(|_| completed),
         hessian: hessian.filter(|_| completed),
         report,
@@ -4280,13 +4326,11 @@ fn attempt<T>(
         directions,
         admission.map(|(layout, _)| layout),
         execution.clone(),
+        forward_quadratures,
     ) {
         Ok(session) => session,
         Err(error) => return (failure(r, error), None, 0),
     };
-    if forward_quadratures && let Err(error) = s.enable_forward_quadratures(p) {
-        return (failure(r, error), None, 0);
-    }
     // SAFETY: the new session's state vector holds the `n` states.
     r.consistent_initial = unsafe { read(s.y, n) };
     let mut outcome = None;

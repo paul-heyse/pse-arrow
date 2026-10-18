@@ -972,6 +972,7 @@ fn small_synthesis_minlp_optimal() {
     assert_eq!(report.quality.as_ref().unwrap().integrality.len(), 1);
 }
 
+#[cfg(any(feature = "ipopt", feature = "pounce"))]
 #[test]
 fn minlp_candidate_from_fixed_assignment_resolve() {
     let registry = standard_registry().unwrap();
@@ -1002,6 +1003,7 @@ fn minlp_candidate_from_fixed_assignment_resolve() {
     assert!(direct.evidence.kkt.is_none());
 }
 
+#[cfg(any(feature = "ipopt", feature = "pounce"))]
 #[test]
 fn fixed_assignment_resolve_keeps_local_analysis() {
     use crate::kkt::{Activity, Curvature, Licq, Side};
@@ -2465,6 +2467,7 @@ fn iis_irreducible_whatever_the_row_order() {
 
 /// min (x − 3)² + b/2 over x ∈ [0, 5] with x·x ≤ 4 enforced only while b = 0: running
 /// unconstrained (b = 1) costs 0.5, the constrained alternative (x = 2) costs 1.
+#[cfg(any(feature = "ipopt", feature = "pounce"))]
 #[test]
 fn indicator_on_nonlinear_row_unenforced_in_fixed_assignment_resolve() {
     let registry = standard_registry().unwrap();
@@ -2889,6 +2892,7 @@ fn semi_process(registry: &QuantityRegistry, weight: f64) -> Case {
     )
 }
 
+#[cfg(any(feature = "ipopt", feature = "pounce"))]
 #[test]
 fn semi_minlp_fixed_assignment_resolve() {
     use crate::kkt::{Activity, Side};

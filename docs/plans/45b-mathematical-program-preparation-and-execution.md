@@ -1,6 +1,6 @@
 ---
 title: "Plan45b: Mathematical program preparation and execution"
-status: draft
+status: in-progress
 date: 2026-10-18
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
@@ -38,7 +38,7 @@ Implement the supported composition and affected consumers if exact semantics, a
 
 ## B03 — Conservative JIT versus current interpreted/C++ realization
 
-**Pending RC09; independent of B02 beyond the actual representation consumed.** Separate preparation/export/compiler time from repeated evaluation. Start with the same demanded small programs under interpretation, the current C++ route and a conservative JIT candidate only where eligible. Existing C++ benefits—generic CPU flags, disabled unsafe contraction/math, bounded artifacts, child cancellation/drain and private loaded scratch—are consumed guarantees that another realization must match or state a deliberately different, explicitly approved support boundary.
+**Accepted RC09; independent of B02 beyond the actual representation consumed.** Separate preparation/export/compiler time from repeated evaluation. Start with the same demanded small programs under interpretation, the current C++ route and a conservative JIT candidate only where eligible. Existing C++ benefits—generic CPU flags, disabled unsafe contraction/math, bounded artifacts, child cancellation/drain and private loaded scratch—are consumed guarantees that another realization must match or state a deliberately different, explicitly approved support boundary.
 
 Qualify exact Symbolica/SymJIT behavior for ISA/CPU features, FMA/fastmath/SIMD/threads, code/heap/template/scratch ownership, finite admission before opaque construction, cancellation/expiry and actual worker drain, cloning/private mutable state, selected derivative products and original-check attribution. Options to disable fastmath/SIMD/threads exist; they do not alone prove a generic-ISA or interruptible constructor contract. A helper process is eligible only if it removes complete machinery and supplies the needed bounded lifecycle, not as an unmeasured extra daemon.
 
@@ -50,12 +50,16 @@ Choose and implement one qualified native realization per explicit admitted poli
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| B01 | Current immutable artifact/representation contracts | Prepared region and once-per-representation inspection across all consumers; original-check/order/accounting controls; redundant descriptions removed | open |
-| B02 | B01 consumed description; RC09 before changed eligibility | Exact composition qualification and implemented supported branch; guard/provider/derivative/refusal tests | open |
-| B03 | B01 actual export/representation; RC09 before production realization | Conservative JIT/C++ comparison and selected qualified implementation or explicit retained route; numerical/resource/stop/private-worker tests | open |
+| B01 | Current immutable artifact/representation contracts | Prepared region and once-per-representation inspection across all consumers; original-check/order/accounting controls; redundant descriptions removed | in-progress |
+| B02 | B01 consumed description; RC09 before changed eligibility | Exact composition qualification and implemented supported branch; guard/provider/derivative/refusal tests | in-progress |
+| B03 | B01 actual export/representation; RC09 before production realization | Conservative JIT/C++ comparison and selected qualified implementation or explicit retained route; numerical/resource/stop/private-worker tests | in-progress |
 
 ## Verification and checkpoint
 
 **Planned:** touched math/runtime compile checks, pure targeted arithmetic/admission units and selected force-validated compiled-evaluator units when that optional profile is changed. Use the native-solver and Symbolica/faer/Oximo capability skills only for the contracts actually consumed; verify the exact installed release rather than copying newer Context7 examples. Dependency changes, if warranted, use ordinary exact-pin policy and affected tests; no wholesale re-resolution.
 
 All packages remain open. B01 needs no JIT decision to remove metadata work. The coordinator records I03's integrated outcome; a proposed alternative, a successful compiler invocation or faster warm evaluation alone cannot qualify the complete realization. 45f owns final optional-feature/native/public integration and static qualification.
+
+Current execution checkpoint: B01's prepared region descriptions and once-per-representation facts are integrated; 81 targeted arithmetic/admission/compiled-evaluator controls passed against zero failures. B02/B03 exact-release inquiry retains original stage barriers and the interpreted/current C++ routes while qualification is completed. Larger inlining must preserve original intermediate failures and demanded Taylor products; disabling SymJIT SIMD/fastmath does not establish generic ISA or interruptible construction. These are candidate eligibility limits, not a claim of a measured JIT benefit. Final integrated acceptance remains 45f.
+
+B02's exact Symbolica 3.0.1 control confirms that a retained Never-inline scalar subprogram evaluates normally but refuses demanded Second Taylor vectorization; Always inlining produces the independently known Taylor coefficients. Existing dependent-stage/guard tests preserve original intermediate failure barriers. Retain those barriers plus B01 sharing rather than claim larger eligible fusion. B03 retains interpreted/current C++ execution: the pinned synchronous JIT constructor has no construction stop hook, and the exposed options do not establish generic ISA. The passing compiled controls cover conservative CPU/math flags, private workers, bounded diagnostics/artifacts, cancellation/deadline/child drain and pressure; no unqualified JIT constructor or performance comparison was run.

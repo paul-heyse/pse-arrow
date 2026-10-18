@@ -1503,6 +1503,71 @@ mod tests {
             Value::Unavailable(_)
         ));
     }
+    #[test]
+    fn repeated_soc_default_rebuild_and_unscaled_updates_preserve_original_optima() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let mut route_values = Vec::new();
+        for reuse in [false, true] {
+            let hub = ObservationHub::new(Policy { max_metrics: 64, ..Policy::default() });
+            let operation = hub.start("clarabel-complete-profile");
+            let entered = operation.context().enter();
+            let (mut problem, certificate) = reuse_problem();
+            problem.contract.rows.push(pse_ids::SemanticId::from_bytes([229; 16]));
+            problem.constraints = SparseMatrix::new(2, 1, vec![0, 2], vec![0, 1], vec![0., -1.]);
+            problem.rhs = vec![1., 0.];
+            problem.cones = vec![Cone::SecondOrder { dimension: 2 }];
+            let settings = if reuse { Settings { mode: Mode::ReusableData, ..Settings::default() } } else { Settings::default() };
+            let accuracy = ResolvedAccuracy { native_scaling: !reuse, ..ResolvedAccuracy::verification() };
+            let controls = Controls::default();
+            let tolerances = Tolerances { variables: vec![1e-7], rows: vec![1e-7; 2], integrality: 1e-7 };
+            let stamp = crate::solver_tests::stamp(Backend::Clarabel);
+            let mut session: Option<Session> = None;
+            let mut values = Vec::new();
+            for step in 0..4 {
+                let started = std::time::Instant::now();
+                let step = f64::from(step);
+                let radius = 1. + step * 0.25; let coefficient = 1. + step * 0.1;
+                problem.objective[0] = -(1. + step * 0.3);
+                problem.objective_constant = 3. + step * 0.1;
+                problem.constraints.values[1] = -coefficient; problem.rhs[0] = radius;
+                if let Some(held) = &mut session {
+                    let update = held.update(&problem, &certificate, &settings, stamp.clone()).unwrap();
+                    assert_eq!(update, if reuse { crate::execution::SessionUpdate::Compatible } else { crate::execution::SessionUpdate::Incompatible });
+                    if update == crate::execution::SessionUpdate::Incompatible { session = None; }
+                }
+                if session.is_none() {
+                    session = Some(Session::new(&problem, &certificate, &controls, &accuracy, &settings, stamp.clone()).unwrap());
+                }
+                let report = session.as_mut().unwrap().solve(&problem, &controls, &accuracy, &settings,
+                    Execution::new(Default::default(), &controls), &tolerances).unwrap();
+                assert_eq!(report.termination.category, Termination::Success);
+                assert!(report.quality.as_ref().unwrap().feasible());
+                let candidate = report.candidate.as_ref().unwrap();
+                let expected = radius / coefficient;
+                assert!((candidate.primal[0] - expected).abs() <= 1e-7);
+                let expected_objective = problem.objective_constant + problem.objective[0] * expected;
+                assert!((candidate.objective.unwrap() - expected_objective).abs() <= 1e-7);
+                // Independent original second-order cone and bound assessment.
+                assert!(radius - coefficient * candidate.primal[0].abs() >= -1e-7);
+                assert!((0. - candidate.primal[0]).max(candidate.primal[0] - 4.) <= 1e-7);
+                eprintln!("soc reusable={reuse} step={step} wall_ns={} iterations={:?} x={} objective={}", started.elapsed().as_nanos(), report.evidence.work.iterations, candidate.primal[0], candidate.objective.unwrap());
+                values.push((candidate.primal[0], candidate.objective.unwrap()));
+            }
+            drop(session);
+            let snapshot = operation.reader().snapshot(std::time::Duration::from_secs(60));
+            for (name, expected) in [("clarabel.setup.calls", if reuse { 1 } else { 4 }), ("clarabel.update.calls", if reuse { 3 } else { 0 }), ("clarabel.solve.calls", 4)] {
+                let actual = snapshot.metrics.iter().find(|metric| metric.name == name).map_or(0, |metric| match metric.cumulative { Value::Count(count) => count, _ => panic!("non-count {name}") });
+                assert_eq!(actual, expected, "reusable={reuse} {name}");
+                eprintln!("soc reusable={reuse} {name}={actual}");
+            }
+            route_values.push(values);
+            drop(entered);
+        }
+        for (a, b) in route_values[0].iter().zip(&route_values[1]) {
+            assert!((a.0 - b.0).abs() <= 1e-7 && (a.1 - b.1).abs() <= 1e-7);
+        }
+    }
+
     /// The conic boundary vocabulary is pse-owned (F09): its encoding is pinned here, the
     /// layout and request identities derive from it alone, and Clarabel sees only the
     /// adapter's mapping. A Clarabel serde change therefore cannot move an identity or a

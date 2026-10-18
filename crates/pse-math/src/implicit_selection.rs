@@ -141,6 +141,8 @@ pub(super) struct SelectionWorker {
     anchor: Option<Worker>,
     restriction: Option<Worker>,
     sign: Option<bool>,
+    pure_anchor: bool,
+    pure_restriction: bool,
 }
 impl SelectionWorker {
     pub(super) fn new(selection: &Selection) -> Self {
@@ -148,7 +150,17 @@ impl SelectionWorker {
             anchor: selection.anchor.as_ref().map(|b| b.worker()),
             restriction: selection.restriction.as_ref().map(|b| b.worker()),
             sign: selection.sign,
+            // Provider has no purity or retained-premise capability. Its current
+            // effect must run even when the enclosing root inputs are unchanged.
+            pure_anchor: selection.anchor.as_ref().is_none_or(|body| body.census().all(|order| order.provider_stages == 0)),
+            pure_restriction: selection.restriction.as_ref().is_none_or(|body| body.census().all(|order| order.provider_stages == 0)),
         }
+    }
+    pub(super) fn permits_fixed_reuse(&self) -> bool {
+        self.pure_anchor && self.pure_restriction
+    }
+    pub(super) fn reusable_restriction(&self) -> bool {
+        self.pure_restriction
     }
     pub(super) fn anchor(
         &mut self,

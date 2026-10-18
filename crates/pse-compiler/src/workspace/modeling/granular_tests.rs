@@ -678,3 +678,46 @@ fn observation_reports_memo_validation_without_inventing_query_execution() {
         1
     );
 }
+
+#[test]
+fn current_input_roots_do_not_accumulate_candidate_preflight_history() {
+    let (mut workspace, events) = observed();
+    let mut previous_by_shape = [None, None];
+    let mut old_outputs = Vec::new();
+    for edit in 0..16 {
+        let shape = edit % 2;
+        let text = format!("package p {{ def Root {{ param k:Scalar={}; var x:Scalar; eq balance:x==k+{}; }} def Other {{ var y:Scalar; eq balance:y==2; }} }}", shape + 1, shape);
+        let mut source = rows(&text);
+        let equation = source.iter_mut().find(|row| row.value.equation.is_some()).unwrap();
+        let offset = i64::try_from(edit).unwrap();
+        equation.source_start += offset;
+        equation.source_end += offset;
+        let revision = workspace.publish_modeling(source.clone(), PhysicalScope::default()).unwrap();
+        assert_fresh(&workspace, &source, &revision);
+        let known = workspace.granular.known_bytes(&workspace.db);
+        assert!(known > 0);
+        // Two warm candidates establish the actually retained old/current roots.
+        // Subsequent candidates with the same allocation shape retain no history
+        // allowance merely because the checker executed again.
+        if edit >= 4 {
+            assert_eq!(Some(known), previous_by_shape[shape], "edit {edit} added construction history to retained roots");
+        }
+        previous_by_shape[shape] = Some(known);
+        let before = workspace.retention_usage();
+        let executed = events.lock().unwrap().len();
+        let repeated = workspace.publish_modeling(source, PhysicalScope::default()).unwrap();
+        assert!(Arc::ptr_eq(&revision, &repeated));
+        assert_eq!(workspace.retention_usage(), before);
+        assert_eq!(events.lock().unwrap().len(), executed);
+        assert_eq!(workspace.generation(), 0, "ordinary small edits must not rotate from preflight history");
+        old_outputs.push(revision);
+    }
+    for revision in &old_outputs { assert_fresh(&workspace, &revision.rows, revision); }
+    // The pinned Salsa input ingredient reports inline fields, but supplies no
+    // automatic heap callback for these declared Source inputs.
+    let report = <dyn Database>::memory_usage(&workspace.db);
+    let source = report.structs.iter().find(|info| info.debug_name().ends_with("Source")).unwrap();
+    assert!(source.size_of_fields() > 0);
+    assert_eq!(source.heap_size_of_fields(), None);
+    assert!(workspace.retention_usage().1 >= workspace.granular.known_bytes(&workspace.db));
+}

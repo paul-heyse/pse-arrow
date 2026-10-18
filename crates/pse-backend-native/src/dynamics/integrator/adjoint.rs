@@ -103,6 +103,7 @@ pub(in crate::dynamics) fn gradient(
         outcome.gradient = None;
     }
     Ok(Gradient {
+        parameter_axes: shared.axes.clone(),
         report,
         gradient: outcome.gradient,
         hessian: None,
@@ -141,7 +142,8 @@ fn schemes<LS: LinearSolver<M>>(
             .collect(),
         boundaries,
     };
-    let scales = p.integration_parameters(&p.parameter_scales);
+    let complete_scales = p.integration_parameters(&p.parameter_scales);
+    let scales = shared.axes.iter().map(|axis| complete_scales[*axis]).collect::<Vec<_>>();
     let mut problems = Vec::with_capacity(segments.starts.len());
     for start in &segments.starts {
         *shared.columns.borrow_mut() = p.columns_at(np, *start);
@@ -493,6 +495,8 @@ impl<'o> Passes<'_, 'o> {
                 "forward_replay_accepted_steps": replay_budget.borrow().used(),
                 "backward_accepted_steps": backward_budget.used(),
                 "zero_cotangent": zero_cotangent,
+                "parameter_product_width": shared.width(),
+                "parameter_axes": shared.axes,
             }
         }));
         out.gradient = Some(total);
@@ -542,11 +546,14 @@ impl<'o> Passes<'_, 'o> {
         } else {
             None
         };
+        let columns = shared.columns.borrow();
+        let selected = shared.axes.iter().map(|axis| columns.iter().position(|column| column == axis)).collect::<Vec<_>>();
         let (lambda, parameters) = sample_jump(
             &shared.contract.differential,
             output.as_ref().as_ref(),
             rhs.as_ref().map(|j| j.as_ref().as_ref()),
             &weights[i * m..(i + 1) * m],
+            &selected,
             &mut self.elimination.borrow_mut(),
         )?;
         let (Some(adjoint), Some(partial)) = (state.s.first_mut(), state.sg.first_mut()) else {
@@ -555,14 +562,8 @@ impl<'o> Passes<'_, 'o> {
         for (a, d) in adjoint.as_mut_slice().iter_mut().zip(&lambda) {
             *a += d;
         }
-        let columns = shared.columns.borrow();
-        let partial = partial.as_mut_slice();
-        for (k, d) in parameters.iter().enumerate() {
-            let slot = columns
-                .get(k)
-                .and_then(|c| partial.get_mut(*c))
-                .ok_or_else(|| ProblemError::internal("adjoint jump columns"))?;
-            *slot += d;
+        for (slot, value) in partial.as_mut_slice().iter_mut().zip(parameters) {
+            *slot += value;
         }
         Ok(())
     }

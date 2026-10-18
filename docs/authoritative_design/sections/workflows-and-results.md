@@ -143,6 +143,8 @@ between time points or deactivating a model at selected points have no counterpa
 
 ### 13.6 Native integrators and trajectories
 
+> Decision: [ADR-0199](../../adr/0199-consumed-adjoint-parameter-layout.md) (proposed; maintainer-accepted Plan45/RC07 target). First-order adjoint parameter demand has its own unique ordered All/Selected layout, including explicit empty selection, distinct from forward axes, state adjoints and second-order directions. Complete physical inputs and required state adjoints remain full. Dynamic profile identity uses the v11 frame including this selection; historical v10 bytes keep their prior meaning. Admission, Diffsol parameter products, IDAS backward quadratures and returned gradients consume this layout. Initial/direct, tied/scaled, scheduled and anchor mappings preserve physical coordinate identity. Ordinary public adjoints remain full; second-order callers explicitly retain their required first-order coordinates. Plan45d/D01 owns implementation and acceptance.
+
 > Decision: ADR-0198 (proposed; accepted Plan44/RC02 target). Combined first-order shooting requests already needing forward responses may consume exact IDAS endpoint quadrature sensitivities in that same selected physical-axis layout. Direct parameter and initial/anchor effects, scheduled offsets/reinitialization, derivative error control and native workspace admission remain explicit. Incomplete work supplies no completed derivative product. All windows preflight the extra native/result workspace and derivative tolerances before selecting this route; otherwise the existing admitted adjoint route remains. There is no post-effect retry after failure or cancellation. Each completed window derivative is reduced before issuing the next window, and only a complete stronger product replaces the same-point cache. Integral-only requests retain adjoints and existing hybrid derivative refusals remain. Implementation and targeted qualification are recorded in Plan44b/B05; selected assembled acceptance is recorded in blueprint §24.2.
 
 > Decision: ADR-0197 (proposed; Plan44b kernel contract implemented). Complete physical integration values are separate from unique ordered consumed forward-sensitivity axes. Ordinary public Forward selects all axes. Internal fitting/shooting requests may select a subset or no axes; native callbacks, initial/scheduled mappings, retained reports and admission consume one explicit layout. Tied physical contributions retain their conversion and addition. Existing adjoint and hybrid support limits remain. Targeted IDAS/Diffsol, selected preparation/replay, fitting and shooting controls passed; selected assembled native/public acceptance is recorded in blueprint §24.2.
@@ -216,16 +218,21 @@ IDAS events together with forward sensitivities, because Diffsol owns reset sens
 sign-constraint vector that is neither empty nor one entry per state, or that constrains
 nothing; a zero or oversized Krylov dimension; and an unlinked backend. At each scheduled
 change or reset IDAS restarts the same native memory (`IDAReInit`, `IDASensReInit`,
-`IDAQuadReInit` and `IDACalcIC`, with consistent sensitivity starts from
+`IDAQuadReInit`, optional `IDAQuadSensReInit` and `IDACalcIC`, with consistent sensitivity starts from
 `IDAGetSensConsistentIC`); each segment keeps its own native statistics, and output
-quadratures continue across the restart. Both routes consume the same compiled functions
+quadratures continue across the restart. Optional quadrature sensitivities are installed
+before initial consistent setup. After successful consistent initialization, the bundled
+IDAS owner refreshes primal and sensitivity quadrature derivative history from corrected
+states and sensitivities, including backward owners using the same IC routine. It does
+not reinitialize physical history, reset native work counters or change quadrature totals
+and scheduled offsets; callback failures remain failures before physical advance. Both routes consume the same compiled functions
 (`Rhs`, `Initial`, `Output`, `BalanceFlux`, `Roots`, `Reset`); IDAS is a residual adapter,
 not a second compiler.
 
 Profile identity comes from serde, never from a hand-written field list. `profile_json` is
 the complete encoding of the profile plus the resolved method; Diffsol's native option types
 enter through remote serde definitions, so a new field in a pinned option type fails to
-compile rather than escaping identity. `pse.dynamic.profile.v6` frames that encoding, which
+compile rather than escaping identity. `pse.dynamic.profile.v11` frames that encoding, which
 includes the scheduled inputs and the typed sensitivity, with the numerical policy key; the
 IDAS settings (document version 2) no longer carry signs, which come from authored bounds. A
 modeling dynamic simulation's preparation (`pse.modeling.dynamic.v2`) also frames the
@@ -296,7 +303,10 @@ Single shooting integrates one window over the horizon; multiple
 shooting integrates one window per node interval, each anchored at its start state
 (`dynamics::Anchored`), with the differential states at the inner nodes as variables closed
 by continuity rows. A terminal objective takes its gradient from the forward sensitivities
-the rows need anyway, and an integral one from the adjoint. The shooting NLP supplies first
+the rows need anyway. Eligible IDAS combined consumers use selected-axis endpoint
+quadrature sensitivities in that same forward integration; integral-only consumers use the
+admitted adjoint route. Complete before-effect preflight selects the route, and a failed
+upgrade preserves only the original weaker usable product without post-effect fallback. The shooting NLP supplies first
 derivatives only, so it requires the limited-memory Hessian and refuses any other mode. A
 `ShootingReport` returns the solve, controls, node states, objective, continuity residual,
 trajectory and checks. A fixture selects it with `route integrated; procedure shooting;`, a `shoot single;` or

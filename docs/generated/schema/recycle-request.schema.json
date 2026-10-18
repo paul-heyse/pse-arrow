@@ -3418,6 +3418,17 @@
       "$ref": "#/$defs/Fraction",
       "description": "Native fixed-point damping in (0,1]."
     },
+    "orthogonalization": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/KinsolOrthogonalization"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Explicit native Anderson orthogonalization. Absence retains modified\nGram–Schmidt; a selected value requires nonzero Anderson history."
+    },
     "restarts": {
       "anyOf": [
         {

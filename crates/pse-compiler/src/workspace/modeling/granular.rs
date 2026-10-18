@@ -176,9 +176,6 @@ pub(in crate::workspace) struct State {
     expressions: BTreeMap<DeclarationId, ExpressionPhase>,
     expression_environment: Option<phases::expressions::Environment>,
     references: BTreeMap<DeclarationId, ReferencePhase>,
-    /// Cumulative preconstruction allowances bound shared persistent nodes without
-    /// traversing and recounting every prefix snapshot on every edit.
-    retained_preflight: usize,
 }
 impl State {
     pub(in crate::workspace) fn entries(&self) -> usize {
@@ -194,42 +191,66 @@ impl State {
     }
     pub(in crate::workspace) fn known_bytes(&self, db: &CompilerDatabase) -> usize {
         use pse_model::HeapUsage;
-        let source = self
-            .sources
-            .values()
-            .map(|input| {
-                input.row(db).owned_bytes()
-                    + input.signature(db).owned_bytes()
-                    + input
-                        .fields(db)
-                        .as_ref()
-                        .map_or(0, |f| f.keys().map(|k| k.capacity() + 128).sum::<usize>())
-                    + input.parsed(db).as_ref().map_or(0, |p| p.retained_bytes())
-                    + 256
-            })
-            .sum::<usize>();
-        let inputs = self
-            .types
-            .len()
-            .saturating_add(self.members.len())
-            .saturating_add(self.occurrences.len())
-            .saturating_add(self.expressions.len())
-            .saturating_add(self.references.len())
-            .saturating_mul(256);
-        let complete = self.complete.map_or(0, |input| {
-            input.package(db).retained_bytes() + input.documents(db).retained_bytes() + 256
-        });
-        let inventory = self.inventory.map_or(0, |input| {
-            input.rows(db).owned_bytes()
-                + input.documents(db).retained_bytes()
-                + input.sources(db).capacity() * size_of::<Source>()
-                + 256
-        });
-        source
-            .saturating_add(inventory)
-            .saturating_add(inputs)
-            .saturating_add(complete)
-            .saturating_add(self.retained_preflight)
+        let mut census = phases::RetainedInputs::default();
+        // Salsa 0.28.4 input::Value::memory_usage reports metadata and inline fields.
+        // These input declarations supply no heap_size callback: their live heap
+        // roots are counted here. Tracked query outputs retain their own callbacks
+        // and remain in CompilerWorkspace::retention_usage independently.
+        census.add(self.entries().saturating_mul(256));
+        census.add(self.occurrences.keys().map(|key| key.role.capacity()).sum());
+        for input in self.sources.values() {
+            for row in [input.row(db), input.signature(db)] {
+                if census.include_shared(row) { census.add(row.owned_bytes()); }
+            }
+            if let Some(fields) = input.fields(db) {
+                census.add(fields.keys().map(|key| key.capacity() + size_of::<pse_authoring::SourceSpan>() + 128).sum());
+            }
+            if let Some(parsed) = input.parsed(db) {
+                if census.include_shared(parsed) { census.add(parsed.retained_bytes()); }
+            }
+        }
+        for input in self.types.values() {
+            input.environment(db).collect_retained_inputs(&mut census);
+            if census.include_shared(input.scope(db)) { census.add(scope_bytes(input.scope(db))); }
+        }
+        for input in self.occurrences.values() {
+            input.namespace(db).collect_retained_inputs(&mut census);
+            census.add(pse_modeling::expression::occurrences::field_retained_bytes(input.key(db), input.expression(db), true));
+        }
+        for phase in self.members.values() { phase.input(db).collect_retained_inputs(&mut census); }
+        for phase in self.expressions.values() {
+            phase.input(db).collect_retained_inputs(&mut census);
+            if census.include_shared(phase.scope(db)) { census.add(scope_bytes(phase.scope(db))); }
+        }
+        for phase in self.references.values() { phase.input(db).collect_retained_inputs(&mut census); }
+        if let Some(environment) = &self.expression_environment { environment.collect_retained_inputs(&mut census); }
+        if let Some(input) = self.complete {
+            if census.include_shared(input.package(db)) { census.add(input.package(db).retained_bytes()); }
+            if census.include_shared(input.documents(db)) { census.add(input.documents(db).retained_bytes()); }
+            if census.include_shared(input.scope(db)) { census.add(scope_bytes(input.scope(db))); }
+            collect_document_inputs(db, input.inputs(db), &mut census);
+        }
+        if let Some(input) = self.inventory {
+            if census.include_shared(input.rows(db)) { census.add(input.rows(db).owned_bytes()); }
+            if census.include_shared(input.documents(db)) { census.add(input.documents(db).retained_bytes()); }
+            if census.include_shared(input.scope(db)) { census.add(scope_bytes(input.scope(db))); }
+            census.add(input.sources(db).capacity().saturating_mul(size_of::<Source>()));
+            collect_document_inputs(db, input.inputs(db), &mut census);
+        }
+        census.bytes()
+    }
+}
+fn collect_document_inputs<'a>(
+    db: &'a CompilerDatabase,
+    inputs: &BTreeMap<SemanticId, DataDocumentInput>,
+    census: &mut phases::RetainedInputs<'a>,
+) {
+    census.add(inputs.len().saturating_mul(size_of::<(SemanticId, DataDocumentInput)>() + 128));
+    // DataDocumentInput also has no Salsa heap callback. A retained handle may
+    // still select rows absent from the latest DocumentInventory.
+    for input in inputs.values() {
+        let document = input.document(db);
+        if census.include_shared(document) { census.add(document.retained_bytes()); }
     }
 }
 pub(super) fn configure(db: &mut CompilerDatabase, capacity: usize) {
@@ -304,8 +325,9 @@ impl Documents for Driver<'_> {
             ));
         }
         self.bytes.set(next);
-        let mut state = self.state.borrow_mut();
-        state.retained_preflight = state.retained_preflight.saturating_add(bytes);
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.gauge("compiler.candidate_preflight_bytes", "bytes", next as f64);
+        }
         Ok(())
     }
     fn admit(

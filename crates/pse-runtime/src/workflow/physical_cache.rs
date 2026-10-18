@@ -574,7 +574,9 @@ mod physical_admission_cache_unit {
             hits + 1
         );
         let mut changed = second.clone();
-        let key = *changed.sources.keys().next().unwrap();
+        let key = *changed.sources.iter()
+            .find(|(_, table)| table.batch().num_rows() != 0)
+            .unwrap().0;
         let table = changed.sources.get(&key).unwrap();
         changed.sources.insert(key, table.slice(0, 0).unwrap());
         assert_eq!(first.identity(), changed.identity());
@@ -588,6 +590,38 @@ mod physical_admission_cache_unit {
                 .rows(&runtime, operations, &changed)
                 .is_none()
         );
+        // Exercise actual cold/warm publication after changing the exact row
+        // support. This is a transport-owner control, not permission to compile
+        // the intentionally altered physical context as a scientific model.
+        let changed_rows = operations
+            .put_physical_rows(&runtime, &changed)
+            .await
+            .unwrap();
+        assert_ne!(first_rows.revisions, changed_rows.revisions);
+        let changed_hits = runtime.physical_cache.hits.load(Ordering::Relaxed);
+        let changed_again = operations
+            .put_physical_rows(&runtime, &changed)
+            .await
+            .unwrap();
+        assert_eq!(changed_rows.revisions, changed_again.revisions);
+        assert_eq!(
+            runtime.physical_cache.hits.load(Ordering::Relaxed),
+            changed_hits + 1,
+        );
+        // The optional cache may replace an entry at the same coarse key.
+        // Escaped receipts retain independent protection of their exact rows.
+        assert_eq!(first_rows._owner.pins.len(), first_rows.revisions.len());
+        for (pin, original) in first_rows._owner.pins.iter().zip(&first_rows.revisions) {
+            assert_eq!(pin.revision(), original);
+            pin.renew(std::time::Duration::from_secs(3600))
+                .await
+                .unwrap();
+            assert_eq!(
+                operations.store().revision(&original.key).await.unwrap().as_ref(),
+                Some(original),
+                "changed publication preserves the independently protected original revision",
+            );
+        }
         let mut package_changed = second.clone();
         package_changed
             .package

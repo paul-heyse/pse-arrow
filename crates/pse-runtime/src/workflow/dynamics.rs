@@ -1488,11 +1488,14 @@ impl Oracle for &mut DynamicWorker {
 pub(crate) fn profile_identity(
     p: &SimulationProfile,
 ) -> Result<pse_ids::roles::ProfileHash, ProblemError> {
-    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV10);
+    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV11);
     pse_ids::document::frame(&mut h, p)
         .map_err(|error| ProblemError::Internal(error.to_string()))?;
     h.str("forward_axes");
     pse_ids::document::frame(&mut h, &p.forward_axes)
+        .map_err(|error| ProblemError::Internal(error.to_string()))?;
+    h.str("adjoint_parameters");
+    pse_ids::document::frame(&mut h, &p.adjoint_parameters)
         .map_err(|error| ProblemError::Internal(error.to_string()))?;
     h.str("resolved_method");
     pse_ids::document::frame(&mut h, &p.resolved_method().ok())
@@ -1517,6 +1520,19 @@ mod tests {
         ] {
             let mut profile = full.clone();
             profile.forward_axes = axes;
+            assert!(keys.insert(profile_identity(&profile).unwrap()));
+        }
+    }
+    #[test]
+    fn simulation_identity_distinguishes_ordered_adjoint_parameter_demand() {
+        let mut keys = std::collections::BTreeSet::new();
+        for selection in [native::AdjointParameters::All,
+            native::AdjointParameters::Selected(vec![]),
+            native::AdjointParameters::Selected(vec![0]),
+            native::AdjointParameters::Selected(vec![1, 0]),
+            native::AdjointParameters::Selected(vec![0, 1])] {
+            let mut profile = SimulationProfile::default();
+            profile.adjoint_parameters = selection;
             assert!(keys.insert(profile_identity(&profile).unwrap()));
         }
     }

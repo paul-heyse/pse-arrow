@@ -2208,6 +2208,14 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
             .next()
             .unwrap()
             .clone();
+        let native_adjoint = report.statistics.iter().find_map(|s| s.get("adjoint")).unwrap();
+        if let Some(width) = native_adjoint.get("parameter_product_width") {
+            assert_eq!(*width, 1, "fixed physical values must not add Diffsol parameter products");
+        } else {
+            for backward in native_adjoint["backward"].as_array().unwrap() {
+                assert_eq!(backward["parameter_quadrature_width"], 1);
+            }
+        }
         let mut repeated = [0.];
         oracle.gradient(&[2.5], &mut repeated).unwrap();
         assert_eq!(first, repeated);
@@ -3212,4 +3220,50 @@ async fn transient_fit_trial_scheduling_keeps_rejected_values_lazy_for_both_deri
         })
         .await;
     }
+}
+
+
+/// Tied consumer coordinates retain each unit scale while native parameter products
+/// contain unique physical axes. Both backends see the same complete nonzero values.
+#[tokio::test]
+async fn selected_adjoint_tied_scaled_bindings_use_unique_physical_axes() {
+    let (package, profile) = source_case_on_with_fixed_parameter(
+        crate::workflow::tests::runtime_with_workspace(32 << 20), false, 73., "Dynamic", true,
+    ).await;
+    let (problem, assessments) = package.prepare_fit_problem(
+        FitId::from(id(73)), profile, compiler_profile(), Default::default(), &crate::CancelSource::new(),
+    ).await.unwrap();
+    let allowance = affine_output_allowances(&problem, &assessments)[0];
+    with_admitted_fit_oracle(problem.into(), move |oracle| {
+        let Experiment::Transient(base) = &oracle.prepared.experiments[0] else { panic!() };
+        let base = base.clone();
+        for method in [native::dynamics::Method::Diffsol,
+            #[cfg(feature = "solver-idas")] native::dynamics::Method::Idas] {
+            let mut experiment = base.clone();
+            experiment.profile.method = method;
+            for (binding, (scale, offset)) in experiment.bindings.iter_mut().zip([(2., 5.), (3., 7.)]) {
+                binding.parameter = 0;
+                binding.conversion.scale = scale;
+                binding.conversion.offset = offset;
+            }
+            let mut worker = experiment.worker(&oracle.execution).unwrap();
+            let mut cotangent = |report: &native::dynamics::Report| {
+                let outputs = experiment.program.contract.outputs.len();
+                let row = oracle.prepared.measurements[0].row;
+                let mut weights = vec![0.; report.samples.len() * outputs];
+                weights[(report.samples.len() - 1) * outputs + row] = 1.;
+                Ok(weights)
+            };
+            let (report, contributions) = experiment.gradient(
+                &mut worker, &|_| 1., &oracle.execution, &[1, 0], &mut cotangent,
+            ).unwrap();
+            assert_eq!(contributions.len(), 2);
+            assert_eq!(contributions.iter().map(|(parameter, _)| *parameter).collect::<Vec<_>>(), [0, 0]);
+            assert_action(contributions.iter().map(|(_, value)| value).sum::<f64>() * 0.5, 2.5, allowance);
+            assert_action(report.samples.last().unwrap().outputs[oracle.prepared.measurements[0].row], 88., allowance);
+            let adjoint = report.statistics.iter().find_map(|s| s.get("adjoint")).unwrap();
+            if method == native::dynamics::Method::Diffsol { assert_eq!(adjoint["parameter_product_width"], 2); }
+            else { for backward in adjoint["backward"].as_array().unwrap() { assert_eq!(backward["parameter_quadrature_width"], 2); } }
+        }
+    }).await;
 }

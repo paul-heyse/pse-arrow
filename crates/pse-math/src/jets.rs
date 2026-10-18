@@ -252,6 +252,7 @@ pub(crate) enum LiftInput {
 #[derive(Clone)]
 pub(crate) struct ProviderLift {
     pub evaluator: ExpressionEvaluator<f64>,
+    pub facts: library::EvaluatorFacts,
     pub inputs: Vec<LiftInput>,
     pub scratch: Vec<f64>,
     pub output: Vec<f64>,
@@ -335,7 +336,7 @@ impl ProviderLift {
                     / Atom::num(layout.raw_factor(component)))
             })
             .collect::<Result<Vec<_>, MathError>>()?;
-        let evaluator = library::bounded_scalar_evaluator(
+        let library::FloatingEvaluator { evaluator, facts, .. } = library::bounded_scalar_evaluator(
             &expressions,
             &parameters,
             options,
@@ -347,6 +348,7 @@ impl ProviderLift {
             scratch: vec![0.0; inputs.len()],
             output: vec![0.0; layout.width()],
             evaluator,
+            facts,
             inputs,
         })
     }

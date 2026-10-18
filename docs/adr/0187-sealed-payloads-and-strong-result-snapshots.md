@@ -47,6 +47,10 @@ Backup closes admission and excludes GC before freezing its catalog; authenticat
 
 File bytes are immutable; a complete file is not itself an AppendAck or complete result manifest. Logical descriptors bind file digest/instance, batch index, rows, schema and interpretation. Exact IEEE values, metadata, original coordinates, demand and partiality remain mandatory. Existing Python table/stream/export/live APIs migrate without a new Python query product. Rust snapshots expose native DataFusion providers over frozen file lists and preserve the existing SQL/function/resource context.
 
+### Plan45 selected-result contract
+
+Maintainer-accepted RC04 preserves the synchronous full relation/range snapshot and introduces a distinct selected Rust reader. Immutable selection precedes bounded metadata discovery; an explicit asynchronous selected snapshot freezes the complete original selected universe, independent of stream progress. A shared private protected decoder serves both. Selected native providers apply this universe before residual filters, limits or projection and do not claim unsupported SQL filter pushdown. Existing Python selected TableStream meaning is unchanged; native adapters and actual consumers migrate together. Full schema/admission remains until separately qualified projection. Plan45c/C01–C02/C08 own implementation and acceptance; this amendment is Proposed, not a new executed claim.
+
 ### Compensating controls
 
 Use existing permissions, original-intent receipts and replay floors; retain file intent protection through unknown settlement. Do not reuse physical paths or revoke reads by silence/TTL. Bound packing, lazy handles, decode, output and spill through actual allocation owners. File validity/integrity and scientific admission remain separate.

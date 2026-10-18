@@ -5,7 +5,7 @@ progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
 [Plan45: Pipeline execution optimization](45-pipeline-execution-optimization.md)
-is a new standalone draft covering the post-Plan44 review's thirteen findings, ten
+is an active standalone series covering the post-Plan44 review's thirteen findings, ten
 investigations and supported implementation follow-through. Its
 [rule decisions](45-pipeline-execution-optimization.md#rule-decisions) record all ten
 recommendations accepted on 2026-10-18; its [checkpoint](45-pipeline-execution-optimization.md#completion-verification-and-current-checkpoint)

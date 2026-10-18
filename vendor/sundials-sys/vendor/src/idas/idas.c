@@ -263,6 +263,9 @@ static void IDAQuadSensFreeVectors(IDAMem ida_mem);
 /* Initial setup */
 
 int IDAInitialSetup(IDAMem IDA_mem);
+int IDAInitialQuadDerivatives(IDAMem IDA_mem);
+static int IDAQuadInitialDerivative(IDAMem IDA_mem);
+static int IDAQuadSensInitialDerivative(IDAMem IDA_mem);
 
 static int IDAEwtSetSS(IDAMem IDA_mem, N_Vector ycur, N_Vector weight);
 static int IDAEwtSetSV(IDAMem IDA_mem, N_Vector ycur, N_Vector weight);
@@ -4983,23 +4986,8 @@ int IDAInitialSetup(IDAMem IDA_mem)
 
   if (IDA_mem->ida_quadr)
   {
-    /* Evaluate quadrature rhs and set phiQ[1] */
-    ier = IDA_mem->ida_rhsQ(IDA_mem->ida_tn, IDA_mem->ida_phi[0],
-                            IDA_mem->ida_phi[1], IDA_mem->ida_phiQ[1],
-                            IDA_mem->ida_user_data);
-    IDA_mem->ida_nrQe++;
-    if (ier < 0)
-    {
-      IDAProcessError(IDA_mem, IDA_QRHS_FAIL, __LINE__, __func__, __FILE__,
-                      MSG_QRHSFUNC_FAILED);
-      return (IDA_QRHS_FAIL);
-    }
-    else if (ier > 0)
-    {
-      IDAProcessError(IDA_mem, IDA_FIRST_QRHS_ERR, __LINE__, __func__, __FILE__,
-                      MSG_QRHSFUNC_FIRST);
-      return (IDA_FIRST_QRHS_ERR);
-    }
+    ier = IDAQuadInitialDerivative(IDA_mem);
+    if (ier != IDA_SUCCESS) { return ier; }
 
     if (IDA_mem->ida_errconQ)
     {
@@ -5046,26 +5034,8 @@ int IDAInitialSetup(IDAMem IDA_mem)
 
   if (IDA_mem->ida_quadr_sensi)
   {
-    /* store the quadrature sensitivity residual. */
-    ier = IDA_mem->ida_rhsQS(IDA_mem->ida_Ns, IDA_mem->ida_tn,
-                             IDA_mem->ida_phi[0], IDA_mem->ida_phi[1],
-                             IDA_mem->ida_phiS[0], IDA_mem->ida_phiS[1],
-                             IDA_mem->ida_phiQ[1], IDA_mem->ida_phiQS[1],
-                             IDA_mem->ida_user_dataQS, IDA_mem->ida_tmpS1,
-                             IDA_mem->ida_tmpS2, IDA_mem->ida_tmpS3);
-    IDA_mem->ida_nrQSe++;
-    if (ier < 0)
-    {
-      IDAProcessError(IDA_mem, IDA_QSRHS_FAIL, __LINE__, __func__, __FILE__,
-                      MSG_QSRHSFUNC_FAILED);
-      return (IDA_QRHS_FAIL);
-    }
-    else if (ier > 0)
-    {
-      IDAProcessError(IDA_mem, IDA_FIRST_QSRHS_ERR, __LINE__, __func__,
-                      __FILE__, MSG_QSRHSFUNC_FIRST);
-      return (IDA_FIRST_QSRHS_ERR);
-    }
+    ier = IDAQuadSensInitialDerivative(IDA_mem);
+    if (ier != IDA_SUCCESS) { return ier; }
 
     /* If using the internal DQ functions, we must have access to fQ
      * (i.e. quadrature integration must be enabled) and to the problem parameters */
@@ -5186,6 +5156,75 @@ int IDAInitialSetup(IDAMem IDA_mem)
   }
 
   return (IDA_SUCCESS);
+}
+
+/* Refresh only quadrature derivative history after consistent initial conditions.
+ * The state/sensitivity correction does not change the quadrature initial values.
+ * Reinitializing the solver here would discard the work counters of that correction.
+ */
+int IDAInitialQuadDerivatives(IDAMem IDA_mem)
+{
+  int ier;
+  if (IDA_mem->ida_quadr)
+  {
+    ier = IDAQuadInitialDerivative(IDA_mem);
+    if (ier != IDA_SUCCESS) { return ier; }
+  }
+  if (IDA_mem->ida_quadr_sensi)
+  {
+    ier = IDAQuadSensInitialDerivative(IDA_mem);
+    if (ier != IDA_SUCCESS) { return ier; }
+  }
+  return IDA_SUCCESS;
+}
+
+static int IDAQuadInitialDerivative(IDAMem IDA_mem)
+{
+  int ier;
+  /* Evaluate quadrature rhs and set phiQ[1] */
+  ier = IDA_mem->ida_rhsQ(IDA_mem->ida_tn, IDA_mem->ida_phi[0],
+                          IDA_mem->ida_phi[1], IDA_mem->ida_phiQ[1],
+                          IDA_mem->ida_user_data);
+  IDA_mem->ida_nrQe++;
+  if (ier < 0)
+  {
+    IDAProcessError(IDA_mem, IDA_QRHS_FAIL, __LINE__, __func__, __FILE__,
+                    MSG_QRHSFUNC_FAILED);
+    return (IDA_QRHS_FAIL);
+  }
+  else if (ier > 0)
+  {
+    IDAProcessError(IDA_mem, IDA_FIRST_QRHS_ERR, __LINE__, __func__, __FILE__,
+                    MSG_QRHSFUNC_FIRST);
+    return (IDA_FIRST_QRHS_ERR);
+  }
+  return IDA_SUCCESS;
+}
+
+static int IDAQuadSensInitialDerivative(IDAMem IDA_mem)
+{
+  int ier;
+  /* store the quadrature sensitivity residual. */
+  ier = IDA_mem->ida_rhsQS(IDA_mem->ida_Ns, IDA_mem->ida_tn,
+                           IDA_mem->ida_phi[0], IDA_mem->ida_phi[1],
+                           IDA_mem->ida_phiS[0], IDA_mem->ida_phiS[1],
+                           IDA_mem->ida_phiQ[1], IDA_mem->ida_phiQS[1],
+                           IDA_mem->ida_user_dataQS, IDA_mem->ida_tmpS1,
+                           IDA_mem->ida_tmpS2, IDA_mem->ida_tmpS3);
+  IDA_mem->ida_nrQSe++;
+  if (ier < 0)
+  {
+    IDAProcessError(IDA_mem, IDA_QSRHS_FAIL, __LINE__, __func__, __FILE__,
+                    MSG_QSRHSFUNC_FAILED);
+    return (IDA_QRHS_FAIL);
+  }
+  else if (ier > 0)
+  {
+    IDAProcessError(IDA_mem, IDA_FIRST_QSRHS_ERR, __LINE__, __func__,
+                    __FILE__, MSG_QSRHSFUNC_FIRST);
+    return (IDA_FIRST_QSRHS_ERR);
+  }
+  return IDA_SUCCESS;
 }
 
 /*

@@ -5,6 +5,93 @@ use super::*;
 use crate::workflow::tests::{compiler_profile, id, physical, runtime};
 use pse_structural::flowsheet::{Decision, Policy};
 
+#[tokio::test]
+#[expect(clippy::print_stderr, reason = "the bounded recycle contrast reports actual map work and clocks before scientific assertions")]
+async fn recycle_short_controls_compare_same_map_and_preserve_original_accuracy() {
+    use pse_model::generated::enums::KinsolOrthogonalization as Orthogonalization;
+    for rho in [0.5, 0.95] {
+        let runtime = runtime();
+        // Distinct rates make three tear coordinates nonredundant. History
+        // depth three is eligible only for a map of at least that dimension.
+        let rates = [rho - 0.02, rho - 0.01, rho];
+        let mut source = String::from("package p {def Root {");
+        for (index, rate) in rates.iter().enumerate() {
+            source.push_str(&format!(
+                "var x{index}:Scalar; let result{index}:Scalar=x{index}*{rate}+{}; port inlet{index}:Scalar=x{index}; port outlet{index}:Scalar=result{index}; annotation connectivity inlet{index}(1,0); annotation connectivity outlet{index}(0,1); connect outlet{index} -> inlet{index}; annotation start x{index}(0);",
+                1.0 - rate,
+            ));
+        }
+        source.push_str("}}");
+        let declarations = pse_authoring::language::parse(
+            &source, id(97), pse_authoring::language::IdentityPolicy::Named, Default::default(),
+        ).unwrap();
+        let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        let package = runtime.modeling_package(declarations, physical()).await.unwrap();
+        let cancel = crate::CancelSource::new();
+        let analysis = package.declared_execution(
+            root, compiler_profile(), super::super::tests::profile(SolveIntent::Root),
+            Default::default(), Default::default(), &cancel,
+        ).await.unwrap().analysis;
+        let model = package.prepare(root, analysis.instance, analysis.bindings.clone(), analysis.limits, &cancel).await.unwrap();
+        let model = &model.compiled().model;
+        let port = |name: &str| model.ports.values().find(|port| port.lineage.path.ends_with(&format!(".{name}"))).unwrap().id;
+        let selection = ModelingFlowSelection {
+            nodes: BTreeSet::from([analysis.instance]),
+            connections: model.connections.keys().map(|id| (*id, Decision { id: *id, cost: 1.0, policy: Policy::Mandatory })).collect(),
+        };
+        let request = RecycleRequest {
+            tears: selection.connections.keys().copied().collect(),
+            units: vec![CausalUnitRequest {
+                node: analysis.instance.as_id(),
+                inputs: (0..3).map(|index| port(&format!("inlet{index}"))).collect(),
+                outputs: (0..3).map(|index| port(&format!("outlet{index}"))).collect(),
+                realization: CausalUnitRealization::ExplicitMap,
+            }],
+            anderson: 0, anderson_delay: 0, orthogonalization: None,
+            damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(), restarts: None,
+        };
+        let mut evaluations = Vec::new();
+        for (depth, delay, damping, orthogonalization) in [
+            (0, 0, 1.0, None),
+            (1, 0, 1.0, Some(Orthogonalization::ModifiedGramSchmidt)),
+            (3, 0, 1.0, Some(Orthogonalization::ModifiedGramSchmidt)),
+            (3, 1, 0.5, Some(Orthogonalization::ModifiedGramSchmidt)),
+            (3, 0, 1.0, Some(Orthogonalization::InverseCompactWy)),
+        ] {
+            let mut selected = request.clone();
+            selected.anderson = depth;
+            selected.anderson_delay = delay;
+            selected.damping = pse_model::scalars::Fraction::try_new(damping).unwrap();
+            selected.orthogonalization = orthogonalization;
+            let prepared = package.prepare_recycle(&analysis, selection.clone(), selected, &cancel).await.unwrap();
+            assert_eq!(prepared.settings.method.orthogonalization, orthogonalization.unwrap_or(Orthogonalization::ModifiedGramSchmidt));
+            let coordinates: Vec<_> = prepared.contract.variables.iter()
+                .zip(&prepared.tolerances.rows)
+                .map(|(variable, budget)| {
+                    let index = (0..3).find(|index| port(&format!("inlet{index}")) == variable.id).unwrap();
+                    (rates[index], *budget)
+                }).collect();
+            let started = std::time::Instant::now();
+            let result = prepared.start().unwrap().finish().await.unwrap();
+            let elapsed = started.elapsed();
+            eprintln!("recycle rho={rho} depth={depth} delay={delay} damping={damping} orthogonalization={orthogonalization:?} elapsed={elapsed:?} map={:?} iterations={:?} qualification={:?}", result.report.metrics.get("KINGetNumFuncEvals"), result.report.metrics.get("KINGetNumNonlinSolvIters"), result.report.qualification);
+            assert_eq!(result.report.qualification, Qualification::Feasible, "{:?}", result.report);
+            let candidate = &result.report.candidate.as_ref().unwrap().primal;
+            assert_eq!(candidate.len(), coordinates.len());
+            for (x, (rate, budget)) in candidate.iter().zip(&coordinates) {
+                assert!((rate * x + (1.0 - rate) - x).abs() <= 2.0 * budget);
+                assert!((x - 1.0).abs() <= 2.0 * budget / (1.0 - rate) + 1e-9);
+            }
+            let Metric::Integer(count) = result.report.metrics["KINGetNumFuncEvals"] else { panic!("missing native fixed-point map evaluations"); };
+            evaluations.push(count);
+        }
+        assert!(evaluations[1] < evaluations[0], "{evaluations:?}");
+        let mut invalid = request;
+        invalid.orthogonalization = Some(Orthogonalization::InverseCompactWy);
+        assert!(package.prepare_recycle(&analysis, selection, invalid, &cancel).await.unwrap_err().to_string().contains("requires Anderson history"));
+    }
+}
+
 /// Actual arithmetic source with a growing local row/support/binding population.
 async fn construction_source(runtime: Runtime, internal_rows: usize) -> PreparedRecycle {
     let mut source = String::from(
@@ -126,6 +213,7 @@ async fn construction_source(runtime: Runtime, internal_rows: usize) -> Prepared
             },
         }],
         anderson_delay: 0,
+        orthogonalization: None,
         restarts: None,
         anderson: 0,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
@@ -859,6 +947,7 @@ async fn explicit_map_admission_requires_free_branch_controls_without_promoting_
                 realization: CausalUnitRealization::ExplicitMap,
             }],
             anderson_delay: 0,
+            orthogonalization: None,
             restarts: None,
             anderson: 0,
             damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
@@ -1077,6 +1166,7 @@ async fn conditional_retention_control(ambiguous: bool) {
             },
         }],
         anderson_delay: 0,
+        orthogonalization: None,
         restarts: None,
         anderson: 0,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
@@ -1404,6 +1494,7 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
             },
         }],
         anderson_delay: 0,
+        orthogonalization: None,
         restarts: None,
         anderson: 0,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
@@ -1577,6 +1668,7 @@ fn conditional_unit_admission_diagnostic_retains_sources_and_original_cause() {
         tears: BTreeSet::new(),
         units: vec![unit.clone()],
         anderson_delay: 0,
+        orthogonalization: None,
         restarts: None,
         anderson: 0,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
@@ -1817,6 +1909,7 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
             },
         }],
         anderson_delay: 0,
+        orthogonalization: None,
         restarts: None,
         anderson: 0,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),

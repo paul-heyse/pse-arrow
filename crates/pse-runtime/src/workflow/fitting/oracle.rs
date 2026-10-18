@@ -529,7 +529,8 @@ impl FitOracle {
         let outputs = s.program.contract.outputs.len();
         let mut cotangent =
             |report: &native::dynamics::Report| Self::cotangent(p, ei, outputs, report);
-        s.gradient(worker, &|k| Self::value(p, x, k), execution, &mut cotangent)
+        s.gradient(worker, &|k| Self::value(p, x, k), execution,
+            &p.layout.mappings[ei].free_bindings, &mut cotangent)
     }
     #[cfg(feature = "solver-diffsol")]
     /// The cotangent of the fit objective's transient part: each included observation's
