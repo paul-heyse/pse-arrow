@@ -589,6 +589,31 @@ fn retained_symbolic_exact_common_inputs_and_csc_key_qualify_reuse() {
         unsafe { (*common).halt_if_singular = 1; (*common).ordering = 1; (*common).user_data = std::ptr::null_mut(); (*common).user_order = None; }
         assert_eq!(native_setup(&session), 0);
     }
+    for invalid in 0..10 {
+        native_invalidate(&session);
+        // SAFETY: exclusively owned Common is copied/restored between native calls.
+        let saved = unsafe { *common };
+        // SAFETY: malformed settings are checked before KLU normalizes or consumes them.
+        unsafe { match invalid {
+            0 => (*common).tol = 2., 1 => (*common).tol = -0.1,
+            2 => (*common).memgrow = 0.5, 3 => (*common).initmem_amd = 0.5,
+            4 => (*common).initmem = 0.5, 5 => (*common).tol = f64::NAN,
+            6 => (*common).memgrow = f64::INFINITY, 7 => (*common).initmem_amd = f64::NAN,
+            8 => (*common).initmem = f64::INFINITY, _ => (*common).maxwork = f64::NAN,
+        } }
+        let before = native_work(&session);
+        assert_ne!(native_setup(&session), 0, "malformed input {invalid}");
+        assert_eq!(native_work(&session).symbolic_issued, before.symbolic_issued);
+        assert_eq!(native_work(&session).numeric_factor_issued, before.numeric_factor_issued);
+        assert_ne!(native_solve(&session), 0);
+        // SAFETY: restore only input fields; refusal freed prior factors and its
+        // current memory/statistics outputs must not be overwritten by the snapshot.
+        unsafe { (*common).tol = saved.tol; (*common).memgrow = saved.memgrow;
+            (*common).initmem_amd = saved.initmem_amd; (*common).initmem = saved.initmem;
+            (*common).maxwork = saved.maxwork; }
+        assert_eq!(native_setup(&session), 0);
+        assert_eq!(native_solve(&session), 0);
+    }
     // Initialization independently clears numerical validity while retaining the key.
     // SAFETY: exclusively owned live KLU linear solver.
     assert_eq!(unsafe { ffi::SUNLinSolInitialize_KLU(session.linear) }, 0);

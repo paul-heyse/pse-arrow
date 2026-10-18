@@ -17,6 +17,7 @@
  * -----------------------------------------------------------------*/
 
 #include <stdint.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -97,7 +98,12 @@ static int key_eligible(SUNLinearSolver S, SUNMatrix A)
       SUNSparseMatrix_Rows(A) != SUNSparseMatrix_Columns(A) ||
       SUNSparseMatrix_NP(A) != SUNSparseMatrix_Columns(A) ||
       COMMON(S).ordering < 0 || COMMON(S).ordering > 1 ||
-      COMMON(S).user_order || COMMON(S).user_data || COMMON(S).halt_if_singular != 1)
+      COMMON(S).user_order || COMMON(S).user_data || COMMON(S).halt_if_singular != 1 ||
+      !isfinite(COMMON(S).tol) || COMMON(S).tol < 0.0 || COMMON(S).tol > 1.0 ||
+      !isfinite(COMMON(S).memgrow) || COMMON(S).memgrow < 1.0 ||
+      !isfinite(COMMON(S).initmem_amd) || COMMON(S).initmem_amd < 1.0 ||
+      !isfinite(COMMON(S).initmem) || COMMON(S).initmem < 1.0 ||
+      !isfinite(COMMON(S).maxwork))
     return 0;
   sunindextype n = SUNSparseMatrix_NP(A);
   sunindextype* p = SUNSparseMatrix_IndexPointers(A);
