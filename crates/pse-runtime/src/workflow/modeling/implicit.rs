@@ -513,32 +513,49 @@ mod tests {
             self.original.configuration_key()
         }
         fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
-            Ok(pse_kernels::ProviderBinding::new(self.spec().clone(), Box::new(ObservedInputsProvider {
-                original: self.original.worker()?,
-                inputs: self.inputs.clone(), completed: None,
-            })))
+            Ok(pse_kernels::ProviderBinding::new(
+                self.spec().clone(),
+                Box::new(ObservedInputsProvider {
+                    original: self.original.worker()?,
+                    inputs: self.inputs.clone(),
+                    completed: None,
+                }),
+            ))
         }
         fn create_scoped(
             &self,
             scope: pse_kernels::ExecutionScope,
         ) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
-            Ok(pse_kernels::ProviderBinding::new(self.spec().clone(), Box::new(ObservedInputsProvider {
-                original: self.original.worker_scoped(scope)?,
-                inputs: self.inputs.clone(), completed: None,
-            })))
+            Ok(pse_kernels::ProviderBinding::new(
+                self.spec().clone(),
+                Box::new(ObservedInputsProvider {
+                    original: self.original.worker_scoped(scope)?,
+                    inputs: self.inputs.clone(),
+                    completed: None,
+                }),
+            ))
         }
         fn envelope(&self) -> Option<Vec<(f64, f64)>> {
             self.original.envelope().map(<[_]>::to_vec)
         }
     }
     impl pse_kernels::Provider for ObservedInputsProvider {
-        fn supports(&self, demand: &pse_kernels::ProviderDemand) -> bool { self.original.supports(demand) }
-        fn supports_linearization(&self) -> bool { self.original.supports_linearization() }
-        fn completed_linearization(&self) -> Option<pse_ids::ContentHash> { self.completed }
-        fn prepare_demand(&mut self, request: &pse_kernels::PreparedProviderRequest) -> Result<(), pse_kernels::ProviderError> {
+        fn supports(&self, demand: &pse_kernels::ProviderDemand) -> bool {
+            self.original.supports(demand)
+        }
+        fn supports_linearization(&self) -> bool {
+            self.original.supports_linearization()
+        }
+        fn completed_linearization(&self) -> Option<pse_ids::ContentHash> {
+            self.completed
+        }
+        fn prepare_demand(
+            &mut self,
+            request: &pse_kernels::PreparedProviderRequest,
+        ) -> Result<(), pse_kernels::ProviderError> {
             self.original.prepare(request.request().clone()).map(|_| ())
         }
-            fn fill(
+        fn fill(
             &mut self,
             inputs: &[f64],
             request: &pse_kernels::PreparedProviderRequest,
@@ -547,8 +564,19 @@ mod tests {
             context: &pse_kernels::EvaluationContext<'_>,
         ) -> Result<(), pse_kernels::ProviderError> {
             self.completed = None;
-            let token = self.original.fill(inputs, request,
-                pse_kernels::ProviderRuntime { expected_linearization: None, .._runtime }, output, context)?.linearization;
+            let token = self
+                .original
+                .fill(
+                    inputs,
+                    request,
+                    pse_kernels::ProviderRuntime {
+                        expected_linearization: None,
+                        .._runtime
+                    },
+                    output,
+                    context,
+                )?
+                .linearization;
             let mut captured = self.inputs.lock().unwrap();
             if let Some(previous) = captured.as_ref() {
                 assert!(
@@ -562,7 +590,8 @@ mod tests {
             }
             self.completed = token.map(|token| {
                 let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::ProviderConfigurationV1);
-                token.frame(&mut hash); hash.finish_hash()
+                token.frame(&mut hash);
+                hash.finish_hash()
             });
             Ok(())
         }

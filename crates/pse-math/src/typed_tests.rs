@@ -1151,7 +1151,12 @@ fn body_construction_allowance_can_be_explicitly_larger_than_default() {
                 .unwrap()
                 .worker();
             let jet = worker
-                .evaluate(&[2.], DerivativeOrder::First, &mut pse_kernels::ProviderBindings::new(), &cancel)
+                .evaluate(
+                    &[2.],
+                    DerivativeOrder::First,
+                    &mut pse_kernels::ProviderBindings::new(),
+                    &cancel,
+                )
                 .unwrap();
             assert_eq!(jet.values, vec![32772.]);
             assert_eq!(jet.jacobian, vec![16386.]);

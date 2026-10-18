@@ -223,26 +223,62 @@ impl JetLayout {
     }
     /// Retain only conservative coordinate-supported components for each slot.
     /// The global library shape remains ancestor-closed and unchanged.
-    pub(crate) fn with_slot_support(mut self, support: &[Vec<bool>], limits: EvaluationLimits) -> Result<Self, MathError> {
-        let entries = support.iter().try_fold(0usize, |total, axes| {
-            let first = if self.order >= DerivativeOrder::First { axes.iter().filter(|&&present| present).count() } else { 0 };
-            let second = if self.order >= DerivativeOrder::Second { self.pairs.iter().filter(|&&(i, j)| axes[i] && axes[j]).count() } else { 0 };
-            total.checked_add(1)?.checked_add(first)?.checked_add(second)
-        }).ok_or(MathError::Limit("support-shaped frame"))?;
+    pub(crate) fn with_slot_support(
+        mut self,
+        support: &[Vec<bool>],
+        limits: EvaluationLimits,
+    ) -> Result<Self, MathError> {
+        let entries = support
+            .iter()
+            .try_fold(0usize, |total, axes| {
+                let first = if self.order >= DerivativeOrder::First {
+                    axes.iter().filter(|&&present| present).count()
+                } else {
+                    0
+                };
+                let second = if self.order >= DerivativeOrder::Second {
+                    self.pairs
+                        .iter()
+                        .filter(|&&(i, j)| axes[i] && axes[j])
+                        .count()
+                } else {
+                    0
+                };
+                total
+                    .checked_add(1)?
+                    .checked_add(first)?
+                    .checked_add(second)
+            })
+            .ok_or(MathError::Limit("support-shaped frame"))?;
         limits.allocation(entries)?;
-        let mut slots = SlotLayout { offsets: Vec::new(), components: Vec::new() };
-        slots.offsets.try_reserve_exact(support.len() + 1).map_err(|_| MathError::Limit("support-shaped frame offsets"))?;
-        slots.components.try_reserve_exact(entries).map_err(|_| MathError::Limit("support-shaped frame components"))?;
+        let mut slots = SlotLayout {
+            offsets: Vec::new(),
+            components: Vec::new(),
+        };
+        slots
+            .offsets
+            .try_reserve_exact(support.len() + 1)
+            .map_err(|_| MathError::Limit("support-shaped frame offsets"))?;
+        slots
+            .components
+            .try_reserve_exact(entries)
+            .map_err(|_| MathError::Limit("support-shaped frame components"))?;
         slots.offsets.push(0);
         for axes in support {
             slots.components.push(0);
             if self.order >= DerivativeOrder::First {
-                slots.components.extend(axes.iter().enumerate().filter_map(|(axis, &present)| present.then_some(1 + axis)));
+                slots.components.extend(
+                    axes.iter()
+                        .enumerate()
+                        .filter_map(|(axis, &present)| present.then_some(1 + axis)),
+                );
             }
             if self.order >= DerivativeOrder::Second {
-                slots.components.extend(self.pairs.iter().enumerate().filter_map(|(pair, &(i, j))| {
-                    (axes[i] && axes[j]).then_some(1 + self.coordinates.len() + pair)
-                }));
+                slots
+                    .components
+                    .extend(self.pairs.iter().enumerate().filter_map(|(pair, &(i, j))| {
+                        (axes[i] && axes[j]).then_some(1 + self.coordinates.len() + pair)
+                    }));
             }
             slots.offsets.push(slots.components.len());
         }
@@ -250,31 +286,61 @@ impl JetLayout {
         Ok(self)
     }
     pub(crate) fn frame_entries(&self, slots: usize) -> Result<usize, MathError> {
-        self.slots.as_ref().map_or_else(|| slots.checked_mul(self.width()).ok_or(MathError::Limit("order worker frame")), |slots| Ok(slots.components.len()))
+        self.slots.as_ref().map_or_else(
+            || {
+                slots
+                    .checked_mul(self.width())
+                    .ok_or(MathError::Limit("order worker frame"))
+            },
+            |slots| Ok(slots.components.len()),
+        )
     }
     pub(crate) fn frame_slot_range(&self, slot: usize) -> std::ops::Range<usize> {
-        self.slots.as_ref().map_or_else(|| slot * self.width()..(slot + 1) * self.width(), |slots| slots.offsets[slot]..slots.offsets[slot + 1])
+        self.slots.as_ref().map_or_else(
+            || slot * self.width()..(slot + 1) * self.width(),
+            |slots| slots.offsets[slot]..slots.offsets[slot + 1],
+        )
     }
     pub(crate) fn frame_component(&self, offset: usize) -> usize {
-        self.slots.as_ref().map_or_else(|| offset % self.width(), |slots| slots.components[offset])
+        self.slots
+            .as_ref()
+            .map_or_else(|| offset % self.width(), |slots| slots.components[offset])
     }
     pub(crate) fn frame_offset(&self, slot: usize, component: usize) -> Option<usize> {
-        self.slots.as_ref().map_or_else(|| (component < self.width()).then_some(slot * self.width() + component), |slots| {
-            let range = self.frame_slot_range(slot);
-            slots.components[range.clone()].binary_search(&component).ok().map(|local| range.start + local)
-        })
+        self.slots.as_ref().map_or_else(
+            || (component < self.width()).then_some(slot * self.width() + component),
+            |slots| {
+                let range = self.frame_slot_range(slot);
+                slots.components[range.clone()]
+                    .binary_search(&component)
+                    .ok()
+                    .map(|local| range.start + local)
+            },
+        )
     }
     pub(crate) fn frame_value(&self, frame: &[f64], slot: usize, component: usize) -> f64 {
-        self.frame_offset(slot, component).map_or(0.0, |offset| frame[offset])
+        self.frame_offset(slot, component)
+            .map_or(0.0, |offset| frame[offset])
     }
-    pub(crate) fn set_frame_value(&self, frame: &mut [f64], slot: usize, component: usize, value: f64) {
-        if let Some(offset) = self.frame_offset(slot, component) { frame[offset] = value; }
+    pub(crate) fn set_frame_value(
+        &self,
+        frame: &mut [f64],
+        slot: usize,
+        component: usize,
+        value: f64,
+    ) {
+        if let Some(offset) = self.frame_offset(slot, component) {
+            frame[offset] = value;
+        }
     }
     pub(crate) fn clear_frame_slot(&self, frame: &mut [f64], slot: usize) {
         frame[self.frame_slot_range(slot)].fill(0.0);
     }
     pub(crate) fn frame_layout_bytes(&self) -> usize {
-        self.slots.as_ref().map_or(0, |slots| size_of::<SlotLayout>() + (slots.offsets.capacity() + slots.components.capacity()) * size_of::<usize>())
+        self.slots.as_ref().map_or(0, |slots| {
+            size_of::<SlotLayout>()
+                + (slots.offsets.capacity() + slots.components.capacity()) * size_of::<usize>()
+        })
     }
     /// Number of coefficients carried by each scalar.
     pub fn width(&self) -> usize {

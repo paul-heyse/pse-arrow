@@ -683,7 +683,7 @@ fn settings_documents_round_trip_every_variant() {
     assert_eq!(partial["restart"]["bound_push"], json!(1e-9));
     assert_eq!(
         partial["linear"],
-        json!({"kind": "mumps", "ordering": "metis"})
+        json!({"kind": "mumps", "ordering": "metis", "pivot_tolerance": 1e-6, "maximum_pivot_tolerance": 0.1, "memory_percent": 1000, "permuting_scaling": 7})
     );
     // Solver parameters are stated, never inherited, and HSL or the runtime-loaded Pardiso
     // are not representable (ADR-0108 items 9 and 10).
@@ -719,7 +719,7 @@ fn settings_identity_is_type_name_independent() {
         ),
         (
             "ipopt-mumps",
-            json!({"backend": "ipopt", "linear": {"kind": "mumps", "ordering": "qamd"}}),
+            json!({"backend": "ipopt", "linear": {"kind": "mumps", "ordering": "qamd", "pivot_tolerance": 1e-6, "maximum_pivot_tolerance": 0.1, "memory_percent": 1000, "permuting_scaling": 7}}),
         ),
         ("highs", json!({"backend": "highs", "method": "ipm"})),
         (
@@ -751,6 +751,22 @@ fn settings_identity_is_type_name_independent() {
     #[serde(tag = "backend", rename_all = "snake_case")]
     enum HistoricalBackend {
         Pounce(HistoricalPounce),
+        Ipopt(HistoricalIpopt),
+    }
+    #[derive(serde::Serialize)]
+    struct HistoricalIpopt {
+        linear: HistoricalIpoptLinear,
+        mu_strategy: crate::settings::ipopt::MuStrategy,
+        bound_push: pse_model::scalars::Tolerance,
+        bound_frac: pse_model::scalars::Fraction,
+        restart: crate::solve::WarmRestart,
+    }
+    #[derive(serde::Serialize)]
+    #[serde(tag = "kind", rename_all = "lowercase")]
+    enum HistoricalIpoptLinear {
+        Mumps {
+            ordering: crate::settings::ipopt::MumpsOrdering,
+        },
     }
     #[derive(serde::Serialize)]
     struct HistoricalPounce {
@@ -843,6 +859,21 @@ fn settings_identity_is_type_name_independent() {
             );
             let historical_identity = if label == "pounce" {
                 pse_ids::document::of(pse_ids::Frame::BackendSettingsV4, &Some(&historical_pounce))
+            } else if let BackendSettings::Ipopt(current) = &settings
+                && label == "ipopt-mumps"
+            {
+                // Preserve the original typed document shape; new explicit native
+                // controls participate only in the current identity vector.
+                let original = HistoricalBackend::Ipopt(HistoricalIpopt {
+                    linear: HistoricalIpoptLinear::Mumps {
+                        ordering: crate::settings::ipopt::MumpsOrdering::Qamd,
+                    },
+                    mu_strategy: current.mu_strategy,
+                    bound_push: current.bound_push,
+                    bound_frac: current.bound_frac,
+                    restart: current.restart.clone(),
+                });
+                pse_ids::document::of(pse_ids::Frame::BackendSettingsV4, &Some(&original))
             } else {
                 pse_ids::document::of(pse_ids::Frame::BackendSettingsV4, &settings.document())
             };
@@ -927,7 +958,7 @@ fn settings_identity_is_type_name_independent() {
         ),
         (
             "ipopt-mumps",
-            "blake3:5a11a523d8f5ccc6ecc47f0d074dde4aaf8d8b0ee9a4c3acc70737efa4bb9f52",
+            "blake3:7b66701fa5d7e867316942e31d5441b3af4a200accaa986e35e51c380ddb4954",
         ),
         (
             "highs",

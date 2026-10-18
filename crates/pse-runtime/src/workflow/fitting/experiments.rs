@@ -55,7 +55,11 @@ impl Drop for Lane {
     }
 }
 // Keep resident owners alive until every already-started lane has drained.
-fn drain_failed_startup(peers: &mut Vec<Lane>, request: SyncSender<Request>, joined: JoinHandle<()>) {
+fn drain_failed_startup(
+    peers: &mut Vec<Lane>,
+    request: SyncSender<Request>,
+    joined: JoinHandle<()>,
+) {
     drop(request);
     let _ = joined.join();
     peers.clear();
@@ -142,22 +146,40 @@ impl ExperimentTeam {
                         let mut prepare = || -> Result<(), ProblemError> {
                             for ei in (lane..problem.experiments.len()).step_by(count) {
                                 match &problem.experiments[ei] {
-                                    Experiment::Steady(s) => steady[ei] = Some(oracle::prepare_steady_worker(s, &execution)?),
+                                    Experiment::Steady(s) => {
+                                        steady[ei] =
+                                            Some(oracle::prepare_steady_worker(s, &execution)?)
+                                    }
                                     #[cfg(feature = "solver-diffsol")]
-                                    Experiment::Transient(s) => transient[ei] = Some(s.worker(&execution)?),
+                                    Experiment::Transient(s) => {
+                                        transient[ei] = Some(s.worker(&execution)?)
+                                    }
                                     #[cfg(not(feature = "solver-diffsol"))]
                                     Experiment::Transient(_) => {}
                                 }
                                 #[cfg(all(test, feature = "solver-diffsol"))]
-                                observed_constructions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                observed_constructions
+                                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                             }
                             Ok(())
                         };
-                        let prepared = catch_unwind(AssertUnwindSafe(|| native::execution::original_scoped(&execution, || {
-                            match &constructor { Some(owner) => pse_math::construction::scoped(owner.clone(), prepare), None => prepare() }
-                        }))).unwrap_or_else(|_| Err(ProblemError::internal("fit experiment lane preparation panicked")));
+                        let prepared = catch_unwind(AssertUnwindSafe(|| {
+                            native::execution::original_scoped(&execution, || match &constructor {
+                                Some(owner) => {
+                                    pse_math::construction::scoped(owner.clone(), prepare)
+                                }
+                                None => prepare(),
+                            })
+                        }))
+                        .unwrap_or_else(|_| {
+                            Err(ProblemError::internal(
+                                "fit experiment lane preparation panicked",
+                            ))
+                        });
                         let succeeded = prepared.is_ok();
-                        if ready.send(prepared).is_err() || !succeeded { return; }
+                        if ready.send(prepared).is_err() || !succeeded {
+                            return;
+                        }
                         while let Ok(request) = rx.recv() {
                             // A retained lane receives the context of each actual wave,
                             // rather than retaining the operation that created the team.
@@ -216,16 +238,24 @@ impl ExperimentTeam {
                                     Err(ProblemError::internal("fit experiment lane panicked"))
                                 });
                                 if let Err(cause) = &result {
-                                    if native::callback::classify(cause) == native::callback::Failure::Trial {
-                                        if let Some(worker) = &mut steady[ei] { worker.invalidate_trial(); }
+                                    if native::callback::classify(cause)
+                                        == native::callback::Failure::Trial
+                                    {
+                                        if let Some(worker) = &mut steady[ei] {
+                                            worker.invalidate_trial();
+                                        }
                                         #[cfg(feature = "solver-diffsol")]
-                                        if let Some(worker) = &mut transient[ei] { worker.invalidate_trial(); }
+                                        if let Some(worker) = &mut transient[ei] {
+                                            worker.invalidate_trial();
+                                        }
                                     } else {
                                         // Unknown/terminal native validity is not reset by inference.
                                         // A later callback refuses this owner and requires a fresh fit attempt.
                                         steady[ei] = None;
                                         #[cfg(feature = "solver-diffsol")]
-                                        { transient[ei] = None; }
+                                        {
+                                            transient[ei] = None;
+                                        }
                                     }
                                 }
                                 if request.reply.send((ei, result)).is_err() {
@@ -247,7 +277,11 @@ impl ExperimentTeam {
                     .map_err(|e| {
                         ProblemError::internal(format!("fit experiment lane creation: {e}"))
                     })?;
-                let prepared = preparation.recv().unwrap_or_else(|_| Err(ProblemError::internal("fit experiment lane stopped during preparation")));
+                let prepared = preparation.recv().unwrap_or_else(|_| {
+                    Err(ProblemError::internal(
+                        "fit experiment lane stopped during preparation",
+                    ))
+                });
                 if let Err(cause) = prepared {
                     drain_failed_startup(&mut lanes, tx, joined);
                     return Err(cause);
@@ -419,7 +453,9 @@ mod startup_tests {
         for _ in 0..3 {
             let (request, joined, drained) = waiting_lane();
             completed.push(drained);
-            peers.push(Lane { request: Some(request), joined: Some(joined),
+            peers.push(Lane {
+                request: Some(request),
+                joined: Some(joined),
                 #[cfg(feature = "solver-diffsol")]
                 constructions: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             });
@@ -428,6 +464,9 @@ mod startup_tests {
         completed.push(drained);
         drain_failed_startup(&mut peers, request, joined);
         assert!(peers.is_empty());
-        assert!(completed.iter().all(|lane| lane.load(Ordering::Acquire)), "startup failure returns only after every actual thread drains");
+        assert!(
+            completed.iter().all(|lane| lane.load(Ordering::Acquire)),
+            "startup failure returns only after every actual thread drains"
+        );
     }
 }

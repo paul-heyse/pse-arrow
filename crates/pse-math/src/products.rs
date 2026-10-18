@@ -136,7 +136,9 @@ impl PreparedSupport {
         let cancel = scope.cancellation();
         let required = match kind {
             ProductKind::SelectedPartials => self.order(),
-            ProductKind::JacobianAction | ProductKind::TransposeJacobianAction => DerivativeOrder::First,
+            ProductKind::JacobianAction | ProductKind::TransposeJacobianAction => {
+                DerivativeOrder::First
+            }
             ProductKind::WeightedHessian | ProductKind::WeightedHessianAction => {
                 DerivativeOrder::Second
             }
@@ -148,7 +150,9 @@ impl PreparedSupport {
         let coordinates = self.dense_coordinates()?;
         if matches!(
             kind,
-            ProductKind::WeightedHessian | ProductKind::WeightedHessianAction | ProductKind::TransposeJacobianAction
+            ProductKind::WeightedHessian
+                | ProductKind::WeightedHessianAction
+                | ProductKind::TransposeJacobianAction
         ) && let Some(expressions) = flat_expressions(self.body(), limits, cancel)?
         {
             return self.compile_direct_product(
@@ -160,7 +164,10 @@ impl PreparedSupport {
                 retained,
             );
         }
-        if matches!(kind, ProductKind::TransposeJacobianAction | ProductKind::WeightedHessianAction) {
+        if matches!(
+            kind,
+            ProductKind::TransposeJacobianAction | ProductKind::WeightedHessianAction
+        ) {
             return self.compile_reverse_product(kind, options, limits, scope, retained);
         }
         self.body().compile_scope(
@@ -191,7 +198,11 @@ impl PreparedSupport {
         let selected = (0..self.outputs().len()).collect::<Vec<_>>();
         let coordinates = self.dense_coordinates()?;
         let available = body.selected_order(&selected, &coordinates, false)?;
-        let order = if kind == ProductKind::TransposeJacobianAction { DerivativeOrder::First } else { DerivativeOrder::Second };
+        let order = if kind == ProductKind::TransposeJacobianAction {
+            DerivativeOrder::First
+        } else {
+            DerivativeOrder::Second
+        };
         if available < order {
             return Err(MathError::DerivativeDemand {
                 source_id: None,
@@ -250,14 +261,19 @@ impl PreparedSupport {
         // complete pair support. Sparse support retains pair construction with shared
         // firsts; no unmeasured density crossover or latency estimator is introduced.
         let directional_gradient = kind == ProductKind::WeightedHessianAction
-            && pairs.len() == n.checked_mul(n.saturating_add(1))
-                .ok_or(MathError::Limit("weighted pair population"))? / 2;
+            && pairs.len()
+                == n.checked_mul(n.saturating_add(1))
+                    .ok_or(MathError::Limit("weighted pair population"))?
+                    / 2;
         let directions = if kind == ProductKind::WeightedHessianAction && !directional_gradient {
-            let directions = (0..n).map(|i| library::formal(next_formal + body.outputs.len() + i))
+            let directions = (0..n)
+                .map(|i| library::formal(next_formal + body.outputs.len() + i))
                 .collect::<Result<Vec<_>, _>>()?;
             parameters.extend(directions.iter().cloned());
             directions
-        } else { Vec::new() };
+        } else {
+            Vec::new()
+        };
         // Differentiate each participating first derivative once. Exact-entry callers
         // consume supported pairs; action callers differentiate the weighted gradient
         // along one library Taylor axis instead of constructing every second pair.
@@ -266,7 +282,15 @@ impl PreparedSupport {
         } else {
             pairs.iter().map(|&(i, _)| i).collect()
         };
-        let calls = needed_first.len().checked_add(if directional_gradient || kind == ProductKind::TransposeJacobianAction { 0 } else { pairs.len() })
+        let calls = needed_first
+            .len()
+            .checked_add(
+                if directional_gradient || kind == ProductKind::TransposeJacobianAction {
+                    0
+                } else {
+                    pairs.len()
+                },
+            )
             .ok_or(MathError::Limit("weighted symbolic derivative calls"))?;
         if calls > limits.operations {
             return Err(MathError::Limit("weighted symbolic derivative calls"));
@@ -274,34 +298,65 @@ impl PreparedSupport {
         let mut firsts = BTreeMap::new();
         for i in needed_first {
             scope.check().map_err(crate::error::scope_error)?;
-            crate::construction::additional(weighted.as_view().get_byte_size()
-                .checked_mul(4).ok_or(MathError::Limit("weighted derivative construction"))?)?;
-            firsts.insert(i, weighted.derivative(
-                Indeterminate::try_from(parameters[coordinates[i]].clone())
-                    .map_err(MathError::Library)?,
-            ));
-        }
-        let mut expressions = if directional_gradient || kind == ProductKind::TransposeJacobianAction {
-            firsts.into_values().collect::<Vec<_>>()
-        } else {
-            let mut expressions = if kind == ProductKind::WeightedHessianAction { vec![Atom::num(0); n] } else { Vec::with_capacity(pairs.len()) };
-            for &(i, j) in &pairs {
-                scope.check().map_err(crate::error::scope_error)?;
-                let first = firsts.get(&i).ok_or_else(|| MathError::Contract("weighted first partial missing".into()))?;
-                crate::construction::additional(first.as_view().get_byte_size()
-                    .checked_mul(4).ok_or(MathError::Limit("weighted derivative construction"))?)?;
-                let partial = first.derivative(
-                    Indeterminate::try_from(parameters[coordinates[j]].clone())
+            crate::construction::additional(
+                weighted
+                    .as_view()
+                    .get_byte_size()
+                    .checked_mul(4)
+                    .ok_or(MathError::Limit("weighted derivative construction"))?,
+            )?;
+            firsts.insert(
+                i,
+                weighted.derivative(
+                    Indeterminate::try_from(parameters[coordinates[i]].clone())
                         .map_err(MathError::Library)?,
-                );
-                if kind == ProductKind::WeightedHessianAction {
-                    expressions[i] += &partial * &directions[j];
-                    if i != j { expressions[j] += &partial * &directions[i]; }
-                } else { expressions.push(partial); }
-            }
-            expressions
+                ),
+            );
+        }
+        let mut expressions =
+            if directional_gradient || kind == ProductKind::TransposeJacobianAction {
+                firsts.into_values().collect::<Vec<_>>()
+            } else {
+                let mut expressions = if kind == ProductKind::WeightedHessianAction {
+                    vec![Atom::num(0); n]
+                } else {
+                    Vec::with_capacity(pairs.len())
+                };
+                for &(i, j) in &pairs {
+                    scope.check().map_err(crate::error::scope_error)?;
+                    let first = firsts.get(&i).ok_or_else(|| {
+                        MathError::Contract("weighted first partial missing".into())
+                    })?;
+                    crate::construction::additional(
+                        first
+                            .as_view()
+                            .get_byte_size()
+                            .checked_mul(4)
+                            .ok_or(MathError::Limit("weighted derivative construction"))?,
+                    )?;
+                    let partial = first.derivative(
+                        Indeterminate::try_from(parameters[coordinates[j]].clone())
+                            .map_err(MathError::Library)?,
+                    );
+                    if kind == ProductKind::WeightedHessianAction {
+                        expressions[i] += &partial * &directions[j];
+                        if i != j {
+                            expressions[j] += &partial * &directions[i];
+                        }
+                    } else {
+                        expressions.push(partial);
+                    }
+                }
+                expressions
+            };
+        let product_len = if matches!(
+            kind,
+            ProductKind::WeightedHessianAction | ProductKind::TransposeJacobianAction
+        ) {
+            n
+        } else {
+            pairs.len()
         };
-        let product_len = if matches!(kind, ProductKind::WeightedHessianAction | ProductKind::TransposeJacobianAction) { n } else { pairs.len() };
         if expressions.is_empty() {
             expressions.push(Atom::num(0));
         }
@@ -315,12 +370,30 @@ impl PreparedSupport {
             let selected = coordinates.iter().copied().collect::<BTreeSet<_>>();
             let zeros = (0..parameters.len())
                 .filter(|i| !selected.contains(i))
-                .map(|i| (i, 1)).collect::<Vec<_>>();
-            library::bounded_evaluator(SemanticId::NIL, &expressions, &parameters,
-                &layout, &zeros, options, cancel, limits, limits.operations, 0, &mut scalars)?
+                .map(|i| (i, 1))
+                .collect::<Vec<_>>();
+            library::bounded_evaluator(
+                SemanticId::NIL,
+                &expressions,
+                &parameters,
+                &layout,
+                &zeros,
+                options,
+                cancel,
+                limits,
+                limits.operations,
+                0,
+                &mut scalars,
+            )?
         } else {
-            library::bounded_scalar_evaluator(&expressions, &parameters, options,
-                cancel, limits, &mut scalars)?
+            library::bounded_scalar_evaluator(
+                &expressions,
+                &parameters,
+                options,
+                cancel,
+                limits,
+                &mut scalars,
+            )?
         };
         let storage = inspected.facts.storage;
         let operations = operation_count(inspected.facts.operations);
@@ -353,9 +426,15 @@ impl PreparedSupport {
         drop(export);
         let numeric = storage
             .numeric_entries
-            .checked_add(parameters.len().checked_mul(if directional_gradient { 2 } else { 1 })
-                .ok_or(MathError::Limit("weighted product arguments"))?)
-            .and_then(|n| n.checked_add(expressions.len() * if directional_gradient { 2 } else { 1 }))
+            .checked_add(
+                parameters
+                    .len()
+                    .checked_mul(if directional_gradient { 2 } else { 1 })
+                    .ok_or(MathError::Limit("weighted product arguments"))?,
+            )
+            .and_then(|n| {
+                n.checked_add(expressions.len() * if directional_gradient { 2 } else { 1 })
+            })
             .and_then(|n| n.checked_add(product_len))
             .ok_or(MathError::Limit("weighted product scratch"))?;
         limits.allocation(numeric)?;
@@ -408,7 +487,8 @@ impl PreparedSupport {
             .flatten()
         {
             if let CompiledStage::Require { order: minimum, .. } = stage
-                && *minimum <= order {
+                && *minimum <= order
+            {
                 *minimum = DerivativeOrder::Value;
             }
         }
@@ -466,7 +546,11 @@ impl PreparedSupport {
             .ok_or(MathError::Limit("weighted product retained storage"))?;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("math.weighted_direct_constructions", "count", 1);
-            context.count("math.weighted_symbolic_derivative_calls", "calls", calls as u64);
+            context.count(
+                "math.weighted_symbolic_derivative_calls",
+                "calls",
+                calls as u64,
+            );
             context.integer(
                 "math.weighted_direct_outputs",
                 "components",
@@ -493,7 +577,9 @@ impl CompiledBody {
             ProductKind::SelectedPartials => 0,
             ProductKind::JacobianAction => self.outputs.len(),
             ProductKind::WeightedHessian => self.product_pairs().len(),
-            ProductKind::WeightedHessianAction | ProductKind::TransposeJacobianAction => self.coordinate_offsets.len(),
+            ProductKind::WeightedHessianAction | ProductKind::TransposeJacobianAction => {
+                self.coordinate_offsets.len()
+            }
         }
     }
     /// Ordered selected-axis symmetric pairs of a weighted matrix product.
@@ -539,7 +625,8 @@ impl Worker {
                 ));
             }
             ProductValues::JacobianAction { direction } => (None, Some(direction)),
-            ProductValues::WeightedHessian { weights } | ProductValues::TransposeJacobianAction { weights } => (Some(weights), None),
+            ProductValues::WeightedHessian { weights }
+            | ProductValues::TransposeJacobianAction { weights } => (Some(weights), None),
             ProductValues::WeightedHessianAction { weights, direction } => {
                 (Some(weights), Some(direction))
             }
@@ -562,8 +649,15 @@ impl Worker {
         scratch.fill(f64::NAN);
         let evaluated = (|| {
             if self.body.reverse_product.is_some() {
-                self.evaluate_reverse_product(inputs, weights.ok_or_else(|| MathError::Contract("weights missing".into()))?,
-                    direction, providers, cancel, &mut scratch, trial)?;
+                self.evaluate_reverse_product(
+                    inputs,
+                    weights.ok_or_else(|| MathError::Contract("weights missing".into()))?,
+                    direction,
+                    providers,
+                    cancel,
+                    &mut scratch,
+                    trial,
+                )?;
             } else if let Some(template) = self.body.direct_product.clone() {
                 self.evaluate_seeded(
                     inputs,
@@ -594,21 +688,25 @@ impl Worker {
                     .direct_product
                     .as_mut()
                     .ok_or_else(|| MathError::Contract("weighted product worker missing".into()))?;
-                let weights = weights.ok_or_else(|| MathError::Contract("weighted coefficients missing".into()))?;
+                let weights = weights
+                    .ok_or_else(|| MathError::Contract("weighted coefficients missing".into()))?;
                 if template.directional_gradient {
                     for (i, &value) in inputs.iter().chain(weights).enumerate() {
                         worker.arguments[2 * i] = value;
                         worker.arguments[2 * i + 1] = 0.0;
                     }
-                    let direction = direction.ok_or_else(|| MathError::Contract("direction missing".into()))?;
+                    let direction =
+                        direction.ok_or_else(|| MathError::Contract("direction missing".into()))?;
                     for (&coordinate, &seed) in self.body.coordinate_offsets.iter().zip(direction) {
                         worker.arguments[2 * coordinate + 1] = seed;
                     }
                 } else {
                     worker.arguments[..template.inputs].copy_from_slice(inputs);
-                    worker.arguments[template.inputs..template.inputs + template.outputs].copy_from_slice(weights);
+                    worker.arguments[template.inputs..template.inputs + template.outputs]
+                        .copy_from_slice(weights);
                     if let Some(direction) = direction {
-                        worker.arguments[template.inputs + template.outputs..].copy_from_slice(direction);
+                        worker.arguments[template.inputs + template.outputs..]
+                            .copy_from_slice(direction);
                     }
                 }
                 worker.values.fill(f64::NAN);
@@ -637,7 +735,9 @@ impl Worker {
                         cancel,
                         trial,
                     )?;
-                    for (row, value) in scratch.iter_mut().enumerate() { *value = trial.first(row, 0); }
+                    for (row, value) in scratch.iter_mut().enumerate() {
+                        *value = trial.first(row, 0);
+                    }
                 } else {
                     self.evaluate_seeded(
                         inputs,
@@ -853,43 +953,114 @@ mod tests {
         let cancel = pse_diagnostics::Cancellation::new(false);
         let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
         let body = weighted_body();
-        let support = body.prepare_support(&[0, 1], &[1, 0], DerivativeOrder::First, &cancel).unwrap();
-        let compiled = support.compile_product(ProductKind::TransposeJacobianAction,
-            Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+        let support = body
+            .prepare_support(&[0, 1], &[1, 0], DerivativeOrder::First, &cancel)
+            .unwrap();
+        let compiled = support
+            .compile_product(
+                ProductKind::TransposeJacobianAction,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &scope,
+            )
+            .unwrap();
         assert_eq!(compiled.compiled_order(), DerivativeOrder::First);
         assert_eq!(compiled.product_len(), 2);
         let mut worker = compiled.worker_scoped(scope.clone());
         let mut result = [f64::NAN; 2];
         for (weights, expected) in [([2., 3.], [18., 17.]), ([0., -1.], [-2., -3.])] {
-            worker.evaluate_product_into(&[2., 3.], ProductValues::TransposeJacobianAction { weights: &weights },
-                &mut ProviderBindings::default(), &cancel, &mut result).unwrap();
+            worker
+                .evaluate_product_into(
+                    &[2., 3.],
+                    ProductValues::TransposeJacobianAction { weights: &weights },
+                    &mut ProviderBindings::default(),
+                    &cancel,
+                    &mut result,
+                )
+                .unwrap();
             assert_eq!(result, expected);
         }
         let x = library::formal(0).unwrap();
         let y = library::formal(1).unwrap();
-        let branch = PreparedBody::new(3, 5, vec![4], vec![
-            Stage::Block { expressions: vec![Atom::num(0)], outputs: vec![3], source: SemanticId::NIL },
-            Stage::Branch { continuity: DerivativeOrder::Value, comparison: Comparison::Lt, left: 3, right: 2,
-                then: vec![Stage::Block { expressions: vec![(&x * &y).pow(2)], outputs: vec![4], source: SemanticId::NIL }],
-                otherwise: vec![Stage::Block { expressions: vec![x.pow(3) + y.pow(2)], outputs: vec![4], source: SemanticId::NIL }],
-            }], DerivativeOrder::Second).unwrap();
-        let support = branch.prepare_support(&[0], &[1, 0], DerivativeOrder::First, &cancel).unwrap();
-        let compiled = support.compile_product(ProductKind::TransposeJacobianAction,
-            Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+        let branch = PreparedBody::new(
+            3,
+            5,
+            vec![4],
+            vec![
+                Stage::Block {
+                    expressions: vec![Atom::num(0)],
+                    outputs: vec![3],
+                    source: SemanticId::NIL,
+                },
+                Stage::Branch {
+                    continuity: DerivativeOrder::Value,
+                    comparison: Comparison::Lt,
+                    left: 3,
+                    right: 2,
+                    then: vec![Stage::Block {
+                        expressions: vec![(&x * &y).pow(2)],
+                        outputs: vec![4],
+                        source: SemanticId::NIL,
+                    }],
+                    otherwise: vec![Stage::Block {
+                        expressions: vec![x.pow(3) + y.pow(2)],
+                        outputs: vec![4],
+                        source: SemanticId::NIL,
+                    }],
+                },
+            ],
+            DerivativeOrder::Second,
+        )
+        .unwrap();
+        let support = branch
+            .prepare_support(&[0], &[1, 0], DerivativeOrder::First, &cancel)
+            .unwrap();
+        let compiled = support
+            .compile_product(
+                ProductKind::TransposeJacobianAction,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &scope,
+            )
+            .unwrap();
         assert!(compiled.reverse_product.is_some());
         let mut worker = compiled.worker_scoped(scope);
         for (guard, expected) in [(1., [48., 72.]), (-1., [12., 24.]), (1., [48., 72.])] {
-            worker.evaluate_product_into(&[2., 3., guard], ProductValues::TransposeJacobianAction { weights: &[2.] },
-                &mut ProviderBindings::default(), &cancel, &mut result).unwrap();
+            worker
+                .evaluate_product_into(
+                    &[2., 3., guard],
+                    ProductValues::TransposeJacobianAction { weights: &[2.] },
+                    &mut ProviderBindings::default(),
+                    &cancel,
+                    &mut result,
+                )
+                .unwrap();
             assert_eq!(result, expected);
         }
         let saved = result;
-        assert!(worker.evaluate_product_into(&[1e200, 3., 1.],
-            ProductValues::TransposeJacobianAction { weights: &[0.] }, &mut ProviderBindings::default(), &cancel, &mut result).is_err());
+        assert!(
+            worker
+                .evaluate_product_into(
+                    &[1e200, 3., 1.],
+                    ProductValues::TransposeJacobianAction { weights: &[0.] },
+                    &mut ProviderBindings::default(),
+                    &cancel,
+                    &mut result
+                )
+                .is_err()
+        );
         assert_eq!(result, saved);
         cancel.cancel();
-        assert!(matches!(worker.evaluate_product_into(&[2., 3., 1.],
-            ProductValues::TransposeJacobianAction { weights: &[2.] }, &mut ProviderBindings::default(), &cancel, &mut result), Err(MathError::Cancelled)));
+        assert!(matches!(
+            worker.evaluate_product_into(
+                &[2., 3., 1.],
+                ProductValues::TransposeJacobianAction { weights: &[2.] },
+                &mut ProviderBindings::default(),
+                &cancel,
+                &mut result
+            ),
+            Err(MathError::Cancelled)
+        ));
         assert_eq!(result, saved);
     }
 
@@ -897,7 +1068,9 @@ mod tests {
     fn flat_action_construction_comparison_keeps_directional_work_and_exact_entries_distinct() {
         crate::initialize().unwrap();
         let n = 6;
-        let x = (0..n).map(|i| library::formal(i).unwrap()).collect::<Vec<_>>();
+        let x = (0..n)
+            .map(|i| library::formal(i).unwrap())
+            .collect::<Vec<_>>();
         let sum = x.iter().cloned().fold(Atom::num(0), |a, b| a + b);
         let chain = (0..n - 1).fold(Atom::num(0), |a, i| a + x[i].pow(2) * &x[i + 1]);
         let shared = (&sum * &sum + &x[0]).pow(2);
@@ -905,65 +1078,146 @@ mod tests {
         let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
         let limits = EvaluationLimits::default();
         let point = (0..n).map(|i| 0.2 + i as f64 * 0.1).collect::<Vec<_>>();
-        let direction = (0..n).map(|i| if i % 2 == 0 { 0.5 } else { -0.3 }).collect::<Vec<_>>();
+        let direction = (0..n)
+            .map(|i| if i % 2 == 0 { 0.5 } else { -0.3 })
+            .collect::<Vec<_>>();
         for (name, expression) in [("dense", sum.pow(3)), ("sparse", chain), ("shared", shared)] {
-            let body = PreparedBody::new(n, n + 1, vec![n], vec![Stage::Block {
-                expressions: vec![expression.clone()], outputs: vec![n], source: SemanticId::NIL,
-            }], DerivativeOrder::Second).unwrap();
+            let body = PreparedBody::new(
+                n,
+                n + 1,
+                vec![n],
+                vec![Stage::Block {
+                    expressions: vec![expression.clone()],
+                    outputs: vec![n],
+                    source: SemanticId::NIL,
+                }],
+                DerivativeOrder::Second,
+            )
+            .unwrap();
             let axes = (0..n).collect::<Vec<_>>();
-            let support = body.prepare_support(&[0], &axes, DerivativeOrder::Second, &cancel).unwrap();
+            let support = body
+                .prepare_support(&[0], &axes, DerivativeOrder::Second, &cancel)
+                .unwrap();
             let start = std::time::Instant::now();
-            let matrix = support.compile_product(ProductKind::WeightedHessian,
-                Optimization::default(), limits, &scope).unwrap();
+            let matrix = support
+                .compile_product(
+                    ProductKind::WeightedHessian,
+                    Optimization::default(),
+                    limits,
+                    &scope,
+                )
+                .unwrap();
             let matrix_prepare = start.elapsed();
             let start = std::time::Instant::now();
-            let action = support.compile_product(ProductKind::WeightedHessianAction,
-                Optimization::default(), limits, &scope).unwrap();
+            let action = support
+                .compile_product(
+                    ProductKind::WeightedHessianAction,
+                    Optimization::default(),
+                    limits,
+                    &scope,
+                )
+                .unwrap();
             let action_prepare = start.elapsed();
-            assert_eq!(action.direct_product.as_ref().unwrap().directional_gradient, name != "sparse");
-            assert_eq!(action.census[DerivativeOrder::Second].unwrap().derivative_components,
-                if name == "sparse" { 1 } else { 2 });
+            assert_eq!(
+                action.direct_product.as_ref().unwrap().directional_gradient,
+                name != "sparse"
+            );
+            assert_eq!(
+                action.census[DerivativeOrder::Second]
+                    .unwrap()
+                    .derivative_components,
+                if name == "sparse" { 1 } else { 2 }
+            );
             let mut matrix_values = vec![f64::NAN; matrix.product_len()];
-            matrix.worker_scoped(scope.clone()).evaluate_product_into(&point,
-                ProductValues::WeightedHessian { weights: &[1.] }, &mut ProviderBindings::default(),
-                &cancel, &mut matrix_values).unwrap();
+            matrix
+                .worker_scoped(scope.clone())
+                .evaluate_product_into(
+                    &point,
+                    ProductValues::WeightedHessian { weights: &[1.] },
+                    &mut ProviderBindings::default(),
+                    &cancel,
+                    &mut matrix_values,
+                )
+                .unwrap();
             let mut expected = vec![0.; n];
             for (&(i, j), &value) in matrix.product_pairs().iter().zip(&matrix_values) {
                 expected[i] += value * direction[j];
-                if i != j { expected[j] += value * direction[i]; }
+                if i != j {
+                    expected[j] += value * direction[i];
+                }
             }
             // Independent contracted symbolic candidate: gradient of directional scalar.
-            let seeds = (n..2*n).map(|i| library::formal(i).unwrap()).collect::<Vec<_>>();
+            let seeds = (n..2 * n)
+                .map(|i| library::formal(i).unwrap())
+                .collect::<Vec<_>>();
             let start = std::time::Instant::now();
-            let firsts = x.iter().map(|atom| expression.derivative(
-                Indeterminate::try_from(atom.clone()).unwrap())).collect::<Vec<_>>();
-            let contracted = firsts.iter().zip(&seeds).fold(Atom::num(0), |a, (g, v)| a + g * v);
-            let scalar_gradient = x.iter().map(|atom| contracted.derivative(
-                Indeterminate::try_from(atom.clone()).unwrap())).collect::<Vec<_>>();
+            let firsts = x
+                .iter()
+                .map(|atom| expression.derivative(Indeterminate::try_from(atom.clone()).unwrap()))
+                .collect::<Vec<_>>();
+            let contracted = firsts
+                .iter()
+                .zip(&seeds)
+                .fold(Atom::num(0), |a, (g, v)| a + g * v);
+            let scalar_gradient = x
+                .iter()
+                .map(|atom| contracted.derivative(Indeterminate::try_from(atom.clone()).unwrap()))
+                .collect::<Vec<_>>();
             let parameters = x.iter().chain(&seeds).cloned().collect::<Vec<_>>();
-            let mut alternative = library::bounded_scalar_evaluator(&scalar_gradient,
-                &parameters, Optimization::default(), &cancel, limits,
-                &mut library::ScalarCache::default()).unwrap();
+            let mut alternative = library::bounded_scalar_evaluator(
+                &scalar_gradient,
+                &parameters,
+                Optimization::default(),
+                &cancel,
+                limits,
+                &mut library::ScalarCache::default(),
+            )
+            .unwrap();
             let alternative_prepare = start.elapsed();
             let mut alternative_values = vec![f64::NAN; n];
-            alternative.evaluator.try_evaluate(&point.iter().chain(&direction).copied().collect::<Vec<_>>(),
-                &mut alternative_values).unwrap();
+            alternative
+                .evaluator
+                .try_evaluate(
+                    &point.iter().chain(&direction).copied().collect::<Vec<_>>(),
+                    &mut alternative_values,
+                )
+                .unwrap();
             let mut worker = action.worker_scoped(scope.clone());
             let mut actual = vec![f64::NAN; n];
             let start = std::time::Instant::now();
             for _ in 0..16 {
-                worker.evaluate_product_into(&point, ProductValues::WeightedHessianAction {
-                    weights: &[1.], direction: &direction }, &mut ProviderBindings::default(), &cancel,
-                    &mut actual).unwrap();
+                worker
+                    .evaluate_product_into(
+                        &point,
+                        ProductValues::WeightedHessianAction {
+                            weights: &[1.],
+                            direction: &direction,
+                        },
+                        &mut ProviderBindings::default(),
+                        &cancel,
+                        &mut actual,
+                    )
+                    .unwrap();
             }
             let execute = start.elapsed();
-            for ((&actual, &alternative), &expected) in actual.iter().zip(&alternative_values).zip(&expected) {
-                assert!((actual - expected).abs() <= 1e-10 * expected.abs().max(1.), "{name}: {actual} != {expected}");
+            for ((&actual, &alternative), &expected) in
+                actual.iter().zip(&alternative_values).zip(&expected)
+            {
+                assert!(
+                    (actual - expected).abs() <= 1e-10 * expected.abs().max(1.),
+                    "{name}: {actual} != {expected}"
+                );
                 assert!((alternative - expected).abs() <= 1e-10 * expected.abs().max(1.));
             }
-            eprintln!("I02 {name}: pairs={} matrix_prepare={matrix_prepare:?} directional_prepare={action_prepare:?} scalar_gradient_prepare={alternative_prepare:?} directional_16_calls={execute:?} action_ops={} alternative_ops={} action_scratch={}",
-                matrix.product_len(), action.census[DerivativeOrder::Second].unwrap().library_operations,
-                operation_count(alternative.facts.operations), action.scratch_bytes());
+            eprintln!(
+                "I02 {name}: pairs={} matrix_prepare={matrix_prepare:?} directional_prepare={action_prepare:?} scalar_gradient_prepare={alternative_prepare:?} directional_16_calls={execute:?} action_ops={} alternative_ops={} action_scratch={}",
+                matrix.product_len(),
+                action.census[DerivativeOrder::Second]
+                    .unwrap()
+                    .library_operations,
+                operation_count(alternative.facts.operations),
+                action.scratch_bytes()
+            );
         }
     }
 
@@ -1220,7 +1474,10 @@ mod tests {
             !census.direct_weighted,
             "a control barrier is not flattened into one weighted expression"
         );
-        assert_eq!(census.second_pairs, 2);
+        assert_eq!(
+            census.second_pairs, 0,
+            "contracted branch action uses local pullbacks without a complete Hessian"
+        );
         assert_eq!(census.control_stages, 1);
         let mut worker = compiled.worker();
         let mut output = [f64::NAN; 2];

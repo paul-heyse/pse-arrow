@@ -4087,9 +4087,10 @@ mod tests {
             .unwrap();
         let execution =
             pse_backend_native::solve::Execution::new(construction, &prepared.profile.controls);
-        let worker = executable
-            .assembly
-            .worker_scoped(pse_kernels::ProviderBindings::new(), execution.scope().unwrap());
+        let worker = executable.assembly.worker_scoped(
+            pse_kernels::ProviderBindings::new(),
+            execution.scope().unwrap(),
+        );
         let mut oracle = pse_backend_native::assembled::AlgebraicOracle::new(
             worker,
             prepared.model.values.clone(),
@@ -4407,9 +4408,10 @@ mod tests {
             pse_diagnostics::Cancellation::new(false),
             &resolved.solver.controls,
         );
-        let worker = executable
-            .assembly
-            .worker_scoped(pse_kernels::ProviderBindings::new(), execution.scope().unwrap());
+        let worker = executable.assembly.worker_scoped(
+            pse_kernels::ProviderBindings::new(),
+            execution.scope().unwrap(),
+        );
         let mut oracle = pse_backend_native::assembled::AlgebraicOracle::new(
             worker,
             resolved.model.values.clone(),

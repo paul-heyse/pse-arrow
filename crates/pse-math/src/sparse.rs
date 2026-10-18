@@ -29,7 +29,9 @@ impl AssemblyMatrix {
             + size_of_val(self.matrix.row_idx())
             + size_of_val(self.matrix.val())
             + self.refill.capacity() * size_of::<usize>()
-            + self.strict_lower.as_ref().map_or(0, |layout| (layout.starts.capacity() + layout.counts.capacity()) * size_of::<usize>())
+            + self.strict_lower.as_ref().map_or(0, |layout| {
+                (layout.starts.capacity() + layout.counts.capacity()) * size_of::<usize>()
+            })
     }
     /// Canonicalize once, retaining duplicates as independent refill contributions: the
     /// entry at position `k` of `entries` is [`Addend`] `k`.
@@ -77,7 +79,11 @@ impl AssemblyMatrix {
             .collect::<Result<TiVec<_, _>, _>>()?;
         let matrix = SparseColMat::new_from_argsort(pattern, &order, &vec![0.0; indices.len()])
             .map_err(|e| MathError::Library(e.to_string()))?;
-        Ok(Self { matrix, refill, strict_lower: None })
+        Ok(Self {
+            matrix,
+            refill,
+            strict_lower: None,
+        })
     }
     /// A square `order × order` matrix of `(column, column)` entries, such as a
     /// lower-triangle Hessian. Both indices share one space, so a Jacobian's
@@ -97,17 +103,39 @@ impl AssemblyMatrix {
     where
         C: Copy + Into<usize>,
     {
-        let mut result = Self::new(order, order, entries, limit)?;
+        Self::new(order, order, entries, limit)
+    }
+    /// Admit the lower-triangle layout consumed by completed symmetric actions.
+    pub(crate) fn lower_hessian<C>(
+        order: usize,
+        entries: &[Entry<C, C>],
+        limit: usize,
+    ) -> Result<Self, MathError>
+    where
+        C: Copy + Into<usize>,
+    {
+        let mut result = Self::hessian(order, entries, limit)?;
         let pattern = result.matrix.symbolic();
         let mut starts = Vec::with_capacity(order + 1);
         let mut counts = Vec::with_capacity(order);
         for column in 0..order {
             let begin = pattern.col_ptr()[column];
             let end = pattern.col_ptr()[column + 1];
-            if pattern.row_idx()[begin..end].iter().any(|&row| row < column) {
-                return Err(MathError::Contract("Hessian must use the lower triangle".into()));
+            if pattern.row_idx()[begin..end]
+                .iter()
+                .any(|&row| row < column)
+            {
+                return Err(MathError::Contract(
+                    "Hessian must use the lower triangle".into(),
+                ));
             }
-            let strict = begin + usize::from(pattern.row_idx().get(begin).is_some_and(|&row| begin < end && row == column));
+            let strict = begin
+                + usize::from(
+                    pattern
+                        .row_idx()
+                        .get(begin)
+                        .is_some_and(|&row| begin < end && row == column),
+                );
             starts.push(strict);
             counts.push(end - strict);
         }
@@ -172,17 +200,31 @@ impl AssemblyMatrix {
         Ok(())
     }
     /// Apply an already completed lower symmetric matrix through faer's products.
-    pub(crate) fn symmetric_product(&self, direction: &[f64], output: &mut [f64]) -> Result<(), MathError> {
+    pub(crate) fn symmetric_product(
+        &self,
+        direction: &[f64],
+        output: &mut [f64],
+    ) -> Result<(), MathError> {
         if self.matrix.nrows() != self.matrix.ncols() {
-            return Err(MathError::Contract("symmetric product requires a square matrix".into()));
+            return Err(MathError::Contract(
+                "symmetric product requires a square matrix".into(),
+            ));
         }
-        self.product(direction, output)?;
-        let layout = self.strict_lower.as_ref()
+        let layout = self
+            .strict_lower
+            .as_ref()
             .ok_or_else(|| MathError::Contract("missing lower symmetric product layout".into()))?;
+        self.product(direction, output)?;
         // faer's uncompressed CSC view skips each diagonal in the existing value
         // storage. No numeric copy or cancellation-based diagonal removal is needed.
         let strict = faer::sparse::SparseColMatRef::new(
-            SymbolicSparseColMatRef::new_checked(self.matrix.nrows(), self.matrix.ncols(), &layout.starts, Some(&layout.counts), self.matrix.row_idx()),
+            SymbolicSparseColMatRef::new_checked(
+                self.matrix.nrows(),
+                self.matrix.ncols(),
+                &layout.starts,
+                Some(&layout.counts),
+                self.matrix.row_idx(),
+            ),
             self.matrix.val(),
         );
         faer::sparse::linalg::matmul::dense_sparse_matmul(
@@ -194,7 +236,9 @@ impl AssemblyMatrix {
             faer::Par::Seq,
         );
         if output.iter().any(|value| !value.is_finite()) {
-            return Err(MathError::Contract("nonfinite symmetric matrix product".into()));
+            return Err(MathError::Contract(
+                "nonfinite symmetric matrix product".into(),
+            ));
         }
         Ok(())
     }
@@ -202,9 +246,7 @@ impl AssemblyMatrix {
 
 /// Content identity of canonical CSC structure, excluding numerical values. Column
 /// lengths frame the support of each variable; concatenated row numbers are ambiguous.
-pub fn pattern_key(
-    pattern: SymbolicSparseColMatRef<'_, usize>,
-) -> pse_ids::ContentHash {
+pub fn pattern_key(pattern: SymbolicSparseColMatRef<'_, usize>) -> pse_ids::ContentHash {
     let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::SparsePatternV1);
     h.u64(pattern.nrows() as u64).u64(pattern.ncols() as u64);
     for c in 0..pattern.ncols() {
@@ -225,8 +267,12 @@ mod identity_tests {
     }
     #[test]
     fn completed_symmetric_product_uses_strict_lower_without_diagonal_cancellation() {
-        let entries = [Entry::new(GlobalCol::new(1), GlobalCol::new(0)), Entry::new(GlobalCol::new(1), GlobalCol::new(1)), Entry::new(GlobalCol::new(2), GlobalCol::new(1))];
-        let mut matrix = AssemblyMatrix::hessian(3, &entries, 10).unwrap();
+        let entries = [
+            Entry::new(GlobalCol::new(1), GlobalCol::new(0)),
+            Entry::new(GlobalCol::new(1), GlobalCol::new(1)),
+            Entry::new(GlobalCol::new(2), GlobalCol::new(1)),
+        ];
+        let mut matrix = AssemblyMatrix::lower_hessian(3, &entries, 10).unwrap();
         matrix.add(Addend::new(0), 1e16).unwrap();
         matrix.add(Addend::new(1), -1e16).unwrap();
         matrix.add(Addend::new(2), 1.).unwrap();
@@ -234,11 +280,27 @@ mod identity_tests {
         matrix.symmetric_product(&[1.; 3], &mut output).unwrap();
         assert_eq!(output, [1e16, 1., 1.]);
         let entries = [Entry::new(GlobalCol::new(0), GlobalCol::new(0))];
-        let mut diagonal = AssemblyMatrix::hessian(1, &entries, 10).unwrap();
+        let mut diagonal = AssemblyMatrix::lower_hessian(1, &entries, 10).unwrap();
         diagonal.add(Addend::new(0), 1e308).unwrap();
         diagonal.symmetric_product(&[1.], &mut output[..1]).unwrap();
         assert_eq!(output[0], 1e308);
-        assert!(matrix.strict_lower.as_ref().is_some_and(|layout| layout.starts.len() == 4 && layout.counts.len() == 3));
+        assert!(
+            matrix
+                .strict_lower
+                .as_ref()
+                .is_some_and(|layout| layout.starts.len() == 4 && layout.counts.len() == 3)
+        );
+    }
+    #[test]
+    fn coefficient_upper_triangle_remains_valid_but_is_not_a_lower_action_layout() {
+        let entries = [Entry::new(GlobalCol::new(0), GlobalCol::new(1))];
+        let mut matrix = AssemblyMatrix::hessian(2, &entries, 10).unwrap();
+        matrix.add(Addend::new(0), 3.).unwrap();
+        assert_eq!(matrix.matrix().to_dense()[(0, 1)], 3.);
+        assert!(AssemblyMatrix::lower_hessian(2, &entries, 10).is_err());
+        let mut output = [17., 19.];
+        assert!(matrix.symmetric_product(&[1., 1.], &mut output).is_err());
+        assert_eq!(output, [17., 19.]);
     }
     #[test]
     fn sparse_layout_identity_frames_column_boundaries() {

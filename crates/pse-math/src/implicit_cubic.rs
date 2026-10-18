@@ -369,8 +369,18 @@ mod tests {
             )
             .unwrap(),
         );
-        problem.prepare_complete(DerivativeOrder::First,&pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
-        problem.prepare_complete(DerivativeOrder::Second,&pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
+        problem
+            .prepare_complete(
+                DerivativeOrder::First,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
+            )
+            .unwrap();
+        problem
+            .prepare_complete(
+                DerivativeOrder::Second,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
+            )
+            .unwrap();
         let options = Options {
             start: vec![1.0],
             variable_nominals: vec![1.0],
@@ -440,7 +450,13 @@ mod tests {
             .unwrap();
         assert_eq!(point, [1.0]);
         assert!(matches!(
-            problem.derivatives(&[1.0], &point, DerivativeOrder::First, &options, &cancel.flag()),
+            problem.derivatives(
+                &[1.0],
+                &point,
+                DerivativeOrder::First,
+                &options,
+                &cancel.flag()
+            ),
             Err(MathError::Domain {
                 requirement: "implicit derivative residual verification failed",
                 ..
@@ -488,7 +504,13 @@ mod tests {
         // the interval-endpoint refusal already covered by the common IFT tests.
         Arc::get_mut(&mut problem).unwrap().unknowns[0].lower = -1.0;
         assert!(matches!(
-            problem.derivatives(&[0.0], &[0.0], DerivativeOrder::First, &options, &cancel.flag()),
+            problem.derivatives(
+                &[0.0],
+                &[0.0],
+                DerivativeOrder::First,
+                &options,
+                &cancel.flag()
+            ),
             Err(MathError::Domain {
                 requirement: "implicit derivative residual verification failed",
                 ..

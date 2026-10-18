@@ -85,7 +85,13 @@ fn requested_weighted_product_preserves_value_domain_without_materializing_unuse
         };
         let mut actual = [73.];
         worker
-            .evaluate_product_into(&[tiny], binding, &mut ProviderBindings::new(), &cancel, &mut actual)
+            .evaluate_product_into(
+                &[tiny],
+                binding,
+                &mut ProviderBindings::new(),
+                &cancel,
+                &mut actual,
+            )
             .unwrap();
         assert_eq!(
             actual,
@@ -126,23 +132,45 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
         calls: Arc<AtomicUsize>,
     }
     impl Provider for Square {
-        fn supports(&self, _: &pse_kernels::ProviderDemand) -> bool { true }
-        fn supports_linearization(&self) -> bool { true }
-        fn completed_linearization(&self) -> Option<ContentHash> { Some(self.spec.revision) }
-        fn fill(&mut self, inputs: &[f64], request: &PreparedProviderRequest, runtime: ProviderRuntime<'_>,
-            output: pse_kernels::ProviderOutput<'_>, context: &EvaluationContext<'_>) -> Result<(), ProviderError> {
+        fn supports(&self, _: &pse_kernels::ProviderDemand) -> bool {
+            true
+        }
+        fn supports_linearization(&self) -> bool {
+            true
+        }
+        fn completed_linearization(&self) -> Option<ContentHash> {
+            Some(self.spec.revision)
+        }
+        fn fill(
+            &mut self,
+            inputs: &[f64],
+            request: &PreparedProviderRequest,
+            runtime: ProviderRuntime<'_>,
+            output: pse_kernels::ProviderOutput<'_>,
+            context: &EvaluationContext<'_>,
+        ) -> Result<(), ProviderError> {
             request.check_context(context)?;
             self.calls.fetch_add(1, Ordering::Relaxed);
-            if inputs[0] < 0. { return Err(ProviderError::Trial("original provider's selected domain".into())); }
+            if inputs[0] < 0. {
+                return Err(ProviderError::Trial(
+                    "original provider's selected domain".into(),
+                ));
+            }
             assert_eq!(request.outputs, [0]);
             output.values[0] = inputs[0] * inputs[0];
-            output.jacobian.fill(2. * inputs[0]); output.hessians.fill(2.);
+            output.jacobian.fill(2. * inputs[0]);
+            output.hessians.fill(2.);
             use pse_kernels::ProviderDemand;
             match request.demand {
-                ProviderDemand::JacobianAction { .. } => output.jacobian[0] *= runtime.directions[0],
-                ProviderDemand::TransposeAction { .. } => output.jacobian[0] *= runtime.cotangents[0],
+                ProviderDemand::JacobianAction { .. } => {
+                    output.jacobian[0] *= runtime.directions[0]
+                }
+                ProviderDemand::TransposeAction { .. } => {
+                    output.jacobian[0] *= runtime.cotangents[0]
+                }
                 ProviderDemand::WeightedSecondAction { .. } => {
-                    output.jacobian[0] *= runtime.weights[0]; output.hessians[0] *= runtime.weights[0] * runtime.directions[0];
+                    output.jacobian[0] *= runtime.weights[0];
+                    output.hessians[0] *= runtime.weights[0] * runtime.directions[0];
                 }
                 _ => {}
             }
@@ -214,14 +242,23 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
             .find(|order| order.order == DerivativeOrder::Second)
             .unwrap();
         assert!(!census.direct_weighted);
-        assert_eq!(census.provider_stages, if kind == ProductKind::WeightedHessianAction { 3 } else { 1 });
+        assert_eq!(
+            census.provider_stages,
+            if kind == ProductKind::WeightedHessianAction {
+                3
+            } else {
+                1
+            }
+        );
         let calls = Arc::new(AtomicUsize::new(0));
-        let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Square {
-            spec: spec.clone(),
-            calls: calls.clone(),
-        }));
-        let mut providers: ProviderBindings =
-            ProviderBindings::from([(spec.key(), provider)]);
+        let provider = pse_kernels::ProviderBinding::new(
+            spec.clone(),
+            Box::new(Square {
+                spec: spec.clone(),
+                calls: calls.clone(),
+            }),
+        );
+        let mut providers: ProviderBindings = ProviderBindings::from([(spec.key(), provider)]);
         let binding = if kind == ProductKind::WeightedHessian {
             ProductValues::WeightedHessian { weights: &[2.] }
         } else {
@@ -381,23 +418,87 @@ fn transpose_first_keeps_second_only_guards_inactive() {
     crate::initialize().unwrap();
     let source = SemanticId::from_bytes([83; 16]);
     let x = library::formal(0).unwrap();
-    let body = PreparedBody::new(1, 2, vec![1], vec![
-        Stage::Require { argument: 0, condition: Condition::Positive, order: DerivativeOrder::Second, source, lineage: None },
-        Stage::Block { expressions: vec![&x * &x], outputs: vec![1], source },
-    ], DerivativeOrder::Second).unwrap();
+    let body = PreparedBody::new(
+        1,
+        2,
+        vec![1],
+        vec![
+            Stage::Require {
+                argument: 0,
+                condition: Condition::Positive,
+                order: DerivativeOrder::Second,
+                source,
+                lineage: None,
+            },
+            Stage::Block {
+                expressions: vec![&x * &x],
+                outputs: vec![1],
+                source,
+            },
+        ],
+        DerivativeOrder::Second,
+    )
+    .unwrap();
     let stop = pse_diagnostics::Cancellation::new(false);
     let scope = pse_kernels::ExecutionScope::new(stop.clone(), None);
-    let first = body.prepare_support(&[0], &[0], DerivativeOrder::First, &stop).unwrap();
-    let ordinary = first.compile_product(ProductKind::SelectedPartials, Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
-    assert_eq!(ordinary.worker().evaluate(&[-1.], DerivativeOrder::First, &mut ProviderBindings::new(), &stop).unwrap().jacobian, [-2.]);
-    let transpose = first.compile_product(ProductKind::TransposeJacobianAction, Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+    let first = body
+        .prepare_support(&[0], &[0], DerivativeOrder::First, &stop)
+        .unwrap();
+    let ordinary = first
+        .compile_product(
+            ProductKind::SelectedPartials,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &scope,
+        )
+        .unwrap();
+    assert_eq!(
+        ordinary
+            .worker()
+            .evaluate(
+                &[-1.],
+                DerivativeOrder::First,
+                &mut ProviderBindings::new(),
+                &stop
+            )
+            .unwrap()
+            .jacobian,
+        [-2.]
+    );
+    let transpose = first
+        .compile_product(
+            ProductKind::TransposeJacobianAction,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &scope,
+        )
+        .unwrap();
     let mut output = [91.];
-    transpose.worker().evaluate_product_into(&[-1.], ProductValues::TransposeJacobianAction { weights: &[3.] },
-        &mut ProviderBindings::new(), &stop, &mut output).unwrap();
+    transpose
+        .worker()
+        .evaluate_product_into(
+            &[-1.],
+            ProductValues::TransposeJacobianAction { weights: &[3.] },
+            &mut ProviderBindings::new(),
+            &stop,
+            &mut output,
+        )
+        .unwrap();
     assert_eq!(output, [-6.]);
-    let second = body.prepare_support(&[0], &[0], DerivativeOrder::Second, &stop).unwrap();
-    let hessian = second.compile_product(ProductKind::WeightedHessian, Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
-    assert!(matches!(hessian.worker().evaluate_product_into(&[-1.], ProductValues::WeightedHessian { weights: &[0.] },
-        &mut ProviderBindings::new(), &stop, &mut output), Err(MathError::Domain { source_id, .. }) if source_id == source));
+    let second = body
+        .prepare_support(&[0], &[0], DerivativeOrder::Second, &stop)
+        .unwrap();
+    let hessian = second
+        .compile_product(
+            ProductKind::WeightedHessian,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &scope,
+        )
+        .unwrap();
+    assert!(
+        matches!(hessian.worker().evaluate_product_into(&[-1.], ProductValues::WeightedHessian { weights: &[0.] },
+        &mut ProviderBindings::new(), &stop, &mut output), Err(MathError::Domain { source_id, .. }) if source_id == source)
+    );
     assert_eq!(output, [-6.]);
 }

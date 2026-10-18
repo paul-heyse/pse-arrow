@@ -428,7 +428,13 @@ fn min_max_exported_exactly() {
         vec![-1.0, 1.0],
         vec![1.5, 1.0],
     ]);
-    assert_rows_match(&assembly, &program, &points, pse_kernels::ProviderBindings::new, |_| vec![]);
+    assert_rows_match(
+        &assembly,
+        &program,
+        &points,
+        pse_kernels::ProviderBindings::new,
+        |_| vec![],
+    );
 }
 
 #[test]
@@ -544,11 +550,11 @@ impl Provider for Root {
         })
     }
 }
-fn registered(
-    spec: &ProviderSpec,
-    provider: Box<dyn Provider>,
-) -> pse_kernels::ProviderBindings {
-    pse_kernels::ProviderBindings::from([(spec.key(), pse_kernels::ProviderBinding::new(spec.clone(), provider))])
+fn registered(spec: &ProviderSpec, provider: Box<dyn Provider>) -> pse_kernels::ProviderBindings {
+    pse_kernels::ProviderBindings::from([(
+        spec.key(),
+        pse_kernels::ProviderBinding::new(spec.clone(), provider),
+    )])
 }
 fn spec(registry: &QuantityRegistry, n: u8) -> ProviderSpec {
     ProviderSpec {
@@ -1100,7 +1106,10 @@ fn pcsaft_valid_guard_projects_exactly() {
         pse_kernels::ProviderBindings::new,
         |_| vec![],
     );
-    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
+    let mut worker = assembly.worker(
+        pse_kernels::ProviderBindings::new(),
+        pse_diagnostics::Cancellation::default(),
+    );
     let outside = CaseValues {
         scalars: BTreeMap::from([
             (id(1), 300.0),

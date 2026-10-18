@@ -190,10 +190,7 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
     assert_eq!(numerical.spec.inputs.len(), 1);
     assert!(numerical.bodies.source.coordinates().is_empty());
     assert_eq!(numerical.bodies.source.input_formals().len(), 3);
-    assert_eq!(
-        numerical.bodies.source.prepared_support().outputs(),
-        [0, 1]
-    );
+    assert_eq!(numerical.bodies.source.prepared_support().outputs(), [0, 1]);
     assert_eq!(
         numerical.bodies.source.compiled_order(),
         DerivativeOrder::Value
@@ -211,7 +208,12 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
     assert_ne!(numerical.configuration_key(), reference.configuration_key());
 
     let spec = factory.spec.clone();
-    let structural = numerical.bodies.source.prepared_support().incidence(&[0, 1, 2], &flag).unwrap();
+    let structural = numerical
+        .bodies
+        .source
+        .prepared_support()
+        .incidence(&[0, 1, 2], &flag)
+        .unwrap();
     let incidence = structural
         .outputs()
         .iter()
@@ -355,15 +357,16 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
     // controls, verifies its residual/bounds, then computes the actual library IFT.
     // This is a numerical reference, not certified accuracy evidence.
     let mut reference_worker = reference.create_scoped(scope.clone()).unwrap();
-    let reference_values = completed_provider_values(&mut reference_worker,
-            &input,
-            &ProviderRequest::all(&reference.spec, DerivativeOrder::First),
-            &EvaluationContext {
-                cancelled: &flag,
-                max_result_bytes: 1 << 20,
-            },
-        )
-        .unwrap();
+    let reference_values = completed_provider_values(
+        &mut reference_worker,
+        &input,
+        &ProviderRequest::all(&reference.spec, DerivativeOrder::First),
+        &EvaluationContext {
+            cancelled: &flag,
+            max_result_bytes: 1 << 20,
+        },
+    )
+    .unwrap();
     for i in 0..2 {
         assert!((strong_point.values[i] - reference_values.values[i]).abs() <= strong.allowance);
         assert!((response.values[i] - reference_values.jacobian[i]).abs() <= action.allowance);
@@ -2490,12 +2493,18 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
                 bodies: {
                     // Native Newton consumes its unknown Jacobian; the residual
                     // source retains only values until an actual derivative request.
-                    let source = Arc::new(residual.compile(
-                        &[0], &[], DerivativeOrder::Value,
-                        pse_math::library::Optimization::default(),
-                        pse_math::jets::EvaluationLimits::default(),
-                        &ExecutionScope::new(flag.clone(), None),
-                    ).unwrap());
+                    let source = Arc::new(
+                        residual
+                            .compile(
+                                &[0],
+                                &[],
+                                DerivativeOrder::Value,
+                                pse_math::library::Optimization::default(),
+                                pse_math::jets::EvaluationLimits::default(),
+                                &ExecutionScope::new(flag.clone(), None),
+                            )
+                            .unwrap(),
+                    );
                     pse_math::implicit::ResidualBodies {
                         unknown: compile(&residual, &[0]),
                         source,
@@ -4253,12 +4262,25 @@ async fn native_component_records_survive_success_and_failed_block_before_report
 
 // Test-only dense assessment boundary: copy only a successfully completed fill.
 #[cfg(all(test, feature = "solver-kinsol", feature = "solver-root-isolation"))]
-fn completed_provider_values(provider: &mut pse_kernels::ProviderBinding, inputs: &[f64],
-    request: &pse_kernels::ProviderRequest, context: &pse_kernels::EvaluationContext<'_>)
-    -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+fn completed_provider_values(
+    provider: &mut pse_kernels::ProviderBinding,
+    inputs: &[f64],
+    request: &pse_kernels::ProviderRequest,
+    context: &pse_kernels::EvaluationContext<'_>,
+) -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
     let prepared = provider.prepare(request.clone())?;
     prepared.check_context(context)?;
     let mut buffer = pse_kernels::ProviderBuffer::new(&prepared);
-    let completed = buffer.fill(provider, inputs, &prepared, pse_kernels::ProviderRuntime::default(), context)?;
-    Ok(pse_kernels::ProviderValues { values: completed.values.to_vec(), jacobian: completed.jacobian.to_vec(), hessians: completed.hessians.to_vec() })
+    let completed = buffer.fill(
+        provider,
+        inputs,
+        &prepared,
+        pse_kernels::ProviderRuntime::default(),
+        context,
+    )?;
+    Ok(pse_kernels::ProviderValues {
+        values: completed.values.to_vec(),
+        jacobian: completed.jacobian.to_vec(),
+        hessians: completed.hessians.to_vec(),
+    })
 }

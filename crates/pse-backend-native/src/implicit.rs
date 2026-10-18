@@ -506,10 +506,18 @@ pub(crate) fn test_residual_bodies(
             .unwrap(),
     );
     let source = Arc::new(
-        parameter.prepared_support().incidence(&[], &cancel).unwrap()
-            .at_order(DerivativeOrder::Value).unwrap()
-            .compile(Default::default(), Default::default(),
-                &pse_kernels::ExecutionScope::new(cancel, None)).unwrap(),
+        parameter
+            .prepared_support()
+            .incidence(&[], &cancel)
+            .unwrap()
+            .at_order(DerivativeOrder::Value)
+            .unwrap()
+            .compile(
+                Default::default(),
+                Default::default(),
+                &pse_kernels::ExecutionScope::new(cancel, None),
+            )
+            .unwrap(),
     );
     pse_math::implicit::ResidualBodies { unknown, source }
 }
@@ -754,7 +762,10 @@ mod tests {
                     .collect(),
                 rows: problem.rows.clone(),
                 derivatives: problem.native_order(),
-                smoothness: problem.requirements.output_smoothness.min(problem.native_order()),
+                smoothness: problem
+                    .requirements
+                    .output_smoothness
+                    .min(problem.native_order()),
             };
             let loan = Loan(Rc::new(RefCell::new(Some(problem.clone()))));
             let oracle = LateOriginalOracle {
@@ -953,15 +964,16 @@ mod tests {
                 Some(std::time::Instant::now() + allowance),
             );
             let mut provider = factory.create_scoped(scope).unwrap();
-            let error = completed_provider_values(&mut provider,
-                    &[3.],
-                    &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
-                    &pse_kernels::EvaluationContext {
-                        cancelled: cancel.flag().as_ref(),
-                        max_result_bytes: 1024,
-                    },
-                )
-                .unwrap_err();
+            let error = completed_provider_values(
+                &mut provider,
+                &[3.],
+                &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
+                &pse_kernels::EvaluationContext {
+                    cancelled: cancel.flag().as_ref(),
+                    max_result_bytes: 1024,
+                },
+            )
+            .unwrap_err();
             assert!(matches!(error, ProviderError::Deadline));
             assert_eq!(
                 crate::callback::classify(&ProblemError::Provider(error)),
@@ -990,15 +1002,16 @@ mod tests {
             let original = Arc::new(original);
             let (factory, calls, _) = native_failure_factory(Some(original.clone()));
             let mut provider = factory.create().unwrap();
-            let error = completed_provider_values(&mut provider,
-                    &[3.],
-                    &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
-                    &pse_kernels::EvaluationContext {
-                        cancelled: factory.cancel.flag().as_ref(),
-                        max_result_bytes: 1024,
-                    },
-                )
-                .unwrap_err();
+            let error = completed_provider_values(
+                &mut provider,
+                &[3.],
+                &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
+                &pse_kernels::EvaluationContext {
+                    cancelled: factory.cancel.flag().as_ref(),
+                    max_result_bytes: 1024,
+                },
+            )
+            .unwrap_err();
             let ProviderError::Nested { cause, .. } = &error else {
                 panic!("original terminal cause was erased: {error:?}")
             };
@@ -1065,15 +1078,16 @@ mod tests {
         let (mut factory, calls, _) = native_failure_factory(None);
         factory.solver = Arc::new(DomainRefusal);
         let mut provider = factory.create().unwrap();
-        let error = completed_provider_values(&mut provider,
-                &[3.],
-                &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
-                &pse_kernels::EvaluationContext {
-                    cancelled: factory.cancel.flag().as_ref(),
-                    max_result_bytes: 1024,
-                },
-            )
-            .unwrap_err();
+        let error = completed_provider_values(
+            &mut provider,
+            &[3.],
+            &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
+            &pse_kernels::EvaluationContext {
+                cancelled: factory.cancel.flag().as_ref(),
+                max_result_bytes: 1024,
+            },
+        )
+        .unwrap_err();
         let ProviderError::Nested { cause, .. } = &error else {
             panic!("original domain source was erased")
         };
@@ -1168,9 +1182,17 @@ mod tests {
                 1,
                 test_residual_bodies(body),
                 100,
-            )?.with_requirements(pse_kernels::DerivativeRequirements::new(
-                order, order, order, DerivativeOrder::First, order,
-            ).map_err(|error| MathError::Contract(error.to_string()))?)
+            )?
+            .with_requirements(
+                pse_kernels::DerivativeRequirements::new(
+                    order,
+                    order,
+                    order,
+                    DerivativeOrder::First,
+                    order,
+                )
+                .map_err(|error| MathError::Contract(error.to_string()))?,
+            )
         }
     }
     fn options() -> Options {
@@ -1189,12 +1211,25 @@ mod tests {
         let cancel = pse_diagnostics::Cancellation::default();
         let problem = Arc::new(problem_order(100, false, DerivativeOrder::First).unwrap());
         assert_eq!(Kinsol.minimum_order(), DerivativeOrder::First);
-        assert_eq!(problem.requirements.residual_compilation, DerivativeOrder::First);
+        assert_eq!(
+            problem.requirements.residual_compilation,
+            DerivativeOrder::First
+        );
         assert_eq!(problem.native_order(), DerivativeOrder::First);
-        assert!(problem.prepare_complete(DerivativeOrder::Second,
-            &pse_kernels::ExecutionScope::new(cancel.clone(), None)).is_err());
-        problem.prepare_complete(DerivativeOrder::First,
-            &pse_kernels::ExecutionScope::new(cancel.clone(), None)).unwrap();
+        assert!(
+            problem
+                .prepare_complete(
+                    DerivativeOrder::Second,
+                    &pse_kernels::ExecutionScope::new(cancel.clone(), None)
+                )
+                .is_err()
+        );
+        problem
+            .prepare_complete(
+                DerivativeOrder::First,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+            )
+            .unwrap();
         let root = Kinsol
             .solve(problem.clone(), &[3.], &options(), &cancel)
             .unwrap();
@@ -1251,8 +1286,12 @@ mod tests {
         };
         let problem = Arc::new(build(false).unwrap());
         assert_eq!(problem.pattern().compute_nnz(), 2);
-        problem.prepare_complete(DerivativeOrder::Second,
-            &pse_kernels::ExecutionScope::new(cancel.clone(), None)).unwrap();
+        problem
+            .prepare_complete(
+                DerivativeOrder::Second,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+            )
+            .unwrap();
         let root = Kinsol
             .solve(problem.clone(), &[3.], &options, &cancel)
             .unwrap();
@@ -1621,8 +1660,12 @@ mod tests {
             )
             .unwrap(),
         );
-        problem.prepare_complete(DerivativeOrder::Second,
-            &pse_kernels::ExecutionScope::new(cancel.clone(), None)).unwrap();
+        problem
+            .prepare_complete(
+                DerivativeOrder::Second,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+            )
+            .unwrap();
         let options = Options {
             start: vec![1.0],
             variable_nominals: vec![2.0],
@@ -1646,12 +1689,25 @@ mod tests {
 
 // Test-only dense assessment boundary: copy only a successfully completed fill.
 #[cfg(test)]
-fn completed_provider_values(provider: &mut pse_kernels::ProviderBinding, inputs: &[f64],
-    request: &pse_kernels::ProviderRequest, context: &pse_kernels::EvaluationContext<'_>)
-    -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+fn completed_provider_values(
+    provider: &mut pse_kernels::ProviderBinding,
+    inputs: &[f64],
+    request: &pse_kernels::ProviderRequest,
+    context: &pse_kernels::EvaluationContext<'_>,
+) -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
     let prepared = provider.prepare(request.clone())?;
     prepared.check_context(context)?;
     let mut buffer = pse_kernels::ProviderBuffer::new(&prepared);
-    let completed = buffer.fill(provider, inputs, &prepared, pse_kernels::ProviderRuntime::default(), context)?;
-    Ok(pse_kernels::ProviderValues { values: completed.values.to_vec(), jacobian: completed.jacobian.to_vec(), hessians: completed.hessians.to_vec() })
+    let completed = buffer.fill(
+        provider,
+        inputs,
+        &prepared,
+        pse_kernels::ProviderRuntime::default(),
+        context,
+    )?;
+    Ok(pse_kernels::ProviderValues {
+        values: completed.values.to_vec(),
+        jacobian: completed.jacobian.to_vec(),
+        hessians: completed.hessians.to_vec(),
+    })
 }

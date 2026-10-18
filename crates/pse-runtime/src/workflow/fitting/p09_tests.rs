@@ -3032,8 +3032,11 @@ async fn fitting_parallel_experiments_keep_order_and_owner_affine_workers() {
                 .as_mut()
                 .expect("fixture admits two independent lanes");
             team.require_concurrent_test_wave();
-            assert_eq!(oracle.team.as_ref().unwrap().test_constructions(), vec![1, 1],
-                "assigned experiment owners are prepared before the first callback");
+            assert_eq!(
+                oracle.team.as_ref().unwrap().test_constructions(),
+                vec![1, 1],
+                "assigned experiment owners are prepared before the first callback"
+            );
             let value = oracle.objective(&[2.5]).unwrap();
             assert!((value - 1.25).abs() < 1e-6);
             assert_eq!(
@@ -3334,19 +3337,43 @@ async fn fitting_parallel_affine_exact_hessian_prepares_second_contract_and_reta
     let mut other = steady.clone();
     other.experiment_id = id(76).into();
     fit.experiments = vec![steady, other];
-    fit.observations.retain(|observation| observation.experiment_id == id(75).into());
+    fit.observations
+        .retain(|observation| observation.experiment_id == id(75).into());
     let package = package.with_fit_declarations(declarations).await.unwrap();
     profile.simulations.clear();
     profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
     profile.solver.controls.hessian = HessianMode::Exact;
-    let (problem, _) = package.prepare_fit_problem(id(73).into(), profile, compiler_profile(),
-        Default::default(), &crate::CancelSource::new()).await.unwrap();
-    assert!(problem.layout.mappings.iter().all(|mapping| mapping.hessian.is_empty()));
+    let (problem, _) = package
+        .prepare_fit_problem(
+            id(73).into(),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    assert!(
+        problem
+            .layout
+            .mappings
+            .iter()
+            .all(|mapping| mapping.hessian.is_empty())
+    );
     with_admitted_fit_oracle_outcome(problem.into(), |oracle| {
         assert!(oracle.team.is_some());
-        assert!(oracle.workers.iter().all(Option::is_some), "the actual Exact Second contract retains guards even with empty local curvature");
+        assert!(
+            oracle.workers.iter().all(Option::is_some),
+            "the actual Exact Second contract retains guards even with empty local curvature"
+        );
         let mut hessian = vec![f64::NAN; oracle.hessian_pattern().unwrap().row_idx().len()];
         oracle.hessian(&[2.5], 1., &[], &mut hessian).unwrap();
-        assert_eq!(hessian, [1.], "the independently nonzero affine response Gram term remains");
-    }).await.unwrap();
+        assert_eq!(
+            hessian,
+            [1.],
+            "the independently nonzero affine response Gram term remains"
+        );
+    })
+    .await
+    .unwrap();
 }

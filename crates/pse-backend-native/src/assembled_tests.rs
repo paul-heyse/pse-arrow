@@ -17,11 +17,20 @@ use pse_quantity::{
     standard::{StandardInvariantChecker, ids, standard_registry},
 };
 use std::collections::BTreeMap;
-fn fixture(domain: ModelingVariableDomain) -> (Arc<CaseAssembly>, CaseValues) { fixture_provider(domain, None) }
-fn fixture_provider(domain: ModelingVariableDomain, provider: Option<&pse_kernels::ProviderSpec>) -> (Arc<CaseAssembly>, CaseValues) {
+fn fixture(domain: ModelingVariableDomain) -> (Arc<CaseAssembly>, CaseValues) {
+    fixture_provider(domain, None)
+}
+fn fixture_provider(
+    domain: ModelingVariableDomain,
+    provider: Option<&pse_kernels::ProviderSpec>,
+) -> (Arc<CaseAssembly>, CaseValues) {
     fixture_provider_order(domain, provider, DerivativeOrder::Second)
 }
-fn fixture_provider_order(domain: ModelingVariableDomain, provider: Option<&pse_kernels::ProviderSpec>, order: DerivativeOrder) -> (Arc<CaseAssembly>, CaseValues) {
+fn fixture_provider_order(
+    domain: ModelingVariableDomain,
+    provider: Option<&pse_kernels::ProviderSpec>,
+    order: DerivativeOrder,
+) -> (Arc<CaseAssembly>, CaseValues) {
     let id = |n| SemanticId::from_bytes([n; 16]);
     let registry = standard_registry().unwrap();
     let quantity = ids::quantity("neutral");
@@ -40,8 +49,17 @@ fn fixture_provider_order(domain: ModelingVariableDomain, provider: Option<&pse_
     .unwrap();
     let value = builder.input(0, quantity, IndexSet::new(), id(3)).unwrap();
     let value = if let Some(spec) = provider {
-        builder.provider(&pse_kernels::AdmittedProvider::new(spec.clone(), &registry).unwrap(), &[value], id(99)).unwrap().remove(0)
-    } else { value };
+        builder
+            .provider(
+                &pse_kernels::AdmittedProvider::new(spec.clone(), &registry).unwrap(),
+                &[value],
+                id(99),
+            )
+            .unwrap()
+            .remove(0)
+    } else {
+        value
+    };
     let body = Arc::new(builder.prepare(&[value]).unwrap());
     let key = ContentHash::from_bytes([1; 32]);
     let structure = Arc::new(
@@ -108,7 +126,10 @@ fn fixture_provider_order(domain: ModelingVariableDomain, provider: Option<&pse_
 fn split_native_callbacks_and_equality_root_views() {
     pse_math::initialize().unwrap();
     let (a, values) = fixture(ModelingVariableDomain::Continuous);
-    let worker = a.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
+    let worker = a.worker(
+        pse_kernels::ProviderBindings::new(),
+        pse_diagnostics::Cancellation::default(),
+    );
     let mut oracle = assembled::AlgebraicOracle::new(worker, values).unwrap();
     oracle.admit_nle().unwrap();
     let mut out = [-7.0];
@@ -128,7 +149,10 @@ fn split_native_callbacks_and_equality_root_views() {
 fn native_dense_trial_preserves_atomic_failure_and_recovers() {
     let (assembly, values) = fixture(ModelingVariableDomain::Continuous);
     let mut oracle = assembled::AlgebraicOracle::new(
-        assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default()),
+        assembly.worker(
+            pse_kernels::ProviderBindings::new(),
+            pse_diagnostics::Cancellation::default(),
+        ),
         values.clone(),
     )
     .unwrap();
@@ -154,7 +178,10 @@ fn integrality_is_explicit_and_continuous_oracles_reject_it() {
     p.validate_convex(None).unwrap();
     assert!(
         assembled::AlgebraicOracle::new(
-            a.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default()),
+            a.worker(
+                pse_kernels::ProviderBindings::new(),
+                pse_diagnostics::Cancellation::default()
+            ),
             v
         )
         .is_err()
@@ -197,7 +224,10 @@ fn shared_conditional_oracle_lends_one_worker_and_keeps_other_owners_private() {
     let create = || {
         assembled::SharedRootOracle::new(
             assembled::AlgebraicOracle::compact(
-                assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default()),
+                assembly.worker(
+                    pse_kernels::ProviderBindings::new(),
+                    pse_diagnostics::Cancellation::default(),
+                ),
                 |id| values.scalars.get(&id).copied(),
             )
             .unwrap(),
@@ -233,8 +263,13 @@ fn shared_conditional_oracle_lends_one_worker_and_keeps_other_owners_private() {
 fn repeated_native_completed_callbacks_preserve_point_direction_and_atomic_boundaries() {
     let (assembly, values) = fixture(ModelingVariableDomain::Continuous);
     let mut oracle = assembled::AlgebraicOracle::new(
-        assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default()), values,
-    ).unwrap();
+        assembly.worker(
+            pse_kernels::ProviderBindings::new(),
+            pse_diagnostics::Cancellation::default(),
+        ),
+        values,
+    )
+    .unwrap();
     let mut output = [999.];
     for _ in 0..3 {
         NlpOracle::constraints(&mut oracle, &[3.], &mut output).unwrap();
@@ -250,9 +285,14 @@ fn repeated_native_completed_callbacks_preserve_point_direction_and_atomic_bound
     }
     NleOracle::jacobian_product(&mut oracle, &[3.], &[7.], &mut output).unwrap();
     assert_eq!(output, [7.]);
-    assert!(NleOracle::jacobian_product(&mut oracle, &[3.], &[f64::INFINITY], &mut output).is_err());
+    assert!(
+        NleOracle::jacobian_product(&mut oracle, &[3.], &[f64::INFINITY], &mut output).is_err()
+    );
     assert_eq!(output, [7.]);
-    assert!(matches!(NleOracle::jacobian_product(&mut oracle, &[f64::NAN], &[5.], &mut output), Err(ProblemError::Numerical { .. })));
+    assert!(matches!(
+        NleOracle::jacobian_product(&mut oracle, &[f64::NAN], &[5.], &mut output),
+        Err(ProblemError::Numerical { .. })
+    ));
     assert_eq!(output, [7.]);
     NlpOracle::jacobian(&mut oracle, &[4.], &mut output).unwrap();
     NleOracle::jacobian_product(&mut oracle, &[4.], &[5.], &mut output).unwrap();
@@ -265,7 +305,10 @@ fn repeated_native_completed_callbacks_preserve_point_direction_and_atomic_bound
 
 #[test]
 fn fresh_native_oracle_prepares_provider_demands_before_any_callback_effect() {
-    use pse_kernels::{Provider, ProviderDemand, ProviderError, ProviderOutput, ProviderRuntime, PreparedProviderRequest, EvaluationContext};
+    use pse_kernels::{
+        EvaluationContext, PreparedProviderRequest, Provider, ProviderDemand, ProviderError,
+        ProviderOutput, ProviderRuntime,
+    };
     use std::sync::atomic::{AtomicUsize, Ordering};
     #[derive(Debug)]
     struct Prepared {
@@ -274,40 +317,100 @@ fn fresh_native_oracle_prepares_provider_demands_before_any_callback_effect() {
         orders: Arc<AtomicUsize>,
     }
     impl Provider for Prepared {
-        fn supports(&self, _: &ProviderDemand) -> bool { true }
-        fn prepare_demand(&mut self, request: &PreparedProviderRequest) -> Result<(), ProviderError> {
+        fn supports(&self, _: &ProviderDemand) -> bool {
+            true
+        }
+        fn prepare_demand(
+            &mut self,
+            request: &PreparedProviderRequest,
+        ) -> Result<(), ProviderError> {
             self.preparations.fetch_add(1, Ordering::Relaxed);
-            self.orders.fetch_or(1 << request.order as u8, Ordering::Relaxed);
+            self.orders
+                .fetch_or(1 << request.order as u8, Ordering::Relaxed);
             Ok(())
         }
-        fn fill(&mut self, x: &[f64], request: &PreparedProviderRequest, runtime: ProviderRuntime<'_>,
-            output: ProviderOutput<'_>, _: &EvaluationContext<'_>) -> Result<(), ProviderError> {
-            assert_ne!(self.orders.load(Ordering::Relaxed) & (1 << request.order as u8), 0, "native callback cannot prepare a new demand");
+        fn fill(
+            &mut self,
+            x: &[f64],
+            request: &PreparedProviderRequest,
+            runtime: ProviderRuntime<'_>,
+            output: ProviderOutput<'_>,
+            _: &EvaluationContext<'_>,
+        ) -> Result<(), ProviderError> {
+            assert_ne!(
+                self.orders.load(Ordering::Relaxed) & (1 << request.order as u8),
+                0,
+                "native callback cannot prepare a new demand"
+            );
             self.effects.fetch_add(1, Ordering::Relaxed);
             output.values[0] = x[0];
-            output.jacobian.fill(1.); output.hessians.fill(0.);
-            if matches!(request.demand, ProviderDemand::JacobianAction { .. }) { output.jacobian[0] = runtime.directions[0]; }
+            output.jacobian.fill(1.);
+            output.hessians.fill(0.);
+            if matches!(request.demand, ProviderDemand::JacobianAction { .. }) {
+                output.jacobian[0] = runtime.directions[0];
+            }
             Ok(())
         }
     }
-    let registry=standard_registry().unwrap();let quantity=ids::quantity("neutral");let unit=registry.quantity_type(quantity).unwrap().canonical_unit;
-    let port=|n|pse_kernels::Port{id:SemanticId::from_bytes([n;16]),quantity,unit};
-    let spec=pse_kernels::ProviderSpec{id:SemanticId::from_bytes([85;16]),revision:ContentHash::from_bytes([86;32]),data:ContentHash::from_bytes([87;32]),
-        inputs:vec![port(88)],outputs:vec![port(89)],shapes:Default::default(),derivative_source:pse_kernels::DerivativeSource::Analytic,
-        derivatives:DerivativeOrder::Second,smoothness:DerivativeOrder::Second};
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+    let port = |n| pse_kernels::Port {
+        id: SemanticId::from_bytes([n; 16]),
+        quantity,
+        unit,
+    };
+    let spec = pse_kernels::ProviderSpec {
+        id: SemanticId::from_bytes([85; 16]),
+        revision: ContentHash::from_bytes([86; 32]),
+        data: ContentHash::from_bytes([87; 32]),
+        inputs: vec![port(88)],
+        outputs: vec![port(89)],
+        shapes: Default::default(),
+        derivative_source: pse_kernels::DerivativeSource::Analytic,
+        derivatives: DerivativeOrder::Second,
+        smoothness: DerivativeOrder::Second,
+    };
     for order in [DerivativeOrder::First, DerivativeOrder::Second] {
-    let (assembly, values)=fixture_provider_order(ModelingVariableDomain::Continuous,Some(&spec),order);
-    let preparations=Arc::new(AtomicUsize::new(0));let effects=Arc::new(AtomicUsize::new(0));let orders=Arc::new(AtomicUsize::new(0));
-    let binding=pse_kernels::ProviderBinding::new(spec.clone(),Box::new(Prepared{preparations:preparations.clone(),effects:effects.clone(),orders:orders.clone()}));
-    let worker=assembly.worker(pse_kernels::ProviderBindings::from([(spec.key(),binding)]),pse_diagnostics::Cancellation::default());
-    assert_eq!(preparations.load(Ordering::Relaxed),0);
-    let mut oracle=assembled::AlgebraicOracle::new(worker,values).unwrap();
-    let prepared=preparations.load(Ordering::Relaxed);assert!(prepared>0);assert_eq!(effects.load(Ordering::Relaxed),0);
-    if order==DerivativeOrder::First { assert_eq!(orders.load(Ordering::Relaxed) & (1 << DerivativeOrder::Second as u8),0,
-        "a First-only bound program never prepares unused Second capability"); }
-    let mut result=[91.];NleOracle::residual(&mut oracle,&[3.],&mut result).unwrap();assert_eq!(result,[1.]);
-    NleOracle::jacobian_product(&mut oracle,&[3.],&[5.],&mut result).unwrap();assert_eq!(result,[5.]);
-    assert_eq!(preparations.load(Ordering::Relaxed),prepared,"callbacks only use precompiled demand set");
-    assert!(effects.load(Ordering::Relaxed)>=2);
+        let (assembly, values) =
+            fixture_provider_order(ModelingVariableDomain::Continuous, Some(&spec), order);
+        let preparations = Arc::new(AtomicUsize::new(0));
+        let effects = Arc::new(AtomicUsize::new(0));
+        let orders = Arc::new(AtomicUsize::new(0));
+        let binding = pse_kernels::ProviderBinding::new(
+            spec.clone(),
+            Box::new(Prepared {
+                preparations: preparations.clone(),
+                effects: effects.clone(),
+                orders: orders.clone(),
+            }),
+        );
+        let worker = assembly.worker(
+            pse_kernels::ProviderBindings::from([(spec.key(), binding)]),
+            pse_diagnostics::Cancellation::default(),
+        );
+        assert_eq!(preparations.load(Ordering::Relaxed), 0);
+        let mut oracle = assembled::AlgebraicOracle::new(worker, values).unwrap();
+        let prepared = preparations.load(Ordering::Relaxed);
+        assert!(prepared > 0);
+        assert_eq!(effects.load(Ordering::Relaxed), 0);
+        if order == DerivativeOrder::First {
+            assert_eq!(
+                orders.load(Ordering::Relaxed) & (1 << DerivativeOrder::Second as u8),
+                0,
+                "a First-only bound program never prepares unused Second capability"
+            );
+        }
+        let mut result = [91.];
+        NleOracle::residual(&mut oracle, &[3.], &mut result).unwrap();
+        assert_eq!(result, [1.]);
+        NleOracle::jacobian_product(&mut oracle, &[3.], &[5.], &mut result).unwrap();
+        assert_eq!(result, [5.]);
+        assert_eq!(
+            preparations.load(Ordering::Relaxed),
+            prepared,
+            "callbacks only use precompiled demand set"
+        );
+        assert!(effects.load(Ordering::Relaxed) >= 2);
     }
 }

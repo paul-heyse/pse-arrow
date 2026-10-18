@@ -42,7 +42,11 @@ pub(super) fn allocation_bound(
                         + program.input_formals().len())
                     .checked_mul(2 * size_of::<usize>())?
                     .checked_add(2 * size_of::<ProjectionRelationship>())?
-                    .checked_add(program.first_result_entries().checked_mul(size_of::<Option<usize>>())?)?
+                    .checked_add(
+                        program
+                            .first_result_entries()
+                            .checked_mul(size_of::<Option<usize>>())?,
+                    )?
                     .checked_add(program.evaluation_cache_bytes())?;
                     bytes.checked_add(one.checked_mul(donors)?)
                 })
@@ -94,9 +98,16 @@ fn prepare(target: &CompiledBody, donor: &CompiledBody) -> Option<ProjectionMap>
     let witnesses = target.projection_witnesses(target.compiled_order());
     let first = target.projection_first_layout();
     let donor_first = donor.projection_first_layout();
-    let first_sources = rows.iter().enumerate().flat_map(|(row, &donor_row)| {
-        first.entries(row).map(|(axis, _)| donor_first.offset(donor_row, axes[axis])).collect::<Vec<_>>()
-    }).collect();
+    let first_sources = rows
+        .iter()
+        .enumerate()
+        .flat_map(|(row, &donor_row)| {
+            first
+                .entries(row)
+                .map(|(axis, _)| donor_first.offset(donor_row, axes[axis]))
+                .collect::<Vec<_>>()
+        })
+        .collect();
     Some(ProjectionMap {
         rows,
         axes,

@@ -411,7 +411,12 @@ fn branch_local_jets_refuse_unproved_boundaries_without_global_smoothness() {
         let mut worker = compiled.worker();
         for (x, slope) in [(-2.0, -1.0), (2.0, 1.0)] {
             let jet = worker
-                .evaluate(&[x], DerivativeOrder::Second, &mut pse_kernels::ProviderBindings::new(), &cancel)
+                .evaluate(
+                    &[x],
+                    DerivativeOrder::Second,
+                    &mut pse_kernels::ProviderBindings::new(),
+                    &cancel,
+                )
                 .unwrap();
             assert_eq!(jet.values, vec![2.0]);
             assert_eq!(jet.jacobian, vec![slope]);

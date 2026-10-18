@@ -343,7 +343,9 @@ fn kernel_body_construction_limits_are_tracked_without_changing_mathematics() {
         let values = CaseValues {
             scalars: admitted.inputs.iter().map(|id| (*id, 3.0)).collect(),
         };
-        let mut worker = artifact.assembly.worker(pse_kernels::ProviderBindings::new(), cancel.clone());
+        let mut worker = artifact
+            .assembly
+            .worker(pse_kernels::ProviderBindings::new(), cancel.clone());
         let residuals = worker.constraints(&values).unwrap().to_vec();
         let jacobian = worker.jacobian(&values).unwrap();
         let jacobian = (
@@ -677,12 +679,22 @@ fn kernel_partial_preserves_erased_division_guard() {
     let mut worker = artifact.worker();
     assert!(
         worker
-            .evaluate(&[0.], DerivativeOrder::Value, &mut pse_kernels::ProviderBindings::new(), &cancel)
+            .evaluate(
+                &[0.],
+                DerivativeOrder::Value,
+                &mut pse_kernels::ProviderBindings::new(),
+                &cancel
+            )
             .is_err()
     );
     assert_eq!(
         worker
-            .evaluate(&[2.], DerivativeOrder::Value, &mut pse_kernels::ProviderBindings::new(), &cancel)
+            .evaluate(
+                &[2.],
+                DerivativeOrder::Value,
+                &mut pse_kernels::ProviderBindings::new(),
+                &cancel
+            )
             .unwrap()
             .equations(&admitted),
         vec![0.]
@@ -789,7 +801,12 @@ fn kernel_literals_keep_physical_context_after_source_spans_are_removed() {
     .unwrap();
     let mut values = artifact
         .worker()
-        .evaluate(&[300.], DerivativeOrder::Value, &mut pse_kernels::ProviderBindings::new(), &flag)
+        .evaluate(
+            &[300.],
+            DerivativeOrder::Value,
+            &mut pse_kernels::ProviderBindings::new(),
+            &flag,
+        )
         .unwrap()
         .values;
     values.sort_by(f64::total_cmp);
@@ -874,7 +891,12 @@ fn kernel_compiled_original_terms_feed_independent_closure() {
         .collect::<Vec<_>>();
     let mut values = artifact
         .worker()
-        .evaluate(&input, DerivativeOrder::Value, &mut pse_kernels::ProviderBindings::new(), &flag)
+        .evaluate(
+            &input,
+            DerivativeOrder::Value,
+            &mut pse_kernels::ProviderBindings::new(),
+            &flag,
+        )
         .unwrap()
         .values;
     for (meaning, value) in prepared.admitted.outputs.iter().zip(&mut values) {
@@ -1050,7 +1072,12 @@ fn kernel_empty_indexed_polymorphic_sum_retains_physical_type() {
     assert_eq!(
         artifact
             .worker()
-            .evaluate(&[], DerivativeOrder::Value, &mut pse_kernels::ProviderBindings::new(), &cancel)
+            .evaluate(
+                &[],
+                DerivativeOrder::Value,
+                &mut pse_kernels::ProviderBindings::new(),
+                &cancel
+            )
             .unwrap()
             .values,
         vec![0.]
@@ -1268,7 +1295,9 @@ fn kernel_original_terms_survive_exact_cancellation_for_scaling() {
         &flag,
     )
     .unwrap();
-    let mut worker = f.assembly.worker(pse_kernels::ProviderBindings::new(), flag);
+    let mut worker = f
+        .assembly
+        .worker(pse_kernels::ProviderBindings::new(), flag);
     let observations = worker
         .constraints(&CaseValues {
             scalars: BTreeMap::from([(admitted.inputs[0], 4.0)]),
@@ -1451,7 +1480,9 @@ fn kernel_function_validity_guards_survive_simplification_and_partial_derivative
             &cancel,
         )
         .unwrap();
-        let mut worker = f.assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
+        let mut worker = f
+            .assembly
+            .worker(pse_kernels::ProviderBindings::new(), cancel);
         let values = |x| CaseValues {
             scalars: BTreeMap::from([(admitted.inputs[0], x)]),
         };
@@ -1661,7 +1692,10 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
                 .contains("bound derivative capability")
         );
         let mut worker = f.assembly.worker(
-            pse_kernels::ProviderBindings::from([(inner.descriptor.spec().key(), factory.create().unwrap())]),
+            pse_kernels::ProviderBindings::from([(
+                inner.descriptor.spec().key(),
+                factory.create().unwrap(),
+            )]),
             cancel.clone(),
         );
         let values = CaseValues {
@@ -1945,19 +1979,20 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
         );
         assert_eq!(root_factory.bodies.unknown.coordinates(), [0]);
         let mut provider = factory.create().unwrap();
-        let values = completed_provider_values(&mut provider,
-                &[4.],
-                &ProviderRequest {
-        demand: pse_kernels::ProviderDemand::CompleteJets,
-                    outputs: vec![0],
-                    order: DerivativeOrder::Value,
-                },
-                &EvaluationContext {
-                    cancelled: &cancel,
-                    max_result_bytes: 1024,
-                },
-            )
-            .unwrap();
+        let values = completed_provider_values(
+            &mut provider,
+            &[4.],
+            &ProviderRequest {
+                demand: pse_kernels::ProviderDemand::CompleteJets,
+                outputs: vec![0],
+                order: DerivativeOrder::Value,
+            },
+            &EvaluationContext {
+                cancelled: &cancel,
+                max_result_bytes: 1024,
+            },
+        )
+        .unwrap();
         assert_eq!(values.values, vec![f64::from(anchor) * 2.]);
     }
     assert_ne!(identities[0], identities[1]);
@@ -2221,8 +2256,11 @@ fn implicit_constructor_bound_uses_residual_minimum_and_requested_output() {
     };
     let first = bound(DerivativeOrder::First);
     assert_eq!(bound(DerivativeOrder::Value), first);
-    assert_eq!(first, bound(DerivativeOrder::Second),
-        "factory retention contains the same Value source and native minimum; actual derivatives prepare on demand");
+    assert_eq!(
+        first,
+        bound(DerivativeOrder::Second),
+        "factory retention contains the same Value source and native minimum; actual derivatives prepare on demand"
+    );
     let solver = pse_math::implicit::Affine::new(&inner.residuals[0].body.math, 1).unwrap();
     let programs = inner
         .compile_programs(
@@ -2380,11 +2418,21 @@ fn implicit_nested_value_limits_child_derivatives_to_unknown_coordinate_demand()
     );
     assert_eq!(parent_factory.bodies.unknown.coordinates(), [0]);
     let source = &parent_factory.bodies.source;
-    let support = source.prepared_support().incidence(&[0, 1], &cancel).unwrap()
-        .upgrade(DerivativeOrder::First, &cancel).unwrap()
-        .at_order(DerivativeOrder::First).unwrap();
-    let full = support.compile(Default::default(), limits,
-        &pse_kernels::ExecutionScope::new(cancel.clone(), None)).unwrap();
+    let support = source
+        .prepared_support()
+        .incidence(&[0, 1], &cancel)
+        .unwrap()
+        .upgrade(DerivativeOrder::First, &cancel)
+        .unwrap()
+        .at_order(DerivativeOrder::First)
+        .unwrap();
+    let full = support
+        .compile(
+            Default::default(),
+            limits,
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+        )
+        .unwrap();
     let mut evaluator = full.worker();
     let child_value = child
         .factory(
@@ -2399,22 +2447,42 @@ fn implicit_nested_value_limits_child_derivatives_to_unknown_coordinate_demand()
             limits,
         )
         .unwrap();
-    let mut workers =
-        pse_kernels::ProviderBindings::from([(child.descriptor.spec().key(), child_value.create().unwrap())]);
+    let mut workers = pse_kernels::ProviderBindings::from([(
+        child.descriptor.spec().key(),
+        child_value.create().unwrap(),
+    )]);
     // The actual native Jacobian differentiates only the parent's unknown.
     // Its parameter-only child contributes physical values, not parameter partials.
     let mut native = parent_factory.bodies.unknown.worker();
     native.prepare_providers(&mut workers).unwrap();
-    let evaluated = native.evaluate(&[2., 4.], DerivativeOrder::First, &mut workers, &cancel).unwrap();
+    let evaluated = native
+        .evaluate(&[2., 4.], DerivativeOrder::First, &mut workers, &cancel)
+        .unwrap();
     assert!(evaluated.values[0].abs() < 1e-12);
     assert_eq!(evaluated.jacobian, [1.]);
     // A genuine complete parameter derivative still requires the child's First profile.
-    assert!(evaluator.prepare_providers(&mut workers).unwrap_err().to_string()
-        .contains("bound derivative capability"));
-    let first_requirements = parent.requirements(DerivativeOrder::First,
-        DerivativeOrder::First, None, &accelerators, &cancel, limits).unwrap();
+    assert!(
+        evaluator
+            .prepare_providers(&mut workers)
+            .unwrap_err()
+            .to_string()
+            .contains("bound derivative capability")
+    );
+    let first_requirements = parent
+        .requirements(
+            DerivativeOrder::First,
+            DerivativeOrder::First,
+            None,
+            &accelerators,
+            &cancel,
+            limits,
+        )
+        .unwrap();
     let first_demands = parent.provider_demands(first_requirements).unwrap();
-    assert_eq!(first_demands[&child.descriptor.spec().key()], DerivativeOrder::First);
+    assert_eq!(
+        first_demands[&child.descriptor.spec().key()],
+        DerivativeOrder::First
+    );
     let child_first = child
         .factory(
             configs(child),
@@ -2428,7 +2496,10 @@ fn implicit_nested_value_limits_child_derivatives_to_unknown_coordinate_demand()
             limits,
         )
         .unwrap();
-    workers = pse_kernels::ProviderBindings::from([(child.descriptor.spec().key(), child_first.create().unwrap())]);
+    workers = pse_kernels::ProviderBindings::from([(
+        child.descriptor.spec().key(),
+        child_first.create().unwrap(),
+    )]);
     evaluator.prepare_providers(&mut workers).unwrap();
     let evaluated = evaluator
         .evaluate(&[2., 4.], DerivativeOrder::First, &mut workers, &cancel)
@@ -2525,7 +2596,9 @@ fn kernel_elastic_variants_preserve_originals_and_normalize_penalties() {
             other => panic!("unexpected elastic row {other}"),
         }
     }
-    let mut worker = f.assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
+    let mut worker = f
+        .assembly
+        .worker(pse_kernels::ProviderBindings::new(), cancel);
     let values = CaseValues { scalars: values };
     let rows = worker.constraints(&values).unwrap();
     let public = a.ordered_values(rows).unwrap();
@@ -2663,7 +2736,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
     #[derive(Debug)]
     struct Vector;
     impl Provider for Vector {
-            fn fill(
+        fn fill(
             &mut self,
             x: &[f64],
             r: &PreparedProviderRequest,
@@ -2828,9 +2901,10 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         let cancel = Cancellation::new(false);
         let f = fixture(&a, w.inputs.quantities.clone(), order, &cancel).unwrap();
         let provider = ProviderBinding::new(spec.clone(), Box::new(Vector));
-        let mut worker = f
-            .assembly
-            .worker(ProviderBindings::from([(spec.key(), provider)]), cancel.clone());
+        let mut worker = f.assembly.worker(
+            ProviderBindings::from([(spec.key(), provider)]),
+            cancel.clone(),
+        );
         let point = CaseValues {
             scalars: a.inputs.iter().map(|id| (*id, 2.)).collect(),
         };
@@ -2956,7 +3030,10 @@ fn kernel_case_projection_excludes_observations_and_preserves_specification() {
     );
     assert_eq!(
         assembly
-            .worker(pse_kernels::ProviderBindings::new(), Cancellation::new(false))
+            .worker(
+                pse_kernels::ProviderBindings::new(),
+                Cancellation::new(false)
+            )
             .constraints(&values)
             .unwrap(),
         vec![0.0]
@@ -3474,7 +3551,9 @@ impl Fixture {
     fn worker(&self) -> FixtureWorker<'_> {
         FixtureWorker {
             fixture: self,
-            worker: self.assembly.worker(pse_kernels::ProviderBindings::new(), self.cancel.clone()),
+            worker: self
+                .assembly
+                .worker(pse_kernels::ProviderBindings::new(), self.cancel.clone()),
         }
     }
 }
@@ -3628,7 +3707,8 @@ fn affine_row_demand_keeps_opaque_rows_and_original_domain_execution() {
             &pse_kernels::ExecutionScope::new(cancel.clone(), None),
         )
         .unwrap();
-    let mut worker = Arc::new(assembly).worker(pse_kernels::ProviderBindings::new(), cancel.clone());
+    let mut worker =
+        Arc::new(assembly).worker(pse_kernels::ProviderBindings::new(), cancel.clone());
     worker
         .constraints(&values)
         .expect("the explicitly bound original point must satisfy its validity guards");
@@ -3800,7 +3880,12 @@ fn kernel_piecewise_chained_breakpoints_and_explicit_partials_keep_proved_order(
     for x in [-1.0, 0.0, 0.5, 1.0, 2.0] {
         let jet = compiled
             .worker()
-            .evaluate(&[x], DerivativeOrder::First, &mut pse_kernels::ProviderBindings::new(), &cancel)
+            .evaluate(
+                &[x],
+                DerivativeOrder::First,
+                &mut pse_kernels::ProviderBindings::new(),
+                &cancel,
+            )
             .unwrap();
         let expected = if x < 0. {
             0.
@@ -3813,7 +3898,9 @@ fn kernel_piecewise_chained_breakpoints_and_explicit_partials_keep_proved_order(
         } else {
             6. * x + if x > 1. { 6. * (x - 1.) } else { 0. }
         };
-        let mut worker = compiled.assembly.worker(pse_kernels::ProviderBindings::new(), cancel.clone());
+        let mut worker = compiled
+            .assembly
+            .worker(pse_kernels::ProviderBindings::new(), cancel.clone());
         let jacobian = worker
             .jacobian(&CaseValues {
                 scalars: BTreeMap::from([(admitted.inputs[0], x)]),
@@ -4264,29 +4351,31 @@ fn implicit_minimum_score_unproved_native_roots_are_value_only() {
             cancelled: &cancel,
             max_result_bytes: 1024,
         };
-        let value = completed_provider_values(&mut provider,
-                &[0.],
-                &ProviderRequest {
-        demand: pse_kernels::ProviderDemand::CompleteJets,
-                    outputs: vec![0],
-                    order: DerivativeOrder::Value,
-                },
-                &context,
-            )
-            .unwrap();
+        let value = completed_provider_values(
+            &mut provider,
+            &[0.],
+            &ProviderRequest {
+                demand: pse_kernels::ProviderDemand::CompleteJets,
+                outputs: vec![0],
+                order: DerivativeOrder::Value,
+            },
+            &context,
+        )
+        .unwrap();
         assert_eq!(value.values, vec![candidate]);
         for requested in [DerivativeOrder::First, DerivativeOrder::Second] {
             assert!(
-                completed_provider_values(&mut provider,
-                        &[0.],
-                        &ProviderRequest {
-        demand: pse_kernels::ProviderDemand::CompleteJets,
-                            outputs: vec![0],
-                            order: requested
-                        },
-                        &context
-                    )
-                    .is_err()
+                completed_provider_values(
+                    &mut provider,
+                    &[0.],
+                    &ProviderRequest {
+                        demand: pse_kernels::ProviderDemand::CompleteJets,
+                        outputs: vec![0],
+                        order: requested
+                    },
+                    &context
+                )
+                .is_err()
             );
         }
     }
@@ -4606,16 +4695,17 @@ mod nonlinear_selection_isolation_tests {
             cancelled: &cancel,
             max_result_bytes: 1024,
         };
-        let values = completed_provider_values(&mut provider,
-                &[4.0],
-                &ProviderRequest {
-        demand: pse_kernels::ProviderDemand::CompleteJets,
-                    outputs: vec![0],
-                    order: DerivativeOrder::Value,
-                },
-                &context,
-            )
-            .unwrap();
+        let values = completed_provider_values(
+            &mut provider,
+            &[4.0],
+            &ProviderRequest {
+                demand: pse_kernels::ProviderDemand::CompleteJets,
+                outputs: vec![0],
+                order: DerivativeOrder::Value,
+            },
+            &context,
+        )
+        .unwrap();
         assert_eq!(values.values, vec![-2.0]);
         assert!(values.jacobian.is_empty());
         assert!(values.hessians.is_empty());
@@ -4687,16 +4777,17 @@ mod nonlinear_selection_isolation_tests {
                 max_result_bytes: 1024,
             };
             let before = verifier.calls.load(Ordering::Relaxed);
-            let jet = completed_provider_values(&mut provider,
-                    &[4.0],
-                    &ProviderRequest {
-        demand: pse_kernels::ProviderDemand::CompleteJets,
-                        outputs: vec![0],
-                        order: requested,
-                    },
-                    &context,
-                )
-                .unwrap();
+            let jet = completed_provider_values(
+                &mut provider,
+                &[4.0],
+                &ProviderRequest {
+                    demand: pse_kernels::ProviderDemand::CompleteJets,
+                    outputs: vec![0],
+                    order: requested,
+                },
+                &context,
+            )
+            .unwrap();
             assert_eq!(verifier.calls.load(Ordering::Relaxed) - before, 1);
             assert_eq!(jet.values, vec![-2.0]);
             assert_eq!(jet.jacobian.len(), 1);
@@ -4755,16 +4846,17 @@ mod nonlinear_selection_isolation_tests {
                     cancelled: &cancel,
                     max_result_bytes: 1024,
                 };
-                let error = completed_provider_values(&mut provider,
-                        &[4.0],
-                        &ProviderRequest {
-        demand: pse_kernels::ProviderDemand::CompleteJets,
-                            outputs: vec![0],
-                            order: requested,
-                        },
-                        &context,
-                    )
-                    .unwrap_err();
+                let error = completed_provider_values(
+                    &mut provider,
+                    &[4.0],
+                    &ProviderRequest {
+                        demand: pse_kernels::ProviderDemand::CompleteJets,
+                        outputs: vec![0],
+                        order: requested,
+                    },
+                    &context,
+                )
+                .unwrap_err();
                 let pse_kernels::ProviderError::Nested { cause, .. } = &error else {
                     panic!("original selection cause must be retained: {error}");
                 };
@@ -4804,19 +4896,20 @@ mod nonlinear_selection_isolation_tests {
                 )
                 .unwrap();
             let mut provider = factory.create().unwrap();
-            let error = completed_provider_values(&mut provider,
-                    &[4.0],
-                    &ProviderRequest {
-        demand: pse_kernels::ProviderDemand::CompleteJets,
-                        outputs: vec![0],
-                        order: DerivativeOrder::First,
-                    },
-                    &EvaluationContext {
-                        cancelled: &cancel,
-                        max_result_bytes: 1024,
-                    },
-                )
-                .unwrap_err();
+            let error = completed_provider_values(
+                &mut provider,
+                &[4.0],
+                &ProviderRequest {
+                    demand: pse_kernels::ProviderDemand::CompleteJets,
+                    outputs: vec![0],
+                    order: DerivativeOrder::First,
+                },
+                &EvaluationContext {
+                    cancelled: &cancel,
+                    max_result_bytes: 1024,
+                },
+            )
+            .unwrap_err();
             let pse_kernels::ProviderError::Nested { cause, .. } = &error else {
                 panic!("original chart contract cause must be retained: {error}");
             };
@@ -4870,19 +4963,20 @@ mod nonlinear_selection_isolation_tests {
         let mut provider = factory.create().unwrap();
         // This injected certificate tests consumption of the entire source union;
         // the native verifier separately proves competitive-root exclusion.
-        let jet = completed_provider_values(&mut provider,
-                &[4.0],
-                &ProviderRequest {
-        demand: pse_kernels::ProviderDemand::CompleteJets,
-                    outputs: vec![0],
-                    order: DerivativeOrder::Second,
-                },
-                &EvaluationContext {
-                    cancelled: &cancel,
-                    max_result_bytes: 1024,
-                },
-            )
-            .unwrap();
+        let jet = completed_provider_values(
+            &mut provider,
+            &[4.0],
+            &ProviderRequest {
+                demand: pse_kernels::ProviderDemand::CompleteJets,
+                outputs: vec![0],
+                order: DerivativeOrder::Second,
+            },
+            &EvaluationContext {
+                cancelled: &cancel,
+                max_result_bytes: 1024,
+            },
+        )
+        .unwrap();
         assert_eq!(verifier.calls.load(Ordering::Relaxed), 1);
         assert_eq!(jet.values, vec![-2.0]);
         assert!((jet.jacobian[0] + 0.25).abs() < 1e-12);
@@ -5639,7 +5733,9 @@ fn kernel_finite_reductions_retain_domains_prototypes_and_derivatives() {
     let case = CaseValues {
         scalars: admitted.inputs.iter().copied().zip([3., 4.]).collect(),
     };
-    let mut numeric = compiled.assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
+    let mut numeric = compiled
+        .assembly
+        .worker(pse_kernels::ProviderBindings::new(), cancel);
     let jacobian = numeric.jacobian(&case).unwrap();
     let (rows, columns, values) = (
         jacobian.row_idx().to_vec(),
@@ -5994,7 +6090,9 @@ fn kernel_objective_selection_preserves_values_derivatives_and_penalty_direction
                     2.0,
                 );
             }
-            let mut worker = f.assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
+            let mut worker = f
+                .assembly
+                .worker(pse_kernels::ProviderBindings::new(), cancel);
             assert!(
                 (worker.objective(&values).unwrap()
                     - (sign * 4.0 + if elastic { 1.0 } else { 0.0 }))
@@ -6939,7 +7037,7 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
     #[derive(Debug)]
     struct IdentityProvider;
     impl pse_kernels::Provider for IdentityProvider {
-            fn fill(
+        fn fill(
             &mut self,
             inputs: &[f64],
             request: &pse_kernels::PreparedProviderRequest,
@@ -6978,7 +7076,10 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
     };
     let first = inners[0].descriptor.spec();
     let provider = pse_kernels::ProviderBinding::new(first.clone(), Box::new(IdentityProvider));
-    let mut worker = assembly.worker(pse_kernels::ProviderBindings::from([(first.key(), provider)]), cancel.clone());
+    let mut worker = assembly.worker(
+        pse_kernels::ProviderBindings::from([(first.key(), provider)]),
+        cancel.clone(),
+    );
     assert_eq!(
         worker.constraints(&values).unwrap(),
         vec![2.0],
@@ -7370,7 +7471,8 @@ fn authored_affine_accelerator_uses_registered_solver_and_original_ift_guards() 
     for (parameter, value, first, second) in
         [(2.0, 0.5, -0.25, 0.25), (4.0, 0.25, -0.0625, 0.03125)]
     {
-        let output = completed_provider_values(&mut provider, &[parameter], &request, &context).unwrap();
+        let output =
+            completed_provider_values(&mut provider, &[parameter], &request, &context).unwrap();
         assert!((output.values[0] - value).abs() < 1e-12);
         assert!((output.jacobian[0] - first).abs() < 1e-12);
         assert!((output.hessians[0] - second).abs() < 1e-12);
@@ -7607,7 +7709,8 @@ fn implicit_artifact_requests_separate_program_premises_from_fresh_hint_values()
                 limits,
                 &programs
             )
-            .is_err()
+            .is_ok(),
+        "a stronger scientific ceiling reuses the same Value source and native minimum"
     );
 }
 
@@ -7741,29 +7844,31 @@ fn implicit_request_local_accelerator_is_admitted_once_then_reused_for_factory_a
                 let request =
                     pse_kernels::ProviderRequest::all(worker.spec(), DerivativeOrder::First);
                 barrier.wait();
-                let result = completed_provider_values(&mut worker,
-                        &[input],
-                        &request,
-                        &pse_kernels::EvaluationContext {
-                            cancelled: &stop,
-                            max_result_bytes: 1 << 20,
-                        },
-                    )
-                    .unwrap();
+                let result = completed_provider_values(
+                    &mut worker,
+                    &[input],
+                    &request,
+                    &pse_kernels::EvaluationContext {
+                        cancelled: &stop,
+                        max_result_bytes: 1 << 20,
+                    },
+                )
+                .unwrap();
                 assert_eq!(result.values, [input / 2.]);
                 assert_eq!(result.jacobian, [0.5]);
                 if lane == 0 {
                     stop.cancel();
                     assert!(
-                        completed_provider_values(&mut worker,
-                                &[input],
-                                &request,
-                                &pse_kernels::EvaluationContext {
-                                    cancelled: &stop,
-                                    max_result_bytes: 1 << 20,
-                                }
-                            )
-                            .is_err()
+                        completed_provider_values(
+                            &mut worker,
+                            &[input],
+                            &request,
+                            &pse_kernels::EvaluationContext {
+                                cancelled: &stop,
+                                max_result_bytes: 1 << 20,
+                            }
+                        )
+                        .is_err()
                     );
                 }
             })
@@ -7776,89 +7881,214 @@ fn implicit_request_local_accelerator_is_admitted_once_then_reused_for_factory_a
 
 // Test-only dense assessment boundary: copy only a successfully completed fill.
 #[cfg(test)]
-fn completed_provider_values(provider: &mut pse_kernels::ProviderBinding, inputs: &[f64],
-    request: &pse_kernels::ProviderRequest, context: &pse_kernels::EvaluationContext<'_>)
-    -> std::result::Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+fn completed_provider_values(
+    provider: &mut pse_kernels::ProviderBinding,
+    inputs: &[f64],
+    request: &pse_kernels::ProviderRequest,
+    context: &pse_kernels::EvaluationContext<'_>,
+) -> std::result::Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
     let prepared = provider.prepare(request.clone())?;
     prepared.check_context(context)?;
     let mut buffer = pse_kernels::ProviderBuffer::new(&prepared);
-    let completed = buffer.fill(provider, inputs, &prepared, pse_kernels::ProviderRuntime::default(), context)?;
-    Ok(pse_kernels::ProviderValues { values: completed.values.to_vec(), jacobian: completed.jacobian.to_vec(), hessians: completed.hessians.to_vec() })
+    let completed = buffer.fill(
+        provider,
+        inputs,
+        &prepared,
+        pse_kernels::ProviderRuntime::default(),
+        context,
+    )?;
+    Ok(pse_kernels::ProviderValues {
+        values: completed.values.to_vec(),
+        jacobian: completed.jacobian.to_vec(),
+        hessians: completed.hessians.to_vec(),
+    })
 }
 
 #[test]
 fn implicit_dense_parameter_actions_do_not_construct_unused_complete_jets() {
-    use pse_kernels::{DerivativeOrder, ProviderBuffer, ProviderDemand, ProviderFactory,
-        ProviderRequest, ProviderRuntime, EvaluationContext};
-    use pse_math::implicit::{ImplicitFactory, InnerSolver, InnerWorker, Options, Problem, Unknown};
+    use pse_kernels::{
+        DerivativeOrder, EvaluationContext, ProviderBuffer, ProviderDemand, ProviderFactory,
+        ProviderRequest, ProviderRuntime,
+    };
+    use pse_math::implicit::{
+        ImplicitFactory, InnerSolver, InnerWorker, Options, Problem, Unknown,
+    };
     use std::sync::atomic::{AtomicUsize, Ordering};
     #[derive(Clone, Debug)]
     struct DenseRoot(Arc<AtomicUsize>);
     impl InnerSolver for DenseRoot {
-        fn minimum_order(&self) -> DerivativeOrder { DerivativeOrder::First }
-        fn identity(&self) -> ContentHash { ContentHash::from_bytes([246; 32]) }
-        fn worker(&self) -> Box<dyn InnerWorker> { Box::new(self.clone()) }
+        fn minimum_order(&self) -> DerivativeOrder {
+            DerivativeOrder::First
+        }
+        fn identity(&self) -> ContentHash {
+            ContentHash::from_bytes([246; 32])
+        }
+        fn worker(&self) -> Box<dyn InnerWorker> {
+            Box::new(self.clone())
+        }
     }
     impl InnerWorker for DenseRoot {
-        fn solve(&mut self, _: Arc<Problem>, inputs: &[f64], _: &Options,
-            _: &Cancellation) -> std::result::Result<Vec<f64>, MathError> {
+        fn solve(
+            &mut self,
+            _: Arc<Problem>,
+            inputs: &[f64],
+            _: &Options,
+            _: &Cancellation,
+        ) -> std::result::Result<Vec<f64>, MathError> {
             self.0.fetch_add(1, Ordering::Relaxed);
             Ok(vec![inputs.iter().sum::<f64>().powi(2)])
         }
     }
     let parameters = 128;
-    let declarations = (0..parameters).map(|i| format!("param p{i}:Scalar=0.001; ")).collect::<String>();
+    let declarations = (0..parameters)
+        .map(|i| format!("param p{i}:Scalar=0.001; "))
+        .collect::<String>();
     // Balanced authored syntax keeps this demand test independent of the syntax-depth guard.
     let mut terms = (0..parameters).map(|i| format!("p{i}")).collect::<Vec<_>>();
     while terms.len() > 1 {
-        terms = terms.chunks(2).map(|pair| match pair {
-            [left, right] => format!("({left}+{right})"),
-            [only] => only.clone(),
-            _ => unreachable!(),
-        }).collect();
+        terms = terms
+            .chunks(2)
+            .map(|pair| match pair {
+                [left, right] => format!("({left}+{right})"),
+                [only] => only.clone(),
+                _ => unreachable!(),
+            })
+            .collect();
     }
     let sum = &terms[0];
-    let text = format!("package p {{ def Root {{ {declarations} implicit inner {{ var z:Scalar; eq e:z==({sum})*({sum}); }} realize i on inner using nested; eq e:inner.z==1; }} }}");
+    let text = format!(
+        "package p {{ def Root {{ {declarations} implicit inner {{ var z:Scalar; eq e:z==({sum})*({sum}); }} realize i on inner using nested; eq e:inner.z==1; }} }}"
+    );
     let (mut workspace, _, _, root) = setup(&text);
-    let admitted = workspace.admit_modeling(root, InstanceId::from_id(SemanticId::NIL),
-        Bindings::default(), Limits { body_occurrences:Some(1_000_000), ..Limits::default() }).unwrap();
+    let admitted = workspace
+        .admit_modeling(
+            root,
+            InstanceId::from_id(SemanticId::NIL),
+            Bindings::default(),
+            Limits {
+                body_occurrences: Some(1_000_000),
+                ..Limits::default()
+            },
+        )
+        .unwrap();
     let inner = admitted.implicit.values().next().unwrap();
     assert_eq!(inner.descriptor.spec().inputs.len(), parameters);
-    let configurations = BTreeMap::from([(inner.residuals[0].id,
-        pse_math::implicit::Configuration::Fixed(vec![Unknown { id:inner.unknowns[0], lower:-1e6, upper:1e6 }],
-            Options { start:vec![0.], variable_nominals:vec![1.], variable_tolerance:vec![0.001],
-                residual_tolerance:vec![0.001], iterations:10, time_limit:std::time::Duration::from_secs(10),
-                derivative_tolerance:1e-10 }))]);
+    let configurations = BTreeMap::from([(
+        inner.residuals[0].id,
+        pse_math::implicit::Configuration::Fixed(
+            vec![Unknown {
+                id: inner.unknowns[0],
+                lower: -1e6,
+                upper: 1e6,
+            }],
+            Options {
+                start: vec![0.],
+                variable_nominals: vec![1.],
+                variable_tolerance: vec![0.001],
+                residual_tolerance: vec![0.001],
+                iterations: 10,
+                time_limit: std::time::Duration::from_secs(10),
+                derivative_tolerance: 1e-10,
+            },
+        ),
+    )]);
     let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
     let calls = Arc::new(AtomicUsize::new(0));
-    let capabilities = || ImplicitCapabilities { solver:Arc::new(DenseRoot(calls.clone())), verifier:None, accelerators:&accelerators };
+    let capabilities = || ImplicitCapabilities {
+        solver: Arc::new(DenseRoot(calls.clone())),
+        verifier: None,
+        accelerators: &accelerators,
+    };
     let cancel = Cancellation::new(false);
-    let limits = EvaluationLimits { derivative_components:512, ..EvaluationLimits::default() };
-    let (requests, _) = inner.program_requests(&configurations, &capabilities(),
-        DerivativeOrder::Second, &cancel, limits).unwrap();
-    assert!(requests.iter().all(|request| request.artifact().demand.order != DerivativeOrder::Second));
-    assert!(requests.iter().filter(|request| request.artifact().demand.order == DerivativeOrder::First)
-        .all(|request| request.artifact().demand.coordinates == [0]));
-    let factory = inner.factory(configurations, capabilities(), DerivativeOrder::Second,
-        cancel.clone(), limits).unwrap();
-    let ImplicitFactory::Root(root) = &factory else { panic!("one dense root"); };
+    let limits = EvaluationLimits {
+        derivative_components: 512,
+        ..EvaluationLimits::default()
+    };
+    let (requests, _) = inner
+        .program_requests(
+            &configurations,
+            &capabilities(),
+            DerivativeOrder::Second,
+            &cancel,
+            limits,
+        )
+        .unwrap();
+    assert!(
+        requests
+            .iter()
+            .all(|request| request.artifact().demand.order != DerivativeOrder::Second)
+    );
+    assert!(
+        requests
+            .iter()
+            .filter(|request| request.artifact().demand.order == DerivativeOrder::First)
+            .all(|request| request.artifact().demand.coordinates == [0])
+    );
+    let factory = inner
+        .factory(
+            configurations,
+            capabilities(),
+            DerivativeOrder::Second,
+            cancel.clone(),
+            limits,
+        )
+        .unwrap();
+    let ImplicitFactory::Root(root) = &factory else {
+        panic!("one dense root");
+    };
     assert_eq!(root.bodies.source.compiled_order(), DerivativeOrder::Value);
     assert!(root.bodies.source.coordinates().is_empty());
     assert_eq!(root.bodies.unknown.coordinates(), [0]);
     let mut provider = factory.create().unwrap();
     let full = ProviderRequest::all(provider.spec(), DerivativeOrder::Second);
-    assert!(provider.prepare(full).is_err(), "a complete dense jet exceeds the declared limit");
-    assert_eq!(calls.load(Ordering::Relaxed), 0, "full refusal occurs before numerical effects");
-    let request = provider.prepare(ProviderRequest { outputs:vec![0], order:DerivativeOrder::Second,
-        demand:ProviderDemand::WeightedSecondAction { directions:1 } }).unwrap();
+    assert!(
+        provider.prepare(full).is_err(),
+        "a complete dense jet exceeds the declared limit"
+    );
+    assert_eq!(
+        calls.load(Ordering::Relaxed),
+        0,
+        "full refusal occurs before numerical effects"
+    );
+    let request = provider
+        .prepare(ProviderRequest {
+            outputs: vec![0],
+            order: DerivativeOrder::Second,
+            demand: ProviderDemand::WeightedSecondAction { directions: 1 },
+        })
+        .unwrap();
     let inputs = vec![0.001; parameters];
     let direction = vec![1.; parameters];
     let mut buffer = ProviderBuffer::new(&request);
-    let context = EvaluationContext { cancelled:&cancel, max_result_bytes:1 << 20 };
-    let result = buffer.fill(&mut provider, &inputs, &request,
-        ProviderRuntime { directions:&direction, weights:&[1.], ..Default::default() }, &context).unwrap();
+    let context = EvaluationContext {
+        cancelled: &cancel,
+        max_result_bytes: 1 << 20,
+    };
+    let result = buffer
+        .fill(
+            &mut provider,
+            &inputs,
+            &request,
+            ProviderRuntime {
+                directions: &direction,
+                weights: &[1.],
+                ..Default::default()
+            },
+            &context,
+        )
+        .unwrap();
     assert!((result.values[0] - 0.128_f64.powi(2)).abs() < 1e-10);
-    assert!(result.jacobian.iter().all(|value| (value - 0.256).abs() < 1e-10));
-    assert!(result.hessians.iter().all(|value| (value - 256.).abs() < 1e-9));
+    assert!(
+        result
+            .jacobian
+            .iter()
+            .all(|value| (value - 0.256).abs() < 1e-10)
+    );
+    assert!(
+        result
+            .hessians
+            .iter()
+            .all(|value| (value - 256.).abs() < 1e-9)
+    );
     assert_eq!(calls.load(Ordering::Relaxed), 1);
 }

@@ -1015,8 +1015,11 @@ struct Cubic {
     calls: Arc<AtomicUsize>,
 }
 impl Provider for Cubic {
-    fn supports(&self, demand: &pse_kernels::ProviderDemand) -> bool {
-        matches!(demand, pse_kernels::ProviderDemand::CompleteJets | pse_kernels::ProviderDemand::JacobianAction { directions: 1 })
+    fn supports(&self, demand: &ProviderDemand) -> bool {
+        matches!(
+            demand,
+            ProviderDemand::CompleteJets | ProviderDemand::JacobianAction { directions: 1 }
+        )
     }
     fn fill(
         &mut self,
@@ -1032,7 +1035,7 @@ impl Provider for Cubic {
             return Err(ProviderError::Trial("positive cubic input".into()));
         }
         let x = inputs[0];
-        if matches!(request.demand, pse_kernels::ProviderDemand::JacobianAction { .. }) {
+        if matches!(request.demand, ProviderDemand::JacobianAction { .. }) {
             output.values.fill(x * x * x);
             output.jacobian.fill(3. * x * x * runtime.directions[0]);
             return Ok(());
@@ -1080,9 +1083,12 @@ fn provider() -> (ProviderSpec, ProviderBinding, Arc<AtomicUsize>) {
     let calls = Arc::new(AtomicUsize::new(0));
     (
         spec.clone(),
-        ProviderBinding::new(spec.clone(), Box::new(Cubic {
-            calls: calls.clone(),
-        })),
+        ProviderBinding::new(
+            spec.clone(),
+            Box::new(Cubic {
+                calls: calls.clone(),
+            }),
+        ),
         calls,
     )
 }
@@ -1129,9 +1135,12 @@ fn domain_predicates_use_value_only_providers_and_remain_demand_scoped() {
     let control = pse_diagnostics::Cancellation::new(false);
     let cancel = control.flag();
     let key = spec.key();
-    let provider = ProviderBinding::new(spec.clone(), Box::new(Cubic {
-        calls: calls.clone(),
-    }));
+    let provider = ProviderBinding::new(
+        spec.clone(),
+        Box::new(Cubic {
+            calls: calls.clone(),
+        }),
+    );
     let mut workers = ProviderBindings::from([(key, provider)]);
     let mut guarded = prepared
         .compile(
@@ -1449,7 +1458,7 @@ fn multi_input_provider_lift_preserves_mixed_raw_partials() {
     #[derive(Debug)]
     struct Product;
     impl Provider for Product {
-            fn fill(
+        fn fill(
             &mut self,
             x: &[f64],
             r: &PreparedProviderRequest,
@@ -1529,7 +1538,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
         requests: Arc<std::sync::Mutex<Vec<ProviderRequest>>>,
     }
     impl Provider for Properties {
-            fn fill(
+        fn fill(
             &mut self,
             x: &[f64],
             r: &PreparedProviderRequest,
@@ -1570,9 +1579,12 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
             &self.spec
         }
         fn create(&self) -> Result<ProviderBinding, ProviderError> {
-            Ok(ProviderBinding::new(self.spec().clone(), Box::new(Properties {
-                requests: self.requests.clone(),
-            })))
+            Ok(ProviderBinding::new(
+                self.spec().clone(),
+                Box::new(Properties {
+                    requests: self.requests.clone(),
+                }),
+            ))
         }
     }
     let registry = standard_registry().unwrap();
@@ -1656,7 +1668,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
     assert_eq!(
         requests.lock().unwrap()[0],
         ProviderRequest {
-        demand: ProviderDemand::CompleteJets,
+            demand: ProviderDemand::CompleteJets,
             outputs: vec![1],
             order: DerivativeOrder::Value
         }
@@ -1740,19 +1752,23 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
     assert_eq!(worker.hessian(&values, 2.0, &[3.0]).unwrap().val(), &[-0.5]);
     assert_eq!(worker.hessian(&values, 4.0, &[9.0]).unwrap().val(), &[-1.0]);
     assert_eq!(worker.hessian(&values, 4.0, &[9.0]).unwrap().val(), &[-1.0]);
-    // Each changed weighted product preserves the original provider effect, with
-    // its two selected outputs coalesced into one complete Second request. The
-    // identical third demand reuses the complete product and issues no new call.
+    // Every invocation preserves current provider effects, including identical
+    // weighted keys. Each visit coalesces both selected outputs into one request.
     assert_eq!(
         requests.lock().unwrap().as_slice(),
         &[
             ProviderRequest {
-        demand: ProviderDemand::CompleteJets,
+                demand: ProviderDemand::CompleteJets,
                 outputs: vec![0, 1],
                 order: DerivativeOrder::Second
             },
             ProviderRequest {
-        demand: ProviderDemand::CompleteJets,
+                demand: ProviderDemand::CompleteJets,
+                outputs: vec![0, 1],
+                order: DerivativeOrder::Second
+            },
+            ProviderRequest {
+                demand: ProviderDemand::CompleteJets,
                 outputs: vec![0, 1],
                 order: DerivativeOrder::Second
             },
@@ -2040,9 +2056,12 @@ fn selected_provider_demand_matches_fixed_coordinate_program_and_authored_partia
         )
         .unwrap()
         .worker();
-    let selected_provider = ProviderBinding::new(spec.clone(), Box::new(Cubic {
-        calls: calls.clone(),
-    }));
+    let selected_provider = ProviderBinding::new(
+        spec.clone(),
+        Box::new(Cubic {
+            calls: calls.clone(),
+        }),
+    );
     let mut providers = ProviderBindings::from([(spec.key(), selected_provider)]);
     let result = worker
         .evaluate(&[3., 2.], DerivativeOrder::Second, &mut providers, &cancel)
@@ -2196,9 +2215,12 @@ fn selected_output_availability_and_incidence_ignore_unrelated_value_provider() 
         DerivativeOrder::Value
     );
     let calls = Arc::new(AtomicUsize::new(0));
-    let provider = ProviderBinding::new(spec.clone(), Box::new(Cubic {
-        calls: calls.clone(),
-    }));
+    let provider = ProviderBinding::new(
+        spec.clone(),
+        Box::new(Cubic {
+            calls: calls.clone(),
+        }),
+    );
     let mut providers = ProviderBindings::from([(provider.spec().key(), provider)]);
     let mut effect_worker = body
         .compile(
@@ -2409,7 +2431,12 @@ fn demanded_directional_taylor_axis_preserves_all_support_under_two_component_li
     );
     assert!(
         worker
-            .evaluate_directional(&inputs, &direction[..n - 1], &mut ProviderBindings::new(), &cancel)
+            .evaluate_directional(
+                &inputs,
+                &direction[..n - 1],
+                &mut ProviderBindings::new(),
+                &cancel
+            )
             .is_err()
     );
     control.cancel();
@@ -2681,9 +2708,12 @@ fn conditional_block_keeps_actual_guard_provider_execution_inputs() {
             )
             .unwrap(),
     );
-    let selected_provider = ProviderBinding::new(spec.clone(), Box::new(Cubic {
-        calls: calls.clone(),
-    }));
+    let selected_provider = ProviderBinding::new(
+        spec.clone(),
+        Box::new(Cubic {
+            calls: calls.clone(),
+        }),
+    );
     let providers = ProviderBindings::from([(spec.key(), selected_provider)]);
     let mut worker = guarded.worker(providers, control.clone());
     let mut values = CaseValues {

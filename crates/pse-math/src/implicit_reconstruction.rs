@@ -626,7 +626,9 @@ impl RootSelection {
         } else {
             problem
         };
-        problem.prepare_complete(DerivativeOrder::First,&scope).map_err(super::provider_error)?;
+        problem
+            .prepare_complete(DerivativeOrder::First, &scope)
+            .map_err(super::provider_error)?;
         let program = if let Some(offsets) = offsets {
             if program.residuals.len() != offsets.len() || offsets.iter().any(|v| !v.is_finite()) {
                 return Err(pse_kernels::ProviderError::Contract(
@@ -1431,7 +1433,11 @@ impl<E> SelectedImplicitReconstruction<E> {
             if cancel.load(Ordering::Acquire) {
                 return Err(MathError::Cancelled);
             }
-            let structural = branch.bodies.source.prepared_support().incidence(&(0..n+p).collect::<Vec<_>>(),cancel)?;
+            let structural = branch
+                .bodies
+                .source
+                .prepared_support()
+                .incidence(&(0..n + p).collect::<Vec<_>>(), cancel)?;
             let mut unknown_support = Vec::with_capacity(n);
             let mut parameter_support = Vec::with_capacity(n);
             for output in structural.outputs() {

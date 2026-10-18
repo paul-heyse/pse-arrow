@@ -151,7 +151,10 @@ impl Parameterized {
         assembly: &Arc<CaseAssembly>,
         facts: bool,
     ) -> Result<Box<dyn NlpOracle>, ProblemError> {
-        let worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
+        let worker = assembly.worker(
+            pse_kernels::ProviderBindings::new(),
+            pse_diagnostics::Cancellation::default(),
+        );
         let mut oracle = crate::assembled::AlgebraicOracle::new(worker, self.values.clone())?
             .with_normalization(Normalization::identity(
                 assembly.columns().len(),
@@ -168,7 +171,10 @@ impl Parameterized {
     /// Callbacks over `assembly` with every column, discrete ones included, for a re-solve
     /// to pin.
     fn relaxed(&self, assembly: &Arc<CaseAssembly>) -> Result<Relaxed, ProblemError> {
-        let worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
+        let worker = assembly.worker(
+            pse_kernels::ProviderBindings::new(),
+            pse_diagnostics::Cancellation::default(),
+        );
         crate::assembled::AlgebraicOracle::relaxation(
             worker,
             self.values.clone(),
@@ -287,9 +293,10 @@ struct Evaluated<'c>(&'c Parameterized);
 impl OriginalModel for Evaluated<'_> {
     fn evaluate(&mut self, primal: &[f64]) -> Result<Evaluation, ProblemError> {
         let case = self.0;
-        let mut worker = case
-            .solve
-            .worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
+        let mut worker = case.solve.worker(
+            pse_kernels::ProviderBindings::new(),
+            pse_diagnostics::Cancellation::default(),
+        );
         let mut values = case.values.clone();
         for (c, v) in case.solve.columns().iter().zip(primal) {
             values.scalars.insert(*c, *v);

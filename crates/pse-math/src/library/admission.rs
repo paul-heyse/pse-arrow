@@ -260,11 +260,14 @@ impl<'a> ScalarProductQuery<'a> {
             context.count(
                 "math.scalar_key_vector_allocations",
                 "count",
-                u64::from(!self.expressions.is_empty())
-                    + u64::from(!self.parameters.is_empty()),
+                u64::from(!self.expressions.is_empty()) + u64::from(!self.parameters.is_empty()),
             );
         }
-        Arc::new((self.expressions.to_vec(), self.parameters.to_vec(), self.options))
+        Arc::new((
+            self.expressions.to_vec(),
+            self.parameters.to_vec(),
+            self.options,
+        ))
     }
 }
 impl Hash for ScalarProductQuery<'_> {
@@ -462,76 +465,77 @@ impl ScalarCache {
                 entry.into_mut()
             }
             EntryRef::Vacant(entry) => {
-            let _construction = pse_diagnostics::observation::current().map(|context| {
-                context.count("math.scalar_constructions", "count", 1);
-                context.phase("math.scalar_construction")
-            });
-            let source_operations = source_operations(expressions)?;
-            let source_atom_operations = expressions.iter().try_fold(0, |sum, expression| {
-                add(sum, total(expression.count_operations())?)
-            })?;
-            source_limit.check(source_operations, source_atom_operations)?;
-            let source_bytes = expressions
-                .iter()
-                .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
-            let initial = construction_shape(
-                source_bytes,
-                source_operations,
-                expressions.len(),
-                parameters.len(),
-                pse_kernels::DerivativeOrder::Value,
-                1,
-                1,
-            )?;
-            let atoms = expressions
-                .iter()
-                .chain(parameters)
-                .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
-            crate::construction::additional(add(
-                mul(initial.entries, 2 * size_of::<Complex<Rational>>())?,
-                add(initial.instructions, atoms)?,
-            )?)?;
-            let evaluator = exact_evaluator(expressions, parameters, options, cancelled)?;
-            let export = evaluator.export_instructions();
-            let facts = EvaluatorFacts::inspect(
-                &export,
-                evaluator.count_operations(),
-                "math.rational_representation_inspections",
-            )?;
-            reserve_facts(&facts, initial)?;
-            let bytes = add(
-                size_of::<ScalarProduct>(),
-                add(
-                    atoms,
-                    add(
-                        mul(
-                            facts.storage.numeric_entries,
-                            2 * size_of::<Complex<Rational>>(),
-                        )?,
-                        facts.storage.instruction_bytes,
-                    )?,
-                )?,
-            )?;
-            if cancelled.load(std::sync::atomic::Ordering::Acquire) {
-                return Err(MathError::Cancelled);
-            }
-            let product = entry.insert_with_key(
-                query.owned_key(),
-                Arc::new(ScalarProduct {
-                    evaluator,
-                    bytes,
-                    facts,
+                let _construction = pse_diagnostics::observation::current().map(|context| {
+                    context.count("math.scalar_constructions", "count", 1);
+                    context.phase("math.scalar_construction")
+                });
+                let source_operations = source_operations(expressions)?;
+                let source_atom_operations =
+                    expressions.iter().try_fold(0, |sum, expression| {
+                        add(sum, total(expression.count_operations())?)
+                    })?;
+                source_limit.check(source_operations, source_atom_operations)?;
+                let source_bytes = expressions
+                    .iter()
+                    .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
+                let initial = construction_shape(
                     source_bytes,
                     source_operations,
-                    source_atom_operations,
-                    owner: std::sync::OnceLock::new(),
-                }),
-            );
-            self.builds += 1;
-            if let Some(context) = pse_diagnostics::observation::current() {
-                context.count("math.scalar_constructions_completed", "count", 1);
-            }
-            product
+                    expressions.len(),
+                    parameters.len(),
+                    pse_kernels::DerivativeOrder::Value,
+                    1,
+                    1,
+                )?;
+                let atoms = expressions
+                    .iter()
+                    .chain(parameters)
+                    .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
+                crate::construction::additional(add(
+                    mul(initial.entries, 2 * size_of::<Complex<Rational>>())?,
+                    add(initial.instructions, atoms)?,
+                )?)?;
+                let evaluator = exact_evaluator(expressions, parameters, options, cancelled)?;
+                let export = evaluator.export_instructions();
+                let facts = EvaluatorFacts::inspect(
+                    &export,
+                    evaluator.count_operations(),
+                    "math.rational_representation_inspections",
+                )?;
+                reserve_facts(&facts, initial)?;
+                let bytes = add(
+                    size_of::<ScalarProduct>(),
+                    add(
+                        atoms,
+                        add(
+                            mul(
+                                facts.storage.numeric_entries,
+                                2 * size_of::<Complex<Rational>>(),
+                            )?,
+                            facts.storage.instruction_bytes,
+                        )?,
+                    )?,
+                )?;
+                if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+                    return Err(MathError::Cancelled);
+                }
+                let product = entry.insert_with_key(
+                    query.owned_key(),
+                    Arc::new(ScalarProduct {
+                        evaluator,
+                        bytes,
+                        facts,
+                        source_bytes,
+                        source_operations,
+                        source_atom_operations,
+                        owner: std::sync::OnceLock::new(),
+                    }),
+                );
+                self.builds += 1;
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("math.scalar_constructions_completed", "count", 1);
+                }
+                product
             }
         };
         source_limit.check(product.source_operations, product.source_atom_operations)?;
@@ -716,7 +720,9 @@ mod tests {
             .metrics
             .iter()
             .find_map(|metric| match metric.cumulative {
-                pse_diagnostics::observation::Value::Count(count) if metric.name == name => Some(count),
+                pse_diagnostics::observation::Value::Count(count) if metric.name == name => {
+                    Some(count)
+                }
                 _ => None,
             })
             .unwrap_or(0)
@@ -734,16 +740,50 @@ mod tests {
         let baseline = ScalarProductQuery::new(&expressions, &parameters, options).owned_key();
         let cases = [
             (expressions.to_vec(), parameters.to_vec(), options, true),
-            (expressions.to_vec(), parameters.to_vec(), Optimization {
-                evaluator: Evaluator::CompiledScalar { module_bytes: 4096 },
-                ..options
-            }, true),
+            (
+                expressions.to_vec(),
+                parameters.to_vec(),
+                Optimization {
+                    evaluator: Evaluator::CompiledScalar { module_bytes: 4096 },
+                    ..options
+                },
+                true,
+            ),
             (vec![], vec![], options, false),
-            (vec![expressions[1].clone(), expressions[0].clone()], parameters.to_vec(), options, false),
+            (
+                vec![expressions[1].clone(), expressions[0].clone()],
+                parameters.to_vec(),
+                options,
+                false,
+            ),
             (expressions.to_vec(), vec![y, x], options, false),
-            (expressions.to_vec(), parameters.to_vec(), Optimization { cores: 2, ..options }, false),
-            (expressions.to_vec(), parameters.to_vec(), Optimization { horner_iterations: 0, ..options }, false),
-            (expressions.to_vec(), parameters.to_vec(), Optimization { cpe_iterations: 0, ..options }, false),
+            (
+                expressions.to_vec(),
+                parameters.to_vec(),
+                Optimization {
+                    cores: 2,
+                    ..options
+                },
+                false,
+            ),
+            (
+                expressions.to_vec(),
+                parameters.to_vec(),
+                Optimization {
+                    horner_iterations: 0,
+                    ..options
+                },
+                false,
+            ),
+            (
+                expressions.to_vec(),
+                parameters.to_vec(),
+                Optimization {
+                    cpe_iterations: 0,
+                    ..options
+                },
+                false,
+            ),
         ];
         for (expressions, parameters, options, equivalent) in cases {
             let query = ScalarProductQuery::new(&expressions, &parameters, options);
@@ -771,50 +811,117 @@ mod tests {
         let options = Optimization::default();
         let cancel = Arc::new(AtomicBool::new(false));
         let mut cache = ScalarCache::default();
-        assert!(matches!(crate::construction::scoped(Arc::new(Refuse), || {
-            cache.admit_prepare(&expressions, &parameters, options, &cancel, EvaluationLimits::default())
-        }), Err(MathError::Limit("test pool full"))));
+        assert!(matches!(
+            crate::construction::scoped(Arc::new(Refuse), || {
+                cache.admit_prepare(
+                    &expressions,
+                    &parameters,
+                    options,
+                    &cancel,
+                    EvaluationLimits::default(),
+                )
+            }),
+            Err(MathError::Limit("test pool full"))
+        ));
         assert_eq!(cache.len(), 0);
         assert_eq!(scalar_count(&context, "math.scalar_key_constructions"), 0);
-        assert_eq!(scalar_count(&context, "math.scalar_key_vector_allocations"), 0);
+        assert_eq!(
+            scalar_count(&context, "math.scalar_key_vector_allocations"),
+            0
+        );
         assert_eq!(scalar_count(&context, "math.scalar_constructions"), 1);
 
-        cache.admit_prepare(&expressions, &parameters, options, &cancel, EvaluationLimits::default()).unwrap();
+        cache
+            .admit_prepare(
+                &expressions,
+                &parameters,
+                options,
+                &cancel,
+                EvaluationLimits::default(),
+            )
+            .unwrap();
         let product = cache.evaluators.values().next().unwrap().clone();
         let retained = cache.freeze();
         let mut cache = ScalarCache::from_products(&retained);
         // Equal contents at different addresses and a different execution route
         // borrow the same exact preparation without retaining this attempt.
         let other_cancel = Arc::new(AtomicBool::new(false));
-        cache.admit_prepare(&expressions.to_vec(), &parameters.to_vec(), Optimization {
-            evaluator: Evaluator::CompiledScalar { module_bytes: 4096 },
-            ..options
-        }, &other_cancel, EvaluationLimits::default()).unwrap();
+        cache
+            .admit_prepare(
+                &expressions.to_vec(),
+                &parameters.to_vec(),
+                Optimization {
+                    evaluator: Evaluator::CompiledScalar { module_bytes: 4096 },
+                    ..options
+                },
+                &other_cancel,
+                EvaluationLimits::default(),
+            )
+            .unwrap();
         assert_eq!(Arc::strong_count(&other_cancel), 1);
-        assert!(Arc::ptr_eq(&product, cache.evaluators.values().next().unwrap()));
+        assert!(Arc::ptr_eq(
+            &product,
+            cache.evaluators.values().next().unwrap()
+        ));
         assert_eq!(cache.builds(), 0);
         assert_eq!(scalar_count(&context, "math.scalar_key_constructions"), 1);
-        assert_eq!(scalar_count(&context, "math.scalar_key_vector_allocations"), 2);
+        assert_eq!(
+            scalar_count(&context, "math.scalar_key_vector_allocations"),
+            2
+        );
         assert_eq!(scalar_count(&context, "math.scalar_constructions"), 2);
         assert_eq!(scalar_count(&context, "math.scalar_cache_reuses"), 1);
 
-        for limits in [EvaluationLimits { operations: 0, ..Default::default() }, EvaluationLimits { scratch_bytes: 0, ..Default::default() }] {
-            assert!(matches!(cache.admit_prepare(&expressions, &parameters, options, &cancel, limits), Err(MathError::Limit(_))));
+        for limits in [
+            EvaluationLimits {
+                operations: 0,
+                ..Default::default()
+            },
+            EvaluationLimits {
+                scratch_bytes: 0,
+                ..Default::default()
+            },
+        ] {
+            assert!(matches!(
+                cache.admit_prepare(&expressions, &parameters, options, &cancel, limits),
+                Err(MathError::Limit(_))
+            ));
         }
         assert_eq!(cache.builds(), 0);
         assert_eq!(scalar_count(&context, "math.scalar_key_constructions"), 1);
         for (expressions, parameters, options) in [
             (vec![x.clone() * &x + &y + 1], parameters.to_vec(), options),
             (expressions.to_vec(), vec![y, x], options),
-            (expressions.to_vec(), parameters.to_vec(), Optimization { horner_iterations: 0, ..options }),
+            (
+                expressions.to_vec(),
+                parameters.to_vec(),
+                Optimization {
+                    horner_iterations: 0,
+                    ..options
+                },
+            ),
         ] {
-            cache.admit_prepare(&expressions, &parameters, options, &cancel, EvaluationLimits::default()).unwrap();
+            cache
+                .admit_prepare(
+                    &expressions,
+                    &parameters,
+                    options,
+                    &cancel,
+                    EvaluationLimits::default(),
+                )
+                .unwrap();
         }
         assert_eq!(cache.len(), 4);
         assert_eq!(cache.builds(), 3);
         assert_eq!(scalar_count(&context, "math.scalar_key_constructions"), 4);
-        assert_eq!(scalar_count(&context, "math.scalar_key_vector_allocations"), 8);
-        assert_eq!(scalar_count(&context, "math.scalar_constructions_completed"), 4);
+        assert_eq!(
+            scalar_count(&context, "math.scalar_key_vector_allocations"),
+            8
+        );
+        assert_eq!(
+            scalar_count(&context, "math.scalar_constructions_completed"),
+            4
+        );
         assert_eq!(retained.len(), 1);
     }
 
@@ -829,12 +936,30 @@ mod tests {
         let cancel = Arc::new(AtomicBool::new(false));
         let options = Optimization::default();
         let mut cache = ScalarCache::default();
-        assert!(matches!(cache.admit_prepare(&expressions, &parameters,
-            Optimization { cores: 0, ..options }, &cancel, EvaluationLimits::default()),
-            Err(MathError::Contract(_))));
+        assert!(matches!(
+            cache.admit_prepare(
+                &expressions,
+                &parameters,
+                Optimization {
+                    cores: 0,
+                    ..options
+                },
+                &cancel,
+                EvaluationLimits::default()
+            ),
+            Err(MathError::Contract(_))
+        ));
         assert_eq!(cache.len(), 0);
         assert_eq!(cache.builds(), 0);
-        cache.admit_prepare(&expressions, &parameters, options, &cancel, EvaluationLimits::default()).unwrap();
+        cache
+            .admit_prepare(
+                &expressions,
+                &parameters,
+                options,
+                &cancel,
+                EvaluationLimits::default(),
+            )
+            .unwrap();
         let owner = Arc::new(Owner);
         let weak_owner = Arc::downgrade(&owner);
         let retained = cache.freeze().with_owner(owner.clone());
@@ -847,9 +972,20 @@ mod tests {
         assert!(weak_owner.upgrade().is_some());
         let mut evaluator = escaped.evaluator.clone().map_coeff(&|c| c.re.to_f64());
         assert_eq!(evaluator.evaluate_single(&[3.]), 10.);
-        cache.admit_prepare(&expressions, &parameters, options, &cancel, EvaluationLimits::default()).unwrap();
+        cache
+            .admit_prepare(
+                &expressions,
+                &parameters,
+                options,
+                &cancel,
+                EvaluationLimits::default(),
+            )
+            .unwrap();
         assert_eq!(cache.builds(), 1);
-        assert!(!Arc::ptr_eq(&escaped, cache.evaluators.get(&query).unwrap()));
+        assert!(!Arc::ptr_eq(
+            &escaped,
+            cache.evaluators.get(&query).unwrap()
+        ));
         drop(escaped);
         assert!(weak_owner.upgrade().is_none());
         assert_eq!(cache.len(), 1);

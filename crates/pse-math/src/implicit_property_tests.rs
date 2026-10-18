@@ -253,12 +253,13 @@ fn peng_robinson_nested_property_reuses_qualified_jets_and_preserves_invalidatio
             DerivativeOrder::Second,
             DerivativeOrder::First,
         ] {
-            let actual = provider_values(&mut provider, 
-                    &[a, b],
-                    &ProviderRequest::all(&factory.spec, order),
-                    &context,
-                )
-                .unwrap();
+            let actual = provider_values(
+                &mut provider,
+                &[a, b],
+                &ProviderRequest::all(&factory.spec, order),
+                &context,
+            )
+            .unwrap();
             close(&actual.values, &expected.values);
             if order >= DerivativeOrder::First {
                 close(&actual.jacobian, &expected.jacobian);
@@ -286,23 +287,25 @@ fn peng_robinson_nested_property_reuses_qualified_jets_and_preserves_invalidatio
     );
     assert_eq!(count(&observation, "implicit.product.full_reuse"), 2);
     assert!(
-        provider_values(&mut provider, 
-                &[2., 0.02],
-                &ProviderRequest::all(&factory.spec, DerivativeOrder::First),
-                &context
-            )
-            .is_err(),
+        provider_values(
+            &mut provider,
+            &[2., 0.02],
+            &ProviderRequest::all(&factory.spec, DerivativeOrder::First),
+            &context
+        )
+        .is_err(),
         "the gas branch has no admissible root"
     );
     let (a, b, z) = points[1];
     close(
-        &provider_values(&mut provider, 
-                &[a, b],
-                &ProviderRequest::all(&factory.spec, DerivativeOrder::Second),
-                &context,
-            )
-            .unwrap()
-            .values,
+        &provider_values(
+            &mut provider,
+            &[a, b],
+            &ProviderRequest::all(&factory.spec, DerivativeOrder::Second),
+            &context,
+        )
+        .unwrap()
+        .values,
         &[z],
     );
     assert_eq!(
@@ -318,13 +321,14 @@ fn peng_robinson_nested_property_reuses_qualified_jets_and_preserves_invalidatio
     assert_ne!(changed.configuration_key(), factory.configuration_key());
     let mut independent = changed.create().unwrap();
     close(
-        &provider_values(&mut independent, 
-                &[a, b],
-                &ProviderRequest::all(&changed.spec, DerivativeOrder::First),
-                &context,
-            )
-            .unwrap()
-            .jacobian,
+        &provider_values(
+            &mut independent,
+            &[a, b],
+            &ProviderRequest::all(&changed.spec, DerivativeOrder::First),
+            &context,
+        )
+        .unwrap()
+        .jacobian,
         &oracle(a, b, z).jacobian,
     );
     assert_eq!(work.solves.load(Ordering::Relaxed), 5);
@@ -332,17 +336,19 @@ fn peng_robinson_nested_property_reuses_qualified_jets_and_preserves_invalidatio
     unsupported.requirements.requested_output = DerivativeOrder::First;
     let mut restricted = unsupported.create().unwrap();
     assert!(
-        provider_values(&mut restricted, 
-                &[a, b],
-                &ProviderRequest::all(&unsupported.spec, DerivativeOrder::Second),
-                &context
-            )
-            .is_err()
+        provider_values(
+            &mut restricted,
+            &[a, b],
+            &ProviderRequest::all(&unsupported.spec, DerivativeOrder::Second),
+            &context
+        )
+        .is_err()
     );
     assert_eq!(work.solves.load(Ordering::Relaxed), 5);
     control.cancel();
     assert!(matches!(
-        provider_values(&mut provider, 
+        provider_values(
+            &mut provider,
             &[a, b],
             &ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
             &context
@@ -385,7 +391,9 @@ fn peng_robinson_weighted_property_products_rebind_weights_and_isolate_workers()
         )
         .unwrap();
     let mut worker = compiled.worker_scoped(scope);
-    let mut providers = [(factory.spec.key(), factory.create().unwrap())].into_iter().collect();
+    let mut providers = [(factory.spec.key(), factory.create().unwrap())]
+        .into_iter()
+        .collect();
     let a = 287. / 1200.;
     let b = 0.05;
     let expected = oracle(a, b, 0.8);
@@ -441,12 +449,13 @@ fn peng_robinson_weighted_property_products_rebind_weights_and_isolate_workers()
         cancelled: cancel.as_ref(),
         max_result_bytes: 1 << 20,
     };
-    let actual = provider_values(&mut independent, 
-            &[next_a, next_b],
-            &ProviderRequest::all(&factory.spec, DerivativeOrder::Second),
-            &context,
-        )
-        .unwrap();
+    let actual = provider_values(
+        &mut independent,
+        &[next_a, next_b],
+        &ProviderRequest::all(&factory.spec, DerivativeOrder::Second),
+        &context,
+    )
+    .unwrap();
     close(&actual.hessians, &expected.hessians);
     assert_eq!(
         work.solves.load(Ordering::Relaxed),
@@ -467,24 +476,37 @@ struct SelectorEffect {
 }
 impl pse_kernels::Provider for SelectorEffect {
     fn fill(
-        &mut self, _: &[f64], request: &pse_kernels::PreparedProviderRequest,
-        _: pse_kernels::ProviderRuntime<'_>, output: pse_kernels::ProviderOutput<'_>,
+        &mut self,
+        _: &[f64],
+        request: &pse_kernels::PreparedProviderRequest,
+        _: pse_kernels::ProviderRuntime<'_>,
+        output: pse_kernels::ProviderOutput<'_>,
         context: &EvaluationContext<'_>,
     ) -> Result<(), pse_kernels::ProviderError> {
         request.check_context(context)?;
         self.calls.fetch_add(1, Ordering::Relaxed);
         if self.refuse.load(Ordering::Acquire) {
-            return Err(pse_kernels::ProviderError::Trial("current operational selector refusal".into()));
+            return Err(pse_kernels::ProviderError::Trial(
+                "current operational selector refusal".into(),
+            ));
         }
-        output.values.fill(f64::from_bits(self.value.load(Ordering::Acquire)));
-        output.jacobian.fill(0.); output.hessians.fill(0.);
+        output
+            .values
+            .fill(f64::from_bits(self.value.load(Ordering::Acquire)));
+        output.jacobian.fill(0.);
+        output.hessians.fill(0.);
         Ok(())
     }
 }
 impl ProviderFactory for SelectorEffect {
-    fn spec(&self) -> &ProviderSpec { &self.spec }
+    fn spec(&self) -> &ProviderSpec {
+        &self.spec
+    }
     fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
-        Ok(pse_kernels::ProviderBinding::new(self.spec.clone(), Box::new(self.clone())))
+        Ok(pse_kernels::ProviderBinding::new(
+            self.spec.clone(),
+            Box::new(self.clone()),
+        ))
     }
 }
 
@@ -564,8 +586,9 @@ fn peng_robinson_operational_selector_effects_run_before_same_point_reuse() {
             };
             let request = ProviderRequest::all(&factory.spec, DerivativeOrder::Second);
             for _ in 0..2 {
-                let result = provider_values(&mut provider, &[287. / 1200., 0.05], &request, &context)
-                    .unwrap();
+                let result =
+                    provider_values(&mut provider, &[287. / 1200., 0.05], &request, &context)
+                        .unwrap();
                 close(&result.hessians, &oracle(287. / 1200., 0.05, 0.8).hessians);
             }
             assert_eq!(
@@ -603,8 +626,7 @@ fn peng_robinson_operational_selector_effects_run_before_same_point_reuse() {
                 );
                 assert_eq!(calls.load(Ordering::Relaxed), before_calls + 1);
                 refuse.store(false, Ordering::Release);
-                provider_values(&mut provider, &[287. / 1200., 0.05], &request, &context)
-                    .unwrap();
+                provider_values(&mut provider, &[287. / 1200., 0.05], &request, &context).unwrap();
                 assert_eq!(
                     work.solves.load(Ordering::Relaxed),
                     before_solves + 1,

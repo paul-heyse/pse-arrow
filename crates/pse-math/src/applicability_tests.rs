@@ -79,7 +79,12 @@ fn evaluate(
             &pse_kernels::ExecutionScope::new(flag.clone(), None),
         )?
         .worker();
-    worker.evaluate(&[x], order, &mut pse_kernels::ProviderBindings::new(), &flag)
+    worker.evaluate(
+        &[x],
+        order,
+        &mut pse_kernels::ProviderBindings::new(),
+        &flag,
+    )
 }
 #[test]
 fn applicability_observations_survive_erased_value_and_second_partials() {

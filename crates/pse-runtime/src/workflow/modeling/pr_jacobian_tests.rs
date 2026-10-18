@@ -208,15 +208,22 @@ impl ProviderFactory for ObservedFactory {
     fn create(&self) -> Result<pse_kernels::ProviderBinding, ProviderError> {
         self.create_scoped(self.scope.clone())
     }
-    fn create_scoped(&self, scope: ExecutionScope) -> Result<pse_kernels::ProviderBinding, ProviderError> {
+    fn create_scoped(
+        &self,
+        scope: ExecutionScope,
+    ) -> Result<pse_kernels::ProviderBinding, ProviderError> {
         assert!(Arc::ptr_eq(scope.cancellation(), self.scope.cancellation()));
         assert_eq!(scope.deadline(), self.scope.deadline());
-        Ok(pse_kernels::ProviderBinding::new(self.spec().clone(), Box::new(ObservedProvider {
-            inner: self.original.worker_scoped(scope)?,
-            observations: self.observations.clone(),
-            source_key: self.source_key,
-            prepared: Default::default(), completed: None,
-        })))
+        Ok(pse_kernels::ProviderBinding::new(
+            self.spec().clone(),
+            Box::new(ObservedProvider {
+                inner: self.original.worker_scoped(scope)?,
+                observations: self.observations.clone(),
+                source_key: self.source_key,
+                prepared: Default::default(),
+                completed: None,
+            }),
+        ))
     }
 }
 #[derive(Debug)]
@@ -224,17 +231,32 @@ struct ObservedProvider {
     inner: pse_kernels::ProviderBinding,
     observations: Observations,
     source_key: ProviderKey,
-    prepared: [Option<(pse_kernels::PreparedProviderRequest, pse_kernels::ProviderBuffer)>; 3],
+    prepared: [Option<(
+        pse_kernels::PreparedProviderRequest,
+        pse_kernels::ProviderBuffer,
+    )>; 3],
     completed: Option<pse_ids::ContentHash>,
 }
 impl Provider for ObservedProvider {
-    fn supports(&self, _: &pse_kernels::ProviderDemand) -> bool { self.inner.supports(&pse_kernels::ProviderDemand::CompleteJets) }
-    fn supports_linearization(&self) -> bool { self.inner.supports_linearization() }
-    fn completed_linearization(&self) -> Option<pse_ids::ContentHash> { self.completed }
-    fn prepare_demand(&mut self, request: &pse_kernels::PreparedProviderRequest) -> Result<(), ProviderError> {
+    fn supports(&self, _: &pse_kernels::ProviderDemand) -> bool {
+        self.inner
+            .supports(&pse_kernels::ProviderDemand::CompleteJets)
+    }
+    fn supports_linearization(&self) -> bool {
+        self.inner.supports_linearization()
+    }
+    fn completed_linearization(&self) -> Option<pse_ids::ContentHash> {
+        self.completed
+    }
+    fn prepare_demand(
+        &mut self,
+        request: &pse_kernels::PreparedProviderRequest,
+    ) -> Result<(), ProviderError> {
         let slot = request.order as usize;
         if self.prepared[slot].is_none() {
-            let all = self.inner.prepare(ProviderRequest::all(self.inner.spec(), request.order))?;
+            let all = self
+                .inner
+                .prepare(ProviderRequest::all(self.inner.spec(), request.order))?;
             let buffer = pse_kernels::ProviderBuffer::new(&all);
             self.prepared[slot] = Some((all, buffer));
         }
@@ -252,10 +274,19 @@ impl Provider for ObservedProvider {
         self.completed = None;
         // This qualification owner explicitly consumes all root partials to assess
         // defining-equation backward errors. Its finite demand is prepared before callbacks.
-        let (all, buffer) = self.prepared[request.order as usize].as_mut()
-            .ok_or_else(|| ProviderError::Contract("unprepared PR dense observation demand".into()))?;
+        let (all, buffer) = self.prepared[request.order as usize]
+            .as_mut()
+            .ok_or_else(|| {
+                ProviderError::Contract("unprepared PR dense observation demand".into())
+            })?;
         all.check_context(context)?;
-        let full = buffer.fill(&mut self.inner, inputs, all, pse_kernels::ProviderRuntime::default(), context)?;
+        let full = buffer.fill(
+            &mut self.inner,
+            inputs,
+            all,
+            pse_kernels::ProviderRuntime::default(),
+            context,
+        )?;
         let mut observations = self
             .observations
             .lock()
@@ -281,45 +312,96 @@ impl Provider for ObservedProvider {
         drop(observations);
         let n = self.inner.spec().inputs.len();
         use pse_kernels::ProviderDemand;
-        for (row, &original) in request.outputs.iter().enumerate() { output.values[row] = full.values[original]; }
+        for (row, &original) in request.outputs.iter().enumerate() {
+            output.values[row] = full.values[original];
+        }
         match &request.demand {
             ProviderDemand::CompleteJets => {
                 for (row, &original) in request.outputs.iter().enumerate() {
-                    if request.order >= DerivativeOrder::First { output.jacobian[row*n..(row+1)*n].copy_from_slice(&full.jacobian[original*n..(original+1)*n]); }
-                    if request.order >= DerivativeOrder::Second { output.hessians[row*n*n..(row+1)*n*n].copy_from_slice(&full.hessians[original*n*n..(original+1)*n*n]); }
+                    if request.order >= DerivativeOrder::First {
+                        output.jacobian[row * n..(row + 1) * n]
+                            .copy_from_slice(&full.jacobian[original * n..(original + 1) * n]);
+                    }
+                    if request.order >= DerivativeOrder::Second {
+                        output.hessians[row * n * n..(row + 1) * n * n].copy_from_slice(
+                            &full.hessians[original * n * n..(original + 1) * n * n],
+                        );
+                    }
                 }
             }
             ProviderDemand::SelectedColumns { columns } => {
                 let k = columns.len();
-                for (row, &original) in request.outputs.iter().enumerate() { for (i, &axis) in columns.iter().enumerate() {
-                    output.jacobian[row*k+i] = full.jacobian[original*n+axis];
-                    if request.order >= DerivativeOrder::Second { for (j, &other) in columns.iter().enumerate() {
-                        output.hessians[(row*k+i)*k+j] = full.hessians[(original*n+axis)*n+other];
-                    } }
-                } }
+                for (row, &original) in request.outputs.iter().enumerate() {
+                    for (i, &axis) in columns.iter().enumerate() {
+                        output.jacobian[row * k + i] = full.jacobian[original * n + axis];
+                        if request.order >= DerivativeOrder::Second {
+                            for (j, &other) in columns.iter().enumerate() {
+                                output.hessians[(row * k + i) * k + j] =
+                                    full.hessians[(original * n + axis) * n + other];
+                            }
+                        }
+                    }
+                }
             }
             ProviderDemand::JacobianAction { directions } => {
-                for (row, &original) in request.outputs.iter().enumerate() { for d in 0..*directions {
-                    output.jacobian[row*directions+d] = (0..n).map(|i| full.jacobian[original*n+i]*_runtime.directions[d*n+i]).sum();
-                } }
+                for (row, &original) in request.outputs.iter().enumerate() {
+                    for d in 0..*directions {
+                        output.jacobian[row * directions + d] = (0..n)
+                            .map(|i| {
+                                full.jacobian[original * n + i] * _runtime.directions[d * n + i]
+                            })
+                            .sum();
+                    }
+                }
             }
             ProviderDemand::TransposeAction { cotangents } => {
-                for c in 0..*cotangents { for i in 0..n {
-                    output.jacobian[c*n+i] = request.outputs.iter().enumerate().map(|(row, &original)| _runtime.cotangents[c*request.outputs.len()+row]*full.jacobian[original*n+i]).sum();
-                } }
+                for c in 0..*cotangents {
+                    for i in 0..n {
+                        output.jacobian[c * n + i] = request
+                            .outputs
+                            .iter()
+                            .enumerate()
+                            .map(|(row, &original)| {
+                                _runtime.cotangents[c * request.outputs.len() + row]
+                                    * full.jacobian[original * n + i]
+                            })
+                            .sum();
+                    }
+                }
             }
             ProviderDemand::WeightedSecondAction { directions } => {
                 for i in 0..n {
-                    output.jacobian[i] = request.outputs.iter().enumerate().map(|(row, &original)| _runtime.weights[row]*full.jacobian[original*n+i]).sum();
+                    output.jacobian[i] = request
+                        .outputs
+                        .iter()
+                        .enumerate()
+                        .map(|(row, &original)| {
+                            _runtime.weights[row] * full.jacobian[original * n + i]
+                        })
+                        .sum();
                     for d in 0..*directions {
-                        output.hessians[i*directions+d] = request.outputs.iter().enumerate().map(|(row, &original)| _runtime.weights[row]*(0..n).map(|j|full.hessians[(original*n+i)*n+j]*_runtime.directions[d*n+j]).sum::<f64>()).sum();
+                        output.hessians[i * directions + d] = request
+                            .outputs
+                            .iter()
+                            .enumerate()
+                            .map(|(row, &original)| {
+                                _runtime.weights[row]
+                                    * (0..n)
+                                        .map(|j| {
+                                            full.hessians[(original * n + i) * n + j]
+                                                * _runtime.directions[d * n + j]
+                                        })
+                                        .sum::<f64>()
+                            })
+                            .sum();
                     }
                 }
             }
         }
         self.completed = full.linearization.map(|token| {
             let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::ProviderConfigurationV1);
-            token.frame(&mut hash); hash.finish_hash()
+            token.frame(&mut hash);
+            hash.finish_hash()
         });
         Ok(())
     }
@@ -439,7 +521,12 @@ fn evaluate_compact(
         .collect::<Result<Vec<_>, _>>()?;
     // This fixture's primitive residual and hint programs are explicit. Any hidden
     // provider dependency is a capability gap, rather than another nested oracle.
-    worker.evaluate(&inputs, order, &mut pse_kernels::ProviderBindings::new(), scope.cancellation())
+    worker.evaluate(
+        &inputs,
+        order,
+        &mut pse_kernels::ProviderBindings::new(),
+        scope.cancellation(),
+    )
 }
 
 /// Invoke the retained production resolver on its actual hints and original terms.
@@ -1287,8 +1374,9 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
                         cancelled: &flag,
                         max_result_bytes: diagnostic_bytes,
                     };
-                    let changed_values = completed_provider_values(&mut supplier, &changed, &request, &context)
-                        .map_err(pse_backend_native::ProblemError::Provider)?;
+                    let changed_values =
+                        completed_provider_values(&mut supplier, &changed, &request, &context)
+                            .map_err(pse_backend_native::ProblemError::Provider)?;
                     changed_values
                         .validate(&root.spec, &request)
                         .map_err(pse_backend_native::ProblemError::Provider)?;
@@ -1474,12 +1562,25 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
 
 // Test-only dense assessment boundary: copy only a successfully completed fill.
 #[cfg(test)]
-fn completed_provider_values(provider: &mut pse_kernels::ProviderBinding, inputs: &[f64],
-    request: &ProviderRequest, context: &EvaluationContext<'_>)
-    -> Result<ProviderValues, ProviderError> {
+fn completed_provider_values(
+    provider: &mut pse_kernels::ProviderBinding,
+    inputs: &[f64],
+    request: &ProviderRequest,
+    context: &EvaluationContext<'_>,
+) -> Result<ProviderValues, ProviderError> {
     let prepared = provider.prepare(request.clone())?;
     prepared.check_context(context)?;
     let mut buffer = pse_kernels::ProviderBuffer::new(&prepared);
-    let completed = buffer.fill(provider, inputs, &prepared, pse_kernels::ProviderRuntime::default(), context)?;
-    Ok(ProviderValues { values: completed.values.to_vec(), jacobian: completed.jacobian.to_vec(), hessians: completed.hessians.to_vec() })
+    let completed = buffer.fill(
+        provider,
+        inputs,
+        &prepared,
+        pse_kernels::ProviderRuntime::default(),
+        context,
+    )?;
+    Ok(ProviderValues {
+        values: completed.values.to_vec(),
+        jacobian: completed.jacobian.to_vec(),
+        hessians: completed.hessians.to_vec(),
+    })
 }

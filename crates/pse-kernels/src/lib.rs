@@ -14,10 +14,12 @@ use std::{
 };
 
 pub mod portable;
-mod shape;
 mod provider;
-pub use provider::{PreparedProviderRequest, ProviderBinding, ProviderBindings, ProviderBuffer,
-    ProviderCompletion, ProviderLinearizationToken, ProviderDemand, ProviderExtents, ProviderOutput, ProviderRuntime};
+mod shape;
+pub use provider::{
+    PreparedProviderRequest, ProviderBinding, ProviderBindings, ProviderBuffer, ProviderCompletion,
+    ProviderDemand, ProviderExtents, ProviderLinearizationToken, ProviderOutput, ProviderRuntime,
+};
 pub use pse_model::generated::enums::ExternalDerivativeSource as DerivativeSource;
 pub use shape::{ProviderShape, ProviderShapes};
 
@@ -455,14 +457,20 @@ pub trait Provider: std::fmt::Debug + Send {
         matches!(demand, ProviderDemand::CompleteJets)
     }
     /// Prepare this finite actual demand before numerical effects or native callbacks.
-    fn prepare_demand(&mut self, _request: &PreparedProviderRequest) -> Result<(), ProviderError> { Ok(()) }
+    fn prepare_demand(&mut self, _request: &PreparedProviderRequest) -> Result<(), ProviderError> {
+        Ok(())
+    }
     /// Immutable capability to certify the entire derivative context, including
     /// visited children. Fresh binding captures this fact once; actual completion
     /// remains invocation-local through `completed_linearization`.
-    fn supports_linearization(&self) -> bool { false }
+    fn supports_linearization(&self) -> bool {
+        false
+    }
     /// Complete context from the last successful fill, independent of action seeds.
     /// None means no complete derivative context was established at that invocation.
-    fn completed_linearization(&self) -> Option<ContentHash> { None }
+    fn completed_linearization(&self) -> Option<ContentHash> {
+        None
+    }
     /// Compute one coherent state and requested partials.
     /// # Errors
     /// Recoverable trial rejection or terminal library failure.
@@ -561,7 +569,11 @@ impl ProviderError {
             Self::DerivativeUnavailable { members, .. } => {
                 members.capacity() * size_of::<SemanticId>()
             }
-            Self::Cancelled | Self::Deadline | Self::Limit(_) | Self::RegimeCrossing { .. } | Self::LinearizationChanged => 0,
+            Self::Cancelled
+            | Self::Deadline
+            | Self::Limit(_)
+            | Self::RegimeCrossing { .. }
+            | Self::LinearizationChanged => 0,
         })
     }
     /// A recoverable trial refusal: the outer method may shorten or change its step.
@@ -575,7 +587,8 @@ impl ProviderError {
         }
         matches!(
             self,
-            Self::LinearizationChanged | Self::Trial(_)
+            Self::LinearizationChanged
+                | Self::Trial(_)
                 | Self::OutsideEnvelope { .. }
                 | Self::Singular(_)
                 | Self::RegimeCrossing { .. }
@@ -666,7 +679,10 @@ pub trait ProviderFactory: std::fmt::Debug + Send + Sync {
         scope.check()?;
         let inner = self.create()?;
         scope.check()?;
-        Ok(ProviderBinding::new(inner.spec().clone(), Box::new(ScopedProvider { inner, scope })))
+        Ok(ProviderBinding::new(
+            inner.spec().clone(),
+            Box::new(ScopedProvider { inner, scope }),
+        ))
     }
     /// Closed output intervals every evaluation of this provider keeps, one per output
     /// in output order: a sound envelope a global export may relax the provider to
@@ -687,9 +703,15 @@ impl Provider for ScopedProvider {
     fn supports(&self, demand: &ProviderDemand) -> bool {
         self.inner.supports(demand)
     }
-    fn prepare_demand(&mut self, request: &PreparedProviderRequest) -> Result<(), ProviderError> { self.inner.prepare_demand(request) }
-    fn supports_linearization(&self) -> bool { self.inner.supports_linearization() }
-    fn completed_linearization(&self) -> Option<ContentHash> { self.inner.completed_linearization() }
+    fn prepare_demand(&mut self, request: &PreparedProviderRequest) -> Result<(), ProviderError> {
+        self.inner.prepare_demand(request)
+    }
+    fn supports_linearization(&self) -> bool {
+        self.inner.supports_linearization()
+    }
+    fn completed_linearization(&self) -> Option<ContentHash> {
+        self.inner.completed_linearization()
+    }
     fn fill(
         &mut self,
         inputs: &[f64],
@@ -699,7 +721,9 @@ impl Provider for ScopedProvider {
         context: &EvaluationContext<'_>,
     ) -> Result<(), ProviderError> {
         self.scope.check()?;
-        let result = self.inner.fill_inner(inputs, request, runtime, output, context);
+        let result = self
+            .inner
+            .fill_inner(inputs, request, runtime, output, context);
         self.scope.check()?;
         result
     }
@@ -745,9 +769,15 @@ impl Provider for Enveloped {
     fn supports(&self, demand: &ProviderDemand) -> bool {
         self.inner.supports(demand)
     }
-    fn prepare_demand(&mut self, request: &PreparedProviderRequest) -> Result<(), ProviderError> { self.inner.prepare_demand(request) }
-    fn supports_linearization(&self) -> bool { self.inner.supports_linearization() }
-    fn completed_linearization(&self) -> Option<ContentHash> { self.inner.completed_linearization() }
+    fn prepare_demand(&mut self, request: &PreparedProviderRequest) -> Result<(), ProviderError> {
+        self.inner.prepare_demand(request)
+    }
+    fn supports_linearization(&self) -> bool {
+        self.inner.supports_linearization()
+    }
+    fn completed_linearization(&self) -> Option<ContentHash> {
+        self.inner.completed_linearization()
+    }
     fn fill(
         &mut self,
         inputs: &[f64],
@@ -756,7 +786,8 @@ impl Provider for Enveloped {
         mut output: ProviderOutput<'_>,
         context: &EvaluationContext<'_>,
     ) -> Result<(), ProviderError> {
-        self.inner.fill_inner(inputs, request, runtime, output.reborrow(), context)?;
+        self.inner
+            .fill_inner(inputs, request, runtime, output.reborrow(), context)?;
         for (&output, &value) in request.outputs.iter().zip(output.values.iter()) {
             let Some(&(lower, upper)) = self.envelope.get(output) else {
                 continue;
@@ -848,9 +879,15 @@ impl Provider for ObservedProvider {
     fn supports(&self, demand: &ProviderDemand) -> bool {
         self.inner.supports(demand)
     }
-    fn prepare_demand(&mut self, request: &PreparedProviderRequest) -> Result<(), ProviderError> { self.inner.prepare_demand(request) }
-    fn supports_linearization(&self) -> bool { self.inner.supports_linearization() }
-    fn completed_linearization(&self) -> Option<ContentHash> { self.inner.completed_linearization() }
+    fn prepare_demand(&mut self, request: &PreparedProviderRequest) -> Result<(), ProviderError> {
+        self.inner.prepare_demand(request)
+    }
+    fn supports_linearization(&self) -> bool {
+        self.inner.supports_linearization()
+    }
+    fn completed_linearization(&self) -> Option<ContentHash> {
+        self.inner.completed_linearization()
+    }
     fn fill(
         &mut self,
         inputs: &[f64],
@@ -888,7 +925,9 @@ impl Provider for ObservedProvider {
             observation.order.integer(request.order as i64);
             observation.outputs.count(request.outputs.len() as u64);
         }
-        let result = self.inner.fill_inner(inputs, request, runtime, output, context);
+        let result = self
+            .inner
+            .fill_inner(inputs, request, runtime, output, context);
         if let Some(observation) = &self.observation {
             observation.failed.boolean(result.is_err());
             if let Err(error) = &result {
@@ -1043,17 +1082,23 @@ impl Registration {
                 ));
             }
             let inner = match &self.envelope {
-                Some(envelope) => ProviderBinding::new(worker.spec().clone(), Box::new(Enveloped {
-                    inner: worker,
-                    envelope: envelope.clone(),
-                })),
+                Some(envelope) => ProviderBinding::new(
+                    worker.spec().clone(),
+                    Box::new(Enveloped {
+                        inner: worker,
+                        envelope: envelope.clone(),
+                    }),
+                ),
                 None => worker,
             };
-            let observed = ProviderBinding::new(inner.spec().clone(), Box::new(ObservedProvider {
-                inner,
-                observation: None,
-                observation_operation: None,
-            }));
+            let observed = ProviderBinding::new(
+                inner.spec().clone(),
+                Box::new(ObservedProvider {
+                    inner,
+                    observation: None,
+                    observation_operation: None,
+                }),
+            );
             Ok(observed)
         })();
         if let Some(observation) = &observation {

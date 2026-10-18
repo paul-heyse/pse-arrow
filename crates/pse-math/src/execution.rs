@@ -10,12 +10,12 @@ use crate::{
 };
 use enum_map::EnumMap;
 use pse_ids::SemanticId;
-use pse_kernels::{
-    DerivativeOrder, EvaluationContext, ProviderKey, ProviderRequest, ProviderSpec,
-    PreparedProviderRequest, ProviderBindings, ProviderBuffer, ProviderRuntime, ProviderLinearizationToken,
-};
 #[cfg(test)]
 use pse_kernels::Provider;
+use pse_kernels::{
+    DerivativeOrder, EvaluationContext, PreparedProviderRequest, ProviderBindings, ProviderBuffer,
+    ProviderKey, ProviderLinearizationToken, ProviderRequest, ProviderRuntime, ProviderSpec,
+};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     sync::{
@@ -173,9 +173,15 @@ impl PreparedSupport {
         &self.data.body
     }
     /// Declared selected-source capability without constructing numerical jets.
-    pub(crate) fn source_available_order(&self)->DerivativeOrder { self.body().available_order() }
-    pub(crate) fn source_input_count(&self)->usize { self.data.source_inputs }
-    pub(crate) fn source_providers(&self)->&[ProviderSpec] { self.body().providers() }
+    pub(crate) fn source_available_order(&self) -> DerivativeOrder {
+        self.body().available_order()
+    }
+    pub(crate) fn source_input_count(&self) -> usize {
+        self.data.source_inputs
+    }
+    pub(crate) fn source_providers(&self) -> &[ProviderSpec] {
+        self.body().providers()
+    }
     /// Match the original admitted body without retaining its allocation or lease.
     /// A separately admitted equal body matches while the source still exists. A dropped
     /// source conservatively prevents reuse rather than inventing semantic identity.
@@ -572,9 +578,17 @@ impl PreparedSupport {
     ) -> Result<Option<usize>, MathError> {
         if matches!(
             product,
-            ProductKind::WeightedHessian | ProductKind::WeightedHessianAction | ProductKind::TransposeJacobianAction
+            ProductKind::WeightedHessian
+                | ProductKind::WeightedHessianAction
+                | ProductKind::TransposeJacobianAction
         ) {
-            if self.order() != (if product == ProductKind::TransposeJacobianAction { DerivativeOrder::First } else { DerivativeOrder::Second }) {
+            if self.order()
+                != (if product == ProductKind::TransposeJacobianAction {
+                    DerivativeOrder::First
+                } else {
+                    DerivativeOrder::Second
+                })
+            {
                 return Err(MathError::Contract(
                     "weighted construction requires Second support".into(),
                 ));
@@ -2116,9 +2130,17 @@ impl PreparedBody {
             }
             coordinate_reachability(&stages, &symbols, &mut coordinate_support)?;
         }
-        let frame_support = coordinate_support.iter().enumerate().map(|(slot, axes)| {
-            if numeric.contains(&slot) { axes.clone() } else { vec![false; axes.len()] }
-        }).collect::<Vec<_>>();
+        let frame_support = coordinate_support
+            .iter()
+            .enumerate()
+            .map(|(slot, axes)| {
+                if numeric.contains(&slot) {
+                    axes.clone()
+                } else {
+                    vec![false; axes.len()]
+                }
+            })
+            .collect::<Vec<_>>();
         // Ordinary artifacts retain their ceiling contract. Directional consumers
         // request only First and never construct an unused Value template.
         let mut layouts = EnumMap::<DerivativeOrder, Option<JetLayout>>::default();
@@ -2155,7 +2177,9 @@ impl PreparedBody {
             *requested <= order
                 && match product {
                     ProductKind::SelectedPartials => true,
-                    ProductKind::JacobianAction | ProductKind::TransposeJacobianAction => *requested == DerivativeOrder::First,
+                    ProductKind::JacobianAction | ProductKind::TransposeJacobianAction => {
+                        *requested == DerivativeOrder::First
+                    }
                     ProductKind::WeightedHessian | ProductKind::WeightedHessianAction => {
                         *requested == DerivativeOrder::Second
                     }
@@ -2214,7 +2238,8 @@ impl PreparedBody {
                 requested,
                 required_pairs,
                 limits,
-            )?.with_slot_support(&frame_support, limits)?;
+            )?
+            .with_slot_support(&frame_support, limits)?;
             let frame = layout.frame_entries(self.slots)?;
             limits.allocation(frame)?;
             let remaining_operations_before_order = remaining_operations;
@@ -2225,11 +2250,17 @@ impl PreparedBody {
                 instructions: 0,
                 instruction_count: 0,
                 modules: 0,
-                selected_first: self.stages.iter().all(|stage| matches!(stage, Stage::Block { .. }))
+                selected_first: self
+                    .stages
+                    .iter()
+                    .all(|stage| matches!(stage, Stage::Block { .. }))
                     && requested == DerivativeOrder::First
                     && product == ProductKind::SelectedPartials,
                 direct_action: directional,
-                first_variables: coordinates.iter().map(|&slot| parameters[slot].clone()).collect(),
+                first_variables: coordinates
+                    .iter()
+                    .map(|&slot| parameters[slot].clone())
+                    .collect(),
                 scalar_inputs: self.inputs,
                 selected_partial_calls: limits.operations,
                 #[cfg(feature = "compiled-evaluator")]
@@ -2265,11 +2296,23 @@ impl PreparedBody {
             used = used
                 .checked_add(allowance.entries)
                 .ok_or(MathError::Limit("compiled demand scratch"))?;
-            let result_entries = selected.len()
-                .checked_add(if requested >= DerivativeOrder::First { first_layout.axes.len() } else { 0 })
-                .and_then(|n| n.checked_add(if requested >= DerivativeOrder::Second { selected.len().checked_mul(layout.pairs.len())? } else { 0 }))
+            let result_entries = selected
+                .len()
+                .checked_add(if requested >= DerivativeOrder::First {
+                    first_layout.axes.len()
+                } else {
+                    0
+                })
+                .and_then(|n| {
+                    n.checked_add(if requested >= DerivativeOrder::Second {
+                        selected.len().checked_mul(layout.pairs.len())?
+                    } else {
+                        0
+                    })
+                })
                 .ok_or(MathError::Limit("output derivative buffers"))?;
-            used = used.checked_add(result_entries)
+            used = used
+                .checked_add(result_entries)
                 .ok_or(MathError::Limit("output derivative buffers"))?;
             limits.allocation(used)?;
             order_worker_bytes[requested] = (allowance.entries - frame)
@@ -2312,11 +2355,13 @@ impl PreparedBody {
         for stages in programs.values().flatten() {
             let start = required_provider_keys.len();
             collect_provider_keys(stages, &mut required_provider_keys);
-            provider_visit_capacity = provider_visit_capacity.max(required_provider_keys.len() - start);
+            provider_visit_capacity =
+                provider_visit_capacity.max(required_provider_keys.len() - start);
         }
         required_provider_keys.sort_unstable();
         required_provider_keys.dedup();
-        let provider_visit_bytes = provider_visit_capacity.checked_mul(size_of::<ProviderVisit>())
+        let provider_visit_bytes = provider_visit_capacity
+            .checked_mul(size_of::<ProviderVisit>())
             .ok_or(MathError::Limit("provider completion observations"))?;
         let evidence_bytes = applicability_extent(&stages)
             .saturating_mul(4)
@@ -2335,19 +2380,40 @@ impl PreparedBody {
         let ceiling_layout = layouts[order]
             .as_ref()
             .ok_or_else(|| MathError::Contract("compiled ceiling layout".into()))?;
-        let result_entries = selected.len()
-            .checked_add(if order >= DerivativeOrder::First { first_layout.axes.len() } else { 0 })
-            .and_then(|n| n.checked_add(if order >= DerivativeOrder::Second { selected.len().checked_mul(ceiling_layout.pairs.len())? } else { 0 }))
+        let result_entries = selected
+            .len()
+            .checked_add(if order >= DerivativeOrder::First {
+                first_layout.axes.len()
+            } else {
+                0
+            })
+            .and_then(|n| {
+                n.checked_add(if order >= DerivativeOrder::Second {
+                    selected.len().checked_mul(ceiling_layout.pairs.len())?
+                } else {
+                    0
+                })
+            })
             .ok_or(MathError::Limit("owning evaluation extent"))?;
-        let mut evaluation_cache_bytes = result_entries.checked_add(self.inputs)
+        let mut evaluation_cache_bytes = result_entries
+            .checked_add(self.inputs)
             .and_then(|n| n.checked_mul(2 * size_of::<f64>()))
             .and_then(|n| n.checked_add(evidence_bytes))
-            .and_then(|n| n.checked_add(size_of::<TrialEvaluation>() + size_of::<Vec<u64>>() + 64 + 2 * provider_visit_bytes))
+            .and_then(|n| {
+                n.checked_add(
+                    size_of::<TrialEvaluation>()
+                        + size_of::<Vec<u64>>()
+                        + 64
+                        + 2 * provider_visit_bytes,
+                )
+            })
             .ok_or(MathError::Limit("evaluation cache storage"))?;
         if product != ProductKind::SelectedPartials {
             let entries = match product {
                 ProductKind::SelectedPartials => 0,
-                ProductKind::JacobianAction | ProductKind::TransposeJacobianAction => selected.len() + coordinates.len(),
+                ProductKind::JacobianAction | ProductKind::TransposeJacobianAction => {
+                    selected.len() + coordinates.len()
+                }
                 ProductKind::WeightedHessian => {
                     layouts[order]
                         .as_ref()
@@ -2408,7 +2474,15 @@ impl PreparedBody {
                 .and_then(|n| n.checked_add(retained_modules))
                 .and_then(|n| n.checked_add(descriptor_bytes))
                 .and_then(|n| n.checked_add(first_layout.retained_bytes()))
-                .and_then(|n| n.checked_add(layouts.values().flatten().map(JetLayout::frame_layout_bytes).sum::<usize>()))
+                .and_then(|n| {
+                    n.checked_add(
+                        layouts
+                            .values()
+                            .flatten()
+                            .map(JetLayout::frame_layout_bytes)
+                            .sum::<usize>(),
+                    )
+                })
                 .and_then(|n| {
                     n.checked_add(size_of::<
                         EnumMap<DerivativeOrder, Option<CompiledOrderCensus>>,
@@ -2416,7 +2490,9 @@ impl PreparedBody {
                 })
                 .and_then(|n| n.checked_add(evidence_bytes))
                 .and_then(|n| n.checked_add(prepared_support.retained_bytes()))
-                .and_then(|n| n.checked_add(required_provider_keys.capacity() * size_of::<ProviderKey>()))
+                .and_then(|n| {
+                    n.checked_add(required_provider_keys.capacity() * size_of::<ProviderKey>())
+                })
                 .and_then(|n| n.checked_add(scalar_new_bytes))
                 .and_then(|n| n.checked_add(scalars.descriptor_bytes()))
                 .and_then(|n| n.checked_add(size_of::<Optimization>()))
@@ -2680,7 +2756,12 @@ impl StageCensus {
         for stage in stages {
             self.stages += 1;
             match stage {
-                CompiledStage::Block { evaluator, arguments, values, .. } => {
+                CompiledStage::Block {
+                    evaluator,
+                    arguments,
+                    values,
+                    ..
+                } => {
                     self.arithmetic_blocks += 1;
                     self.arithmetic_input_entries += arguments.len();
                     self.arithmetic_output_entries += values.len();
@@ -2764,9 +2845,13 @@ impl std::fmt::Debug for CompiledBody {
 }
 impl CompiledBody {
     /// Original preparation policy for additional demands from this same source.
-    pub(crate) fn optimization(&self) -> Optimization { self.optimization }
+    pub(crate) fn optimization(&self) -> Optimization {
+        self.optimization
+    }
     /// Exactly the provider keys selected in this compiled artifact, including control arms.
-    pub(crate) fn required_provider_keys(&self) -> &[ProviderKey] { &self.required_provider_keys }
+    pub(crate) fn required_provider_keys(&self) -> &[ProviderKey] {
+        &self.required_provider_keys
+    }
     pub(crate) fn evaluation_limits(&self) -> EvaluationLimits {
         self.limits
     }
@@ -2827,7 +2912,9 @@ impl CompiledBody {
         }
         let check_order = if self.direct_product.is_some() {
             DerivativeOrder::Value
-        } else if self.reverse_product.is_some() { DerivativeOrder::First } else {
+        } else if self.reverse_product.is_some() {
+            DerivativeOrder::First
+        } else {
             order
         };
         if let Some(stages) = &self.programs[check_order] {
@@ -3083,7 +3170,8 @@ pub(crate) struct FirstLayout {
 }
 impl FirstLayout {
     fn retained_bytes(&self) -> usize {
-        size_of::<Self>() + self.rows.capacity() * size_of::<std::ops::Range<usize>>()
+        size_of::<Self>()
+            + self.rows.capacity() * size_of::<std::ops::Range<usize>>()
             + self.axes.capacity() * size_of::<usize>()
     }
     fn from_axes(rows: impl Iterator<Item = Vec<usize>>) -> Self {
@@ -3097,17 +3185,27 @@ impl FirstLayout {
     }
     pub(crate) fn from_support(support: &PreparedSupport) -> Self {
         Self::from_axes(support.support().first.iter().map(|first| {
-            support.coordinates().iter().enumerate()
+            support
+                .coordinates()
+                .iter()
+                .enumerate()
                 .filter_map(|(axis, formal)| first.contains(formal).then_some(axis))
                 .collect()
         }))
     }
     pub(crate) fn offset(&self, row: usize, axis: usize) -> Option<usize> {
         let range = self.rows.get(row)?;
-        self.axes[range.clone()].binary_search(&axis).ok().map(|i| range.start + i)
+        self.axes[range.clone()]
+            .binary_search(&axis)
+            .ok()
+            .map(|i| range.start + i)
     }
     pub(crate) fn entries(&self, row: usize) -> impl Iterator<Item = (usize, usize)> + '_ {
-        self.rows.get(row).cloned().into_iter().flatten()
+        self.rows
+            .get(row)
+            .cloned()
+            .into_iter()
+            .flatten()
             .map(|offset| (self.axes[offset], offset))
     }
 }
@@ -3136,7 +3234,9 @@ pub(crate) struct TrialEvaluation {
     second_requested: bool,
 }
 impl TrialEvaluation {
-    pub(crate) fn provider_visits(&self) -> &[ProviderVisit] { &self.provider_visits }
+    pub(crate) fn provider_visits(&self) -> &[ProviderVisit] {
+        &self.provider_visits
+    }
     pub(crate) fn clear(&mut self) {
         self.provider_visits.clear();
         for mut witness in self.applicability.drain(..) {
@@ -3156,10 +3256,16 @@ impl TrialEvaluation {
         self.second_requested = false;
     }
     pub(crate) fn first(&self, row: usize, axis: usize) -> f64 {
-        self.first_layout.offset(row, axis).and_then(|offset| self.first.get(offset)).copied().unwrap_or(0.0)
+        self.first_layout
+            .offset(row, axis)
+            .and_then(|offset| self.first.get(offset))
+            .copied()
+            .unwrap_or(0.0)
     }
     pub(crate) fn first_entries(&self, row: usize) -> impl Iterator<Item = (usize, f64)> + '_ {
-        self.first_layout.entries(row).map(|(axis, offset)| (axis, self.first[offset]))
+        self.first_layout
+            .entries(row)
+            .map(|(axis, offset)| (axis, self.first[offset]))
     }
     pub(crate) fn second(&self, row: usize, i: usize, j: usize) -> f64 {
         let (i, j) = (i.min(j), i.max(j));
@@ -3217,7 +3323,9 @@ impl TrialEvaluation {
         }
         if order >= DerivativeOrder::First {
             for offset in first_sources {
-                target.first.push(offset.map_or(0.0, |offset| self.first[offset]));
+                target
+                    .first
+                    .push(offset.map_or(0.0, |offset| self.first[offset]));
             }
         }
         target.first_layout = first.clone();
@@ -3372,21 +3480,45 @@ impl Worker {
     /// Prepare finite selected provider demands before entering native callbacks.
     pub fn prepare_providers(&mut self, providers: &mut ProviderBindings) -> Result<(), MathError> {
         self.check_scope()?;
-        if self.prepared_provider_bank == Some(providers.identity()) { return Ok(()); }
-        fn prepare(stages: &[CompiledStage], providers: &mut ProviderBindings) -> Result<(), MathError> {
+        if self.prepared_provider_bank == Some(providers.identity()) {
+            return Ok(());
+        }
+        fn prepare(
+            stages: &[CompiledStage],
+            providers: &mut ProviderBindings,
+        ) -> Result<(), MathError> {
             for stage in stages {
                 match stage {
-                    CompiledStage::Provider { request, source, .. } => providers.prepare_request(request)
-                        .map_err(|cause| MathError::Provider { source_id: *source, provider: request.spec().id, cause })?,
-                    CompiledStage::Domain { stages, .. } | CompiledStage::Applicability { stages, .. } => prepare(stages, providers)?,
-                    CompiledStage::Branch { then, otherwise, .. } => { prepare(then, providers)?; prepare(otherwise, providers)?; }
+                    CompiledStage::Provider {
+                        request, source, ..
+                    } => {
+                        providers
+                            .prepare_request(request)
+                            .map_err(|cause| MathError::Provider {
+                                source_id: *source,
+                                provider: request.spec().id,
+                                cause,
+                            })?
+                    }
+                    CompiledStage::Domain { stages, .. }
+                    | CompiledStage::Applicability { stages, .. } => prepare(stages, providers)?,
+                    CompiledStage::Branch {
+                        then, otherwise, ..
+                    } => {
+                        prepare(then, providers)?;
+                        prepare(otherwise, providers)?;
+                    }
                     _ => {}
                 }
             }
             Ok(())
         }
-        for stages in self.body.programs.values().flatten() { prepare(stages, providers)?; }
-        if let Some(product) = &self.body.reverse_product { product.prepare(providers)?; }
+        for stages in self.body.programs.values().flatten() {
+            prepare(stages, providers)?;
+        }
+        if let Some(product) = &self.body.reverse_product {
+            product.prepare(providers)?;
+        }
         self.prepared_provider_bank = Some(providers.identity());
         Ok(())
     }
@@ -3586,7 +3718,9 @@ impl Worker {
         if order >= DerivativeOrder::First {
             if let Some(direction) = direction {
                 for (axis, &slot) in self.body.coordinate_offsets.iter().enumerate() {
-                    if self.body.product == ProductKind::WeightedHessianAction && self.body.reverse_product.is_none() {
+                    if self.body.product == ProductKind::WeightedHessianAction
+                        && self.body.reverse_product.is_none()
+                    {
                         layout.set_frame_value(frame, slot, 1 + axis, 1.0);
                         layout.set_frame_value(frame, slot, n, direction[axis]);
                     } else {
@@ -3603,7 +3737,9 @@ impl Worker {
             cancelled,
             max_result_bytes: self.body.limits.scratch_bytes,
         };
-        result.provider_visits.try_reserve_exact(self.body.provider_visit_capacity)
+        result
+            .provider_visits
+            .try_reserve_exact(self.body.provider_visit_capacity)
             .map_err(|_| MathError::Limit("provider completion observations"))?;
         evaluate_stages(
             &mut program.stages,
@@ -3662,7 +3798,8 @@ impl Worker {
             }
             if order >= DerivativeOrder::Second {
                 for k in 0..layout.pairs.len() {
-                    let value = layout.frame_value(frame, slot, 1 + n + k) * layout.raw_factor(1 + n + k);
+                    let value =
+                        layout.frame_value(frame, slot, 1 + n + k) * layout.raw_factor(1 + n + k);
                     result.second.push(value);
                 }
             }
@@ -3722,9 +3859,9 @@ impl Worker {
             INSTANTIATION_PROBE.with_borrow_mut(|probe| probe.template_clones += 1);
             instantiate_stages(
                 &mut stages,
-                self.scope.as_ref().ok_or_else(|| {
-                    MathError::Contract("detached numeric scratch".into())
-                })?,
+                self.scope
+                    .as_ref()
+                    .ok_or_else(|| MathError::Contract("detached numeric scratch".into()))?,
             )?;
             self.check_scope()?;
             self.programs[order] = Some(WorkerProgram {
@@ -3739,9 +3876,10 @@ impl Worker {
                 );
             }
         } else if let Some(program) = &mut self.programs[order] {
-            let scope = self.scope.as_ref().ok_or_else(|| {
-                MathError::Contract("detached numeric scratch".into())
-            })?;
+            let scope = self
+                .scope
+                .as_ref()
+                .ok_or_else(|| MathError::Contract("detached numeric scratch".into()))?;
             instantiate_stages(&mut program.stages, scope)?;
             scope.check().map_err(crate::error::scope_error)?;
             program.instantiated = true;
@@ -3783,7 +3921,9 @@ fn reset_stages(stages: Vec<CompiledStage>) -> Result<Vec<CompiledStage>, MathEr
                     // Absent structural arguments are immutable zeros. Only
                     // caller-written argument slots lose their numeric contents.
                     arguments.fill(0.0);
-                    for &(argument, _) in &gather { arguments[argument] = f64::NAN; }
+                    for &(argument, _) in &gather {
+                        arguments[argument] = f64::NAN;
+                    }
                     values.fill(f64::NAN);
                     CompiledStage::Block {
                         evaluator,
@@ -4211,7 +4351,12 @@ fn cloned_stage_descriptors(stages: &Vec<CompiledStage>) -> Option<usize> {
                     .checked_add(indices(inputs)?)?
                     .checked_add(indices(outputs)?)?
                     .checked_add(indices(&request.outputs)?)?
-                    .checked_add(match &request.demand { pse_kernels::ProviderDemand::SelectedColumns { columns } => indices(columns)?, _ => 0 })?
+                    .checked_add(match &request.demand {
+                        pse_kernels::ProviderDemand::SelectedColumns { columns } => {
+                            indices(columns)?
+                        }
+                        _ => 0,
+                    })?
                     .checked_add(lift.as_ref().map_or(Some(0), |l| indices(&l.inputs))?)?
             }
         };
@@ -4286,9 +4431,18 @@ struct SelectedFirstRegion {
     output_ends: Vec<usize>,
 }
 impl SelectedFirstRegion {
-    fn new(expressions: &[Atom], outputs: &[usize], layout: &JetLayout,
-        scope: &pse_kernels::ExecutionScope, allowance: &mut BuildAllowance) -> Result<Self, MathError> {
-        let mut selected = Self { expressions: Vec::new(), scatter: Vec::new(), output_ends: Vec::new() };
+    fn new(
+        expressions: &[Atom],
+        outputs: &[usize],
+        layout: &JetLayout,
+        scope: &pse_kernels::ExecutionScope,
+        allowance: &mut BuildAllowance,
+    ) -> Result<Self, MathError> {
+        let mut selected = Self {
+            expressions: Vec::new(),
+            scatter: Vec::new(),
+            output_ends: Vec::new(),
+        };
         for (expression, &slot) in expressions.iter().zip(outputs) {
             for destination in layout.frame_slot_range(slot) {
                 scope.check().map_err(crate::error::scope_error)?;
@@ -4296,16 +4450,25 @@ impl SelectedFirstRegion {
                 let emitted = if component == 0 {
                     expression.clone()
                 } else {
-                    allowance.selected_partial_calls = allowance.selected_partial_calls.checked_sub(1)
+                    allowance.selected_partial_calls = allowance
+                        .selected_partial_calls
+                        .checked_sub(1)
                         .ok_or(MathError::Limit("selected first construction calls"))?;
-                    crate::construction::additional(expression.as_view().get_byte_size().checked_mul(8)
-                        .ok_or(MathError::Limit("selected first construction"))?)?;
+                    crate::construction::additional(
+                        expression
+                            .as_view()
+                            .get_byte_size()
+                            .checked_mul(8)
+                            .ok_or(MathError::Limit("selected first construction"))?,
+                    )?;
                     if let Some(context) = pse_diagnostics::observation::current() {
                         context.count("math.selected_first_constructions", "count", 1);
                     }
                     layout.differentiate(expression, &allowance.first_variables, component)?
                 };
-                selected.scatter.push((destination, Some(selected.expressions.len())));
+                selected
+                    .scatter
+                    .push((destination, Some(selected.expressions.len())));
                 selected.expressions.push(emitted);
             }
             selected.output_ends.push(selected.expressions.len());
@@ -4847,7 +5010,10 @@ fn compile_stages(
                             .collect::<Vec<_>>()
                     })
                     .collect::<Vec<_>>();
-                let selected_count = outputs.iter().map(|&slot| layout.frame_slot_range(slot).len()).sum::<usize>();
+                let selected_count = outputs
+                    .iter()
+                    .map(|&slot| layout.frame_slot_range(slot).len())
+                    .sum::<usize>();
                 let selected_first = allowance.selected_first;
                 #[cfg(test)]
                 let selected_first = selected_first && !FORCE_TAYLOR_FIRST.get();
@@ -4855,26 +5021,43 @@ fn compile_stages(
                     && inputs.iter().all(|&slot| slot < allowance.scalar_inputs)
                     && selected_count < outputs.len() * local.width()
                 {
-                    Some(SelectedFirstRegion::new(expressions, outputs, layout, execution_scope, allowance)?)
-                } else { None };
+                    Some(SelectedFirstRegion::new(
+                        expressions,
+                        outputs,
+                        layout,
+                        execution_scope,
+                        allowance,
+                    )?)
+                } else {
+                    None
+                };
                 let inspected = if let Some(selected) = &selected {
                     library::bounded_scalar_evaluator(
-                        &selected.expressions, params, options, cancelled,
-                        EvaluationLimits { operations: allowance.operations, ..limits }, scalars,
+                        &selected.expressions,
+                        params,
+                        options,
+                        cancelled,
+                        EvaluationLimits {
+                            operations: allowance.operations,
+                            ..limits
+                        },
+                        scalars,
                     )?
-                } else { library::bounded_evaluator(
-                    *source,
-                    expressions,
-                    params,
-                    &local,
-                    &zero_components,
-                    options,
-                    cancelled,
-                    limits,
-                    allowance.operations,
-                    allowance.entries,
-                    scalars,
-                )? };
+                } else {
+                    library::bounded_evaluator(
+                        *source,
+                        expressions,
+                        params,
+                        &local,
+                        &zero_components,
+                        options,
+                        cancelled,
+                        limits,
+                        allowance.operations,
+                        allowance.entries,
+                        scalars,
+                    )?
+                };
                 let operations = operation_count(inspected.facts.operations);
                 allowance.operations = allowance
                     .operations
@@ -4883,8 +5066,18 @@ fn compile_stages(
                 let evaluator = inspected.evaluator;
                 let input_len = evaluator.get_input_len();
                 let output_len = evaluator.get_output_len();
-                if input_len != if selected.is_some() { inputs.len() } else { inputs.len() * local.width() }
-                    || output_len != selected.as_ref().map_or(outputs.len() * local.width(), |selected| selected.expressions.len())
+                if input_len
+                    != if selected.is_some() {
+                        inputs.len()
+                    } else {
+                        inputs.len() * local.width()
+                    }
+                    || output_len
+                        != selected
+                            .as_ref()
+                            .map_or(outputs.len() * local.width(), |selected| {
+                                selected.expressions.len()
+                            })
                 {
                     return Err(MathError::Contract("library vectorization layout".into()));
                 }
@@ -4942,23 +5135,67 @@ fn compile_stages(
                     }
                 };
                 drop(_export);
-                let checked_ends = region.checks.iter().map(|check| {
-                    selected.as_ref().map_or(check.end_output * local.width(), |selected| selected.output_ends[check.end_output - 1])
-                }).collect();
+                let checked_ends = region
+                    .checks
+                    .iter()
+                    .map(|check| {
+                        selected
+                            .as_ref()
+                            .map_or(check.end_output * local.width(), |selected| {
+                                selected.output_ends[check.end_output - 1]
+                            })
+                    })
+                    .collect();
                 let (gather, scatter) = if let Some(selected) = selected {
                     components = vec![0];
-                    (inputs.iter().enumerate().filter_map(|(argument, &slot)| layout.frame_offset(slot, 0).map(|source| (argument, source))).collect(), selected.scatter)
+                    (
+                        inputs
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(argument, &slot)| {
+                                layout
+                                    .frame_offset(slot, 0)
+                                    .map(|source| (argument, source))
+                            })
+                            .collect(),
+                        selected.scatter,
+                    )
                 } else {
                     let component_width = components.len();
-                    let gather = inputs.iter().enumerate().flat_map(|(row, &slot)| {
-                        components.iter().enumerate().filter_map(move |(local, &component)| layout.frame_offset(slot, component).map(|source| (row * component_width + local, source)))
-                    }).collect();
-                    let scatter = outputs.iter().enumerate().flat_map(|(row, &slot)| {
-                    layout.frame_slot_range(slot).map(|offset| {
-                        let component = layout.frame_component(offset);
-                        (offset, components.binary_search(&component).ok().map(|component_offset| row * local.width() + component_offset))
-                    }).collect::<Vec<_>>()
-                    }).collect();
+                    let gather = inputs
+                        .iter()
+                        .enumerate()
+                        .flat_map(|(row, &slot)| {
+                            components
+                                .iter()
+                                .enumerate()
+                                .filter_map(move |(local, &component)| {
+                                    layout
+                                        .frame_offset(slot, component)
+                                        .map(|source| (row * component_width + local, source))
+                                })
+                        })
+                        .collect();
+                    let scatter = outputs
+                        .iter()
+                        .enumerate()
+                        .flat_map(|(row, &slot)| {
+                            layout
+                                .frame_slot_range(slot)
+                                .map(|offset| {
+                                    let component = layout.frame_component(offset);
+                                    (
+                                        offset,
+                                        components.binary_search(&component).ok().map(
+                                            |component_offset| {
+                                                row * local.width() + component_offset
+                                            },
+                                        ),
+                                    )
+                                })
+                                .collect::<Vec<_>>()
+                        })
+                        .collect();
                     (gather, scatter)
                 };
                 CompiledStage::Block {
@@ -5043,22 +5280,55 @@ fn compile_stages(
                 // Numerical columns follow consumed outer coordinate support. Every
                 // physical input is still gathered, including inputs that are constant
                 // with respect to this derivative demand.
-                let mut columns = inputs.iter().enumerate()
-                    .filter_map(|(i, &slot)| (differentiated && coordinate_support[slot].iter().any(|&v| v)).then_some(i))
-                    .chain(partial.iter().copied()).collect::<BTreeSet<_>>()
-                    .into_iter().collect::<Vec<_>>();
-                let order = provider_request_order(if differentiated { layout.order } else { DerivativeOrder::Value }, partial.len())?;
+                let mut columns = inputs
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, &slot)| {
+                        (differentiated && coordinate_support[slot].iter().any(|&v| v)).then_some(i)
+                    })
+                    .chain(partial.iter().copied())
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
+                    .collect::<Vec<_>>();
+                let order = provider_request_order(
+                    if differentiated {
+                        layout.order
+                    } else {
+                        DerivativeOrder::Value
+                    },
+                    partial.len(),
+                )?;
                 let direct_action = allowance.direct_action && differentiated && partial.is_empty();
-                let selected_columns = !direct_action && order > DerivativeOrder::Value && columns.len() < inputs.len();
-                let lifted_arity = if selected_columns { columns.len() } else { inputs.len() };
-                let bound_partial = partial.iter().map(|i| {
-                    if selected_columns { columns.binary_search(i).map_err(|_| MathError::Contract("provider partial column missing".into())) }
-                    else { Ok(*i) }
-                }).collect::<Result<Vec<_>, MathError>>()?;
+                let selected_columns = !direct_action
+                    && order > DerivativeOrder::Value
+                    && columns.len() < inputs.len();
+                let lifted_arity = if selected_columns {
+                    columns.len()
+                } else {
+                    inputs.len()
+                };
+                let bound_partial = partial
+                    .iter()
+                    .map(|i| {
+                        if selected_columns {
+                            columns.binary_search(i).map_err(|_| {
+                                MathError::Contract("provider partial column missing".into())
+                            })
+                        } else {
+                            Ok(*i)
+                        }
+                    })
+                    .collect::<Result<Vec<_>, MathError>>()?;
                 let request = ProviderRequest {
-                    demand: if direct_action { pse_kernels::ProviderDemand::JacobianAction { directions: 1 } }
-                        else if selected_columns { pse_kernels::ProviderDemand::SelectedColumns { columns: std::mem::take(&mut columns) } }
-                        else { pse_kernels::ProviderDemand::CompleteJets },
+                    demand: if direct_action {
+                        pse_kernels::ProviderDemand::JacobianAction { directions: 1 }
+                    } else if selected_columns {
+                        pse_kernels::ProviderDemand::SelectedColumns {
+                            columns: std::mem::take(&mut columns),
+                        }
+                    } else {
+                        pse_kernels::ProviderDemand::CompleteJets
+                    },
                     outputs: outputs
                         .iter()
                         .enumerate()
@@ -5106,7 +5376,10 @@ fn compile_stages(
                         .ok_or(MathError::Limit("provider lift operations"))?;
                 }
                 let extents = request.extents();
-                let entries = inputs.len() * (1 + usize::from(direct_action)) + extents.values + extents.jacobian + extents.hessians;
+                let entries = inputs.len() * (1 + usize::from(direct_action))
+                    + extents.values
+                    + extents.jacobian
+                    + extents.hessians;
                 allowance.entries = allowance
                     .entries
                     .checked_add(
@@ -5127,7 +5400,11 @@ fn compile_stages(
                     request,
                     binding: None,
                     arguments: vec![0.0; inputs.len()],
-                    direction: if direct_action { vec![0.0; inputs.len()] } else { Vec::new() },
+                    direction: if direct_action {
+                        vec![0.0; inputs.len()]
+                    } else {
+                        Vec::new()
+                    },
                     linearization: None,
                     lift,
                     source: *source,
@@ -5147,8 +5424,12 @@ fn collect_provider_keys(stages: &[CompiledStage], keys: &mut Vec<ProviderKey>) 
     for stage in stages {
         match stage {
             CompiledStage::Provider { request, .. } => keys.push(request.key()),
-            CompiledStage::Applicability { stages, .. } | CompiledStage::Domain { stages, .. } => collect_provider_keys(stages, keys),
-            CompiledStage::Branch { then, otherwise, .. } => {
+            CompiledStage::Applicability { stages, .. } | CompiledStage::Domain { stages, .. } => {
+                collect_provider_keys(stages, keys)
+            }
+            CompiledStage::Branch {
+                then, otherwise, ..
+            } => {
                 collect_provider_keys(then, keys);
                 collect_provider_keys(otherwise, keys);
             }
@@ -5318,7 +5599,9 @@ fn evaluate_stages(
                 source,
                 lineage,
             } => {
-                if layout.order >= *order && !condition.permits(layout.frame_value(frame, *argument, 0)) {
+                if layout.order >= *order
+                    && !condition.permits(layout.frame_value(frame, *argument, 0))
+                {
                     // A closure range names its lineage (Plan 23 H5).
                     return Err(match lineage {
                         Some(lineage) => MathError::Validity(Box::new(lineage.as_ref().clone())),
@@ -5381,9 +5664,12 @@ fn evaluate_stages(
                 let slot = match *binding {
                     Some((identity, slot)) if identity == bank => slot,
                     _ => {
-                        let slot = providers.resolve(request.key())
+                        let slot = providers
+                            .resolve(request.key())
                             .ok_or_else(|| MathError::Contract("missing provider worker".into()))?;
-                        providers.bind_prepared_request(slot, request).map_err(|e| MathError::Contract(e.to_string()))?;
+                        providers
+                            .bind_prepared_request(slot, request)
+                            .map_err(|e| MathError::Contract(e.to_string()))?;
                         *binding = Some((bank, slot));
                         slot
                     }
@@ -5396,22 +5682,36 @@ fn evaluate_stages(
                     provider: request.spec().id,
                     cause,
                 };
-                for (value, &slot) in direction.iter_mut().zip(inputs.iter()) { *value = layout.frame_value(frame, slot, 1); }
-                let runtime = ProviderRuntime { directions: direction, ..Default::default() };
+                for (value, &slot) in direction.iter_mut().zip(inputs.iter()) {
+                    *value = layout.frame_value(frame, slot, 1);
+                }
+                let runtime = ProviderRuntime {
+                    directions: direction,
+                    ..Default::default()
+                };
                 let values = providers
                     .fill(slot, buffer, arguments, request, runtime, context)
                     .map_err(error)?;
                 *linearization = values.linearization;
-                provider_visits.push(ProviderVisit { source: *source, provider: request.key(), linearization: values.linearization });
+                provider_visits.push(ProviderVisit {
+                    source: *source,
+                    provider: request.key(),
+                    linearization: values.linearization,
+                });
                 for (row, &slot) in outputs.iter().enumerate() {
-                    if matches!(request.demand, pse_kernels::ProviderDemand::JacobianAction { .. }) {
+                    if matches!(
+                        request.demand,
+                        pse_kernels::ProviderDemand::JacobianAction { .. }
+                    ) {
                         layout.clear_frame_slot(frame, slot);
                         layout.set_frame_value(frame, slot, 0, values.values[row]);
                         layout.set_frame_value(frame, slot, 1, values.jacobian[row]);
                         continue;
                     }
                     let columns = match &request.demand {
-                        pse_kernels::ProviderDemand::SelectedColumns { columns } => Some(columns.as_slice()),
+                        pse_kernels::ProviderDemand::SelectedColumns { columns } => {
+                            Some(columns.as_slice())
+                        }
                         _ => None,
                     };
                     let n = columns.map_or(inputs.len(), <[usize]>::len);
@@ -5434,7 +5734,11 @@ fn evaluate_stages(
                                 }
                                 LiftInput::Second(i, j) => values.hessians[row * n * n + i * n + j],
                                 LiftInput::Argument(i, k) => {
-                                    layout.frame_value(frame, inputs[columns.map_or(i, |columns| columns[i])], k) * layout.raw_factor(k)
+                                    layout.frame_value(
+                                        frame,
+                                        inputs[columns.map_or(i, |columns| columns[i])],
+                                        k,
+                                    ) * layout.raw_factor(k)
                                 }
                             };
                         }
@@ -6553,12 +6857,28 @@ mod compact_tests {
         inputs[256] = 2.;
         let result = eval(&mut program.worker(), &inputs, DerivativeOrder::First).unwrap();
         assert_eq!(result.values, vec![1.; 128]);
-        let packed = program.worker().evaluate_trial(
-            &inputs, DerivativeOrder::First, &mut ProviderBindings::default(),
-            &Arc::new(AtomicBool::new(false)),
-        ).unwrap();
-        assert_eq!(packed.first.len(), 256, "two supported firsts per residual, rather than 128 times 257");
-        assert_eq!(program.census().find(|c| c.order == DerivativeOrder::First).unwrap().result_entries, 384);
+        let packed = program
+            .worker()
+            .evaluate_trial(
+                &inputs,
+                DerivativeOrder::First,
+                &mut ProviderBindings::default(),
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert_eq!(
+            packed.first.len(),
+            256,
+            "two supported firsts per residual, rather than 128 times 257"
+        );
+        assert_eq!(
+            program
+                .census()
+                .find(|c| c.order == DerivativeOrder::First)
+                .unwrap()
+                .result_entries,
+            384
+        );
         for row in 0..128 {
             for coordinate in 0..257 {
                 let expected = if coordinate == row {
@@ -6613,9 +6933,10 @@ mod compact_tests {
         }
         worker.frame.fill(12345.0);
         let extent = worker.body.layouts[DerivativeOrder::Value]
-                .as_ref()
-                .unwrap()
-                .frame_entries(worker.body.slots).unwrap();
+            .as_ref()
+            .unwrap()
+            .frame_entries(worker.body.slots)
+            .unwrap();
         let value = worker
             .evaluate_trial(
                 &[2.0, 3.0, 1.0],
@@ -6654,10 +6975,7 @@ mod compact_tests {
                 &mut result,
             )
             .unwrap();
-        assert_eq!(
-            (result.first.capacity(), result.second.capacity()),
-            (0, 0)
-        );
+        assert_eq!((result.first.capacity(), result.second.capacity()), (0, 0));
         worker
             .evaluate_trial_into(
                 &[2., 3., 1.],
@@ -6739,57 +7057,147 @@ mod compact_tests {
     fn compact_first_results_keep_structural_support_at_zero_and_dense_public_boundary() {
         crate::initialize().unwrap();
         let x = library::formal(0).unwrap();
-        let body = PreparedBody::new(3, 5, vec![3, 4], vec![
-            Stage::Block { expressions: vec![&x * &x, Atom::num(7)], outputs: vec![3, 4], source: SemanticId::NIL },
-        ], DerivativeOrder::Second).unwrap();
-        let program = body.compile(&[0, 1], &[2, 0, 1], DerivativeOrder::Second,
-            Optimization::default(), EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
-        ).unwrap();
+        let body = PreparedBody::new(
+            3,
+            5,
+            vec![3, 4],
+            vec![Stage::Block {
+                expressions: vec![&x * &x, Atom::num(7)],
+                outputs: vec![3, 4],
+                source: SemanticId::NIL,
+            }],
+            DerivativeOrder::Second,
+        )
+        .unwrap();
+        let program = body
+            .compile(
+                &[0, 1],
+                &[2, 0, 1],
+                DerivativeOrder::Second,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            )
+            .unwrap();
         let mut worker = program.worker();
-        let zero = worker.evaluate_trial(&[0., 3., 4.], DerivativeOrder::Second, &mut ProviderBindings::default(),
-            &Arc::new(AtomicBool::new(false))).unwrap();
+        let zero = worker
+            .evaluate_trial(
+                &[0., 3., 4.],
+                DerivativeOrder::Second,
+                &mut ProviderBindings::default(),
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
         assert_eq!(zero.first, [0.]);
         assert_eq!(zero.first_entries(0).collect::<Vec<_>>(), [(1, 0.)]);
         assert!(zero.first_entries(1).next().is_none());
         assert_eq!(zero.clone().into_evaluation().jacobian, [0.; 6]);
-        let positive = worker.evaluate_trial(&[2., 3., 4.], DerivativeOrder::Second, &mut ProviderBindings::default(),
-            &Arc::new(AtomicBool::new(false))).unwrap();
+        let positive = worker
+            .evaluate_trial(
+                &[2., 3., 4.],
+                DerivativeOrder::Second,
+                &mut ProviderBindings::default(),
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
         assert_eq!(positive.first, [4.]);
-        assert_eq!(positive.into_evaluation().jacobian, [0., 4., 0., 0., 0., 0.]);
-        assert_eq!(program.census().find(|c| c.order == DerivativeOrder::Second).unwrap().result_entries, 5);
+        assert_eq!(
+            positive.into_evaluation().jacobian,
+            [0., 4., 0., 0., 0., 0.]
+        );
+        assert_eq!(
+            program
+                .census()
+                .find(|c| c.order == DerivativeOrder::Second)
+                .unwrap()
+                .result_entries,
+            5
+        );
     }
 
     #[test]
     fn compact_frame_and_selected_flat_firsts_compare_actual_region_and_result_work() {
         use pse_diagnostics::observation::{ObservationHub, Policy, Value};
         crate::initialize().unwrap();
-        let variables = (0..8).map(|slot| library::formal(slot).unwrap()).collect::<Vec<_>>();
+        let variables = (0..8)
+            .map(|slot| library::formal(slot).unwrap())
+            .collect::<Vec<_>>();
         let expressions = variables.iter().map(|x| x * x).collect::<Vec<_>>();
-        let body = PreparedBody::new(16, 24, (16..24).collect(), vec![
-            Stage::Block { expressions, outputs: (16..24).collect(), source: SemanticId::NIL },
-        ], DerivativeOrder::First).unwrap();
+        let body = PreparedBody::new(
+            16,
+            24,
+            (16..24).collect(),
+            vec![Stage::Block {
+                expressions,
+                outputs: (16..24).collect(),
+                source: SemanticId::NIL,
+            }],
+            DerivativeOrder::First,
+        )
+        .unwrap();
         let hub = ObservationHub::new(Policy::default());
         let operation = hub.start("selected sparse first comparison");
         let context = operation.context();
         let _entered = context.enter();
-        let selected = body.compile(&(0..8).collect::<Vec<_>>(), &(0..16).collect::<Vec<_>>(), DerivativeOrder::First,
-            Optimization::default(), EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None)).unwrap();
-        let counts = context.reader().snapshot(std::time::Duration::from_secs(60));
-        assert_eq!(counts.metrics.iter().find(|m| m.name == "math.selected_first_constructions").unwrap().cumulative, Value::Count(8));
+        let selected = body
+            .compile(
+                &(0..8).collect::<Vec<_>>(),
+                &(0..16).collect::<Vec<_>>(),
+                DerivativeOrder::First,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            )
+            .unwrap();
+        let counts = context
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            counts
+                .metrics
+                .iter()
+                .find(|m| m.name == "math.selected_first_constructions")
+                .unwrap()
+                .cumulative,
+            Value::Count(8)
+        );
         FORCE_TAYLOR_FIRST.set(true);
-        let taylor = body.compile(&(0..8).collect::<Vec<_>>(), &(0..16).collect::<Vec<_>>(), DerivativeOrder::First,
-            Optimization::default(), EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None)).unwrap();
+        let taylor = body
+            .compile(
+                &(0..8).collect::<Vec<_>>(),
+                &(0..16).collect::<Vec<_>>(),
+                DerivativeOrder::First,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            )
+            .unwrap();
         FORCE_TAYLOR_FIRST.set(false);
-        let actual = selected.census().find(|c| c.order == DerivativeOrder::First).unwrap();
-        let reference = taylor.census().find(|c| c.order == DerivativeOrder::First).unwrap();
+        let actual = selected
+            .census()
+            .find(|c| c.order == DerivativeOrder::First)
+            .unwrap();
+        let reference = taylor
+            .census()
+            .find(|c| c.order == DerivativeOrder::First)
+            .unwrap();
         assert_eq!(actual.frame_entries, 40);
         assert!(actual.frame_entries < selected.slots * actual.derivative_components);
         assert_eq!(actual.result_entries, 16);
-        assert_eq!((actual.arithmetic_input_entries, actual.arithmetic_output_entries), (8, 16));
-        assert_eq!((reference.arithmetic_input_entries, reference.arithmetic_output_entries), (72, 72));
+        assert_eq!(
+            (
+                actual.arithmetic_input_entries,
+                actual.arithmetic_output_entries
+            ),
+            (8, 16)
+        );
+        assert_eq!(
+            (
+                reference.arithmetic_input_entries,
+                reference.arithmetic_output_entries
+            ),
+            (72, 72)
+        );
         assert!(actual.library_operations < reference.library_operations);
         assert_eq!((selected.scalar_builds, taylor.scalar_builds), (2, 1));
         // Selected construction is paid during immutable preparation; callbacks
@@ -6799,60 +7207,155 @@ mod compact_tests {
         for x in [0., 2., -3., 4.] {
             input[0] = x;
             let first = eval(&mut worker, &input, DerivativeOrder::First).unwrap();
-            assert_eq!(first, eval(&mut taylor.worker(), &input, DerivativeOrder::First).unwrap());
+            assert_eq!(
+                first,
+                eval(&mut taylor.worker(), &input, DerivativeOrder::First).unwrap()
+            );
         }
         input[0] = 1e200;
-        assert!(matches!(eval(&mut worker, &input, DerivativeOrder::First), Err(MathError::Domain { .. })));
+        assert!(matches!(
+            eval(&mut worker, &input, DerivativeOrder::First),
+            Err(MathError::Domain { .. })
+        ));
         input[0] = 3.;
-        assert_eq!(eval(&mut worker, &input, DerivativeOrder::First).unwrap(),
-            eval(&mut taylor.worker(), &input, DerivativeOrder::First).unwrap());
-        assert_eq!(context.reader().snapshot(std::time::Duration::from_secs(60)).metrics.iter()
-            .find(|m| m.name == "math.selected_first_constructions").unwrap().cumulative, Value::Count(8));
-        eprintln!("I01 selected: frame={} region-in={} region-out={} returned={} operations={} scalar-builds={}; Taylor: region-in={} region-out={} operations={} scalar-builds={}",
-            actual.frame_entries, actual.arithmetic_input_entries, actual.arithmetic_output_entries, actual.result_entries,
-            actual.library_operations, selected.scalar_builds, reference.arithmetic_input_entries,
-            reference.arithmetic_output_entries, reference.library_operations, taylor.scalar_builds);
+        assert_eq!(
+            eval(&mut worker, &input, DerivativeOrder::First).unwrap(),
+            eval(&mut taylor.worker(), &input, DerivativeOrder::First).unwrap()
+        );
+        assert_eq!(
+            context
+                .reader()
+                .snapshot(std::time::Duration::from_secs(60))
+                .metrics
+                .iter()
+                .find(|m| m.name == "math.selected_first_constructions")
+                .unwrap()
+                .cumulative,
+            Value::Count(8)
+        );
+        eprintln!(
+            "I01 selected: frame={} region-in={} region-out={} returned={} operations={} scalar-builds={}; Taylor: region-in={} region-out={} operations={} scalar-builds={}",
+            actual.frame_entries,
+            actual.arithmetic_input_entries,
+            actual.arithmetic_output_entries,
+            actual.result_entries,
+            actual.library_operations,
+            selected.scalar_builds,
+            reference.arithmetic_input_entries,
+            reference.arithmetic_output_entries,
+            reference.library_operations,
+            taylor.scalar_builds
+        );
     }
 
     #[test]
     fn compact_branch_frames_write_union_zeros_after_failure_and_order_changes() {
         let program = instantiation_program(Optimization::default());
         let mut worker = program.worker();
-        for order in [DerivativeOrder::Second, DerivativeOrder::First, DerivativeOrder::Value, DerivativeOrder::Second] {
+        for order in [
+            DerivativeOrder::Second,
+            DerivativeOrder::First,
+            DerivativeOrder::Value,
+            DerivativeOrder::Second,
+        ] {
             for point in [[2., 3., 1.], [-2., 3., 1.]] {
-                assert_eq!(eval(&mut worker, &point, order).unwrap(), eval(&mut program.worker(), &point, order).unwrap());
+                assert_eq!(
+                    eval(&mut worker, &point, order).unwrap(),
+                    eval(&mut program.worker(), &point, order).unwrap()
+                );
             }
             assert!(eval(&mut worker, &[2., 3., -1.], order).is_err());
-            assert_eq!(eval(&mut worker, &[-2., 4., 1.], order).unwrap(),
-                eval(&mut program.worker(), &[-2., 4., 1.], order).unwrap());
+            assert_eq!(
+                eval(&mut worker, &[-2., 4., 1.], order).unwrap(),
+                eval(&mut program.worker(), &[-2., 4., 1.], order).unwrap()
+            );
         }
         worker.detach_controls();
         worker.reset_scratch().unwrap();
-        worker.set_scope(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
-        assert_eq!(eval(&mut worker, &[2., 3., 1.], DerivativeOrder::Second).unwrap(),
-            eval(&mut program.worker(), &[2., 3., 1.], DerivativeOrder::Second).unwrap());
+        worker.set_scope(pse_kernels::ExecutionScope::new(
+            pse_diagnostics::Cancellation::default(),
+            None,
+        ));
+        assert_eq!(
+            eval(&mut worker, &[2., 3., 1.], DerivativeOrder::Second).unwrap(),
+            eval(
+                &mut program.worker(),
+                &[2., 3., 1.],
+                DerivativeOrder::Second
+            )
+            .unwrap()
+        );
     }
 
     #[test]
     fn dense_and_dependent_first_regions_keep_their_qualified_taylor_route() {
         crate::initialize().unwrap();
-        let variables = (0..3).map(|slot| library::formal(slot).unwrap()).collect::<Vec<_>>();
+        let variables = (0..3)
+            .map(|slot| library::formal(slot).unwrap())
+            .collect::<Vec<_>>();
         let sum = variables.iter().fold(Atom::num(0), |sum, x| sum + x);
-        let dense = PreparedBody::new(3, 5, vec![3, 4], vec![Stage::Block {
-            expressions: vec![&sum * &sum, &sum * &sum * &sum], outputs: vec![3, 4], source: SemanticId::NIL,
-        }], DerivativeOrder::First).unwrap().compile(&[0, 1], &[0, 1, 2], DerivativeOrder::First,
-            Optimization::default(), EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None)).unwrap();
-        assert_eq!(dense.scalar_builds, 1, "dense firsts do not introduce an alternative scalar construction");
-        let counts = dense.census().find(|c| c.order == DerivativeOrder::First).unwrap();
-        assert_eq!((counts.arithmetic_input_entries, counts.arithmetic_output_entries), (12, 8));
-        assert_eq!(eval(&mut dense.worker(), &[1., 2., 3.], DerivativeOrder::First).unwrap().jacobian,
-            [12., 12., 12., 108., 108., 108.]);
+        let dense = PreparedBody::new(
+            3,
+            5,
+            vec![3, 4],
+            vec![Stage::Block {
+                expressions: vec![&sum * &sum, &sum * &sum * &sum],
+                outputs: vec![3, 4],
+                source: SemanticId::NIL,
+            }],
+            DerivativeOrder::First,
+        )
+        .unwrap()
+        .compile(
+            &[0, 1],
+            &[0, 1, 2],
+            DerivativeOrder::First,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+        )
+        .unwrap();
+        assert_eq!(
+            dense.scalar_builds, 1,
+            "dense firsts do not introduce an alternative scalar construction"
+        );
+        let counts = dense
+            .census()
+            .find(|c| c.order == DerivativeOrder::First)
+            .unwrap();
+        assert_eq!(
+            (
+                counts.arithmetic_input_entries,
+                counts.arithmetic_output_entries
+            ),
+            (12, 8)
+        );
+        assert_eq!(
+            eval(&mut dense.worker(), &[1., 2., 3.], DerivativeOrder::First)
+                .unwrap()
+                .jacobian,
+            [12., 12., 12., 108., 108., 108.]
+        );
         let intermediate = library::formal(2).unwrap();
-        let dependent = PreparedBody::new(2, 4, vec![3], vec![
-            Stage::Block { expressions: vec![&variables[0] * &variables[0]], outputs: vec![2], source: SemanticId::NIL },
-            Stage::Block { expressions: vec![intermediate * &variables[1]], outputs: vec![3], source: SemanticId::NIL },
-        ], DerivativeOrder::First).unwrap();
+        let dependent = PreparedBody::new(
+            2,
+            4,
+            vec![3],
+            vec![
+                Stage::Block {
+                    expressions: vec![&variables[0] * &variables[0]],
+                    outputs: vec![2],
+                    source: SemanticId::NIL,
+                },
+                Stage::Block {
+                    expressions: vec![intermediate * &variables[1]],
+                    outputs: vec![3],
+                    source: SemanticId::NIL,
+                },
+            ],
+            DerivativeOrder::First,
+        )
+        .unwrap();
         let dependent = compiled(&dependent, &[0, 1], DerivativeOrder::First);
         let result = eval(&mut dependent.worker(), &[2., 3.], DerivativeOrder::First).unwrap();
         assert_eq!(result.values, [12.]);
@@ -6862,17 +7365,36 @@ mod compact_tests {
     #[test]
     fn sparse_symbolic_firsts_match_analytic_and_taylor_nonlinear_compositions() {
         crate::initialize().unwrap();
-        let expressions = (0..4).map(|row| {
-            let x = library::formal(2 * row).unwrap();
-            let y = library::formal(2 * row + 1).unwrap();
-            x.clone().sin() * y + x.exp()
-        }).collect();
-        let body = PreparedBody::new(8, 12, (8..12).collect(), vec![Stage::Block {
-            expressions, outputs: (8..12).collect(), source: SemanticId::NIL,
-        }], DerivativeOrder::First).unwrap();
-        let make = || body.compile(&(0..4).collect::<Vec<_>>(), &(0..8).collect::<Vec<_>>(), DerivativeOrder::First,
-            Optimization::default(), EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None)).unwrap();
+        let expressions = (0..4)
+            .map(|row| {
+                let x = library::formal(2 * row).unwrap();
+                let y = library::formal(2 * row + 1).unwrap();
+                x.clone().sin() * y + x.exp()
+            })
+            .collect();
+        let body = PreparedBody::new(
+            8,
+            12,
+            (8..12).collect(),
+            vec![Stage::Block {
+                expressions,
+                outputs: (8..12).collect(),
+                source: SemanticId::NIL,
+            }],
+            DerivativeOrder::First,
+        )
+        .unwrap();
+        let make = || {
+            body.compile(
+                &(0..4).collect::<Vec<_>>(),
+                &(0..8).collect::<Vec<_>>(),
+                DerivativeOrder::First,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            )
+            .unwrap()
+        };
         let selected = make();
         FORCE_TAYLOR_FIRST.set(true);
         let taylor = make();
@@ -6880,54 +7402,130 @@ mod compact_tests {
         let mut worker = selected.worker();
         let mut point = vec![0.; 8];
         for seed in [0.0f64, -2., 0.5, 2.] {
-            for row in 0..4 { point[2 * row] = seed + row as f64 / 10.; point[2 * row + 1] = row as f64 - 1.; }
+            for row in 0..4 {
+                point[2 * row] = seed + row as f64 / 10.;
+                point[2 * row + 1] = row as f64 - 1.;
+            }
             let actual = eval(&mut worker, &point, DerivativeOrder::First).unwrap();
             let reference = eval(&mut taylor.worker(), &point, DerivativeOrder::First).unwrap();
-            for (a, b) in actual.values.iter().zip(&reference.values).chain(actual.jacobian.iter().zip(&reference.jacobian)) {
+            for (a, b) in actual
+                .values
+                .iter()
+                .zip(&reference.values)
+                .chain(actual.jacobian.iter().zip(&reference.jacobian))
+            {
                 assert!((a - b).abs() < 1e-12 * (1. + b.abs()));
             }
             for row in 0..4 {
                 let (x, y) = (point[2 * row], point[2 * row + 1]);
                 let first_x = y * x.cos() + x.exp();
                 let first_y = x.sin();
-                assert!((actual.values[row] - (x.sin() * y + x.exp())).abs() < 1e-12 * (1. + actual.values[row].abs()));
+                assert!(
+                    (actual.values[row] - (x.sin() * y + x.exp())).abs()
+                        < 1e-12 * (1. + actual.values[row].abs())
+                );
                 for axis in 0..8 {
-                    let expected = if axis == 2 * row { first_x } else if axis == 2 * row + 1 { first_y } else { 0. };
-                    assert!((actual.jacobian[row * 8 + axis] - expected).abs() < 1e-12 * (1. + expected.abs()));
+                    let expected = if axis == 2 * row {
+                        first_x
+                    } else if axis == 2 * row + 1 {
+                        first_y
+                    } else {
+                        0.
+                    };
+                    assert!(
+                        (actual.jacobian[row * 8 + axis] - expected).abs()
+                            < 1e-12 * (1. + expected.abs())
+                    );
                 }
             }
         }
         assert_eq!(selected.first_result_entries(), 8);
         point[0] = 800.;
-        assert!(matches!(eval(&mut worker, &point, DerivativeOrder::First), Err(MathError::Domain { .. })));
+        assert!(matches!(
+            eval(&mut worker, &point, DerivativeOrder::First),
+            Err(MathError::Domain { .. })
+        ));
         point[0] = 0.;
-        assert_eq!(eval(&mut worker, &point, DerivativeOrder::First).unwrap().jacobian.len(), 32);
+        assert_eq!(
+            eval(&mut worker, &point, DerivativeOrder::First)
+                .unwrap()
+                .jacobian
+                .len(),
+            32
+        );
     }
 
     #[cfg(feature = "compiled-evaluator")]
     #[test]
     fn native_compact_selected_firsts_retain_original_value_checks_and_recover() {
         crate::initialize().unwrap();
-        let expressions = (0..4).map(|slot| { let x = library::formal(slot).unwrap(); &x * &x }).collect();
-        let body = PreparedBody::new(8, 12, (8..12).collect(), vec![Stage::Block {
-            expressions, outputs: (8..12).collect(), source: SemanticId::NIL,
-        }], DerivativeOrder::First).unwrap();
-        let program = body.compile(&(0..4).collect::<Vec<_>>(), &(0..8).collect::<Vec<_>>(), DerivativeOrder::First,
-            Optimization { evaluator: library::Evaluator::CompiledScalar { module_bytes: 1 << 20 }, ..Optimization::default() },
-            EvaluationLimits::default(), &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None)).unwrap();
-        let counts = program.census().find(|c| c.order == DerivativeOrder::First).unwrap();
-        assert_eq!((counts.arithmetic_input_entries, counts.arithmetic_output_entries), (4, 8));
+        let expressions = (0..4)
+            .map(|slot| {
+                let x = library::formal(slot).unwrap();
+                &x * &x
+            })
+            .collect();
+        let body = PreparedBody::new(
+            8,
+            12,
+            (8..12).collect(),
+            vec![Stage::Block {
+                expressions,
+                outputs: (8..12).collect(),
+                source: SemanticId::NIL,
+            }],
+            DerivativeOrder::First,
+        )
+        .unwrap();
+        let program = body
+            .compile(
+                &(0..4).collect::<Vec<_>>(),
+                &(0..8).collect::<Vec<_>>(),
+                DerivativeOrder::First,
+                Optimization {
+                    evaluator: library::Evaluator::CompiledScalar {
+                        module_bytes: 1 << 20,
+                    },
+                    ..Optimization::default()
+                },
+                EvaluationLimits::default(),
+                &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            )
+            .unwrap();
+        let counts = program
+            .census()
+            .find(|c| c.order == DerivativeOrder::First)
+            .unwrap();
+        assert_eq!(
+            (
+                counts.arithmetic_input_entries,
+                counts.arithmetic_output_entries
+            ),
+            (4, 8)
+        );
         let mut worker = program.worker();
         let mut point = vec![2.; 8];
         let expected = eval(&mut worker, &point, DerivativeOrder::First).unwrap();
         point[0] = 1e200;
-        assert!(matches!(eval(&mut worker, &point, DerivativeOrder::First), Err(MathError::Domain { .. })));
+        assert!(matches!(
+            eval(&mut worker, &point, DerivativeOrder::First),
+            Err(MathError::Domain { .. })
+        ));
         point[0] = 2.;
-        assert_eq!(eval(&mut worker, &point, DerivativeOrder::First).unwrap(), expected);
+        assert_eq!(
+            eval(&mut worker, &point, DerivativeOrder::First).unwrap(),
+            expected
+        );
         worker.detach_controls();
         worker.reset_scratch().unwrap();
-        worker.set_scope(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
-        assert_eq!(eval(&mut worker, &point, DerivativeOrder::First).unwrap(), expected);
+        worker.set_scope(pse_kernels::ExecutionScope::new(
+            pse_diagnostics::Cancellation::default(),
+            None,
+        ));
+        assert_eq!(
+            eval(&mut worker, &point, DerivativeOrder::First).unwrap(),
+            expected
+        );
     }
 
     #[test]
@@ -7220,9 +7818,10 @@ mod compact_tests {
         assert_eq!(worker.used_bytes, 0);
         let first = program.order_worker_bytes[DerivativeOrder::First]
             + program.layouts[DerivativeOrder::First]
-                    .as_ref()
-                    .unwrap()
-                    .frame_entries(program.slots).unwrap()
+                .as_ref()
+                .unwrap()
+                .frame_entries(program.slots)
+                .unwrap()
                 * size_of::<f64>();
         worker.prepaid_bytes = first - 1;
         assert!(matches!(
@@ -7238,9 +7837,10 @@ mod compact_tests {
         assert_eq!(
             worker.frame.len(),
             program.layouts[DerivativeOrder::First]
-                    .as_ref()
-                    .unwrap()
-                    .frame_entries(program.slots).unwrap()
+                .as_ref()
+                .unwrap()
+                .frame_entries(program.slots)
+                .unwrap()
         );
         assert!(worker.programs[DerivativeOrder::Value].is_none());
         assert!(worker.programs[DerivativeOrder::Second].is_none());
@@ -7800,7 +8400,12 @@ mod compact_tests {
         assert_eq!(directional.input_formals(), [X, Y, GUARD]);
         let result = directional
             .worker()
-            .evaluate_directional(&[2., 3., 1.], &[5., 4.], &mut ProviderBindings::new(), &cancel)
+            .evaluate_directional(
+                &[2., 3., 1.],
+                &[5., 4.],
+                &mut ProviderBindings::new(),
+                &cancel,
+            )
             .unwrap();
         assert_eq!(result.values, [22.]);
         assert_eq!(result.jacobian, [82.]);
@@ -8126,7 +8731,11 @@ mod compact_tests {
             );
         }
         let slots = worker.body.slots;
-        for stage in &worker.programs[DerivativeOrder::Value].as_ref().unwrap().stages {
+        for stage in &worker.programs[DerivativeOrder::Value]
+            .as_ref()
+            .unwrap()
+            .stages
+        {
             if let CompiledStage::Domain { frame, .. }
             | CompiledStage::Applicability { frame, .. } = stage
             {
@@ -8145,11 +8754,17 @@ mod compact_tests {
                         assert_poisoned(stages);
                     }
                     CompiledStage::Block {
-                        arguments, values, gather, ..
+                        arguments,
+                        values,
+                        gather,
+                        ..
                     } => {
                         for (argument, value) in arguments.iter().enumerate() {
-                            if gather.iter().any(|&(written, _)| written == argument) { assert!(value.is_nan()); }
-                            else { assert_eq!(*value, 0.0); }
+                            if gather.iter().any(|&(written, _)| written == argument) {
+                                assert!(value.is_nan());
+                            } else {
+                                assert_eq!(*value, 0.0);
+                            }
                         }
                         assert!(values.iter().all(|v| v.is_nan()));
                     }
@@ -8163,7 +8778,12 @@ mod compact_tests {
                 }
             }
         }
-        assert_poisoned(&worker.programs[DerivativeOrder::Value].as_ref().unwrap().stages);
+        assert_poisoned(
+            &worker.programs[DerivativeOrder::Value]
+                .as_ref()
+                .unwrap()
+                .stages,
+        );
         worker.set_scope(pse_kernels::ExecutionScope::new(
             pse_diagnostics::Cancellation::default(),
             None,
@@ -8177,9 +8797,8 @@ mod compact_tests {
     }
 
     fn instantiation_counts() -> (usize, usize, usize) {
-        INSTANTIATION_PROBE.with_borrow(|probe| {
-            (probe.visits, probe.evaluator_calls, probe.template_clones)
-        })
+        INSTANTIATION_PROBE
+            .with_borrow(|probe| (probe.visits, probe.evaluator_calls, probe.template_clones))
     }
 
     fn instantiation_program(options: Optimization) -> CompiledBody {
@@ -8211,7 +8830,11 @@ mod compact_tests {
             let expected = (8 * (index + 1), 5 * (index + 1), index + 1);
             assert_eq!(instantiation_counts(), expected);
             worker.prepare_order(order).unwrap();
-            assert_eq!(instantiation_counts(), expected, "warm preparation never walks stages");
+            assert_eq!(
+                instantiation_counts(),
+                expected,
+                "warm preparation never walks stages"
+            );
             let positive = eval(&mut worker, &[2., 3., 1.], order).unwrap();
             let negative = eval(&mut worker, &[-2., 3., 1.], order).unwrap();
             assert_eq!(positive.values, [4.]);
@@ -8224,12 +8847,19 @@ mod compact_tests {
                 assert_eq!(positive.hessians, [2., 0., 0., 0.]);
                 assert_eq!(negative.hessians, [0., 0., 0., 2.]);
             }
-            assert_eq!(instantiation_counts(), expected, "both branch arms were already instantiated");
+            assert_eq!(
+                instantiation_counts(),
+                expected,
+                "both branch arms were already instantiated"
+            );
         }
         let ready = instantiation_counts();
         let cancelled = pse_diagnostics::Cancellation::new(true);
         worker.set_scope(pse_kernels::ExecutionScope::new(cancelled, None));
-        assert!(matches!(worker.prepare_order(DerivativeOrder::Value), Err(MathError::Cancelled)));
+        assert!(matches!(
+            worker.prepare_order(DerivativeOrder::Value),
+            Err(MathError::Cancelled)
+        ));
         worker.set_scope(pse_kernels::ExecutionScope::new(
             pse_diagnostics::Cancellation::default(),
             Some(std::time::Instant::now()),
@@ -8238,19 +8868,45 @@ mod compact_tests {
             worker.prepare_order(DerivativeOrder::Value),
             Err(MathError::Scope(pse_kernels::ProviderError::Deadline))
         ));
-        assert_eq!(instantiation_counts(), ready, "scope rejection still precedes a warm hit");
+        assert_eq!(
+            instantiation_counts(),
+            ready,
+            "scope rejection still precedes a warm hit"
+        );
         worker.detach_controls();
         worker.reset_scratch().unwrap();
-        assert!(worker.programs.values().flatten().all(|program| !program.instantiated));
-        worker.set_scope(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
+        assert!(
+            worker
+                .programs
+                .values()
+                .flatten()
+                .all(|program| !program.instantiated)
+        );
+        worker.set_scope(pse_kernels::ExecutionScope::new(
+            pse_diagnostics::Cancellation::default(),
+            None,
+        ));
         worker.prepare_order(DerivativeOrder::Value).unwrap();
-        assert_eq!(instantiation_counts(), (32, 20, 3), "reset retries without cloning templates");
+        assert_eq!(
+            instantiation_counts(),
+            (32, 20, 3),
+            "reset retries without cloning templates"
+        );
         worker.prepare_order(DerivativeOrder::Value).unwrap();
         assert_eq!(instantiation_counts(), (32, 20, 3));
-        assert_eq!(eval(&mut worker, &[4., 5., 1.], DerivativeOrder::Value).unwrap().values, [16.]);
+        assert_eq!(
+            eval(&mut worker, &[4., 5., 1.], DerivativeOrder::Value)
+                .unwrap()
+                .values,
+            [16.]
+        );
         let mut replacement = worker.clone();
         replacement.prepare_order(DerivativeOrder::Value).unwrap();
-        assert_eq!(instantiation_counts(), (40, 25, 4), "replacement worker inherits no successful state");
+        assert_eq!(
+            instantiation_counts(),
+            (40, 25, 4),
+            "replacement worker inherits no successful state"
+        );
     }
 
     #[test]
@@ -8262,7 +8918,9 @@ mod compact_tests {
     #[test]
     fn native_successful_order_instantiation_walks_nested_branches_once_and_resets() {
         check_successful_order_instantiation(Optimization {
-            evaluator: library::Evaluator::CompiledScalar { module_bytes: 1 << 20 },
+            evaluator: library::Evaluator::CompiledScalar {
+                module_bytes: 1 << 20,
+            },
             ..Optimization::default()
         });
     }
@@ -8270,17 +8928,32 @@ mod compact_tests {
     #[test]
     fn incomplete_order_instantiation_retries_and_accounts_retained_frame() {
         let program = instantiation_program(Optimization::default());
-        INSTANTIATION_PROBE.set(InstantiationProbe { fail_at: Some(4), ..InstantiationProbe::default() });
+        INSTANTIATION_PROBE.set(InstantiationProbe {
+            fail_at: Some(4),
+            ..InstantiationProbe::default()
+        });
         let mut worker = program.worker();
-        assert!(matches!(worker.prepare_order(DerivativeOrder::First), Err(MathError::Library(_))));
+        assert!(matches!(
+            worker.prepare_order(DerivativeOrder::First),
+            Err(MathError::Library(_))
+        ));
         assert_eq!(instantiation_counts(), (4, 1, 1));
         assert!(worker.programs[DerivativeOrder::First].is_none());
         assert_eq!(worker.used_bytes, worker.frame.len() * size_of::<f64>());
         INSTANTIATION_PROBE.with_borrow_mut(|probe| probe.fail_at = None);
         worker.prepare_order(DerivativeOrder::First).unwrap();
         assert_eq!(instantiation_counts(), (12, 6, 2));
-        assert_eq!(worker.used_bytes, worker.frame.len() * size_of::<f64>() + program.order_worker_bytes[DerivativeOrder::First]);
-        assert!(worker.programs[DerivativeOrder::First].as_ref().unwrap().instantiated);
+        assert_eq!(
+            worker.used_bytes,
+            worker.frame.len() * size_of::<f64>()
+                + program.order_worker_bytes[DerivativeOrder::First]
+        );
+        assert!(
+            worker.programs[DerivativeOrder::First]
+                .as_ref()
+                .unwrap()
+                .instantiated
+        );
         worker.prepare_order(DerivativeOrder::First).unwrap();
         assert_eq!(instantiation_counts(), (12, 6, 2));
     }
@@ -8288,55 +8961,102 @@ mod compact_tests {
     #[test]
     fn cancelled_order_instantiation_publishes_only_after_final_scope_check() {
         let program = instantiation_program(Optimization::default());
-        INSTANTIATION_PROBE.set(InstantiationProbe { cancel_at: Some(8), ..InstantiationProbe::default() });
+        INSTANTIATION_PROBE.set(InstantiationProbe {
+            cancel_at: Some(8),
+            ..InstantiationProbe::default()
+        });
         let mut worker = program.worker();
         // Cancellation in the last leaf is detected before publishing even though
         // every evaluator has been instantiated and there is no next stage check.
-        assert!(matches!(worker.prepare_order(DerivativeOrder::Value), Err(MathError::Cancelled)));
+        assert!(matches!(
+            worker.prepare_order(DerivativeOrder::Value),
+            Err(MathError::Cancelled)
+        ));
         assert_eq!(instantiation_counts(), (8, 5, 1));
         assert!(worker.programs[DerivativeOrder::Value].is_none());
         assert_eq!(worker.used_bytes, worker.frame.len() * size_of::<f64>());
         INSTANTIATION_PROBE.with_borrow_mut(|probe| probe.cancel_at = None);
-        worker.set_scope(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
+        worker.set_scope(pse_kernels::ExecutionScope::new(
+            pse_diagnostics::Cancellation::default(),
+            None,
+        ));
         worker.prepare_order(DerivativeOrder::Value).unwrap();
         assert_eq!(instantiation_counts(), (16, 10, 2));
         worker.detach_controls();
         worker.reset_scratch().unwrap();
-        worker.set_scope(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
+        worker.set_scope(pse_kernels::ExecutionScope::new(
+            pse_diagnostics::Cancellation::default(),
+            None,
+        ));
         INSTANTIATION_PROBE.with_borrow_mut(|probe| probe.cancel_at = Some(18));
-        assert!(matches!(worker.prepare_order(DerivativeOrder::Value), Err(MathError::Cancelled)));
+        assert!(matches!(
+            worker.prepare_order(DerivativeOrder::Value),
+            Err(MathError::Cancelled)
+        ));
         assert_eq!(instantiation_counts(), (18, 11, 2));
-        assert!(!worker.programs[DerivativeOrder::Value].as_ref().unwrap().instantiated);
+        assert!(
+            !worker.programs[DerivativeOrder::Value]
+                .as_ref()
+                .unwrap()
+                .instantiated
+        );
         INSTANTIATION_PROBE.with_borrow_mut(|probe| probe.cancel_at = None);
-        worker.set_scope(pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None));
+        worker.set_scope(pse_kernels::ExecutionScope::new(
+            pse_diagnostics::Cancellation::default(),
+            None,
+        ));
         worker.prepare_order(DerivativeOrder::Value).unwrap();
         assert_eq!(instantiation_counts(), (26, 16, 2));
         worker.prepare_order(DerivativeOrder::Value).unwrap();
         assert_eq!(instantiation_counts(), (26, 16, 2));
-        assert_eq!(eval(&mut worker, &[2., 3., 1.], DerivativeOrder::Value).unwrap().values, [4.]);
+        assert_eq!(
+            eval(&mut worker, &[2., 3., 1.], DerivativeOrder::Value)
+                .unwrap()
+                .values,
+            [4.]
+        );
     }
 
     #[test]
     fn selected_provider_columns_keep_all_physical_inputs_under_narrow_admission() {
-        use pse_kernels::{ProviderDemand, ProviderOutput, ProviderError, ProviderSpec, Port, ProviderShapes, DerivativeSource};
+        use pse_kernels::{
+            DerivativeSource, Port, ProviderDemand, ProviderError, ProviderOutput, ProviderShapes,
+            ProviderSpec,
+        };
         #[derive(Debug)]
         struct Wide(Arc<std::sync::Mutex<Vec<ProviderRequest>>>);
         impl Provider for Wide {
-            fn supports(&self, demand: &ProviderDemand) -> bool { matches!(demand,
-                ProviderDemand::CompleteJets | ProviderDemand::SelectedColumns { .. }) }
-            fn fill(&mut self, inputs: &[f64], request: &PreparedProviderRequest,
-                _runtime: ProviderRuntime<'_>, output: ProviderOutput<'_>,
-                _context: &EvaluationContext<'_>) -> Result<(), ProviderError> {
+            fn supports(&self, demand: &ProviderDemand) -> bool {
+                matches!(
+                    demand,
+                    ProviderDemand::CompleteJets | ProviderDemand::SelectedColumns { .. }
+                )
+            }
+            fn fill(
+                &mut self,
+                inputs: &[f64],
+                request: &PreparedProviderRequest,
+                _runtime: ProviderRuntime<'_>,
+                output: ProviderOutput<'_>,
+                _context: &EvaluationContext<'_>,
+            ) -> Result<(), ProviderError> {
                 assert_eq!(inputs.len(), 64);
                 self.0.lock().unwrap().push(request.request().clone());
                 output.values[0] = inputs.iter().map(|x| x * x).sum();
-                let columns = match &request.demand { ProviderDemand::SelectedColumns { columns } => columns.clone(), _ => (0..64).collect() };
+                let columns = match &request.demand {
+                    ProviderDemand::SelectedColumns { columns } => columns.clone(),
+                    _ => (0..64).collect(),
+                };
                 if request.order >= DerivativeOrder::First {
-                    for (value, &i) in output.jacobian.iter_mut().zip(&columns) { *value = 2. * inputs[i]; }
+                    for (value, &i) in output.jacobian.iter_mut().zip(&columns) {
+                        *value = 2. * inputs[i];
+                    }
                 }
                 if request.order >= DerivativeOrder::Second {
                     for (i, &a) in columns.iter().enumerate() {
-                        for (j, &b) in columns.iter().enumerate() { output.hessians[i * columns.len() + j] = if a == b { 2. } else { 0. }; }
+                        for (j, &b) in columns.iter().enumerate() {
+                            output.hessians[i * columns.len() + j] = if a == b { 2. } else { 0. };
+                        }
                     }
                 }
                 Ok(())
@@ -8346,31 +9066,81 @@ mod compact_tests {
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let quantity = pse_quantity::standard::ids::quantity("neutral");
         let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
-        let port = |n| Port { id: SemanticId::from_bytes([n;16]), quantity, unit };
-        let spec = ProviderSpec { id: SemanticId::from_bytes([200;16]),
-            revision: pse_ids::ContentHash::from_bytes([201;32]), data: pse_ids::ContentHash::from_bytes([202;32]),
-            inputs: (0..64).map(port).collect(), outputs: vec![port(127)], shapes: ProviderShapes::default(),
-            derivative_source: DerivativeSource::Analytic, derivatives: DerivativeOrder::Second, smoothness: DerivativeOrder::Second };
+        let port = |n| Port {
+            id: SemanticId::from_bytes([n; 16]),
+            quantity,
+            unit,
+        };
+        let spec = ProviderSpec {
+            id: SemanticId::from_bytes([200; 16]),
+            revision: pse_ids::ContentHash::from_bytes([201; 32]),
+            data: pse_ids::ContentHash::from_bytes([202; 32]),
+            inputs: (0..64).map(port).collect(),
+            outputs: vec![port(127)],
+            shapes: ProviderShapes::default(),
+            derivative_source: DerivativeSource::Analytic,
+            derivatives: DerivativeOrder::Second,
+            smoothness: DerivativeOrder::Second,
+        };
         spec.validate(&registry).unwrap();
-        let body = PreparedBody::new(64, 65, vec![64], vec![Stage::Provider { spec: spec.clone(), partial: vec![],
-            inputs: (0..64).collect(), outputs: vec![64], source: SemanticId::NIL }], DerivativeOrder::Second).unwrap();
+        let body = PreparedBody::new(
+            64,
+            65,
+            vec![64],
+            vec![Stage::Provider {
+                spec: spec.clone(),
+                partial: vec![],
+                inputs: (0..64).collect(),
+                outputs: vec![64],
+                source: SemanticId::NIL,
+            }],
+            DerivativeOrder::Second,
+        )
+        .unwrap();
         let control = pse_diagnostics::Cancellation::default();
-        let limits = EvaluationLimits { scratch_bytes: 16 * 1024, ..EvaluationLimits::default() };
-        let compiled = body.compile(&[0], &[17], DerivativeOrder::Second, Optimization::default(), limits,
-            &pse_kernels::ExecutionScope::new(control.clone(), None)).unwrap();
+        let limits = EvaluationLimits {
+            scratch_bytes: 16 * 1024,
+            ..EvaluationLimits::default()
+        };
+        let compiled = body
+            .compile(
+                &[0],
+                &[17],
+                DerivativeOrder::Second,
+                Optimization::default(),
+                limits,
+                &pse_kernels::ExecutionScope::new(control.clone(), None),
+            )
+            .unwrap();
         let requests = Arc::new(std::sync::Mutex::new(Vec::new()));
-        let mut providers = ProviderBindings::from([(spec.key(), pse_kernels::ProviderBinding::new(spec,
-            Box::new(Wide(requests.clone()))))]);
-        let mut worker = compiled.worker_scoped(pse_kernels::ExecutionScope::new(control.clone(), None));
-        let mut inputs = vec![0.1;64];
+        let mut providers = ProviderBindings::from([(
+            spec.key(),
+            pse_kernels::ProviderBinding::new(spec, Box::new(Wide(requests.clone()))),
+        )]);
+        let mut worker =
+            compiled.worker_scoped(pse_kernels::ExecutionScope::new(control.clone(), None));
+        let mut inputs = vec![0.1; 64];
         for last in [0.7, 0.9] {
             inputs[63] = last;
-            let actual = worker.evaluate(&inputs, DerivativeOrder::Second, &mut providers, &control.flag()).unwrap();
+            let actual = worker
+                .evaluate(
+                    &inputs,
+                    DerivativeOrder::Second,
+                    &mut providers,
+                    &control.flag(),
+                )
+                .unwrap();
             assert!((actual.values[0] - (0.63 + last * last)).abs() < 1e-12);
             assert_eq!(actual.jacobian, [0.2]);
             assert_eq!(actual.hessians, [2.]);
         }
-        assert!(requests.lock().unwrap().iter().all(|r| r.demand == ProviderDemand::SelectedColumns { columns: vec![17] }));
+        assert!(
+            requests
+                .lock()
+                .unwrap()
+                .iter()
+                .all(|r| r.demand == ProviderDemand::SelectedColumns { columns: vec![17] })
+        );
     }
 
     #[test]
@@ -8381,9 +9151,13 @@ mod compact_tests {
         struct ProductProvider(ProviderSpec);
         impl Provider for ProductProvider {
             fn supports(&self, demand: &pse_kernels::ProviderDemand) -> bool {
-                matches!(demand, pse_kernels::ProviderDemand::CompleteJets | pse_kernels::ProviderDemand::SelectedColumns { .. })
+                matches!(
+                    demand,
+                    pse_kernels::ProviderDemand::CompleteJets
+                        | pse_kernels::ProviderDemand::SelectedColumns { .. }
+                )
             }
-                    fn fill(
+            fn fill(
                 &mut self,
                 inputs: &[f64],
                 request: &PreparedProviderRequest,
@@ -8404,13 +9178,18 @@ mod compact_tests {
                 output.values[0] = inputs[0] * inputs[1];
                 if request.order >= DerivativeOrder::First {
                     for (value, &i) in output.jacobian.iter_mut().zip(&columns) {
-                        *value = match i { 0 => inputs[1], 1 => inputs[0], _ => 0. };
+                        *value = match i {
+                            0 => inputs[1],
+                            1 => inputs[0],
+                            _ => 0.,
+                        };
                     }
                 }
                 if request.order >= DerivativeOrder::Second {
                     for (i, &a) in columns.iter().enumerate() {
                         for (j, &b) in columns.iter().enumerate() {
-                            output.hessians[i * columns.len() + j] = f64::from((a == 0 && b == 1) || (a == 1 && b == 0));
+                            output.hessians[i * columns.len() + j] =
+                                f64::from((a == 0 && b == 1) || (a == 1 && b == 0));
                         }
                     }
                 }
@@ -8473,8 +9252,10 @@ mod compact_tests {
             failed: bool,
         }
         impl Provider for LatchedProvider {
-            fn supports(&self, demand: &pse_kernels::ProviderDemand) -> bool { self.inner.supports(demand) }
-                    fn fill(
+            fn supports(&self, demand: &pse_kernels::ProviderDemand) -> bool {
+                self.inner.supports(demand)
+            }
+            fn fill(
                 &mut self,
                 inputs: &[f64],
                 request: &PreparedProviderRequest,
@@ -8493,10 +9274,13 @@ mod compact_tests {
             }
         }
         let fresh_provider = || {
-            pse_kernels::ProviderBinding::new(spec.clone(), Box::new(LatchedProvider {
-                inner: ProductProvider(spec.clone()),
-                failed: false,
-            }))
+            pse_kernels::ProviderBinding::new(
+                spec.clone(),
+                Box::new(LatchedProvider {
+                    inner: ProductProvider(spec.clone()),
+                    failed: false,
+                }),
+            )
         };
         let mut scalar = product.worker();
         let mut prior_providers = ProviderBindings::from([(key, fresh_provider())]);
@@ -8552,18 +9336,28 @@ mod compact_tests {
                 .values,
             [20.]
         );
-        let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(ProductProvider(spec.clone())));
+        let provider = pse_kernels::ProviderBinding::new(
+            spec.clone(),
+            Box::new(ProductProvider(spec.clone())),
+        );
         let mut providers = ProviderBindings::from([(key, provider)]);
         let mut worker = product.worker();
         let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
         let operation = hub.start("provider.prepared_dispatch");
         let _entered = operation.context().enter();
         let count = |name: &str| {
-            operation.reader().snapshot(std::time::Duration::from_secs(60)).metrics.iter()
+            operation
+                .reader()
+                .snapshot(std::time::Duration::from_secs(60))
+                .metrics
+                .iter()
                 .find_map(|metric| match metric.cumulative {
-                    pse_diagnostics::observation::Value::Count(value) if metric.name == name => Some(value),
+                    pse_diagnostics::observation::Value::Count(value) if metric.name == name => {
+                        Some(value)
+                    }
                     _ => None,
-                }).unwrap_or(0)
+                })
+                .unwrap_or(0)
         };
         let result = worker
             .evaluate(
@@ -8577,21 +9371,83 @@ mod compact_tests {
         assert_eq!(result.jacobian, [2., 3.]);
         assert_eq!(result.hessians, [0., 1., 1., 0.]);
         let mut traced = TrialEvaluation::default();
-        worker.evaluate_trial_into(&[2., 3., 1.], DerivativeOrder::Second, &mut providers, &cancel, &mut traced).unwrap();
-        assert_eq!(traced.provider_visits(), [ProviderVisit { source: SemanticId::NIL, provider: key, linearization: None }]);
-        assert!(worker.evaluate_trial_into(&[2., 3., -1.], DerivativeOrder::Value, &mut providers, &cancel, &mut traced).is_err());
-        assert!(traced.provider_visits().is_empty(), "failure clears active completion facts");
-        let immutable = ["kernel.provider.descriptor_hashes", "kernel.provider.request_preparations",
-            "kernel.provider.slot_resolutions", "kernel.provider.request_bindings"];
+        worker
+            .evaluate_trial_into(
+                &[2., 3., 1.],
+                DerivativeOrder::Second,
+                &mut providers,
+                &cancel,
+                &mut traced,
+            )
+            .unwrap();
+        assert_eq!(
+            traced.provider_visits(),
+            [ProviderVisit {
+                source: SemanticId::NIL,
+                provider: key,
+                linearization: None
+            }]
+        );
+        assert!(
+            worker
+                .evaluate_trial_into(
+                    &[2., 3., -1.],
+                    DerivativeOrder::Value,
+                    &mut providers,
+                    &cancel,
+                    &mut traced
+                )
+                .is_err()
+        );
+        assert!(
+            traced.provider_visits().is_empty(),
+            "failure clears active completion facts"
+        );
+        let immutable = [
+            "kernel.provider.descriptor_hashes",
+            "kernel.provider.request_preparations",
+            "kernel.provider.slot_resolutions",
+            "kernel.provider.request_bindings",
+        ];
         let before = immutable.map(count);
         assert_eq!(count("kernel.provider.slot_resolutions"), 2);
         for _ in 0..4 {
-            assert_eq!(worker.evaluate(&[2., 3., 1.], DerivativeOrder::Second, &mut providers, &cancel).unwrap().values, [6.]);
+            assert_eq!(
+                worker
+                    .evaluate(
+                        &[2., 3., 1.],
+                        DerivativeOrder::Second,
+                        &mut providers,
+                        &cancel
+                    )
+                    .unwrap()
+                    .values,
+                [6.]
+            );
         }
-        assert_eq!(immutable.map(count), before, "warm dispatch borrows the prepared descriptor/request/slot");
+        assert_eq!(
+            immutable.map(count),
+            before,
+            "warm dispatch borrows the prepared descriptor/request/slot"
+        );
         let mut replacement = ProviderBindings::from([(key, fresh_provider())]);
-        assert_eq!(worker.evaluate(&[2., 3., 1.], DerivativeOrder::Second, &mut replacement, &cancel).unwrap().values, [6.]);
-        assert_eq!(count("kernel.provider.slot_resolutions"), 3, "fresh bank rebinds once");
+        assert_eq!(
+            worker
+                .evaluate(
+                    &[2., 3., 1.],
+                    DerivativeOrder::Second,
+                    &mut replacement,
+                    &cancel
+                )
+                .unwrap()
+                .values,
+            [6.]
+        );
+        assert_eq!(
+            count("kernel.provider.slot_resolutions"),
+            3,
+            "fresh bank rebinds once"
+        );
         assert!(
             worker
                 .evaluate(
@@ -9146,7 +10002,12 @@ mod compact_tests {
         assert!(eval(&mut worker, &[f64::INFINITY], DerivativeOrder::Value).is_err());
         control.cancel();
         assert!(matches!(
-            worker.evaluate(&[1.], DerivativeOrder::Value, &mut ProviderBindings::new(), &cancel),
+            worker.evaluate(
+                &[1.],
+                DerivativeOrder::Value,
+                &mut ProviderBindings::new(),
+                &cancel
+            ),
             Err(MathError::Cancelled)
         ));
     }

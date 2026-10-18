@@ -93,10 +93,7 @@ fn authored_vessel_temporal_closures_use_original_inventory_and_flux() {
         assembly::AssemblyLimits, binding::CaseValues, jets::EvaluationLimits,
         library::Optimization,
     };
-    use std::{
-        collections::BTreeSet,
-        sync::Arc,
-    };
+    use std::{collections::BTreeSet, sync::Arc};
     let source = format!(
         r#"{}
 package conserved_vessel {{

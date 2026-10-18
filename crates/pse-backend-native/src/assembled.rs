@@ -445,7 +445,11 @@ impl NleOracle for SharedRootOracle {
 
 // BoundValues issues the immutable finite trial premise. Failure clears prior
 // numerical permission; successful callbacks share that premise through assembly.
-fn validated_trial<'a>(bound: &'a BoundValues, worker: &mut CaseWorker, x: &'a [f64]) -> Result<EvalInputs<'a>, ProblemError> {
+fn validated_trial<'a>(
+    bound: &'a BoundValues,
+    worker: &mut CaseWorker,
+    x: &'a [f64],
+) -> Result<EvalInputs<'a>, ProblemError> {
     match bound.trial(x) {
         Ok(trial) => Ok(trial),
         Err(_) => {

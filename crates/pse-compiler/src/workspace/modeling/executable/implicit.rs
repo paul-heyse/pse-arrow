@@ -585,21 +585,41 @@ impl AdmittedImplicit {
             DerivativeOrder::Value
         };
         for residual in &self.residuals {
-            add(&residual.body, &(0..self.unknowns.len()).collect::<Vec<_>>(), requirements.inner_minimum)?;
-            add(&residual.body, &(0..residual.body.math.input_count()).collect::<Vec<_>>(), requirements.requested_output)?;
+            add(
+                &residual.body,
+                &(0..self.unknowns.len()).collect::<Vec<_>>(),
+                requirements.inner_minimum,
+            )?;
+            add(
+                &residual.body,
+                &(0..residual.body.math.input_count()).collect::<Vec<_>>(),
+                requirements.requested_output,
+            )?;
             for body in residual.hints.iter().chain(&residual.terms) {
                 add(body, &[], DerivativeOrder::Value)?;
             }
             if let Some(assessment) = &residual.assessment {
-                add(&assessment.eligibility, &(0..assessment.eligibility.math.input_count()).collect::<Vec<_>>(), local)?;
-                add(&assessment.criterion, &(0..assessment.criterion.math.input_count()).collect::<Vec<_>>(), local)?;
+                add(
+                    &assessment.eligibility,
+                    &(0..assessment.eligibility.math.input_count()).collect::<Vec<_>>(),
+                    local,
+                )?;
+                add(
+                    &assessment.criterion,
+                    &(0..assessment.criterion.math.input_count()).collect::<Vec<_>>(),
+                    local,
+                )?;
             }
         }
         if let Some(body) = &self.selection.anchors {
             add(body, &[], DerivativeOrder::Value)?;
         }
         if let Some(body) = &self.selection.restriction {
-            add(body, &(0..body.math.input_count()).collect::<Vec<_>>(), local)?;
+            add(
+                body,
+                &(0..body.math.input_count()).collect::<Vec<_>>(),
+                local,
+            )?;
         }
         Ok(demands)
     }
@@ -848,12 +868,7 @@ impl AdmittedImplicit {
                 Ok(())
             };
             add(&residual.body, requirements.inner_minimum, true, false)?;
-            add(
-                &residual.body,
-                DerivativeOrder::Value,
-                false,
-                false,
-            )?;
+            add(&residual.body, DerivativeOrder::Value, false, false)?;
             if matches!(configuration, pse_math::implicit::Configuration::Hints(_)) {
                 for body in residual.hints.iter().chain(&residual.terms) {
                     add(body, DerivativeOrder::Value, false, false)?;
@@ -2164,7 +2179,8 @@ impl AdmittedModeling {
             }
             let order = order.max(match demand.product {
                 pse_math::jets::ProductKind::SelectedPartials => demand.order,
-                pse_math::jets::ProductKind::JacobianAction | pse_math::jets::ProductKind::TransposeJacobianAction => DerivativeOrder::First,
+                pse_math::jets::ProductKind::JacobianAction
+                | pse_math::jets::ProductKind::TransposeJacobianAction => DerivativeOrder::First,
                 pse_math::jets::ProductKind::WeightedHessian
                 | pse_math::jets::ProductKind::WeightedHessianAction => DerivativeOrder::Second,
             });

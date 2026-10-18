@@ -2649,7 +2649,12 @@ mod tests {
             let body = compile(text, &formals, DerivativeOrder::Second).unwrap();
             let jet = body
                 .worker()
-                .evaluate(&[x], DerivativeOrder::Second, &mut pse_kernels::ProviderBindings::new(), &cancel)
+                .evaluate(
+                    &[x],
+                    DerivativeOrder::Second,
+                    &mut pse_kernels::ProviderBindings::new(),
+                    &cancel,
+                )
                 .unwrap();
             for (actual, expected) in [
                 (jet.values[0], value),
@@ -3049,7 +3054,7 @@ mod tests {
         #[derive(Debug, Clone)]
         struct Square(ProviderSpec);
         impl Provider for Square {
-                    fn fill(
+            fn fill(
                 &mut self,
                 x: &[f64],
                 request: &pse_kernels::PreparedProviderRequest,
@@ -3077,7 +3082,10 @@ mod tests {
                 &self.0
             }
             fn create(&self) -> Result<pse_kernels::ProviderBinding, ProviderError> {
-                Ok(pse_kernels::ProviderBinding::new(self.spec().clone(), Box::new(self.clone())))
+                Ok(pse_kernels::ProviderBinding::new(
+                    self.spec().clone(),
+                    Box::new(self.clone()),
+                ))
             }
         }
         let registry = standard_registry().unwrap();
@@ -3187,8 +3195,10 @@ mod tests {
             )
             .unwrap();
         let mut worker = restored_math.worker();
-        let mut workers =
-            pse_kernels::ProviderBindings::from([(registration.spec().key(), registration.worker().unwrap())]);
+        let mut workers = pse_kernels::ProviderBindings::from([(
+            registration.spec().key(),
+            registration.worker().unwrap(),
+        )]);
         assert!(
             matches!(worker.evaluate(&[-1.0],DerivativeOrder::Value,&mut workers,&cancel),Err(MathError::Provider{source_id,..}) if body.occurrences.iter().any(|o|o.id==source_id))
         );
@@ -3203,8 +3213,10 @@ mod tests {
             revision: ContentHash::from_bytes([4; 32]),
             ..registration.spec().clone()
         });
-        workers = pse_kernels::ProviderBindings::from([(registration.spec().key(),
-            pse_kernels::ProviderBinding::new(other.0.clone(), Box::new(other)))]);
+        workers = pse_kernels::ProviderBindings::from([(
+            registration.spec().key(),
+            pse_kernels::ProviderBinding::new(other.0.clone(), Box::new(other)),
+        )]);
         assert!(
             worker
                 .evaluate(&[3.0], DerivativeOrder::Value, &mut workers, &cancel)

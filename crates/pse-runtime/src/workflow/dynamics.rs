@@ -605,7 +605,10 @@ impl DynamicWorker {
                 .get(&(program.mode, program.function))
                 .ok_or_else(|| ProblemError::internal("dynamic function layout absent"))?
                 .clone();
-            let mut worker = program.case.assembly.worker_scoped(provider_workers(&mode.providers, &scope)?, scope.clone());
+            let mut worker = program
+                .case
+                .assembly
+                .worker_scoped(provider_workers(&mode.providers, &scope)?, scope.clone());
             worker.prepare_providers()?;
             functions.insert(
                 (program.mode, program.function),
@@ -634,7 +637,10 @@ impl DynamicWorker {
                     .guard
                     .as_ref()
                     .map(|g| {
-                        let mut worker = g.case.assembly.worker_scoped(provider_workers(&mode.providers, &scope)?, scope.clone());
+                        let mut worker = g.case.assembly.worker_scoped(
+                            provider_workers(&mode.providers, &scope)?,
+                            scope.clone(),
+                        );
                         worker.prepare_providers()?;
                         Ok::<_, ProblemError>(GuardWorker {
                             program: g.clone(),
@@ -865,7 +871,9 @@ impl DynamicWorker {
             function.actions.physical.fill(f64::NAN);
         }
         for mode in &mut self.modes {
-            if let Some(guard) = &mut mode.guard { guard.worker.invalidate_trial(); }
+            if let Some(guard) = &mut mode.guard {
+                guard.worker.invalidate_trial();
+            }
         }
     }
     /// Borrow an anchored view without retaining native integration history. Plain
