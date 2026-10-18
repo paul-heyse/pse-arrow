@@ -566,6 +566,7 @@ frames! {
         DynamicProfileV9 => "pse.dynamic.profile.v9",
         /// Complete dynamic values with an explicitly selected physical sensitivity layout.
         DynamicProfileV10 => "pse.dynamic.profile.v10",
+        /// Dynamic profile including distinct consumed adjoint parameter coordinates.
         DynamicProfileV11 => "pse.dynamic.profile.v11",
         /// Historical profile framing with speculative Auto resolution.
         DynamicProfileV8 => "pse.dynamic.profile.v8",

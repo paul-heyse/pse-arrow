@@ -271,6 +271,7 @@ Derived in: pse-runtime.
 | `DynamicProfileV7` | `pse.dynamic.profile.v7` | Dynamic profile including explicit endpoint requirement. |
 | `DynamicProfileV9` | `pse.dynamic.profile.v9` | Typed integration profile and resolved method in canonical document framing. |
 | `DynamicProfileV10` | `pse.dynamic.profile.v10` | Complete dynamic values with an explicitly selected physical sensitivity layout. |
+| `DynamicProfileV11` | `pse.dynamic.profile.v11` | Dynamic profile including distinct consumed adjoint parameter coordinates. |
 | `DynamicProfileV8` | `pse.dynamic.profile.v8` | Historical profile framing with speculative Auto resolution. |
 | `ExplicitConicV4` | `pse.explicit-conic.v4` | An explicit conic request; its quadratic is certified exactly, so it carries no Gram witness. |
 | `ExplicitConicV5` | `pse.explicit-conic.v5` | Explicit cone request under canonical document floating point framing. |
