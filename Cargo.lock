@@ -6126,6 +6126,7 @@ dependencies = [
 name = "pse-backend-native"
 version = "0.0.1"
 dependencies = [
+ "allocation-counter",
  "cc",
  "clarabel",
  "diffsol",
