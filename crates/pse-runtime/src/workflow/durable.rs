@@ -3512,58 +3512,37 @@ impl Operations {
                 for (relation, table) in &physical.sources {
                     let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
                     hash.str("physical.rows.v1").str(&relation.to_string());
-                    super::result_blocks::visit_source_blocks(table.batch(), |_, _, payload| {
+                    let mut spool = super::physical_spool::PhysicalSpool::new(
+                        runtime.shared.runtime_env(),
+                        pse_operations::canonical::PAYLOAD_BYTES,
+                    )?;
+                    super::result_blocks::visit_source_blocks_async(table.batch(), |_, _, payload| {
                         hash.part(&payload);
-                        Ok(())
-                    })?;
+                        std::future::ready(spool.push(&payload))
+                    }).await?;
                     let identity = hash.finish_hash();
                     let problem = format!("physical:rows:{identity}");
-                    let saved = Arc::new(Mutex::new(None::<Revision>));
+                    let mut spool = spool.finish()?;
+                    let mut saved = None::<Revision>;
                     let mut ordinal = 0_u64;
-                    super::result_blocks::visit_source_blocks_async(
-                        table.batch(),
-                        |start, rows, payload| {
-                            let ordinal_here = ordinal;
-                            ordinal += 1;
-                            let store = self.store.clone();
-                            let problem = problem.clone();
-                            let saved = saved.clone();
-                            let edit = source_edit(
-                                format!("rows:{ordinal_here:020}"),
-                                relation.to_string(),
-                                format!("{ordinal_here:020}"),
-                                "physical:rows:v1",
-                                payload,
-                            );
-                            async move {
-                                let _ = (start, rows);
-                                let parent = saved
-                                    .lock()
-                                    .map_err(|_| contract("physical source receipt lock"))?
-                                    .as_ref()
-                                    .map(|r| r.key.clone());
-                                let row = store
-                                    .edit(
-                                        &problem,
-                                        parent.as_deref(),
-                                        &format!("physical:{identity}:{ordinal_here}"),
-                                        &[edit],
-                                    )
-                                    .await?;
-                                *saved
-                                    .lock()
-                                    .map_err(|_| contract("physical source receipt lock"))? =
-                                    Some(row);
-                                Ok::<(), WorkflowError>(())
-                            }
-                        },
-                    )
-                    .await?;
-                    if let Some(revision) = saved
-                        .lock()
-                        .map_err(|_| contract("physical source receipt lock"))?
-                        .take()
-                    {
+                    while let Some(payload) = spool.next().await? {
+                        let edit = source_edit(
+                            format!("rows:{ordinal:020}"),
+                            relation.to_string(),
+                            format!("{ordinal:020}"),
+                            "physical:rows:v1",
+                            payload,
+                        );
+                        let row = self.store.edit(
+                            &problem,
+                            saved.as_ref().map(|row| row.key.as_str()),
+                            &format!("physical:{identity}:{ordinal}"),
+                            &[edit],
+                        ).await?;
+                        saved = Some(row);
+                        ordinal = ordinal.checked_add(1).ok_or_else(|| contract("physical block ordinal"))?;
+                    }
+                    if let Some(revision) = saved {
                         revisions.push(revision);
                     }
                 }

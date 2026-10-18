@@ -119,41 +119,6 @@ fn can_split(error: &ResultBlockError) -> bool {
     ) || matches!(error,ResultBlockError::Arrow(datafusion::arrow::error::ArrowError::IoError(message,_)) if message=="result block limit")
 }
 
-/// Canonical revision inputs retain their exact source schema and rows under
-/// the existing 3 MiB source-object bound, independently of result retention.
-pub(super) fn visit_source_blocks(
-    batch: &RecordBatch,
-    mut visitor: impl FnMut(usize, usize, Vec<u8>) -> Result<(), ResultBlockError>,
-) -> Result<(), ResultBlockError> {
-    visit_blocks(batch, &mut visitor, Purpose::CanonicalSource)
-}
-
-fn visit_blocks(
-    batch: &RecordBatch,
-    visitor: &mut impl FnMut(usize, usize, Vec<u8>) -> Result<(), ResultBlockError>,
-    purpose: Purpose,
-) -> Result<(), ResultBlockError> {
-    if batch.num_rows() == 0 {
-        return visitor(0, 0, encode_block(batch, purpose)?);
-    }
-    let mut start = 0;
-    while start < batch.num_rows() {
-        let mut rows = (batch.num_rows() - start).min(MAX_ROWS);
-        let payload = loop {
-            match encode_block(&batch.slice(start, rows), purpose) {
-                Ok(payload) => break payload,
-                Err(error) if rows > 1 && can_split(&error) => {
-                    rows = rows.div_ceil(2);
-                }
-                Err(error) => return Err(error),
-            }
-        };
-        visitor(start, rows, payload)?;
-        start += rows;
-    }
-    Ok(())
-}
-
 /// Backpressured canonical source-object ingestion with its fixed input bound.
 pub(super) async fn visit_source_blocks_async<F, Fut, E>(
     batch: &RecordBatch,
@@ -591,8 +556,8 @@ mod source_stream_unit {
     use datafusion::arrow::{array::Float64Array, datatypes::Field, ipc::reader::StreamReader};
     use std::{io::Cursor, sync::Arc};
 
-    #[test]
-    fn canonical_source_encoder_retains_its_bounded_stream_contract() {
+    #[tokio::test]
+    async fn canonical_source_encoder_retains_its_bounded_stream_contract() {
         let schema = Arc::new(Schema::new(vec![Field::new(
             "value",
             DataType::Float64,
@@ -606,7 +571,8 @@ mod source_stream_unit {
         )
         .unwrap();
         let mut covered = 0;
-        visit_source_blocks(&source, |start, rows, bytes| {
+        visit_source_blocks_async(&source, |start, rows, bytes| {
+            std::future::ready((|| {
             assert_eq!(start, covered);
             assert!(bytes.len() <= pse_operations::canonical::PAYLOAD_BYTES);
             let mut reader = StreamReader::try_new(Cursor::new(bytes), None)?;
@@ -615,9 +581,10 @@ mod source_stream_unit {
             assert_eq!(decoded.num_rows(), rows);
             assert!(reader.next().is_none());
             covered += rows;
-            Ok(())
+            Ok::<(), ResultBlockError>(())
+            })())
         })
-        .unwrap();
+        .await.unwrap();
         assert_eq!(covered, source.num_rows());
     }
 }
