@@ -7,10 +7,10 @@ use pse_kernels::{PreparedProviderRequest, ProviderDemand, ProviderRuntime};
 
 #[derive(Debug)]
 pub(super) struct ResidualProduct {
-    kind: ProductKind,
-    columns: Vec<usize>,
-    order: DerivativeOrder,
-    worker: Mutex<ResidualWorker>,
+    pub(super) kind: ProductKind,
+    pub(super) columns: Vec<usize>,
+    pub(super) order: DerivativeOrder,
+    pub(super) worker: Mutex<ResidualWorker>,
     values: Mutex<Vec<f64>>,
 }
 #[derive(Debug)]
@@ -126,20 +126,16 @@ impl Problem {
             ProviderDemand::TransposeAction { cotangents } => request.outputs.len().checked_mul(*cotangents),
             _ => Some(0),
         }.ok_or(MathError::Limit("implicit numeric bindings"))?;
-        let bytes = n.checked_mul(batch).and_then(|v| v.checked_mul(8))
+        let bytes = n.checked_mul(batch.max(n)).and_then(|v| v.checked_mul(8))
+            .and_then(|v| (n+self.inputs).checked_mul(batch).and_then(|w| w.checked_mul(2)).and_then(|w| v.checked_add(w)))
             .and_then(|v| v.checked_add(8*(n+self.inputs)))
             .and_then(|v| v.checked_add(2*numerical+bindings))
             .and_then(|v| v.checked_mul(size_of::<f64>()))
             .and_then(|v| v.checked_add(memory))
-            .and_then(|v| v.checked_add(if request.demand == ProviderDemand::CompleteJets { self.parameter_source.worker_bytes()+self.parameter_source.evaluation_cache_bytes() } else {0}))
             .ok_or(MathError::Limit("implicit prepared scratch extent"))?;
         let mut admitted = self.prepared_bytes.lock().map_err(|_| MathError::Contract("implicit preparation lock poisoned".into()))?;
         if bytes > *admitted { crate::construction::additional(bytes-*admitted)?; *admitted=bytes; }
         drop(admitted);
-        if request.demand == ProviderDemand::CompleteJets {
-            self.worker.lock().map_err(|_| MathError::Contract("implicit worker lock poisoned".into()))?.worker.prepare_providers(
-                &mut *self.providers.lock().map_err(|_| MathError::Contract("implicit provider lock poisoned".into()))?)?;
-        }
         if matches!(request.demand, ProviderDemand::JacobianAction { .. } | ProviderDemand::TransposeAction { .. } | ProviderDemand::WeightedSecondAction { .. }) {
             self.prepare_program(ProductKind::JacobianAction, &[], DerivativeOrder::First, scope)?;
         }
@@ -152,7 +148,7 @@ impl Problem {
                 self.prepare_program(ProductKind::TransposeJacobianAction, &[], DerivativeOrder::First, scope)?;
                 self.prepare_program(ProductKind::WeightedHessianAction, &[], DerivativeOrder::Second, scope)?;
             }
-            ProviderDemand::CompleteJets => {}
+            ProviderDemand::CompleteJets => { self.prepare_program(ProductKind::SelectedPartials,&(0..self.inputs).collect::<Vec<_>>(),request.order,scope)?; }
         }
         Ok(())
     }
@@ -166,6 +162,7 @@ impl Problem {
         let mut values = program.values.lock().map_err(|_| MathError::Contract("implicit residual product result lock poisoned".into()))?;
         worker.evaluate_product_trial_into(inputs, product, &mut *self.providers.lock()
             .map_err(|_| MathError::Contract("implicit provider lock poisoned".into()))?, cancel, &mut values, evaluation)?;
+        if program.kind==ProductKind::JacobianAction { self.normalize_residual_values(&mut evaluation.values)?; }
         if expected.is_some_and(|expected| evaluation.provider_visits() != expected) || evaluation.provider_visits().iter().any(|visit| visit.linearization.is_none()) {
             return Err(MathError::Scope(pse_kernels::ProviderError::LinearizationChanged));
         }
@@ -281,16 +278,21 @@ impl Problem {
                     self.with_product(&transpose, parameters, point, ProductValues::TransposeJacobianAction { weights: &weights }, cancel, Some(children), |values,_| {
                         for j in 0..p { jacobian[j] = -values[n+j]; } Ok(())
                     })?;
-                    let mut hessians = vec![0.; p*directions]; contracted.resize(width,0.);
+                    let mut hessians = vec![0.; p*directions]; contracted.resize(width*directions,0.);
+                    mu.resize_with(n,directions,|_,_|0.);
                     for d in 0..directions {
                         for i in 0..n { seed[i] = tangent[(i,d)]; }
                         seed[n..].copy_from_slice(&runtime.directions[d*p..(d+1)*p]);
-                        self.with_product(&second, parameters, point, ProductValues::WeightedHessianAction { weights: &weights, direction: &seed }, cancel, Some(children), |values,_| { contracted.copy_from_slice(values); Ok(()) })?;
-                        mu.resize_with(n,1,|_,_|0.);for i in 0..n { mu[(i,0)]=contracted[i]; }copy_matrix(original,mu);
-                        self.checked_solve(&matrix, &mut factor, mu, original, true, options, cancel)?;
-                        dual.resize(n,0.);for i in 0..n { dual[i]=mu[(i,0)]; }
+                        self.with_product(&second, parameters, point, ProductValues::WeightedHessianAction { weights: &weights, direction: &seed }, cancel, Some(children), |values,_| { contracted[d*width..(d+1)*width].copy_from_slice(values); Ok(()) })?;
+                        for i in 0..n { mu[(i,d)]=contracted[d*width+i]; }
+                    }
+                    copy_matrix(original,mu);
+                    self.checked_solve(&matrix, &mut factor, mu, original, true, options, cancel)?;
+                    dual.resize(n,0.);
+                    for d in 0..directions {
+                        for i in 0..n { dual[i]=mu[(i,d)]; }
                         self.with_product(&transpose, parameters, point, ProductValues::TransposeJacobianAction { weights: &dual }, cancel, Some(children), |values,_| {
-                            for j in 0..p { hessians[j*directions+d] = values[n+j]-contracted[n+j]; } Ok(())
+                            for j in 0..p { hessians[j*directions+d] = values[n+j]-contracted[d*width+n+j]; } Ok(())
                         })?;
                     }
                     Ok(ProviderValues { values: point.to_vec(), jacobian, hessians })

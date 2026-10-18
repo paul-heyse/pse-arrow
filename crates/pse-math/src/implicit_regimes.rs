@@ -3,7 +3,7 @@
 //! Bounded selection among verified implicit roots. Smooth branches do not prove a smooth selector.
 #[cfg(test)]
 use super::InnerWorker;
-use super::{InnerSolver, Options, Problem, selected_inputs};
+use super::{InnerSolver, Options, Problem};
 use crate::{
     MathError,
     guarded::{CompiledBody, Worker},
@@ -139,6 +139,7 @@ impl RegimeFactory {
                     criterion: r.criterion.worker_scoped(scope.clone()),
                     eligibility_source: r.eligibility.clone(),
                     criterion_source: r.criterion.clone(),
+                    eligibility_trial: Default::default(),criterion_trial:Default::default(),eligibility_inputs:Vec::new(),criterion_inputs:Vec::new(),
                     isolation: match (&r.isolation, offsets) {
                         (Some(program), Some(offsets)) => {
                             let mut program = program.as_ref().clone();
@@ -213,6 +214,8 @@ impl pse_kernels::ProviderFactory for RegimeFactory {
         Ok(pse_kernels::ProviderBinding::new(self.spec.clone(), Box::new(SelectedProvider {
             selection,
             cancel,
+            linearization:None,
+            prepared:Vec::new(),
             requested_output: self
                 .alternatives
                 .iter()
@@ -229,16 +232,46 @@ struct SelectedProvider {
     requested_output: DerivativeOrder,
     selection: RegimeSelection,
     cancel: Arc<AtomicBool>,
+    linearization:Option<pse_ids::ContentHash>,
+    prepared:Vec<pse_kernels::ProviderRequest>,
 }
 impl pse_kernels::Provider for SelectedProvider {
+    fn supports(&self,demand:&pse_kernels::ProviderDemand)->bool {
+        matches!(demand,pse_kernels::ProviderDemand::CompleteJets|pse_kernels::ProviderDemand::SelectedColumns { .. }) || self.supports_linearization()
+    }
+    fn supports_linearization(&self)->bool {
+        self.selection.alternatives.iter().all(|r| r.problem.providers.lock().is_ok_and(|bank| {
+            r.problem.parameter_source.required_provider_keys().iter().chain(r.eligibility_source.required_provider_keys()).chain(r.criterion_source.required_provider_keys()).all(|key| bank.supports_linearization(*key))
+        }))
+    }
+    fn completed_linearization(&self)->Option<pse_ids::ContentHash> { self.linearization }
+    fn prepare_demand(&mut self,request:&pse_kernels::PreparedProviderRequest)->Result<(),pse_kernels::ProviderError> {
+        if request.order>self.requested_output { return Err(pse_kernels::ProviderError::Contract("implicit regime output exceeds compiled demand".into())); }
+        if self.prepared.contains(request.request()) { return Ok(()); }
+        let scope=self.selection.scope.as_ref().ok_or_else(|| pse_kernels::ProviderError::Contract("selected provider detached scope".into()))?;
+        // All alternatives retain their complete First scientific neighborhood
+        // demand. The returned product is prepared independently on each possible
+        // winner and never requires an all-parameter Second jet.
+        let scientific=pse_kernels::PreparedProviderRequest::new(Arc::new(request.spec().clone()),pse_kernels::ProviderRequest::all(request.spec(),request.order.min(DerivativeOrder::First)))?;
+        for r in &mut self.selection.alternatives {
+            r.problem.prepare_product(&scientific,scope).map_err(super::provider_error)?;
+            r.problem.prepare_product(request,scope).map_err(super::provider_error)?;
+            let mut bank=r.problem.providers.lock().map_err(|_| pse_kernels::ProviderError::Terminal("regime provider lock poisoned".into()))?;
+            r.eligibility.prepare_providers(&mut bank).map_err(super::provider_error)?;
+            r.criterion.prepare_providers(&mut bank).map_err(super::provider_error)?;
+        }
+        self.prepared.push(request.request().clone());Ok(())
+    }
     fn fill(
         &mut self,
         inputs: &[f64],
         request: &pse_kernels::PreparedProviderRequest,
-        _runtime: pse_kernels::ProviderRuntime<'_>,
+        runtime: pse_kernels::ProviderRuntime<'_>,
         output: pse_kernels::ProviderOutput<'_>,
         context: &pse_kernels::EvaluationContext<'_>,
     ) -> Result<(), pse_kernels::ProviderError> {
+        let started=Instant::now();
+        let result=(|| {
         request.check_context(context)?;
         if request.order > self.requested_output {
             return Err(pse_kernels::ProviderError::Contract(
@@ -255,22 +288,40 @@ impl pse_kernels::Provider for SelectedProvider {
             .execution_control()
             .map_err(super::provider_error)?
             .clone();
-        let selected = self
-            .selection
-            .evaluate(inputs, request.order, &control)
-            .map_err(super::provider_error)?;
-        let n = inputs.len();
-        for (row, &i) in request.outputs.iter().enumerate() {
-            output.values[row] = selected.values[i];
-            if request.order >= DerivativeOrder::First {
-                output.jacobian[row*n..(row+1)*n].copy_from_slice(&selected.jacobian[i*n..(i+1)*n]);
-            }
-            if request.order >= DerivativeOrder::Second {
-                let width = n*n;
-                output.hessians[row*width..(row+1)*width].copy_from_slice(&selected.hessians[i*width..(i+1)*width]);
-            }
+        if !self.prepared.contains(request.request()) { return Err(pse_kernels::ProviderError::Contract("regime demand was not prepared on this binding".into())); }
+        self.linearization=None;
+        let complete=request.demand==pse_kernels::ProviderDemand::CompleteJets;
+        let order=if complete { request.order } else { request.order.min(DerivativeOrder::First) };
+        let selected=match self.selection.evaluate(inputs,order,&control) { Ok(value)=>value,Err(error)=>{ for r in &self.selection.alternatives { r.problem.invalidate_factor(); } return Err(super::provider_error(error)); } };
+        let product=self.selection.numerical.as_ref().ok_or_else(|| pse_kernels::ProviderError::Terminal("missing regime completion".into()))?;
+        let winner=self.selection.alternatives.iter().position(|r| r.problem.id==selected.id).ok_or_else(|| pse_kernels::ProviderError::Terminal("missing winning regime".into()))?;
+        let r=&self.selection.alternatives[winner];
+        let scope=self.selection.scope.as_ref().ok_or_else(|| pse_kernels::ProviderError::Contract("selected provider detached scope".into()))?;
+        if complete {
+            super::Nested::project(&pse_kernels::ProviderValues { values:selected.values.clone(),jacobian:selected.jacobian,hessians:selected.hessians },request,inputs.len(),output)?;
+        } else {
+            let actual=r.problem.demanded_derivatives(inputs,&selected.values,request,runtime,&product.configurations[winner],product.key,scope).map_err(super::provider_error)?;
+            super::Nested::project(&actual,request,inputs.len(),output)?;
         }
+        scope.check()?;
+        if started.elapsed()>=self.selection.time_limit { return Err(pse_kernels::ProviderError::Limit("implicit regime time")); }
+        if order>=DerivativeOrder::First {
+            let mut h=pse_ids::FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+            h.str("selected-current-linearization-v1").id(&self.selection.id).id(&selected.id).hash(&product.key);
+            let mut qualified=true;
+            for r in &self.selection.alternatives {
+                if r.problem.frame_completed_structure(&mut h).is_none() { qualified=false;break; }
+                for trial in [&r.eligibility_trial,&r.criterion_trial] {
+                    for visit in trial.provider_visits() { h.id(&visit.source).hash(&visit.provider.0);if let Some(token)=visit.linearization { token.frame(&mut h); } else { qualified=false; } }
+                }
+            }
+            if qualified { self.linearization=Some(h.finish_hash()); }
+        }
+
         Ok(())
+        })();
+        if result.is_err() { self.linearization=None;self.selection.numerical=None;for r in &self.selection.alternatives { r.problem.invalidate_factor(); } }
+        result
     }
 }
 
@@ -285,6 +336,9 @@ pub struct Regime {
     eligibility_source: Arc<CompiledBody>,
     criterion_source: Arc<CompiledBody>,
     isolation: Option<Arc<crate::factorable::RootIsolationProgram>>,
+    eligibility_trial: crate::execution::TrialEvaluation,
+    criterion_trial: crate::execution::TrialEvaluation,
+    eligibility_inputs: Vec<f64>, criterion_inputs: Vec<f64>,
 }
 
 #[cfg(test)]
@@ -1421,6 +1475,7 @@ impl Regime {
             eligibility_source: eligibility,
             criterion_source: criterion,
             isolation: None,
+            eligibility_trial:Default::default(),criterion_trial:Default::default(),eligibility_inputs:Vec::new(),criterion_inputs:Vec::new(),
         })
     }
     fn assess(
@@ -1430,17 +1485,18 @@ impl Regime {
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Option<(f64, f64)>, MathError> {
-        let eligibility_inputs = selected_inputs(&self.eligibility, point, parameters)?;
-        let criterion_inputs = selected_inputs(&self.criterion, point, parameters)?;
+        let fill_inputs=|worker:&Worker,target:&mut Vec<f64>| {
+            target.clear();target.extend(worker.input_formals().iter().map(|&formal| if formal<point.len() { point[formal] } else { parameters[formal-point.len()] }));
+        };
+        fill_inputs(&self.eligibility,&mut self.eligibility_inputs);fill_inputs(&self.criterion,&mut self.criterion_inputs);
+        self.criterion_trial.clear();
         let mut providers = self
             .problem
             .providers
             .lock()
             .map_err(|_| MathError::Library("regime provider lock poisoned".into()))?;
-        let eligible =
-            self.eligibility
-                .evaluate(&eligibility_inputs, order, &mut providers, cancel)?;
-        match eligible.values.as_slice() {
+        self.eligibility.evaluate_trial_into(&self.eligibility_inputs,order,&mut providers,cancel,&mut self.eligibility_trial)?;
+        match self.eligibility_trial.values.as_slice() {
             [value] if *value == 0. => return Ok(None),
             [value] if *value == 1. => {}
             _ => {
@@ -1449,10 +1505,8 @@ impl Regime {
                 ));
             }
         }
-        let criterion =
-            self.criterion
-                .evaluate(&criterion_inputs, order, &mut providers, cancel)?;
-        let [score, tolerance] = criterion.values.as_slice() else {
+        self.criterion.evaluate_trial_into(&self.criterion_inputs,order,&mut providers,cancel,&mut self.criterion_trial)?;
+        let [score, tolerance] = self.criterion_trial.values.as_slice() else {
             return Err(MathError::Contract(
                 "regime criterion requires score and tolerance".into(),
             ));
@@ -1512,6 +1566,7 @@ struct SelectionProduct {
     refined_options: Option<Options>,
     proposals: Vec<Option<Vec<f64>>>,
     selected: SelectedRegime,
+    configurations: Vec<Options>,
     order: DerivativeOrder,
     sources: Vec<(
         crate::guarded::PreparedSupport,
@@ -2247,6 +2302,7 @@ impl RegimeSelection {
             proposals,
             selected.clone(),
             DerivativeOrder::First,
+            &configurations,
         );
         let product = self
             .numerical
@@ -2272,7 +2328,8 @@ impl RegimeSelection {
     }
     fn product_matches(&self, key: pse_ids::ContentHash) -> bool {
         self.numerical.as_ref().is_some_and(|product| {
-            (product.key == key || product.refinement_base == Some(key))
+            self.alternatives.iter().all(|regime| !regime.problem.effectful_residual)
+                && (product.key == key || product.refinement_base == Some(key))
                 && product.sources.len() == self.alternatives.len()
                 && product.sources.iter().zip(&self.alternatives).all(
                     |((eligibility, criterion, program), regime)| {
@@ -2289,6 +2346,7 @@ impl RegimeSelection {
         proposals: Vec<Option<Vec<f64>>>,
         selected: SelectedRegime,
         order: DerivativeOrder,
+        configurations: &[Options],
     ) {
         if self.product_matches(key)
             && self
@@ -2304,6 +2362,7 @@ impl RegimeSelection {
             refined_options: None,
             proposals,
             selected,
+            configurations:configurations.to_vec(),
             order,
             sources: self
                 .alternatives
@@ -2978,7 +3037,7 @@ impl RegimeSelection {
             self.sheet = Some(h.finish_hash());
         }
         self.sheet_parameters = parameters.to_vec();
-        self.retain_product(numerical_key, proposals, selected.clone(), order);
+        self.retain_product(numerical_key, proposals, selected.clone(), order, &configurations);
         Ok(selected)
     }
 
@@ -3153,7 +3212,7 @@ impl RegimeSelection {
             examined: self.alternatives.len(),
             eligible,
         };
-        self.retain_product(numerical_key, proposals, selected.clone(), order);
+        self.retain_product(numerical_key, proposals, selected.clone(), order, &configurations);
         Ok(selected)
     }
 }

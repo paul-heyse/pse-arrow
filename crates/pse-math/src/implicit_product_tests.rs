@@ -263,3 +263,76 @@ fn implicit_unknown_child_actions_refuse_before_any_provider_effect() {
     }
     assert_eq!(child.calls.load(Ordering::Relaxed),before);
 }
+
+#[test]
+fn implicit_nonzero_authored_offsets_agree_across_all_demanded_products() {
+    let (factory,parameters,_)=coupled(2,128);let scope=ExecutionScope::new(factory.cancel.clone(),None);
+    let problem=Arc::new(Arc::try_unwrap(factory.problem(scope.clone()).unwrap()).unwrap().with_residual_offsets(&[2.,-1.]).unwrap());
+    let mut provider=pse_kernels::ProviderBinding::new(factory.spec.clone(),Box::new(Nested {
+        scope,cancel:factory.cancel.flag(),requested_output:DerivativeOrder::Second,selection:selection::SelectionWorker::new(&factory.selection),problem,
+        configuration:ConfigurationWorker::new(factory.configuration.clone(),None,None),solver:SolverWorker::new(factory.solver.as_ref()),numerical:None,linearization:None,
+    }));
+    let mut expected=analytic(&parameters);expected.values[0]+=1./3.;expected.values[1]+=5./3.;
+    let flag=factory.cancel.flag();let context=EvaluationContext { cancelled:flag.as_ref(),max_result_bytes:1<<20 };
+    for demand in [ProviderDemand::CompleteJets,ProviderDemand::SelectedColumns { columns:vec![0,1] },ProviderDemand::JacobianAction { directions:1 },ProviderDemand::TransposeAction { cotangents:1 },ProviderDemand::WeightedSecondAction { directions:1 }] {
+        let action=matches!(demand,ProviderDemand::JacobianAction { .. }|ProviderDemand::TransposeAction { .. });
+        let request=provider.prepare(ProviderRequest { outputs:vec![0,1],order:if action { DerivativeOrder::First } else { DerivativeOrder::Second },demand:demand.clone() }).unwrap();
+        let mut buffer=ProviderBuffer::new(&request);let directions=[1.,0.];let weights=[1.,0.];
+        let actual=buffer.fill(&mut provider,&parameters,&request,ProviderRuntime { directions:if matches!(demand,ProviderDemand::JacobianAction { .. }|ProviderDemand::WeightedSecondAction { .. }) { &directions } else { &[] },cotangents:if matches!(demand,ProviderDemand::TransposeAction { .. }) { &weights } else { &[] },weights:if matches!(demand,ProviderDemand::WeightedSecondAction { .. }) { &weights } else { &[] },..Default::default() },&context).unwrap();
+        close(actual.values,&expected.values);
+        match demand {
+            ProviderDemand::CompleteJets|ProviderDemand::SelectedColumns { .. }=>{close(actual.jacobian,&expected.jacobian);close(actual.hessians,&expected.hessians);}
+            ProviderDemand::JacobianAction { .. }=>close(actual.jacobian,&[expected.jacobian[0],expected.jacobian[2]]),
+            ProviderDemand::TransposeAction { .. }=>close(actual.jacobian,&expected.jacobian[..2]),
+            ProviderDemand::WeightedSecondAction { .. }=>{close(actual.jacobian,&expected.jacobian[..2]);close(actual.hessians,&[expected.hessians[0],expected.hessians[2]]);}
+        }
+    }
+}
+fn coupled_regimes(parameters:usize)->(RegimeFactory,Vec<f64>) {
+    let (base,values,_)=coupled(parameters,(2*parameters+32).max(64));
+    let make_assessment=|score:Option<i64>| {
+        let expressions=match score { None=>vec![Atom::num(1)],Some(score)=>vec![Atom::num(score),Atom::num(0)] };
+        let start=parameters+2;let outputs=(start..start+expressions.len()).collect::<Vec<_>>();
+        let source=PreparedBody::new(start,start+expressions.len(),outputs.clone(),vec![Stage::Block { expressions,outputs,source:base.spec.id }],DerivativeOrder::First).unwrap();
+        Arc::new(source.compile(&(0..source.output_count()).collect::<Vec<_>>(),&(0..start).collect::<Vec<_>>(),DerivativeOrder::First,Optimization::default(),EvaluationLimits::default(),&ExecutionScope::new(base.cancel.clone(),None)).unwrap())
+    };
+    let branches=(0..2).map(|i| { let mut residual=base.clone();residual.spec.id=pse_ids::named_id(base.spec.id,&format!("regime{i}"));RegimeFactoryBranch { residual,eligibility:make_assessment(None),criterion:make_assessment(Some(i)),isolation:None } }).collect();
+    (RegimeFactory { spec:base.spec.clone(),alternatives:branches,maximum_regimes:2,time_limit:Duration::from_secs(10),cancel:base.cancel.clone(),verifier:None },values)
+}
+#[test]
+fn implicit_regime_narrow_products_keep_full_first_scientific_demand_without_full_second() {
+    let (factory,parameters)=coupled_regimes(12);let mut provider=factory.create().unwrap();let expected=analytic(&parameters);
+    let flag=factory.cancel.flag();let context=EvaluationContext { cancelled:flag.as_ref(),max_result_bytes:1<<20 };
+    let columns=provider.prepare(ProviderRequest { outputs:vec![0,1],order:DerivativeOrder::Second,demand:ProviderDemand::SelectedColumns { columns:vec![0,1] }}).unwrap();
+    let mut buffer=ProviderBuffer::new(&columns);let actual=buffer.fill(&mut provider,&parameters,&columns,Default::default(),&context).unwrap();
+    close(actual.values,&expected.values);close(actual.jacobian,&[expected.jacobian[0],expected.jacobian[1],expected.jacobian[12],expected.jacobian[13]]);
+    let token=actual.linearization.unwrap();
+    for demand in [ProviderDemand::JacobianAction { directions:1 },ProviderDemand::TransposeAction { cotangents:1 },ProviderDemand::WeightedSecondAction { directions:1 }] {
+        let order=if matches!(demand,ProviderDemand::WeightedSecondAction { .. }) { DerivativeOrder::Second } else { DerivativeOrder::First };
+        let request=provider.prepare(ProviderRequest { outputs:vec![0,1],order,demand:demand.clone() }).unwrap();let mut buffer=ProviderBuffer::new(&request);
+        let mut directions=vec![0.;12];directions[0]=1.;let weights=[1.,0.];
+        let actual=buffer.fill(&mut provider,&parameters,&request,ProviderRuntime { directions:if matches!(demand,ProviderDemand::JacobianAction { .. }|ProviderDemand::WeightedSecondAction { .. }) { &directions } else { &[] },cotangents:if matches!(demand,ProviderDemand::TransposeAction { .. }) { &weights } else { &[] },weights:if matches!(demand,ProviderDemand::WeightedSecondAction { .. }) { &weights } else { &[] },expected_linearization:Some(token) },&context).unwrap();
+        close(actual.values,&expected.values);assert_eq!(actual.linearization,Some(token));
+        match demand { ProviderDemand::JacobianAction { .. }=>close(actual.jacobian,&[expected.jacobian[0],expected.jacobian[12]]),ProviderDemand::TransposeAction { .. }=>close(actual.jacobian,&expected.jacobian[..12]),ProviderDemand::WeightedSecondAction { .. }=>{ close(actual.jacobian,&expected.jacobian[..12]);close(actual.hessians,&(0..12).map(|j|expected.hessians[j*12]).collect::<Vec<_>>()); },_=>unreachable!() }
+    }
+    assert!(provider.prepare(ProviderRequest::all(&factory.spec,DerivativeOrder::Second)).is_err(),"narrow results never request the refused complete Second extent");
+}
+
+#[test]
+fn implicit_recursive_nested_actions_compose_actual_child_linearizations() {
+    let (child,parameters,_)=coupled(12,128);let mut parent=child.clone();parent.spec.id=pse_ids::named_id(child.spec.id,"outer recursive implicit product");
+    parent.providers.insert(child.spec.key(),pse_kernels::Registration::new(Arc::new(child.clone()),&pse_quantity::standard::standard_registry().unwrap()).unwrap());
+    let n=2;let p=parameters.len();let provider_outputs=vec![n+p,n+p+1];let outputs=vec![n+p+2,n+p+3];
+    let body=PreparedBody::new(n+p,n+p+4,outputs.clone(),vec![Stage::Provider { spec:child.spec.clone(),partial:vec![],inputs:(n..n+p).collect(),outputs:provider_outputs.clone(),source:parent.spec.id },Stage::Block { expressions:(0..n).map(|i| crate::library::formal(i).unwrap()+crate::library::formal(provider_outputs[i]).unwrap()).collect(),outputs,source:parent.spec.id }],DerivativeOrder::Second).unwrap();
+    parent.solver=Arc::new(Affine::new(&body,n).unwrap());parent.bodies=residual_bodies_for_test(Arc::new(body.compile(&[0,1],&(0..n+p).collect::<Vec<_>>(),DerivativeOrder::Second,Optimization::default(),EvaluationLimits::default(),&ExecutionScope::new(parent.cancel.clone(),None)).unwrap()));
+    let expected=analytic(&parameters);let mut provider=parent.create().unwrap();let flag=parent.cancel.flag();let context=EvaluationContext { cancelled:flag.as_ref(),max_result_bytes:1<<20 };let mut token=None;
+    for demand in [ProviderDemand::JacobianAction { directions:1 },ProviderDemand::TransposeAction { cotangents:1 },ProviderDemand::WeightedSecondAction { directions:1 }] {
+        let order=if matches!(demand,ProviderDemand::WeightedSecondAction { .. }) { DerivativeOrder::Second } else { DerivativeOrder::First };
+        let request=provider.prepare(ProviderRequest { outputs:vec![0,1],order,demand:demand.clone() }).unwrap();let mut buffer=ProviderBuffer::new(&request);
+        let mut directions=vec![0.;p];directions[0]=1.;let weights=[1.,0.];
+        let actual=buffer.fill(&mut provider,&parameters,&request,ProviderRuntime { directions:if matches!(demand,ProviderDemand::JacobianAction { .. }|ProviderDemand::WeightedSecondAction { .. }) { &directions } else { &[] },cotangents:if matches!(demand,ProviderDemand::TransposeAction { .. }) { &weights } else { &[] },weights:if matches!(demand,ProviderDemand::WeightedSecondAction { .. }) { &weights } else { &[] },expected_linearization:token },&context).unwrap();
+        close(actual.values,&expected.values.iter().map(|v|-v).collect::<Vec<_>>());
+        if let Some(token)=token { assert_eq!(actual.linearization,Some(token),"normalized original occurrences agree across action legs"); }else {token=Some(actual.linearization.unwrap());}
+        match demand { ProviderDemand::JacobianAction { .. }=>close(actual.jacobian,&[-expected.jacobian[0],-expected.jacobian[p]]),ProviderDemand::TransposeAction { .. }=>close(actual.jacobian,&expected.jacobian[..p].iter().map(|v|-v).collect::<Vec<_>>()),ProviderDemand::WeightedSecondAction { .. }=>{close(actual.jacobian,&expected.jacobian[..p].iter().map(|v|-v).collect::<Vec<_>>());close(actual.hessians,&(0..p).map(|j|-expected.hessians[j*p]).collect::<Vec<_>>());},_=>unreachable!() }
+    }
+}

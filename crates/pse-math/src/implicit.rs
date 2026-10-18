@@ -582,15 +582,7 @@ impl Problem {
                 cancel,
                 evaluation,
             )?;
-            for (value, offset) in evaluation.values.iter_mut().zip(&self.residual_offsets) {
-                *value -= offset;
-            }
-            if evaluation.values.iter().any(|v| !v.is_finite()) {
-                return Err(MathError::Domain {
-                    source_id: self.id,
-                    requirement: "implicit offset residual is nonfinite",
-                });
-            }
+            self.normalize_residual_values(&mut evaluation.values)?;
             Ok(held)
         })
     }
@@ -652,12 +644,26 @@ impl Problem {
             })
         })
     }
+    fn normalize_residual_values(&self,values:&mut [f64])->Result<(),MathError> {
+        if values.len()!=self.residual_offsets.len() { return Err(MathError::Contract("implicit residual value extent".into())); }
+        for (value,offset) in values.iter_mut().zip(&self.residual_offsets) { *value-=offset; }
+        if values.iter().any(|v| !v.is_finite()) { return Err(MathError::Domain { source_id:self.id,requirement:"implicit offset residual is nonfinite" }); }
+        Ok(())
+    }
     fn verify_values(&self, values: &[f64], options: &Options) -> Result<(), MathError> {
         if values.len() != self.rows.len() || values.iter().zip(&options.residual_tolerance)
             .any(|(f,t)| !f.is_finite() || f.abs() > *t) {
             return Err(MathError::Domain { source_id:self.id, requirement:"inner root did not satisfy original residual budgets" });
         }
         Ok(())
+    }
+    fn frame_completed_structure(&self,h:&mut pse_ids::FramedHasher)->Option<()> {
+        let factor=self.factor.lock().ok()?;let a=factor.association.as_ref()?;
+        h.id(&self.id).hash(&self.identity).u64(a.point.len() as u64);
+        for v in &a.point { h.u64(*v); }h.u64(a.matrix.len() as u64);for v in &a.matrix { h.u64(*v); }
+        h.u64(a.children.len() as u64);
+        for visit in &a.children { h.id(&visit.source).hash(&visit.provider.0);visit.linearization?.frame(h); }
+        Some(())
     }
     fn completed_premise(&self, premise: ContentHash, point: &[f64]) -> Option<ContentHash> {
         let factor = self.factor.lock().ok()?;
@@ -813,7 +819,9 @@ impl Problem {
         premise: ContentHash,
     ) -> Result<ProviderValues, MathError> {
         let columns = (0..self.inputs).collect::<Vec<_>>();
-        self.derivatives_from_worker(parameters, point, order, options, cancel, premise, &self.worker, &columns)
+        let prepared=self.product_workers.lock().map_err(|_| MathError::Contract("implicit product lock poisoned".into()))?.iter()
+            .find(|p| p.kind==crate::jets::ProductKind::SelectedPartials && p.order==order && p.columns==columns).cloned();
+        self.derivatives_from_worker(parameters, point, order, options, cancel, premise, prepared.as_ref().map_or(&self.worker,|p| &p.worker), &columns)
     }
     fn derivatives_from_worker(
         &self, parameters: &[f64], point: &[f64], order: DerivativeOrder, options: &Options,
@@ -1213,17 +1221,13 @@ impl NumericalProduct {
     }
 }
 pub(super) fn numerical_product_bytes(inputs: usize, unknowns: usize) -> Result<usize, MathError> {
-    inputs
-        .checked_mul(inputs)
-        .and_then(|square| square.checked_add(inputs))
-        .and_then(|width| width.checked_add(1))
-        .and_then(|width| width.checked_mul(unknowns))
+    // Fixed factory admission covers Value/First scientific selection. Second
+    // storage belongs to actual demand preparation on the fresh attempt.
+    inputs.checked_add(1).and_then(|width| width.checked_mul(unknowns))
         .and_then(|scalars| scalars.checked_add(inputs))
-        .and_then(|scalars| scalars.checked_mul(2 * size_of::<f64>()))
+        .and_then(|scalars| scalars.checked_mul(2*size_of::<f64>()))
         .and_then(|bytes| bytes.checked_add(size_of::<NumericalProduct>()))
-        .ok_or(MathError::Limit(
-            "implicit retained numerical product extent",
-        ))
+        .ok_or(MathError::Limit("implicit retained numerical product extent"))
 }
 
 /// Attempt-bound provider construction, using the same callback and cancellation owner
@@ -1366,9 +1370,11 @@ impl ImplicitFactory {
                 bytes
                     .checked_add(Self::root_bytes(&branch.residual)?)?
                     .checked_add(branch.eligibility.retained_bytes())?
-                    .checked_add(branch.eligibility.scratch_bytes())?
+                    .checked_add(branch.eligibility.worker_bytes())?
+                    .checked_add(branch.eligibility.evaluation_cache_bytes())?
                     .checked_add(branch.criterion.retained_bytes())?
-                    .checked_add(branch.criterion.scratch_bytes())?
+                    .checked_add(branch.criterion.worker_bytes())?
+                    .checked_add(branch.criterion.evaluation_cache_bytes())?
                     .checked_add(
                         branch
                             .isolation

@@ -107,6 +107,7 @@ fn case(factory: &Factory) -> (Arc<CaseAssembly>, CaseValues) {
 #[derive(Clone, Copy, Debug)]
 enum Demand { Value, First, Weighted, HessianAction, JacobianAction }
 impl Demand {
+    fn visits(self)->usize { if matches!(self,Self::HessianAction) { 3 } else { 1 } }
     fn evaluate(self, worker: &mut CaseWorker, values: &CaseValues) -> Result<Vec<f64>, MathError> {
         match self {
             Self::Value => Ok(worker.constraints(values)?.to_vec()),
@@ -165,7 +166,7 @@ fn case_worker_same_key_visits_operational_anchor_and_restriction_for_partials_a
                 [(factory.spec.key(), factory.create().unwrap())].into_iter().collect(), control.clone(),
             );
             for _ in 0..2 { close(&demand.evaluate(&mut worker, &values).unwrap(), &expected); }
-            assert_eq!(effect.calls.load(Ordering::Relaxed), 2, "{restriction} {demand:?}");
+            assert_eq!(effect.calls.load(Ordering::Relaxed), 2*demand.visits(), "{restriction} {demand:?}");
             assert_eq!(work.solves.load(Ordering::Relaxed), 1);
             if !restriction {
                 effect.value.store(0.8_f64.to_bits(), Ordering::Release);
@@ -184,14 +185,14 @@ fn case_worker_same_key_visits_operational_anchor_and_restriction_for_partials_a
             assert_eq!(effect.calls.load(Ordering::Relaxed), before + 1);
             effect.refuse.store(false, Ordering::Release);
             close(&demand.evaluate(&mut worker, &values).unwrap(), &expected);
-            assert_eq!(effect.calls.load(Ordering::Relaxed), before + 2);
+            assert_eq!(effect.calls.load(Ordering::Relaxed), before + 1 + demand.visits());
             let before = effect.calls.load(Ordering::Relaxed);
             control.cancel();
             assert!(demand.evaluate(&mut worker, &values).is_err());
             assert_eq!(effect.calls.load(Ordering::Relaxed), before, "pre-cancelled request has no provider effects");
             control.flag().store(false, Ordering::Release);
             close(&demand.evaluate(&mut worker, &values).unwrap(), &expected);
-            assert_eq!(effect.calls.load(Ordering::Relaxed), before + 1);
+            assert_eq!(effect.calls.load(Ordering::Relaxed), before + demand.visits());
         }
     }
 }
@@ -234,11 +235,11 @@ fn case_worker_unchanged_key_configuration_change_refusal_and_recovery() {
             [(factory.spec.key(), factory.create().unwrap())].into_iter().collect(), control.clone(),
         );
         for _ in 0..2 { close(&demand.evaluate(&mut worker, &values).unwrap(), &expected); }
-        assert_eq!(resolver.calls.load(Ordering::Relaxed), 2);
+        assert_eq!(resolver.calls.load(Ordering::Relaxed), 2*demand.visits());
         assert_eq!(work.solves.load(Ordering::Relaxed), 1);
         resolver.start.store(0.8_f64.to_bits(), Ordering::Release);
         close(&demand.evaluate(&mut worker, &values).unwrap(), &expected);
-        assert_eq!(resolver.calls.load(Ordering::Relaxed), 3);
+        assert_eq!(resolver.calls.load(Ordering::Relaxed), 3*demand.visits());
         assert_eq!(work.solves.load(Ordering::Relaxed), 2);
         resolver.refuse.store(true, Ordering::Release);
         let error = demand.evaluate(&mut worker, &values).unwrap_err();
@@ -246,7 +247,7 @@ fn case_worker_unchanged_key_configuration_change_refusal_and_recovery() {
         assert!(matches!(*cause, MathError::Provider { cause: pse_kernels::ProviderError::Limit("current configuration allowance"), .. }));
         resolver.refuse.store(false, Ordering::Release);
         close(&demand.evaluate(&mut worker, &values).unwrap(), &expected);
-        assert_eq!(resolver.calls.load(Ordering::Relaxed), 5, "resident completion cannot authorize bypassing current configuration");
+        assert_eq!(resolver.calls.load(Ordering::Relaxed), 4*demand.visits()+1, "resident completion cannot authorize bypassing current configuration");
     }
 }
 
