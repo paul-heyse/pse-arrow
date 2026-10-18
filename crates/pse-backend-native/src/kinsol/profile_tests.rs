@@ -780,7 +780,7 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
             variables: vec![0.001; 4], rows: vec![0.001; 4], integrality: 0.001,
         }, None);
     assert!(error.is_err());
-    assert!(!session.ready_for_retention());
+    assert!(session.ready_for_retention(), "ordinary admission refusal leaves a drained reset owner");
     rejected_solve(&session);
     let recovered = solve(&mut session, &[0.3; 4]);
     assert_eq!(count(&recovered, "klu.symbolic.completed"), 0);

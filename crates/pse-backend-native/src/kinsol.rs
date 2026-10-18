@@ -1578,19 +1578,34 @@ impl Session {
     ) -> Result<SolveReport, ProblemError> {
         self.retention_ready = false;
         self.begin_application()?;
-        let result = self.solve_application(initial, controls, accuracy, execution, tolerances, warm);
+        let mut result = self.solve_application(initial, controls, accuracy, execution, tolerances, warm);
         // All work is synchronous on this owner. Failed attempts release numerical
         // factors even when they returned before KINSol or original validation.
         if !result.as_ref().is_ok_and(|report| report.termination.category == Termination::Success) {
-            self.begin_application()?;
+            if let Err(cleanup) = self.begin_application() {
+                // The original scientific/callback cause stays authoritative.
+                // This owner cannot be retained after uncertain cleanup.
+                if let Ok(report) = &mut result {
+                    report.metrics.insert("klu.retention_reset_failure".into(), Metric::Text(cleanup.to_string()));
+                }
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.unavailable("kinsol.retention_reset", cleanup.to_string());
+                }
+                return result;
+            }
         }
-        self.retention_ready = result.as_ref().is_ok_and(|report| {
-            !matches!(report.termination.category, Termination::Panic)
+        self.retention_ready = match &result {
+            Ok(report) => !matches!(report.termination.category, Termination::Panic)
                 && !matches!(report.termination.code as i32,
                     ffi::KIN_MEM_NULL | ffi::KIN_NO_MALLOC | ffi::KIN_CONTEXT_ERR |
                     ffi::KIN_VECTOROP_ERR)
-                && report.termination.name != "KIN_UNKNOWN"
-        });
+                && report.termination.name != "KIN_UNKNOWN",
+            Err(error) => matches!(error,
+                ProblemError::Contract(_) | ProblemError::Unsupported(_) |
+                ProblemError::Reuse { .. } | ProblemError::Structural { .. } |
+                ProblemError::Cancelled | ProblemError::Limit { .. } |
+                ProblemError::Math(_) | ProblemError::Provider(_)),
+        };
         result
     }
     fn begin_application(&mut self) -> Result<(), ProblemError> {
