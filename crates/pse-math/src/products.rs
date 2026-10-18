@@ -407,8 +407,9 @@ impl PreparedSupport {
             .flatten()
             .flatten()
         {
-            if let CompiledStage::Require { order, .. } = stage {
-                *order = DerivativeOrder::Value;
+            if let CompiledStage::Require { order: minimum, .. } = stage
+                && *minimum <= order {
+                *minimum = DerivativeOrder::Value;
             }
         }
         compiled.census[order] = Some(CompiledOrderCensus {

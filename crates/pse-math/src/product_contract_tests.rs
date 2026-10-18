@@ -383,3 +383,29 @@ fn weighted_product_branch_barrier_keeps_actual_arm_and_original_domain_source()
         assert_eq!(actual, complete);
     }
 }
+
+#[test]
+fn transpose_first_keeps_second_only_guards_inactive() {
+    crate::initialize().unwrap();
+    let source = SemanticId::from_bytes([83; 16]);
+    let x = library::formal(0).unwrap();
+    let body = PreparedBody::new(1, 2, vec![1], vec![
+        Stage::Require { argument: 0, condition: Condition::Positive, order: DerivativeOrder::Second, source, lineage: None },
+        Stage::Block { expressions: vec![&x * &x], outputs: vec![1], source },
+    ], DerivativeOrder::Second).unwrap();
+    let stop = pse_diagnostics::Cancellation::new(false);
+    let scope = pse_kernels::ExecutionScope::new(stop.clone(), None);
+    let first = body.prepare_support(&[0], &[0], DerivativeOrder::First, &stop).unwrap();
+    let ordinary = first.compile_product(ProductKind::SelectedPartials, Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+    assert_eq!(ordinary.worker().evaluate(&[-1.], DerivativeOrder::First, &mut ProviderBindings::new(), &stop).unwrap().jacobian, [-2.]);
+    let transpose = first.compile_product(ProductKind::TransposeJacobianAction, Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+    let mut output = [91.];
+    transpose.worker().evaluate_product_into(&[-1.], ProductValues::TransposeJacobianAction { weights: &[3.] },
+        &mut ProviderBindings::new(), &stop, &mut output).unwrap();
+    assert_eq!(output, [-6.]);
+    let second = body.prepare_support(&[0], &[0], DerivativeOrder::Second, &stop).unwrap();
+    let hessian = second.compile_product(ProductKind::WeightedHessian, Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+    assert!(matches!(hessian.worker().evaluate_product_into(&[-1.], ProductValues::WeightedHessian { weights: &[0.] },
+        &mut ProviderBindings::new(), &stop, &mut output), Err(MathError::Domain { source_id, .. }) if source_id == source));
+    assert_eq!(output, [-6.]);
+}
