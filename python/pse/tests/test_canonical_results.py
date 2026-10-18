@@ -215,7 +215,7 @@ def test_canonical_open_failure_and_invalid_user_range_keep_distinct_diagnostics
 
 
 @pytest.mark.integration
-def test_canonical_close_and_explicit_cache_release_after_completed_run(
+def test_canonical_close_and_idempotent_cache_clear_after_retention_refusal(
     inspection_settings: pse.EngineSettings,
     canonical_substrate: CanonicalFixture,
 ) -> None:
@@ -236,16 +236,19 @@ def test_canonical_close_and_explicit_cache_release_after_completed_run(
     (record,) = pa.table(runtime.attempt_record(attempt)).to_pylist()
     assert record["terminal"]
     assert record["outcome"] == "succeeded"
+    # This full physical-row receipt closure exceeds the optional cache budget
+    # once every independent protection and release grant is included.
+    assert _physical_cache_usage(runtime) == (0, 0)
     del variables, result, handle, prepared, package
-    entries, retained_bytes = _physical_cache_usage(runtime)
-    assert entries > 0
-    assert retained_bytes > 0
-    # Caller release and optional cache eviction have separate owners.
+    assert _physical_cache_usage(runtime) == (0, 0)
+    # Caller close and explicit optional-cache clearing remain separate operations
+    # even when this product was refused retention.
     runtime.close()
     runtime.close()
-    assert _physical_cache_usage(runtime) == (entries, retained_bytes)
+    assert _physical_cache_usage(runtime) == (0, 0)
     with pytest.raises(pse.InspectionError, match="runtime caller is closed"):
         runtime.attempt_record(attempt)
+    runtime.clear_program_cache()
     runtime.clear_program_cache()
     assert _physical_cache_usage(runtime) == (0, 0)
 
@@ -272,9 +275,9 @@ def test_canonical_close_preserves_live_result_reader_and_independent_caller(
     del result, handle, prepared, package
     independent = canonical_substrate.runtime(inspection_settings)
     try:
-        entries, retained_bytes = _physical_cache_usage(runtime)
-        assert entries > 0
-        assert retained_bytes > 0
+        # Full physical-row retention is refused; the reader's independent
+        # protection, rather than an optional cache entry, owns its later fetch.
+        assert _physical_cache_usage(runtime) == (0, 0)
         runtime.clear_program_cache()
         runtime.close()
         runtime.close()
