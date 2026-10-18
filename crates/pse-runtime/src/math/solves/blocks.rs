@@ -613,7 +613,7 @@ impl MathService {
         let mut residents = Vec::with_capacity(steps.len());
         for step in &steps {
             let backend = step.backend().ok_or_else(|| ProblemError::Internal("missing prepared block team".into()))?;
-            let demand = super::super::initialization::BlockWaveDemand::new(std::iter::once((backend, step.profile.controls.clone())), &self.policy)?;
+            let demand = super::super::initialization::BlockDemand::new(std::iter::once((backend, step.profile.controls.clone())), &self.policy)?;
             demand.admit(self.cores)?;
             teams.push(demand.threads);
             residents.push(demand.foreign.checked_add(demand.stacks).ok_or(MathRuntimeError::Limit("block live resident extent"))?);
@@ -727,7 +727,6 @@ impl MathService {
             retained.clear();
             let width = prepared.workers.min(self.policy.jobs.saturating_sub(1).max(1));
             let parallel = width > 1;
-            let runtime = tokio::runtime::Handle::try_current().map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
             let mut iterations = Iterations::new(prepared.original.profile.controls.iterations);
             let mut readiness = prepared.dependencies.start();
             let mut outcomes = BTreeMap::new();
@@ -808,7 +807,9 @@ impl MathService {
                 }
                 Ok::<_, MathRuntimeError>(())
             };
-            let dispatched = if parallel { runtime.block_on(dispatch) } else {
+            let dispatched = if parallel {
+                tokio::runtime::Handle::try_current().map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?.block_on(dispatch)
+            } else {
                 dispatch.now_or_never().ok_or_else(|| ProblemError::Internal("serial block unexpectedly suspended".into()))?
             };
             let resumed = if parallel { execution::resume_compute(&execution).map_err(MathRuntimeError::from) } else { Ok(()) };

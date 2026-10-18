@@ -174,56 +174,14 @@ impl PreparedInitialization {
         self.blocks.iter().map(|b| &b.boundary)
     }
 }
-/// Canonical ready prefix from the complete compiler dependency product. Fixed inputs
-/// are already bound; every produced input waits for its owning block's commit.
-pub(super) fn ready_wave<'a>(
-    blocks: impl Iterator<Item = &'a pse_structural::initialization::Block>,
-    completed: &[bool],
-    width: usize,
-) -> Result<Vec<usize>, native::ProblemError> {
-    let blocks: Vec<_> = blocks.collect();
-    if width == 0 || blocks.len() != completed.len() {
-        return Err(native::ProblemError::Contract("ready block extent".into()));
-    }
-    let mut producers = BTreeMap::new();
-    for (index, block) in blocks.iter().enumerate() {
-        for column in &block.members.columns {
-            if producers.insert(*column, index).is_some() {
-                return Err(native::ProblemError::Contract(
-                    "overlapping block output coordinates".into(),
-                ));
-            }
-        }
-    }
-    let wave: Vec<_> = blocks
-        .iter()
-        .enumerate()
-        .filter_map(|(index, block)| {
-            (!completed[index]
-                && block.inputs.iter().all(|input| {
-                    producers
-                        .get(input)
-                        .is_none_or(|&producer| producer == index || completed[producer])
-                }))
-            .then_some(index)
-        })
-        .take(width)
-        .collect();
-    if wave.is_empty() && completed.iter().any(|done| !done) {
-        return Err(native::ProblemError::Contract(
-            "incomplete or cyclic block dependency witness".into(),
-        ));
-    }
-    Ok(wave)
-}
-/// Complete native and owner-thread demand of one genuinely independent ready wave.
+/// Complete native and owner-thread demand of the supplied independent profiles.
 #[derive(Clone, Copy, Debug, Default)]
-pub(super) struct BlockWaveDemand {
+pub(super) struct BlockDemand {
     pub(super) threads: usize,
     pub(super) foreign: usize,
     pub(super) stacks: usize,
 }
-impl BlockWaveDemand {
+impl BlockDemand {
     pub(super) fn new(
         profiles: impl Iterator<Item = (Backend, Controls)>,
         policy: &super::MathPolicy,
@@ -2590,55 +2548,18 @@ mod tests {
                 ),
             ]
         };
-        let demand = BlockWaveDemand::new(profiles().into_iter(), &policy).unwrap();
+        let demand = BlockDemand::new(profiles().into_iter(), &policy).unwrap();
         assert_eq!(demand.threads, 6);
         assert_eq!(demand.foreign, 5000);
         assert_eq!(demand.stacks, 2048);
         assert!(
             demand.admit(4).is_err(),
-            "an impossible complete wave must refuse rather than silently serialize"
+            "an impossible complete team set must refuse rather than silently serialize"
         );
         demand.admit(6).unwrap();
-        let one = BlockWaveDemand::new(profiles().into_iter().take(1), &policy).unwrap();
+        let one = BlockDemand::new(profiles().into_iter().take(1), &policy).unwrap();
         assert_eq!(one.threads, 4);
         one.admit(4).unwrap();
-    }
-    #[test]
-    fn ready_block_waves_obey_complete_dependency_inputs_and_canonical_capacity() {
-        use pse_structural::{
-            incidence::{BlockId, Part},
-            initialization::Block,
-        };
-        let block = |n, input: Vec<SemanticId>| Block {
-            id: BlockId(pse_ids::ContentHash::from_bytes([n; 32])),
-            members: Part {
-                rows: vec![id(n + 10)],
-                columns: vec![id(n)],
-            },
-            inputs: input,
-        };
-        let blocks = [
-            block(1, vec![]),
-            block(2, vec![]),
-            block(3, vec![id(1)]),
-            block(4, vec![id(2), id(3)]),
-        ];
-        assert_eq!(ready_wave(blocks.iter(), &[false; 4], 2).unwrap(), [0, 1]);
-        assert_eq!(ready_wave(blocks.iter(), &[false; 4], 1).unwrap(), [0]);
-        assert_eq!(
-            ready_wave(blocks.iter(), &[true, false, false, false], 4).unwrap(),
-            [1, 2]
-        );
-        assert_eq!(
-            ready_wave(blocks.iter(), &[true, true, true, false], 4).unwrap(),
-            [3]
-        );
-        let cyclic = [block(1, vec![id(2)]), block(2, vec![id(1)])];
-        assert!(ready_wave(cyclic.iter(), &[false; 2], 2).is_err());
-        assert!(ready_wave(blocks.iter(), &[false; 4], 0).is_err());
-        // Provider/validity-only input edges share this same complete producer witness.
-        let hidden = [block(1, vec![]), block(2, vec![id(1)])];
-        assert_eq!(ready_wave(hidden.iter(), &[false; 2], 2).unwrap(), [0]);
     }
     #[test]
     fn conditional_failure_preserves_shared_terminal_causes_and_actual_native_status() {

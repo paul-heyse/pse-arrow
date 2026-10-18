@@ -3403,7 +3403,7 @@ async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
         DerivativeOrder::First, problem.profile.max_cells).unwrap());
     problem.bytes *= 2;
     let problem = Arc::new(problem);
-    with_admitted_fit_oracle(problem, |oracle| {
+    let outcome = with_admitted_fit_oracle_outcome(problem, |oracle| {
         let mut measured = Vec::new();
         for stride in [true, false] {
             oracle.point = None;
@@ -3438,4 +3438,5 @@ async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
         assert!(oracle.objective(&[1.0]).is_err());
         assert!(oracle.point.is_none());
     }).await;
+    assert!(matches!(outcome, Err(crate::math::MathRuntimeError::Cancelled)));
 }

@@ -26,7 +26,7 @@ impl MathService {
                 return Err(native::ProblemError::Contract("ready block requires native team".into()));
             };
             let controls = profile.solver.block_profile(block.boundary.id)?.controls;
-            BlockWaveDemand::new(std::iter::once((*backend, controls.clone())), &self.policy)?.admit(self.cores)
+            BlockDemand::new(std::iter::once((*backend, controls.clone())), &self.policy)?.admit(self.cores)
                 .map_err(MathRuntimeError::into_problem)?;
             Ok(controls)
         }).collect::<Result<Vec<_>, native::ProblemError>>()?;
