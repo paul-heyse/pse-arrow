@@ -1,6 +1,6 @@
 ---
 title: "Plan45a: Typed source and incremental preparation"
-status: draft
+status: in-progress
 date: 2026-10-18
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]

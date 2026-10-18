@@ -1,8 +1,8 @@
 ---
 title: "Plan45d: Demanded derivatives and dynamics"
-status: draft
+status: in-progress
 date: 2026-10-18
-adrs: []
+adrs: [ADR-0199]
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
 doc_role: plan
 doc_topics: [design, numerical-execution]

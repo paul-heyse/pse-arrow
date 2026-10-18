@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 196
-date: 2026-10-17
+revision: 198
+date: 2026-10-18
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,8 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 198 | 2026-10-18 | Plan45 RC04 explicit selected reader/snapshot target (§20), preserving full snapshots and Python stream meaning; acknowledged protected evidence handoff within ADR-0182 (§20.4). | Maintainer-authorized execution; PSE_DESIGN_EDIT=1; proposed ADR-0187 amendment precedes selected API implementation; qualification remains Plan45c/f. |
+| 197 | 2026-10-18 | Plan45 accepted RC01/RC02 local typed-ingress and candidate/retained ownership targets (§14.3.2/§14.4); proposed ADR-0199 consumed adjoint parameter layout (§13.6/§19.4), preserving complete physical values, second-order meanings and ordinary accuracy. | Maintainer-authorized Plan45 execution; PSE_DESIGN_EDIT=1; prerequisite target publication, implementation and qualification remain with Plan45. |
 | 196 | 2026-10-17 | Plan44 selected short native/compiled/durable/managed/Python qualification (§24.2); current invocation and selected-direction acceptance references (§23.1/§13.6), preserving unresolved KLU symbolic limitation and ordinary accuracy. | Maintainer-authorized Plan44 closeout; PSE_DESIGN_EDIT=1. Proposed ADR statuses unchanged; prior plans/index unchanged. |
 | 195 | 2026-10-17 | Plan44 implicit residual/hint/strict-interior programs share existing artifact/scalar ownership (§14.1), with fresh per-case native/configuration state and separately charged wrappers; conditional shooting chooses its route before effects (§13.6). | Maintainer-authorized Plan44 execution; PSE_DESIGN_EDIT=1; existing compilation contract and proposed ADR-0198. |
 | 194 | 2026-10-17 | Plan44 RC02 conditional exact IDAS forward quadrature product for combined shooting (§13.6/§19.4), retaining integral-only adjoints and existing accuracy/support boundaries. | Maintainer-authorized remaining Plan44 execution; PSE_DESIGN_EDIT=1. Proposed ADR-0198 precedes implementation. |

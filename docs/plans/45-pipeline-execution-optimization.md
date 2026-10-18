@@ -1,6 +1,6 @@
 ---
 title: "Plan45: Pipeline execution optimization"
-status: draft
+status: in-progress
 date: 2026-10-18
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
@@ -132,7 +132,7 @@ The series completes only when every required correction has its targeted accept
 
 **Planned verification:** package compile/targeted tests during implementation; source-established pass/work removal and before/after work counts with ordinary accuracy; one complete initial observation per short contrast, repeat only when variation changes a decision. 45f owns final Rust/native/Python/durable/managed integration and scope-end static/manual checks appropriate to the changes. No product-wide check has been run to author this plan.
 
-**Current checkpoint:** the coordinator and six companions are authored, with 28 product packages, all thirteen findings and all ten inquiries open. RC01–RC10 were explicitly accepted as written on 2026-10-18, fixing the stated target choices and bounded investigation/adoption routes without selecting unknown winners. Focused independent plan assessment confirmed numbered/unnumbered coverage and preservation boundaries; its prerequisite-publication and unresolved-finding closeout clarifications are incorporated. Document creation is complete. The next product action, once separately authorized, is the early F01 observation slice and ready direct corrections, completing required prerequisite contract routes before dependent behavior.
+**Current checkpoint (2026-10-18 execution):** execution is authorized across all 28 packages. RC01–RC10 remain accepted. Root owns source/compiler changes and cross-owner contracts; isolated math, result and native executors own ready B01, C01/C04/C06 and D01 work. Proposed ADR-0199 and blueprint revisions 197–198 publish prerequisite adjoint/selected-reader targets before dependent changes. Typed ingress/import reconstruction and persistent source-index changes are in progress; no package is yet accepted. Targeted compilation/testing precedes dependent integration; final assembled/static acceptance remains F03. Existing environment/workflow edits are preserved.
 
 **Tested, authoring only, baseline zero:** document lifecycle validation passed with all seven new documents and 622 total native scope items checked; source-to-owner coverage and new file links passed; `just turn-end` passed; `just docs` published 488 chapters with scoped search. The initial lifecycle check found four existing uses of an undeclared `performance` topic in the consumed reviews/evidence. Declaring that existing label in the lifecycle vocabulary corrected the registration without editing their bodies. No product tests, new numerical experiments or library qualification ran during authoring, and pre-existing environment/workflow files remained unchanged. These checks establish document readiness, not completion of any product package.
 

@@ -1,6 +1,6 @@
 ---
 title: "Plan45b: Mathematical program preparation and execution"
-status: draft
+status: in-progress
 date: 2026-10-18
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
@@ -38,7 +38,7 @@ Implement the supported composition and affected consumers if exact semantics, a
 
 ## B03 — Conservative JIT versus current interpreted/C++ realization
 
-**Pending RC09; independent of B02 beyond the actual representation consumed.** Separate preparation/export/compiler time from repeated evaluation. Start with the same demanded small programs under interpretation, the current C++ route and a conservative JIT candidate only where eligible. Existing C++ benefits—generic CPU flags, disabled unsafe contraction/math, bounded artifacts, child cancellation/drain and private loaded scratch—are consumed guarantees that another realization must match or state a deliberately different, explicitly approved support boundary.
+**Accepted RC09; independent of B02 beyond the actual representation consumed.** Separate preparation/export/compiler time from repeated evaluation. Start with the same demanded small programs under interpretation, the current C++ route and a conservative JIT candidate only where eligible. Existing C++ benefits—generic CPU flags, disabled unsafe contraction/math, bounded artifacts, child cancellation/drain and private loaded scratch—are consumed guarantees that another realization must match or state a deliberately different, explicitly approved support boundary.
 
 Qualify exact Symbolica/SymJIT behavior for ISA/CPU features, FMA/fastmath/SIMD/threads, code/heap/template/scratch ownership, finite admission before opaque construction, cancellation/expiry and actual worker drain, cloning/private mutable state, selected derivative products and original-check attribution. Options to disable fastmath/SIMD/threads exist; they do not alone prove a generic-ISA or interruptible constructor contract. A helper process is eligible only if it removes complete machinery and supplies the needed bounded lifecycle, not as an unmeasured extra daemon.
 
