@@ -602,6 +602,29 @@ complete-context, and generic mutable KLU keeps its original supported lifetime.
 are resolved and removed from the deferred register. Unsupported composition/JIT/projection/checkpoint alternatives, arbitrary large
 relation atomic closure and oversized optional-cache retention are not claimed.
 
+Selected Plan46 acceptance of 2026-10-18 belongs to the
+[Plan46g Outcome](../../plans/46g-investigations-qualification-and-design-publication.md#outcome).
+It covers effect-safe selected implicit products and compact mathematical execution,
+primal-only root transformation with full original assessment, exact response ownership,
+completion-driven conditional work and conservative child permission, pre-allocation dynamic
+checkpoint limits/direct actions, incremental lexical source products, live capture/publication
+and independently protected result payloads. Native and joined canonical/compiled controls retain
+original numerical, cancellation/drain and publication assertions. The initial 97-test runtime
+selection had one selected-start fixture failure; the affected 11-test rerun passed after an
+explicit missing-start refusal control and the required authored start were supplied. That
+composite result is not a second clean all-97 run. The Outcome owns all selected commands and
+scope-end results, including failures and repairs.
+
+Short KINSOL/FERAL/PETSc, DAE/checkpoint, fitting affinity and decoder comparisons preserve
+ordinary 0.001 physical accuracy where selected and separately meaningful derivative/rank
+checks. They select no universal solver or speed SLA. Stronger coupled matrix-free DAE
+preconditioning, cross-sample batching/parallel protected decoding, strict opaque-fill producer
+eligibility and general cost-aware experiment assignment retain explicit limits and triggers
+with their current owners. Source-backed no-adoption decisions for inner teams, SIMD/JIT,
+PGO and GPU do not assert absent benefit. This affected-scope acceptance does not replace
+the historical full basis, rerun all parity/platforms or close other active campaigns.
+Environment/provenance proof remains permanently eliminated.
+
 ### 24.3 Benchmarks
 
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)

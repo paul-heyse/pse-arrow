@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-03, AP-04, DP-01, DP-04, DP-13, PS-07, PS-10, PS-12]
 review: docs/design_review/reviews/design_review_declared-execution-and-qualification_2026-10-01.md
-evidence: Implemented
+evidence: Tested
 supersedes: []
 superseded-by: null
 standard: core-3.3/process-simulator-1.3
@@ -45,6 +45,19 @@ Compose native termination, original candidate qualification, model checks, clos
 
 FixedHorizon is the endpoint default. DeclaredTerminalEvent admits only the named terminal event without resets. Publish actual root state, mode, quadratures and live inputs before termination or coincident scheduled changes; evaluate endpoint-relative obligations there. Fixed-domain integrals and later required downstream observations retain their original extent. Qualified prefixes, coverage and final permission remain separate.
 
+**Plan46 RC04 target amendment, 2026-10-18:** root/initialization reductions require complete
+primal reconstruction and independent original rows, bounds and physical assessment. Their
+eligibility is separate from optimizer multiplier/KKT recovery. Qualified alias/affine passes
+consume exact source/provider revisions and preserve original domain and selection obligations;
+further contraction/condensation/formulation changes remain bounded inquiries.
+
+**Plan46 C01 concrete pass binding, 2026-10-18:** the pinned presolve library’s linear
+equality plan supplies root-only primal lift/project and bound provenance. Root eligibility
+uses exact zero equality/coefficient/filter tolerances so small nonzero coefficients are not
+discarded; these are transformation filters, not altered solver stopping accuracies. Admit only
+a square finite recovered representation and independently assess original rows/bounds/guards
+and current provider effects. NLP pass policy and multiplier/KKT recovery remain independent.
+
 ### Consequences
 
 Delete replaced combined fixture fields, copied defaults, local success predicates and bypass entrypoints. Generate transport from declarations. Version changed identity frames and durable contracts; absence in historical records cannot become current evidence.
@@ -54,6 +67,12 @@ Delete replaced combined fixture fields, copied defaults, local success predicat
 Focused force-validation matrices cover representation admission, route/procedure agreement, defaults, incumbent stops/bounds, combined policies, missing closure, terminal input sides and supervised shooting. Capacity accounting includes actual endpoints. Native priority advancement remains conservative when optimality is unestablished.
 
 ### Confirmation
+
+**Implemented / scoped Tested, 2026-10-18 (Plan46):** primal-only root affine/alias reduction, exact transformation filters and independent original rows/bounds/guards; actual conditional/root consumers retain KKT and frozen-input distinctions.
+[Plan46g Outcome](../plans/46g-investigations-qualification-and-design-publication.md#outcome)
+owns exact selected native/canonical/compiled commands, initial failures and affected repairs.
+This is affected-scope acceptance, not a new whole-product or universal-performance claim;
+formal ADR status remains proposed.
 
 The bounded author review establishes proposed contract fitness only. Plan 25e owns executed focused evidence; integrated qualification remains Plan 25k. This ADR remains proposed until its governed decision PR.
 

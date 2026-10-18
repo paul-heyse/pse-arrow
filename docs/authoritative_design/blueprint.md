@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 207
+revision: 211
 date: 2026-10-18
 ---
 
@@ -24,6 +24,10 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 211 | 2026-10-18 | Publish implemented Plan46 root/response, completion/conditional ownership, dynamic actions/checkpoint guards and incremental source/live/result contracts (§13.6/§14.3/§15/§17/§20.4/§21.1), with scoped qualification and retained numerical/platform limits (§24.2). | Maintainer-authorized C–G execution; visible design-edit route. Proposed rationale updated, accepted ADRs unchanged; Plan46g owns exact results and exclusions. |
+| 210 | 2026-10-18 | Install approved remaining Plan46 root/response, completion-driven admission, dynamic checkpoint/action and source/live/result targets (§13.6/§15/§17/§18.8/§19.2/§20.6) before dependent implementation. | Maintainer-approved execution; PSE_DESIGN_EDIT=1. Proposed ADR-0145/0166/0180/0185/0186 amended; bounded inquiries and G06 acceptance remain open. |
+| 209 | 2026-10-18 | Publish implemented Plan46a/46b demanded provider products, Value-source/actual-demand preparation, compact mathematical realization and exact effect-safe completion (§14.3); reconcile proposed ADR-0193 confirmation. | Maintainer-authorized selected execution; PSE_DESIGN_EDIT=1. Targeted compiler/math/compiled/native consumer acceptance and independent source review; G06 whole-series qualification remains open. |
+| 208 | 2026-10-18 | Install accepted Plan46 RC01–RC03 provider-demand, immutable binding/atomic fill, compact mathematical storage and effect-safe factor/assembled reuse targets (§14.3); amend proposed ADR-0193 before dependent implementation. | Maintainer-authorized 46a/46b execution; PSE_DESIGN_EDIT=1. Target installation only; I01/I02 and targeted implementation remain with the companions, G06 qualification remains open. |
 | 207 | 2026-10-18 | Reconcile qualified Plan45 F05/F13 completion (§24.2), current physical/native eligibility and proposed ADR-0183/0200 evidence; retire resolved R-54/R-53 register rows. | Maintainer-authorized Plan45 execution; PSE_DESIGN_EDIT=1. Targeted/combined acceptance, three continuing Clippy modes, affected features and governance passed; formal ADR statuses and other plans unchanged. |
 | 206 | 2026-10-18 | Publish implemented Plan45 RC03 resolver-issued consumed premises, versioned body/view frames and current-owner compiler/runtime migration (§5/§14.4), with explicit complete-context fallback boundaries. | Maintainer-authorized F05 follow-up; PSE_DESIGN_EDIT=1. Proposed ADR-0183 owns rationale; 45a/A06 targeted and 45f/F05 combined acceptance remain authoritative. |
 | 205 | 2026-10-18 | Publish Plan45e/E05 private fixed-pattern KLU adoption (§18) under proposed ADR-0200 after the representative short comparison, actual implicit cache and failure/original-validation controls. | Maintainer-authorized RC08 execution; PSE_DESIGN_EDIT=1. Ten targeted controls passed; combined acceptance remains 45f/F05, with no public solver/default/accuracy change. |

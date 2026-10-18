@@ -61,6 +61,15 @@ Same-point square-response factors/actions and bounded SVD/EVD diagnostics use e
 
 SPQR is not selected: its binding, selected native image and ABI/memory contracts are unqualified. Both consumers retain bounded SVD and explicit large-size refusal. A future separately named sparse-rank tier must state its method/version, threshold/ordering semantics, original-coordinate evidence and qualified binding/ABI/memory owner. QR cannot replace SVD singular modes or silently reinterpret square-response rank tolerance.
 
+**Plan46 RC06/RC07/RC10/RC11 target amendment, 2026-10-18:** response symbolic analysis may
+share exactly consumed layout premises, while numerical factors remain matrix-specific and
+mutable action scratch has an independent private executor. SVD retains its spectrum/cutoff
+meaning; a new sparse assessment requires a named accepting consumer and qualified binding.
+Ordinary Local response and conservative strict opaque-fill refusal remain. Threaded factors,
+existing reconstructible native children and conservative realization changes require complete
+route qualification; unknown library winners, changed arithmetic/ISA and GPU production support
+are not preselected. GPU scope is bounded feasibility and concrete follow-up only.
+
 ### Consequences
 
 Scoped native entry/terminal paths use explicit reset/update outcomes, and generated consumers project the active default. The replacements remove redundant scalar update loops, boolean mutation suppression and expired per-request retention paths within that scope. The common walker, scientific definitions, original assessment, explicit starts and admitted population/active mechanisms remain authoritative.
@@ -70,6 +79,12 @@ Scoped native entry/terminal paths use explicit reset/update outcomes, and gener
 The active default requires a qualified neutral-reset path or enforced fresh fallback for every reachable profile. Same dimensions/nnz are insufficient compatibility. Unknown reset, counters, snapshots, memory and reconstruction remain explicit. RequireReuse never preserves uncertain mutation or silently builds a new backend. Native cancellation, lifetime and branch distinctions remain independent of telemetry and native success strings.
 
 ### Confirmation
+
+**Implemented / scoped Tested, 2026-10-18 (Plan46):** exact retained response symbols with private numeric/action scratch, both allocation-anchor drop orders, complete scaled SVD meaning and strict refusal before effects; KINSOL/FERAL/PETSc controls select no universal winner or new opaque-fill/threaded binding.
+[Plan46g Outcome](../plans/46g-investigations-qualification-and-design-publication.md#outcome)
+owns exact selected native/canonical/compiled commands, initial failures and affected repairs.
+This is affected-scope acceptance, not a new whole-product or universal-performance claim;
+formal ADR status remains proposed.
 
 **Implemented:** scoped reset/fallback, explicit-width, mutation, selected method, child reconstruction and memory-refusal contracts described above. **Tested:** [Plan38c Verification](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38c-native-methods-reuse-and-parallelism.md#verification) owns the exact selected commands, conditions and results, including the maintained fork's application-reset controls; admitted native-solvers controls for Ipopt sequences, KINSOL build/setup, SCIP resources, cold POUNCE-convex batches, HiGHS mutation and strict/same-point response; and authored scalar method controls. These tests do not establish representative comparative performance, broader scientific equivalence or complete child/runtime/assembled qualification. [Plan38c Outcome](https://github.com/paul-heyse/pse-arrow/blob/6af92d1dee1ffa0b80dca71e03a63b489f2d940c/docs/plans/38c-native-methods-reuse-and-parallelism.md#outcome) owns the remaining scope and support decisions; assembled scientific/native/durable qualification remains Plan38g. ADR status remains proposed.
 

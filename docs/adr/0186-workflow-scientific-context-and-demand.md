@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-03, AP-04, AP-06, AP-07, DP-09, DP-15, DP-20, PS-07, PS-08, PS-10, PS-11]
 blueprint: [§13.6, §17.1, §17.4, §17.5, §19.3, §19.4, §21]
 review: git:6af92d1dee1ffa0b80dca71e03a63b489f2d940c:docs/design_review/reviews/design_review_plan38d-workflow-context-and-demand_2026-10-13.md
-evidence: Implemented
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A supported workflow requires stateful inner-map continuation, arbitrary generator callbacks, portable native-history checkpoints or a different recording realization.
@@ -53,7 +53,30 @@ Fitting demand includes selected native-solve internals, requested objective/der
 
 Optional effort adaptation extends the existing bounded StepControl. It is off by default. Qualified endpoints alone can change the next displacement using comparable effective-profile counters; unknown/zero/foreign counters use the declared baseline. Existing displacement/growth/rejection/work/deadline bounds and connected-path/branch/original checks remain authoritative.
 
+**Plan46 RC05/RC08/RC09 target amendment, 2026-10-18:** successful dependency commits are
+provisional until original stage acceptance; actual-overlap and pre-dispatch aggregate work
+reservation precede completion-driven dispatch in both parallel block owners. Fitting retains
+private preconstructed assigned workers and authored-order atomic reductions. IDAS checkpoint
+permission is enforced before any native call can create excess population, including initial
+and replay/segment lifetimes. Live capture/encoding and optional batching follow ADR-0180’s
+actual prefix/visibility contract without changing scientific tolerances or history authority.
+
+**Plan46 E01 concrete binding refinement, 2026-10-18:** the maintained bundled IDAS owner
+already supplies accepted-step/replay budget hooks. Add checkpoint-limit/usage hooks at its
+actual initial/new checkpoint allocations, with latched refusal and peak/current observation.
+This enforces population before allocation while retaining native NORMAL interpolation, root
+returns and accepted-step budgets, avoiding a host one-step orchestration layer. Reinitialization
+frees current checkpoints without renewing caller limits; failed attempts publish no gradient.
+Diffsol checks permission before cloning or constructing its checkpoint state, rather than
+constructing a disallowed state and rejecting it afterward.
+
 ### Consequences
+
+Plan46 dynamic action consumers use admitted assembly JVP/VJP products and physical
+chain maps; a completed current-effect-compatible matrix may satisfy either action.
+Diffsol's adjoint sign and selected segment parameter axes remain adapter semantics.
+Direct factor callbacks use precompiled CSC refill offsets and retain full derivatives.
+The outer dynamic value cache cannot bypass current provider or mode-guard effects.
 
 Migrate Rust/Python inputs, prepared products, reports and recording consumers together; regenerate registry-owned contracts and compiled stubs. Delete replaced single-profile assumptions, eager point expansion, redundant derivative work and duplicate output copies once their replacements pass targeted controls. Existing mechanisms with a distinct supported purpose remain. The root owns shared declarations, generation, integration and acceptance.
 
@@ -62,6 +85,12 @@ Migrate Rust/Python inputs, prepared products, reports and recording consumers t
 No scheduling decision grants scientific permission or new native resource capacity. Unsupported inner-map semantics, unavailable derivative/reset capability and failed mutation refuse or use the declared fresh fallback. Live output cannot claim acknowledged persistence, full requested horizon or native continuation from bytes alone. Original clocks, exact seeds, owner incarnation, backpressure, callback/native drain and owner-thread destruction are preserved.
 
 ### Confirmation
+
+**Implemented / scoped Tested, 2026-10-18 (Plan46):** native/Diffsol checkpoint pre-allocation limits, direct physical/scaled dynamic actions and cotangents, current IDAS shift, fresh parameter/mode history and complete publication; stronger coupled Krylov preconditioning and a new checkpoint scheduler remain unqualified.
+[Plan46g Outcome](../plans/46g-investigations-qualification-and-design-publication.md#outcome)
+owns exact selected native/canonical/compiled commands, initial failures and affected repairs.
+This is affected-scope acceptance, not a new whole-product or universal-performance claim;
+formal ADR status remains proposed.
 
 **Implemented:** bounded lazy study admission with mutation-owner fencing, stable block profiles
 and complete ready-wave resource demand, frozen recycle context and bounded native restarts,

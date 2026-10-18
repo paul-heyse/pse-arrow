@@ -261,7 +261,7 @@ sensitivities integrate the state sensitivities with the trajectory. The adjoint
 22 Y3a, Y3b, `dynamics::gradient`) computes the gradient of a scalar functional of the
 sampled outputs with respect to the parameters, including every interval of a scheduled
 input, by one forward pass and one backward pass. Diffsol's adjoint takes its
-operator adjoints from the one compiled CSC Jacobian, keeps its own checkpoints, at least two
+operator adjoints from demanded physical JVP/VJP products (or an already completed current-compatible matrix), keeps its own checkpoints, at least two
 per segment, and runs the backward pass segment by segment with a consistent restart at every
 sample, starting from the forward pass's last step. IDAS runs `IDAAdjInit` with `IDASolveF`
 per scheduled segment, then the backward problem (`IDACreateB` through `IDASolveB`, with
@@ -270,7 +270,7 @@ between checkpoints and at most 400 by default). Before any native work the adjo
 refuses events and resets, declared quadratures and a steady start (`Unsupported`), a
 scheduled change at the end or fewer checkpoints than two per segment (`Contract`), and a
 checkpoint estimate above the job's foreign allowance (`Limit`, memory); a forward pass that
-would exceed the checkpoint bound stops as a memory limit. *Tested* by
+would exceed the checkpoint bound stops as a memory limit. The bundled IDAS owner checks permission at both initial and later checkpoint allocation sites before creating memory, retaining current/peak population and latched refusal across native calls. Diffsol checks before cloning or constructing checkpoint state. Segment reset releases current history without renewing caller limits; failed attempts publish no gradient. Original NORMAL/event/interpolation and accepted-step/replay semantics remain native-owned. *Tested* by
 `scheduled_input_sensitivities_cross_changes`,
 `final_scheduled_change_is_reinitialized_and_observed`,
 `idas_scheduled_inputs_with_recoverable_trials`,
@@ -1302,7 +1302,7 @@ Results retain exact parent, binding/context and applied start/seed/predecessor 
 The parent is immutable; value-dependent facts and independent original assessment remain
 fresh. Typed `SourceDelta` supplies explicit additions/replacements/removals and document/data
 ownership changes under exact parent/CAS. Reject overlapping intents before atomic effects;
-parent reload compares checksums and reparses changed documents. Full replacement retains
+parent reload compares checksums and reparses changed documents. Exact parents retain source indexes, parsed products and per-object canonical products. Reuse tracks successful and absent lexical reads, shadows, imports, binder/type/member/root/guard premises and owner scope. Physical changes conservatively invalidate references. Unchanged reference/canonical work is skipped; full metadata-map copies, ordered identity framing and complete receiving admission remain explicit. Full replacement retains
 its explicit deletion domain. Generated Rust/Python contracts and actual consumers migrate
 together; these target APIs do not imply implementation or qualification.
 
@@ -1519,3 +1519,35 @@ and disjunctive or robust optimization has no replacement ([§19.7](#section-19-
 Native provider factory declarations replaced external-function kernels; no Python or
 ASL callback reaches a solver ([§9](physical-semantics.md#section-9),
 [ADR-0084](../../adr/0084-physical-provider-and-dynamic-contracts.md)).
+
+### Conditional and fitting owner lifetimes
+
+> Decision: ADR-0166 and ADR-0186 (proposed amendments; maintainer-approved Plan46 execution).
+
+Parallel initialization and block solves retain prepared predecessor/successor maps and
+compact per-request consumed binding bases. Every original authored parameter and explicitly
+fixed variable remains mandatory, even unused. Unread authored free coordinates may be omitted
+from a private conditional binding; the public full/effective-frozen validators are unchanged.
+The solver and assessor share leased immutable values. Exclusive bases update changed consumed
+inputs in place; escaped aliases require a fresh leased base. No source map, start or history
+travels with backend-qualified neutral native capacity.
+
+Fitting preconstructs exactly one private worker for each assigned experiment, retains compact
+lane inventories and reduces results in authored order. Production retains deterministic authored stride. A distinct test-only affinity comparison
+separates the expensive transient experiments without worker replication; native/provider
+residency bounds are not execution-time estimates and do not select a production assignment. Profile chains retain their existing causal pins;
+failed lanes do not replay experiments. Current forward/adjoint selection and checkpoint spacing
+remain explicit; short comparisons do not establish a universal parameter/objective crossover.
+
+### Live sample capture and publication
+
+> Decision: ADR-0180 (proposed amendment; maintainer-approved Plan46 execution).
+
+Native callbacks capture only bounded selected owned output values, mode, time
+and original sample identity. Existing supervision builds checked Arrow collections under the
+original scope/lease and retains channel envelopes through complete drain even after cursor
+drop and native completion. Selected lineage is prepared outside per-sample encoding; full
+original lineage maps are not an uncharged per-sample operation. Encoding failure or late cancellation cancels and drains the producer and
+leaves recording incomplete. Empty bounded append queue capacity can be reused, but payloads
+and authentic acknowledgements remain per sample. No cross-sample batching/relaxed visibility
+was selected; Recorded means only the authentic contiguous acknowledged prefix.

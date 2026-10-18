@@ -103,6 +103,8 @@ realization contract is proposed [ADR-0100](../../adr/0100-modeling-functions-an
 
 ### 7.3 Operation contracts: physical admission and domain obligations
 
+> Decision: [ADR-0193](../../adr/0193-demand-products-and-compiled-derivatives.md) (proposed Plan46 amendment). Provider demand and invocation completion follow §14.3; physical admission remains owned here.
+
 > Decision: [ADR-0105](../../adr/0105-scip-factorable-backend.md) — obligations project as
 > closed constraints of the library-neutral factorable program, never as value dependencies
 > (Plan 22 G2, implemented; [§7.5](#section-7-5)).
@@ -572,6 +574,35 @@ IFT columns have canonical `[unknowns, parameters]` order. Original residual and
 solve checks remain independent. One current faer factor may serve compatible IFT right-hand
 sides and orders; KINSOL/KLU allocation or symbolic reuse grants no numerical factor handoff.
 
+The implemented Plan46 RC01–RC03 contract extends that demanded-product boundary
+to provider selected columns, JVP, VJP and weighted second actions. Fresh attempt bindings
+own immutable descriptors and resolved call slots; fallible providers fill admitted caller
+storage and publish only after current effect, envelope, finite-result and scope checks.
+Identical numerical keys do not bypass required provider effects. Separately invoked derivative
+actions compose only under an owner-issued complete numerical linearization premise, including
+actually visited child premises; unchanged values or state matrices alone are insufficient.
+Every action reruns current effects and refuses changed or unavailable premises. Fresh attempt
+binding prepares the finite demanded programs before native callbacks, which cannot introduce
+symbolic optimization or an unrequested complete-jet fallback. Additional demands retain the
+source artifact's optimization and evaluator policy. Implicit factories retain a Value-only
+residual source and the selected inner algorithm's unknown-only artifact. Scientific derivative
+availability is distinct from realized artifact order; parameter programs are prepared only for
+actual selected/action or complete scientific consumers before numerical entry. Full evaluation
+requires explicit preparation at that same owner and has no eager full-worker fallback.
+Selected implicit products
+use the complete verified state and library-owned forward/transpose solves without requiring
+unconsumed parameter jets. Regime selection retains its actual scientific proof demand
+separately from returned derivatives: operational neighborhoods can require broad First
+products, while certified exclusion does not require irrelevant rival factors. The selected
+branch and validated proof/assessment scope establish its complete numerical premise.
+Compatible factor/first-product upgrades require actual matrix
+identity, with affine-workspace use, reset and failed verification invalidating the association.
+Internal support-shaped results and frames preserve conservative branch support and original
+obligations; genuine dense consumers materialize at their boundary. Executable readiness and
+assembled numerical completion remain separate. Plan46a/46b record targeted acceptance;
+whole-series qualification remains with Plan46g. Structural pair metadata can remain quadratic
+even when a contracted product avoids Cartesian numerical jets; no universal speedup is claimed.
+
 > Decision: [ADR-0188](../../adr/0188-consumed-runtime-settings.md) (proposed; maintainer-authorized Plan38f target).
 
 Deployment configuration retains only consumed resource and execution settings. Removing the
@@ -706,7 +737,7 @@ Immutable support requests identify admitted body, ordered outputs and coordinat
 
 > Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
 
-Pure derivative-requirement algebra belongs to `pse-kernels`: residual availability, output smoothness, selector-neighborhood validity, inner minimum and requested output determine residual compilation. Native adapters supply their actual minimum; runtime resolves the effective profile and supplies demand. Provider descriptors and nested native oracle contracts consume this product.
+Pure derivative-requirement algebra belongs to `pse-kernels`: residual availability, output smoothness, selector-neighborhood validity, inner minimum and requested output determine the scientific residual derivative ceiling. Native adapters supply their actual minimum; runtime resolves the effective profile and supplies demand. That ceiling authorizes actual demand preparation; it does not require eager complete parameter compilation. Provider descriptors and nested native oracle contracts consume this product.
 
 > Implemented amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md) and
 > [ADR-0141](../../adr/0141-applicability-evidence-and-permissions.md), Plan 25b.

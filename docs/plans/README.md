@@ -4,6 +4,14 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
+[Plan46: Execution speed and numerical efficiency](46-execution-speed-and-numerical-efficiency.md)
+is complete for its adopted implementation and selected qualification. Its
+[coordinator](46-execution-speed-and-numerical-efficiency.md#current-checkpoint) owns finding,
+inquiry and rule decisions, including retained production limits;
+[46g's Outcome](46g-investigations-qualification-and-design-publication.md#outcome) records
+selected acceptance, corrected failures and publication boundaries. The highest coordinator
+and consumed companions remain retained; other plans keep their scope and status.
+
 [Plan43: Solver diagnostics and performance](43-solver-diagnostics-and-performance.md)
 is complete after its production-completeness remediation. Its
 [current checkpoint](43-solver-diagnostics-and-performance.md#current-checkpoint) records

@@ -90,6 +90,8 @@ The current support decision retains bounded SVD and explicit large-size refusal
 QR production tier is qualified. Authored scalar bracket execution requires actual continuity/domain/branch
 premises and original residual acceptance beyond library interval-width stopping.
 
+Exactly compatible square-response layouts retain immutable symbolic analysis; every point gets a fresh numeric factor. Each action executor privately retains RHS, residual, norm and MemStack scratch, so escaped shared factors contain no shared mutable action state. Symbolic and numeric allocation leases survive either drop order.
+
 Same-point square-response factors/actions and bounded SVD/EVD diagnostics use explicit
 low-level faer `Par::Seq` paths. Shared multi-RHS factors preserve the actual point, provider,
 scale and row identity. Known scratch requirements and finite opaque factor allowances do
@@ -633,7 +635,7 @@ policy; libraries own every iteration.
 
 > Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).
 
-**Implemented:** stable compiler block-ID native solver/control overrides resolve through the shared contextual policy, preserving original physical acceptance, intent, branch/start permissions and aggregate caps. Only complete independent ready blocks execute together; successful overlays commit in canonical order and full original assessment remains mandatory. Unknown/incompatible overrides refuse. Discovery and selected capability/witness facts authenticate overrides without rebuilding all conditional evaluators; value-only changes reuse the source proof. Aggregate wave demand sums effective native team widths and foreign memory with owner-thread stacks before dispatch. Coupled tear decisions are not split by SCC.
+**Implemented:** stable compiler block-ID native solver/control overrides resolve through the shared contextual policy, preserving original physical acceptance, intent, branch/start permissions and aggregate caps. Complete dependency-ready independent blocks may overlap; successful checked overlays provisionally unlock their successors immediately, while public reports and failures reduce in canonical order after all issued work drains. Complete original assessment remains mandatory for atomic stage acceptance. Unknown/incompatible overrides refuse. Discovery and selected capability/witness facts authenticate overrides without rebuilding all conditional evaluators; value-only changes reuse the source proof. Admission covers every permitted live set of effective native team widths, foreign memory and owner-thread stacks. Parent compute is lent before child acquisition. Each child reserves finite aggregate work before dispatch; its registration survives preparation, native work, independent assessment and recovery, and closes only when the whole child drains. Unknown actual work retains its reservation. A positive last iteration remains usable even with vacant lanes. Coupled tear decisions are not split by SCC.
 
 The optional conditional block-solve offer requires complete per-attempt iteration totals
 from its actual contextual routes to debit the original aggregate allowance. The current
@@ -2462,3 +2464,23 @@ Production NL/Pyomo routes were removed in favor of native class-specific adapte
 
 Library-owned evaluation programs and provider workers ([§18.2](#section-18-2),
 [§7](mathematics-and-compilation.md#section-7)) replaced generated kernel adapters.
+
+### Root primal transformations and linear choices
+
+> Decision: ADR-0145 and ADR-0185 (proposed amendments; maintainer-approved Plan46 execution).
+
+Root execution may use exact represented alias/affine primal reductions independently of
+optimizer dual/KKT recovery. Pounce-presolve uses zero coefficient/equality/feasibility
+filters here: tiny nonzero coefficients are not erased. Reduced native permission is separate
+from full original reconstruction, bounds, guards and fresh provider/residual assessment.
+Conditional attempts refresh current local proof values; unsupported reduced bounds retain
+the original Auto route or explicitly refuse a required transform. Structural BTF does not
+establish nonlinear eliminability, uniqueness or a regular condensed sheet.
+
+Root BlockFactor retains its per-block/global RHS and apply candidates; setup failure
+invalidates all prior numeric factors. Its retained cubic allowance is conservative, not a
+measured native fill bound. KLU and BlockFactor/GMRES remain explicit qualified alternatives;
+small coupling/refresh controls select no universal default. Gilbert–Peierls may reuse its
+actual symbolic phase; value-dependent Markowitz gains no fictional symbolic reuse. PETSc
+ILU/Schwarz remain under their native split/one-thread/gate restrictions. No coupled index-1
+DAE BlockFactor/Schur or threaded unsymmetric factor is newly qualified.

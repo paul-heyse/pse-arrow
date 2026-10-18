@@ -8,7 +8,7 @@ level: decision
 principles: [AP-03, AP-04, AP-07, DP-09, PS-10]
 blueprint: [§18.8, §19.3, §20.6]
 review: docs/design_review/reviews/design_review_parallel-execution-architecture_2026-10-08.md
-evidence: Proposed
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A supported complete-case or ordinary study cannot progress with bounded admission and native exclusion under its declared aggregate placement.
@@ -69,7 +69,25 @@ completion placement. Preserve real predecessor/seed dependencies and suitable n
 operations. The primary durable group uses one shared runtime; observing callers add no
 unbudgeted execution. Discovery/coalescing remains distinct from canonical atomic claim.
 
+**Plan46 RC05 target amendment, 2026-10-18:** prepared complete dependency witnesses and
+consumed bindings feed existing bounded lanes. Before dispatch, the operation reserves actual
+overlapping resident/team/gate demand and finite aggregate child work; completion reconciles
+issued work without renewing unknown permission. Checked block results provisionally unlock
+successors, while accepted stage completion still requires the complete original assessment.
+Known failure stops dispatch and drains all issued work; reports reduce in prepared canonical
+order. Neutral reuse remains backend-qualified and excludes starts/history/cancellation.
+
 ### Consequences
+
+Plan46 conditional owners share one immutable, leased source-value allocation between
+the solver and original assessor. Conditional binding validates the original frozen
+inventory (every authored parameter and explicitly fixed variable, including unused
+declarations) and selected current inputs/coordinates plus actual local proof slots.
+An unselected authored free coordinate is not an original frozen assumption merely
+because a restricted view presents it as effectively fixed. Unread authored free
+coordinates do not require per-block copies; full public binding still requires its
+complete effective-frozen inventory. Top-level task validation still checks the complete case.
+This is a private binding change, not a relaxation of frozen-value or scientific checks.
 
 Entry clocks, group width and receiver budgets have typed owners. Adapter-visible native
 exclusion releases compute while waiting; actual guard/destruction stays on its thread.
@@ -90,6 +108,12 @@ drain and process readback. Unknown library coexistence premises constrain that 
 without silently changing solver selection or scientific tolerances.
 
 ### Confirmation
+
+**Implemented / scoped Tested, 2026-10-18 (Plan46):** completion-driven block and initialization dispatch, actual overlap/team admission, finite whole-child work across phases, conservative unknown-work reconciliation, drain/canonical failure and atomic original stage acceptance; production fitting stride remains.
+[Plan46g Outcome](../plans/46g-investigations-qualification-and-design-publication.md#outcome)
+owns exact selected native/canonical/compiled commands, initial failures and affected repairs.
+This is affected-scope acceptance, not a new whole-product or universal-performance claim;
+formal ADR status remains proposed.
 
 The review supplies source-backed design evidence. Plan 28 owns current implementation and
 the actual sixteen-case, admission, team-lifetime, ordinary study, restart and cancel/drain

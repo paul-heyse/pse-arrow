@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-03, AP-07, DP-09, DP-18, PS-10]
 blueprint: [§19.2, §19.3, §20.6, §21]
 review: docs/design_review/reviews/design_review_plan36-result-demand_2026-10-11.md
-evidence: Proposed
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A populated selected-output workload requires a different registry-owned ordering or mandatory terminal consumer that the explicit demand and original-row contracts cannot represent.
@@ -47,6 +47,17 @@ The hash and coverage authorities are explicit. Operations computes the unchange
 
 Horizon execution retains current estimator and last accepted result/seed per role, advanced background factor/result, current candidate permission, priors/anchors and the rolling measurement/input window. General staged historical consumers retain their distinct history contract. Completed rows/seed chunks stream privately under one attempt fence and freeze one coherent final demanded outcome. Explicit full history materializes under admission. Ordinary iteration telemetry samples/coalesces without blocking or cancelling science on overflow, retaining exact dropped/partial counters and bounded accounted state; strict-audit interruption is an explicit separate policy. Mandatory science and seed permission still have their existing completion authority.
 
+**Plan46 RC09 target amendment, 2026-10-18:** native callbacks capture bounded selected
+physical samples, with checked encoding at existing supervision/publication. Per-sample flush
+remains the initial/default boundary. Any qualified bounded batching has explicit finite
+visibility/flush limits and required event/schedule/attempt/selection/terminal/ACK boundaries.
+Original ordinals and actual contiguous acknowledged prefixes remain authoritative; unknown
+append cannot advance Recorded. The supervisor retains both channel-envelope ownership and
+its selected-lineage/projection scratch through queue drain, independently of subscriber
+drop and native completion. Production keeps its one charged decoder lane; waiting
+acquisition precedes decode storage admission. Independent reader controls do not qualify
+a new parallel backend. Frozen selection, integrity and escaped Arrow ownership remain intact.
+
 ### Consequences
 
 Migrate registry declarations, generated Rust/Python contracts, study admission/executors, cursors, durable publication, output readers and occurrence-report consumers together. Remove scalar-cell production/schema/indexes and schema-only empty appends only after all consumers move. Replace redundant normal reconciliation/reopen only after actual acknowledgments and server coverage admission exist. Preserve uncertainty readback. Do not retain unselected full RunResults merely to service compact demand.
@@ -58,6 +69,12 @@ New schema/artifact activation is an explicit separately reviewable operation wi
 The offline adapter preserves exact recognized V3 run, attempt, result, study and analysis records and their source/root associations. It derives typed row locators from the original IPC through the existing registry-bound decoder and projection owner. An immutable `canonical_historical_results` admission binds each supported sealed terminal attempt to its original run/revision/sequence/generation, manifest/digest/outcome/interpretation and exact issuing store, migration and frozen snapshot. Historical read permission requires that admission plus the existing current protection and retirement checks; it grants neither new execution nor seed eligibility. Known terminal incomplete prefixes remain preserved as incomplete, without fabricated manifests or completion. Unknown, mutable or undecodable history refuses activation. Server write operations independently require the current interpretation even when an old caller supplies an old interpretation. Derived pages and original snapshot verification precede the final marker switch; interruption resumes the same migration identity.
 
 ### Confirmation
+
+**Implemented / scoped Tested, 2026-10-18 (Plan46):** prepaid selected capture with supervisor encoding, original native ownership, authentic per-sample flush/ACK, dropped/unread cursor lifetime and preparation cancellation; cross-sample batching remains unselected.
+[Plan46g Outcome](../plans/46g-investigations-qualification-and-design-publication.md#outcome)
+owns exact selected native/canonical/compiled commands, initial failures and affected repairs.
+This is affected-scope acceptance, not a new whole-product or universal-performance claim;
+formal ADR status remains proposed.
 
 Proposed: the approved reconciled plan and its investigation evidence select these contracts. The narrow completion source slice is written and Operations cfg-test compilation checked; Runtime controls and integrated consumer acceptance remain open. No performance measurement or full packet acceptance is claimed.
 

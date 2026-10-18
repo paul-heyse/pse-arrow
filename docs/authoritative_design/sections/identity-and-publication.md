@@ -755,14 +755,13 @@ is not claimed. Group and context edits admit their concrete future before const
 and use separate non-inline construction/poll boundaries on the original task, preserving
 activity, cancellation and transport ownership without increasing the runtime stack.
 
-The optional physical cache charges exact receipt copies and independently retained
-protection/release owners. Warm hits borrow the charged entry; an escaped owner retains
-its actual grants after cache eviction. Empty physical input still prepays context transport.
-The unchanged 16 MiB cache can refuse a complete thirteen-receipt context because its
-independent protection-release allowances alone exceed 28 MiB. Such refusal preserves
-canonical replay and one encoding per call; it is not a warm hit or grounds to undercharge.
-A smaller eligible context can retain a warm entry. Plan45c and Plan45f record targeted
-and complete-operation qualification and its limits.
+The optional physical cache charges immutable exact receipt/source payloads and concrete
+worker/pool identity. It excludes caller-specific protection/release owners and store clones.
+Every returned holder obtains fresh independently charged protection and validates current
+worker/pool/model/source identity. Warm immutable payload reuse does not reduce active grants;
+escaped protection survives cache eviction and uncertain release remains charged. The cache
+budget is unchanged; capacity is not grounds to undercharge. Empty input still prepays context
+transport. Earlier protection-heavy cache observations do not describe this payload-only owner.
 
 **Local export.** Exact checked reads finish, the IPC stream finishes and the file is
 synchronized before final publication. Interrupted staging remains `.incomplete`; the final
@@ -1059,3 +1058,15 @@ These contracts alone do not establish qualification or claim power-loss durabil
 deployment support, capacity measurements or comprehensive scientific coverage. Completed selected Plan39/38 acceptance belongs to §24.2 and the Plan39d Outcome.
 Plan28's remaining independent campaign belongs to the
 [current packet](../../plans/28-surrealdb-unified-substrate.md), not this architecture page.
+
+### Protected result decoding
+
+> Decision: ADR-0180 and ADR-0186 (proposed amendments; maintainer-approved Plan46 execution).
+
+Production result reads retain one mutex-owned decoder/partition with frozen ticket selection
+and complete integrity admission. Cancellation-aware lane acquisition precedes the decode
+allocation grant, so waiters do not reserve decoder storage they cannot use. Independent
+file-affine readers were compared as bounded test controls; no parallel decoder or prefetch
+backend is selected. Adoption requires an admitted off-poll CPU owner, private charged reader
+state and benefit across complete protected reads, including stop/failure/release. Optional
+immutable payload retention is separate from active escaped protection lifetimes.
