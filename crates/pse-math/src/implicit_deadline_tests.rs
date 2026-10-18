@@ -160,7 +160,7 @@ fn implicit_outer_deadline_caps_local_allowance_and_cannot_be_renewed_by_evaluat
     };
     let request = pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value);
     assert_eq!(
-        worker.evaluate(&[1.], &request, &context).unwrap().values,
+        provider_values(&mut worker, &[1.], &request, &context).unwrap().values,
         vec![1.]
     );
     assert!(allowances.lock().unwrap()[0] <= Duration::from_millis(200));
@@ -168,7 +168,7 @@ fn implicit_outer_deadline_caps_local_allowance_and_cannot_be_renewed_by_evaluat
         deadline.saturating_duration_since(Instant::now()) + Duration::from_millis(2),
     );
     assert!(matches!(
-        worker.evaluate(&[1.], &request, &context),
+        provider_values(&mut worker, &[1.], &request, &context),
         Err(pse_kernels::ProviderError::Deadline)
     ));
     assert_eq!(calls.load(Ordering::Relaxed), 1);
@@ -188,7 +188,7 @@ fn implicit_outer_deadline_rejects_late_positive_native_result() {
     };
     let request = pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value);
     assert!(matches!(
-        worker.evaluate(&[1.], &request, &context),
+        provider_values(&mut worker, &[1.], &request, &context),
         Err(pse_kernels::ProviderError::Deadline)
     ));
     assert_eq!(calls.load(Ordering::Relaxed), 1);
@@ -219,7 +219,7 @@ fn observation_distinguishes_actual_inner_attempt_from_reused_product_and_origin
         let request = pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value);
         for _ in 0..2 {
             assert_eq!(
-                worker.evaluate(&[1.], &request, &context).unwrap().values,
+                provider_values(&mut worker, &[1.], &request, &context).unwrap().values,
                 vec![1.]
             );
         }

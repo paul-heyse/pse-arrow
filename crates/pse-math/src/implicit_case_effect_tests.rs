@@ -162,7 +162,7 @@ fn case_worker_same_key_visits_operational_anchor_and_restriction_for_partials_a
             let (assembly, values) = case(&factory);
             let expected = demand.expected(&assembly, &factory.spec);
             let mut worker = assembly.worker(
-                BTreeMap::from([(factory.spec.key(), factory.create().unwrap())]), control.clone(),
+                [(factory.spec.key(), factory.create().unwrap())].into_iter().collect(), control.clone(),
             );
             for _ in 0..2 { close(&demand.evaluate(&mut worker, &values).unwrap(), &expected); }
             assert_eq!(effect.calls.load(Ordering::Relaxed), 2, "{restriction} {demand:?}");
@@ -231,7 +231,7 @@ fn case_worker_unchanged_key_configuration_change_refusal_and_recovery() {
         let (assembly, values) = case(&factory);
         let expected = demand.expected(&assembly, &factory.spec);
         let mut worker = assembly.worker(
-            BTreeMap::from([(factory.spec.key(), factory.create().unwrap())]), control.clone(),
+            [(factory.spec.key(), factory.create().unwrap())].into_iter().collect(), control.clone(),
         );
         for _ in 0..2 { close(&demand.evaluate(&mut worker, &values).unwrap(), &expected); }
         assert_eq!(resolver.calls.load(Ordering::Relaxed), 2);
@@ -257,7 +257,7 @@ fn case_worker_operational_order_upgrades_and_cross_demand_keep_current_effects(
         let (factory, _, effect) = operational_factory(&control, restriction);
         let (assembly, values) = case(&factory);
         let mut worker = assembly.worker(
-            BTreeMap::from([(factory.spec.key(), factory.create().unwrap())]), control,
+            [(factory.spec.key(), factory.create().unwrap())].into_iter().collect(), control,
         );
         close(worker.constraints(&values).unwrap(), &[0.8]);
         worker.jacobian(&values).unwrap();

@@ -197,7 +197,7 @@ pub struct Problem {
     residual_offsets: Vec<f64>,
     worker: Mutex<ResidualWorker>,
     unknown_worker: Mutex<ResidualWorker>,
-    providers: Mutex<BTreeMap<pse_kernels::ProviderKey, Box<dyn pse_kernels::Provider>>>,
+    providers: Mutex<pse_kernels::ProviderBindings>,
     pattern: SymbolicSparseColMat<usize>,
     symbolic: SymbolicLu<usize>,
     factor: Mutex<FactorWorkspace>,
@@ -206,12 +206,14 @@ pub struct Problem {
 struct ResidualWorker {
     worker: Worker,
     inputs: Vec<f64>,
+    evaluation: crate::execution::TrialEvaluation,
 }
 impl ResidualWorker {
     fn new(body: &CompiledBody) -> Self {
         Self {
             worker: body.worker(),
             inputs: vec![f64::NAN; body.input_formals().len()],
+            evaluation: crate::execution::TrialEvaluation::default(),
         }
     }
 }
@@ -219,6 +221,19 @@ struct FactorWorkspace {
     numeric: NumericLu<usize, f64>,
     memory: MemBuffer,
     parallel: Par,
+    association: Option<FactorAssociation>,
+    first: Mat<f64>,
+    rhs: Mat<f64>,
+    original: Mat<f64>,
+    sums: Vec<f64>,
+    scales: Vec<f64>,
+}
+#[derive(Debug)]
+struct FactorAssociation {
+    premise: ContentHash,
+    point: Vec<u64>,
+    matrix: Vec<u64>,
+    first_inputs: Vec<u64>,
 }
 impl std::fmt::Debug for FactorWorkspace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -253,6 +268,29 @@ fn selected_inputs(
             .ok_or_else(|| MathError::Contract("implicit compiled input signature".into()))
         })
         .collect()
+}
+
+// Owned public results copy only the requested representation. Internal residual
+// consumers borrow the admitted worker's completed scratch instead.
+fn owned_evaluation(jet: &crate::execution::TrialEvaluation, width: usize, order: DerivativeOrder) -> Evaluation {
+    let mut hessians = Vec::new();
+    if order >= DerivativeOrder::Second {
+        hessians.resize(jet.values.len() * width * width, 0.);
+        for row in 0..jet.values.len() {
+            for (i, j, value) in jet.second_entries(row) {
+                hessians[(row * width + i) * width + j] = value;
+                hessians[(row * width + j) * width + i] = value;
+            }
+        }
+    }
+    Evaluation {
+        applicability: jet.applicability.iter().flat_map(crate::execution::ApplicabilityWitness::hydrate).collect(),
+        values: jet.values.clone(),
+        jacobian: if order >= DerivativeOrder::First {
+            (0..jet.values.len()).flat_map(|row| (0..width).map(move |axis| jet.first(row, axis))).collect()
+        } else { Vec::new() },
+        hessians,
+    }
 }
 
 impl Problem {
@@ -381,6 +419,9 @@ impl Problem {
             parallel,
             memory: MemBuffer::try_new(scratch)
                 .map_err(|_| MathError::Limit("implicit factor scratch allocation"))?,
+            association: None,
+            first: Mat::zeros(n, 0), rhs: Mat::zeros(n, 0), original: Mat::zeros(n, 0),
+            sums: vec![0.; n], scales: vec![0.; n],
         };
         let residual_offsets = vec![0.0; rows.len()];
         Ok(Self {
@@ -401,7 +442,7 @@ impl Problem {
             residual_offsets,
             worker: Mutex::new(ResidualWorker::new(body)),
             unknown_worker: Mutex::new(ResidualWorker::new(&bodies.unknown)),
-            providers: Mutex::new(BTreeMap::new()),
+            providers: Mutex::new(pse_kernels::ProviderBindings::new()),
             pattern,
             symbolic,
             factor: Mutex::new(factor),
@@ -429,7 +470,7 @@ impl Problem {
     /// Attach admitted external workers to this residual worker; ownership is attempt-local.
     pub fn with_providers(
         mut self,
-        providers: BTreeMap<pse_kernels::ProviderKey, Box<dyn pse_kernels::Provider>>,
+        providers: pse_kernels::ProviderBindings,
     ) -> Self {
         self.providers = Mutex::new(providers);
         self
@@ -459,8 +500,9 @@ impl Problem {
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Evaluation, MathError> {
-        self.evaluate_trial_with(&self.worker, parameters, unknowns, order, cancel)
-            .map(crate::execution::TrialEvaluation::into_evaluation)
+        self.with_trial_evaluation(&self.worker, parameters, unknowns, order, cancel, |jet| {
+            Ok(owned_evaluation(jet, self.unknowns.len() + self.inputs, order))
+        })
     }
     /// Native residual/unknown Jacobian product. Parameter derivative axes are never executed.
     pub fn evaluate_unknown(
@@ -470,17 +512,30 @@ impl Problem {
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Evaluation, MathError> {
-        self.evaluate_trial_with(&self.unknown_worker, parameters, unknowns, order, cancel)
-            .map(crate::execution::TrialEvaluation::into_evaluation)
+        self.with_trial_evaluation(&self.unknown_worker, parameters, unknowns, order, cancel, |jet| {
+            Ok(owned_evaluation(jet, self.unknowns.len(), order))
+        })
     }
-    fn evaluate_trial_with(
+    fn with_trial_evaluation<R>(
         &self,
         residual_worker: &Mutex<ResidualWorker>,
         parameters: &[f64],
         unknowns: &[f64],
         order: DerivativeOrder,
         cancel: &Arc<AtomicBool>,
-    ) -> Result<crate::execution::TrialEvaluation, MathError> {
+        consume: impl FnOnce(&crate::execution::TrialEvaluation) -> Result<R, MathError>,
+    ) -> Result<R, MathError> {
+        let held = self.evaluate_trial_with(residual_worker, parameters, unknowns, order, cancel)?;
+        consume(&held.evaluation)
+    }
+    fn evaluate_trial_with<'a>(
+        &self,
+        residual_worker: &'a Mutex<ResidualWorker>,
+        parameters: &[f64],
+        unknowns: &[f64],
+        order: DerivativeOrder,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<std::sync::MutexGuard<'a, ResidualWorker>, MathError> {
         observed!("implicit.residual", {
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.source_ref("implicit.residual.source", self.identity.as_bytes());
@@ -502,10 +557,10 @@ impl Problem {
                     requirement: "implicit unknown outside its declared interval",
                 });
             }
-            let mut worker = residual_worker
+            let mut held = residual_worker
                 .lock()
                 .map_err(|_| MathError::Library("implicit worker lock poisoned".into()))?;
-            let ResidualWorker { worker, inputs } = &mut *worker;
+            let ResidualWorker { worker, inputs, evaluation } = &mut *held;
             for (&formal, value) in worker.input_formals().iter().zip(inputs.iter_mut()) {
                 *value = if formal < unknowns.len() {
                     unknowns.get(formal)
@@ -515,7 +570,7 @@ impl Problem {
                 .copied()
                 .ok_or_else(|| MathError::Contract("implicit original-formal gather map".into()))?;
             }
-            let mut evaluation = worker.evaluate_trial(
+            worker.evaluate_trial_into(
                 inputs,
                 order,
                 &mut *self
@@ -523,6 +578,7 @@ impl Problem {
                     .lock()
                     .map_err(|_| MathError::Library("implicit provider lock poisoned".into()))?,
                 cancel,
+                evaluation,
             )?;
             for (value, offset) in evaluation.values.iter_mut().zip(&self.residual_offsets) {
                 *value -= offset;
@@ -533,7 +589,7 @@ impl Problem {
                     requirement: "implicit offset residual is nonfinite",
                 });
             }
-            Ok(evaluation)
+            Ok(held)
         })
     }
     /// Check that options match the system's extents and hold finite positive budgets.
@@ -577,8 +633,7 @@ impl Problem {
     ) -> Result<(), MathError> {
         observed!("implicit.original_assessment", {
             self.validate_options(options)?;
-            let residual =
-                self.evaluate_unknown(parameters, point, DerivativeOrder::Value, cancel)?;
+            self.with_trial_evaluation(&self.unknown_worker, parameters, point, DerivativeOrder::Value, cancel, |residual| {
             if residual.values.len() != self.rows.len()
                 || residual
                     .values
@@ -592,6 +647,7 @@ impl Problem {
                 });
             }
             Ok(())
+            })
         })
     }
     fn factorize_matrix(
@@ -605,10 +661,13 @@ impl Problem {
                 .factor
                 .lock()
                 .map_err(|_| MathError::Contract("implicit factor lock poisoned".into()))?;
+            // Affine/native workspace use never establishes an IFT completion.
+            held.association = None;
             let FactorWorkspace {
                 numeric,
                 memory,
                 parallel,
+                ..
             } = &mut *held;
             self.symbolic
                 .factorize_numeric_lu(
@@ -624,6 +683,34 @@ impl Problem {
                 })?;
             Ok(held)
         })
+    }
+    fn invalidate_factor(&self) {
+        if let Ok(mut factor) = self.factor.lock() {
+            factor.association = None;
+        }
+    }
+    fn factorize_ift(
+        &self, matrix: &SparseColMat<usize, f64>, premise: ContentHash, point: &[f64], cancel: &Arc<AtomicBool>,
+    ) -> Result<std::sync::MutexGuard<'_, FactorWorkspace>, MathError> {
+        if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
+        let held = self.factor.lock().map_err(|_| MathError::Contract("implicit factor lock poisoned".into()))?;
+        if held.association.as_ref().is_some_and(|association| {
+            association.premise == premise
+                && association.point.len() == point.len()
+                && association.point.iter().zip(point).all(|(a,b)| *a == b.to_bits())
+                && association.matrix.len() == matrix.val().len()
+                && association.matrix.iter().zip(matrix.val()).all(|(a,b)| *a == b.to_bits())
+        }) {
+            if let Some(context) = pse_diagnostics::observation::current() { context.count("implicit.factor.numeric_reuse", "calls", 1); }
+            return Ok(held);
+        }
+        drop(held);
+        let mut factor = self.factorize_matrix(matrix, "implicit Jacobian is singular", cancel)?;
+        factor.association = Some(FactorAssociation {
+            premise, point: point.iter().map(|x| x.to_bits()).collect(),
+            matrix: matrix.val().iter().map(|x| x.to_bits()).collect(), first_inputs: Vec::new(),
+        });
+        Ok(factor)
     }
     fn solve_factor(
         &self,
@@ -659,8 +746,12 @@ impl Problem {
         options: &Options,
         cancel: &Arc<AtomicBool>,
     ) -> Result<ProviderValues, MathError> {
-        self.verify(parameters, point, options, cancel)?;
-        self.derivatives_at_verified_point(parameters, point, order, options, cancel)
+        let result = self.verify(parameters, point, options, cancel).and_then(|()| {
+            self.derivatives_at_verified_point(parameters, point, order, options, cancel,
+                numerical_product_key(self, parameters, options, solver_identity("implicit.public-ift.v1")))
+        });
+        if result.is_err() { self.invalidate_factor(); }
+        result
     }
     fn derivatives_at_verified_point(
         &self,
@@ -669,6 +760,7 @@ impl Problem {
         order: DerivativeOrder,
         options: &Options,
         cancel: &Arc<AtomicBool>,
+        premise: ContentHash,
     ) -> Result<ProviderValues, MathError> {
         observed!("implicit.derivatives", {
             let n = self.unknowns.len();
@@ -698,40 +790,58 @@ impl Problem {
             if p == 0 {
                 return Ok(output);
             }
-            let jet = observed_ift!("implicit.derivatives.jet", cancel, {
+            let residual = observed_ift!("implicit.derivatives.jet", cancel, {
                 self.evaluate_trial_with(&self.worker, parameters, point, order, cancel)
             })?;
+            let jet = &residual.evaluation;
             let matrix = observed_ift!("implicit.derivatives.extraction", cancel, {
-                if jet.jacobian.len() != n * width {
+                if jet.values.len() != n {
                     return Err(MathError::Contract("implicit residual jet extent".into()));
                 }
                 let values = (0..n)
                     .flat_map(|j| self.pattern.as_ref().row_idx_of_col(j).map(move |i| (i, j)))
-                    .map(|(i, j)| jet.jacobian[i * width + j])
+                    .map(|(i, j)| jet.first(i, j))
                     .collect();
                 Ok(SparseColMat::new(self.pattern.clone(), values))
             })?;
-            let mut factor =
-                self.factorize_matrix(&matrix, "implicit Jacobian is singular", cancel)?;
-            let (mut first, original) = observed_ift!("implicit.derivatives.first_rhs", cancel, {
-                let first = Mat::from_fn(n, p, |i, j| -jet.jacobian[i * width + n + j]);
-                let original = first.clone();
-                Ok((first, original))
-            })?;
-            self.solve_factor(&mut factor, first.as_mut(), cancel)?;
-            observed_ift!("implicit.derivatives.verification", cancel, {
-                check_solve(
-                    &matrix,
-                    &first,
-                    &original,
-                    options.derivative_tolerance,
-                    self.id,
-                )
-            })?;
+            let mut factor = self.factorize_ift(&matrix, premise, point, cancel)?;
+            let computed = (|| {
+            let reuse_first = factor.association.as_ref().is_some_and(|association| {
+                association.first_inputs.len() == jet.first.len()
+                    && factor.first.ncols() == p
+                    && association.first_inputs.iter().zip(&jet.first).all(|(a,b)| *a == b.to_bits())
+            });
+            if !reuse_first {
+                let mut first = std::mem::replace(&mut factor.first, Mat::zeros(n, 0));
+                let mut original = std::mem::replace(&mut factor.original, Mat::zeros(n, 0));
+                first.resize_with(n, p, |_,_| 0.);
+                original.resize_with(n, p, |_,_| 0.);
+                observed_ift!("implicit.derivatives.first_rhs", cancel, {
+                    for i in 0..n { for j in 0..p {
+                        let value = -jet.first(i, n + j);
+                        first[(i,j)] = value; original[(i,j)] = value;
+                    }}
+                    Ok(())
+                })?;
+                let checked = self.solve_factor(&mut factor, first.as_mut(), cancel).and_then(|()| {
+                    observed_ift!("implicit.derivatives.verification", cancel, {
+                        let FactorWorkspace { sums, scales, .. } = &mut *factor;
+                        check_solve_into(&matrix, &first, &original, options.derivative_tolerance, self.id, false, sums, scales)
+                    })
+                });
+                factor.first = first; factor.original = original;
+                checked?;
+                if let Some(association) = &mut factor.association {
+                    association.first_inputs.clear();
+                    association.first_inputs.extend(jet.first.iter().map(|x| x.to_bits()));
+                }
+            } else if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("implicit.derivatives.first_reuse", "calls", 1);
+            }
             output.jacobian = observed_ift!("implicit.derivatives.expansion", cancel, {
                 Ok((0..n)
                     .flat_map(|i| (0..p).map(move |j| (i, j)))
-                    .map(|(i, j)| first[(i, j)])
+                    .map(|(i, j)| factor.first[(i, j)])
                     .collect())
             })?;
             if order == DerivativeOrder::First {
@@ -742,17 +852,21 @@ impl Problem {
                     let pairs = (0..p)
                         .flat_map(|a| (a..p).map(move |b| (a, b)))
                         .collect::<Vec<_>>();
+                    let mut second = std::mem::replace(&mut factor.rhs, Mat::zeros(n, 0));
+                    let mut original = std::mem::replace(&mut factor.original, Mat::zeros(n, 0));
+                    second.resize_with(n, pairs.len(), |_,_| 0.);
+                    original.resize_with(n, pairs.len(), |_,_| 0.);
                     let tangent = |coordinate: usize, input: usize| {
                         if coordinate < n {
-                            first[(coordinate, input)]
+                            factor.first[(coordinate, input)]
                         } else {
                             f64::from(coordinate == n + input)
                         }
                     };
                     // This child measures the support contraction inside RHS construction;
                     // retain the library's single initialization pass over the RHS matrix.
-                    let second = observed_ift!("implicit.derivatives.contraction", cancel, {
-                        Ok(Mat::from_fn(n, pairs.len(), |i, j| {
+                    observed_ift!("implicit.derivatives.contraction", cancel, {
+                        for i in 0..n { for j in 0..pairs.len() {
                             let (a, b) = pairs[j];
                             let mut value = 0.0;
                             for (k, l, partial) in jet.second_entries(i) {
@@ -761,22 +875,20 @@ impl Problem {
                                     value -= partial * tangent(l, a) * tangent(k, b);
                                 }
                             }
-                            value
-                        }))
+                            second[(i,j)] = value; original[(i,j)] = value;
+                        }}
+                        Ok(())
                     })?;
-                    let original = second.clone();
                     Ok((pairs, second, original))
                 })?;
-            self.solve_factor(&mut factor, second.as_mut(), cancel)?;
-            observed_ift!("implicit.derivatives.verification", cancel, {
-                check_solve(
-                    &matrix,
-                    &second,
-                    &original,
-                    options.derivative_tolerance,
-                    self.id,
-                )
-            })?;
+            let checked = self.solve_factor(&mut factor, second.as_mut(), cancel).and_then(|()| {
+                observed_ift!("implicit.derivatives.verification", cancel, {
+                    let FactorWorkspace { sums, scales, .. } = &mut *factor;
+                    check_solve_into(&matrix, &second, &original, options.derivative_tolerance, self.id, false, sums, scales)
+                })
+            });
+            factor.original = original;
+            if let Err(error) = checked { factor.rhs = second; return Err(error); }
             output.hessians = observed_ift!("implicit.derivatives.expansion", cancel, {
                 let mut hessians = vec![0.0; n * p * p];
                 for (j, (a, b)) in pairs.into_iter().enumerate() {
@@ -787,10 +899,15 @@ impl Problem {
                 }
                 Ok(hessians)
             })?;
+            factor.rhs = second;
             Ok(output)
+            })();
+            if computed.is_err() { factor.association = None; }
+            computed
         })
     }
 }
+#[cfg(test)]
 fn check_solve(
     matrix: &SparseColMat<usize, f64>,
     x: &Mat<f64>,
@@ -798,11 +915,18 @@ fn check_solve(
     tolerance: f64,
     id: SemanticId,
 ) -> Result<(), MathError> {
+    check_solve_into(matrix, x, rhs, tolerance, id, false, &mut vec![0.; x.nrows()], &mut vec![0.; x.nrows()])
+}
+fn check_solve_into(
+    matrix: &SparseColMat<usize, f64>, x: &Mat<f64>, rhs: &Mat<f64>, tolerance: f64,
+    id: SemanticId, transpose: bool, sums: &mut [f64], scales: &mut [f64],
+) -> Result<(), MathError> {
     let matrix = matrix.as_ref();
     if matrix.nrows() != x.nrows()
         || matrix.ncols() != x.nrows()
         || rhs.nrows() != x.nrows()
         || rhs.ncols() != x.ncols()
+        || sums.len() != x.nrows() || scales.len() != x.nrows()
     {
         return Err(MathError::Contract(
             "implicit derivative solve extent".into(),
@@ -816,8 +940,6 @@ fn check_solve(
         return Err(refused());
     }
     let context = pse_diagnostics::observation::current();
-    let mut sums = vec![0.0; x.nrows()];
-    let mut scales = vec![0.0; x.nrows()];
     for column in 0..x.ncols() {
         sums.fill(0.0);
         for row in 0..x.nrows() {
@@ -831,9 +953,10 @@ fn check_solve(
         let mut visits = 0;
         for k in 0..matrix.ncols() {
             for (row, coefficient) in matrix.row_idx_of_col(k).zip(matrix.val_of_col(k)) {
-                let value = coefficient * x[(k, column)];
-                sums[row] += value;
-                scales[row] += value.abs();
+                let (destination, input) = if transpose { (k, row) } else { (row, k) };
+                let value = coefficient * x[(input, column)];
+                sums[destination] += value;
+                scales[destination] += value.abs();
                 visits += 1;
             }
         }
@@ -1285,7 +1408,7 @@ impl pse_kernels::ProviderFactory for ImplicitFactory {
             Self::Regimes(v) => v.configuration_key(),
         }
     }
-    fn create(&self) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+    fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
         match self {
             Self::Root(v) => v.create(),
             Self::Regimes(v) => v.create(),
@@ -1294,7 +1417,7 @@ impl pse_kernels::ProviderFactory for ImplicitFactory {
     fn create_scoped(
         &self,
         scope: pse_kernels::ExecutionScope,
-    ) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+    ) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
         match self {
             Self::Root(v) => v.create_scoped(scope),
             Self::Regimes(v) => v.create_scoped(scope),
@@ -1327,17 +1450,16 @@ impl pse_kernels::ProviderFactory for Factory {
         }
         h.finish_hash()
     }
-    fn create(&self) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+    fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
         self.create_scoped(pse_kernels::ExecutionScope::new(self.cancel.clone(), None))
     }
     fn create_scoped(
         &self,
         scope: pse_kernels::ExecutionScope,
-    ) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+    ) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
         scope.check()?;
         let problem = self.problem(scope.clone())?;
-        Ok(Box::new(Nested {
-            spec: self.spec.clone(),
+        Ok(pse_kernels::ProviderBinding::new(self.spec.clone(), Box::new(Nested {
             problem,
             configuration: ConfigurationWorker::new(
                 self.configuration.clone(),
@@ -1350,7 +1472,7 @@ impl pse_kernels::ProviderFactory for Factory {
             selection: selection::SelectionWorker::new(&self.selection),
             requested_output: self.requirements.requested_output,
             numerical: None,
-        }))
+        })))
     }
 }
 impl Factory {
@@ -1444,7 +1566,6 @@ struct Nested {
     scope: pse_kernels::ExecutionScope,
     requested_output: DerivativeOrder,
     selection: selection::SelectionWorker,
-    spec: pse_kernels::ProviderSpec,
     problem: Arc<Problem>,
     configuration: ConfigurationWorker,
     solver: SolverWorker,
@@ -1452,19 +1573,19 @@ struct Nested {
     numerical: Option<NumericalProduct>,
 }
 impl pse_kernels::Provider for Nested {
-    fn spec(&self) -> &pse_kernels::ProviderSpec {
-        &self.spec
-    }
-    fn evaluate(
+    fn fill(
         &mut self,
         inputs: &[f64],
-        request: &pse_kernels::ProviderRequest,
+        request: &pse_kernels::PreparedProviderRequest,
+        _runtime: pse_kernels::ProviderRuntime<'_>,
+        output: pse_kernels::ProviderOutput<'_>,
         context: &pse_kernels::EvaluationContext<'_>,
-    ) -> Result<ProviderValues, pse_kernels::ProviderError> {
+    ) -> Result<(), pse_kernels::ProviderError> {
         observed!("implicit.provider", {
-            let result = self.evaluate_inner(inputs, request, context);
+            let result = self.evaluate_inner(inputs, request, output, context);
             if result.is_err() {
                 self.numerical = None;
+                self.problem.invalidate_factor();
             }
             result
         })
@@ -1474,11 +1595,12 @@ impl Nested {
     fn evaluate_inner(
         &mut self,
         inputs: &[f64],
-        request: &pse_kernels::ProviderRequest,
+        request: &pse_kernels::PreparedProviderRequest,
+        output: pse_kernels::ProviderOutput<'_>,
         context: &pse_kernels::EvaluationContext<'_>,
-    ) -> Result<ProviderValues, pse_kernels::ProviderError> {
+    ) -> Result<(), pse_kernels::ProviderError> {
         self.scope.check()?;
-        request.validate(&self.spec, context)?;
+        request.check_context(context)?;
         if request.order > self.requested_output {
             return Err(pse_kernels::ProviderError::Contract(
                 "implicit output exceeds compiled demand".into(),
@@ -1506,7 +1628,7 @@ impl Nested {
             && product.order >= request.order
         {
             self.scope.remaining(allowance)?;
-            let out = self.project(&product.values, request, inputs.len())?;
+            Self::project(&product.values, request, inputs.len(), output)?;
             self.scope
                 .remaining(allowance.saturating_sub(started.elapsed()))?;
             if let Some(context) = pse_diagnostics::observation::current() {
@@ -1515,7 +1637,7 @@ impl Nested {
                     context.count("implicit.product.order_projection", "requests", 1);
                 }
             }
-            return Ok(out);
+            return Ok(());
         }
         if let Some(context) = pse_diagnostics::observation::current() {
             let reason = match (&self.numerical, self.configuration.fixed_identity()) {
@@ -1606,13 +1728,13 @@ impl Nested {
             .as_ref()
             .filter(|product| product.key == numerical_key && product.order >= request.order)
         {
-            Some(product) => {
+            Some(_) => {
                 if let Some(context) = pse_diagnostics::observation::current() {
                     context.count("implicit.product.jet_reuse", "requests", 1);
                 }
-                product.values.clone()
+                None
             }
-            None => self
+            None => Some(self
                 .problem
                 .derivatives_at_verified_point(
                     inputs,
@@ -1620,8 +1742,9 @@ impl Nested {
                     request.order,
                     &options,
                     &self.cancel,
+                    numerical_key,
                 )
-                .map_err(provider_error)?,
+                .map_err(provider_error)?),
         };
         self.scope
             .remaining(allowance.saturating_sub(started.elapsed()))?;
@@ -1640,13 +1763,11 @@ impl Nested {
                 "implicit evaluation time",
             ));
         }
-        let out = self.project(&all, request, inputs.len())?;
+        let completed = all.as_ref().or_else(|| self.numerical.as_ref().map(|product| &product.values))
+            .ok_or_else(|| pse_kernels::ProviderError::Terminal("implicit numerical completion missing".into()))?;
+        Self::project(completed, request, inputs.len(), output)?;
         self.scope.check()?;
-        if self
-            .numerical
-            .as_ref()
-            .is_none_or(|product| product.key != numerical_key || product.order < request.order)
-        {
+        if let Some(all) = all {
             self.numerical = Some(NumericalProduct {
                 key: numerical_key,
                 order: request.order,
@@ -1658,33 +1779,25 @@ impl Nested {
                     .map(|(identity, _)| identity),
             });
         }
-        Ok(out)
+        Ok(())
     }
     fn project(
-        &self,
         all: &ProviderValues,
-        request: &pse_kernels::ProviderRequest,
+        request: &pse_kernels::PreparedProviderRequest,
         n: usize,
-    ) -> Result<ProviderValues, pse_kernels::ProviderError> {
-        let mut out = ProviderValues {
-            values: Vec::new(),
-            jacobian: Vec::new(),
-            hessians: Vec::new(),
-        };
-        for i in &request.outputs {
-            out.values.push(all.values[*i]);
+        output: pse_kernels::ProviderOutput<'_>,
+    ) -> Result<(), pse_kernels::ProviderError> {
+        for (row, &i) in request.outputs.iter().enumerate() {
+            output.values[row] = all.values[i];
             if request.order >= DerivativeOrder::First {
-                out.jacobian
-                    .extend_from_slice(&all.jacobian[i * n..(i + 1) * n]);
+                output.jacobian[row*n..(row+1)*n].copy_from_slice(&all.jacobian[i*n..(i+1)*n]);
             }
             if request.order >= DerivativeOrder::Second {
-                out.hessians
-                    .extend_from_slice(&all.hessians[i * n * n..(i + 1) * n * n]);
+                let width = n*n;
+                output.hessians[row*width..(row+1)*width].copy_from_slice(&all.hessians[i*width..(i+1)*width]);
             }
         }
-        out.validate(&self.spec, request)?;
-        self.scope.check()?;
-        Ok(out)
+        Ok(())
     }
 }
 fn provider_error(error: MathError) -> pse_kernels::ProviderError {
@@ -1734,6 +1847,17 @@ pub(crate) fn residual_bodies_for_test(parameter: Arc<CompiledBody>) -> Residual
 #[cfg(test)]
 #[path = "implicit_deadline_tests.rs"]
 mod deadline_tests;
+
+#[cfg(test)]
+fn provider_values(
+    provider: &mut pse_kernels::ProviderBinding, inputs: &[f64], request: &pse_kernels::ProviderRequest,
+    context: &pse_kernels::EvaluationContext<'_>,
+) -> Result<ProviderValues, pse_kernels::ProviderError> {
+    let request = provider.prepare(request.clone())?;
+    let mut buffer = pse_kernels::ProviderBuffer::new(&request);
+    let completed = buffer.fill(provider, inputs, &request, Default::default(), context)?;
+    Ok(ProviderValues { values: completed.values.to_vec(), jacobian: completed.jacobian.to_vec(), hessians: completed.hessians.to_vec() })
+}
 
 #[cfg(test)]
 mod tests {
@@ -2778,8 +2902,7 @@ mod tests {
             DerivativeOrder::Second,
             DerivativeOrder::First,
         ] {
-            let result = provider
-                .evaluate(
+            let result = provider_values(&mut provider, 
                     &[2.0],
                     &pse_kernels::ProviderRequest::all(&factory.spec, order),
                     &context,
@@ -2816,8 +2939,7 @@ mod tests {
             count("implicit.product.order_projection"),
             Some(Value::Count(1))
         );
-        provider
-            .evaluate(
+        provider_values(&mut provider, 
                 &[2.1],
                 &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::First),
                 &context,
@@ -2827,16 +2949,14 @@ mod tests {
         // Invalid trial failure must clear carried numerical validity, even if a
         // following trial returns to the last accepted input bit pattern.
         assert!(
-            provider
-                .evaluate(
+            provider_values(&mut provider, 
                     &[f64::NAN],
                     &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
                     &context,
                 )
                 .is_err()
         );
-        provider
-            .evaluate(
+        provider_values(&mut provider, 
                 &[2.1],
                 &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::First),
                 &context,
@@ -2844,8 +2964,7 @@ mod tests {
             .unwrap();
         assert_eq!(calls.load(Ordering::Relaxed), 4);
         for value in [0.0, -0.0] {
-            provider
-                .evaluate(
+            provider_values(&mut provider, 
                     &[value],
                     &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
                     &context,

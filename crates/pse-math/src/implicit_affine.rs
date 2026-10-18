@@ -105,12 +105,14 @@ impl InnerWorker for Affine {
         let mut delta = Mat::from_fn(n, 1, |i, _| -jet.values[i]);
         let rhs = delta.clone();
         problem.solve_factor(&mut factor, delta.as_mut(), cancel)?;
-        check_solve(
+        let FactorWorkspace { sums, scales, .. } = &mut *factor;
+        check_solve_into(
             &matrix,
             &delta,
             &rhs,
             options.derivative_tolerance,
             problem.id,
+            false, sums, scales,
         )?;
         drop(factor);
         let point = (0..n)

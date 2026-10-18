@@ -199,19 +199,18 @@ impl pse_kernels::ProviderFactory for RegimeFactory {
         }
         hash.finish_hash()
     }
-    fn create(&self) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+    fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
         self.create_scoped(pse_kernels::ExecutionScope::new(self.cancel.clone(), None))
     }
     fn create_scoped(
         &self,
         scope: pse_kernels::ExecutionScope,
-    ) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
+    ) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
         scope.check()?;
         let cancel = scope.cancellation().clone();
         let selection = self.prepare_selection(scope.clone())?;
         scope.check()?;
-        Ok(Box::new(SelectedProvider {
-            spec: self.spec.clone(),
+        Ok(pse_kernels::ProviderBinding::new(self.spec.clone(), Box::new(SelectedProvider {
             selection,
             cancel,
             requested_output: self
@@ -222,27 +221,25 @@ impl pse_kernels::ProviderFactory for RegimeFactory {
                 .ok_or_else(|| {
                     pse_kernels::ProviderError::Contract("empty regime demand".into())
                 })?,
-        }))
+        })))
     }
 }
 #[derive(Debug)]
 struct SelectedProvider {
     requested_output: DerivativeOrder,
-    spec: pse_kernels::ProviderSpec,
     selection: RegimeSelection,
     cancel: Arc<AtomicBool>,
 }
 impl pse_kernels::Provider for SelectedProvider {
-    fn spec(&self) -> &pse_kernels::ProviderSpec {
-        &self.spec
-    }
-    fn evaluate(
+    fn fill(
         &mut self,
         inputs: &[f64],
-        request: &pse_kernels::ProviderRequest,
+        request: &pse_kernels::PreparedProviderRequest,
+        _runtime: pse_kernels::ProviderRuntime<'_>,
+        output: pse_kernels::ProviderOutput<'_>,
         context: &pse_kernels::EvaluationContext<'_>,
-    ) -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
-        request.validate(&self.spec, context)?;
+    ) -> Result<(), pse_kernels::ProviderError> {
+        request.check_context(context)?;
         if request.order > self.requested_output {
             return Err(pse_kernels::ProviderError::Contract(
                 "implicit regime output exceeds compiled demand".into(),
@@ -262,41 +259,18 @@ impl pse_kernels::Provider for SelectedProvider {
             .selection
             .evaluate(inputs, request.order, &control)
             .map_err(super::provider_error)?;
-        let values = pse_kernels::ProviderValues {
-            values: request
-                .outputs
-                .iter()
-                .map(|i| selected.values[*i])
-                .collect(),
-            jacobian: request
-                .outputs
-                .iter()
-                .flat_map(|i| {
-                    let n = inputs.len();
-                    selected
-                        .jacobian
-                        .get(i * n..(i + 1) * n)
-                        .unwrap_or_default()
-                        .iter()
-                        .copied()
-                })
-                .collect(),
-            hessians: request
-                .outputs
-                .iter()
-                .flat_map(|i| {
-                    let n = inputs.len() * inputs.len();
-                    selected
-                        .hessians
-                        .get(i * n..(i + 1) * n)
-                        .unwrap_or_default()
-                        .iter()
-                        .copied()
-                })
-                .collect(),
-        };
-        values.validate(&self.spec, request)?;
-        Ok(values)
+        let n = inputs.len();
+        for (row, &i) in request.outputs.iter().enumerate() {
+            output.values[row] = selected.values[i];
+            if request.order >= DerivativeOrder::First {
+                output.jacobian[row*n..(row+1)*n].copy_from_slice(&selected.jacobian[i*n..(i+1)*n]);
+            }
+            if request.order >= DerivativeOrder::Second {
+                let width = n*n;
+                output.hessians[row*width..(row+1)*width].copy_from_slice(&selected.hessians[i*width..(i+1)*width]);
+            }
+        }
+        Ok(())
     }
 }
 

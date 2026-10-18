@@ -251,8 +251,7 @@ fn peng_robinson_nested_property_reuses_qualified_jets_and_preserves_invalidatio
             DerivativeOrder::Second,
             DerivativeOrder::First,
         ] {
-            let actual = provider
-                .evaluate(
+            let actual = provider_values(&mut provider, 
                     &[a, b],
                     &ProviderRequest::all(&factory.spec, order),
                     &context,
@@ -277,16 +276,15 @@ fn peng_robinson_nested_property_reuses_qualified_jets_and_preserves_invalidatio
         count(&observation, "implicit.derivatives.contraction.completed"),
         2
     );
-    assert_eq!(count(&observation, "implicit.factor.numeric.completed"), 4);
+    assert_eq!(count(&observation, "implicit.factor.numeric.completed"), 2);
     assert_eq!(
         count(&observation, "implicit.factor.solve.completed"),
-        6,
-        "each Second jet shares one factorization across its first and second RHS batches"
+        4,
+        "First to Second retains the associated factor and completed first solves"
     );
     assert_eq!(count(&observation, "implicit.product.full_reuse"), 2);
     assert!(
-        provider
-            .evaluate(
+        provider_values(&mut provider, 
                 &[2., 0.02],
                 &ProviderRequest::all(&factory.spec, DerivativeOrder::First),
                 &context
@@ -296,8 +294,7 @@ fn peng_robinson_nested_property_reuses_qualified_jets_and_preserves_invalidatio
     );
     let (a, b, z) = points[1];
     close(
-        &provider
-            .evaluate(
+        &provider_values(&mut provider, 
                 &[a, b],
                 &ProviderRequest::all(&factory.spec, DerivativeOrder::Second),
                 &context,
@@ -319,8 +316,7 @@ fn peng_robinson_nested_property_reuses_qualified_jets_and_preserves_invalidatio
     assert_ne!(changed.configuration_key(), factory.configuration_key());
     let mut independent = changed.create().unwrap();
     close(
-        &independent
-            .evaluate(
+        &provider_values(&mut independent, 
                 &[a, b],
                 &ProviderRequest::all(&changed.spec, DerivativeOrder::First),
                 &context,
@@ -334,8 +330,7 @@ fn peng_robinson_nested_property_reuses_qualified_jets_and_preserves_invalidatio
     unsupported.requirements.requested_output = DerivativeOrder::First;
     let mut restricted = unsupported.create().unwrap();
     assert!(
-        restricted
-            .evaluate(
+        provider_values(&mut restricted, 
                 &[a, b],
                 &ProviderRequest::all(&unsupported.spec, DerivativeOrder::Second),
                 &context
@@ -345,7 +340,7 @@ fn peng_robinson_nested_property_reuses_qualified_jets_and_preserves_invalidatio
     assert_eq!(work.solves.load(Ordering::Relaxed), 5);
     control.cancel();
     assert!(matches!(
-        provider.evaluate(
+        provider_values(&mut provider, 
             &[a, b],
             &ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
             &context
@@ -388,7 +383,7 @@ fn peng_robinson_weighted_property_products_rebind_weights_and_isolate_workers()
         )
         .unwrap();
     let mut worker = compiled.worker_scoped(scope);
-    let mut providers = BTreeMap::from([(factory.spec.key(), factory.create().unwrap())]);
+    let mut providers = [(factory.spec.key(), factory.create().unwrap())].into_iter().collect();
     let a = 287. / 1200.;
     let b = 0.05;
     let expected = oracle(a, b, 0.8);
@@ -444,8 +439,7 @@ fn peng_robinson_weighted_property_products_rebind_weights_and_isolate_workers()
         cancelled: cancel.as_ref(),
         max_result_bytes: 1 << 20,
     };
-    let actual = independent
-        .evaluate(
+    let actual = provider_values(&mut independent, 
             &[next_a, next_b],
             &ProviderRequest::all(&factory.spec, DerivativeOrder::Second),
             &context,
@@ -470,43 +464,25 @@ struct SelectorEffect {
     refuse: Arc<AtomicBool>,
 }
 impl pse_kernels::Provider for SelectorEffect {
-    fn spec(&self) -> &ProviderSpec {
-        &self.spec
-    }
-    fn evaluate(
-        &mut self,
-        _: &[f64],
-        request: &ProviderRequest,
+    fn fill(
+        &mut self, _: &[f64], request: &pse_kernels::PreparedProviderRequest,
+        _: pse_kernels::ProviderRuntime<'_>, output: pse_kernels::ProviderOutput<'_>,
         context: &EvaluationContext<'_>,
-    ) -> Result<ProviderValues, pse_kernels::ProviderError> {
-        request.validate(&self.spec, context)?;
+    ) -> Result<(), pse_kernels::ProviderError> {
+        request.check_context(context)?;
         self.calls.fetch_add(1, Ordering::Relaxed);
         if self.refuse.load(Ordering::Acquire) {
-            return Err(pse_kernels::ProviderError::Trial(
-                "current operational selector refusal".into(),
-            ));
+            return Err(pse_kernels::ProviderError::Trial("current operational selector refusal".into()));
         }
-        Ok(ProviderValues {
-            values: vec![f64::from_bits(self.value.load(Ordering::Acquire)); request.outputs.len()],
-            jacobian: if request.order >= DerivativeOrder::First {
-                vec![0.; 2 * request.outputs.len()]
-            } else {
-                Vec::new()
-            },
-            hessians: if request.order >= DerivativeOrder::Second {
-                vec![0.; 4 * request.outputs.len()]
-            } else {
-                Vec::new()
-            },
-        })
+        output.values.fill(f64::from_bits(self.value.load(Ordering::Acquire)));
+        output.jacobian.fill(0.); output.hessians.fill(0.);
+        Ok(())
     }
 }
 impl ProviderFactory for SelectorEffect {
-    fn spec(&self) -> &ProviderSpec {
-        &self.spec
-    }
-    fn create(&self) -> Result<Box<dyn pse_kernels::Provider>, pse_kernels::ProviderError> {
-        Ok(Box::new(self.clone()))
+    fn spec(&self) -> &ProviderSpec { &self.spec }
+    fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
+        Ok(pse_kernels::ProviderBinding::new(self.spec.clone(), Box::new(self.clone())))
     }
 }
 
@@ -586,8 +562,7 @@ fn peng_robinson_operational_selector_effects_run_before_same_point_reuse() {
             };
             let request = ProviderRequest::all(&factory.spec, DerivativeOrder::Second);
             for _ in 0..2 {
-                let result = provider
-                    .evaluate(&[287. / 1200., 0.05], &request, &context)
+                let result = provider_values(&mut provider, &[287. / 1200., 0.05], &request, &context)
                     .unwrap();
                 close(&result.hessians, &oracle(287. / 1200., 0.05, 0.8).hessians);
             }
@@ -609,8 +584,7 @@ fn peng_robinson_operational_selector_effects_run_before_same_point_reuse() {
                 );
                 if !restriction {
                     current_value.store(0.8_f64.to_bits(), Ordering::Release);
-                    provider
-                        .evaluate(&[287. / 1200., 0.05], &request, &context)
+                    provider_values(&mut provider, &[287. / 1200., 0.05], &request, &context)
                         .unwrap();
                     assert_eq!(
                         work.solves.load(Ordering::Relaxed),
@@ -622,14 +596,12 @@ fn peng_robinson_operational_selector_effects_run_before_same_point_reuse() {
                 let before_solves = work.solves.load(Ordering::Relaxed);
                 refuse.store(true, Ordering::Release);
                 assert!(
-                    provider
-                        .evaluate(&[287. / 1200., 0.05], &request, &context)
+                    provider_values(&mut provider, &[287. / 1200., 0.05], &request, &context)
                         .is_err()
                 );
                 assert_eq!(calls.load(Ordering::Relaxed), before_calls + 1);
                 refuse.store(false, Ordering::Release);
-                provider
-                    .evaluate(&[287. / 1200., 0.05], &request, &context)
+                provider_values(&mut provider, &[287. / 1200., 0.05], &request, &context)
                     .unwrap();
                 assert_eq!(
                     work.solves.load(Ordering::Relaxed),
