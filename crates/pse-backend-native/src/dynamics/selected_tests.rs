@@ -621,3 +621,79 @@ fn selected_adjoint_one_parameter_without_fixed_inputs_and_derivative_failure() 
         assert!(!failed.report.samples.is_empty(), "completed weaker forward samples survive derivative failure");
     }
 }
+
+
+/// Physical polynomial control for recording/replay work. One and two segments
+/// use identical policy and checkpoint intervals; output demand alone changes.
+#[test]
+fn scheduled_checkpoint_spacing_and_interior_weights_preserve_analytic_product() {
+    let mut violations = Vec::new();
+    for method in methods() {
+        for scheduled in [false, true] {
+            for interior in [false, true] {
+                let mut results = Vec::new();
+                for spacing in [3, 25] {
+                    let mut p = adjoint_profile(method, AdjointParameters::All);
+                    p.rtol = 0.001; p.atol.fill(0.001);
+                    p.adjoint.steps_between_checkpoints = PositiveCount::try_new(spacing).unwrap();
+                    if !scheduled { p.schedule.clear(); }
+                    let parameters = if scheduled { VALUES.to_vec() } else { vec![1., 5., 2., 0.4] };
+                    let weights: Vec<_> = p.samples.iter().map(|time| if *time == 1. { 1.2 }
+                        else if interior && *time == 0.5 { 0.7 }
+                        else if interior && *time == 0. { 0.3 } else { 0. }).collect();
+                    let started = std::time::Instant::now();
+                    let result = gradient(&mut Coupled::new(), &p, &parameters,
+                        &mut |_: &Report| Ok(weights.clone()), Cancellation::default(), 64 << 20).unwrap();
+                    let elapsed = started.elapsed();
+                    assert_eq!(result.report.termination, Termination::Completed, "{method:?}: {:?}", result.report.error);
+                    let derivative = result.gradient.as_ref().unwrap();
+                    let mut maximum_physical_error = 0_f64;
+                    for sample in &result.report.samples {
+                        let t = sample.time;
+                        let later = if scheduled { (t - 0.5).max(0.) } else { 0. };
+                        let x = 2. + 6. * t + 2. * later;
+                        let y = 1. + 4. * t + 6. * t * t + 2. * later * later;
+                        let rate = if scheduled && t >= 0.5 { 3. } else { 1. };
+                        let output = x + y + 2. * rate + 15.;
+                        for (actual, exact) in [(sample.state[0], x), (sample.state[1], y), (sample.outputs[0], output)] {
+                            let error = actual - exact;
+                            maximum_physical_error = maximum_physical_error.max(error.abs());
+                            if error.abs() > p.atol[0] + p.rtol * exact.abs() {
+                                violations.push(format!("{method:?} physical t={t}: {actual} vs {exact}"));
+                            }
+                        }
+                    }
+                    for (axis, actual) in derivative.iter().enumerate() {
+                        let expected: f64 = p.samples.iter().zip(&weights).map(|(t, w)| {
+                            let response = if scheduled { analytic(*t, axis).2 } else {
+                                match axis {
+                                    0 => *t + *t * *t + 2.,
+                                    1 => 0.4 + *t + 2. * (0.4 * *t + *t * *t / 2.) + 3.,
+                                    2 => 2. * *t + 3. * *t * *t,
+                                    3 => 5. + 10. * *t,
+                                    _ => unreachable!(),
+                                }
+                            }; w * response
+                        }).sum();
+                        // Existing shooting derivative agreement at this engineering
+                        // policy; the observed IDAS global gradient error reaches ~1.4%.
+                        if (actual - expected).abs() > 64. * p.rtol * expected.abs().max(1.) {
+                            violations.push(format!("{method:?} scheduled={scheduled} interior={interior} spacing={spacing} axis={axis}: {actual} vs {expected}"));
+                        }
+                        eprintln!("checkpoint-gradient method={method:?} scheduled={scheduled} interior={interior} spacing={spacing} axis={axis} actual={actual} exact={expected} error={}", actual - expected);
+                    }
+                    let adjoint = result.report.statistics.iter().find_map(|value| value.get("adjoint")).unwrap();
+                    assert_eq!(adjoint["segments"], if scheduled { 2 } else { 1 });
+                    eprintln!("checkpoint method={method:?} scheduled={scheduled} interior={interior} spacing={spacing} wall_ns={} reserved_bytes={} checkpoints={} maximum_physical_error={maximum_physical_error} summary={adjoint}", elapsed.as_nanos(), result.reserved_bytes, result.checkpoints);
+                    results.push(result);
+                }
+                for (a, b) in results[0].gradient.as_ref().unwrap().iter().zip(results[1].gradient.as_ref().unwrap()) {
+                    if (a - b).abs() > 0.01 * (1. + a.abs().max(b.abs())) {
+                        violations.push(format!("{method:?} scheduled={scheduled} interior={interior} spacing disagreement: {a} vs {b}"));
+                    }
+                }
+            }
+        }
+    }
+    assert!(violations.is_empty(), "{}", violations.join("\n"));
+}
