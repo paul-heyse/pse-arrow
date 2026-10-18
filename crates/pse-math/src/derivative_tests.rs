@@ -1015,11 +1015,14 @@ struct Cubic {
     calls: Arc<AtomicUsize>,
 }
 impl Provider for Cubic {
+    fn supports(&self, demand: &pse_kernels::ProviderDemand) -> bool {
+        matches!(demand, pse_kernels::ProviderDemand::CompleteJets | pse_kernels::ProviderDemand::JacobianAction { directions: 1 })
+    }
     fn fill(
         &mut self,
         inputs: &[f64],
         request: &PreparedProviderRequest,
-        _runtime: ProviderRuntime<'_>,
+        runtime: ProviderRuntime<'_>,
         mut output: ProviderOutput<'_>,
         context: &EvaluationContext<'_>,
     ) -> Result<(), ProviderError> {
@@ -1029,6 +1032,11 @@ impl Provider for Cubic {
             return Err(ProviderError::Trial("positive cubic input".into()));
         }
         let x = inputs[0];
+        if matches!(request.demand, pse_kernels::ProviderDemand::JacobianAction { .. }) {
+            output.values.fill(x * x * x);
+            output.jacobian.fill(3. * x * x * runtime.directions[0]);
+            return Ok(());
+        }
         output.copy_from(&ProviderValues {
             values: request.outputs.iter().map(|_| x * x * x).collect(),
             jacobian: if request.order >= DerivativeOrder::First {
