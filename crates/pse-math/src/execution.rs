@@ -7668,7 +7668,7 @@ mod compact_tests {
 
     fn instantiation_program(options: Optimization) -> CompiledBody {
         nested_branch_body()
-            .compile(
+            .compile_branch_local(
                 &[0],
                 &[X, Y],
                 DerivativeOrder::Second,
