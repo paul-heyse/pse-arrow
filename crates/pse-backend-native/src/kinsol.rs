@@ -1210,12 +1210,16 @@ impl Session {
         {
             bytes = bytes.saturating_add(words(long(r), long(i)));
         }
-        if !self.linear.is_null() && self.settings.method.linear == Linear::Klu {
+        if !self.linear.is_null() && self.settings.method.linear.is_klu() {
             // SAFETY: the session's live KLU solver, queried between solves.
             let common = unsafe { ffi::SUNLinSol_KLUGetCommon(self.linear) };
             if !common.is_null() {
                 // SAFETY: KLU's common block, owned by that solver and not being written.
                 bytes = bytes.saturating_add(unsafe { (*common).memusage });
+                // SAFETY: read-only extent of this live KLU owner's exact key.
+                bytes = bytes.saturating_add(unsafe {
+                    ffi::SUNLinSol_KLUSymbolicKeyBytes(self.linear)
+                });
             }
         }
         bytes
@@ -1370,6 +1374,22 @@ impl Session {
             }
             None => (vec![], vec![]),
         };
+        if settings.method.linear == Linear::KluRetainedSymbolic {
+            execution.check()?;
+            // SAFETY: pure checked extent query, no native allocation or solver access.
+            let key_bytes = unsafe {
+                ffi::SUNLinSol_KLUSymbolicKeyCapacity(index(n)?, index(rows.len())?)
+            };
+            let known = key_bytes.checked_add(native_header_bytes(settings.method.linear)?)
+                .and_then(|bytes| bytes.checked_add(native_peak))
+                .ok_or_else(|| ProblemError::memory("KLU symbolic key extent"))?;
+            let memory = execution.memory.filter(|bytes| *bytes > 0).ok_or_else(|| {
+                ProblemError::memory("retained KLU key needs finite admitted storage")
+            })?;
+            if known > memory {
+                return Err(ProblemError::memory("retained KLU key exceeds admitted storage"));
+            }
+        }
         let callback = Box::new(Context {
             function,
             state: CallbackState::new(execution),
@@ -1445,7 +1465,7 @@ impl Session {
         let method = s.settings.method;
         if method.strategy != Strategy::FixedPoint {
             match method.linear {
-                Linear::Klu => {
+                Linear::Klu | Linear::KluRetainedSymbolic => {
                     // SAFETY: the session's live context; `Drop` frees the matrix.
                     s.matrix = unsafe {
                         ffi::SUNSparseMatrix(
@@ -1521,6 +1541,9 @@ impl Session {
             if s.linear.is_null() {
                 return Err(ProblemError::memory("native linear solver allocation"));
             }
+            if method.linear == Linear::KluRetainedSymbolic {
+                native!(ffi::SUNLinSol_KLUSetSymbolicReuse(s.linear, 1), "KLU symbolic retention")?;
+            }
             native!(
                 ffi::KINSetLinearSolver(s.mem, s.linear, s.matrix),
                 "linear solver",
@@ -1572,6 +1595,10 @@ impl Session {
         warm: Option<&WarmStart>,
     ) -> Result<SolveReport, ProblemError> {
         self.clear_callback_setup();
+        if self.settings.method.linear == Linear::KluRetainedSymbolic {
+            // This is outside native Initialize: accepted initial guesses can skip it.
+            native!(ffi::SUNLinSol_KLUInvalidateNumeric(self.linear), "fresh KLU application")?;
+        }
         controls.validate()?;
         if controls.threads != 1 || !controls.options.is_empty() {
             return Err(ProblemError::Unsupported(
@@ -1579,6 +1606,19 @@ impl Session {
             ));
         }
         let n = self.callback.n;
+        if self.settings.method.linear == Linear::KluRetainedSymbolic {
+            // A retained allocation is not permission for this attempt to exceed its
+            // current storage allowance; preserve the existing opaque factor budget.
+            // SAFETY: pure checked native extent query, without allocations.
+            let key_bytes = unsafe {
+                ffi::SUNLinSol_KLUSymbolicKeyCapacity(index(n)?, index(self.callback.rows.len())?)
+            };
+            let known = key_bytes.checked_add(native_header_bytes(self.settings.method.linear)?)
+                .ok_or_else(|| ProblemError::memory("KLU symbolic key extent"))?;
+            if execution.memory.is_none_or(|memory| known > memory) {
+                return Err(ProblemError::memory("retained KLU key exceeds current admitted storage"));
+            }
+        }
         tolerances.validate(n, n)?;
         if initial.len() != n {
             return Err(ProblemError::Internal("root start dimensions".into()));
@@ -1607,7 +1647,7 @@ impl Session {
             )?);
         }
         self.callback.state = CallbackState::new(execution.clone());
-        self.callback.klu = if self.settings.method.linear == Linear::Klu {
+        self.callback.klu = if self.settings.method.linear.is_klu() {
             self.linear
         } else {
             std::ptr::null_mut()
@@ -1855,7 +1895,16 @@ impl Session {
         // worker-local witness; finalize inclusive counters after both phases.
         self.callback.state.retain_failure(&mut report);
         // SAFETY: the session's live iterate vector of the `n` coordinates.
-        let x = shifted(unsafe { values(self.x, n) }?, &self.callback.offsets, 1.0);
+        let current = match unsafe { values(self.x, n) } {
+            Ok(current) => current,
+            Err(error) => {
+                if method.linear == Linear::KluRetainedSymbolic {
+                    native!(ffi::SUNLinSol_KLUInvalidateNumeric(self.linear), "failed KLU readback")?;
+                }
+                return Err(error);
+            }
+        };
+        let x = shifted(current, &self.callback.offsets, 1.0);
         if x.iter().all(|v| v.is_finite()) {
             if self.callback.state.terminal.is_none() {
                 let mut f = vec![0.0; n];
@@ -2052,6 +2101,12 @@ impl Session {
         report
             .metrics
             .insert("setup.fresh_response_factor".into(), Metric::Bool(false));
+        if method.linear == Linear::KluRetainedSymbolic
+            && (code < 0 || self.callback.state.terminal.is_some()
+                || report.termination.assurance == Assurance::None)
+        {
+            native!(ffi::SUNLinSol_KLUInvalidateNumeric(self.linear), "failed KLU application")?;
+        }
         Ok(report)
     }
 }

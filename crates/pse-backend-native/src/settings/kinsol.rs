@@ -23,6 +23,8 @@ use pse_model::scalars::{Fraction, PositiveCount};
 pub enum Linear {
     /// Vendored SuiteSparse KLU with analytic CSC Jacobian.
     Klu,
+    /// Opt-in exact CSC/settings symbolic retention with fresh factors per application.
+    KluRetainedSymbolic,
     /// Serial dense factorization for explicitly small systems.
     Dense {
         /// Maximum admitted dimension.
@@ -50,6 +52,10 @@ pub enum Linear {
     },
 }
 impl Linear {
+    /// Whether the selected route is backed by the native KLU owner.
+    pub fn is_klu(self) -> bool {
+        matches!(self, Self::Klu | Self::KluRetainedSymbolic)
+    }
     /// Krylov subspace dimension of a matrix-free route.
     pub fn krylov(self) -> Option<usize> {
         match self {
@@ -57,7 +63,7 @@ impl Linear {
             | Self::Spfgmr { dimension }
             | Self::Spbcgs { dimension }
             | Self::Sptfqmr { dimension } => Some(dimension.into_inner()),
-            Self::Klu | Self::Dense { .. } => None,
+            Self::Klu | Self::KluRetainedSymbolic | Self::Dense { .. } => None,
         }
     }
 }
