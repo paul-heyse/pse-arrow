@@ -53,12 +53,13 @@ fn conflict(error: surrealdb::Error) {
         "{error}"
     );
 }
-fn thrown(error: CanonicalError, message: &str) {
+fn thrown(error: CanonicalError, message: &str) -> Result<(), CanonicalError> {
     let CanonicalError::Driver(error) = error else {
-        panic!("expected native domain refusal, got {error}");
+        return Err(error);
     };
     assert!(error.is_thrown(), "{error}");
     assert!(error.message().ends_with(message), "{error}");
+    Ok(())
 }
 fn expiry() -> i64 {
     i64::try_from(
@@ -1208,7 +1209,8 @@ async fn exact_dispatched_pre_ticket_renewal_and_expired_admission_retirement_bo
             thrown(
                 store.forget_run_results("target").await.unwrap_err(),
                 "run results have protected readers",
-            );
+            )
+            .unwrap();
         } else {
             retirement.commit().await.unwrap();
             conflict(renewal.commit().await.unwrap_err());
@@ -1222,7 +1224,7 @@ async fn exact_dispatched_pre_ticket_renewal_and_expired_admission_retirement_bo
                 .bind(("protection", pin.key().to_owned()))
                 .bind(("set", crate::canonical_execution::result_set_key(&attempt, "values")))
                 .bind(("selected", vec![canonical_codec::encode_uint(0).unwrap()]))).await.unwrap_err();
-            thrown(error, "immutable selection protection expired");
+            thrown(error, "immutable selection protection expired").unwrap();
         }
         store.release(&pin).await.unwrap();
         store.remove_isolated_fixture().await.unwrap();

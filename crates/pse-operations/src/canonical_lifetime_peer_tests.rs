@@ -292,20 +292,26 @@ async fn abandoned_rpc_waiter_retains_activity_until_actual_late_response_drains
 
 #[tokio::test]
 async fn final_fixture_teardown_seals_admission_and_joins_actual_response_work() {
-    terminal_teardown_seals_admission_and_joins_actual_response_work(true).await;
+    terminal_teardown_seals_admission_and_joins_actual_response_work(true)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
 async fn owned_initialization_teardown_seals_admission_and_joins_actual_response_work() {
-    terminal_teardown_seals_admission_and_joins_actual_response_work(false).await;
+    terminal_teardown_seals_admission_and_joins_actual_response_work(false)
+        .await
+        .unwrap();
 }
 
-async fn terminal_teardown_seals_admission_and_joins_actual_response_work(fixture: bool) {
+async fn terminal_teardown_seals_admission_and_joins_actual_response_work(
+    fixture: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     use std::{future::Future, task::Poll};
     let (mut store, mut received, server) = super::tests::canonical_read_barrier_peer().await;
     // This wire fixture owns its clients directly and needs no service disposal.
     store.database = "canonical_test_wire_terminal_drain".into();
-    let activity = store.admit_activity().unwrap();
+    let activity = store.admit_activity()?;
     let first_store = store.clone();
     let first_activity = activity.clone();
     let first = tokio::spawn(async move {
@@ -318,7 +324,13 @@ async fn terminal_teardown_seals_admission_and_joins_actual_response_work(fixtur
             ))
             .await
     });
-    assert_eq!(received.recv().await.unwrap(), "RETURN 'FIRST_READ'");
+    assert_eq!(
+        received.recv().await.ok_or_else(|| std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "wire peer closed before the first read",
+        ))?,
+        "RETURN 'FIRST_READ'"
+    );
     let mut cleanup = Box::pin(async {
         if fixture {
             store.remove_isolated_fixture().await
@@ -346,27 +358,27 @@ async fn terminal_teardown_seals_admission_and_joins_actual_response_work(fixtur
             "lifetime::second_terminal",
             || Ok(store.db.query("RETURN 'SECOND_READ';")),
         ))
-        .await
-        .unwrap();
-    assert_eq!(second.take::<Value>(0).unwrap(), Value::Bool(true));
-    assert_eq!(received.recv().await.unwrap(), "RETURN 'SECOND_READ'");
-    let mut first = first.await.unwrap().unwrap();
-    assert_eq!(first.take::<Value>(0).unwrap(), Value::Bool(true));
+        .await?;
+    assert_eq!(second.take::<Value>(0)?, Value::Bool(true));
+    assert_eq!(
+        received.recv().await.ok_or_else(|| std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            "wire peer closed before the second read",
+        ))?,
+        "RETURN 'SECOND_READ'"
+    );
+    let mut first = first.await??;
+    assert_eq!(first.take::<Value>(0)?, Value::Bool(true));
     std::future::poll_fn(|cx| {
         assert!(cleanup.as_mut().poll(cx).is_pending());
         Poll::Ready(())
     })
     .await;
     drop(activity);
-    tokio::time::timeout(Duration::from_secs(2), cleanup)
-        .await
-        .unwrap()
-        .unwrap();
-    tokio::time::timeout(Duration::from_secs(2), server)
-        .await
-        .unwrap()
-        .unwrap();
+    tokio::time::timeout(Duration::from_secs(2), cleanup).await??;
+    tokio::time::timeout(Duration::from_secs(2), server).await??;
     assert!(received.try_recv().is_err());
+    Ok(())
 }
 
 #[allow(
