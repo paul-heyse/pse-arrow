@@ -3324,3 +3324,29 @@ async fn selected_adjoint_tied_scaled_bindings_use_unique_physical_axes() {
     })
     .await;
 }
+
+#[tokio::test]
+async fn fitting_parallel_affine_exact_hessian_prepares_second_contract_and_retains_gram() {
+    let (package, mut profile) = source(true, 73.).await;
+    let mut declarations = package.fit_declarations().await.unwrap();
+    let fit = &mut declarations.fits[0];
+    let steady = fit.experiments[1].clone();
+    let mut other = steady.clone();
+    other.experiment_id = id(76).into();
+    fit.experiments = vec![steady, other];
+    fit.observations.retain(|observation| observation.experiment_id == id(75).into());
+    let package = package.with_fit_declarations(declarations).await.unwrap();
+    profile.simulations.clear();
+    profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
+    profile.solver.controls.hessian = HessianMode::Exact;
+    let (problem, _) = package.prepare_fit_problem(id(73).into(), profile, compiler_profile(),
+        Default::default(), &crate::CancelSource::new()).await.unwrap();
+    assert!(problem.layout.mappings.iter().all(|mapping| mapping.hessian.is_empty()));
+    with_admitted_fit_oracle_outcome(problem.into(), |oracle| {
+        assert!(oracle.team.is_some());
+        assert!(oracle.workers.iter().all(Option::is_some), "the actual Exact Second contract retains guards even with empty local curvature");
+        let mut hessian = vec![f64::NAN; oracle.hessian_pattern().unwrap().row_idx().len()];
+        oracle.hessian(&[2.5], 1., &[], &mut hessian).unwrap();
+        assert_eq!(hessian, [1.], "the independently nonzero affine response Gram term remains");
+    }).await.unwrap();
+}

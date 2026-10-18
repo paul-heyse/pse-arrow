@@ -171,9 +171,9 @@ impl FitOracle {
         let workers = p
             .experiments
             .iter()
-            .enumerate()
-            .map(|(ei, e)| match e {
-                Experiment::Steady(_) if team.is_some() && p.layout.mappings[ei].hessian.is_empty() => Ok(None),
+            .map(|e| match e {
+                Experiment::Steady(s) if team.is_some() && (p.layout.hessian.is_none()
+                    || (p.profile.solver.controls.hessian != HessianMode::Exact && s.constraints.is_empty())) => Ok(None),
                 Experiment::Steady(s) => {
                     if let Some(context) = pse_diagnostics::observation::current() {
                         context.count("fit.experiment_worker_constructions", "count", 1);
