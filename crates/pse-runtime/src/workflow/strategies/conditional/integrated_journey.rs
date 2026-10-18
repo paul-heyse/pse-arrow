@@ -161,6 +161,7 @@ async fn indexed_mixer_holdup_separator_executes_conditional_recycle_and_externa
                 tears: BTreeSet::from([tear]),
                 units,
                 anderson_delay: 0,
+                orthogonalization: None,
                 restarts: None,
                 anderson: 0,
                 damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),

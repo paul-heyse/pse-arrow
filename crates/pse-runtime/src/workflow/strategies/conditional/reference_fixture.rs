@@ -197,6 +197,7 @@ pub(in crate::workflow) async fn actual_reference_recycle_fixture(
             tears: BTreeSet::from([tear]),
             units,
             anderson_delay: 0,
+            orthogonalization: None,
             restarts: None,
             anderson: 0,
             damping: pse_model::scalars::Fraction::try_new(1.0)

@@ -859,6 +859,9 @@ impl ModelingPackage {
         activity.scope(async {
         let profile = analysis.solver.clone();
         let compiler = analysis.compiler;
+        if request.anderson == 0 && request.orthogonalization.is_some() {
+            return Err(contract("recycle orthogonalization requires Anderson history"));
+        }
         if profile.intent != SolveIntent::Root
             || !matches!(
                 profile.selection,
@@ -1375,6 +1378,9 @@ impl ModelingPackage {
                 strategy: kinsol::Strategy::FixedPoint,
                 anderson: request.anderson,
                 anderson_delay: request.anderson_delay,
+                orthogonalization: request.orthogonalization.unwrap_or(
+                    kinsol::Orthogonalization::ModifiedGramSchmidt,
+                ),
                 damping: request.damping,
                 ..kinsol::Method::default()
             },
