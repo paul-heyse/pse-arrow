@@ -507,7 +507,7 @@ struct ProtectionOwner {
 impl ProtectedSelection {
     /// Attach the one actual retained metadata allocation. Aliases may attach
     /// the same Arc; replacing it could release storage still borrowed by work.
-    pub(crate) fn retain_metadata_owner(
+    pub fn retain_metadata_owner(
         &self,
         owner: Arc<dyn std::fmt::Debug + Send + Sync>,
     ) -> Result<(), CanonicalError> {
@@ -533,7 +533,10 @@ impl ProtectedSelection {
         }
         Ok(())
     }
-    pub(crate) fn retained_bytes(&self) -> Option<usize> {
+    /// Native retained metadata extent, including the exact revision and owned
+    /// store-handle values. Shared physical clients are charged by deployment.
+    /// Returns `None` if the represented allocation extent overflows.
+    pub fn retained_bytes(&self) -> Option<usize> {
         use pse_model::HeapUsage;
         let owner = &self.owner;
         let store = owner

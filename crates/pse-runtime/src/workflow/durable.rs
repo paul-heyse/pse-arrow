@@ -3483,6 +3483,37 @@ pub(super) fn source_edit(
     }
 }
 impl Operations {
+    async fn publish_physical_group(
+        &self,
+        relation: pse_schema::model::RelationKey,
+        identity: ContentHash,
+        parent: Option<&Revision>,
+        group: &mut super::physical_spool::PhysicalGroup,
+    ) -> Result<Revision, WorkflowError> {
+        let problem = format!("physical:rows:grouped-v2:{identity}");
+        let operation = format!("physical:grouped-v2:{identity}:{:020}:{:020}",group.first,group.end);
+        let edits = group.blocks.drain(..).enumerate().map(|(offset,payload)| {
+            let ordinal = group.first + offset as u64;
+            source_edit(format!("rows:{ordinal:020}"), relation.to_string(), format!("{ordinal:020}"), "physical:rows:v1", payload)
+        }).collect::<Vec<_>>();
+        // edit binds the complete original request and settles unknown activation
+        // ACKs using its immutable operation receipt. No guessed parent advances.
+        Ok(pse_operations::canonical::response_ownership_scope(group.owner.clone(),
+            self.store.edit(&problem,parent.map(|row|row.key.as_str()),&operation,&edits)).await?)
+    }
+    async fn publish_physical_groups(
+        &self,
+        relation: pse_schema::model::RelationKey,
+        identity: ContentHash,
+        reader: super::physical_spool::PhysicalSpoolReader,
+    ) -> Result<Option<Revision>, WorkflowError> {
+        let mut groups = super::physical_spool::PhysicalGroups::new(reader, &self.pool)?;
+        let mut saved = None;
+        while let Some(mut group) = groups.next().await? {
+            saved = Some(self.publish_physical_group(relation,identity,saved.as_ref(),&mut group).await?);
+        }
+        Ok(saved)
+    }
     /// Persist each registry physical relation independently; each immutable IPC object
     /// is bounded, and no unrelated relation is hydrated on replay.
     pub(super) async fn put_physical_rows(
@@ -3494,20 +3525,20 @@ impl Operations {
         activity
             .scope(async {
                 let generation = runtime.physical_cache.rows_generation();
-                if let Some(revisions) = runtime.physical_cache.rows(runtime, self, physical) {
+                if let Some(rows) = runtime.physical_cache.rows(runtime, self, physical) {
                     return runtime
                         .physical_cache
-                        .protected_rows(generation, runtime, self, physical, &revisions)
+                        .protected_rows(generation, runtime, self, physical, rows.revisions())
                         .await;
                 }
                 let generation = runtime.physical_cache.begin_rows();
                 let encoding =
                     MemoryConsumer::new("canonical:physical-source-encoding").register(&self.pool);
-                if !physical.sources.is_empty() {
-                    encoding
-                        .try_grow(16 * pse_operations::canonical::PAYLOAD_BYTES)
-                        .map_err(pse_engine::EngineError::from)?;
-                }
+                // Even an empty source map publishes its context receipt.
+                encoding
+                    .try_grow(16 * pse_operations::canonical::PAYLOAD_BYTES)
+                    .map_err(pse_engine::EngineError::from)?;
+                let encoding = pse_columnar::AllocationLease::new(encoding);
                 let mut revisions = Vec::new();
                 for (relation, table) in &physical.sources {
                     let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
@@ -3521,27 +3552,8 @@ impl Operations {
                         std::future::ready(spool.push(&payload))
                     }).await?;
                     let identity = hash.finish_hash();
-                    let problem = format!("physical:rows:{identity}");
-                    let mut spool = spool.finish()?;
-                    let mut saved = None::<Revision>;
-                    let mut ordinal = 0_u64;
-                    while let Some(payload) = spool.next().await? {
-                        let edit = source_edit(
-                            format!("rows:{ordinal:020}"),
-                            relation.to_string(),
-                            format!("{ordinal:020}"),
-                            "physical:rows:v1",
-                            payload,
-                        );
-                        let row = self.store.edit(
-                            &problem,
-                            saved.as_ref().map(|row| row.key.as_str()),
-                            &format!("physical:{identity}:{ordinal}"),
-                            &[edit],
-                        ).await?;
-                        saved = Some(row);
-                        ordinal = ordinal.checked_add(1).ok_or_else(|| contract("physical block ordinal"))?;
-                    }
+                    let saved = pse_operations::canonical::response_ownership_scope(encoding.clone(),
+                        self.publish_physical_groups(*relation,identity,spool.finish()?)).await?;
                     if let Some(revision) = saved {
                         revisions.push(revision);
                     }
@@ -3558,13 +3570,13 @@ impl Operations {
                 );
                 let problem = format!("physical:context:{}", physical.identity());
                 revisions.push(
-                    self.store
+                    pse_operations::canonical::response_ownership_scope(encoding.clone(),self.store
                         .edit(
                             &problem,
                             None,
                             &format!("physical:context:{}", physical.identity()),
                             &[edit],
-                        )
+                        ))
                         .await?,
                 );
                 let result = runtime
@@ -3653,6 +3665,10 @@ fn reserve(
         .map_err(pse_engine::EngineError::from)?;
     Ok(pse_columnar::AllocationLease::new(reservation))
 }
+
+#[cfg(all(test, feature = "canonical-tests"))]
+#[path = "physical-publication-tests.rs"]
+mod physical_publication_unit;
 
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_durable_codec {

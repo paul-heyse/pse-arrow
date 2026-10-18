@@ -15,6 +15,12 @@ use std::{io::Write, sync::Arc};
 
 const PAYLOAD_LIMIT: usize = pse_operations::canonical::PAYLOAD_BYTES;
 const READ_BUFFERS: usize = 2 * 128 * 1024;
+// grouped-v2 binds both limits. Changing either changes publication identity.
+const GROUP_BLOCKS: usize = 4;
+const GROUP_BYTES: usize = 2 * PAYLOAD_LIMIT;
+// Four fixed-width physical headers, edit/plan descriptions and their encoded
+// metadata copies. Encoder/SDK scratch remains independently charged upstream.
+const GROUP_HEADER_BYTES: usize = 64 * 1024;
 
 fn engine(error: DataFusionError) -> WorkflowError {
     pse_engine::EngineError::from(error).into()
@@ -120,9 +126,134 @@ impl PhysicalSpoolReader {
     }
 }
 
+/// One immutable consecutive group. Its grant follows payloads through the
+/// source edit and actual acknowledgement, independently of the spool's reader.
+pub(super) struct PhysicalGroup {
+    pub(super) first: u64,
+    pub(super) end: u64,
+    pub(super) blocks: Vec<Vec<u8>>,
+    pub(super) owner: Arc<pse_columnar::AllocationLease>,
+}
+pub(super) struct PhysicalGroups {
+    reader: PhysicalSpoolReader,
+    pending: Option<Vec<u8>>,
+    ordinal: u64,
+    pool: Arc<dyn datafusion_execution::memory_pool::MemoryPool>,
+    first_owner: Option<Arc<pse_columnar::AllocationLease>>,
+    _lookahead: Arc<pse_columnar::AllocationLease>,
+}
+impl PhysicalGroups {
+    pub(super) fn new(reader: PhysicalSpoolReader, pool: &Arc<dyn datafusion_execution::memory_pool::MemoryPool>) -> Result<Self, WorkflowError> {
+        let lookahead = MemoryConsumer::new("physical:grouped-v2-lookahead").register(pool);
+        lookahead.try_grow(PAYLOAD_LIMIT+4096).map_err(engine)?;
+        let first_owner = Self::grant(pool)?;
+        Ok(Self { reader, pending: None, ordinal: 0, pool: pool.clone(), first_owner: Some(first_owner),
+            _lookahead: pse_columnar::AllocationLease::new(lookahead) })
+    }
+    fn grant(pool: &Arc<dyn datafusion_execution::memory_pool::MemoryPool>) -> Result<Arc<pse_columnar::AllocationLease>, WorkflowError> {
+        let owner = MemoryConsumer::new("physical:grouped-v2-payload-and-plan").register(pool);
+        owner.try_grow(GROUP_BYTES+GROUP_HEADER_BYTES).map_err(engine)?;
+        Ok(pse_columnar::AllocationLease::new(owner))
+    }
+    pub(super) async fn next(&mut self) -> Result<Option<PhysicalGroup>, WorkflowError> {
+        let Some(mut payload) = (match self.pending.take() {
+            Some(payload) => Some(payload), None => self.reader.next().await?,
+        }) else { self.first_owner = None; return Ok(None); };
+        // The one read is prepaid by the reader/lookahead grant. Every escaped
+        // group gets its own grant before retaining payloads or plan metadata.
+        let owner = match self.first_owner.take() {
+            Some(owner) => owner,
+            None => match Self::grant(&self.pool) {
+                Ok(owner) => owner,
+                Err(error) => { self.pending = Some(payload); return Err(error); }
+            },
+        };
+        let first = self.ordinal;
+        let mut blocks = Vec::with_capacity(GROUP_BLOCKS);
+        let mut bytes = 0;
+        loop {
+            if bytes + payload.len() > GROUP_BYTES {
+                self.pending = Some(payload);
+                break;
+            }
+            self.ordinal = self.ordinal.checked_add(1).ok_or_else(|| contract("physical group ordinal"))?;
+            bytes += payload.len();
+            blocks.push(payload);
+            if blocks.len()==GROUP_BLOCKS { break; }
+            payload = match self.reader.next().await? { Some(payload) => payload, None => break };
+        }
+        Ok(Some(PhysicalGroup { first, end: self.ordinal, blocks, owner }))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn physical_groups_preserve_exact_bytes_count_and_length_boundaries_in_memory_and_spill() {
+        for payloads in [vec![vec![1;17],vec![2;19],vec![3;23],vec![4;29],vec![5;31]],
+            vec![vec![6;PAYLOAD_LIMIT],vec![7;PAYLOAD_LIMIT/2],vec![8;PAYLOAD_LIMIT],vec![9;1]]] {
+            let runtime = crate::workflow::tests::runtime();
+            let env = runtime.shared.runtime_env();
+            let before = env.memory_pool.reserved();
+            let mut observed = Vec::new();
+            for memory_limit in [0, payloads.iter().map(|p|p.len()+8).sum()] {
+                let mut spool = PhysicalSpool::new(env.clone(),memory_limit).unwrap();
+                for payload in &payloads { spool.push(payload).unwrap(); }
+                let mut groups = PhysicalGroups::new(spool.finish().unwrap(),&env.memory_pool).unwrap();
+                let mut boundaries = Vec::new(); let mut original = Vec::new();
+                while let Some(group) = groups.next().await.unwrap() {
+                    assert!(group.blocks.len()<=GROUP_BLOCKS);
+                    assert!(group.blocks.iter().map(Vec::len).sum::<usize>()<=GROUP_BYTES);
+                    boundaries.push((group.first,group.end)); original.extend(group.blocks);
+                }
+                assert_eq!(original,payloads);
+                observed.push(boundaries);
+                drop(groups);
+                assert_eq!(env.memory_pool.reserved(),before);
+            }
+            assert_eq!(observed[0],observed[1]);
+            assert_eq!(observed[0],if payloads.len()==5 {vec![(0,4),(4,5)]} else {vec![(0,2),(2,4)]});
+        }
+    }
+    #[tokio::test]
+    async fn physical_groups_refuse_before_allocation_and_escaped_payloads_keep_their_grant() {
+        let env = datafusion_execution::runtime_env::RuntimeEnvBuilder::new()
+            .with_memory_pool(Arc::new(datafusion_execution::memory_pool::GreedyMemoryPool::new(16<<20)))
+            .build_arc().unwrap();
+        let pressure = MemoryConsumer::new("test:physical-group-pressure").register(&env.memory_pool);
+        pressure.try_grow(5<<20).unwrap();
+        let mut spool = PhysicalSpool::new(env.clone(),0).unwrap(); spool.push(&[1;17]).unwrap();
+        assert!(PhysicalGroups::new(spool.finish().unwrap(),&env.memory_pool).is_err());
+        assert_eq!(env.memory_pool.reserved(),pressure.size());
+        drop(pressure);
+        let mut spool = PhysicalSpool::new(env.clone(),0).unwrap(); spool.push(&[1;17]).unwrap();
+        let mut groups = PhysicalGroups::new(spool.finish().unwrap(),&env.memory_pool).unwrap();
+        let group = groups.next().await.unwrap().unwrap();
+        assert_eq!((group.first,group.end),(0,1));
+        drop(groups);
+        assert_eq!(env.memory_pool.reserved(),group.owner.size());
+        assert_eq!(group.blocks,[vec![1;17]]);
+        drop(group);
+        assert_eq!(env.memory_pool.reserved(),0);
+    }
+    #[tokio::test]
+    async fn physical_groups_preserve_next_membership_when_prior_payloads_hold_capacity() {
+        let env = datafusion_execution::runtime_env::RuntimeEnvBuilder::new()
+            .with_memory_pool(Arc::new(datafusion_execution::memory_pool::GreedyMemoryPool::new(16<<20)))
+            .build_arc().unwrap();
+        let mut spool = PhysicalSpool::new(env.clone(),0).unwrap();
+        for byte in 0..5 { spool.push(&[byte;17]).unwrap(); }
+        let mut groups = PhysicalGroups::new(spool.finish().unwrap(),&env.memory_pool).unwrap();
+        let first = groups.next().await.unwrap().unwrap();
+        assert_eq!((first.first,first.end),(0,4));
+        assert!(groups.next().await.is_err(),"each outstanding group needs its own actual payload grant");
+        drop(first);
+        let second = groups.next().await.unwrap().unwrap();
+        assert_eq!((second.first,second.end),(4,5)); assert_eq!(second.blocks,[vec![4;17]]);
+        drop(second); drop(groups); assert_eq!(env.memory_pool.reserved(),0);
+    }
 
     #[tokio::test]
     async fn physical_spool_preserves_exact_blocks_and_releases_memory_and_spill() {

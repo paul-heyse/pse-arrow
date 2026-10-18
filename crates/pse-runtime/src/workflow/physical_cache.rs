@@ -13,6 +13,7 @@ use datafusion::{
 };
 use pse_engine::cache_service::{CacheComponent, CacheEntryReport, CacheReport};
 use pse_operations::canonical::{ProtectedSelection, Revision};
+use pse_model::HeapUsage;
 #[cfg(test)]
 use std::sync::Mutex;
 use std::sync::{
@@ -29,6 +30,19 @@ pub(super) struct PhysicalOwner {
     pins: Vec<ProtectedSelection>,
     _allocation: Arc<pse_columnar::AllocationLease>,
     retained_metadata: Option<Arc<pse_columnar::AllocationLease>>,
+    pin_metadata_bytes: usize,
+}
+impl PhysicalOwner {
+    fn allocation_bytes(&self) -> usize {
+        self._allocation.size().saturating_add(self.pin_metadata_bytes)
+            .saturating_add(self.retained_metadata.as_ref().map_or(0,|owner|owner.size()))
+    }
+    fn allocation_without(&self, shared: &Arc<pse_columnar::AllocationLease>) -> usize {
+        let bytes = self.allocation_bytes();
+        if self.retained_metadata.as_ref().is_some_and(|owner|Arc::ptr_eq(owner,shared)) {
+            bytes.saturating_sub(shared.size())
+        } else { bytes }
+    }
 }
 #[derive(Debug)]
 struct Admission {
@@ -40,7 +54,7 @@ struct Admission {
     _metadata: Arc<pse_columnar::AllocationLease>,
 }
 #[derive(Debug)]
-struct Rows {
+pub(super) struct Rows {
     operations: Operations,
     model: pse_engine::session::BoundModel,
     physical: PhysicalContext,
@@ -48,6 +62,9 @@ struct Rows {
     _owner: Arc<PhysicalOwner>,
     bytes: usize,
     _metadata: Arc<pse_columnar::AllocationLease>,
+}
+impl Rows {
+    pub(super) fn revisions(&self) -> &[Revision] { &self.revisions }
 }
 #[derive(Debug)]
 pub(super) struct PhysicalRows {
@@ -227,7 +244,7 @@ impl PhysicalCache {
         runtime: &Runtime,
         operations: &Operations,
         physical: &PhysicalContext,
-    ) -> Option<Vec<Revision>> {
+    ) -> Option<Arc<Rows>> {
         let rows = self
             .retained
             .get(&row_key(runtime, operations, physical))
@@ -238,7 +255,7 @@ impl PhysicalCache {
                         && Arc::ptr_eq(entry.model.factory(), runtime.sessions())
                         && entry.physical.same_sources(physical) =>
                 {
-                    Some(entry.revisions.clone())
+                    Some(entry)
                 }
                 _ => None,
             });
@@ -266,19 +283,15 @@ impl PhysicalCache {
         rows: &PhysicalRows,
     ) {
         let revisions = &rows.revisions;
-        let bytes = physical.retained_bytes().saturating_add(
-            revisions
-                .iter()
-                .map(|r| r.key.len() + r.problem.len() + 256)
-                .sum::<usize>(),
-        );
+        let Some(receipts) = revision_copy_bytes(revisions) else { return; };
+        let bytes = physical.retained_bytes().saturating_add(rows._owner.allocation_bytes())
+            .saturating_add(physical._source_owner.as_ref().map_or(0,|owner|owner.allocation_bytes()));
         if bytes > RETAINED_BYTES {
             return;
         }
-        let Some(metadata) = metadata(
-            operations,
-            physical.sources.len() * 512 + revisions.len() * 512 + 1024,
-        ) else {
+        let Some(extent) = physical.sources.len().checked_mul(512)
+            .and_then(|bytes|bytes.checked_add(receipts)).and_then(|bytes|bytes.checked_add(1024)) else { return; };
+        let Some(metadata) = metadata(operations,extent) else {
             return;
         };
         let entry = Rows {
@@ -302,10 +315,10 @@ impl PhysicalCache {
         operations: &Operations,
         revisions: &[Revision],
     ) -> Result<PhysicalRows, WorkflowError> {
-        Ok(PhysicalRows {
-            revisions: revisions.to_vec(),
-            _owner: protect(operations, revisions, 1024 + revisions.len() * 512).await?,
-        })
+        let bytes = revision_copy_bytes(revisions).and_then(|bytes|bytes.checked_add(size_of::<PhysicalRows>()))
+            .ok_or_else(||contract("physical receipt allocation extent"))?;
+        let owner = protect(operations,revisions,bytes).await?;
+        Ok(PhysicalRows { revisions: revisions.to_vec(), _owner: owner })
     }
     pub(super) async fn protected_rows(
         &self,
@@ -322,12 +335,37 @@ impl PhysicalCache {
     }
 }
 
+fn revision_copy_bytes(revisions: &[Revision]) -> Option<usize> {
+    revisions.iter().try_fold(revisions.len().checked_mul(size_of::<Revision>())?,
+        |bytes,revision|bytes.checked_add(revision.heap_bytes()))
+}
+
+async fn protect_pin(operations: &Operations, revision: &Revision)
+    -> Result<(ProtectedSelection, Arc<MemoryReservation>), WorkflowError> {
+    use super::connected_results::{pooled_response_owner,retain_protected_metadata};
+    use pse_operations::canonical::{MetadataResponse,response_ownership_scope};
+    let response = pooled_response_owner(&operations.pool,"canonical:physical-protection-response",MetadataResponse::Header)?;
+    let pin = response_ownership_scope(response.clone(),
+        operations.store().protect(revision.clone(),std::time::Duration::from_secs(3600))).await?;
+    let Some(bytes) = pin.retained_bytes() else {
+        pin.retain_metadata_owner(response)?;
+        return Err(contract("physical protection allocation extent"));
+    };
+    let retained = Arc::new(retain_protected_metadata(&operations.pool,response,bytes,
+        |owner|pin.retain_metadata_owner(owner))?);
+    pin.retain_metadata_owner(retained.clone())?;
+    Ok((pin,retained))
+}
+
 async fn protect(
     operations: &Operations,
     revisions: &[Revision],
     bytes: usize,
 ) -> Result<Arc<PhysicalOwner>, WorkflowError> {
     let allocation = MemoryConsumer::new(NAME).register(&operations.pool);
+    let bytes = revisions.len().checked_mul(size_of::<ProtectedSelection>())
+        .and_then(|pins|pins.checked_add(size_of::<PhysicalOwner>()+2*size_of::<usize>()))
+        .and_then(|pins|pins.checked_add(bytes)).ok_or_else(||contract("physical protection vector extent"))?;
     allocation
         .try_grow(bytes)
         .map_err(pse_engine::EngineError::from)?;
@@ -335,12 +373,12 @@ async fn protect(
         pins: Vec::with_capacity(revisions.len()),
         _allocation: pse_columnar::AllocationLease::new(allocation),
         retained_metadata: None,
+        pin_metadata_bytes: 0,
     };
     for revision in revisions {
-        let pin = operations
-            .store()
-            .protect(revision.clone(), std::time::Duration::from_secs(3600))
-            .await?;
+        let (pin,metadata) = protect_pin(operations,revision).await?;
+        owner.pin_metadata_bytes = owner.pin_metadata_bytes.checked_add(metadata.size())
+            .ok_or_else(||contract("physical retained protection extent"))?;
         if pin.revision() != revision {
             return Err(contract("physical receipt differs from protected revision"));
         }
@@ -486,6 +524,9 @@ impl Runtime {
             owner.retained_metadata = metadata.clone();
         }
         physical._source_owner = Some(protection);
+        let bytes = bytes.saturating_add(physical._source_owner.as_ref().map_or(0,|owner| {
+            metadata.as_ref().map_or_else(||owner.allocation_bytes(),|metadata|owner.allocation_without(metadata))
+        }));
         #[cfg(test)]
         {
             let pause = self
@@ -545,6 +586,61 @@ mod physical_admission_cache_unit {
         (runtime, source)
     }
     #[tokio::test]
+    async fn canonical_physical_pin_extent_and_release_keep_actual_metadata_grant() {
+        let (runtime,source) = fixture().await;
+        let operations = runtime.operations().unwrap();
+        let revision = operations.store().revision(&source.revision).await.unwrap().unwrap();
+        let before = operations.pool.reserved();
+        let (pin,grant) = protect_pin(operations,&revision).await.unwrap();
+        assert_eq!(grant.size(),pin.retained_bytes().unwrap()
+            +pse_operations::canonical::MetadataResponse::Protection.allocation_bytes());
+        let held = Arc::downgrade(&grant);
+        drop(grant);
+        assert!(held.upgrade().is_some(),"actual protected owner retains its exact metadata/release grant");
+        drop(pin);
+        pse_operations::testing::drain_result_releases(operations.store()).await.unwrap();
+        assert!(held.upgrade().is_none(),"final native release drain relinquishes the attached grant");
+        assert_eq!(operations.pool.reserved(),before);
+    }
+    #[tokio::test]
+    async fn canonical_physical_small_rows_warm_borrow_pressure_and_release_keep_full_weight() {
+        let (runtime,source) = fixture().await;
+        let operations = runtime.operations().unwrap();
+        let mut physical = runtime.physical_source(&source,&crate::CancelSource::new()).await.unwrap();
+        let selected = *physical.sources.iter().find(|(_,table)|table.batch().num_rows()>0).unwrap().0;
+        // Recorded transport selection, not a compiled scientific context.
+        physical.sources.retain(|key,_|*key==selected);
+        let before = operations.pool.reserved();
+        let first = operations.put_physical_rows(&runtime,&physical).await.unwrap();
+        let hits = runtime.physical_cache.hits.load(Ordering::Relaxed);
+        let second = operations.put_physical_rows(&runtime,&physical).await.unwrap();
+        assert_eq!(first.revisions,second.revisions);
+        assert_eq!(runtime.physical_cache.hits.load(Ordering::Relaxed),hits+1);
+        let held = runtime.physical_cache.rows(&runtime,operations,&physical).unwrap();
+        let again = runtime.physical_cache.rows(&runtime,operations,&physical).unwrap();
+        assert!(Arc::ptr_eq(&held,&again),"warm lookup borrows the charged retained receipt handle");
+        let weight = RetainedProduct::Rows(held.clone()).size();
+        assert!(weight>=held._owner.allocation_bytes()+physical._source_owner.as_ref().unwrap().allocation_bytes());
+        assert!(weight<=RETAINED_BYTES);
+        let escaped = Arc::downgrade(&first._owner);
+        let datafusion::execution::memory_pool::MemoryLimit::Finite(limit) = operations.pool.memory_limit()
+            else { panic!("physical receipt pressure requires finite shared capacity"); };
+        let pressure = MemoryConsumer::new("test:physical-warm-receipt-pressure").register(&operations.pool);
+        pressure.try_grow(limit-operations.pool.reserved()-16).unwrap();
+        assert!(super::super::result_projection::projection_memory_refusal(
+            &operations.put_physical_rows(&runtime,&physical).await.unwrap_err()));
+        assert_eq!(held.revisions(),first.revisions.as_slice(),"refused fresh copy/protection preserves exact escaped receipts");
+        drop(pressure);
+        let retried = operations.put_physical_rows(&runtime,&physical).await.unwrap();
+        assert_eq!(retried.revisions,first.revisions);
+        drop(first); drop(second); drop(retried); drop(held); drop(again);
+        runtime.clear_program_cache();
+        assert!(escaped.upgrade().is_none());
+        drop(physical);
+        pse_operations::testing::drain_result_releases(operations.store()).await.unwrap();
+        assert!(operations.pool.reserved()<=before,"row and source grants release after their final owners drain");
+    }
+    #[tokio::test]
     async fn canonical_physical_admission_and_rows_reuse_exact_original_owners() {
         let (runtime, source) = fixture().await;
         let cancel = crate::CancelSource::new();
@@ -571,8 +667,11 @@ mod physical_admission_cache_unit {
         assert_eq!(first_rows.revisions, second_rows.revisions);
         assert_eq!(
             runtime.physical_cache.hits.load(Ordering::Relaxed),
-            hits + 1
+            hits,
+            "full receipt closure exceeds optional cache budget; this is canonical replay"
         );
+        assert!(first_rows._owner.pin_metadata_bytes>RETAINED_BYTES);
+        assert!(runtime.physical_cache.rows(&runtime,operations,&first).is_none());
         let mut changed = second.clone();
         let key = *changed.sources.iter()
             .find(|(_, table)| table.batch().num_rows() != 0)
@@ -590,7 +689,7 @@ mod physical_admission_cache_unit {
                 .rows(&runtime, operations, &changed)
                 .is_none()
         );
-        // Exercise actual cold/warm publication after changing the exact row
+        // Exercise actual cold/replayed publication after changing the exact row
         // support. This is a transport-owner control, not permission to compile
         // the intentionally altered physical context as a scientific model.
         let changed_rows = operations
@@ -606,8 +705,10 @@ mod physical_admission_cache_unit {
         assert_eq!(changed_rows.revisions, changed_again.revisions);
         assert_eq!(
             runtime.physical_cache.hits.load(Ordering::Relaxed),
-            changed_hits + 1,
+            changed_hits,
         );
+        assert!(changed_rows._owner.pin_metadata_bytes>RETAINED_BYTES);
+        assert!(runtime.physical_cache.rows(&runtime,operations,&changed).is_none());
         // The optional cache may replace an entry at the same coarse key.
         // Escaped receipts retain independent protection of their exact rows.
         assert_eq!(first_rows._owner.pins.len(), first_rows.revisions.len());
@@ -995,13 +1096,25 @@ mod physical_admission_cache_unit {
             .await
             .unwrap();
         assert_eq!(
-            runtime.physical_cache.rows(&runtime, operations, &first),
-            Some(first_rows.revisions.clone())
+            runtime.physical_cache.rows(&runtime, operations, &first).as_ref().map(|rows|rows.revisions()),
+            None,
+            "full independently protected row closure exceeds the optional budget"
         );
         assert_eq!(
-            runtime.physical_cache.rows(&runtime, operations, &second),
-            Some(second_rows.revisions.clone())
+            runtime.physical_cache.rows(&runtime, operations, &second).as_ref().map(|rows|rows.revisions()),
+            None
         );
+        assert!(first_rows._owner.pin_metadata_bytes>RETAINED_BYTES);
+        assert!(second_rows._owner.pin_metadata_bytes>RETAINED_BYTES);
+        // A smaller recorded transport selection supplies the positive rows
+        // coexistence control; it is not compiled as scientific physical input.
+        let selected = *first.sources.iter().find(|(_,table)|table.batch().num_rows()>0).unwrap().0;
+        let mut small_first = first.clone(); small_first.sources.retain(|key,_|*key==selected);
+        let mut small_second = second.clone(); small_second.sources.retain(|key,_|*key==selected);
+        let small_first_rows = operations.put_physical_rows(&runtime,&small_first).await.unwrap();
+        let small_second_rows = operations.put_physical_rows(&runtime,&small_second).await.unwrap();
+        assert_eq!(runtime.physical_cache.rows(&runtime,operations,&small_first).unwrap().revisions(),small_first_rows.revisions.as_slice());
+        assert_eq!(runtime.physical_cache.rows(&runtime,operations,&small_second).unwrap().revisions(),small_second_rows.revisions.as_slice());
         let retained = runtime.physical_cache.report()[0].retained_bytes;
         runtime
             .physical_cache
