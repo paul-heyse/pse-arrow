@@ -1589,7 +1589,7 @@ impl Session {
                     report.metrics.insert("klu.retention_reset_failure".into(), Metric::Text(cleanup.to_string()));
                 }
                 if let Some(context) = pse_diagnostics::observation::current() {
-                    context.unavailable("kinsol.retention_reset", cleanup.to_string());
+                    context.unavailable("kinsol.retention_reset", &cleanup.to_string());
                 }
                 return result;
             }
