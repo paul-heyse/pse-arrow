@@ -1895,21 +1895,22 @@ refreshes the others, and never carries an earlier step's Newton-step, forcing-t
 Anderson controls. Each new KINSol call requests fresh initial numerical setup and clears
 project Jacobi/block setup state; an already accepted initial point may legitimately
 perform zero setups. Within-call monitoring remains library-owned. Retained allocations
-do not authorize numerical setup history. Proposed ADR-0200 records Plan45's bounded
-symbolic-owner investigation and non-adoption: stock KLU and the existing explicit
-Krylov/preconditioned routes remain supported. The experimental exact-CSC/settings owner
-required fresh numerical factors but did not establish material complete-operation benefit
-on the short 128/512-variable contrasts, so its binding/profile were removed. Repeated
-symbolic analysis remains a known limitation; a representative symbolic-dominant workload
-is the revisit trigger. The maintainer-authorized Plan45e/E05 follow-up now screens larger
-representative sparse shapes and conditionally qualifies a narrower fixed-pattern private
-KLU owner under proposed ADR-0200. It freezes analysis settings, owns canonical structure,
-invalidates numerical factors before every application including accepted starts, and
-full-factors current coefficients at first demanded setup. Only symbolic analysis may
-survive; no duplicate CSC key or per-substitution structure scan is selected. Stock generic
-behavior remains unchanged. This is a conditional target, not an implemented/adopted route.
-Actual symbolic, numeric, refactor and substitution observations
-remain distinct (§23.1).
+do not authorize numerical setup history. Proposed ADR-0200 records the private fixed-pattern
+KLU owner selected in Plan45e/E05. The Session's canonical CSC and fixed analysis defaults
+own symbolic eligibility; replacement still checks exact layout. Mutable KLU state access
+and settings/reinitialization mutation refuse for this mode; scalar memory accounting stays
+available. Application entry and native initialization invalidate/free numeric factors,
+including calls with accepted starts. The first demanded setup full-factors current values
+and only completed compatible symbolic analysis survives. Setup/refactor/substitution
+failures invalidate numerical state. Original-check failure after native success also resets
+it. A synchronously drained/reset cancellation may return the private Session to its cache;
+uncertain integrity cannot. Native matrix zeroing still requires canonical CSC restoration.
+There is no copied CSC key or per-substitution structure scan. Generic stock KLU and explicit
+Krylov/preconditioned routes remain available; no public solver variant or global method
+choice changes. Ten targeted controls and short 1,024-variable grid/4,096-variable band
+contrasts support this bounded adoption; Plan45f/F05 owns combined acceptance. The earlier
+exact-key experiment and its 128/512-variable non-adoption remain historical. Actual
+symbolic, numeric, refactor and substitution observations remain distinct (§23.1).
 
 A nested implicit solve (`implicit.rs`) reuses KINSOL sessions through a per-worker-thread
 cache keyed by problem identity and bounded in bytes. The solve takes a compatible session

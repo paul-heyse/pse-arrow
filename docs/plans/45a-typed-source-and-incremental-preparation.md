@@ -2,7 +2,7 @@
 title: "Plan45a: Typed source and incremental preparation"
 status: in-progress
 date: 2026-10-18
-adrs: []
+adrs: [ADR-0183]
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
 doc_role: plan
 doc_topics: [design, preparation, numerical-execution]
@@ -77,7 +77,7 @@ Select and implement the supported bounded reuse/base-description outcome, or ke
 
 Issue a sealed versioned consumed physical product from actual resolution, including positive/transitive meaning, misses, complete candidate populations, scope, checker interpretation and consumed provider meaning. Unknown classifications retain full-context dependence. Refresh current context and Salsa inputs coherently under existing single-writer ownership; re-admit current source and rebuild current prepared wrappers while sharing compatible immutable mathematics. Migrate every A04 boundary together. Full canonical/inventory identity and receiving permission remain separate. The existing revision-opening API supplies the changed-context journey; no new public API is planned.
 
-Current checkpoint: implementation authorized; prerequisite contract review and amendments precede production edits.
+Current checkpoint: the independent prerequisite review accepted the bounded target and ADR-0183/blueprint revision 204 preceded production edits. Resolver-owned lookup/candidate capture, body physical prepass, lane refresh and receiving-wrapper migration are in implementation. Pure quantity and compiler compile checks passed in the isolated worktree; adversarial compiler/runtime acceptance and complete consumer integration remain open. Scientific-witness/direct implicit paths retain explicit complete-context fallback until their complete consumed coverage is available.
 
 ## Verification and checkpoint
 

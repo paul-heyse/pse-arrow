@@ -6,7 +6,7 @@ date: 2026-10-13
 deciders: [paul-heyse]
 level: decision
 principles: [AP-01, AP-02, AP-04, AP-07, DP-09, DP-19, PS-10]
-blueprint: [§4.6, §14.2, §14.3, §14.4, §19, §21, §22.2]
+blueprint: [§4.6, §5, §8, §14.2, §14.3, §14.4, §19, §21, §22.2]
 review: git:6af92d1dee1ffa0b80dca71e03a63b489f2d940c:docs/design_review/reviews/design_review_plan38a-local-authority-and-scoped-validity_2026-10-13.md
 evidence: Interface-checked
 supersedes: []

@@ -2,7 +2,7 @@
 title: "Plan45: Pipeline execution optimization"
 status: in-progress
 date: 2026-10-18
-adrs: []
+adrs: [ADR-0183, ADR-0200]
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
 scenario_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
 doc_role: plan
@@ -150,7 +150,7 @@ The series completes only when every required correction has its targeted accept
 
 ## Reopened follow-up checkpoint (2026-10-18)
 
-The maintainer selected F05 and F13 only and authorized the detailed execution approach. 45a/A06 owns the resolver and all compiler/runtime consumers; 45e/E05 owns the representative sparse screen and conditional narrow native owner; 45f/F05 owns their combined acceptance and enduring publication. Original packages, inquiries and qualification above retain their historical scope. Other retained alternatives are not reopened. No new functional acceptance is claimed at this checkpoint.
+The maintainer selected F05 and F13 only and authorized the detailed execution approach. 45a/A06 owns the resolver and all compiler/runtime consumers; 45e/E05 owns the representative sparse screen and conditional narrow native owner; 45f/F05 owns their combined acceptance and enduring publication. Original packages, inquiries and qualification above retain their historical scope. Other retained alternatives are not reopened. The independent prerequisite review accepted the target and blueprint revisions 204–205 install the contracts and selected native outcome. E05 now has ten passing targeted controls, a corrected/closed independent implementation finding, and scoped short comparisons supporting private fixed-pattern adoption; 45e owns those conditions. A06 remains in implementation and 45f/F05 combined acceptance is open. No enclosing completion is claimed.
 
 ## Outcome (recorded after implementation)
 

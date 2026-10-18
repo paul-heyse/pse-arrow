@@ -1,6 +1,6 @@
 ---
 id: ADR-0200
-title: Qualify private fixed-pattern KLU applications without numerical reuse
+title: Retain KLU symbolic analysis within private fixed-pattern applications
 status: proposed
 date: 2026-10-18
 deciders: [paul-heyse]
@@ -11,11 +11,11 @@ review: docs/design_review/reviews/design_review_post-plan44-pipeline-optimizati
 evidence: Measured
 supersedes: []
 superseded-by: null
-revisit: A representative repeated workload is materially dominated by symbolic analysis, making a complete-operation benefit plausible despite additional state and adapter maintenance.
-verification: E01 fixed-pattern changed-coefficient solves, changed settings/pattern, singular recovery, accepted starts, current residuals, fresh numeric counts, pressure and last-owner release.
+revisit: A native library upgrade, new analysis setting or changed structure-ownership boundary invalidates the private fixed-pattern lifetime or its fresh-numeric contract.
+verification: E05 fixed-pattern complete-operation contrast, mutation refusal and singular recovery, original-validation failure reset, recovered trial, real sparse implicit parameter reuse, accepted starts, original residuals, fresh numeric counts and cache release; F05 owns combined acceptance.
 ---
 
-# ADR-0200: Qualify private fixed-pattern KLU applications without numerical reuse
+# ADR-0200: Retain KLU symbolic analysis within private fixed-pattern applications
 
 ## Context
 
@@ -23,7 +23,7 @@ The bundled SUNDIALS KLU adapter frees and reconstructs symbolic analysis when a
 
 ## Scope
 
-The accepted Plan45 RC08 route allowed a narrow opt-in native linear candidate within KINSOL, conditional on sound lifecycle and useful complete-operation benefit. This proposed record preceded that experiment. Qualification now selects **non-adoption**: the production target remains stock KLU and the existing explicit Krylov/preconditioned alternatives. This is not a formal ADR status transition, a default solver change or a claim that repeated symbolic analysis has been eliminated.
+The accepted Plan45 RC08 route permits a narrow native linear realization within KINSOL, conditional on sound lifecycle and useful complete-operation benefit. This proposed record preceded E01, whose generic exact-key candidate was not adopted. The reopened E05 qualification selects a different private fixed-pattern owner with the same existing KLU method selection. The earlier experiment and current follow-up have distinct outcomes below; no formal ADR status or global solver selection changes.
 
 ### Reopened private-owner target (accepted RC08)
 
@@ -42,6 +42,12 @@ Repeated coefficient changes at fixed sparse structure should reuse established 
 ## Options
 
 Stock KLU has the simplest upstream lifecycle but repeats symbolic work. Skipping initialization or retaining old numerical validity is unsound. The candidate retains only qualified symbolic state, performs a fresh factorization on each application's first setup, and leaves within-application setup/refactor policy with SUNDIALS. Existing Krylov/preconditioned routes remain eligible complete-operation alternatives; no universal solver winner is selected.
+
+## Current follow-up outcome
+
+**Implemented / Tested / Measured:** select the dedicated fixed-pattern constructor internally for eligible existing KLU Sessions. The ten targeted follow-up controls passed at `17b2179a0`, including fresh factors, accepted starts, failure/recovery, original validation, frozen state, actual implicit cache use, release and the complete short contrast. The independent implementation review's original-validation cleanup finding was corrected and closed. This updates the earlier candidate's non-adoption without changing its historical result or this ADR's formal proposed status.
+
+Three repeated 1,024-variable affine-grid replacement/solve observations were stock 2.606/2.823/2.855 ms versus fixed 2.287/2.256/2.337 ms, with the same 1,066,696 retained bytes and original residual checks. Corresponding nonlinear-grid observations also improved while retaining the same numeric/refactor/substitution counts. Only later symbolic analyses disappear. These are short scoped observations, not a universal solver ranking; Plan45e/E05 records conditions and Plan45f/F05 owns combined qualification. The earlier generic exact-key candidate stays deleted.
 
 ## Previous bounded outcome
 
@@ -63,11 +69,11 @@ Keep stock numerical initialization and failure/recovery semantics. Retained nat
 
 ## Pros and cons
 
-The retained upstream owner avoids a second maintained binding and extra state. Repeated symbolic analysis remains a known cost. Revisit only when a representative symbolic-dominant workload supplies a materially different complete-operation case.
+The fixed-pattern extension removes repeated symbolic analysis without another copied CSC key, per-substitution scans or extra measured retained payload. It adds a small maintained native lifecycle contract that must be rechecked on upgrades. Generic upstream behavior and existing explicit Krylov routes remain available. Full numeric factors remain fresh, and no benefit is claimed for accepted starts or the first analysis.
 
 ## More information
 
-[Plan45 rule decisions](../plans/45-pipeline-execution-optimization.md#rule-decisions), [E01](../plans/45e-sparse-native-and-provider-effectiveness.md#e01--repeated-sparse-preparation-and-qualified-alternatives), and [native execution](../authoritative_design/sections/numerical-execution.md#section-18).
+[Plan45 rule decisions](../plans/45-pipeline-execution-optimization.md#rule-decisions), [current E05](../plans/45e-sparse-native-and-provider-effectiveness.md#e05--reopened-fixed-pattern-sparse-qualification), [historical E01](../plans/45e-sparse-native-and-provider-effectiveness.md#e01--repeated-sparse-preparation-and-qualified-alternatives), and [native execution](../authoritative_design/sections/numerical-execution.md#section-18).
 
 ## Status history
 
@@ -75,3 +81,4 @@ The retained upstream owner avoids a second maintained binding and extra state. 
 - 2026-10-18 — independent implementation inspection identified KLU's normalization of four floating inputs; candidate eligibility explicitly rejects those noncanonical ranges before setup rather than reporting successful setup followed by false substitution refusal.
 - 2026-10-18 — bounded E01 qualification selected non-adoption under accepted RC08; removed the experimental production binding and retained stock/Krylov comparisons. Formal status remains proposed.
 - 2026-10-18 — maintainer reopened F13 under RC08 for representative short screening and a narrower private fixed-pattern lifecycle. Prior non-adoption remains valid for its candidate/cases; new adoption is conditional and formal status stays proposed.
+- 2026-10-18 — narrower fixed-pattern owner selected after the representative grid/band comparison and ten targeted controls; original-validation cleanup finding corrected. Combined acceptance remains 45f/F05; formal status unchanged.
