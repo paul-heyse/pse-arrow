@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 198
+revision: 199
 date: 2026-10-18
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 199 | 2026-10-18 | Proposed ADR-0200 opt-in symbolic-retaining KLU application contract (§18/§23.1), exact structure/settings eligibility and fresh numerical validity; stock default retained pending Plan45e qualification. | Maintainer-authorized Plan45 RC08 execution; PSE_DESIGN_EDIT=1; prerequisite publication precedes binding implementation. |
 | 198 | 2026-10-18 | Plan45 RC04 explicit selected reader/snapshot target (§20), preserving full snapshots and Python stream meaning; acknowledged protected evidence handoff within ADR-0182 (§20.4). | Maintainer-authorized execution; PSE_DESIGN_EDIT=1; proposed ADR-0187 amendment precedes selected API implementation; qualification remains Plan45c/f. |
 | 197 | 2026-10-18 | Plan45 accepted RC01/RC02 local typed-ingress and candidate/retained ownership targets (§14.3.2/§14.4); proposed ADR-0199 consumed adjoint parameter layout (§13.6/§19.4), preserving complete physical values, second-order meanings and ordinary accuracy. | Maintainer-authorized Plan45 execution; PSE_DESIGN_EDIT=1; prerequisite target publication, implementation and qualification remain with Plan45. |
 | 196 | 2026-10-17 | Plan44 selected short native/compiled/durable/managed/Python qualification (§24.2); current invocation and selected-direction acceptance references (§23.1/§13.6), preserving unresolved KLU symbolic limitation and ordinary accuracy. | Maintainer-authorized Plan44 closeout; PSE_DESIGN_EDIT=1. Proposed ADR statuses unchanged; prior plans/index unchanged. |
