@@ -58,6 +58,7 @@ impl MathService {
         let events = progress.clone();
         let run_id = pse_operations::mint_id();
         Ok(SolveHandle::supervise(progress, move |cancel| async move {
+            let prepared = Arc::new(prepared);
             let admission = profile.solver.composition.limits.map(|limits| {
                 super::super::strategy::admission::TaskAdmission::new_for(
                     limits,
@@ -108,9 +109,22 @@ impl MathService {
                             Ok(allowance) => allowance,
                             Err(_) => { readiness.defer(index); break; }
                         };
-                        let input_owner = service.reserve("math:block-dispatch-inputs", prepared.dependencies.binding_bytes(index))?;
-                        let inputs: pse_math::SharedAllocation<CaseValues> = Arc::new(prepared.dependencies.inputs(index, &values)?).into();
-                        let inputs = inputs.with_owner(input_owner);
+                        let dispatch = (|| {
+                            let input_owner = service.reserve("math:block-dispatch-inputs", prepared.dependencies.binding_bytes(index))?;
+                            let inputs: pse_math::SharedAllocation<CaseValues> = Arc::new(prepared.dependencies.inputs(index, &values)?).into();
+                            let admission = admission.as_ref().map(|parent| parent.child()).transpose()?;
+                            Ok::<_, MathRuntimeError>((inputs.with_owner(input_owner), admission))
+                        })();
+                        let (inputs, child_admission) = match dispatch {
+                            Ok(dispatch) => dispatch,
+                            Err(error) => {
+                                let _ = iterations.complete(index, Some(0));
+                                issued[index] = Some(BlockAttempt { stage, strategy: strategies[index], boundary: prepared.blocks[index].boundary.clone(),
+                                    result: Err(Arc::new(error)), trace: None, committed: false });
+                                completed = false;
+                                break;
+                            }
+                        };
                         let block = &prepared.blocks[index];
                         let previous = (previous_accepted && stage > 0).then(|| {
                             attempts.iter().rposition(|attempt| attempt.boundary.id == block.boundary.id && attempt.committed)
@@ -118,7 +132,7 @@ impl MathService {
                         active_threads += effective[index].threads;
                         running.push(service.clone().run_ready_block(
                             prepared.clone(), index, inputs, providers.clone(), profile.solver.clone(),
-                            numerics.clone(), strategies[index], scope.clone(), admission.as_ref().map(|parent| parent.child()).transpose()?,
+                            numerics.clone(), strategies[index], scope.clone(), child_admission,
                             cancel.clone(), allowance, previous, first + index, events.clone(), owner.clone()));
                     }
                     for index in deferred { readiness.defer(index); }
@@ -134,9 +148,14 @@ impl MathService {
                     };
                     let result = attempted.map(|(report, _)| report).map_err(Arc::new);
                     let accounted = iterations.complete(index, result.as_ref().ok().and_then(|report| report.evidence.work.iterations)).is_ok();
-                    let committed_block = accounted && commit_block(&mut values,
+                    let mut committed_block = accounted && commit_block(&mut values,
                         &prepared.blocks[index].boundary, result.as_deref().ok(), &numerics.policy).is_ok();
-                    if committed_block { readiness.commit(index)?; }
+                    if committed_block && let Err(error) = readiness.commit(index) {
+                        committed_block = false;
+                        if let Some(context) = pse_diagnostics::observation::current() {
+                            context.unavailable("math.block_dependency_commit", error.to_string());
+                        }
+                    }
                     completed &= committed_block;
                     issued[index] = Some(BlockAttempt { stage, strategy: strategies[index],
                         boundary: prepared.blocks[index].boundary.clone(), result, trace, committed: committed_block });
@@ -204,7 +223,7 @@ impl MathService {
 
     #[allow(clippy::too_many_arguments, reason = "issued block retains its exact task and admission owners through completion and neutral reset")]
     async fn run_ready_block(
-        self: Arc<Self>, prepared: PreparedInitialization, index: usize,
+        self: Arc<Self>, prepared: Arc<PreparedInitialization>, index: usize,
         values: pse_math::SharedAllocation<CaseValues>,
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         profile: SolverProfile,

@@ -768,7 +768,7 @@ impl MathService {
                                 &local.providers, &step.snapshot)?);
                             Ok::<_, MathRuntimeError>(step)
                         })();
-                        let step = match rebound { Ok(step) => step, Err(error) => { let _ = iterations.complete(index, None); errors.insert(index, error); stopped = true; break; } };
+                        let step = match rebound { Ok(step) => step, Err(error) => { let _ = iterations.complete(index, Some(0)); errors.insert(index, error); stopped = true; break; } };
                         let mut child_execution = execution.clone();
                         child_execution.memory = Some(self.policy.foreign_allowance(&step.profile.controls));
                         if parallel {
@@ -790,7 +790,7 @@ impl MathService {
                     match &outcome {
                         Ok(Outcome::Native(report)) => {
                             match super::super::initialization::commit_block(&mut values, &prepared.boundaries[index].boundary, Some(report), &prepared.original.numerics.policy) {
-                                Ok(()) if !errors.contains_key(&index) => { readiness.commit(index)?; }
+                                Ok(()) if !errors.contains_key(&index) => { if let Err(error) = readiness.commit(index) { errors.insert(index, error.into()); stopped = true; } }
                                 Ok(()) => {},
                                 Err(cause) => { refused.insert(index, cause); stopped = true; }
                             }
