@@ -177,3 +177,25 @@ fn equal_content_new_physical_owners_refresh_checked_shell_and_reuse_mathematics
     assert!(workspace.publish_modeling_revision(prior.clone()).is_err());
     assert!(Arc::ptr_eq(&workspace.context().quantities, &current.quantities));
 }
+
+#[test]
+fn physical_context_and_matching_source_publish_as_one_candidate() {
+    let (mut workspace, prior, root, inputs) = setup();
+    let old = prepare(&mut workspace, root);
+    let changed = change_scalar(&inputs, |row| row["name"] = serde_json::json!("RenamedScalar"));
+    let rows = crate::authored_transfer_tests::rows(&SOURCE.replace("Scalar", "RenamedScalar"));
+    let candidate = |workspace: &mut CompilerWorkspace, cancel: Arc<AtomicBool>, refuse: bool| {
+        workspace.publish_modeling_context_with_validation(changed.clone(), rows.clone(), PhysicalScope::default(),
+            Arc::default(), cancel, |_| if refuse { Err(CompileError::Missing("receiving obligation".into())) } else { Ok(()) })
+    };
+    assert!(candidate(&mut workspace, Arc::new(AtomicBool::new(false)), true).is_err());
+    assert!(Arc::ptr_eq(&workspace.context().quantities, &inputs.quantities));
+    assert!(workspace.selects_modeling_revision(&prior));
+    assert_same_mathematics(&old, &prepare(&mut workspace, root));
+    assert!(matches!(candidate(&mut workspace, Arc::new(AtomicBool::new(true)), false), Err(CompileError::Cancelled)));
+    assert!(Arc::ptr_eq(&workspace.context().quantities, &inputs.quantities));
+    let revision = candidate(&mut workspace, Arc::new(AtomicBool::new(false)), false).unwrap();
+    assert!(std::ptr::eq(revision.checked().context().quantities, changed.quantities.as_ref()));
+    assert!(workspace.selects_modeling_revision(&revision));
+    assert!(!prepare(&mut workspace, root).admitted.bodies.is_empty());
+}

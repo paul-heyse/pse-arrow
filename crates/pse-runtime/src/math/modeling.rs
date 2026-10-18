@@ -1120,10 +1120,9 @@ impl MathService {
         }
         let mut supplier_refused = false;
         let mut compiler = authority.lock()?;
-        if let Some(inputs) = &authority.workspace.desired_context {
-            compiler.refresh_modeling_context(inputs.clone(), cancel.clone())?;
-        }
-        let admitted = compiler.publish_modeling_with_validation(
+        let inputs = authority.workspace.desired_context.clone().unwrap_or_else(|| compiler.context());
+        let admitted = compiler.publish_modeling_context_with_validation(
+            inputs,
             rows,
             scope,
             documents,
