@@ -17,6 +17,9 @@ mod projection;
 use projection::{ProjectionRelationship, project_compatible};
 #[path = "assembly_observation.rs"]
 mod observation;
+#[path = "assembly_completion.rs"]
+mod completion;
+use completion::{AssembledProduct, AssemblyCompletion};
 use enum_map::EnumMap;
 use observation::CaseObservation;
 use pse_ids::{ContentHash, SemanticId};
@@ -1992,6 +1995,8 @@ impl CasePlan {
                 )
             })
             .and_then(|n| n.checked_add(programs.len().checked_mul(size_of::<Worker>())?))
+            .and_then(|n| n.checked_add(size_of::<AssemblyCompletion>()))
+            .and_then(|n| n.checked_add((self.columns.len() + self.rows.len() + 1).checked_mul(size_of::<u64>())?))
             .ok_or(MathError::Limit("case worker bytes"))?;
         if bytes > self.limits.worker_bytes {
             return Err(MathError::Limit("case worker bytes"));
@@ -2204,6 +2209,12 @@ pub struct CaseAssembly {
 pub struct BoundValues {
     assembly: Arc<CaseAssembly>,
     fixed: Vec<f64>,
+    revision: u64,
+}
+fn fixed_revision() -> Result<u64, MathError> {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    NEXT.try_update(Ordering::Relaxed, Ordering::Relaxed, |revision| revision.checked_add(1))
+        .map_err(|_| MathError::Limit("fixed value revision"))
 }
 impl BoundValues {
     /// Refill this operation's fixed frame through a precompiled dense read map.
@@ -2219,6 +2230,9 @@ impl BoundValues {
                 .copied()
                 .ok_or_else(|| MathError::Contract("compact read-map source".into()))?;
             self.assembly.structure.validate_scalar(*id, value)?;
+        }
+        if self.fixed.iter().zip(reads).any(|(value, &read)| value.to_bits() != source[read].to_bits()) {
+            self.revision = fixed_revision()?;
         }
         for (value, &read) in self.fixed.iter_mut().zip(reads) {
             *value = source[read];
@@ -2237,6 +2251,9 @@ impl BoundValues {
                 return Err(MathError::Contract("duplicate compact input update".into()));
             }
             self.assembly.structure.validate_scalar(*id, *value)?;
+        }
+        if updates.iter().any(|(id, value)| self.assembly.fixed.binary_search(id).is_ok_and(|index| self.fixed[index].to_bits() != value.to_bits())) {
+            self.revision = fixed_revision()?;
         }
         for (id, value) in updates {
             if let Ok(index) = self.assembly.fixed.binary_search(id) {
@@ -2430,6 +2447,7 @@ impl CaseAssembly {
         Ok(BoundValues {
             assembly: self.clone(),
             fixed,
+            revision: fixed_revision()?,
         })
     }
     /// Validate a rebind once and retain only its fixed and parameter coordinates.
@@ -2442,6 +2460,7 @@ impl CaseAssembly {
         Ok(BoundValues {
             assembly: Arc::clone(self),
             fixed: self.fixed.iter().map(|id| values.scalars[id]).collect(),
+            revision: fixed_revision()?,
         })
     }
     /// Identity and known extent of the shallow plan wrapper and its body map only.
@@ -2532,6 +2551,7 @@ impl CaseAssembly {
             recycler: None,
             observation: None,
             observation_operation: None,
+            completion: AssemblyCompletion::new(self.columns.len(), self.rows.len()),
         }
     }
     /// Exclusively attach reset storage to this exact immutable assembly. The caller
@@ -2583,6 +2603,7 @@ impl CaseAssembly {
             recycler: None,
             observation: None,
             observation_operation: None,
+            completion: AssemblyCompletion::new(self.columns.len(), self.rows.len()),
         })
     }
 }
@@ -2711,6 +2732,7 @@ pub struct DemandStatistics<'a> {
 /// Isolated attempt scratch. Failed evaluation clears the failed cache and never publishes output.
 #[derive(Debug)]
 pub struct CaseWorker {
+    completion: AssemblyCompletion,
     scope: pse_kernels::ExecutionScope,
     assembly: Arc<CaseAssembly>,
     groups: Vec<EnumMap<EvaluationDemand, Option<GroupCache>>>,
@@ -2911,6 +2933,14 @@ impl CaseWorker {
             .map(Worker::instantiated_orders)
             .collect()
     }
+    #[cfg(test)]
+    pub(crate) fn assembled_counts(&self) -> [u64; 7] {
+        std::array::from_fn(|index| self.completion.assemblies.as_slice()[index])
+    }
+    #[cfg(test)]
+    pub(crate) fn local_evaluation_counts(&self) -> [u64; 5] {
+        std::array::from_fn(|index| self.completion.evaluations.as_slice()[index])
+    }
     /// Shared cooperative cancellation owner for bounded library work on this admitted worker.
     pub fn cancellation(&self) -> &Arc<AtomicBool> {
         &self.cancel
@@ -2925,6 +2955,7 @@ impl CaseWorker {
     }
     /// Clear numerical results and observation witnesses after a refused trial.
     pub fn invalidate_trial(&mut self) {
+        self.completion.invalidate();
         if let Some(observation) = &mut self.observation {
             observation.invalidate();
         }
@@ -3037,6 +3068,7 @@ impl CaseWorker {
                 &mut self.projections,
             ) {
                 Ok(Some(achieved)) => {
+                    self.completion.replaced(demand)?;
                     if let Some(observation) = &mut self.observation {
                         observation.projected(i, demand, order, achieved);
                     }
@@ -3057,6 +3089,8 @@ impl CaseWorker {
                 observation.miss(i, demand, order, worker.cache, same);
             }
             worker.visible = false;
+            #[cfg(test)]
+            { self.completion.evaluations[demand] += 1; }
             let evaluated = self.workers[group.request]
                 .evaluate_trial_into(
                     &worker.inputs,
@@ -3081,6 +3115,7 @@ impl CaseWorker {
                 *bits = value.to_bits();
             }
             worker.cache = Some(order);
+            self.completion.replaced(demand)?;
             worker.visible = true;
         }
         self.scope.check().map_err(crate::error::scope_error)?;
@@ -3129,14 +3164,23 @@ impl CaseWorker {
             EvaluationDemand::Objective,
             DerivativeOrder::Value,
         )?;
-        let mut value = 0.0;
-        for (i, instance) in self.assembly.instances.iter().enumerate() {
-            for term in &instance.objective_terms {
-                let result = self.evaluated_result(i, EvaluationDemand::Objective)?;
-                value += term.scale * result.values[term.result_row];
-            }
+        if self.completion.reusable(AssembledProduct::Objective, EvaluationDemand::Objective, DerivativeOrder::Value) {
+            return Ok(self.completion.objective);
         }
-        finite(value * self.objective_sign())
+        self.completion.begin(AssembledProduct::Objective);
+        let assembled = (|| {
+            let mut value = 0.0;
+            for (i, instance) in self.assembly.instances.iter().enumerate() {
+                for term in &instance.objective_terms {
+                    let result = self.evaluated_result(i, EvaluationDemand::Objective)?;
+                    value += term.scale * result.values[term.result_row];
+                }
+            }
+            self.completion.objective = finite(value * self.objective_sign())?;
+            Ok(())
+        })();
+        self.finish_assembly(assembled, AssembledProduct::Objective, EvaluationDemand::Objective, DerivativeOrder::Value)?;
+        Ok(self.completion.objective)
     }
     fn objective_sign(&self) -> f64 {
         self.assembly
@@ -3154,17 +3198,25 @@ impl CaseWorker {
             EvaluationDemand::Constraints,
             DerivativeOrder::Value,
         )?;
-        self.constraint_values.fill(0.0);
-        for (i, instance) in self.assembly.instances.iter().enumerate() {
-            for term in &instance.constraint_terms {
-                let result = self.evaluated_result(i, EvaluationDemand::Constraints)?;
-                let addend = term.scale * result.values[term.result_row];
-                self.constraint_values[term.destination] += addend;
+        if self.completion.reusable(AssembledProduct::Constraints, EvaluationDemand::Constraints, DerivativeOrder::Value) {
+            return Ok(&self.constraint_values);
+        }
+        self.completion.begin(AssembledProduct::Constraints);
+        let assembled = (|| {
+            self.constraint_values.fill(0.0);
+            for (i, instance) in self.assembly.instances.iter().enumerate() {
+                for term in &instance.constraint_terms {
+                    let result = self.evaluated_result(i, EvaluationDemand::Constraints)?;
+                    let addend = term.scale * result.values[term.result_row];
+                    self.constraint_values[term.destination] += addend;
+                }
             }
-        }
-        for &value in &self.constraint_values {
-            finite(value)?;
-        }
+            for &value in &self.constraint_values {
+                finite(value)?;
+            }
+            Ok(())
+        })();
+        self.finish_assembly(assembled, AssembledProduct::Constraints, EvaluationDemand::Constraints, DerivativeOrder::Value)?;
         Ok(&self.constraint_values)
     }
     /// Retain independently visible source terms from the most recent constraint evaluation.
@@ -3191,28 +3243,36 @@ impl CaseWorker {
             EvaluationDemand::Objective,
             DerivativeOrder::First,
         )?;
-        self.gradient_values.fill(0.0);
-        let sign = self.objective_sign();
-        for (i, instance) in self.assembly.instances.iter().enumerate() {
-            for term in &instance.objective_terms {
-                let result = &self.groups[i][EvaluationDemand::Objective]
-                    .as_ref()
-                    .filter(|group| group.cache.is_some())
-                    .ok_or_else(|| MathError::Contract("unevaluated gradient demand".into()))?
-                    .result;
-                for (axis, value) in result.first_entries(term.result_row) {
-                    let coordinate = &instance.gradient_coordinates[axis];
-                    let addend = sign
-                        * term.scale
-                        * coordinate.scale
-                        * value;
-                    self.gradient_values[coordinate.destination] += addend;
+        if self.completion.reusable(AssembledProduct::Gradient, EvaluationDemand::Objective, DerivativeOrder::First) {
+            return Ok(&self.gradient_values);
+        }
+        self.completion.begin(AssembledProduct::Gradient);
+        let assembled = (|| {
+            self.gradient_values.fill(0.0);
+            let sign = self.objective_sign();
+            for (i, instance) in self.assembly.instances.iter().enumerate() {
+                for term in &instance.objective_terms {
+                    let result = &self.groups[i][EvaluationDemand::Objective]
+                        .as_ref()
+                        .filter(|group| group.cache.is_some())
+                        .ok_or_else(|| MathError::Contract("unevaluated gradient demand".into()))?
+                        .result;
+                    for (axis, value) in result.first_entries(term.result_row) {
+                        let coordinate = &instance.gradient_coordinates[axis];
+                        let addend = sign
+                            * term.scale
+                            * coordinate.scale
+                            * value;
+                        self.gradient_values[coordinate.destination] += addend;
+                    }
                 }
             }
-        }
-        for &value in &self.gradient_values {
-            finite(value)?;
-        }
+            for &value in &self.gradient_values {
+                finite(value)?;
+            }
+            Ok(())
+        })();
+        self.finish_assembly(assembled, AssembledProduct::Gradient, EvaluationDemand::Objective, DerivativeOrder::First)?;
         Ok(&self.gradient_values)
     }
     /// Refill the canonical constraint Jacobian without rebuilding structure.
@@ -3220,32 +3280,40 @@ impl CaseWorker {
         &mut self,
         values: impl Into<EvalInputs<'a>>,
     ) -> Result<&faer::sparse::SparseColMat<usize, f64>, MathError> {
+        let values = values.into();
+        let point = self.trial_point(values)?;
         self.evaluate(
-            values.into(),
+            values,
             EvaluationDemand::Constraints,
             DerivativeOrder::First,
         )?;
-        self.jacobian
-            .as_mut()
-            .ok_or_else(|| MathError::Contract("detached Jacobian".into()))?
-            .clear();
-        for (k, t) in self.assembly.jacobian_terms.iter().enumerate() {
-            let v = &self.groups[t.instance][EvaluationDemand::Constraints]
-                .as_ref()
-                .filter(|group| group.cache.is_some())
-                .ok_or_else(|| MathError::Contract("unevaluated Jacobian demand".into()))?
-                .result;
-            let value = t.scale * v.first[t.result_offset];
+        self.completion.jacobian_point = point;
+        if self.completion.reusable(AssembledProduct::Jacobian, EvaluationDemand::Constraints, DerivativeOrder::First) {
+            return Ok(self.jacobian.as_ref().ok_or_else(|| MathError::Contract("detached Jacobian".into()))?.matrix());
+        }
+        self.completion.begin(AssembledProduct::Jacobian);
+        let assembled = (|| {
             self.jacobian
                 .as_mut()
                 .ok_or_else(|| MathError::Contract("detached Jacobian".into()))?
-                .add(Addend::new(k), value)?;
-        }
-        Ok(self
-            .jacobian
-            .as_ref()
-            .ok_or_else(|| MathError::Contract("detached Jacobian".into()))?
-            .matrix())
+                .clear();
+            for (k, t) in self.assembly.jacobian_terms.iter().enumerate() {
+                let v = &self.groups[t.instance][EvaluationDemand::Constraints]
+                    .as_ref()
+                    .filter(|group| group.cache.is_some())
+                    .ok_or_else(|| MathError::Contract("unevaluated Jacobian demand".into()))?
+                    .result;
+                let value = t.scale * v.first[t.result_offset];
+                self.jacobian
+                    .as_mut()
+                    .ok_or_else(|| MathError::Contract("detached Jacobian".into()))?
+                    .add(Addend::new(k), value)?;
+            }
+            Ok(())
+        })();
+        self.finish_assembly(assembled, AssembledProduct::Jacobian, EvaluationDemand::Constraints, DerivativeOrder::First)?;
+        self.completion.jacobian_point = point;
+        Ok(self.jacobian.as_ref().ok_or_else(|| MathError::Contract("detached Jacobian".into()))?.matrix())
     }
     /// Refill the lower Lagrangian Hessian from actual weighted local products.
     pub fn hessian<'a>(
@@ -3255,30 +3323,46 @@ impl CaseWorker {
         multipliers: &[f64],
     ) -> Result<&faer::sparse::SparseColMat<usize, f64>, MathError> {
         self.check_weights(objective_weight, multipliers)?;
+        let values = values.into();
+        let point = self.trial_point(values)?;
         self.evaluate_bound_product(
-            values.into(),
+            values,
             EvaluationDemand::All,
             objective_weight,
             multipliers,
             None,
         )?;
-        let matrix = self
-            .hessian
-            .as_mut()
-            .ok_or_else(|| MathError::Contract("detached Hessian".into()))?;
-        matrix.clear();
-        for (index, term) in self.assembly.hessian_terms.iter().enumerate() {
-            let group = self.groups[term.instance][EvaluationDemand::All]
-                .as_ref()
-                .filter(|g| g.visible && g.cache.is_some())
-                .ok_or_else(|| MathError::Contract("unevaluated weighted Hessian".into()))?;
-            matrix.add(
-                Addend::new(index),
-                term.scale * group.product[term.component],
-            )?;
+        self.completion.hessian_point = point;
+        if !self.completion.same_weights(objective_weight, multipliers) {
+            self.completion.forget(AssembledProduct::Hessian);
         }
-        self.scope.check().map_err(crate::error::scope_error)?;
-        Ok(matrix.matrix())
+        if self.completion.reusable(AssembledProduct::Hessian, EvaluationDemand::All, DerivativeOrder::Second) {
+            return Ok(self.hessian.as_ref().ok_or_else(|| MathError::Contract("detached Hessian".into()))?.matrix());
+        }
+        self.completion.begin(AssembledProduct::Hessian);
+        let assembled = (|| {
+            let matrix = self
+                .hessian
+                .as_mut()
+                .ok_or_else(|| MathError::Contract("detached Hessian".into()))?;
+            matrix.clear();
+            for (index, term) in self.assembly.hessian_terms.iter().enumerate() {
+                let group = self.groups[term.instance][EvaluationDemand::All]
+                    .as_ref()
+                    .filter(|g| g.visible && g.cache.is_some())
+                    .ok_or_else(|| MathError::Contract("unevaluated weighted Hessian".into()))?;
+                matrix.add(
+                    Addend::new(index),
+                    term.scale * group.product[term.component],
+                )?;
+            }
+            self.scope.check().map_err(crate::error::scope_error)?;
+            Ok(())
+        })();
+        self.finish_assembly(assembled, AssembledProduct::Hessian, EvaluationDemand::All, DerivativeOrder::Second)?;
+        self.completion.hessian_point = point;
+        self.completion.set_weights(objective_weight, multipliers);
+        Ok(self.hessian.as_ref().ok_or_else(|| MathError::Contract("detached Hessian".into()))?.matrix())
     }
     /// Evaluate a weighted Hessian action directly; no full matrix is assembled.
     pub fn hessian_product<'a>(
@@ -3290,8 +3374,7 @@ impl CaseWorker {
         output: &mut [f64],
     ) -> Result<(), MathError> {
         self.check_weights(objective_weight, multipliers)?;
-        if !self.assembly.has_hessian_actions()
-            || direction.len() != self.assembly.columns.len()
+        if direction.len() != self.assembly.columns.len()
             || output.len() != self.assembly.columns.len()
             || direction.iter().any(|v| !v.is_finite())
         {
@@ -3299,34 +3382,61 @@ impl CaseWorker {
                 "prepared Hessian action and finite global dimensions required".into(),
             ));
         }
+        let values = values.into();
+        let point = self.trial_point(values)?;
+        if self.matrix_eligible(AssembledProduct::Hessian, EvaluationDemand::All, DerivativeOrder::Second, point)
+            && self.completion.same_weights(objective_weight, multipliers)
+        {
+            self.scope.check().map_err(crate::error::scope_error)?;
+            self.completion.begin(AssembledProduct::HessianAction);
+            let assembled = self.hessian.as_ref()
+                .ok_or_else(|| MathError::Contract("detached hessian".into()))?
+                .symmetric_product(direction, &mut self.action_values[..output.len()]);
+            self.finish_assembly(assembled, AssembledProduct::HessianAction, EvaluationDemand::All, DerivativeOrder::Second)?;
+            for groups in &mut self.groups {
+                if let Some(group) = &mut groups[EvaluationDemand::All] { group.visible = true; }
+            }
+            output.copy_from_slice(&self.action_values[..output.len()]);
+            return Ok(());
+        }
+        if !self.assembly.has_hessian_actions() {
+            return Err(MathError::Contract("no completed compatible matrix or prepared action".into()));
+        }
         self.evaluate_bound_product(
-            values.into(),
+            values,
             EvaluationDemand::HessianAction,
             objective_weight,
             multipliers,
             Some(direction),
         )?;
-        self.action_values[..output.len()].fill(0.0);
-        for (index, (local, binding)) in self
-            .assembly
-            .instances
-            .iter()
-            .zip(self.assembly.structure.instances())
-            .enumerate()
-        {
-            let Some(cache) = &self.groups[index][EvaluationDemand::HessianAction] else {
-                continue;
-            };
-            for (axis, (&formal, &column)) in
-                local.coordinates.iter().zip(&local.columns).enumerate()
-            {
-                let destination = &mut self.action_values[column.get()];
-                *destination = finite(
-                    *destination + binding.slots[formal.get()].scale() * cache.product[axis],
-                )?;
-            }
+        if !self.completion.reusable(AssembledProduct::HessianAction, EvaluationDemand::HessianAction, DerivativeOrder::Second) {
+            self.completion.begin(AssembledProduct::HessianAction);
+            let assembled = (|| {
+                self.action_values[..output.len()].fill(0.0);
+                for (index, (local, binding)) in self
+                    .assembly
+                    .instances
+                    .iter()
+                    .zip(self.assembly.structure.instances())
+                    .enumerate()
+                {
+                    let Some(cache) = &self.groups[index][EvaluationDemand::HessianAction] else {
+                        continue;
+                    };
+                    for (axis, (&formal, &column)) in
+                        local.coordinates.iter().zip(&local.columns).enumerate()
+                    {
+                        let destination = &mut self.action_values[column.get()];
+                        *destination = finite(
+                            *destination + binding.slots[formal.get()].scale() * cache.product[axis],
+                        )?;
+                    }
+                }
+                self.scope.check().map_err(crate::error::scope_error)?;
+                Ok(())
+            })();
+            self.finish_assembly(assembled, AssembledProduct::HessianAction, EvaluationDemand::HessianAction, DerivativeOrder::Second)?;
         }
-        self.scope.check().map_err(crate::error::scope_error)?;
         output.copy_from_slice(&self.action_values[..output.len()]);
         Ok(())
     }
@@ -3337,8 +3447,7 @@ impl CaseWorker {
         direction: &[f64],
         output: &mut [f64],
     ) -> Result<(), MathError> {
-        if !self.assembly.has_directional_actions()
-            || direction.len() != self.assembly.columns.len()
+        if direction.len() != self.assembly.columns.len()
             || output.len() != self.assembly.rows.len()
             || direction.iter().any(|v| !v.is_finite())
         {
@@ -3346,29 +3455,95 @@ impl CaseWorker {
                 "prepared Jacobian action and finite global dimensions required".into(),
             ));
         }
+        let values = values.into();
+        let point = self.trial_point(values)?;
+        if self.matrix_eligible(AssembledProduct::Jacobian, EvaluationDemand::Constraints, DerivativeOrder::First, point)
+        {
+            self.scope.check().map_err(crate::error::scope_error)?;
+            self.completion.begin(AssembledProduct::JacobianAction);
+            let assembled = self.jacobian.as_ref()
+                .ok_or_else(|| MathError::Contract("detached jacobian".into()))?
+                .product(direction, &mut self.action_values[..output.len()]);
+            self.finish_assembly(assembled, AssembledProduct::JacobianAction, EvaluationDemand::Constraints, DerivativeOrder::First)?;
+            for groups in &mut self.groups {
+                if let Some(group) = &mut groups[EvaluationDemand::Constraints] { group.visible = true; }
+            }
+            output.copy_from_slice(&self.action_values[..output.len()]);
+            return Ok(());
+        }
+        if !self.assembly.has_directional_actions() {
+            return Err(MathError::Contract("no completed compatible matrix or prepared action".into()));
+        }
         self.evaluate_bound_product(
-            values.into(),
+            values,
             EvaluationDemand::Directional,
             0.0,
             &[],
             Some(direction),
         )?;
-        self.action_values[..output.len()].fill(0.0);
-        for (index, weights) in self.assembly.product_weights.iter().enumerate() {
-            let Some(cache) = &self.groups[index][EvaluationDemand::Directional] else {
-                continue;
-            };
-            for weight in &weights[EvaluationDemand::Directional] {
-                if let ProductTarget::Row(row) = weight.target {
-                    self.action_values[row] = finite(
-                        self.action_values[row] + weight.scale * cache.product[weight.output],
-                    )?;
+        if !self.completion.reusable(AssembledProduct::JacobianAction, EvaluationDemand::Directional, DerivativeOrder::First) {
+            self.completion.begin(AssembledProduct::JacobianAction);
+            let assembled = (|| {
+                self.action_values[..output.len()].fill(0.0);
+                for (index, weights) in self.assembly.product_weights.iter().enumerate() {
+                    let Some(cache) = &self.groups[index][EvaluationDemand::Directional] else {
+                        continue;
+                    };
+                    for weight in &weights[EvaluationDemand::Directional] {
+                        if let ProductTarget::Row(row) = weight.target {
+                            self.action_values[row] = finite(
+                                self.action_values[row] + weight.scale * cache.product[weight.output],
+                            )?;
+                        }
+                    }
                 }
-            }
+                self.scope.check().map_err(crate::error::scope_error)?;
+                Ok(())
+            })();
+            self.finish_assembly(assembled, AssembledProduct::JacobianAction, EvaluationDemand::Directional, DerivativeOrder::First)?;
         }
-        self.scope.check().map_err(crate::error::scope_error)?;
         output.copy_from_slice(&self.action_values[..output.len()]);
         Ok(())
+    }
+    fn trial_point(&mut self, values: EvalInputs<'_>) -> Result<Option<u64>, MathError> {
+        let result = values.check(&self.assembly).and_then(|()| self.completion.point(values));
+        if let Err(cause) = &result { self.refuse_trial(cause); }
+        result
+    }
+    fn matrix_eligible(
+        &self,
+        product: AssembledProduct,
+        demand: EvaluationDemand,
+        order: DerivativeOrder,
+        point: Option<u64>,
+    ) -> bool {
+        let matrix_point = match product {
+            AssembledProduct::Jacobian => self.completion.jacobian_point,
+            AssembledProduct::Hessian => self.completion.hessian_point,
+            _ => return false,
+        };
+        // Provider completions alone do not authorize skipping current effects.
+        // Until an enclosing owner admits all current linearization premises,
+        // provider-bearing matrices retain the prepared action route.
+        point.is_some() && matrix_point == point
+            && self.completion.reusable(product, demand, order)
+            && self.assembly.instances.iter().filter_map(|instance| instance.groups[demand].as_ref())
+                .all(|group| self.assembly.programs[group.request].census().all(|order| order.provider_stages == 0))
+    }
+    fn finish_assembly(
+        &mut self,
+        assembled: Result<(), MathError>,
+        product: AssembledProduct,
+        demand: EvaluationDemand,
+        order: DerivativeOrder,
+    ) -> Result<(), MathError> {
+        let result = assembled.and_then(|()| self.scope.check().map_err(crate::error::scope_error));
+        if let Err(cause) = &result {
+            self.refuse_trial(cause);
+        } else {
+            self.completion.completed(product, demand, order);
+        }
+        result
     }
     fn check_weights(&self, objective_weight: f64, multipliers: &[f64]) -> Result<(), MathError> {
         if self.assembly.order < DerivativeOrder::Second
@@ -3512,6 +3687,8 @@ impl CaseWorker {
                         ));
                     }
                 };
+                #[cfg(test)]
+                { self.completion.evaluations[demand] += 1; }
                 self.workers[group.request].evaluate_product_trial_into(
                     &cache.inputs,
                     product,
@@ -3535,6 +3712,7 @@ impl CaseWorker {
                     *bits = value.to_bits();
                 }
                 cache.cache = Some(order);
+                self.completion.replaced(demand)?;
                 cache.visible = true;
                 if let Some(observation) = &mut self.observation {
                     observation.completed(index, demand, order);

@@ -221,3 +221,37 @@ fn shared_conditional_oracle_lends_one_worker_and_keeps_other_owners_private() {
     NleOracle::jacobian_product(&mut loan, &[4.0], &[5.0], &mut output).unwrap();
     assert_eq!(output, [5.0]);
 }
+
+#[test]
+fn repeated_native_completed_callbacks_preserve_point_direction_and_atomic_boundaries() {
+    let (assembly, values) = fixture(ModelingVariableDomain::Continuous);
+    let mut oracle = assembled::AlgebraicOracle::new(
+        assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default()), values,
+    ).unwrap();
+    let mut output = [999.];
+    for _ in 0..3 {
+        NlpOracle::constraints(&mut oracle, &[3.], &mut output).unwrap();
+        assert_eq!(output, [3.]);
+        NleOracle::residual(&mut oracle, &[3.], &mut output).unwrap();
+        assert_eq!(output, [1.]);
+        NlpOracle::jacobian(&mut oracle, &[3.], &mut output).unwrap();
+        assert_eq!(output, [1.]);
+        NlpOracle::gradient(&mut oracle, &[3.], &mut output).unwrap();
+        assert_eq!(output, [0.]);
+        NleOracle::jacobian_product(&mut oracle, &[3.], &[5.], &mut output).unwrap();
+        assert_eq!(output, [5.]);
+    }
+    NleOracle::jacobian_product(&mut oracle, &[3.], &[7.], &mut output).unwrap();
+    assert_eq!(output, [7.]);
+    assert!(NleOracle::jacobian_product(&mut oracle, &[3.], &[f64::INFINITY], &mut output).is_err());
+    assert_eq!(output, [7.]);
+    assert!(NleOracle::jacobian_product(&mut oracle, &[f64::NAN], &[5.], &mut output).is_err());
+    assert_eq!(output, [7.]);
+    NlpOracle::jacobian(&mut oracle, &[4.], &mut output).unwrap();
+    NleOracle::jacobian_product(&mut oracle, &[4.], &[5.], &mut output).unwrap();
+    assert_eq!(output, [5.]);
+    // Final assessment independently returns original, unshifted values.
+    NlpOracle::constraints(&mut oracle, &[4.], &mut output).unwrap();
+    assert_eq!(output, [4.]);
+    assert_eq!(NlpOracle::constraint_sources(&oracle).unwrap()[0].value, 4.);
+}

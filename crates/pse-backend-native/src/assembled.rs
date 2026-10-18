@@ -5,7 +5,7 @@
 use crate::{CoefficientProblem, NleOracle, NlpOracle, OracleContract, ProblemError, Variable};
 use pse_kernels::DerivativeOrder;
 use pse_math::{
-    assembly::{BoundValues, CasePlan, CaseWorker},
+    assembly::{BoundValues, CasePlan, CaseWorker, EvalInputs},
     binding::CaseValues,
     coefficients::Coefficients,
 };
@@ -115,7 +115,6 @@ impl AlgebraicOracle {
         crate::transform::Relaxed::new(Box::new(oracle), domains)
     }
     fn over_columns(worker: CaseWorker, values: CaseValues) -> Result<Self, ProblemError> {
-        worker.assembly().structure().validate_values(&values)?;
         let bound = worker.assembly().bind_values(&values)?;
         Self::over_bound(worker, bound, Some(values))
     }
@@ -292,10 +291,6 @@ impl AlgebraicOracle {
     }
     /// Updating parameters invalidates numerical caches by complete local input identity.
     pub fn update_values(&mut self, values: CaseValues) -> Result<(), ProblemError> {
-        self.worker
-            .assembly()
-            .structure()
-            .validate_values(&values)?;
         let bound = self.worker.assembly().bind_values(&values)?;
         self.facts = Default::default();
         self.presolve = None;
@@ -303,29 +298,24 @@ impl AlgebraicOracle {
         self.bound = bound;
         Ok(())
     }
-    /// Refill a conditional oracle's compact frame and discard all previous trial and
-    /// coefficient assumptions. Native allocation and immutable sparse support survive.
+    /// Refill a conditional oracle's compact frame. Exact local input keys retain
+    /// unaffected groups; coefficient assumptions are discarded.
     pub fn refill_inputs(
         &mut self,
         updates: &[(pse_ids::SemanticId, f64)],
     ) -> Result<(), ProblemError> {
-        self.worker.invalidate_trial();
+        if let Err(cause) = self.bound.refill(updates) {
+            self.worker.invalidate_trial();
+            return Err(cause.into());
+        }
         self.facts = Default::default();
         self.presolve = None;
         self.values = None;
-        self.bound.refill(updates)?;
         Ok(())
     }
     /// Exact consumed fixed values for native refresh compatibility.
     pub fn input_identity(&self) -> pse_ids::ContentHash {
         self.bound.input_identity()
-    }
-    fn trial(&mut self, x: &[f64]) -> Result<(), ProblemError> {
-        if x.len() != self.contract.variables.len() || x.iter().any(|v| !v.is_finite()) {
-            self.worker.invalidate_trial();
-            return Err(ProblemError::numerical("native trial dimensions or values"));
-        }
-        Ok(())
     }
 }
 /// A private same-thread handle to one operation-owned root evaluator. Clones lend
@@ -452,6 +442,14 @@ impl NleOracle for SharedRootOracle {
     }
 }
 
+// BoundValues issues the immutable finite trial premise. Failure clears prior
+// numerical permission; successful callbacks share that premise through assembly.
+fn validated_trial<'a>(bound: &'a BoundValues, worker: &mut CaseWorker, x: &'a [f64]) -> Result<EvalInputs<'a>, ProblemError> {
+    match bound.trial(x) {
+        Ok(trial) => Ok(trial),
+        Err(cause) => { worker.invalidate_trial(); Err(cause.into()) }
+    }
+}
 fn copy(source: &[f64], target: &mut [f64]) -> Result<(), ProblemError> {
     if source.len() != target.len() {
         return Err(ProblemError::Internal("native output dimensions".into()));
@@ -492,20 +490,20 @@ impl NlpOracle for AlgebraicOracle {
         &self.bounds
     }
     fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
-        self.trial(x)?;
-        Ok(self.worker.objective(self.bound.trial(x)?)?)
+        let trial = validated_trial(&self.bound, &mut self.worker, x)?;
+        Ok(self.worker.objective(trial)?)
     }
     fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        self.trial(x)?;
-        copy(self.worker.constraints(self.bound.trial(x)?)?, out)
+        let trial = validated_trial(&self.bound, &mut self.worker, x)?;
+        copy(self.worker.constraints(trial)?, out)
     }
     fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        self.trial(x)?;
-        copy(self.worker.gradient(self.bound.trial(x)?)?, out)
+        let trial = validated_trial(&self.bound, &mut self.worker, x)?;
+        copy(self.worker.gradient(trial)?, out)
     }
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        self.trial(x)?;
-        copy(self.worker.jacobian(self.bound.trial(x)?)?.val(), out)
+        let trial = validated_trial(&self.bound, &mut self.worker, x)?;
+        copy(self.worker.jacobian(trial)?.val(), out)
     }
     fn hessian(
         &mut self,
@@ -514,10 +512,10 @@ impl NlpOracle for AlgebraicOracle {
         multipliers: &[f64],
         out: &mut [f64],
     ) -> Result<(), ProblemError> {
-        self.trial(x)?;
+        let trial = validated_trial(&self.bound, &mut self.worker, x)?;
         copy(
             self.worker
-                .hessian(self.bound.trial(x)?, objective_weight, multipliers)?
+                .hessian(trial, objective_weight, multipliers)?
                 .val(),
             out,
         )
@@ -565,8 +563,8 @@ impl NleOracle for AlgebraicOracle {
     }
     fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.admit_nle()?;
-        self.trial(x)?;
-        let values = self.worker.constraints(self.bound.trial(x)?)?;
+        let trial = validated_trial(&self.bound, &mut self.worker, x)?;
+        let values = self.worker.constraints(trial)?;
         for ((out, value), (lower, _)) in self.root_output.iter_mut().zip(values).zip(&self.bounds)
         {
             *out = value - lower;
@@ -581,12 +579,9 @@ impl NleOracle for AlgebraicOracle {
         out: &mut [f64],
     ) -> Result<(), ProblemError> {
         self.admit_nle()?;
-        self.trial(x)?;
-        self.root_output.fill(f64::NAN);
-        self.worker
-            .jacobian_product(self.bound.trial(x)?, direction, &mut self.root_output)?;
-        crate::tnlp::finite(&self.root_output)?;
-        copy(&self.root_output, out)
+        let trial = validated_trial(&self.bound, &mut self.worker, x)?;
+        self.worker.jacobian_product(trial, direction, out)?;
+        Ok(())
     }
 }
 /// Native contract preserves every selected variable/row, including isolated vertices. Its

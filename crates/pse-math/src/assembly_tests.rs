@@ -4906,3 +4906,119 @@ fn prepared_callback_addresses_preserve_reordered_outputs_duplicates_aliases_and
         );
     }
 }
+
+#[test]
+fn completed_assembled_products_reuse_only_current_successful_generations() {
+    let (assembly, mut values) = fixture(false, false);
+    let cancel = pse_diagnostics::Cancellation::default();
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), cancel.clone());
+    for _ in 0..2 {
+        assert_eq!(worker.objective(&values).unwrap(), 6.);
+        assert_eq!(worker.constraints(&values).unwrap(), &[25., 0.]);
+    }
+    assert_eq!(worker.assembled_counts(), [1, 1, 0, 0, 0, 0, 0]);
+    assert_eq!(worker.local_evaluation_counts(), [1, 1, 0, 0, 0]);
+    for _ in 0..2 {
+        assert_eq!(worker.gradient(&values).unwrap(), &[3., 2.]);
+        worker.jacobian(&values).unwrap();
+        worker.hessian(&values, 1., &[0., 0.]).unwrap();
+    }
+    assert_eq!(worker.assembled_counts(), [1, 1, 1, 1, 1, 0, 0]);
+    assert_eq!(worker.local_evaluation_counts(), [2, 2, 1, 0, 0]);
+    // An order upgrade replaces the demand's completion; its weaker assembly is
+    // authorized again once, then repeated downward requests reuse it.
+    for _ in 0..2 { worker.objective(&values).unwrap(); worker.constraints(&values).unwrap(); }
+    assert_eq!(worker.assembled_counts(), [2, 2, 1, 1, 1, 0, 0]);
+    let before = worker.assembled_counts();
+    cancel.flag().store(true, std::sync::atomic::Ordering::Relaxed);
+    assert!(worker.constraints(&values).is_err());
+    cancel.flag().store(false, std::sync::atomic::Ordering::Relaxed);
+    assert_eq!(worker.constraints(&values).unwrap(), &[25., 0.]);
+    assert_eq!(worker.assembled_counts(), before);
+    values.scalars.insert(id(1), 4.);
+    assert_eq!(worker.constraints(&values).unwrap(), &[35., 0.]);
+    assert_eq!(worker.assembled_counts()[1], before[1] + 1);
+    values.scalars.insert(id(1), 4e307);
+    values.scalars.insert(id(2), 4e307);
+    assert!(worker.constraints(&values).is_err());
+    assert!(worker.constraint_sources().is_err());
+    values.scalars.insert(id(1), 2.);
+    values.scalars.insert(id(2), 3.);
+    assert_eq!(worker.constraints(&values).unwrap(), &[25., 0.]);
+    worker.invalidate_trial();
+    let before = worker.assembled_counts()[1];
+    worker.constraints(&values).unwrap();
+    assert_eq!(worker.assembled_counts()[1], before + 1);
+}
+
+#[test]
+fn completed_native_matrices_supply_actions_without_preparing_action_programs() {
+    let (assembly, values) = fixture(false, false);
+    assert!(!assembly.has_directional_actions());
+    assert!(!assembly.has_hessian_actions());
+    let bound = assembly.bind_values(&values).unwrap();
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
+    let point = [2., 3.];
+    worker.jacobian(bound.trial(&point).unwrap()).unwrap();
+    worker.hessian(bound.trial(&point).unwrap(), 1., &[0., 0.]).unwrap();
+    let prepared = worker.instantiated_orders();
+    let evaluations = worker.local_evaluation_counts();
+    let mut output = [999.; 2];
+    worker.jacobian_product(bound.trial(&point).unwrap(), &[5., 7.], &mut output).unwrap();
+    assert_eq!(output, [60., 0.]);
+    worker.hessian_product(bound.trial(&point).unwrap(), 1., &[0., 0.], &[5., 7.], &mut output).unwrap();
+    assert_eq!(output, [7., 5.]);
+    assert_eq!(worker.instantiated_orders(), prepared);
+    assert_eq!(worker.local_evaluation_counts(), evaluations);
+    output.fill(999.);
+    assert!(worker.hessian_product(bound.trial(&point).unwrap(), 2., &[0., 0.], &[5., 7.], &mut output).is_err());
+    assert_eq!(output, [999.; 2]);
+    assert!(worker.jacobian_product(bound.trial(&[4., 3.]).unwrap(), &[5., 7.], &mut output).is_err());
+    assert_eq!(output, [999.; 2]);
+    // Reauthorize the independently complete old matrix at its exact original point.
+    worker.jacobian(bound.trial(&point).unwrap()).unwrap();
+    worker.jacobian_product(bound.trial(&point).unwrap(), &[7., 5.], &mut output).unwrap();
+    assert_eq!(output, [60., 0.]);
+    assert_eq!(worker.assembled_counts()[3], 1);
+}
+
+#[test]
+fn completed_fixed_frame_receipts_preserve_exact_changed_and_unchanged_refills() {
+    let (assembly, values) = fixture(true, true);
+    let mut bound = assembly.bind_values(&values).unwrap();
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
+    assert_eq!(worker.objective(bound.trial(&[]).unwrap()).unwrap(), 4.);
+    bound.refill(&[(id(1), 2.)]).unwrap();
+    worker.objective(bound.trial(&[]).unwrap()).unwrap();
+    assert_eq!(worker.assembled_counts()[0], 1);
+    bound.refill(&[(id(2), 99.)]).unwrap(); // Declared but unconsumed.
+    worker.objective(bound.trial(&[]).unwrap()).unwrap();
+    assert_eq!(worker.assembled_counts()[0], 1);
+    bound.refill(&[(id(1), 3.)]).unwrap();
+    assert_eq!(worker.objective(bound.trial(&[]).unwrap()).unwrap(), 9.);
+    assert_eq!(worker.assembled_counts()[0], 2);
+    assert!(bound.refill(&[(id(1), f64::NAN)]).is_err());
+    assert_eq!(worker.objective(bound.trial(&[]).unwrap()).unwrap(), 9.);
+    assert_eq!(worker.assembled_counts()[0], 2);
+}
+
+#[test]
+fn completed_assemblies_never_bypass_current_provider_effects() {
+    let (provider, control, calls) = controlled_jet_provider();
+    let key = provider.spec.key();
+    let (assembly, values) = overlapping_output_fixture(Some(&provider.spec), false);
+    let provider = pse_kernels::ProviderBinding::new(provider.spec.clone(), Box::new(provider));
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::from([(key, provider)]), pse_diagnostics::Cancellation::default());
+    for _ in 0..2 { assert_eq!(worker.objective(&values).unwrap(), 36.); }
+    assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 2);
+    assert_eq!(worker.assembled_counts()[0], 2);
+    assert_eq!(worker.local_evaluation_counts()[0], 2);
+    control.store(4, std::sync::atomic::Ordering::Release);
+    assert!(worker.objective(&values).is_err());
+    assert!(worker.applicability_observations().is_empty());
+    control.store(0, std::sync::atomic::Ordering::Release);
+    assert_eq!(worker.objective(&values).unwrap(), 36.);
+    assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 4);
+    assert_eq!(worker.assembled_counts()[0], 3);
+    assert_eq!(worker.local_evaluation_counts()[0], 4);
+}

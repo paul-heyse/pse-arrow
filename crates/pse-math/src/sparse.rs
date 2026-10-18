@@ -148,6 +148,34 @@ impl AssemblyMatrix {
         }
         Ok(())
     }
+    /// Apply an already completed lower symmetric matrix through faer's products.
+    pub(crate) fn symmetric_product(&self, direction: &[f64], output: &mut [f64]) -> Result<(), MathError> {
+        if self.matrix.nrows() != self.matrix.ncols() {
+            return Err(MathError::Contract("symmetric product requires a square matrix".into()));
+        }
+        self.product(direction, output)?;
+        // Remove the diagonal before adding the transposed lower matrix, so a
+        // finite diagonal is never doubled as an intermediate result.
+        for (column, &seed) in direction.iter().enumerate() {
+            for entry in self.matrix.symbolic().col_ptr()[column]..self.matrix.symbolic().col_ptr()[column + 1] {
+                if self.matrix.row_idx()[entry] == column {
+                    output[column] -= self.matrix.val()[entry] * seed;
+                }
+            }
+        }
+        faer::sparse::linalg::matmul::dense_sparse_matmul(
+            faer::MatMut::from_row_major_slice_mut(output, 1, self.matrix.ncols()),
+            faer::Accum::Add,
+            faer::MatRef::from_row_major_slice(direction, 1, self.matrix.nrows()),
+            self.matrix.as_ref(),
+            1.0,
+            faer::Par::Seq,
+        );
+        if output.iter().any(|value| !value.is_finite()) {
+            return Err(MathError::Contract("nonfinite symmetric matrix product".into()));
+        }
+        Ok(())
+    }
 }
 
 /// Content identity of canonical CSC structure, excluding numerical values. Column
