@@ -81,7 +81,7 @@ fn prepared_wide_provider_bank_reuses_validated_binding_and_refuses_malformed_de
     let calls = Arc::new(AtomicUsize::new(0));
     let capabilities = Arc::new(AtomicUsize::new(0));
     let mut source = descriptor(256, 128);
-    let provider = ProviderBinding::new(source.clone(), Box::new(Controlled {
+    let mut provider = ProviderBinding::new(source.clone(), Box::new(Controlled {
         mode: Arc::new(AtomicU8::new(0)), calls: calls.clone(), capabilities: capabilities.clone(), cancel: cancel.clone(),
     }));
     source.outputs.clear();

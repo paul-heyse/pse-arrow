@@ -101,7 +101,7 @@ fn flat_expressions(
 
 #[derive(Clone)]
 pub(super) struct TransposeProduct {
-    program: CompiledBody,
+    pub(super) program: CompiledBody,
     inputs: usize,
     worker_bytes: usize,
     arguments_map: Vec<usize>,
