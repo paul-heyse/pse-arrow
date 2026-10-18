@@ -732,6 +732,22 @@ pub(super) async fn store_result_table_queued(
     queue.finish(id, position).await
 }
 
+/// Recorded complete relations share production's deferred append queue; the
+/// fixture caller must flush once before closing its ingestion fence.
+#[cfg(all(test, feature = "canonical-tests"))]
+pub(super) async fn store_recorded_table_deferred(
+    queue: &mut ResultAppendQueue<'_>,
+    id: SemanticId,
+    cursor: super::ResultCursor<'_>,
+) -> Result<(), WorkflowError> {
+    let mut position = ResultStreamPosition::default();
+    if let Err(error) = append_result_table_queued(queue, id, cursor, &mut position, None).await {
+        queue.flush().await?;
+        return Err(error);
+    }
+    queue.finish_deferred(id, position).await
+}
+
 /// Only concrete memory admission failures permit rebuilding a pure projection.
 /// Cancellation, scientific/field refusal and mixed error collections never do.
 pub(super) fn projection_memory_refusal(error: &WorkflowError) -> bool {
