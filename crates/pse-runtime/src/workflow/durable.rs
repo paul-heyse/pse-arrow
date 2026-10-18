@@ -3482,9 +3482,9 @@ pub(super) fn source_edit(
         references: Vec::new(),
     }
 }
-// Keep the physical publication phase's concrete future off its scientific
-// supervisor's frame. Admission precedes construction; out-of-line construction
-// and polling preserve ordinary executor stacks without changing task ownership.
+// Keep each physical edit's construction temporaries out of the publication
+// poll frame. Admission precedes construction; out-of-line construction and
+// polling preserve ordinary executor stacks without changing task ownership.
 async fn physical_publication_action<T, F, Fut>(
     pool: &Arc<dyn MemoryPool>,
     action: F,
@@ -3501,9 +3501,14 @@ where
         size_of::<Fut>()
     }
     let owner = MemoryConsumer::new("physical:publication-action").register(pool);
-    owner.try_grow(action_bytes(&action)).map_err(pse_engine::EngineError::from)?;
+    owner
+        .try_grow(action_bytes(&action))
+        .map_err(pse_engine::EngineError::from)?;
     let mut work = super::worker::boxed_worker_action(action);
-    futures_util::future::poll_fn(|context| super::worker::poll_worker_action(work.as_mut(), context)).await
+    futures_util::future::poll_fn(|context| {
+        super::worker::poll_worker_action(work.as_mut(), context)
+    })
+    .await
 }
 
 impl Operations {
@@ -3515,15 +3520,40 @@ impl Operations {
         group: &mut super::physical_spool::PhysicalGroup,
     ) -> Result<Revision, WorkflowError> {
         let problem = format!("physical:rows:grouped-v2:{identity}");
-        let operation = format!("physical:grouped-v2:{identity}:{:020}:{:020}",group.first,group.end);
-        let edits = group.blocks.drain(..).enumerate().map(|(offset,payload)| {
-            let ordinal = group.first + offset as u64;
-            source_edit(format!("rows:{ordinal:020}"), relation.to_string(), format!("{ordinal:020}"), "physical:rows:v1", payload)
-        }).collect::<Vec<_>>();
+        let operation = format!(
+            "physical:grouped-v2:{identity}:{:020}:{:020}",
+            group.first, group.end
+        );
+        let edits = group
+            .blocks
+            .drain(..)
+            .enumerate()
+            .map(|(offset, payload)| {
+                let ordinal = group.first + offset as u64;
+                source_edit(
+                    format!("rows:{ordinal:020}"),
+                    relation.to_string(),
+                    format!("{ordinal:020}"),
+                    "physical:rows:v1",
+                    payload,
+                )
+            })
+            .collect::<Vec<_>>();
         // edit binds the complete original request and settles unknown activation
         // ACKs using its immutable operation receipt. No guessed parent advances.
-        Ok(pse_operations::canonical::response_ownership_scope(group.owner.clone(),
-            self.store.edit(&problem,parent.map(|row|row.key.as_str()),&operation,&edits)).await?)
+        physical_publication_action(&self.pool, || async {
+            Ok(pse_operations::canonical::response_ownership_scope(
+                group.owner.clone(),
+                self.store.edit(
+                    &problem,
+                    parent.map(|row| row.key.as_str()),
+                    &operation,
+                    &edits,
+                ),
+            )
+            .await?)
+        })
+        .await
     }
     async fn publish_physical_groups(
         &self,
@@ -3534,20 +3564,16 @@ impl Operations {
         let mut groups = super::physical_spool::PhysicalGroups::new(reader, &self.pool)?;
         let mut saved = None;
         while let Some(mut group) = groups.next().await? {
-            saved = Some(self.publish_physical_group(relation,identity,saved.as_ref(),&mut group).await?);
+            saved = Some(
+                self.publish_physical_group(relation, identity, saved.as_ref(), &mut group)
+                    .await?,
+            );
         }
         Ok(saved)
     }
     /// Persist each registry physical relation independently; each immutable IPC object
     /// is bounded, and no unrelated relation is hydrated on replay.
     pub(super) async fn put_physical_rows(
-        &self,
-        runtime: &super::Runtime,
-        physical: &super::PhysicalContext,
-    ) -> Result<super::physical_cache::PhysicalRows, WorkflowError> {
-        physical_publication_action(&self.pool, || self.put_physical_rows_inner(runtime, physical)).await
-    }
-    async fn put_physical_rows_inner(
         &self,
         runtime: &super::Runtime,
         physical: &super::PhysicalContext,
@@ -3578,13 +3604,20 @@ impl Operations {
                         runtime.shared.runtime_env(),
                         pse_operations::canonical::PAYLOAD_BYTES,
                     )?;
-                    super::result_blocks::visit_source_blocks_async(table.batch(), |_, _, payload| {
-                        hash.part(&payload);
-                        std::future::ready(spool.push(&payload))
-                    }).await?;
+                    super::result_blocks::visit_source_blocks_async(
+                        table.batch(),
+                        |_, _, payload| {
+                            hash.part(&payload);
+                            std::future::ready(spool.push(&payload))
+                        },
+                    )
+                    .await?;
                     let identity = hash.finish_hash();
-                    let saved = pse_operations::canonical::response_ownership_scope(encoding.clone(),
-                        self.publish_physical_groups(*relation,identity,spool.finish()?)).await?;
+                    let saved = pse_operations::canonical::response_ownership_scope(
+                        encoding.clone(),
+                        self.publish_physical_groups(*relation, identity, spool.finish()?),
+                    )
+                    .await?;
                     if let Some(revision) = saved {
                         revisions.push(revision);
                     }
@@ -3601,14 +3634,19 @@ impl Operations {
                 );
                 let problem = format!("physical:context:{}", physical.identity());
                 revisions.push(
-                    pse_operations::canonical::response_ownership_scope(encoding.clone(),self.store
-                        .edit(
-                            &problem,
-                            None,
-                            &format!("physical:context:{}", physical.identity()),
-                            &[edit],
-                        ))
-                        .await?,
+                    physical_publication_action(&self.pool, || async {
+                        Ok(pse_operations::canonical::response_ownership_scope(
+                            encoding.clone(),
+                            self.store.edit(
+                                &problem,
+                                None,
+                                &format!("physical:context:{}", physical.identity()),
+                                &[edit],
+                            ),
+                        )
+                        .await?)
+                    })
+                    .await?,
                 );
                 let result = runtime
                     .physical_cache
@@ -3730,15 +3768,21 @@ mod physical_publication_action_tests {
     }
 
     #[tokio::test]
-    async fn physical_publication_action_admits_before_construction_and_keeps_exact_owner_until_drop() {
+    async fn physical_publication_action_admits_before_construction_and_keeps_exact_owner_until_drop()
+     {
         let extent = size_of::<Action>();
         let entered = Arc::new(AtomicU64::new(0));
         let dropped = Arc::new(AtomicU64::new(0));
-        let tiny: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(extent-1));
+        let tiny: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(extent - 1));
         let refused = physical_publication_action(&tiny, || {
             entered.fetch_add(1, Ordering::AcqRel);
-            Action { cancel: crate::CancelSource::new(), dropped: dropped.clone(), _payload: [0;1024] }
-        }).await;
+            Action {
+                cancel: crate::CancelSource::new(),
+                dropped: dropped.clone(),
+                _payload: [0; 1024],
+            }
+        })
+        .await;
         assert!(refused.is_err());
         assert_eq!(entered.load(Ordering::Acquire), 0);
         assert_eq!(dropped.load(Ordering::Acquire), 0);
@@ -3749,14 +3793,25 @@ mod physical_publication_action_tests {
             let cancel = crate::CancelSource::new();
             let dropped = Arc::new(AtomicU64::new(0));
             let mut work = Box::pin(physical_publication_action(&pool, || {
-                assert_eq!(pool.reserved(), extent, "exact future admission precedes construction");
-                Action { cancel: cancel.clone(), dropped: dropped.clone(), _payload: [0;1024] }
+                assert_eq!(
+                    pool.reserved(),
+                    extent,
+                    "exact future admission precedes construction"
+                );
+                Action {
+                    cancel: cancel.clone(),
+                    dropped: dropped.clone(),
+                    _payload: [0; 1024],
+                }
             }));
             assert!(futures_util::poll!(work.as_mut()).is_pending());
             assert_eq!(pool.reserved(), extent);
             if cancelled {
                 cancel.cancel();
-                assert!(work.await.is_ok(), "the original phase observes its original cancellation");
+                assert!(
+                    work.await.is_ok(),
+                    "the original phase observes its original cancellation"
+                );
             } else {
                 drop(work);
             }
