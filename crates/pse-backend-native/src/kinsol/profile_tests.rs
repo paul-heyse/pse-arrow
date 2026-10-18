@@ -241,6 +241,25 @@ fn solve_observed(session: &mut Session, start: &[f64]) -> (SolveReport, LinearP
     assert!(phases.started.iter().all(Option::is_none));
     (report, phases)
 }
+/// Preserve the upstream generic owner as a complete-route control. This is test
+/// setup only; production sessions select the private fixed-pattern lifecycle.
+fn stock_session(function: Function, config: Settings, stamp: Compatibility) -> Session {
+    let mut session = Session::new(function, config, execution(), stamp).unwrap();
+    if session.settings.method.linear == Linear::Klu {
+        // SAFETY: all owners are exclusive and idle. Attach the replacement before
+        // freeing the old owner, then restore the analytic callback reset by attach.
+        unsafe {
+            let linear = ffi::SUNLinSol_KLU(session.x, session.matrix, session.ctx);
+            assert!(!linear.is_null());
+            assert_eq!(ffi::KINSetLinearSolver(session.mem, linear, session.matrix), 0);
+            assert_eq!(ffi::KINSetJacFn(session.mem, Some(jacobian)), 0);
+            assert_eq!(ffi::SUNLinSolFree(session.linear), 0);
+            session.linear = linear;
+        }
+        session.stock_klu = true;
+    }
+    session
+}
 #[test]
 fn short_profile_contrasts_at_engineering_accuracy_preserve_original_roots() {
     assert_eq!(Method::default().setup_interval, 10);
@@ -332,7 +351,7 @@ fn retained_klu_exact_layout_and_fresh_coefficient_application_boundary() {
                 phases.nanos
             );
             assert!(report.quality.as_ref().unwrap().feasible());
-            assert_eq!(count(&report, "klu.symbolic.completed"), 1);
+            assert_eq!(count(&report, "klu.symbolic.completed"), i64::from(generation == 1));
             assert_eq!(count(&report, "klu.numeric_factor.completed"), 1);
             assert!(
                 report
@@ -344,15 +363,14 @@ fn retained_klu_exact_layout_and_fresh_coefficient_application_boundary() {
             );
         }
         for ordering in [0, 2] {
-            assert_eq!(
-                // SAFETY: documented KLU ordering choices on the exclusively owned
-                // live solver; next KINSol still performs its required initialization.
+            assert_ne!(
+                // SAFETY: fixed owners refuse ordering mutation on this live solver.
                 unsafe { ffi::SUNLinSol_KLUSetOrdering(session.linear, ordering) },
                 0
             );
             let report = solve(&mut session, &[0.25; 4]);
             assert!(report.quality.as_ref().unwrap().feasible());
-            assert_eq!(count(&report, "klu.symbolic.completed"), 1);
+            assert_eq!(count(&report, "klu.symbolic.completed"), 0);
             assert_eq!(count(&report, "klu.numeric_factor.completed"), 1);
         }
         assert!(
@@ -459,13 +477,11 @@ fn repeated_banded_sparse_stock_and_krylov_complete_operation_contrast() {
                 settings.method.preconditioner = Preconditioner::Jacobi;
             }
             let stamp = crate::solver_tests::stamp(Backend::Kinsol);
-            let mut session = Session::new(
+            let mut session = stock_session(
                 Function::Equations(Box::new(Root::banded(n, band, Shape::Cubic, 1.))),
                 settings.clone(),
-                execution(),
                 stamp.clone(),
-            )
-            .unwrap();
+            );
             for (generation, target, coupling) in [(1_u8, 1., 0.1), (2, 1.2, 0.2), (3, 0.9, 0.05)] {
                 let mut root = Root::banded(n, band, Shape::Cubic, target);
                 root.coupling = coupling;
@@ -645,24 +661,36 @@ impl NleOracle for Manufactured {
 }
 #[test]
 fn fixed_pattern_short_stock_screen() {
+    sparse_screen(false);
+}
+#[test]
+fn fixed_pattern_complete_operation_contrast() {
+    sparse_screen(true);
+}
+fn sparse_screen(qualify: bool) {
     for shape in [SparseShape::Band, SparseShape::Blocks { recycle: false },
         SparseShape::Blocks { recycle: true }, SparseShape::Grid] {
+        if qualify && matches!(shape, SparseShape::Blocks { .. }) { continue; }
         for nonlinear in [false, true] {
             // One nonlinear shape is enough to expose within-call setup behaviour.
-            if nonlinear && !matches!(shape, SparseShape::Blocks { recycle: true }) { continue; }
-            for linear in [Linear::Klu, Linear::Spgmr {
-                dimension: pse_model::scalars::PositiveCount::try_new(20).unwrap(),
-            }] {
+            let nonlinear_shape = if qualify { matches!(shape, SparseShape::Grid) }
+                else { matches!(shape, SparseShape::Blocks { recycle: true }) };
+            if nonlinear && !nonlinear_shape { continue; }
+            for route in 0..if qualify { 3 } else { 2 } {
+                let fixed = route == 2;
+                let linear = if route == 1 { Linear::Spgmr {
+                    dimension: pse_model::scalars::PositiveCount::try_new(20).unwrap(),
+                } } else { Linear::Klu };
                 let n = Manufactured::new(shape, 0, nonlinear).target.len();
                 let mut config = settings(n, 10);
                 config.method.linear = linear;
                 if linear.krylov().is_some() { config.method.preconditioner = Preconditioner::Jacobi; }
                 let stamp = crate::solver_tests::stamp(Backend::Kinsol);
-                let mut session = Session::new(
-                    Function::Equations(Box::new(Manufactured::new(shape, 0, nonlinear))),
-                    config.clone(), execution(), stamp.clone(),
-                ).unwrap();
-                for generation in 0..3 {
+                let function = Function::Equations(Box::new(Manufactured::new(shape, 0, nonlinear)));
+                let mut session = if fixed {
+                    Session::new(function, config.clone(), execution(), stamp.clone()).unwrap()
+                } else { stock_session(function, config.clone(), stamp.clone()) };
+                for generation in 0..if qualify { 4 } else { 3 } {
                     let root = Manufactured::new(shape, generation, nonlinear);
                     let verification = Manufactured::new(shape, generation, nonlinear);
                     let calls = root.calls.clone();
@@ -685,10 +713,10 @@ fn fixed_pattern_short_stock_screen() {
                     let original_max = residual.iter().map(|r| r.abs()).fold(0., f64::max);
                     assert!(original_max <= 0.001, "original residual {original_max}");
                     if linear == Linear::Klu {
-                        assert_eq!(count(&report, "klu.symbolic.completed"), 1);
+                        assert_eq!(count(&report, "klu.symbolic.completed"), i64::from(!fixed || generation == 0));
                         assert!(count(&report, "klu.numeric_factor.completed") >= 1);
                     }
-                    eprintln!("stock_screen shape={shape:?} n={n} nonlinear={nonlinear} linear={linear:?} generation={generation} replacement_solve_ns={} retained_bytes={} calls={:?} native_phase_ns={:?} symbolic={:?} numeric={:?} refactor={:?} substitutions={:?} original_max={original_max}",
+                    eprintln!("sparse_screen fixed={fixed} shape={shape:?} n={n} nonlinear={nonlinear} linear={linear:?} generation={generation} replacement_solve_ns={} retained_bytes={} calls={:?} native_phase_ns={:?} symbolic={:?} numeric={:?} refactor={:?} substitutions={:?} original_max={original_max}",
                         elapsed.as_nanos(), session.retained_bytes(), calls.borrow(), phases.nanos,
                         report.metrics.get("klu.symbolic.completed"), report.metrics.get("klu.numeric_factor.completed"),
                         report.metrics.get("klu.refactor.completed"), report.metrics.get("klu.solve.completed"));
@@ -696,4 +724,121 @@ fn fixed_pattern_short_stock_screen() {
             }
         }
     }
+}
+
+#[test]
+fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
+    let stamp = crate::solver_tests::stamp(Backend::Kinsol);
+    let mut session = Session::new(
+        Function::Equations(Box::new(Root::new(4, true, Shape::Cubic, 1.))),
+        settings(4, 10), execution(), stamp,
+    ).unwrap();
+    assert_eq!(solve(&mut session, &[0.3; 4]).termination.category, Termination::Success);
+    let memory = |session: &Session| {
+        let mut bytes = 0;
+        // SAFETY: scalar read from this exclusively owned, idle native solver.
+        assert_eq!(unsafe { ffi::SUNLinSol_KLUGetMemUsage(session.linear, &raw mut bytes) }, 0);
+        bytes
+    };
+    let full_memory = memory(&session);
+    // SAFETY: these API refusals occur on live, exclusively owned native objects.
+    unsafe {
+        assert!(ffi::SUNLinSol_KLUGetCommon(session.linear).is_null());
+        assert!(ffi::SUNLinSol_KLUGetSymbolic(session.linear).is_null());
+        assert!(ffi::SUNLinSol_KLUGetNumeric(session.linear).is_null());
+        for ordering in [0, 1, 2] {
+            assert_ne!(ffi::SUNLinSol_KLUSetOrdering(session.linear, ordering), 0);
+        }
+        let data = ffi::SUNSparseMatrix_Data(session.matrix);
+        let nnz = ffi::SUNSparseMatrix_NNZ(session.matrix);
+        for reinit in [1, 2] {
+            assert_ne!(ffi::SUNLinSol_KLUReInit(session.linear, session.matrix, nnz + 1, reinit), 0);
+            assert_eq!(ffi::SUNSparseMatrix_NNZ(session.matrix), nnz);
+            assert_eq!(ffi::SUNSparseMatrix_Data(session.matrix), data);
+        }
+        // Initialize repeats the idempotent fresh-application transition.
+        assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
+        assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
+        assert_eq!(ffi::SUNLinSol_KLUBeginApplication(session.linear), 0);
+    }
+    let symbolic_memory = memory(&session);
+    assert!(symbolic_memory > 0 && symbolic_memory < full_memory);
+    let retained_symbolic = session.retained_bytes();
+    let rejected_solve = |session: &Session| {
+        // SAFETY: all objects are live; this is a checked numerical-validity refusal.
+        assert_ne!(unsafe { ffi::SUNLinSolSolve_KLU(session.linear, session.matrix, session.x, session.us, 0.) }, 0);
+    };
+    rejected_solve(&session);
+    let accepted = solve(&mut session, &[1.; 4]);
+    assert_eq!(accepted.termination.name, "KIN_INITIAL_GUESS_OK");
+    assert_eq!(count(&accepted, "klu.numeric_factor.issued"), 0);
+    assert_eq!(memory(&session), symbolic_memory);
+    assert_eq!(session.retained_bytes(), retained_symbolic);
+    rejected_solve(&session);
+    let error = session.solve(&[0.3; 4], &Controls { threads: 2, ..Controls::default() },
+        &ResolvedAccuracy::verification(), execution(), &Tolerances {
+            variables: vec![0.001; 4], rows: vec![0.001; 4], integrality: 0.001,
+        }, None);
+    assert!(error.is_err());
+    assert!(!session.ready_for_retention());
+    rejected_solve(&session);
+    let recovered = solve(&mut session, &[0.3; 4]);
+    assert_eq!(count(&recovered, "klu.symbolic.completed"), 0);
+    assert_eq!(count(&recovered, "klu.numeric_factor.completed"), 1);
+    assert!(session.ready_for_retention());
+
+    // Exercise both a singular fresh factor and a failed in-application refactor.
+    for refactor in [false, true] {
+        // SAFETY: owned live matrix values; canonical indices are unchanged.
+        unsafe {
+            if !refactor { assert_eq!(ffi::SUNLinSol_KLUBeginApplication(session.linear), 0); }
+            std::slice::from_raw_parts_mut(ffi::SUNSparseMatrix_Data(session.matrix), session.callback.rows.len()).fill(0.);
+        }
+        // SAFETY: getter and setup on these exclusively owned live objects.
+        let before = unsafe { linear_work::snapshot(session.linear) }.unwrap();
+        assert_ne!(unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) }, 0);
+        assert_eq!(memory(&session), symbolic_memory, "failed partial factors released");
+        rejected_solve(&session);
+        // SAFETY: the canonical CSC and values remain exclusively session owned.
+        unsafe {
+            let values = std::slice::from_raw_parts_mut(ffi::SUNSparseMatrix_Data(session.matrix), session.callback.rows.len());
+            for col in 0..4 {
+                for offset in session.callback.columns[col]..session.callback.columns[col + 1] {
+                    let offset = usize::try_from(offset).unwrap();
+                    values[offset] = if session.callback.rows[offset] == col as i64 { 1. } else { 0. };
+                }
+            }
+            assert_eq!(ffi::SUNLinSolSetup_KLU(session.linear, session.matrix), 0);
+        }
+        // SAFETY: scalar getter reads completed work on the idle owner.
+        let after = unsafe { linear_work::snapshot(session.linear) }.unwrap();
+        assert_eq!(after.symbolic_completed, before.symbolic_completed);
+        assert_eq!(after.numeric_factor_completed - before.numeric_factor_completed, 1);
+        assert_eq!(after.refactor_issued - before.refactor_issued, u64::from(refactor));
+    }
+    // A wrong native matrix is refused before use, invalidating uncertain analysis.
+    // SAFETY: temporary independent native matrix, freed before this scope exits.
+    unsafe {
+        let foreign = ffi::SUNSparseMatrix(4, 4, session.callback.rows.len() as i64, 0, session.ctx);
+        assert!(!foreign.is_null());
+        assert_ne!(ffi::SUNLinSolSetup_KLU(session.linear, foreign), 0);
+        ffi::SUNMatDestroy(foreign);
+    }
+    assert_eq!(memory(&session), 0);
+    let fresh = solve(&mut session, &[0.3; 4]);
+    assert_eq!(count(&fresh, "klu.symbolic.completed"), 1);
+    assert_eq!(count(&fresh, "klu.numeric_factor.completed"), 1);
+    let stopped_execution = execution();
+    stopped_execution.cancel.store(true, std::sync::atomic::Ordering::SeqCst);
+    let stopped = session.solve(&[0.3; 4], &Controls::default(),
+        &ResolvedAccuracy::verification(), stopped_execution, &Tolerances {
+            variables: vec![0.001; 4], rows: vec![0.001; 4], integrality: 0.001,
+        }, None).unwrap();
+    assert_eq!(stopped.termination.category, Termination::Cancelled);
+    assert!(session.ready_for_retention(), "synchronous canceled application drained and reset");
+    assert_eq!(memory(&session), symbolic_memory);
+    rejected_solve(&session);
+    let recovered = solve(&mut session, &[0.3; 4]);
+    assert_eq!(count(&recovered, "klu.symbolic.completed"), 0);
+    assert_eq!(count(&recovered, "klu.numeric_factor.completed"), 1);
 }

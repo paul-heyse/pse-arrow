@@ -593,6 +593,9 @@ pub struct Session {
     signs: ffi::N_Vector,
     matrix: ffi::SUNMatrix,
     linear: ffi::SUNLinearSolver,
+    retention_ready: bool,
+    #[cfg(test)]
+    stock_klu: bool,
     callback: Box<Context>,
     settings: Settings,
     compatibility: Compatibility,
@@ -1182,7 +1185,7 @@ impl Session {
                 .map_or(usize::MAX, |(_, omitted)| omitted),
         );
         // Every queried object is live and owned by this session; the queries only write
-        // the caller's counters, and KLU's common block is read between solves.
+        // the caller's counters.
         for v in [self.x, self.us, self.fs, self.signs] {
             if !v.is_null() {
                 let (mut r, mut i) = (0, 0);
@@ -1212,11 +1215,10 @@ impl Session {
         }
         if !self.linear.is_null() && self.settings.method.linear == Linear::Klu {
             // SAFETY: the session's live KLU solver, queried between solves.
-            let common = unsafe { ffi::SUNLinSol_KLUGetCommon(self.linear) };
-            if !common.is_null() {
-                // SAFETY: KLU's common block, owned by that solver and not being written.
-                bytes = bytes.saturating_add(unsafe { (*common).memusage });
-            }
+            let mut native_bytes = 0;
+            // SAFETY: read-only scalar query of the live solver into a local.
+            let status = unsafe { ffi::SUNLinSol_KLUGetMemUsage(self.linear, &raw mut native_bytes) };
+            bytes = bytes.saturating_add(if status == 0 { native_bytes } else { usize::MAX });
         }
         bytes
     }
@@ -1401,6 +1403,9 @@ impl Session {
             signs: std::ptr::null_mut(),
             matrix: std::ptr::null_mut(),
             linear: std::ptr::null_mut(),
+            retention_ready: true,
+            #[cfg(test)]
+            stock_klu: false,
             callback,
             settings,
             compatibility,
@@ -1480,7 +1485,7 @@ impl Session {
                     }
                     // SAFETY: the session's live vector, matrix and context; `Drop` frees
                     // the solver.
-                    s.linear = unsafe { ffi::SUNLinSol_KLU(s.x, s.matrix, s.ctx) };
+                    s.linear = unsafe { ffi::SUNLinSol_KLUFixedPattern(s.x, s.matrix, s.ctx) };
                 }
                 Linear::Dense { .. } => {
                     // SAFETY: the session's live context; `Drop` frees the matrix.
@@ -1563,6 +1568,48 @@ impl Session {
     /// preconditioner. KINSOL owns setup reuse and monitoring within this call and
     /// may return an already-converged initial guess before any setup is needed.
     pub fn solve(
+        &mut self,
+        initial: &[f64],
+        controls: &Controls,
+        accuracy: &ResolvedAccuracy,
+        execution: Execution,
+        tolerances: &Tolerances,
+        warm: Option<&WarmStart>,
+    ) -> Result<SolveReport, ProblemError> {
+        self.retention_ready = false;
+        self.begin_application()?;
+        let result = self.solve_application(initial, controls, accuracy, execution, tolerances, warm);
+        // All work is synchronous on this owner. Failed attempts release numerical
+        // factors even when they returned before KINSol or original validation.
+        if !result.as_ref().is_ok_and(|report| report.termination.category == Termination::Success) {
+            self.begin_application()?;
+        }
+        self.retention_ready = result.as_ref().is_ok_and(|report| {
+            !matches!(report.termination.category, Termination::Panic)
+                && !matches!(report.termination.code as i32,
+                    ffi::KIN_MEM_NULL | ffi::KIN_NO_MALLOC | ffi::KIN_CONTEXT_ERR |
+                    ffi::KIN_VECTOROP_ERR)
+                && report.termination.name != "KIN_UNKNOWN"
+        });
+        result
+    }
+    fn begin_application(&mut self) -> Result<(), ProblemError> {
+        #[cfg(test)]
+        if self.stock_klu { return Ok(()); }
+        if self.settings.method.linear == Linear::Klu && !self.linear.is_null() {
+            native!(ffi::SUNLinSol_KLUBeginApplication(self.linear), "fresh KLU application")?;
+        }
+        Ok(())
+    }
+    /// A completed synchronous application with known native integrity may return
+    /// to the worker cache; terminal failures have already reset numerical state.
+    pub(crate) fn ready_for_retention(&self) -> bool { self.retention_ready }
+    #[cfg(test)]
+    pub(crate) fn test_klu_state(&self) -> (usize, ffi::SUNLinearSolver_KLUWork) {
+        // SAFETY: test-only read of the idle native owner retained by this session.
+        (self.linear as usize, unsafe { linear_work::snapshot(self.linear) }.unwrap())
+    }
+    fn solve_application(
         &mut self,
         initial: &[f64],
         controls: &Controls,
@@ -2532,11 +2579,12 @@ mod tests {
         assert_eq!(failed.setup_issued, 1);
         assert_eq!(failed.setup_completed, 0);
         assert_eq!(failed.symbolic_issued, 0);
-        for start in [0., 3.] {
+        for (application, start) in [0., 3.].into_iter().enumerate() {
             let report = setup_solve(&mut session, start, ReusePolicy::AllowRebuild);
             assert_eq!(report.termination.category, Termination::Success);
-            assert_eq!(report.metrics["klu.symbolic.issued"], Metric::Integer(1));
-            assert_eq!(report.metrics["klu.symbolic.completed"], Metric::Integer(1));
+            let symbolic = i64::from(application == 0);
+            assert_eq!(report.metrics["klu.symbolic.issued"], Metric::Integer(symbolic));
+            assert_eq!(report.metrics["klu.symbolic.completed"], Metric::Integer(symbolic));
             assert_eq!(
                 report.metrics["klu.numeric_factor.issued"],
                 Metric::Integer(1)
@@ -2559,8 +2607,8 @@ mod tests {
         let data_pointer = unsafe { ffi::SUNSparseMatrix_Data(session.matrix) };
         // SAFETY: the numeric storage is exclusive and holds this one entry.
         (unsafe { std::slice::from_raw_parts_mut(data_pointer, 1) })[0] = 0.;
-        // SAFETY: the exclusively owned solver is live; initialize starts fresh numeric state.
-        let initialized = unsafe { ffi::SUNLinSolInitialize_KLU(session.linear) };
+        // SAFETY: the exclusively owned solver is live; begin starts fresh numeric state.
+        let initialized = unsafe { ffi::SUNLinSol_KLUBeginApplication(session.linear) };
         assert_eq!(initialized, 0);
         // SAFETY: safe-return getter on the same live owner.
         let before = unsafe { linear_work::snapshot(session.linear) }.unwrap();

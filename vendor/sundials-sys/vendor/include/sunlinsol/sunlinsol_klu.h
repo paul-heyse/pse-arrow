@@ -120,6 +120,12 @@ struct _SUNLinearSolverContent_KLU
   sun_klu_numeric* numeric;
   sun_klu_common common;
   KLUSolveFn klu_solver;
+  /* Private fixed-pattern integration: the caller owns canonical CSC indices.
+   * No second pattern copy is stored here. A non-NULL matrix binds this owner. */
+  SUNMatrix fixed_matrix;
+  sunindextype fixed_dimension;
+  sunindextype fixed_nnz;
+  int numeric_valid;
 };
 
 typedef struct _SUNLinearSolverContent_KLU* SUNLinearSolverContent_KLU;
@@ -130,6 +136,15 @@ typedef struct _SUNLinearSolverContent_KLU* SUNLinearSolverContent_KLU;
 
 SUNDIALS_EXPORT SUNLinearSolver SUNLinSol_KLU(N_Vector y, SUNMatrix A,
                                               SUNContext sunctx);
+/* Canonical defaults, CSC only. The caller must preserve exact index support and
+ * call BeginApplication before every nonlinear application, including accepted
+ * starts. Initialize is idempotent; each application's first setup fully factors
+ * current coefficients while retaining valid symbolic analysis. */
+SUNDIALS_EXPORT SUNLinearSolver SUNLinSol_KLUFixedPattern(N_Vector y, SUNMatrix A,
+                                                         SUNContext sunctx);
+SUNDIALS_EXPORT SUNErrCode SUNLinSol_KLUBeginApplication(SUNLinearSolver S);
+/* Read-only accounting; fixed owners refuse all mutable native accessors. */
+SUNDIALS_EXPORT SUNErrCode SUNLinSol_KLUGetMemUsage(SUNLinearSolver S, size_t* bytes);
 SUNDIALS_EXPORT int SUNLinSol_KLUReInit(SUNLinearSolver S, SUNMatrix A,
                                         sunindextype nnz, int reinit_type);
 SUNDIALS_EXPORT int SUNLinSol_KLUSetOrdering(SUNLinearSolver S,

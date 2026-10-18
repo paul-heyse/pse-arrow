@@ -45,6 +45,33 @@
 #define COMMON(S)         (KLU_CONTENT(S)->common)
 #define SOLVE(S)          (KLU_CONTENT(S)->klu_solver)
 #define WORK(S)           (KLU_CONTENT(S)->work)
+#define FIXED(S)          (KLU_CONTENT(S)->fixed_matrix != NULL)
+/* Constant-time object guards. Exact CSC support is owned and checked by the
+ * integration before replacement, then restored by its Jacobian callback. */
+static int fixed_matrix_matches(SUNLinearSolver S, SUNMatrix A) {
+  return A && A == KLU_CONTENT(S)->fixed_matrix &&
+    SUNMatGetID(A) == SUNMATRIX_SPARSE &&
+    SUNSparseMatrix_SparseType(A) == CSC_MAT &&
+    SUNSparseMatrix_Rows(A) == KLU_CONTENT(S)->fixed_dimension &&
+    SUNSparseMatrix_Columns(A) == KLU_CONTENT(S)->fixed_dimension &&
+    SUNSparseMatrix_NP(A) == KLU_CONTENT(S)->fixed_dimension &&
+    SUNSparseMatrix_NNZ(A) == KLU_CONTENT(S)->fixed_nnz;
+}
+static void invalidate_numeric(SUNLinearSolver S) {
+  KLU_CONTENT(S)->numeric_valid = 0;
+  FIRSTFACTORIZE(S) = 1;
+  if (NUMERIC(S)) { sun_klu_free_numeric(&NUMERIC(S), &COMMON(S)); }
+}
+static int setup_failure(SUNLinearSolver S, int flag, int preserve_symbolic) {
+  if (FIXED(S)) {
+    invalidate_numeric(S);
+    if (!preserve_symbolic && SYMBOLIC(S)) {
+      sun_klu_free_symbolic(&SYMBOLIC(S), &COMMON(S));
+    }
+  }
+  LASTFLAG(S) = flag;
+  return flag;
+}
 static void count_work(uint64_t* value, int* overflow) {
   if (*value == UINT64_MAX) { *overflow = 1; }
   else { ++*value; }
@@ -121,6 +148,10 @@ SUNLinearSolver SUNLinSol_KLU(N_Vector y, SUNMatrix A, SUNContext sunctx)
   content->observer_data = NULL;
   content->symbolic        = NULL;
   content->numeric         = NULL;
+  content->fixed_matrix    = NULL;
+  content->fixed_dimension = 0;
+  content->fixed_nnz       = 0;
+  content->numeric_valid   = 0;
 
 #if defined(SUNDIALS_INT64_T)
   if (SUNSparseMatrix_SparseType(A) == CSC_MAT)
@@ -149,6 +180,41 @@ SUNLinearSolver SUNLinSol_KLU(N_Vector y, SUNMatrix A, SUNContext sunctx)
   return (S);
 }
 
+SUNLinearSolver SUNLinSol_KLUFixedPattern(N_Vector y, SUNMatrix A, SUNContext sunctx)
+{
+  SUNLinearSolver S;
+  if (!A || !y || SUNMatGetID(A) != SUNMATRIX_SPARSE ||
+      SUNSparseMatrix_SparseType(A) != CSC_MAT) { return NULL; }
+  S = SUNLinSol_KLU(y, A, sunctx);
+  if (!S) { return NULL; }
+  KLU_CONTENT(S)->fixed_matrix = A;
+  KLU_CONTENT(S)->fixed_dimension = SUNSparseMatrix_Rows(A);
+  KLU_CONTENT(S)->fixed_nnz = SUNSparseMatrix_NNZ(A);
+  return S;
+}
+
+SUNErrCode SUNLinSol_KLUBeginApplication(SUNLinearSolver S)
+{
+  if (!S || !S->content) { return SUN_ERR_ARG_CORRUPT; }
+  if (SUNLinSolGetID(S) != SUNLINEARSOLVER_KLU || !FIXED(S)) {
+    return SUN_ERR_ARG_INCOMPATIBLE;
+  }
+  invalidate_numeric(S);
+  if (!fixed_matrix_matches(S, KLU_CONTENT(S)->fixed_matrix)) {
+    return setup_failure(S, SUN_ERR_ARG_INCOMPATIBLE, 0);
+  }
+  LASTFLAG(S) = SUN_SUCCESS;
+  return SUN_SUCCESS;
+}
+
+SUNErrCode SUNLinSol_KLUGetMemUsage(SUNLinearSolver S, size_t* bytes)
+{
+  if (!S || !S->content || !bytes) { return SUN_ERR_ARG_CORRUPT; }
+  if (SUNLinSolGetID(S) != SUNLINEARSOLVER_KLU) { return SUN_ERR_ARG_INCOMPATIBLE; }
+  *bytes = COMMON(S).memusage;
+  return SUN_SUCCESS;
+}
+
 /* ----------------------------------------------------------------------------
  * Function to reinitialize a KLU linear solver
  */
@@ -158,6 +224,7 @@ SUNErrCode SUNLinSol_KLUReInit(SUNLinearSolver S, SUNMatrix A, sunindextype nnz,
 {
   /* Check for non-NULL SUNLinearSolver */
   if ((S == NULL) || (A == NULL)) { return SUN_ERR_ARG_CORRUPT; }
+  if (FIXED(S)) { return SUN_ERR_ARG_INCOMPATIBLE; }
 
   /* Check for valid SUNMatrix */
   if (SUNMatGetID(A) != SUNMATRIX_SPARSE) { return SUN_ERR_ARG_INCOMPATIBLE; }
@@ -198,6 +265,7 @@ SUNErrCode SUNLinSol_KLUSetOrdering(SUNLinearSolver S, int ordering_choice)
 
   /* Check for non-NULL SUNLinearSolver */
   if (S == NULL) { return SUN_ERR_ARG_CORRUPT; }
+  if (FIXED(S)) { return SUN_ERR_ARG_INCOMPATIBLE; }
 
   /* Set ordering_choice */
   COMMON(S).ordering = ordering_choice;
@@ -213,16 +281,19 @@ SUNErrCode SUNLinSol_KLUSetOrdering(SUNLinearSolver S, int ordering_choice)
 
 sun_klu_symbolic* SUNLinSol_KLUGetSymbolic(SUNLinearSolver S)
 {
+  if (!S || !S->content || FIXED(S)) { return NULL; }
   return (SYMBOLIC(S));
 }
 
 sun_klu_numeric* SUNLinSol_KLUGetNumeric(SUNLinearSolver S)
 {
+  if (!S || !S->content || FIXED(S)) { return NULL; }
   return (NUMERIC(S));
 }
 
 sun_klu_common* SUNLinSol_KLUGetCommon(SUNLinearSolver S)
 {
+  if (!S || !S->content || FIXED(S)) { return NULL; }
   return (&(COMMON(S)));
 }
 SUNErrCode SUNLinSol_KLUGetWork(SUNLinearSolver S, SUNLinearSolver_KLUWork* work)
@@ -262,6 +333,10 @@ SUNLinearSolver_ID SUNLinSolGetID_KLU(SUNDIALS_MAYBE_UNUSED SUNLinearSolver S)
 
 SUNErrCode SUNLinSolInitialize_KLU(SUNLinearSolver S)
 {
+  if (!S || !S->content) { return SUN_ERR_ARG_CORRUPT; }
+  if (FIXED(S)) {
+    return SUNLinSol_KLUBeginApplication(S);
+  }
   /* Force factorization */
   FIRSTFACTORIZE(S) = 1;
 
@@ -276,19 +351,27 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
 
   if (!S || !S->content) { return SUN_ERR_ARG_CORRUPT; }
   COUNT_WORK(S, setup_issued);
-  if (!A) { LASTFLAG(S) = SUN_ERR_ARG_CORRUPT; return LASTFLAG(S); }
+  if (!A) { return setup_failure(S, SUN_ERR_ARG_CORRUPT, 1); }
+  if (FIXED(S)) {
+    if (!fixed_matrix_matches(S, A)) {
+      return setup_failure(S, SUN_ERR_ARG_INCOMPATIBLE, 0);
+    }
+    KLU_CONTENT(S)->numeric_valid = 0;
+  }
   uround_twothirds = SUNRpowerR(SUN_UNIT_ROUNDOFF, TWOTHIRDS);
 
   /* Ensure that A is a sparse matrix */
   if (SUNMatGetID(A) != SUNMATRIX_SPARSE)
   {
-    LASTFLAG(S) = SUN_ERR_ARG_INCOMPATIBLE;
-    return (LASTFLAG(S));
+    return setup_failure(S, SUN_ERR_ARG_INCOMPATIBLE, 1);
   }
 
   /* On first decomposition, get the symbolic factorization */
   if (FIRSTFACTORIZE(S))
   {
+    /* Generic mode preserves upstream analysis semantics. Fixed mode retains
+     * analysis only while its caller-owned pattern and native owner stay valid. */
+    if (!FIXED(S) || !SYMBOLIC(S)) {
     /* Perform symbolic analysis of sparsity structure */
     if (SYMBOLIC(S)) { sun_klu_free_symbolic(&SYMBOLIC(S), &COMMON(S)); }
     COUNT_WORK(S, symbolic_issued);
@@ -299,11 +382,11 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
     observe_work(S, 1, 0);
     if (SYMBOLIC(S) == NULL)
     {
-      LASTFLAG(S) = SUN_ERR_EXT_FAIL;
-      return (LASTFLAG(S));
+      return setup_failure(S, SUN_ERR_EXT_FAIL, 0);
     }
 
     COUNT_WORK(S, symbolic_completed);
+    }
 
     /* ------------------------------------------------------------
        Compute the LU factorization of the matrix
@@ -317,8 +400,7 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
     observe_work(S, 2, 0);
     if (NUMERIC(S) == NULL)
     {
-      LASTFLAG(S) = SUN_ERR_EXT_FAIL;
-      return (LASTFLAG(S));
+      return setup_failure(S, SUN_ERR_EXT_FAIL, 1);
     }
 
     COUNT_WORK(S, numeric_factor_completed);
@@ -336,8 +418,7 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
     observe_work(S, 3, 0);
     if (retval == 0)
     {
-      LASTFLAG(S) = SUNLS_PACKAGE_FAIL_REC;
-      return (LASTFLAG(S));
+      return setup_failure(S, SUNLS_PACKAGE_FAIL_REC, 1);
     }
 
     COUNT_WORK(S, refactor_completed);
@@ -354,8 +435,7 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
     observe_work(S, 4, 0);
     if (retval == 0)
     {
-      LASTFLAG(S) = SUNLS_PACKAGE_FAIL_REC;
-      return (LASTFLAG(S));
+      return setup_failure(S, SUNLS_PACKAGE_FAIL_REC, 1);
     }
 
     COUNT_WORK(S, rcond_completed);
@@ -371,8 +451,7 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
       observe_work(S, 5, 0);
       if (retval == 0)
       {
-        LASTFLAG(S) = SUNLS_PACKAGE_FAIL_REC;
-        return (LASTFLAG(S));
+        return setup_failure(S, SUNLS_PACKAGE_FAIL_REC, 1);
       }
 
       COUNT_WORK(S, condest_completed);
@@ -390,14 +469,14 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
         observe_work(S, 2, 0);
         if (NUMERIC(S) == NULL)
         {
-          LASTFLAG(S) = SUN_ERR_EXT_FAIL;
-          return (LASTFLAG(S));
+          return setup_failure(S, SUN_ERR_EXT_FAIL, 1);
         }
         COUNT_WORK(S, numeric_factor_completed);
       }
     }
   }
 
+  if (FIXED(S)) { KLU_CONTENT(S)->numeric_valid = 1; }
   COUNT_WORK(S, setup_completed);
   LASTFLAG(S) = SUN_SUCCESS;
   return (LASTFLAG(S));
@@ -411,9 +490,17 @@ int SUNLinSolSolve_KLU(SUNLinearSolver S, SUNMatrix A, N_Vector x, N_Vector b,
 
   if (S && S->content) { COUNT_WORK(S, solve_issued); }
   /* check for valid inputs */
-  if ((A == NULL) || (S == NULL) || (x == NULL) || (b == NULL))
+  if (!S || !S->content) { return SUN_ERR_ARG_CORRUPT; }
+  if ((A == NULL) || (x == NULL) || (b == NULL))
   {
+    if (FIXED(S)) { return setup_failure(S, SUN_ERR_ARG_CORRUPT, 1); }
     return SUN_ERR_ARG_CORRUPT;
+  }
+  if (FIXED(S) && (!fixed_matrix_matches(S, A) ||
+      !KLU_CONTENT(S)->numeric_valid || !SYMBOLIC(S) || !NUMERIC(S) ||
+      N_VGetLength(x) != KLU_CONTENT(S)->fixed_dimension ||
+      N_VGetLength(b) != KLU_CONTENT(S)->fixed_dimension)) {
+    return setup_failure(S, SUN_ERR_ARG_INCOMPATIBLE, fixed_matrix_matches(S, A));
   }
 
   /* copy b into x */
@@ -423,8 +510,7 @@ int SUNLinSolSolve_KLU(SUNLinearSolver S, SUNMatrix A, N_Vector x, N_Vector b,
   xdata = N_VGetArrayPointer(x);
   if (xdata == NULL)
   {
-    LASTFLAG(S) = SUN_ERR_MEM_FAIL;
-    return (LASTFLAG(S));
+    return setup_failure(S, SUN_ERR_MEM_FAIL, 1);
   }
 
   /* Call KLU to solve the linear system */
@@ -434,8 +520,7 @@ int SUNLinSolSolve_KLU(SUNLinearSolver S, SUNMatrix A, N_Vector x, N_Vector b,
   observe_work(S, 6, 0);
   if (flag == 0)
   {
-    LASTFLAG(S) = SUNLS_PACKAGE_FAIL_REC;
-    return (LASTFLAG(S));
+    return setup_failure(S, SUNLS_PACKAGE_FAIL_REC, 1);
   }
 
   COUNT_WORK(S, solve_completed);
