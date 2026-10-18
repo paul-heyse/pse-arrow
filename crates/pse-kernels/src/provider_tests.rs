@@ -110,3 +110,42 @@ fn prepared_wide_provider_bank_reuses_validated_binding_and_refuses_malformed_de
     assert!(matches!(bank.fill(slot, &mut buffer, &inputs, &request, ProviderRuntime::default(), &limited), Err(ProviderError::Limit(_))));
     assert_eq!(calls.load(Ordering::Relaxed), 8, "current admission refuses before effects");
 }
+
+#[test]
+fn public_fill_rechecks_foreign_binding_capability_and_current_runtime_seeds() {
+    #[derive(Debug)]
+    struct Action;
+    impl Provider for Action {
+        fn supports(&self, demand: &ProviderDemand) -> bool {
+            matches!(demand, ProviderDemand::JacobianAction { directions: 1 })
+        }
+        fn fill(&mut self, inputs: &[f64], _: &PreparedProviderRequest, runtime: ProviderRuntime<'_>,
+            output: ProviderOutput<'_>, _: &EvaluationContext<'_>) -> Result<(), ProviderError> {
+            output.values[0] = inputs[0];
+            output.jacobian[0] = runtime.directions[0];
+            Ok(())
+        }
+    }
+    let cancel = Arc::new(AtomicBool::new(false));
+    let context = EvaluationContext { cancelled: &cancel, max_result_bytes: 1024 };
+    let spec = descriptor(1, 1);
+    let mut action = ProviderBinding::new(spec.clone(), Box::new(Action));
+    let prepared = action.prepare(ProviderRequest {
+        outputs: vec![0], order: DerivativeOrder::First, demand: ProviderDemand::JacobianAction { directions: 1 },
+    }).unwrap();
+    let mut buffer = ProviderBuffer::new(&prepared);
+    for direction in [3., -4.] {
+        let runtime = ProviderRuntime { directions: &[direction], ..Default::default() };
+        let completed = buffer.fill(&mut action, &[2.], &prepared, runtime, &context).unwrap();
+        assert_eq!(completed.values, [2.]);
+        assert_eq!(completed.jacobian, [direction]);
+    }
+    assert!(matches!(buffer.fill(&mut action, &[2.], &prepared, ProviderRuntime::default(), &context), Err(ProviderError::Contract(_))));
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut complete_only = ProviderBinding::new(spec, Box::new(Controlled {
+        mode: Arc::new(AtomicU8::new(0)), calls: calls.clone(), capabilities: Arc::new(AtomicUsize::new(0)), cancel: cancel.clone(),
+    }));
+    assert!(matches!(buffer.fill(&mut complete_only, &[2.], &prepared,
+        ProviderRuntime { directions: &[3.], ..Default::default() }, &context), Err(ProviderError::Contract(_))));
+    assert_eq!(calls.load(Ordering::Relaxed), 0);
+}

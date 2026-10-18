@@ -268,9 +268,17 @@ impl ProviderBinding {
     /// Execute a fallible fill and issue completion after current-state checks.
     pub fn fill<'a>(&mut self, inputs: &[f64], request: &PreparedProviderRequest, runtime: ProviderRuntime<'_>,
         mut output: ProviderOutput<'a>, context: &EvaluationContext<'_>) -> Result<ProviderCompletion<'a>, ProviderError> {
+        if request.binding.is_none() {
+            return Err(ProviderError::Contract("provider request has no executable binding".into()));
+        }
+        // Public callers may pass another binding's prepared demand. Only the
+        // exact bound worker discharges its capability premise without a check.
+        if request.binding != Some(self.identity) {
+            self.check_prepared(request)?;
+        }
         request.check_context(context)?;
         request.check_runtime(runtime)?;
-        if request.binding.is_none() || request.key() != self.key || inputs.len() != self.spec.inputs.len() || inputs.iter().any(|x| !x.is_finite()) {
+        if request.key() != self.key || inputs.len() != self.spec.inputs.len() || inputs.iter().any(|x| !x.is_finite()) {
             return Err(ProviderError::Contract("provider binding or physical inputs".into()));
         }
         let e = request.extents();
