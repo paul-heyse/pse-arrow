@@ -1092,21 +1092,29 @@ obsolete values through ancestry; deliberately held prior bindings keep their ow
 Assembled executable and initialization consumers preserve the same separation.
 Job reservations partition by transfer before retention, without a release/reacquire gap.
 
-**Plan45 accepted RC03 target (implementation in 45a/A06).** The resolver issues complete
-consumed physical premises, including positive/transitive meaning, misses, candidate
-membership/ambiguity, visibility, checker interpretation and consumed provider meaning.
-A lane refresh stages current physical context and Salsa inputs under the existing
-exclusive writer, re-admits current source, and publishes coherently or restores/destroys
-the candidate. Pure tracked products consume the issued projections; equal outputs may
-backdate. Body/artifact requests, view identities and frontier/completion use the same
-versioned dependency meaning. Current prepared wrappers carry current physical owners;
-compatible immutable mathematics may be shared. Complete inventory/source identity and
-fresh receiving qualification remain separate. Unknown dependency classes retain complete
-immutable-context dependence; unrepresentable checker/provider behavior disables retained
-reuse rather than treating inventory bytes as complete proof. Registry edits still re-admit
-representation conversions in instance bindings. Diagnostic spans refresh without disturbing
-semantic products. The prior conservative whole-context behavior remains the implementation
-until this complete migration qualifies.
+**Consumed physical interpretation (accepted Plan45 RC03).** Synchronous resolver reads
+issue an opaque dependency projection containing positive/transitive meaning, exact misses,
+complete indexed candidate buckets and ambiguity, visibility and built-in precondition
+interpretation. It records actual checking, including caught failed lookups; callers do not
+supply dependency lists. Administrative inventory framing does not become a mathematical
+dependency. Sparse replay is checked for newly consumed questions before narrower retention;
+incomplete coverage falls back to current complete-context construction and identity.
+Scientific witness construction and direct implicit planning currently use this explicit
+complete-context route. Unknown checker behavior cannot gain reuse permission from inventory
+bytes or a lifetime-immutability assertion.
+
+A lane stages physical inputs and the incoming source candidate under its existing exclusive
+writer, publishing coherently or restoring/destroying the candidate. A context-only refresh
+re-admits its existing source. Pure tracked body inputs consume issued projections so equal
+outputs may backdate. Body/artifact requests, bound views and frontier/completion use the
+versioned meanings in §5. Package scope and consumed provider descriptor/output remain
+explicit; actual runtime provider registration/configuration guards retain their existing
+meaning. New receiving shells carry current registry/checker/provider owners even when equal
+contents permit mathematical sharing. Historical revisions retain their own exact context;
+selecting a desired context cannot mutate a borrowed live writer. Complete inventory/source
+identity and fresh receiving admission remain separate. Registry edits still recheck instance
+binding conversions. Diagnostic spans refresh without disturbing semantic products.
+45a/A06 owns targeted implementation verification and 45f/F05 owns combined acceptance.
 
 Retention is bounded. After each request the workspace triggers LRU eviction; if retained
 Salsa entries or known bytes still exceed `WorkspaceLimits`, it rebuilds a fresh generation

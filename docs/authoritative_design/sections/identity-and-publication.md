@@ -352,8 +352,10 @@ product's identity is the new frame `pse.quantity.unit-product.v1`. *Tested* by
 `pse.math.physical-inventory.v6`, including declared kind equivalences and complete operation
 contracts. Accepted Plan45 RC03 keeps this complete identity and source-revision framing
 unchanged while introducing a separately versioned resolver-issued consumed-physical
-projection for reusable mathematical products (§14.4). Current consumed body/artifact/view
-frames migrate together; no historical digest is reinterpreted. Exact misses, complete
+projection for reusable mathematical products (§14.4). Consumed mathematical premises use `pse.math.physical-premises.v1`; grouped consumer
+bodies use `pse.modeling.consumer-body.v5`, and bound views use
+`pse.compiler.modeling-view.v6`. The resulting body identity also governs artifact
+requests. No historical digest is reinterpreted. Exact misses, complete
 candidate populations, visibility and checker/provider interpretation are dependencies,
 not only selected positive IDs. Unknown behavior without complete identity disables reuse.
 Checked function occurrences retain selected admissions; composed unit scales,
