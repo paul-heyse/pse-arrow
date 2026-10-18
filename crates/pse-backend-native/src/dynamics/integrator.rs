@@ -171,6 +171,7 @@ impl Shared<'_> {
                         ),
                     );
                 }
+                self.check();
                 v
             }
             Err(e) => self.abort(Termination::Failed, e),
@@ -1855,6 +1856,7 @@ mod action_route_tests {
         partials: Cell<usize>,
         jvp: Cell<usize>,
         vjp: Cell<usize>,
+        fail: Rc<Cell<bool>>,
     }
     impl Oracle for Actions {
         fn contract(&self) -> &Contract { &self.contract }
@@ -1873,6 +1875,7 @@ mod action_route_tests {
         }
         fn jacobian_action(&mut self,_:usize,_:Function,_:f64,_:&[f64],_:&[f64],v:&[f64],out:&mut[f64])->Result<(),ProblemError>{
             self.jvp.set(self.jvp.get()+1);
+            if self.fail.get() { out[0]=123.; return Err(ProblemError::numerical("late action failure")); }
             out.copy_from_slice(&[2.*v[0]+3.*v[2]+5.*v[3],-7.*v[1]+11.*v[2]]);Ok(())
         }
         fn jacobian_transpose_action(&mut self,_:usize,_:Function,_:f64,_:&[f64],_:&[f64],v:&[f64],out:&mut[f64])->Result<(),ProblemError>{
@@ -1883,10 +1886,11 @@ mod action_route_tests {
     #[test]
     fn diffsol_direct_actions_preserve_adjoint_sign_selected_segment_axes_and_scatter_offsets() {
         let id=|i|SemanticId::from_bytes([i;16]);
+        let fail=Rc::new(Cell::new(false));
         let mut oracle=Actions { contract:Contract {identity:ContentHash::from_bytes([13;32]),
             states:vec![id(1),id(2)], differential:vec![true,true],parameters:vec![id(3),id(4)],outputs:vec![id(5),id(6)],
             events:vec![vec![]],quadratures:vec![],balances:vec![],signs:vec![],derivatives:pse_kernels::DerivativeOrder::First},
-            partials:Cell::new(0),jvp:Cell::new(0),vjp:Cell::new(0)};
+            partials:Cell::new(0),jvp:Cell::new(0),vjp:Cell::new(0),fail:fail.clone()};
         let mut profile=Profile {method:Method::Diffsol,sensitivity:DynamicSensitivity::Forward,
             forward_axes:Some(vec![2,0,1]),schedule:vec![ScheduledInput{parameter:0,times:vec![0.5]}],
             parameter_scales:vec![2.,3.],atol:vec![0.001;2],rtol:0.001,..Default::default()};
@@ -1926,5 +1930,10 @@ mod action_route_tests {
         let operator=Operator::new(shared.clone(),Function::Rhs).unwrap();
         operator.transpose_product(&x,0.5,&weights,&mut parameters,true);
         assert_eq!(parameters.as_slice(),&[-39.,-10.,0.]);
+        fail.set(true);
+        let intact=output.as_slice().to_vec();
+        assert!(catch_unwind(AssertUnwindSafe(|| operator.product(&x,0.5,&direction,&mut output,false))).is_err());
+        assert_eq!(output.as_slice(),intact,"late failed action never publishes a foreign prefix");
+        assert!(shared.failure.borrow().is_some());
     }
 }

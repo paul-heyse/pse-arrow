@@ -1440,7 +1440,7 @@ fn short_forward_adjoint_checkpoint_inquiry_preserves_the_same_sampled_functiona
     }
     eprintln!("forward-adjoint-inquiry {}", serde_json::json!({"route":"forward", "axes":width,
         "elapsed_seconds":started.elapsed().as_secs_f64(),"calls":forward_oracle.evaluations.get(),"statistics":forward.statistics}));
-    for spacing in [3,25] {
+    for spacing in [3,25,250] {
         for axes in [vec![0],(0..width).collect()] {
             profile.sensitivity = DynamicSensitivity::Adjoint;
             profile.adjoint.steps_between_checkpoints = PositiveCount::try_new(spacing).unwrap();
