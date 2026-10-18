@@ -1,6 +1,6 @@
 ---
 id: ADR-0200
-title: Retain qualified KLU symbolic state across fresh numerical applications
+title: Retain stock KLU after bounded symbolic-owner qualification
 status: proposed
 date: 2026-10-18
 deciders: [paul-heyse]
@@ -8,14 +8,14 @@ level: decision
 principles: [AP-04, AP-07, PS-06, PS-08]
 blueprint: [§18, §23.1]
 review: docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md
-evidence: "Interface-checked: bundled SUNDIALS 7.1.1 KLU lifecycle inspected; Plan45 RC08 accepted; adoption remains conditional on 45e/E01 qualification."
+evidence: "Tested and Measured: Plan45e/E01 exact-settings/fresh-numeric controls and short 128/512-variable comparisons; the candidate did not establish material complete-operation benefit and was removed. Stock KLU and explicit Krylov routes remain."
 supersedes: []
 superseded-by: null
-revisit: A CSC or analysis setting cannot be represented by complete compatibility, or representative sparse measurements show no complete-operation benefit.
+revisit: A representative repeated workload is materially dominated by symbolic analysis, making a complete-operation benefit plausible despite additional state and adapter maintenance.
 verification: E01 fixed-pattern changed-coefficient solves, changed settings/pattern, singular recovery, accepted starts, current residuals, fresh numeric counts, pressure and last-owner release.
 ---
 
-# ADR-0200: Retain qualified KLU symbolic state across fresh numerical applications
+# ADR-0200: Retain stock KLU after bounded symbolic-owner qualification
 
 ## Context
 
@@ -23,7 +23,7 @@ The bundled SUNDIALS KLU adapter frees and reconstructs symbolic analysis when a
 
 ## Scope
 
-This publishes a narrow opt-in native linear binding within the existing KINSOL design, before implementation. It amends blueprint §18/§23.1. Stock KLU remains the default and comparison route. Neither nonlinear iteration nor the separate implicit-function derivative factorization moves to this binding.
+The accepted Plan45 RC08 route allowed a narrow opt-in native linear candidate within KINSOL, conditional on sound lifecycle and useful complete-operation benefit. This proposed record preceded that experiment. Qualification now selects **non-adoption**: the production target remains stock KLU and the existing explicit Krylov/preconditioned alternatives. This is not a formal ADR status transition, a default solver change or a claim that repeated symbolic analysis has been eliminated.
 
 ## Drivers
 
@@ -35,25 +35,25 @@ Stock KLU has the simplest upstream lifecycle but repeats symbolic work. Skippin
 
 ## Outcome
 
-An explicit KluRetainedSymbolic profile selects the candidate. Exact compatibility includes matrix dimensions/format, occupied CSC pointers/indices and every KLU analysis-affecting input: tol, memgrow, initmem_amd, initmem, maxwork, btf, ordering, scale and halt_if_singular. Floating settings compare exact bits. Eligibility requires finite floating settings, tol in [0,1], memgrow/initmem_amd/initmem at least one, stock AMD/COLAMD ordering, absent user_order/user_data callbacks and halt_if_singular enabled; unknown callback semantics refuse. This prevents KLU's otherwise implicit input normalization from changing a successfully captured key during factorization. Finite nonpositive maxwork retains its library meaning of unlimited BTF work, and signed zeros remain distinct exact inputs. Output statistics are not input settings.
+Retain stock KLU and the existing explicit SPGMR/Jacobi route. The experimental symbolic-retaining profile, binding and lifecycle-only tests are removed from production; the experiment and removal remain in Git history. The generalized banded-system comparison remains useful for actual supported routes. KINSOL owns nonlinear iteration and within-call numerical setup; fresh application setup and original residual assessment remain mandatory.
 
-Application entry and initialization invalidate numerical state, including applications that accept their initial point without setup. The first setup of each new application performs fresh numerical factorization; later setup follows stock current-application refactor/condition policy. Solve requires a successful setup for the current application. Pattern/settings changes discard incompatible symbolic state. Failed factorization or cancellation never leaves numerical validity available to a later application.
+The tested candidate compared exact occupied CSC structure and all KLU analysis-affecting settings, admitted known additional storage and required fresh numerical factors per application. Independent inspection caught KLU's normalization of four floating inputs; rejecting noncanonical ranges corrected false substitution refusal after a successful setup. Lifecycle soundness alone did not establish sufficient benefit to retain the additional owner.
 
 ### Consequences
 
-The candidate adds bounded native state, exact structure/settings comparison, explicit selection and maintenance of a small bundled adapter extension. Known key/native metadata storage is admitted in addition to existing opaque factor allowances. Instrumentation distinguishes actual symbolic analysis, fresh numeric factorization, refactor and substitutions. Adoption requires a useful complete repeated sparse operation, not only fewer symbolic calls.
+**Measured:** three changed-coefficient applications at fixed 512-variable sparse structure took stock KLU 2.658/2.628/2.360 ms and the candidate 2.527/2.608/2.275 ms, with retained allowances of 589,768 and 647,216 bytes respectively. The existing SPGMR/Jacobi contrast took 1.690/1.642/1.755 ms with 348,944 bytes. These are one short local observation of each changed application, not repeated statistical samples or a universal backend ranking. Removing repeated symbolic calls did not establish a material complete-operation gain against extra retained state, per-substitution CSC comparisons and bundled-adapter maintenance. The 128-variable contrast likewise supplied no compelling adoption case.
 
 ### Compensating controls
 
-Retain stock defaults and typed refusal for unsupported candidate configurations. Test changed structure/settings, numerical failure then recovery, accepted starts, cancellation, pressure and last-owner release. Current physical residuals independently determine scientific permission; symbolic reuse grants no permission.
+Keep stock numerical initialization and failure/recovery semantics. Retained native allocations do not authorize old factors. Explicit Krylov selection retains its existing problem eligibility and original physical residual checks; this observation does not make it the global default. Plan45 F13 remains unresolved under the accepted bounded RC08 disposition.
 
 ### Confirmation
 
-Plan45e/E01 owns implementation, exact-settings qualification, stock/Krylov contrasts and adoption. Plan45f owns assembled qualification. This proposed record establishes the bounded target, not tested implementation or a performance claim.
+**Tested:** the experimental E01 controls covered exact settings/pattern changes, fresh factors, accepted starts, numerical failure/recovery, cancellation, pressure and release. The final five-control native repair selection also exercised the retained stock/Krylov contrast with zero failures. Plan45e owns the bounded inquiry outcome; Plan45f owns assembled qualification and its limits.
 
 ## Pros and cons
 
-The candidate removes repeated library structure work while keeping fresh numerical factors and KINSOL ownership. Its cost is a small bundled binding extension whose benefit and complete lifecycle must be established for an explicit route.
+The retained upstream owner avoids a second maintained binding and extra state. Repeated symbolic analysis remains a known cost. Revisit only when a representative symbolic-dominant workload supplies a materially different complete-operation case.
 
 ## More information
 
@@ -63,3 +63,4 @@ The candidate removes repeated library structure work while keeping fresh numeri
 
 - 2026-10-18 — proposed under accepted Plan45 RC08 before candidate implementation; stock default retained pending qualification.
 - 2026-10-18 — independent implementation inspection identified KLU's normalization of four floating inputs; candidate eligibility explicitly rejects those noncanonical ranges before setup rather than reporting successful setup followed by false substitution refusal.
+- 2026-10-18 — bounded E01 qualification selected non-adoption under accepted RC08; removed the experimental production binding and retained stock/Krylov comparisons. Formal status remains proposed.

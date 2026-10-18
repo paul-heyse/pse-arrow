@@ -1895,15 +1895,14 @@ refreshes the others, and never carries an earlier step's Newton-step, forcing-t
 Anderson controls. Each new KINSol call requests fresh initial numerical setup and clears
 project Jacobi/block setup state; an already accepted initial point may legitimately
 perform zero setups. Within-call monitoring remains library-owned. Retained allocations
-do not authorize numerical setup history. Under proposed ADR-0200, an explicit qualified
-KLU candidate may retain symbolic state across applications only under exact occupied CSC
-structure and all analysis-affecting input settings; unknown callback semantics refuse.
-Application entry and initialization both invalidate numerical factors, including an
-accepted initial point that performs no setup. Each application's first setup performs
-fresh numerical factorization; later setup retains the stock within-application policy.
-Failed setup/cancellation cannot authorize substitution. Stock KLU remains the default
-until Plan45e/E01 establishes complete-operation benefit, accounting and recovery; actual
-symbolic, numeric, refactor and substitution observations remain distinct (§23.1).
+do not authorize numerical setup history. Proposed ADR-0200 records Plan45's bounded
+symbolic-owner investigation and non-adoption: stock KLU and the existing explicit
+Krylov/preconditioned routes remain supported. The experimental exact-CSC/settings owner
+required fresh numerical factors but did not establish material complete-operation benefit
+on the short 128/512-variable contrasts, so its binding/profile were removed. Repeated
+symbolic analysis remains a known limitation; a representative symbolic-dominant workload
+is the revisit trigger. Actual symbolic, numeric, refactor and substitution observations
+remain distinct (§23.1).
 
 A nested implicit solve (`implicit.rs`) reuses KINSOL sessions through a per-worker-thread
 cache keyed by problem identity and bounded in bytes. The solve takes a compatible session
