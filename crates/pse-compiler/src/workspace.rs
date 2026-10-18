@@ -1609,7 +1609,8 @@ fn provider_context_extent(i: &CompilerContext) -> usize {
             |bytes, (name, provider)| {
                 let spec = provider.descriptor.spec();
                 bytes
-                    .saturating_add(name.len())
+                    .saturating_add(size_of::<(String, ProviderCall)>() + 128)
+                    .saturating_add(name.capacity())
                     .saturating_add(spec.shapes.retained_bytes())
                     .saturating_add(
                         (spec.inputs.len() + spec.outputs.len())

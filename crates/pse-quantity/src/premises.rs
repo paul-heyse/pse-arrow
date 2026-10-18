@@ -364,4 +364,76 @@ mod tests {
         let (_, clean) = capture(&registry, &facts, || -> Result<_, QuantityError> { registry.quantity_type(temperature(&registry))?; Ok(()) }).unwrap();
         assert!(clean.is_some());
     }
+    #[test]
+    fn indexed_literal_candidates_preserve_vectors_and_capture_new_scalar_candidate() {
+        let registry = standard_registry().unwrap(); let facts = facts();
+        let scalar = registry.neutral_dimensionless().unwrap();
+        let source = registry.unit(registry.quantity_type(scalar).unwrap().canonical_unit).unwrap();
+        let (_, premises) = capture(&registry, &facts, || -> Result<_, QuantityError> {
+            let _ = crate::literal::resolve_literal(source, crate::literal::LiteralContext::Free, &registry);
+            Ok(())
+        }).unwrap();
+        let premises = premises.unwrap();
+        let mut builder = registry.to_builder();
+        let axis = EntityKindId::from_id(pse_ids::SemanticId::from_bytes([237;16]));
+        builder.entity_kind(EntityKind { id: axis, name: "literal-unrelated-axis".into() });
+        let mut ty = registry.quantity_type(scalar).unwrap().clone();
+        ty.id = QuantityTypeId::from_id(pse_ids::SemanticId::from_bytes([238;16]));
+        ty.name = Some("unrelated-vector".into()); ty.key.shape = vec![axis];
+        builder.quantity_type(ty);
+        let vector = builder.build().unwrap();
+        assert!(premises.matches(&vector, &facts));
+        let mut builder = registry.to_builder();
+        let mut ty = registry.quantity_types().find(|ty| ty.key.shape.is_empty() && ty.id != scalar).unwrap().clone();
+        // A new basis gives a distinct complete scalar contract without inventing an admitted mutation.
+        let basis = BasisId::from_id(pse_ids::SemanticId::from_bytes([239;16]));
+        let prototype = registry.bases().next().unwrap().clone();
+        builder.basis(crate::Basis { id: basis, ..prototype });
+        ty.id = QuantityTypeId::from_id(pse_ids::SemanticId::from_bytes([240;16]));
+        ty.name = Some("new-literal-candidate".into()); ty.key.basis = Some(basis);
+        // Use the scalar dimension/representation, with a distinct admitted basis.
+        let original = registry.quantity_type(scalar).unwrap();
+        ty.key.kind = original.key.kind; ty.key.scale_kind = original.key.scale_kind;
+        ty.key.reference_state = original.key.reference_state; ty.canonical_unit = original.canonical_unit;
+        builder.quantity_type(ty);
+        assert!(!premises.matches(&builder.build().unwrap(), &facts));
+    }
+    #[test]
+    fn sparse_declaration_names_are_charged_independently_of_name_indexes() {
+        let registry = standard_registry().unwrap(); let facts = facts();
+        let mut builder = registry.to_builder();
+        let scalar = registry.neutral_dimensionless().unwrap();
+        let axis = EntityKindId::from_id(pse_ids::SemanticId::from_bytes([233;16]));
+        builder.entity_kind(EntityKind { id: axis, name: "long-name-axis".into() });
+        let mut quantity = registry.quantity_type(scalar).unwrap().clone();
+        quantity.id = QuantityTypeId::from_id(pse_ids::SemanticId::from_bytes([234;16]));
+        quantity.key.shape = vec![axis]; quantity.name = Some("x".repeat(65536));
+        let id = quantity.id; let quantity_bytes = quantity.name.as_ref().unwrap().len(); builder.quantity_type(quantity);
+        let registry = builder.build().unwrap();
+        let (_, premises) = capture(&registry, &facts, || registry.quantity_type(id)).unwrap();
+        let premises = premises.unwrap();
+        assert!(premises.registry.by_name.is_empty());
+        assert!(premises.retained_bytes() >= quantity_bytes);
+        let mut reference = registry.reference_states().next().unwrap().clone();
+        reference.name = "r".repeat(65536); reference.id = ReferenceStateId::from_id(pse_ids::SemanticId::from_bytes([235;16]));
+        let id = reference.id; let reference_bytes = reference.name.len();
+        let mut builder = registry.to_builder(); builder.reference_state(reference);
+        let registry = builder.build().unwrap();
+        let (_, premises) = capture(&registry, &facts, || registry.reference_state(id)).unwrap();
+        let premises = premises.unwrap(); assert!(premises.registry.by_name.is_empty());
+        assert!(premises.retained_bytes() >= reference_bytes);
+    }
+    #[test]
+    fn administrative_suspension_keeps_new_nested_audits_active() {
+        let registry = standard_registry().unwrap(); let facts = facts();
+        let (_, outer) = capture(&registry, &facts, || -> Result<_, QuantityError> {
+            without_recording(|| {
+                let (_, inner) = capture(&registry, &facts, || registry.quantity_type(temperature(&registry))).unwrap();
+                assert!(!inner.unwrap().reads.is_empty());
+            });
+            Ok(())
+        }).unwrap();
+        assert!(outer.unwrap().reads.is_empty());
+    }
+
 }

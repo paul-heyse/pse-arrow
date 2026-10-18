@@ -294,7 +294,11 @@ impl QuantityRegistry {
             }
         }
         for quantity in self.quantity_types.values() {
-            bytes = bytes.saturating_add(quantity.key.shape.capacity().saturating_mul(32));
+            bytes = bytes.saturating_add(quantity.key.shape.capacity().saturating_mul(32))
+                .saturating_add(quantity.name.as_ref().map_or(0, String::capacity));
+        }
+        for reference in self.reference_states.values() {
+            bytes = bytes.saturating_add(reference.name.capacity());
         }
         for key in self.by_key.keys() {
             bytes = bytes.saturating_add(key.shape.capacity().saturating_mul(32));

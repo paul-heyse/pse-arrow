@@ -86,6 +86,7 @@ async fn physical_refresh_keeps_one_live_lane_and_historical_context_without_own
     assert!(Arc::ptr_eq(&second.compiler.lock().unwrap().context().quantities, &changed.quantities));
     assert!(second.compiler.lock().unwrap().selects_modeling_revision(&current.admitted));
     assert_eq!(service.compiler_lanes.lock().unwrap().iter().filter(|lane| lane.historical.is_none()).count(), 1);
+    assert!(service.compiler_lanes.lock().unwrap().iter().all(|lane| lane.workspace.desired_context.is_none()), "resident lanes must not retain superseded request contexts");
     assert_eq!(historical_math.consumed_physical_identity(), old_math.consumed_physical_identity());
     let equal = CompilerContext {
         quantities: Arc::new(changed.quantities.as_ref().clone()),

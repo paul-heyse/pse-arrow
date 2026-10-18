@@ -199,3 +199,48 @@ fn physical_context_and_matching_source_publish_as_one_candidate() {
     assert!(workspace.selects_modeling_revision(&revision));
     assert!(!prepare(&mut workspace, root).admitted.bodies.is_empty());
 }
+
+fn unused_provider(inputs: &CompilerContext) -> ProviderCall {
+    use pse_kernels::{AdmittedProvider, DerivativeSource, Port, ProviderShapes, ProviderSpec};
+    let quantity = inputs.quantities.neutral_dimensionless().unwrap();
+    let unit = inputs.quantities.quantity_type(quantity).unwrap().canonical_unit;
+    let spec = ProviderSpec {
+        shapes: ProviderShapes::default(), derivative_source: DerivativeSource::Analytic,
+        id: SemanticId::from_bytes([213;16]), revision: ContentHash::from_bytes([214;32]),
+        data: ContentHash::from_bytes([215;32]),
+        inputs: vec![Port { id: SemanticId::from_bytes([216;16]), quantity, unit }],
+        outputs: vec![Port { id: SemanticId::from_bytes([217;16]), quantity, unit }],
+        derivatives: pse_kernels::DerivativeOrder::First, smoothness: pse_kernels::DerivativeOrder::First,
+    };
+    ProviderCall { descriptor: AdmittedProvider::new(spec, &inputs.quantities).unwrap(), output: 0 }
+}
+#[test]
+fn scientific_witness_complete_fallback_accepts_unused_provider_and_refuses_changed_provider() {
+    let source = r#"package physical_edit {
+        entity kind convention {} entity convention ideal {}
+        coordinate map coords(x:Length) { slot x=x/1{m}; }
+        reconstruction family for coords(x:Length)->Length reference ideal=1{m};
+        fn law(x:Coordinate<coords.x>)->Reduced<family>=0*x;
+        fn potential(x:Length)->Length=reconstruct family(law(coords.x(x)),x);
+        response response_value from potential(x:Length,potential:Fn(x:Length)->Length)->Length=potential(x);
+        def Root { var x:Length; eq e:response_value(x,potential)==1{m}; }
+    }"#;
+    let inputs = crate::authored_transfer_tests::context();
+    let mut inputs = CompilerContext { providers: BTreeMap::from([("unused".into(), unused_provider(&inputs))]), ..inputs };
+    let rows = crate::authored_transfer_tests::rows(source);
+    let root = crate::authored_transfer_tests::root(&rows, "physical_edit", "Root");
+    let mut workspace = CompilerWorkspace::new(inputs.clone(), WorkspaceLimits::default()).unwrap();
+    workspace.publish_modeling(rows, PhysicalScope::default()).unwrap();
+    let frontier = workspace.plan_modeling_cancellable(root, root_instance(root), Bindings::default(), Limits::default(), Arc::new(AtomicBool::new(false))).unwrap();
+    assert!(frontier.physical_premises.is_none(), "scientific witness needs explicit complete interpretation");
+    assert_eq!(frontier.providers.len(), 1);
+    let current = workspace.complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false))).unwrap();
+    assert!(!current.admitted.bodies.is_empty());
+    let mut descriptor = inputs.providers["unused"].descriptor.spec().clone();
+    descriptor.revision = ContentHash::from_bytes([218;32]);
+    inputs.providers.get_mut("unused").unwrap().descriptor = pse_kernels::AdmittedProvider::new(descriptor, &inputs.quantities).unwrap();
+    workspace.refresh_modeling_context(inputs.clone(), Arc::new(AtomicBool::new(false))).unwrap();
+    assert_eq!(workspace.modeling.as_ref().unwrap().revision.compiler_context().providers, inputs.providers);
+    assert!(workspace.complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false))).is_err());
+    assert!(!prepare(&mut workspace, root).admitted.bodies.is_empty());
+}

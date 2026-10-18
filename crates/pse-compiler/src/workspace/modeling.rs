@@ -289,7 +289,7 @@ fn revision(
     let input_bytes = rows
         .owned_bytes()
         .saturating_add(checked.retained_bytes())
-        .saturating_add(super::provider_context_extent(&inputs))
+        .saturating_add(provider_context_extent(&inputs))
         .saturating_add(scope_bytes(&scope))
         .saturating_add(documents.retained_bytes());
     Arc::new(ModelingRevision {

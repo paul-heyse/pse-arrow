@@ -1662,6 +1662,11 @@ impl CompilerWorkspace {
             if let Some(premises) = premises {
                 frontier.physical = consumed_context(&premises, &frontier.projection.physical_scope);
                 frontier.physical_premises = Some(Arc::new(premises));
+            } else {
+                // Conservative physical routes retain the complete provider interpretation
+                // as well, including unused registrations in this current context.
+                frontier.providers = self.inputs.providers.iter().map(|(name, provider)|
+                    (name.clone(), (provider.descriptor.spec().identity(), provider.output))).collect();
             }
             Ok(frontier)
         })
@@ -1806,7 +1811,7 @@ impl PreparedModeling {
     pub fn retained_bytes(&self) -> usize {
         2 * size_of::<Self>()
             + 256
-            + super::super::context_extent(&self.context)
+            + context_extent(&self.context)
             + self.semantic.descriptor_bytes()
             + size_of_val(self.portable.as_ref())
             + 32

@@ -1448,7 +1448,6 @@ impl LaneStamp {
 pub(super) struct CompilerLane {
     lineage: CompilerLineage,
     historical: Option<pse_ids::roles::SourceRevisionHash>,
-    inputs: pse_compiler::workspace::CompilerContext,
     workspace: Workspace,
     _metadata: Arc<AllocationLease>,
 }
@@ -1543,8 +1542,7 @@ impl MathService {
         lanes.push(CompilerLane {
             lineage,
             historical: None,
-            inputs,
-            workspace: workspace.clone(),
+            workspace: Workspace { desired_context: None, ..workspace.clone() },
             _metadata: metadata,
         });
         Ok(workspace)
@@ -1571,7 +1569,10 @@ impl MathService {
             if let Some(lineage) = &lineage
                 && let Some(index) = lanes.iter().position(|lane| {
                     lane.lineage == *lineage
-                        && lane.inputs == inputs
+                        && lane.workspace.compiler.try_lock().is_ok_and(|compiler| {
+                            let current = compiler.context();
+                            current == inputs && Arc::ptr_eq(&current.quantities, &inputs.quantities) && Arc::ptr_eq(&current.preconditions, &inputs.preconditions)
+                        })
                         && lane.historical == Some(revision.identity)
                 })
                 && let Ok(permit) = lanes[index].workspace.admission.clone().try_acquire_owned()
@@ -1607,7 +1608,10 @@ impl MathService {
             // An active peer retains its own authority; this caller stays private.
             if !lanes.iter().any(|lane| {
                 lane.lineage == lineage
-                    && lane.inputs == inputs
+                    && lane.workspace.compiler.try_lock().is_ok_and(|compiler| {
+                            let current = compiler.context();
+                            current == inputs && Arc::ptr_eq(&current.quantities, &inputs.quantities) && Arc::ptr_eq(&current.preconditions, &inputs.preconditions)
+                        })
                     && lane.historical == Some(revision.identity)
             }) {
                 while lanes.len() >= self.policy.jobs.max(1) {
@@ -1623,8 +1627,7 @@ impl MathService {
                     lanes.push(CompilerLane {
                         lineage,
                         historical: Some(revision.identity),
-                        inputs,
-                        workspace: workspace.clone(),
+                        workspace: Workspace { desired_context: None, ..workspace.clone() },
                         _metadata: metadata,
                     });
                 }
