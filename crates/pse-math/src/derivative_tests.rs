@@ -963,8 +963,8 @@ fn evaluator_storage_counts_its_instruction_stream() {
         &mut Default::default(),
     )
     .unwrap();
-    let export = evaluator.export_instructions();
-    let storage = library::storage(&evaluator).unwrap();
+    let export = evaluator.export;
+    let storage = evaluator.facts.storage;
     assert!(!export.instructions.is_empty());
     assert!(storage.instruction_bytes > size_of_val(export.instructions.as_slice()));
     assert_eq!(
@@ -1740,7 +1740,14 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
     requests.lock().unwrap().clear();
     assert_eq!(worker.hessian(&values, 2.0, &[3.0]).unwrap().val(), &[-0.5]);
     assert_eq!(worker.hessian(&values, 4.0, &[9.0]).unwrap().val(), &[-1.0]);
-    assert_eq!(requests.lock().unwrap().len(), 1);
+    assert_eq!(worker.hessian(&values, 4.0, &[9.0]).unwrap().val(), &[-1.0]);
+    // Each changed weighted product preserves the original provider effect, with
+    // its two selected outputs coalesced into one complete Second request. The
+    // identical third demand reuses the complete product and issues no new call.
+    assert_eq!(requests.lock().unwrap().as_slice(), &[
+        ProviderRequest { outputs: vec![0, 1], order: DerivativeOrder::Second },
+        ProviderRequest { outputs: vec![0, 1], order: DerivativeOrder::Second },
+    ]);
     let bad = CaseValues {
         scalars: BTreeMap::from([(id(1), -2.0)]),
     };
@@ -2510,18 +2517,18 @@ fn structural_taylor_zeros_preserve_complete_second_shape_and_reduce_library_wor
     };
     let mut dense = build(&[]);
     let mut sparse = build(&[(0, 2), (0, 4), (0, 5), (1, 1), (1, 3), (1, 4)]);
-    let work = |e: &symbolica::evaluate::ExpressionEvaluator<f64>| {
-        let c = e.count_operations();
+    let work = |e: &library::FloatingEvaluator| {
+        let c = e.facts.operations;
         c.additions + c.multiplications + c.inversions + c.function_calls
     };
     assert!(work(&sparse) < work(&dense));
-    assert_eq!(sparse.get_input_len(), 12);
-    assert_eq!(sparse.get_output_len(), 6);
+    assert_eq!(sparse.evaluator.get_input_len(), 12);
+    assert_eq!(sparse.evaluator.get_output_len(), 6);
     let input = [2.0, 1.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 1.0, 0.0, 0.0, 0.0];
     let mut full = [0.0; 6];
     let mut suppressed = [0.0; 6];
-    dense.evaluate(&input, &mut full);
-    sparse.evaluate(&input, &mut suppressed);
+    dense.evaluator.evaluate(&input, &mut full);
+    sparse.evaluator.evaluate(&input, &mut suppressed);
     let expected = [
         15.0 + 2.0_f64.sin(),
         3.0 + 2.0_f64.cos(),

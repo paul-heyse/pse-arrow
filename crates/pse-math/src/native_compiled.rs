@@ -610,8 +610,8 @@ mod tests {
         scope: &pse_kernels::ExecutionScope,
         compiler: &str,
     ) -> Result<Evaluator, MathError> {
-        let storage = library::storage(evaluator)?;
         let export = evaluator.export_instructions();
+        let storage = library::EvaluatorFacts::inspect(&export, evaluator.count_operations(), "math.test_representation_inspections")?.storage;
         compile_prepared_with(evaluator, &storage, &export, module_bytes, scope, compiler)
     }
     fn compile(

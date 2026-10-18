@@ -52,7 +52,7 @@ impl CubicRoots {
             .map(crate::library::formal)
             .collect::<Result<Vec<_>, _>>()?;
         let layout = crate::jets::JetLayout::new(vec![], DerivativeOrder::Value, limits)?;
-        let evaluator = crate::library::bounded_evaluator(
+        let inspected = crate::library::bounded_evaluator(
             SemanticId::NIL,
             &coefficients,
             &formals,
@@ -65,7 +65,7 @@ impl CubicRoots {
             0,
             &mut Default::default(),
         )?;
-        let storage = crate::library::storage(&evaluator)?;
+        let storage = inspected.facts.storage;
         let bytes = storage
             .numeric_entries
             .checked_mul(size_of::<f64>())
@@ -73,7 +73,7 @@ impl CubicRoots {
             .and_then(|bytes| bytes.checked_add(size_of::<CubicWorker>()))
             .ok_or(MathError::Limit("cubic coefficient storage extent"))?;
         Ok(Self {
-            coefficients: evaluator,
+            coefficients: inspected.evaluator,
             parameters: formals.len(),
             bytes,
         })

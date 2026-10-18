@@ -302,7 +302,7 @@ impl PreparedSupport {
         let mut scalars = retained
             .map(library::ScalarCache::from_products)
             .unwrap_or_default();
-        let evaluator = library::bounded_scalar_evaluator(
+        let inspected = library::bounded_scalar_evaluator(
             &expressions,
             &parameters,
             options,
@@ -310,9 +310,10 @@ impl PreparedSupport {
             limits,
             &mut scalars,
         )?;
-        let storage = library::storage(&evaluator)?;
-        let operations = operation_count(evaluator.count_operations());
-        let export = evaluator.export_instructions();
+        let storage = inspected.facts.storage;
+        let operations = operation_count(inspected.facts.operations);
+        let export = inspected.export;
+        let evaluator = inspected.evaluator;
         let modules = options.evaluator.module_bytes();
         let evaluator = match options.evaluator {
             library::Evaluator::Interpreted => BlockEvaluator::Interpreted(evaluator),
@@ -337,6 +338,7 @@ impl PreparedSupport {
                 }
             }
         };
+        drop(export);
         let numeric = storage
             .numeric_entries
             .checked_add(parameters.len())

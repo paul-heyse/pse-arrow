@@ -6,7 +6,9 @@
 use super::*;
 use crate::jets::{EvaluationLimits, JetLayout};
 use std::sync::{Arc, atomic::AtomicBool};
-use symbolica::atom::{AtomView, Symbol};
+use symbolica::atom::AtomView;
+#[cfg(test)]
+use symbolica::atom::Symbol;
 use symbolica::evaluate::{Instruction, OperationCount};
 
 fn add(a: usize, b: usize) -> Result<usize, MathError> {
@@ -154,6 +156,12 @@ pub(crate) fn evaluator_construction_shape(
         .iter()
         .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
     let operations = source_operations(expressions)?;
+    construction_shape(source, operations, expressions.len(), parameters, order, width, products)
+}
+fn construction_shape(
+    source: usize, operations: usize, outputs: usize, parameters: usize,
+    order: pse_kernels::DerivativeOrder, width: usize, products: usize,
+) -> Result<EvaluatorConstruction, MathError> {
     let mut per_operation = 0;
     for count in [
         OperationCount::new(1, 0, 0, 0),
@@ -164,9 +172,9 @@ pub(crate) fn evaluator_construction_shape(
         per_operation = per_operation.max(expansion_with_products(count, order, width, products)?);
     }
     let expanded = mul(operations, per_operation)?;
-    let scalar_instructions = add(add(source, operations)?, expressions.len())?;
+    let scalar_instructions = add(add(source, operations)?, outputs)?;
     let vectors = add(
-        add(mul(2, parameters)?, expressions.len())?,
+        add(mul(2, parameters)?, outputs)?,
         add(
             source,
             add(mul(3, scalar_instructions)?, mul(10, operations)?)?,
@@ -191,25 +199,11 @@ pub(crate) fn evaluator_construction_shape(
         instructions,
     })
 }
-fn reserve_export<T>(
-    export: &ExportedInstructions<T>,
-    initial: EvaluatorConstruction,
-) -> Result<(), MathError> {
-    let entries = add(
-        add(export.input_count, export.constants.len())?,
-        export.temporary_count,
-    )?;
-    let instructions =
-        instruction_bytes(export).ok_or(MathError::Limit("evaluator instruction extent"))?;
-    // The initial body reservation charges numeric payload twice: the immutable
-    // evaluator and its worker/construction copy. Grow that same population for
-    // any optimizer excess, without imposing a new scientific operation cutoff.
+fn reserve_facts(facts: &EvaluatorFacts, initial: EvaluatorConstruction) -> Result<(), MathError> {
+    // Immutable evaluator and private construction/worker copy retain independent charge.
     let extra = add(
-        mul(
-            entries.saturating_sub(initial.entries),
-            2 * size_of::<f64>(),
-        )?,
-        instructions.saturating_sub(initial.instructions),
+        mul(facts.storage.numeric_entries.saturating_sub(initial.entries), 2 * size_of::<f64>())?,
+        facts.storage.instruction_bytes.saturating_sub(initial.instructions),
     )?;
     crate::construction::additional(extra)
 }
@@ -227,6 +221,10 @@ pub struct ScalarProducts {
 struct ScalarProduct {
     evaluator: ExpressionEvaluator<Complex<Rational>>,
     bytes: usize,
+    facts: EvaluatorFacts,
+    source_bytes: usize,
+    source_operations: usize,
+    source_atom_operations: usize,
     owner: std::sync::OnceLock<Arc<dyn crate::AllocationOwner>>,
 }
 impl std::fmt::Debug for ScalarProducts {
@@ -297,6 +295,24 @@ impl ScalarProducts {
     }
 }
 
+/// Preserve the two existing source-work policies: scalar/provider preparation
+/// counts builtins explicitly, while Taylor admission uses Atom's operation count.
+#[derive(Clone, Copy)]
+enum SourceOperationLimit {
+    Scalar(usize),
+    Taylor(usize),
+}
+impl SourceOperationLimit {
+    fn check(self, scalar: usize, taylor: usize) -> Result<(), MathError> {
+        let (operations, limit) = match self {
+            Self::Scalar(limit) => (scalar, limit),
+            Self::Taylor(limit) => (taylor, limit),
+        };
+        if operations > limit { return Err(MathError::Limit("scalar construction operations")); }
+        Ok(())
+    }
+}
+
 /// Construction-local index borrowing immutable retained exact products. Neither
 /// mutable evaluator state nor cancellation controls enter the retained bundle.
 #[derive(Default)]
@@ -337,26 +353,21 @@ impl ScalarCache {
         cancelled: &Arc<AtomicBool>,
         limits: EvaluationLimits,
     ) -> Result<(), MathError> {
-        if source_operations(expressions)? > limits.operations {
-            return Err(MathError::Limit("scalar construction operations"));
-        }
-        let evaluator = self.prepare(expressions, parameters, options, cancelled)?;
-        if total(evaluator.count_operations())? > limits.operations {
+        let product = self.prepare(expressions, parameters, options, cancelled, SourceOperationLimit::Scalar(limits.operations))?;
+        if total(product.facts.operations)? > limits.operations {
             return Err(MathError::Limit("scalar evaluator operations"));
         }
-        let export = evaluator.export_instructions();
-        limits.allocation(add(
-            add(export.input_count, export.constants.len())?,
-            export.temporary_count,
-        )?)
+        limits.allocation(product.facts.storage.numeric_entries)
     }
-    pub(crate) fn prepare(
+
+    fn prepare(
         &mut self,
         expressions: &[Atom],
         parameters: &[Atom],
         options: Optimization,
         cancelled: &Arc<AtomicBool>,
-    ) -> Result<&ExpressionEvaluator<Complex<Rational>>, MathError> {
+        source_limit: SourceOperationLimit,
+    ) -> Result<&ScalarProduct, MathError> {
         let _phase = pse_diagnostics::observation::phase("math.scalar_prepare");
         if cancelled.load(std::sync::atomic::Ordering::Acquire) {
             return Err(MathError::Cancelled);
@@ -376,12 +387,11 @@ impl ScalarCache {
                 context.count("math.scalar_constructions", "count", 1);
                 context.phase("math.scalar_construction")
             });
-            let initial = evaluator_construction(
-                expressions,
-                parameters.len(),
-                0,
-                pse_kernels::DerivativeOrder::Value,
-            )?;
+            let source_operations = source_operations(expressions)?;
+            let source_atom_operations = expressions.iter().try_fold(0, |sum, expression| add(sum, total(expression.count_operations())?))?;
+            source_limit.check(source_operations, source_atom_operations)?;
+            let source_bytes = expressions.iter().try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
+            let initial = construction_shape(source_bytes, source_operations, expressions.len(), parameters.len(), pse_kernels::DerivativeOrder::Value, 1, 1)?;
             let atoms = expressions
                 .iter()
                 .chain(parameters)
@@ -392,24 +402,12 @@ impl ScalarCache {
             )?)?;
             let evaluator = exact_evaluator(expressions, parameters, options, cancelled)?;
             let export = evaluator.export_instructions();
-            reserve_export(&export, initial)?;
-            let bytes = add(
-                size_of::<ScalarProduct>(),
-                add(
-                    atoms,
-                    add(
-                        mul(
-                            add(
-                                add(export.input_count, export.constants.len())?,
-                                export.temporary_count,
-                            )?,
-                            2 * size_of::<Complex<Rational>>(),
-                        )?,
-                        instruction_bytes(&export)
-                            .ok_or(MathError::Limit("scalar instruction extent"))?,
-                    )?,
-                )?,
-            )?;
+            let facts = EvaluatorFacts::inspect(&export, evaluator.count_operations(), "math.rational_representation_inspections")?;
+            reserve_facts(&facts, initial)?;
+            let bytes = add(size_of::<ScalarProduct>(), add(atoms, add(
+                mul(facts.storage.numeric_entries, 2 * size_of::<Complex<Rational>>())?,
+                facts.storage.instruction_bytes,
+            )?)?)?;
             if cancelled.load(std::sync::atomic::Ordering::Acquire) {
                 return Err(MathError::Cancelled);
             }
@@ -418,6 +416,10 @@ impl ScalarCache {
                 Arc::new(ScalarProduct {
                     evaluator,
                     bytes,
+                    facts,
+                    source_bytes,
+                    source_operations,
+                    source_atom_operations,
                     owner: std::sync::OnceLock::new(),
                 }),
             );
@@ -428,10 +430,10 @@ impl ScalarCache {
         } else if let Some(context) = pse_diagnostics::observation::current() {
             context.count("math.scalar_cache_reuses", "count", 1);
         }
-        self.evaluators
-            .get(&key)
-            .map(|product| &product.evaluator)
-            .ok_or_else(|| MathError::Contract("missing prepared scalar evaluator".into()))
+        let product = self.evaluators.get(&key).map(Arc::as_ref)
+            .ok_or_else(|| MathError::Contract("missing prepared scalar evaluator".into()))?;
+        source_limit.check(product.source_operations, product.source_atom_operations)?;
+        Ok(product)
     }
 }
 
@@ -444,30 +446,18 @@ pub(crate) fn bounded_scalar_evaluator(
     cancelled: &Arc<AtomicBool>,
     limits: EvaluationLimits,
     scalars: &mut ScalarCache,
-) -> Result<ExpressionEvaluator<f64>, MathError> {
-    if source_operations(expressions)? > limits.operations {
-        return Err(MathError::Limit("scalar construction operations"));
-    }
-    let initial = evaluator_construction(
-        expressions,
-        parameters.len(),
-        0,
-        pse_kernels::DerivativeOrder::Value,
-    )?;
-    let evaluator = scalars.prepare(expressions, parameters, options, cancelled)?;
-    if total(evaluator.count_operations())? > limits.operations {
+) -> Result<FloatingEvaluator, MathError> {
+    let product = scalars.prepare(expressions, parameters, options, cancelled, SourceOperationLimit::Scalar(limits.operations))?;
+    let initial = construction_shape(product.source_bytes, product.source_operations, expressions.len(), parameters.len(), pse_kernels::DerivativeOrder::Value, 1, 1)?;
+    if total(product.facts.operations)? > limits.operations {
         return Err(MathError::Limit("scalar evaluator operations"));
     }
-    let exported = evaluator.export_instructions();
-    limits.allocation(add(
-        add(exported.input_count, exported.constants.len())?,
-        exported.temporary_count,
-    )?)?;
-    reserve_export(&exported, initial)?;
+    limits.allocation(product.facts.storage.numeric_entries)?;
+    reserve_facts(&product.facts, initial)?;
     if cancelled.load(std::sync::atomic::Ordering::Acquire) {
         return Err(MathError::Cancelled);
     }
-    Ok(evaluator.clone().map_coeff(&|c| c.re.to_f64()))
+    FloatingEvaluator::new(product.evaluator.clone().map_coeff(&|c| c.re.to_f64()))
 }
 
 #[allow(
@@ -486,7 +476,7 @@ pub(crate) fn bounded_evaluator(
     remaining: usize,
     occupied_entries: usize,
     scalars: &mut ScalarCache,
-) -> Result<ExpressionEvaluator<f64>, MathError> {
+) -> Result<FloatingEvaluator, MathError> {
     if zero_components.iter().any(|&(parameter, component)| {
         parameter >= parameters.len() || component == 0 || component >= layout.width()
     }) {
@@ -502,51 +492,19 @@ pub(crate) fn bounded_evaluator(
     let products = layout.pairs.iter().try_fold(add(1, first)?, |n, &(i, j)| {
         add(n, if i == j { 3 } else { 4 })
     })?;
-    let construction = evaluator_construction_shape(
-        expressions,
-        parameters.len(),
-        layout.order,
-        layout.width(),
-        products,
-    )?;
-    let source_work = expressions.iter().try_fold(0, |sum, expression| {
-        add(sum, total(expression.count_operations())?)
-    })?;
-    if source_work > remaining {
-        return Err(MathError::Limit("scalar construction operations"));
-    }
-    let evaluator = scalars.prepare(expressions, parameters, options, cancelled)?;
-    let scalar = evaluator.count_operations();
+    let product = scalars.prepare(expressions, parameters, options, cancelled, SourceOperationLimit::Taylor(remaining))?;
+    let construction = construction_shape(product.source_bytes, product.source_operations, expressions.len(), parameters.len(), layout.order, layout.width(), products)?;
+    let evaluator = &product.evaluator;
+    let scalar = product.facts.operations;
     if total(scalar)? > remaining {
         return Err(MathError::Limit("scalar evaluator operations"));
     }
-    let exported = evaluator.export_instructions();
-    limits.allocation(add(
-        occupied_entries,
-        add(
-            add(exported.input_count, exported.constants.len())?,
-            exported.temporary_count,
-        )?,
-    )?)?;
+    limits.allocation(add(occupied_entries, product.facts.storage.numeric_entries)?)?;
     if layout.width() == 1 {
-        reserve_export(&exported, construction)?;
-        return Ok(evaluator.clone().map_coeff(&|c| c.re.to_f64()));
+        reserve_facts(&product.facts, construction)?;
+        return FloatingEvaluator::new(evaluator.clone().map_coeff(&|c| c.re.to_f64()));
     }
-    if !exported.sub_evaluators.is_empty()
-        || exported.instructions.iter().any(|i| match i {
-            Instruction::Fun(_, f, _) => ![
-                Symbol::SQRT,
-                Symbol::EXP,
-                Symbol::LOG,
-                Symbol::SIN,
-                Symbol::COS,
-                Symbol::ABS,
-                Symbol::CONJ,
-            ]
-            .contains(&f.0),
-            _ => false,
-        })
-    {
+    if !product.facts.taylor_supported {
         return Err(MathError::Contract("unsupported Taylor primitive".into()));
     }
     let bound = expansion(scalar, layout)?;
@@ -566,9 +524,9 @@ pub(crate) fn bounded_evaluator(
     let vectors = add(
         add(mul(2, parameters.len())?, expressions.len())?,
         add(
-            exported.constants.len(),
+            product.facts.constants,
             add(
-                mul(3, exported.instructions.len())?,
+                mul(3, product.facts.instructions)?,
                 add(mul(7, scalar.function_calls)?, mul(3, scalar.inversions)?)?,
             )?,
         )?,
@@ -596,23 +554,16 @@ pub(crate) fn bounded_evaluator(
     if cancelled.load(std::sync::atomic::Ordering::Acquire) {
         return Err(MathError::Cancelled);
     }
-    if total(evaluator.count_operations())? > bound {
-        return Err(MathError::Contract(
-            "library Taylor expansion exceeded admitted bound".into(),
-        ));
-    }
-    // Check the actual expanded payload before floating constants/stack are allocated.
+    // Expanded exact Taylor and floating programs are distinct representations.
     let expanded_export = evaluator.export_instructions();
-    reserve_export(&expanded_export, construction)?;
-    limits.allocation(add(
-        occupied_entries,
-        add(
-            add(expanded_export.input_count, expanded_export.constants.len())?,
-            expanded_export.temporary_count,
-        )?,
-    )?)?;
-    // Pinned vectorize already optimizes its stack and common pairs.
-    Ok(evaluator.map_coeff(&|c| c.re.to_f64()))
+    let facts = EvaluatorFacts::inspect(&expanded_export, evaluator.count_operations(), "math.taylor_representation_inspections")?;
+    if total(facts.operations)? > bound {
+        return Err(MathError::Contract("library Taylor expansion exceeded admitted bound".into()));
+    }
+    reserve_facts(&facts, construction)?;
+    limits.allocation(add(occupied_entries, facts.storage.numeric_entries)?)?;
+    drop(expanded_export);
+    FloatingEvaluator::new(evaluator.map_coeff(&|c| c.re.to_f64()))
 }
 
 #[cfg(test)]
@@ -664,7 +615,7 @@ mod tests {
             &mut Default::default(),
         )
         .unwrap();
-        reserve_export(&compiled.export_instructions(), second).unwrap();
+        reserve_facts(&compiled.facts, second).unwrap();
     }
     #[derive(Debug)]
     struct Grow(std::sync::atomic::AtomicUsize);
@@ -770,12 +721,19 @@ mod tests {
         .unwrap();
         assert_eq!(scalars.len(), 1);
         let mut result = [0.];
-        first.try_evaluate(&[2.], &mut result).unwrap();
+        first.evaluator.try_evaluate(&[2.], &mut result).unwrap();
         assert_eq!(result, [7.]);
-        second.try_evaluate(&[4.], &mut result).unwrap();
+        second.evaluator.try_evaluate(&[4.], &mut result).unwrap();
         assert_eq!(result, [19.]);
-        first.try_evaluate(&[2.], &mut result).unwrap();
+        first.evaluator.try_evaluate(&[2.], &mut result).unwrap();
         assert_eq!(result, [7.]);
+        for limits in [
+            EvaluationLimits { operations: 1, ..Default::default() },
+            EvaluationLimits { scratch_bytes: 1, ..Default::default() },
+        ] {
+            assert!(matches!(bounded_scalar_evaluator(&expressions, std::slice::from_ref(&x), Optimization::default(), &cancel, limits, &mut scalars), Err(MathError::Limit(_))));
+            assert_eq!(scalars.builds(), 1, "a retained exact representation is checked under the new policy");
+        }
         cancel.store(true, std::sync::atomic::Ordering::Release);
         assert!(matches!(
             bounded_scalar_evaluator(
@@ -810,13 +768,13 @@ mod tests {
             sub_evaluators: vec![],
         };
         let owner = Arc::new(Grow(std::sync::atomic::AtomicUsize::new(0)));
-        crate::construction::scoped(owner.clone(), || reserve_export(&export, initial)).unwrap();
+        crate::construction::scoped(owner.clone(), || reserve_facts(&EvaluatorFacts::inspect(&export, OperationCount::new(0, 0, 0, 0), "math.test_representation_inspections")?, initial)).unwrap();
         assert_eq!(
             owner.0.load(std::sync::atomic::Ordering::SeqCst),
             2 * size_of::<f64>()
         );
         assert!(matches!(
-            crate::construction::scoped(Arc::new(Refuse), || reserve_export(&export, initial)),
+            crate::construction::scoped(Arc::new(Refuse), || reserve_facts(&EvaluatorFacts::inspect(&export, OperationCount::new(0, 0, 0, 0), "math.test_representation_inspections")?, initial)),
             Err(MathError::Limit("test pool full"))
         ));
     }
@@ -847,10 +805,10 @@ mod tests {
         // and verify growth succeeds instead of treating excess as a contract error.
         let initial = EvaluatorConstruction {
             entries: entries - 1,
-            instructions: instruction_bytes(&export).unwrap(),
+            instructions: instruction_description(&export).unwrap().bytes,
         };
         let owner = Arc::new(Grow(std::sync::atomic::AtomicUsize::new(0)));
-        crate::construction::scoped(owner.clone(), || reserve_export(&export, initial)).unwrap();
+        crate::construction::scoped(owner.clone(), || reserve_facts(&EvaluatorFacts::inspect(&export, OperationCount::new(0, 0, 0, 0), "math.test_representation_inspections")?, initial)).unwrap();
         assert_eq!(
             owner.0.load(std::sync::atomic::Ordering::SeqCst),
             2 * size_of::<f64>()
@@ -873,7 +831,7 @@ mod tests {
         .unwrap();
         let mut compiled = compiled;
         let mut output = [0.0];
-        compiled.evaluate(&[2.0, 3.0, 4.0], &mut output);
+        compiled.evaluator.evaluate(&[2.0, 3.0, 4.0], &mut output);
         assert_eq!(output, [30.0]);
     }
 }
