@@ -23,13 +23,31 @@ use std::{
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum TransferCheckpoint { BeforeDispatch, BeforeArtifactRead, BeforeGraph, AfterGraphAck }
 #[cfg(all(test, feature = "canonical-tests"))]
-tokio::task_local! { static CANCEL_TRANSFER_AT: TransferCheckpoint; }
+tokio::task_local! {
+    static CANCEL_TRANSFER_AT: TransferCheckpoint;
+    static GRAPH_HANDOFF_REPLY_LOSS: bool;
+}
 fn transfer_checkpoint(phase: TransferCheckpoint, cancel: &CancellationToken) -> Result<(), WorkflowError> {
     #[cfg(all(test, feature = "canonical-tests"))]
     if CANCEL_TRANSFER_AT.try_with(|at| *at == phase).unwrap_or(false) { cancel.cancel(); }
     #[cfg(not(all(test, feature = "canonical-tests")))]
     let _ = phase;
     cancel.checkpoint().map_err(pse_engine::EngineError::from).map_err(Into::into)
+}
+
+fn check_analysis_ack(pool: &Arc<dyn pse_columnar::MemoryPool>,
+    expected: &pse_operations::canonical_analyses::Analysis,
+    actual: &pse_operations::canonical_analyses::Analysis) -> Result<(), WorkflowError> {
+    use pse_model::HeapUsage;
+    let scratch = MemoryConsumer::new("canonical:analysis-ack-equality").register(pool);
+    scratch.try_grow(size_of_val(expected).checked_add(expected.heap_bytes())
+        .ok_or_else(|| contract("analysis acknowledgement equality extent"))?)
+        .map_err(pse_engine::EngineError::from)?;
+    let mut normalized = expected.clone();
+    normalized.active = true;
+    normalized.retiring = false;
+    if &normalized != actual { return Err(contract("analysis acknowledgement differs from exact original request")); }
+    Ok(())
 }
 
 /// Direction in the graph's explicit source-to-dependent scientific edges.
@@ -336,7 +354,7 @@ impl ArtifactEvidence {
         if !Arc::ptr_eq(&self.admission, &runtime.admission_context()) {
             return Err(contract("artifact facts require actual receiving admission"));
         }
-        super::artifacts::check_artifact_ack(expected, read.header())?;
+        super::artifacts::check_artifact_ack(&runtime.shared.pool(), expected, read.header())?;
         if self.coordinates.iter().any(|(_, _, _, digest)| digest.is_empty()) {
             return Err(contract("artifact facts lack exact encoded member binding"));
         }
@@ -1106,9 +1124,20 @@ impl Runtime {
             &retained_nodes,
             &retained_edges,
         );
-        self.canonical_store()?
+        let acknowledged = self.canonical_store()?
             .persist_analysis(&header, sources, inputs, &retained_nodes, &retained_edges)
             .await?;
+        let valid = check_analysis_ack(&self.shared.pool(), &header, &acknowledged);
+        #[cfg(all(test, feature = "canonical-tests"))]
+        let lost = GRAPH_HANDOFF_REPLY_LOSS.try_with(|lost| *lost).unwrap_or(false);
+        #[cfg(not(all(test, feature = "canonical-tests")))]
+        let lost = false;
+        if valid.is_err() || lost {
+            return Err(pse_operations::canonical::CanonicalError::AnalysisUnsettled {
+                intent: Box::new(header),
+                source: Box::new(pse_operations::canonical::CanonicalError::IncompleteResponse),
+            }.into());
+        }
         Ok(AnalysisHandle {
             runtime: self.clone(),
             key,
@@ -1874,3 +1903,32 @@ mod response_evidence_unit;
 #[cfg(all(test, feature = "canonical-tests"))]
 #[path = "analyses-transfer-tests.rs"]
 mod transfer_unit;
+
+#[cfg(test)]
+mod analysis_ack_unit {
+    use super::*;
+    #[test]
+    fn analysis_ack_requires_generated_whole_row_equality_and_prepaid_clone() {
+        let original = pse_operations::canonical_analyses::Analysis {
+            key: "original".into(), revision: "source".into(), method: "original-method".into(),
+            configuration: vec![1,2].into(), input_digest: "input".into(), primary_problem: "problem".into(),
+            primary_authority: "authority".into(), creation_nonce: "nonce".into(),
+            creation_request_digest: "exact-request".into(), creation_expires_at: 1,
+            interpretation: "original-interpretation".into(), node_count: 1, edge_count: 2,
+            active: false, retiring: false,
+        };
+        let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(4096));
+        let mut ack = original.clone(); ack.active = true;
+        check_analysis_ack(&pool, &original, &ack).unwrap();
+        for change in 0..5 {
+            let mut wrong = ack.clone();
+            match change { 0 => wrong.active = false, 1 => wrong.retiring = true,
+                2 => wrong.node_count += 1, 3 => wrong.configuration = vec![9].into(), _ => wrong.method.push('x') }
+            assert!(check_analysis_ack(&pool, &original, &wrong).is_err());
+        }
+        assert_eq!(pool.reserved(), 0);
+        let refused: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1));
+        assert!(check_analysis_ack(&refused, &original, &ack).is_err());
+        assert_eq!(refused.reserved(), 0);
+    }
+}

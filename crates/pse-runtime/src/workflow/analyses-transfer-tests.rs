@@ -69,7 +69,22 @@ fn controls() -> AnalysisControls { AnalysisControls { roots: vec![], direction:
 #[tokio::test]
 async fn canonical_acknowledged_analysis_facts_match_independent_artifact_after_retirement() {
     let (runtime, run, attempt) = fixture().await;
-    let analysis = runtime.result_analysis(&run, &attempt, &controls(), CancellationToken::new()).await.unwrap();
+    let activity = runtime.admit_activity().unwrap();
+    let operation = activity.0.observation.as_ref().unwrap().reader();
+    let analysis = activity.scope(
+        runtime.result_analysis(&run, &attempt, &controls(), CancellationToken::new())).await.unwrap();
+    let recorded = operation.snapshot(Duration::from_secs(60));
+    drop(activity);
+    let count = |name: &str| recorded.metrics.iter().filter(|metric| metric.name == name)
+        .map(|metric| match &metric.cumulative { pse_diagnostics::observation::Value::Count(value) => *value,
+            other => panic!("additive transfer counter required: {other:?}") }).sum::<u64>();
+    assert_eq!(count("canonical.artifact.scientific_selection_requests"), 1);
+    assert_eq!(count("canonical.artifact.scientific_source_requests"), 1);
+    assert_eq!(count("canonical.artifact.scientific_encodes"), 8);
+    assert_eq!(count("canonical.result.native_decodes"), 8,
+        "dispatch and promotion share the two admitted family members");
+    assert_eq!(count("canonical.result.standalone_decodes"), 0,
+        "in-process graph construction consumes acknowledged facts without reopening member bytes");
     let edges = canonical_analysis_edges::Row::rows(&analysis.edges(None).await.unwrap()).unwrap();
     let response = edges.iter().find(|edge| edge.kind == "recorded_transient_response").unwrap();
     assert_eq!(response.evidence_field.as_deref(), Some("value"));
@@ -112,4 +127,49 @@ async fn settle(runtime: &Runtime, result: Result<AnalysisHandle, WorkflowError>
         assert!(runtime.analysis(&key).await.unwrap().edges(None).await.unwrap().batch().num_rows() > 0);
         assert!(runtime.scientific_artifact(&artifact.key).await.is_ok(), "graph retains independent artifact after staging release");
     }
+}
+
+#[tokio::test]
+async fn canonical_final_graph_ack_loss_retains_exact_intent_and_independent_evidence() {
+    let (runtime, run, attempt) = fixture().await;
+    let result = GRAPH_HANDOFF_REPLY_LOSS.scope(true,
+        runtime.result_analysis(&run, &attempt, &controls(), CancellationToken::new())).await;
+    let Err(WorkflowError::ArtifactTransferUnsettled {analysis: Some(key), source, ..}) = &result else {
+        panic!("final graph ACK loss must preserve both occurrences: {result:?}");
+    };
+    let WorkflowError::Canonical(pse_operations::canonical::CanonicalError::AnalysisUnsettled {intent, ..}) = source.as_ref() else {
+        panic!("original graph intent is required: {source:?}");
+    };
+    assert_eq!(&intent.key, key);
+    assert!(!intent.active, "original request header is never rewritten as the ACK");
+    let actual = runtime.canonical_store().unwrap().analysis(key).await.unwrap();
+    check_analysis_ack(&runtime.shared.pool(), intent, &actual).unwrap();
+    settle(&runtime, result, true).await;
+}
+
+#[tokio::test]
+async fn canonical_member_transfer_cancellation_keeps_unacknowledged_facts_out_of_graph() {
+    let (runtime, run, attempt) = fixture().await;
+    let cancel = CancellationToken::new();
+    let interrupted = cancel.clone();
+    let result = pse_operations::testing::cancel_after_artifact_append_ack(move || interrupted.cancel(),
+        runtime.result_analysis(&run, &attempt, &controls(), cancel.clone())).await;
+    assert!(cancel.is_cancelled());
+    let Err(WorkflowError::ArtifactTransferUnsettled {analysis: None, artifact, owner_kind, owner, read: None, ..}) = &result else {
+        panic!("member cancellation must retain exact original transfer intent: {result:?}");
+    };
+    assert!(!artifact.active);
+    assert!(runtime.scientific_artifact(&artifact.key).await.is_err(),
+        "an attached member group is not acknowledged active scientific content");
+    let mut source = runtime.results(&run, &attempt, "runtime.scientific_contexts", 0, u64::MAX, CancellationToken::new()).await.unwrap();
+    assert_eq!(source.next_batch().await.unwrap().unwrap().num_rows(), 1,
+        "the exact protected producer remains readable after interrupted transfer");
+    drop(source);
+    pse_operations::testing::drain_result_releases(runtime.canonical_store().unwrap()).await.unwrap();
+    assert!(runtime.canonical_store().unwrap().forget_run_results(&run).await.is_err(),
+        "original inactive transfer staging still protects producer input");
+    let recovery = runtime.recover_artifact_intent(&serde_json::to_vec(artifact).unwrap()).unwrap();
+    recovery.release(owner_kind, owner).await.unwrap();
+    recovery.release(owner_kind, owner).await.unwrap();
+    assert!(!recovery.collect().await.unwrap(), "original creation window remains unsettled");
 }
