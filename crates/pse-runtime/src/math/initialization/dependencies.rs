@@ -12,6 +12,23 @@ pub(in crate::math) struct Dependencies {
     completion: Option<Arc<CompletionFence>>,
 }
 impl Dependencies {
+    pub(in crate::math) fn allocation_bound<'a>(
+        blocks: impl Iterator<Item = Result<(&'a pse_structural::initialization::Block, &'a pse_math::assembly::CasePlan, &'a [SemanticId]), native::ProblemError>>,
+    ) -> Result<usize, native::ProblemError> {
+        let mut total = 4096usize;
+        for block in blocks {
+            let (block, plan, inputs) = block?;
+            total = (|| {
+                let slots = plan.structure().instances().iter().try_fold(0usize, |n, instance| n.checked_add(instance.slots.len()))?;
+                let ids = slots.checked_add(inputs.len())?.checked_add(plan.columns().len())?
+                    .checked_add(plan.structure().parameters().len())?
+                    .checked_add(plan.structure().variables().iter().filter(|variable| variable.fixed).count())?
+                    .checked_add(block.inputs.len())?;
+                total.checked_add(ids.checked_mul(128)?)?.checked_add(1024)
+            })().ok_or_else(|| native::ProblemError::memory("block dependency descriptor extent"))?;
+        }
+        Ok(total)
+    }
     pub(in crate::math) fn prepare<'a>(
         blocks: impl Iterator<Item = &'a pse_structural::initialization::Block>,
         consumed: Vec<Vec<SemanticId>>,

@@ -593,9 +593,11 @@ impl MathService {
             key.hash(&step.preparation_identity()?);
             steps.push(step);
         }
-        let descriptor_bytes = products.iter().try_fold(4096usize, |total, block| {
-            total.checked_add(block.plan.structure().variables().len().checked_add(block.plan.structure().parameters().len())?.checked_add(block.boundary.inputs.len())?.checked_mul(128)?)
-        }).ok_or(MathRuntimeError::Limit("block dependency descriptor extent"))?;
+        let descriptor_bytes = Dependencies::allocation_bound(products.iter().zip(&steps).map(|(block, step)| {
+            let Representation::Algebraic(local) = &step.representation else { return Err(ProblemError::Internal("conditional representation changed".into())); };
+            let executable = local.case.as_ref().ok_or_else(|| ProblemError::Internal("conditional executable absent".into()))?;
+            Ok((&block.boundary, block.plan.as_ref(), executable.assembly.input_ids()))
+        }))?;
         let dependency_owner = self.reserve("math:solve-block-dependencies", descriptor_bytes)?;
         let consumed = steps.iter().map(|step| {
             let Representation::Algebraic(local) = &step.representation else {

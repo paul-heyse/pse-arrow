@@ -1380,9 +1380,8 @@ impl MathService {
                 }),
             });
         }
-        let descriptor_bytes = blocks.iter().try_fold(4096usize, |total, block| {
-            total.checked_add(block.view.plan.structure().variables().len().checked_add(block.view.plan.structure().parameters().len())?.checked_add(block.boundary.inputs.len())?.checked_mul(128)?)
-        }).ok_or(MathRuntimeError::Limit("block dependency descriptor extent"))?;
+        let descriptor_bytes = Dependencies::allocation_bound(blocks.iter().map(|block|
+            Ok((&block.boundary, block.view.plan.as_ref(), block.executable.assembly.input_ids()))))?;
         let dependency_owner = self.reserve("math:block-dependencies", descriptor_bytes)?;
         let dependencies = Arc::new(Dependencies::prepare(blocks.iter().map(|b| &b.boundary),
             blocks.iter().map(|b| consumed_inputs(&b.view.plan, b.executable.assembly.input_ids())).collect())?);
