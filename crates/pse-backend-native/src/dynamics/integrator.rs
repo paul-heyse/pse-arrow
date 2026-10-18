@@ -438,49 +438,44 @@ impl<'o> Operator<'o> {
         }
     }
     fn fixed_storage(&self, source: &faer::sparse::SparseColMat<usize,f64>) -> bool {
-        source.symbolic().col_ptr() == self.source_pattern.col_ptr()
+        source.symbolic().col_nnz().is_none()
+            && source.symbolic().col_ptr() == self.source_pattern.col_ptr()
             && source.symbolic().row_idx() == self.source_pattern.row_idx()
     }
-    fn transpose_partials(&self, x: &V, t: f64, matrix: &mut M, parameter: bool) {
-        if parameter && self.shared.width() == 0 { return; }
-        let source = self.raw_partials(x, t);
-        let offsets = if parameter { &self.parameter_adjoint_refill } else { &self.state_adjoint_refill };
-        if self.fixed_storage(source.as_ref()) {
+    fn refill(&self, source: &faer::sparse::SparseColMat<usize,f64>, matrix: &mut M, parameter: bool, transpose: bool) {
+        let offsets = match (parameter, transpose) {
+            (false,false) => &self.state_refill, (true,false) => &self.parameter_refill,
+            (false,true) => &self.state_adjoint_refill, (true,true) => &self.parameter_adjoint_refill,
+        };
+        let sign = if transpose { -1. } else { 1. };
+        if self.fixed_storage(source) {
             for (target, offset) in matrix.inner_mut().val_mut().iter_mut().zip(offsets) {
-                *target = offset.map_or(0., |i| -source.val()[i]);
+                *target = offset.map_or(0., |i| sign * source.val()[i]);
             }
         } else {
-            // Generic Oracle support is an all-branch upper bound, not a promise
-            // that every returned CSC stores structural zeros. Compiled owners
-            // take the fixed-offset path above; sparse generic snapshots keep
-            // their existing exact-value contract.
+            // Generic support is an all-branch upper bound, not identical packed
+            // returned storage. Omitted zeros and uncompressed spare slots retain
+            // exact sparse semantics; compiled fixed owners take the offset path.
             let target = matrix.inner_mut();
             for c in 0..target.ncols() {
                 for k in target.col_range(c) {
                     let r = target.symbolic().row_idx()[k];
-                    let col = if parameter { self.contract[r].map(|p| self.nstates()+p) } else { Some(r) };
-                    target.val_mut()[k] = col.and_then(|col| source.get(c,col).copied()).map_or(0., |v| -v);
+                    let axis = if transpose { r } else { c };
+                    let row = if transpose { c } else { r };
+                    let col = if parameter { self.contract[axis].map(|p| self.nstates()+p) } else { Some(axis) };
+                    target.val_mut()[k] = col.and_then(|col| source.get(row,col).copied()).map_or(0., |v| sign*v);
                 }
             }
         }
     }
+    fn transpose_partials(&self, x: &V, t: f64, matrix: &mut M, parameter: bool) {
+        if parameter && self.shared.width() == 0 { return; }
+        let source = self.raw_partials(x,t);
+        self.refill(source.as_ref(),matrix,parameter,true);
+    }
     fn partials(&self, x: &V, t: f64, matrix: &mut M, parameter: bool) {
-        let source = self.raw_partials(x, t);
-        let offsets = if parameter { &self.parameter_refill } else { &self.state_refill };
-        if self.fixed_storage(source.as_ref()) {
-            for (target, offset) in matrix.inner_mut().val_mut().iter_mut().zip(offsets) {
-                *target = offset.map_or(0., |i| source.val()[i]);
-            }
-        } else {
-            let target = matrix.inner_mut();
-            for c in 0..target.ncols() {
-                let col = if parameter { self.contract[c].map(|p| self.nstates()+p) } else { Some(c) };
-                for k in target.col_range(c) {
-                    let row = target.symbolic().row_idx()[k];
-                    target.val_mut()[k] = col.and_then(|col| source.get(row,col).copied()).unwrap_or(0.);
-                }
-            }
-        }
+        let source = self.raw_partials(x,t);
+        self.refill(source.as_ref(),matrix,parameter,false);
     }
     fn product(&self, x: &V, t: f64, v: &V, y: &mut V, parameter: bool) {
         self.shared.check();
@@ -1943,6 +1938,13 @@ mod action_route_tests {
         assert_eq!(matrix.inner().get(0,0),Some(&2.));
         assert_eq!(matrix.inner().get(0,1),Some(&0.));
         assert_eq!(matrix.inner().get(1,1),Some(&-7.));
+        let spare=faer::sparse::SparseColMat::new(Pattern::new_checked(2,4,
+            operator.source_pattern.col_ptr().to_vec(),Some(vec![1,1,2,1]),operator.source_pattern.row_idx().to_vec()),
+            vec![2.,0.,999.,3.,11.,5.]);
+        assert!(!operator.fixed_storage(&spare));
+        operator.refill(&spare,&mut matrix,false,false);
+        assert_eq!(matrix.inner().get(1,1),Some(&0.),"inactive uncompressed spare is not a derivative");
+
         let mut transposed=M::new_from_sparsity(3,2,Some(operator.parameter_adjoint_pattern.clone()),context);
         operator.transpose_partials(&x,0.,&mut transposed,true);
         assert_eq!(transposed.inner().get(1,0),Some(&-5.));
