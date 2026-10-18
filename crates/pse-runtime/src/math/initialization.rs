@@ -2993,6 +2993,9 @@ mod tests {
             "package p {def Root {param p:Scalar=1;var x:Scalar;eq a:x==1;annotation start x(1);}}",
         );
         let compiled = source.compiled();
+        assert_eq!(compiled.plan.columns().len(), 1);
+        let selected = compiled.plan.columns()[0];
+        assert!(!values.scalars.contains_key(&selected), "compiler fixture supplies frozen inputs only");
         let block = pse_compiler::workspace::PreparedBlock {
             class_proof_work: compiled.class_proof_work,
             boundary: pse_structural::initialization::Block {
@@ -3032,6 +3035,13 @@ mod tests {
             .await
             .unwrap();
         drop(source);
+        assert!(prepared.blocks[0].view.bind(
+            prepared.quantities.clone(), prepared.preconditions.clone(), &values,
+            &Arc::new(AtomicBool::new(false)),
+        ).is_err(), "conditional admission requires the current selected unknown");
+        // This source explicitly authors x(1); the original preparation-only fixture
+        // did not need a trial value, while the scoped block binding does.
+        values.scalars.insert(selected, 1.);
         let driver = crate::CancelSource::new();
         let demand = prepared.blocks[0]
             .view
