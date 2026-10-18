@@ -369,6 +369,7 @@ mod tests {
             )
             .unwrap(),
         );
+        problem.prepare_complete(DerivativeOrder::First,&pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
         problem.prepare_complete(DerivativeOrder::Second,&pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
         let options = Options {
             start: vec![1.0],
@@ -438,22 +439,18 @@ mod tests {
             .solve(problem.clone(), &[1.0], &options, &cancel)
             .unwrap();
         assert_eq!(point, [1.0]);
-        assert!(
-            problem
-                .derivatives(
-                    &[1.0],
-                    &point,
-                    DerivativeOrder::First,
-                    &options,
-                    &cancel.flag()
-                )
-                .is_err()
-        );
+        assert!(matches!(
+            problem.derivatives(&[1.0], &point, DerivativeOrder::First, &options, &cancel.flag()),
+            Err(MathError::Domain {
+                requirement: "implicit derivative residual verification failed",
+                ..
+            })
+        ));
     }
 
     #[test]
     fn private_cubic_workers_preserve_original_branch_residual_and_cancellation() {
-        let (solver, problem, options, cancel) = admitted();
+        let (solver, mut problem, options, cancel) = admitted();
         assert!(solver.worker_bytes() > size_of::<CubicWorker>());
         assert!(matches!(problem.factor.lock().unwrap().parallel, Par::Seq));
         let mut first = solver.worker();
@@ -487,17 +484,16 @@ mod tests {
                 .unwrap(),
             [0.0]
         );
-        assert!(
-            problem
-                .derivatives(
-                    &[0.0],
-                    &[0.0],
-                    DerivativeOrder::First,
-                    &options,
-                    &cancel.flag()
-                )
-                .is_err()
-        );
+        // Test the zero Jacobian in an interior neighborhood, independently of
+        // the interval-endpoint refusal already covered by the common IFT tests.
+        Arc::get_mut(&mut problem).unwrap().unknowns[0].lower = -1.0;
+        assert!(matches!(
+            problem.derivatives(&[0.0], &[0.0], DerivativeOrder::First, &options, &cancel.flag()),
+            Err(MathError::Domain {
+                requirement: "implicit derivative residual verification failed",
+                ..
+            })
+        ));
         cancel.cancel();
         assert!(matches!(
             first.solve(problem, &[4.0], &options, &cancel),

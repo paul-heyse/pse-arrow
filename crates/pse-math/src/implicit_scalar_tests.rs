@@ -256,7 +256,7 @@ fn real_worker_uses_original_residual_and_derivatives_and_does_not_certify_uniqu
             &pse_kernels::ExecutionScope::new(control.clone(), None),
         )
         .unwrap();
-    let problem = Arc::new(
+    let mut problem = Arc::new(
         Problem::new(
             SemanticId::NIL,
             ContentHash::from_bytes([178; 32]),
@@ -272,6 +272,7 @@ fn real_worker_uses_original_residual_and_derivatives_and_does_not_certify_uniqu
         )
         .unwrap(),
     );
+    problem.prepare_complete(DerivativeOrder::First,&pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
     problem.prepare_complete(DerivativeOrder::Second,&pse_kernels::ExecutionScope::new(control.clone(),None)).unwrap();
     let options = Options {
         start: vec![1.0],
@@ -296,11 +297,16 @@ fn real_worker_uses_original_residual_and_derivatives_and_does_not_certify_uniqu
     let root = worker
         .solve(problem.clone(), &[0.0], &options, &control)
         .unwrap();
-    assert!(
-        problem
-            .derivatives(&[0.0], &root, DerivativeOrder::First, &options, &cancel)
-            .is_err()
-    );
+    // Widen only the derivative neighborhood so this refusal reaches the
+    // singular Jacobian rather than the original root interval endpoint.
+    Arc::get_mut(&mut problem).unwrap().unknowns[0].lower = -1.0;
+    assert!(matches!(
+        problem.derivatives(&[0.0], &root, DerivativeOrder::First, &options, &cancel),
+        Err(MathError::Domain {
+            requirement: "implicit derivative residual verification failed",
+            ..
+        })
+    ));
     // A sign-changing interval may contain several roots. It provides a checked proposal,
     // never an exactly-one-root assertion; the common selector must still establish choice.
     let proposal = run(-2.0, 2.0, 1e-12, 100, 1000, |x| {
