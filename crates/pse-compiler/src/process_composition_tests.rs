@@ -94,7 +94,7 @@ fn authored_vessel_temporal_closures_use_original_inventory_and_flux() {
         library::Optimization,
     };
     use std::{
-        collections::{BTreeMap, BTreeSet},
+        collections::BTreeSet,
         sync::Arc,
     };
     let source = format!(

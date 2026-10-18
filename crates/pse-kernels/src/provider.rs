@@ -278,7 +278,7 @@ impl ProviderBinding {
         }
         request.check_context(context)?;
         request.check_runtime(runtime)?;
-        if request.key() != self.key || inputs.len() != self.spec.inputs.len() || inputs.iter().any(|x| !x.is_finite()) {
+        if inputs.len() != self.spec.inputs.len() || inputs.iter().any(|x| !x.is_finite()) {
             return Err(ProviderError::Contract("provider binding or physical inputs".into()));
         }
         let e = request.extents();

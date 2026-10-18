@@ -534,6 +534,7 @@ fn artifact_request(
     h.str(match d.product {
         pse_math::jets::ProductKind::SelectedPartials => "selected-partials",
         pse_math::jets::ProductKind::JacobianAction => "jacobian-action",
+        pse_math::jets::ProductKind::TransposeJacobianAction => "transpose-jacobian-action",
         pse_math::jets::ProductKind::WeightedHessian => "weighted-hessian",
         pse_math::jets::ProductKind::WeightedHessianAction => "weighted-hessian-action",
     })

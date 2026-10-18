@@ -2414,7 +2414,7 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
             limits,
         )
         .unwrap();
-    workers.insert(child.descriptor.spec().key(), child_first.create().unwrap());
+    workers = pse_kernels::ProviderBindings::from([(child.descriptor.spec().key(), child_first.create().unwrap())]);
     let evaluated = evaluator
         .evaluate(&[2., 4.], DerivativeOrder::First, &mut workers, &cancel)
         .unwrap();
@@ -2651,11 +2651,11 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
             fn fill(
             &mut self,
             x: &[f64],
-            r: &pse_kernels::PreparedProviderRequest,
-            _runtime: pse_kernels::ProviderRuntime<'_>,
-            mut output: pse_kernels::ProviderOutput<'_>,
-            c: &pse_kernels::EvaluationContext<'_>,
-        ) -> std::result::Result<(), pse_kernels::ProviderError> {
+            r: &PreparedProviderRequest,
+            _runtime: ProviderRuntime<'_>,
+            mut output: ProviderOutput<'_>,
+            c: &EvaluationContext<'_>,
+        ) -> std::result::Result<(), ProviderError> {
             r.check_context(c)?;
             if x.len() != 2 {
                 return Err(ProviderError::Contract("vector input extent".into()));
@@ -2686,8 +2686,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
                     });
                 }
             }
-            out.check_context(r)?;
-            Ok(out)
+            output.copy_from(&out)
         }
     }
     let revision = ContentHash::from_bytes([11; 32]);
@@ -2771,10 +2770,10 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         &cancel,
     )
     .unwrap();
-    let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Vector(spec.clone())));
+    let provider = ProviderBinding::new(spec.clone(), Box::new(Vector(spec.clone())));
     let mut worker = f
         .assembly
-        .worker(pse_kernels::ProviderBindings::from([(spec.key(), provider)]), cancel);
+        .worker(ProviderBindings::from([(spec.key(), provider)]), cancel);
     let point = CaseValues {
         scalars: a.inputs.iter().map(|id| (*id, 2.0)).collect(),
     };
@@ -2813,10 +2812,10 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         let a = admit(&mut w, root);
         let cancel = Cancellation::new(false);
         let f = fixture(&a, w.inputs.quantities.clone(), order, &cancel).unwrap();
-        let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Vector(spec.clone())));
+        let provider = ProviderBinding::new(spec.clone(), Box::new(Vector(spec.clone())));
         let mut worker = f
             .assembly
-            .worker(pse_kernels::ProviderBindings::from([(spec.key(), provider)]), cancel.clone());
+            .worker(ProviderBindings::from([(spec.key(), provider)]), cancel.clone());
         let point = CaseValues {
             scalars: a.inputs.iter().map(|id| (*id, 2.)).collect(),
         };
@@ -6789,7 +6788,7 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
     assert_eq!(inners.len(), 2);
     let registry = &workspace.inputs.quantities;
     let quantity = registry.neutral_dimensionless().unwrap();
-    let providers = pse_kernels::ProviderBindings::from([
+    let providers = BTreeMap::from([
         (
             "first".into(),
             ProviderCall {
@@ -6947,7 +6946,6 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
                     vec![]
                 },
             };
-            values.check_context(request)?;
             output.copy_from(&values)
         }
     }
@@ -7764,7 +7762,7 @@ fn implicit_request_local_accelerator_is_admitted_once_then_reused_for_factory_a
 #[cfg(test)]
 fn completed_provider_values(provider: &mut pse_kernels::ProviderBinding, inputs: &[f64],
     request: &pse_kernels::ProviderRequest, context: &pse_kernels::EvaluationContext<'_>)
-    -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+    -> std::result::Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
     let prepared = provider.prepare(request.clone())?;
     prepared.check_context(context)?;
     let mut buffer = pse_kernels::ProviderBuffer::new(&prepared);

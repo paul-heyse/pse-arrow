@@ -149,3 +149,28 @@ fn public_fill_rechecks_foreign_binding_capability_and_current_runtime_seeds() {
         ProviderRuntime { directions: &[3.], ..Default::default() }, &context), Err(ProviderError::Contract(_))));
     assert_eq!(calls.load(Ordering::Relaxed), 0);
 }
+
+#[test]
+fn narrowed_worker_capability_binds_to_admitted_provider_identity() {
+    let cancel = Arc::new(AtomicBool::new(false));
+    let context = EvaluationContext { cancelled: &cancel, max_result_bytes: 1024 };
+    let admitted = descriptor(1, 1);
+    let mut executable = admitted.clone();
+    executable.derivatives = DerivativeOrder::First;
+    executable.smoothness = DerivativeOrder::First;
+    let binding = ProviderBinding::new(executable, Box::new(Controlled {
+        mode: Arc::new(AtomicU8::new(0)), calls: Arc::new(AtomicUsize::new(0)),
+        capabilities: Arc::new(AtomicUsize::new(0)), cancel: cancel.clone(),
+    }));
+    assert_ne!(binding.key(), admitted.key(), "capability ceilings participate in descriptor identity");
+    let mut request = PreparedProviderRequest::new(Arc::new(admitted.clone()),
+        ProviderRequest::all(&admitted, DerivativeOrder::First)).unwrap();
+    let mut bank = ProviderBindings::from([(admitted.key(), binding)]);
+    let slot = bank.resolve(admitted.key()).unwrap();
+    bank.bind_request(slot, &mut request).unwrap();
+    let mut buffer = ProviderBuffer::new(&request);
+    assert_eq!(bank.fill(slot, &mut buffer, &[2.], &request, ProviderRuntime::default(), &context).unwrap().jacobian, [4.]);
+    let mut second = PreparedProviderRequest::new(Arc::new(admitted.clone()),
+        ProviderRequest::all(&admitted, DerivativeOrder::Second)).unwrap();
+    assert!(matches!(bank.bind_request(slot, &mut second), Err(ProviderError::Contract(_))));
+}

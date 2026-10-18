@@ -3056,7 +3056,7 @@ mod tests {
                 _runtime: pse_kernels::ProviderRuntime<'_>,
                 mut output: pse_kernels::ProviderOutput<'_>,
                 context: &pse_kernels::EvaluationContext<'_>,
-            ) -> Result<(), pse_kernels::ProviderError> {
+            ) -> Result<(), ProviderError> {
                 request.check_context(context)?;
                 let order = request.order;
                 if x.len() != 1 || x[0] < 0.0 {
@@ -3076,7 +3076,7 @@ mod tests {
             fn spec(&self) -> &ProviderSpec {
                 &self.0
             }
-            fn create(&self) -> Result<pse_kernels::ProviderBinding, pse_kernels::ProviderError> {
+            fn create(&self) -> Result<pse_kernels::ProviderBinding, ProviderError> {
                 Ok(pse_kernels::ProviderBinding::new(self.spec().clone(), Box::new(self.clone())))
             }
         }
@@ -3102,7 +3102,7 @@ mod tests {
             &registry,
         )
         .unwrap();
-        let providers = pse_kernels::ProviderBindings::from([(
+        let providers = BTreeMap::from([(
             "square".into(),
             ProviderCall {
                 descriptor: registration.descriptor(),
@@ -3203,7 +3203,8 @@ mod tests {
             revision: ContentHash::from_bytes([4; 32]),
             ..registration.spec().clone()
         });
-        workers.insert(registration.spec().key(), Box::new(other));
+        workers = pse_kernels::ProviderBindings::from([(registration.spec().key(),
+            pse_kernels::ProviderBinding::new(other.0.clone(), Box::new(other)))]);
         assert!(
             worker
                 .evaluate(&[3.0], DerivativeOrder::Value, &mut workers, &cancel)
