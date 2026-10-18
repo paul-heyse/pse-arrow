@@ -475,6 +475,7 @@ impl ModelingPackage {
             parent.fields = parsed.fields.clone();
         }
         let mut edits = BTreeMap::<String, ObjectEdit>::new();
+        let mut typed = TypedSourceInputs::default();
         for id in &delta.documents.removals {
             parent.documents.remove(id);
             parent.frame.data.remove(id);
@@ -549,14 +550,7 @@ impl ModelingPackage {
             if document_changes.contains(id) || edited_documents.contains(id) {
                 edits.insert(
                     format!("document:{id}"),
-                    edit(
-                        format!("document:{id}"),
-                        "documents".into(),
-                        id.to_string(),
-                        "document".into(),
-                        payload(row)?,
-                        Vec::new(),
-                    ),
+                    typed.document(row.clone())?,
                 );
             }
             inventory.packages.insert(*id, row.package_id.as_id());
@@ -588,14 +582,12 @@ impl ModelingPackage {
                 .collect();
             edits.insert(
                 logical(row.declaration_id),
-                edit(
-                    logical(row.declaration_id),
-                    scope(row.parent_id),
-                    row.name.clone(),
-                    kind(row),
-                    payload(&(row, parent.fields.get(&row.declaration_id).cloned()))?,
+                typed.declaration(
+                    row,
+                    parent.fields.get(&row.declaration_id).cloned(),
+                    index.parsed_fields[&row.declaration_id].clone(),
                     references,
-                ),
+                )?,
             );
         }
         for id in removals {
@@ -713,14 +705,7 @@ impl ModelingPackage {
             let logical = format!("fit:{}", row.fit_id);
             edits.insert(
                 logical.clone(),
-                edit(
-                    logical,
-                    "fits".into(),
-                    row.fit_id.to_string(),
-                    "fit".into(),
-                    payload(&row)?,
-                    Vec::new(),
-                ),
+                typed.fit(row)?,
             );
         }
         for id in delta.fits.removals {
@@ -843,9 +828,9 @@ impl ModelingPackage {
         }
         checkpoint(cancel)?;
         let revision = if record {
-            admit_revision(&self.runtime, Some(&self.revision), identity, &edits, Some(cancel)).await?
+            admit_revision(&self.runtime, Some(&self.revision), identity, &edits, &typed, Some(cancel)).await?
         } else {
-            let admitted = AdmittedModelRevision::apply(&self.runtime, Some(&self.revision.admitted), &edits, Some(cancel))?;
+            let admitted = AdmittedModelRevision::apply_inputs(&self.runtime, Some(&self.revision.admitted), &edits, &typed, Some(cancel))?;
             SourceRevision::admitted(admitted, identity, None, None)?
         };
         Ok(Self {revision,held_preparation:None,..self.clone()})
