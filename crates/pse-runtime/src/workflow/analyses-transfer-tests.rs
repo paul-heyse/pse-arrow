@@ -325,13 +325,7 @@ async fn settle(
     recovery.release(&owner_kind, &owner).await?;
     recovery.release(&owner_kind, &owner).await?;
     if let Some(key) = analysis {
-        assert!(
-            runtime
-                .canonical_store()?
-                .analysis(&key)
-                .await?
-                .active
-        );
+        assert!(runtime.canonical_store()?.analysis(&key).await?.active);
         assert!(
             runtime
                 .analysis(&key)
@@ -517,7 +511,10 @@ fn recorded_shape(samples: usize, directions: usize) -> ResponseEvidence {
     }
     evidence
 }
-fn count(snapshot: &pse_diagnostics::observation::OperationSnapshot, name: &str) -> FixtureResult<u64> {
+fn count(
+    snapshot: &pse_diagnostics::observation::OperationSnapshot,
+    name: &str,
+) -> FixtureResult<u64> {
     assert!(
         snapshot.coverage.enabled && snapshot.coverage.available,
         "actual counter owner must be available: {:?}",
@@ -588,9 +585,11 @@ fn point(
         })
         .collect::<FixtureResult<Vec<_>>>()?;
     let work = |name: &str| -> FixtureResult<u64> {
-        access.iter().try_fold(count(&snapshot, name)?, |total, child| {
-            Ok(total + count(child, name)?)
-        })
+        access
+            .iter()
+            .try_fold(count(&snapshot, name)?, |total, child| {
+                Ok(total + count(child, name)?)
+            })
     };
     Ok(ReadPoint {
         pool_reserved: runtime.shared.pool().reserved(),
@@ -769,6 +768,10 @@ async fn read_growth(
 async fn canonical_recorded_result_growth_covers_full_selected_absent_creation_and_reopen() {
     use pse_relations::generated::runtime::response_sensitivities;
     let runtime = super::super::durable_tests::durable_runtime();
+    // Exact work counters use acknowledged phase reads. Join the independent
+    // checkpoint reader before measurement so it cannot contend with updates;
+    // collection and every strict coverage assertion remain enabled.
+    runtime.observations().stop_publisher();
     for (samples, directions) in [(5, 1), (5, 4), (25, 1), (25, 4)] {
         let evidence = recorded_shape(samples, directions);
         let expected_samples = evidence
@@ -914,7 +917,8 @@ async fn canonical_recorded_result_growth_covers_full_selected_absent_creation_a
             eprintln!(
                 "recorded80x{samples}x{directions} complete_edges: elapsed={:?},queries={},rows={}",
                 started.elapsed(),
-                count(&enumeration, "canonical.query.builders").expect("read additive work counter"),
+                count(&enumeration, "canonical.query.builders")
+                    .expect("read additive work counter"),
                 edges.len()
             );
             let locators = edges
@@ -1000,7 +1004,10 @@ async fn canonical_recorded_result_growth_covers_full_selected_absent_creation_a
                 "canonical.result.native_decodes",
                 "canonical.artifact.scientific_encodes",
             ] {
-                assert_eq!(count(&reused, metric).expect("read additive work counter"), 0);
+                assert_eq!(
+                    count(&reused, metric).expect("read additive work counter"),
+                    0
+                );
             }
         }
         // Pool reservations are actual participating allocations, not RSS or a
