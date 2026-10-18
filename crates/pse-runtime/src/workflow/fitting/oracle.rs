@@ -127,7 +127,7 @@ pub(super) struct ExperimentProducts {
 pub(super) struct FitOracle {
     observation: Option<pse_diagnostics::observation::Producer>,
     point_generation: u64,
-    response_layouts: std::sync::Mutex<std::collections::BTreeMap<usize, native::square_response::SquareScope>>,
+    response_layouts: std::sync::Mutex<BTreeMap<usize, native::square_response::SquareScope>>,
     prepared: Arc<FitProblem>,
     workers: Vec<Option<CaseWorker>>,
     #[cfg(feature = "solver-diffsol")]
