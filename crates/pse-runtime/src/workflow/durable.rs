@@ -1156,6 +1156,9 @@ impl DurableAttempt {
         }
         Ok(self.live_prefix.origin)
     }
+    pub(super) fn fail_live_samples(&mut self) {
+        self.live_prefix_failed = true;
+    }
     pub(super) async fn close_live_samples(&mut self) -> Result<(), WorkflowError> {
         if self.live_prefix_failed {
             return Err(contract("live sample recording remains incomplete"));

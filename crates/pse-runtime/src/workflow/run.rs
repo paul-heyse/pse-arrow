@@ -1032,12 +1032,28 @@ impl super::ModelingSimulation {
                         tokio::pin!(finished);
                         let mut joined = None;
                         let mut selected = false;
+                        let mut live_encoding_error = None;
                         if let Some(receiver) = live_receiver.as_mut() {
                             loop {
                                 tokio::select! {
                                     result = &mut finished, if joined.is_none() => { joined = Some(result); }
                                     event = receiver.recv() => {
                                         let Some(event) = event else { break; };
+                                        let event = match event.encode(&prepared) {
+                                            Ok(event) => event,
+                                            Err(error) => {
+                                                let error = Arc::new(error);
+                                                cancel.cancel();
+                                                receiver.close();
+                                                while receiver.try_recv().is_ok() {}
+                                                if let Some(attempt) = durable.as_mut() { attempt.fail_live_samples(); }
+                                                if let Some(subscriber) = &subscriber {
+                                                    super::live_simulation::deliver(subscriber, super::LiveSimulationEvent::RecordingUnknown(error.clone()), &cancel, deadline).await;
+                                                }
+                                                live_encoding_error = Some(error);
+                                                break;
+                                            }
+                                        };
                                         let append = match &event {
                                             super::LiveSimulationEvent::Sample(batch) => Some(batch.table.clone()),
                                             super::LiveSimulationEvent::Selected { .. } => { selected = true; None },
@@ -1069,12 +1085,13 @@ impl super::ModelingSimulation {
                             }
                         }
                         let joined = match joined { Some(result) => result, None => finished.await };
-                        let report = match joined {
-                            Ok(((report, checks, accuracy), owner)) => prepared
+                        let report = match (live_encoding_error, joined) {
+                            (Some(error), _) => Err(error),
+                            (None, Ok(((report, checks, accuracy), owner))) => prepared
                                 .finish(run_id, report, checks, accuracy, owner)
                                 .map(|trajectory| RunReport::Simulation(Box::new(trajectory)))
                                 .map_err(Arc::new),
-                            Err(error) => Err(Arc::new(WorkflowError::Math(error))),
+                            (None, Err(error)) => Err(Arc::new(WorkflowError::Math(error))),
                         };
                         join.finish(if report.is_ok() { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
                         let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
