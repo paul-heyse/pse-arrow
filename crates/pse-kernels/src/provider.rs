@@ -260,6 +260,11 @@ impl ProviderBinding {
     }
     /// Forward immutable capability through a wrapping binding.
     pub fn supports(&self, demand: &ProviderDemand) -> bool { self.worker.supports(demand) }
+    pub(super) fn fill_inner(&mut self, inputs: &[f64], request: &PreparedProviderRequest,
+        runtime: ProviderRuntime<'_>, output: ProviderOutput<'_>, context: &EvaluationContext<'_>)
+        -> Result<(), ProviderError> {
+        self.worker.fill(inputs, request, runtime, output, context)
+    }
     /// Execute a fallible fill and issue completion after current-state checks.
     pub fn fill<'a>(&mut self, inputs: &[f64], request: &PreparedProviderRequest, runtime: ProviderRuntime<'_>,
         mut output: ProviderOutput<'a>, context: &EvaluationContext<'_>) -> Result<ProviderCompletion<'a>, ProviderError> {
@@ -275,7 +280,7 @@ impl ProviderBinding {
         output.values.fill(f64::NAN);
         output.jacobian.fill(f64::NAN);
         output.hessians.fill(f64::NAN);
-        self.worker.fill(inputs, request, runtime, output.reborrow(), context)?;
+        self.fill_inner(inputs, request, runtime, output.reborrow(), context)?;
         context.check()?;
         if output.values.iter().chain(output.jacobian.iter()).chain(output.hessians.iter()).any(|x| !x.is_finite()) {
             return Err(ProviderError::Trial("nonfinite or incomplete provider fill".into()));

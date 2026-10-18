@@ -684,7 +684,7 @@ impl Provider for ScopedProvider {
         context: &EvaluationContext<'_>,
     ) -> Result<(), ProviderError> {
         self.scope.check()?;
-        let result = self.inner.fill(inputs, request, runtime, output, context).map(|_| ());
+        let result = self.inner.fill_inner(inputs, request, runtime, output, context);
         self.scope.check()?;
         result
     }
@@ -735,11 +735,11 @@ impl Provider for Enveloped {
         inputs: &[f64],
         request: &PreparedProviderRequest,
         runtime: ProviderRuntime<'_>,
-        output: ProviderOutput<'_>,
+        mut output: ProviderOutput<'_>,
         context: &EvaluationContext<'_>,
     ) -> Result<(), ProviderError> {
-        let values = self.inner.fill(inputs, request, runtime, output, context)?;
-        for (&output, &value) in request.outputs.iter().zip(values.values) {
+        self.inner.fill_inner(inputs, request, runtime, output.reborrow(), context)?;
+        for (&output, &value) in request.outputs.iter().zip(output.values.iter()) {
             let Some(&(lower, upper)) = self.envelope.get(output) else {
                 continue;
             };
@@ -867,7 +867,7 @@ impl Provider for ObservedProvider {
             observation.order.integer(request.order as i64);
             observation.outputs.count(request.outputs.len() as u64);
         }
-        let result = self.inner.fill(inputs, request, runtime, output, context).map(|_| ());
+        let result = self.inner.fill_inner(inputs, request, runtime, output, context);
         if let Some(observation) = &self.observation {
             observation.failed.boolean(result.is_err());
             if let Err(error) = &result {
