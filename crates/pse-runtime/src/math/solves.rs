@@ -3103,7 +3103,7 @@ impl MathService {
             pse_model::strategy::AffinePreparationFacts {
                 automatic: matches!(profile.presolve, native::presolve::Policy::Auto),
                 explicitly_requested: affine_requested,
-                nlp_possible: nlp_possible || profile.intent == SolveIntent::Root,
+                nlp_possible: nlp_possible || matches!(profile.intent,SolveIntent::Root|SolveIntent::Initialize),
                 missing: result.prepared.presolve.affine.iter().any(Option::is_none),
             },
         ) {
@@ -5628,6 +5628,7 @@ impl MathService {
                 cause(error.into_problem())
             }
         })?;
+        let owner: Arc<dyn pse_math::AllocationOwner> = Arc::new(charge);
         let contract = native::assembled::contract(plan);
         let row_bounds = plan
             .structure()
@@ -5640,7 +5641,7 @@ impl MathService {
             plan.jacobian_pattern(),
             &row_bounds,
             Some(&prepared.compiled().structure),
-        )?;
+        )?.with_owner(owner.clone());
         {
             let mut layout = program.root_layout.lock().map_err(|_| cause(ProblemError::internal("root symbolic layout owner poisoned")))?;
             if let Some(previous) = layout.as_ref() { square.reuse_symbolic_from(previous); }
@@ -5652,7 +5653,11 @@ impl MathService {
             ))
         })?;
         key.point = Some(native::square_response::point_key(primal));
-        SparseFactor::check(&native::square_response::SparseRequest {
+        let mut execution = Execution::within(
+            scope.cancellation_control().clone(), &Controls::default(), scope.clone(),
+        ).map_err(cause)?;
+        execution.work_admission = budget.admission().map(|owner| -> Arc<dyn WorkAdmission> { owner });
+        SparseFactor::admit(&native::square_response::SparseRequest {
             scope: &square,
             point: primal,
             values: observed,
@@ -5660,7 +5665,7 @@ impl MathService {
             normalization,
             key,
             bytes,
-        })?;
+        }, &execution)?;
         let ExecutionWorker {
             worker,
             _case,
@@ -5710,16 +5715,6 @@ impl MathService {
                     )))
                 },
             )?;
-        let mut execution = Execution::within(
-            scope.cancellation_control().clone(),
-            &Controls::default(),
-            scope.clone(),
-        )
-        .map_err(cause)?;
-        execution.work_admission = budget
-            .admission()
-            .map(|owner| -> Arc<dyn WorkAdmission> { owner });
-        let owner: Arc<dyn pse_math::AllocationOwner> = Arc::new(charge);
         Ok(FreshRootPartials {
             square,
             state,

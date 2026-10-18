@@ -54,6 +54,7 @@ pub struct SquareScope {
     bounds: Vec<(f64, f64)>,
     pattern: faer::sparse::SymbolicSparseColMat<usize>,
     symbolic: std::sync::Arc<std::sync::Mutex<Option<actions::SymbolicPlan>>>,
+    symbolic_owner: std::sync::Arc<std::sync::Mutex<Option<std::sync::Arc<dyn pse_math::AllocationOwner>>>>,
 }
 impl SquareScope {
     /// Share a symbolic preparation only for the same original support and order.
@@ -65,8 +66,13 @@ impl SquareScope {
             && self.pattern.nrows() == previous.pattern.nrows()
             && self.pattern.ncols() == previous.pattern.ncols()
             && (0..self.pattern.ncols()).all(|c| self.pattern.as_ref().row_idx_of_col(c).eq(previous.pattern.as_ref().row_idx_of_col(c)));
-        if compatible { self.symbolic = previous.symbolic.clone(); }
+        if compatible { self.symbolic = previous.symbolic.clone(); self.symbolic_owner = previous.symbolic_owner.clone(); }
         compatible
+    }
+    /// Anchor the retained symbolic cache independently of any escaping numeric factor.
+    pub fn with_owner(self, owner: std::sync::Arc<dyn pse_math::AllocationOwner>) -> Self {
+        if let Ok(mut held)=self.symbolic_owner.lock() {if held.is_none() {*held=Some(owner);}}
+        self
     }
     /// Validate every original row/free coordinate and its matching witness.
     /// # Errors
@@ -98,6 +104,7 @@ impl SquareScope {
             bounds: bounds.to_vec(),
             pattern: pattern.to_owned().map_err(|_| Withheld::Memory)?,
             symbolic: Default::default(),
+            symbolic_owner: Default::default(),
         })
     }
 }

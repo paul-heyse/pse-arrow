@@ -556,6 +556,19 @@ mod tests {
         assert_eq!(blocks.result.as_ptr(), global);
     }
     #[test]
+    fn repeated_block_applies_allocate_zero_after_native_scratch_warmup() {
+        let function=Function::Equations(Box::new(Coupled::new(Arc::default(),false,false)));
+        let execution=execution();
+        let mut blocks=Blocks::admit(&function,&execution,linear()).unwrap();
+        blocks.setup(&[0.,3.,2.,1.,4.,5.],&execution).unwrap();
+        blocks.solve(&[2.,1.,14.],&execution).unwrap();
+        let measured=allocation_counter::measure(|| {
+            for _ in 0..32 { std::hint::black_box(blocks.solve(&[2.,1.,14.],&execution).unwrap()); }
+        });
+        assert_eq!(measured.count_total,0,"application only; setup/factors excluded: {measured:?}");
+        assert_eq!(measured.bytes_total,0);
+    }
+    #[test]
     fn library_btf_factor_action_keeps_coupling_in_true_product_and_refuses_unowned_storage() {
         let products = Arc::new(AtomicU64::new(0));
         let function = Function::Equations(Box::new(Coupled::new(products.clone(), false, false)));
@@ -787,3 +800,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod comparisons;
