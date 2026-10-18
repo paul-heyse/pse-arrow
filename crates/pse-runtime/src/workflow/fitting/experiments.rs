@@ -35,35 +35,6 @@ pub(super) fn borrowed_capacity<T>(cores: usize, work: impl FnOnce() -> T) -> T 
 fn stride_assignment(experiments: usize, lanes: usize) -> Vec<Vec<usize>> {
     (0..lanes).map(|lane| (lane..experiments).step_by(lanes).collect()).collect()
 }
-/// Compare the existing stride with stable largest-resident-first affinity. These
-/// are source-issued worker bounds, not a prediction of native execution time.
-/// Unknown extents and equal peaks retain the simpler authored stride.
-pub(super) fn resident_assignment(weights: &[Option<usize>], lanes: usize) -> Vec<Vec<usize>> {
-    let stride = stride_assignment(weights.len(), lanes);
-    let Some(weights) = weights.iter().copied().collect::<Option<Vec<_>>>() else { return stride; };
-    let peak = |assignment: &[Vec<usize>]| assignment.iter().map(|lane| lane.iter().map(|&i| weights[i] as u128).sum::<u128>()).max().unwrap_or(0);
-    let mut order = (0..weights.len()).collect::<Vec<_>>();
-    order.sort_by_key(|&i| (std::cmp::Reverse(weights[i]), i));
-    let mut balanced = vec![Vec::new(); lanes];
-    let mut totals = vec![0u128; lanes];
-    for index in order {
-        let lane = (0..lanes).min_by_key(|&lane| (totals[lane], balanced[lane].len(), lane)).unwrap_or(0);
-        balanced[lane].push(index); totals[lane] += weights[index] as u128;
-    }
-    for lane in &mut balanced { lane.sort_unstable(); }
-    if peak(&balanced) < peak(&stride) { balanced } else { stride }
-}
-fn resident_weights(problem: &FitProblem) -> Result<Vec<Option<usize>>, ProblemError> {
-    problem.experiments.iter().map(|experiment| match experiment {
-        Experiment::Steady(s) => Ok(s.providers.is_empty().then_some(s.case.assembly.numeric_worker_bytes())),
-        Experiment::Transient(s) => {
-            let allowances = crate::workflow::dynamics::allowance_bytes(&s.program.state_allowances, &s.program.output_allowances)
-                .ok_or_else(|| ProblemError::memory("fit experiment allowance extent"))?;
-            crate::workflow::dynamics::DynamicProgram::worker_allocation_bound(&s.program.contract,
-                &s.program.programs, &s.program.coordinates, s.program.modes.iter(), &s.program.layout, allowances)
-        }
-    }).collect()
-}
 struct Request {
     observation: Option<pse_diagnostics::observation::ObservationContext>,
     x: Arc<[f64]>,
@@ -135,14 +106,17 @@ impl ExperimentTeam {
         if count <= 1 {
             return Ok(None);
         }
-        let assignments = resident_assignment(&resident_weights(&problem)?, count);
+        let assignments = stride_assignment(problem.experiments.len(), count);
         Self::construct(problem, execution, assignments).map(Some)
     }
     #[cfg(all(test, feature = "solver-diffsol"))]
-    pub(super) fn stride_for_test(problem: Arc<FitProblem>, execution: Execution) -> Result<Self, ProblemError> {
-        let count = problem.profile.experiment_workers.into_inner().min(problem.experiments.len()).min(problem.runtime.native().cores());
-        let assignments = stride_assignment(problem.experiments.len(), count);
-        Self::construct(problem, execution, assignments)
+    pub(super) fn fixed_affinity_for_test(problem: Arc<FitProblem>, execution: Execution) -> Result<Self, ProblemError> {
+        assert_eq!(problem.experiments.len(), 4);
+        assert!(problem.profile.experiment_workers.into_inner() >= 2);
+        assert!(problem.runtime.native().cores() >= 2);
+        // The real fixture alternates IVPs and steady evaluators. This comparison
+        // fixes one of each on each owner; it establishes no general cost predictor.
+        Self::construct(problem, execution, vec![vec![0, 1], vec![2, 3]])
     }
     fn construct(problem: Arc<FitProblem>, execution: Execution, assignments: Vec<Vec<usize>>) -> Result<Self, ProblemError> {
         let count = assignments.len();
@@ -493,15 +467,6 @@ impl ExperimentTeam {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn residency_affinity_compares_stride_before_private_worker_construction() {
-        let weights = [Some(100), Some(1), Some(100), Some(1)];
-        assert_eq!(resident_assignment(&weights, 2), vec![vec![0, 1], vec![2, 3]]);
-        assert_eq!(resident_assignment(&[Some(1); 4], 2), vec![vec![0, 2], vec![1, 3]]);
-        assert_eq!(resident_assignment(&[Some(100), None, Some(100), Some(1)], 2), vec![vec![0, 2], vec![1, 3]]);
-        let mapped = resident_assignment(&weights, 2).into_iter().flatten().collect::<BTreeSet<_>>();
-        assert_eq!(mapped, (0..4).collect());
-    }
     #[test]
     fn borrowed_profile_envelope_restores_after_nested_scope_and_panic() {
         assert_eq!(BORROWED_CAPACITY.with(std::cell::Cell::get), None);

@@ -3379,7 +3379,8 @@ async fn fitting_parallel_affine_exact_hessian_prepares_second_contract_and_reta
 }
 
 /// Compare complete repeated uneven native callbacks under both static ownerships.
-/// Timing is observational; the selected objective is known lane worker residency.
+/// The alternative is fixed only for this observed IVP/steady fixture. Production
+/// retains stride until a qualified source cost/ownership contract supports selection.
 #[tokio::test]
 async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
     let (package, mut profile) = source(true, 73.).await;
@@ -3411,8 +3412,8 @@ async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
             let resident_before = oracle.prepared.runtime.shared.pool().reserved();
             let started = std::time::Instant::now();
             oracle.team = if stride {
-                Some(experiments::ExperimentTeam::stride_for_test(oracle.prepared.clone(), oracle.execution.clone()).unwrap())
-            } else { experiments::ExperimentTeam::new(oracle.prepared.clone(), oracle.execution.clone()).unwrap() };
+                experiments::ExperimentTeam::new(oracle.prepared.clone(), oracle.execution.clone()).unwrap()
+            } else { Some(experiments::ExperimentTeam::fixed_affinity_for_test(oracle.prepared.clone(), oracle.execution.clone()).unwrap()) };
             let construction = started.elapsed();
             let resident = oracle.prepared.runtime.shared.pool().reserved() - resident_before;
             let started = std::time::Instant::now();
@@ -3420,6 +3421,7 @@ async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
             for x in [2.5, 0.7, 2.5] {
                 let objective = oracle.objective(&[x]).unwrap();
                 let objective_completion = oracle.team.as_ref().unwrap().test_lane_completion();
+                assert_eq!(objective_completion.0, if stride { vec![vec![0, 2], vec![1, 3]] } else { vec![vec![0, 1], vec![2, 3]] });
                 let expected = if x == 2.5 { 2.5 } else { 1.78 };
                 assert!((objective - expected).abs() < 1e-6);
                 let mut gradient = [0.]; oracle.gradient(&[x], &mut gradient).unwrap();
