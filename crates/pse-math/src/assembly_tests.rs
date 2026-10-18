@@ -25,6 +25,9 @@ fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
 fn fixture(alias: bool, fixed: bool) -> (Arc<CaseAssembly>, CaseValues) {
+    fixture_with_fixed(alias, |_| fixed)
+}
+fn fixture_with_fixed(alias: bool, fixed: impl Fn(u8) -> bool) -> (Arc<CaseAssembly>, CaseValues) {
     let registry = standard_registry().unwrap();
     let quantity = ids::quantity("neutral");
     let port = |n| Port {
@@ -50,7 +53,7 @@ fn fixture(alias: bool, fixed: bool) -> (Arc<CaseAssembly>, CaseValues) {
     let key = ContentHash::from_bytes([1; 32]);
     let variable = |n| Variable {
         port: port(n),
-        fixed,
+        fixed: fixed(n),
         domain: ModelingVariableDomain::Continuous,
         lower: None,
         upper: None,
@@ -4966,6 +4969,8 @@ fn completed_native_matrices_supply_actions_without_preparing_action_programs() 
     let mut output = [999.; 2];
     worker.jacobian_product(bound.trial(&point).unwrap(), &[5., 7.], &mut output).unwrap();
     assert_eq!(output, [60., 0.]);
+    worker.jacobian_product(bound.trial(&point).unwrap(), &[5., 7.], &mut output).unwrap();
+    assert_eq!(worker.assembled_counts()[5], 1);
     worker.hessian_product(bound.trial(&point).unwrap(), 1., &[0., 0.], &[5., 7.], &mut output).unwrap();
     assert_eq!(output, [7., 5.]);
     assert_eq!(worker.instantiated_orders(), prepared);
@@ -5021,4 +5026,31 @@ fn completed_assemblies_never_bypass_current_provider_effects() {
     assert_eq!(calls.load(std::sync::atomic::Ordering::Relaxed), 4);
     assert_eq!(worker.assembled_counts()[0], 3);
     assert_eq!(worker.local_evaluation_counts()[0], 4);
+}
+
+#[test]
+fn completed_native_matrix_requires_current_fixed_revision_with_unchanged_free_point() {
+    let (assembly, values) = fixture_with_fixed(false, |n| n == 2);
+    let mut bound = assembly.bind_values(&values).unwrap();
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), pse_diagnostics::Cancellation::default());
+    let point = [2.];
+    assert_eq!(worker.gradient(bound.trial(&point).unwrap()).unwrap(), &[3.]);
+    worker.jacobian(bound.trial(&point).unwrap()).unwrap();
+    let mut output = [999.; 2];
+    worker.jacobian_product(bound.trial(&point).unwrap(), &[5.], &mut output).unwrap();
+    assert_eq!(output, [25., 0.]);
+    bound.refill(&[(id(2), 7.)]).unwrap();
+    output.fill(999.);
+    assert!(worker.jacobian_product(bound.trial(&point).unwrap(), &[5.], &mut output).is_err());
+    assert_eq!(output, [999.; 2]);
+    assert_eq!(worker.gradient(bound.trial(&point).unwrap()).unwrap(), &[7.]);
+    assert_eq!(worker.constraints(bound.trial(&point).unwrap()).unwrap(), &[45., 0.]);
+    worker.jacobian(bound.trial(&point).unwrap()).unwrap();
+    worker.jacobian_product(bound.trial(&point).unwrap(), &[7.], &mut output).unwrap();
+    assert_eq!(output, [35., 0.]);
+    assert_eq!(worker.assembled_counts()[3], 2);
+    // Repeated fixed bits retain the owner-issued revision and the completed matrix.
+    bound.refill(&[(id(2), 7.)]).unwrap();
+    worker.jacobian_product(bound.trial(&point).unwrap(), &[5.], &mut output).unwrap();
+    assert_eq!(output, [25., 0.]);
 }

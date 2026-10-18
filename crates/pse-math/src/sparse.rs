@@ -6,7 +6,7 @@ use crate::{
     MathError,
     index::{Addend, Entry, TiVec},
 };
-use faer::sparse::{Pair, SparseColMat, SymbolicSparseColMat};
+use faer::sparse::{Pair, SparseColMat, SymbolicSparseColMat, SymbolicSparseColMatRef};
 
 /// Reusable numeric matrix with an original-contribution to canonical-entry map.
 #[derive(Clone, Debug)]
@@ -14,6 +14,12 @@ pub struct AssemblyMatrix {
     matrix: SparseColMat<usize, f64>,
     /// Each original contribution's position in faer's canonical value storage.
     refill: TiVec<Addend, usize>,
+    strict_lower: Option<StrictLowerLayout>,
+}
+#[derive(Clone, Debug)]
+struct StrictLowerLayout {
+    starts: Vec<usize>,
+    counts: Vec<usize>,
 }
 impl AssemblyMatrix {
     /// Known owned CSC and refill buffers, excluding allocator overhead.
@@ -23,6 +29,7 @@ impl AssemblyMatrix {
             + size_of_val(self.matrix.row_idx())
             + size_of_val(self.matrix.val())
             + self.refill.capacity() * size_of::<usize>()
+            + self.strict_lower.as_ref().map_or(0, |layout| (layout.starts.capacity() + layout.counts.capacity()) * size_of::<usize>())
     }
     /// Canonicalize once, retaining duplicates as independent refill contributions: the
     /// entry at position `k` of `entries` is [`Addend`] `k`.
@@ -70,7 +77,7 @@ impl AssemblyMatrix {
             .collect::<Result<TiVec<_, _>, _>>()?;
         let matrix = SparseColMat::new_from_argsort(pattern, &order, &vec![0.0; indices.len()])
             .map_err(|e| MathError::Library(e.to_string()))?;
-        Ok(Self { matrix, refill })
+        Ok(Self { matrix, refill, strict_lower: None })
     }
     /// A square `order × order` matrix of `(column, column)` entries, such as a
     /// lower-triangle Hessian. Both indices share one space, so a Jacobian's
@@ -90,7 +97,23 @@ impl AssemblyMatrix {
     where
         C: Copy + Into<usize>,
     {
-        Self::new(order, order, entries, limit)
+        let mut result = Self::new(order, order, entries, limit)?;
+        let pattern = result.matrix.symbolic();
+        let mut starts = Vec::with_capacity(order + 1);
+        let mut counts = Vec::with_capacity(order);
+        for column in 0..order {
+            let begin = pattern.col_ptr()[column];
+            let end = pattern.col_ptr()[column + 1];
+            if pattern.row_idx()[begin..end].iter().any(|&row| row < column) {
+                return Err(MathError::Contract("Hessian must use the lower triangle".into()));
+            }
+            let strict = begin + usize::from(pattern.row_idx().get(begin).is_some_and(|&row| begin < end && row == column));
+            starts.push(strict);
+            counts.push(end - strict);
+        }
+        starts.push(pattern.col_ptr()[order]);
+        result.strict_lower = Some(StrictLowerLayout { starts, counts });
+        Ok(result)
     }
     /// Native sparse storage; numeric zeros retain their declared support.
     pub fn matrix(&self) -> &SparseColMat<usize, f64> {
@@ -154,20 +177,19 @@ impl AssemblyMatrix {
             return Err(MathError::Contract("symmetric product requires a square matrix".into()));
         }
         self.product(direction, output)?;
-        // Remove the diagonal before adding the transposed lower matrix, so a
-        // finite diagonal is never doubled as an intermediate result.
-        for (column, &seed) in direction.iter().enumerate() {
-            for entry in self.matrix.symbolic().col_ptr()[column]..self.matrix.symbolic().col_ptr()[column + 1] {
-                if self.matrix.row_idx()[entry] == column {
-                    output[column] -= self.matrix.val()[entry] * seed;
-                }
-            }
-        }
+        let layout = self.strict_lower.as_ref()
+            .ok_or_else(|| MathError::Contract("missing lower symmetric product layout".into()))?;
+        // faer's uncompressed CSC view skips each diagonal in the existing value
+        // storage. No numeric copy or cancellation-based diagonal removal is needed.
+        let strict = faer::sparse::SparseColMatRef::new(
+            SymbolicSparseColMatRef::new_checked(self.matrix.nrows(), self.matrix.ncols(), &layout.starts, Some(&layout.counts), self.matrix.row_idx()),
+            self.matrix.val(),
+        );
         faer::sparse::linalg::matmul::dense_sparse_matmul(
             faer::MatMut::from_row_major_slice_mut(output, 1, self.matrix.ncols()),
             faer::Accum::Add,
             faer::MatRef::from_row_major_slice(direction, 1, self.matrix.nrows()),
-            self.matrix.as_ref(),
+            strict,
             1.0,
             faer::Par::Seq,
         );
@@ -181,7 +203,7 @@ impl AssemblyMatrix {
 /// Content identity of canonical CSC structure, excluding numerical values. Column
 /// lengths frame the support of each variable; concatenated row numbers are ambiguous.
 pub fn pattern_key(
-    pattern: faer::sparse::SymbolicSparseColMatRef<'_, usize>,
+    pattern: SymbolicSparseColMatRef<'_, usize>,
 ) -> pse_ids::ContentHash {
     let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::SparsePatternV1);
     h.u64(pattern.nrows() as u64).u64(pattern.ncols() as u64);
@@ -200,6 +222,23 @@ mod identity_tests {
     use crate::index::{GlobalCol, GlobalRow};
     fn entry(row: usize, col: usize) -> Entry<GlobalRow, GlobalCol> {
         Entry::new(row.into(), col.into())
+    }
+    #[test]
+    fn completed_symmetric_product_uses_strict_lower_without_diagonal_cancellation() {
+        let entries = [Entry::new(GlobalCol::new(1), GlobalCol::new(0)), Entry::new(GlobalCol::new(1), GlobalCol::new(1)), Entry::new(GlobalCol::new(2), GlobalCol::new(1))];
+        let mut matrix = AssemblyMatrix::hessian(3, &entries, 10).unwrap();
+        matrix.add(Addend::new(0), 1e16).unwrap();
+        matrix.add(Addend::new(1), -1e16).unwrap();
+        matrix.add(Addend::new(2), 1.).unwrap();
+        let mut output = [999.; 3];
+        matrix.symmetric_product(&[1.; 3], &mut output).unwrap();
+        assert_eq!(output, [1e16, 1., 1.]);
+        let entries = [Entry::new(GlobalCol::new(0), GlobalCol::new(0))];
+        let mut diagonal = AssemblyMatrix::hessian(1, &entries, 10).unwrap();
+        diagonal.add(Addend::new(0), 1e308).unwrap();
+        diagonal.symmetric_product(&[1.], &mut output[..1]).unwrap();
+        assert_eq!(output[0], 1e308);
+        assert!(matrix.strict_lower.as_ref().is_some_and(|layout| layout.starts.len() == 4 && layout.counts.len() == 3));
     }
     #[test]
     fn sparse_layout_identity_frames_column_boundaries() {

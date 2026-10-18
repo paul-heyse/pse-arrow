@@ -1996,7 +1996,7 @@ impl CasePlan {
             })
             .and_then(|n| n.checked_add(programs.len().checked_mul(size_of::<Worker>())?))
             .and_then(|n| n.checked_add(size_of::<AssemblyCompletion>()))
-            .and_then(|n| n.checked_add((self.columns.len() + self.rows.len() + 1).checked_mul(size_of::<u64>())?))
+            .and_then(|n| n.checked_add(self.columns.len().checked_mul(2)?.checked_add(self.rows.len())?.checked_add(2)?.checked_mul(size_of::<u64>())?))
             .ok_or(MathError::Limit("case worker bytes"))?;
         if bytes > self.limits.worker_bytes {
             return Err(MathError::Limit("case worker bytes"));
@@ -3388,14 +3388,22 @@ impl CaseWorker {
             && self.completion.same_weights(objective_weight, multipliers)
         {
             self.scope.check().map_err(crate::error::scope_error)?;
-            self.completion.begin(AssembledProduct::HessianAction);
-            let assembled = self.hessian.as_ref()
-                .ok_or_else(|| MathError::Contract("detached hessian".into()))?
-                .symmetric_product(direction, &mut self.action_values[..output.len()]);
-            self.finish_assembly(assembled, AssembledProduct::HessianAction, EvaluationDemand::All, DerivativeOrder::Second)?;
+            if !self.completion.reusable(AssembledProduct::HessianAction, EvaluationDemand::All, DerivativeOrder::Second)
+                || !self.completion.same_action(point, direction)
+            {
+                self.completion.begin(AssembledProduct::HessianAction);
+                let assembled = self.hessian.as_ref()
+                    .ok_or_else(|| MathError::Contract("detached hessian".into()))?
+                    .symmetric_product(direction, &mut self.action_values[..output.len()]);
+                self.finish_assembly(assembled, AssembledProduct::HessianAction, EvaluationDemand::All, DerivativeOrder::Second)?;
+                self.completion.set_action(point, direction);
+            }
             for groups in &mut self.groups {
                 if let Some(group) = &mut groups[EvaluationDemand::All] { group.visible = true; }
             }
+            let current = self.scope.check().map_err(crate::error::scope_error);
+            if let Err(cause) = &current { self.refuse_trial(cause); }
+            current?;
             output.copy_from_slice(&self.action_values[..output.len()]);
             return Ok(());
         }
@@ -3460,14 +3468,22 @@ impl CaseWorker {
         if self.matrix_eligible(AssembledProduct::Jacobian, EvaluationDemand::Constraints, DerivativeOrder::First, point)
         {
             self.scope.check().map_err(crate::error::scope_error)?;
-            self.completion.begin(AssembledProduct::JacobianAction);
-            let assembled = self.jacobian.as_ref()
-                .ok_or_else(|| MathError::Contract("detached jacobian".into()))?
-                .product(direction, &mut self.action_values[..output.len()]);
-            self.finish_assembly(assembled, AssembledProduct::JacobianAction, EvaluationDemand::Constraints, DerivativeOrder::First)?;
+            if !self.completion.reusable(AssembledProduct::JacobianAction, EvaluationDemand::Constraints, DerivativeOrder::First)
+                || !self.completion.same_action(point, direction)
+            {
+                self.completion.begin(AssembledProduct::JacobianAction);
+                let assembled = self.jacobian.as_ref()
+                    .ok_or_else(|| MathError::Contract("detached jacobian".into()))?
+                    .product(direction, &mut self.action_values[..output.len()]);
+                self.finish_assembly(assembled, AssembledProduct::JacobianAction, EvaluationDemand::Constraints, DerivativeOrder::First)?;
+                self.completion.set_action(point, direction);
+            }
             for groups in &mut self.groups {
                 if let Some(group) = &mut groups[EvaluationDemand::Constraints] { group.visible = true; }
             }
+            let current = self.scope.check().map_err(crate::error::scope_error);
+            if let Err(cause) = &current { self.refuse_trial(cause); }
+            current?;
             output.copy_from_slice(&self.action_values[..output.len()]);
             return Ok(());
         }

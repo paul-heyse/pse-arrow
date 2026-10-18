@@ -47,6 +47,8 @@ pub(super) struct AssemblyCompletion {
     pub(super) jacobian_point: Option<u64>,
     pub(super) hessian_point: Option<u64>,
     pub(super) hessian_weights: Vec<u64>,
+    action_point: Option<u64>,
+    action_direction: Vec<u64>,
     #[cfg(test)]
     pub(super) assemblies: EnumMap<AssembledProduct, u64>,
     #[cfg(test)]
@@ -54,7 +56,7 @@ pub(super) struct AssemblyCompletion {
 }
 impl AssemblyCompletion {
     pub(super) fn new(coordinates: usize, rows: usize) -> Self {
-        Self { coordinates: vec![0; coordinates], hessian_weights: vec![0; rows + 1], ..Self::default() }
+        Self { coordinates: vec![0; coordinates], action_direction: vec![0; coordinates], hessian_weights: vec![0; rows + 1], ..Self::default() }
     }
     /// Only an immutable, finite trial issued by BoundValues carries this premise.
     /// Semantic maps remain uncontrolled inputs and use the ordinary local keys.
@@ -79,6 +81,14 @@ impl AssemblyCompletion {
     pub(super) fn set_weights(&mut self, objective: f64, multipliers: &[f64]) {
         for (bits, value) in self.hessian_weights.iter_mut().zip(std::iter::once(objective).chain(multipliers.iter().copied())) { *bits = value.to_bits(); }
     }
+    pub(super) fn same_action(&self, point: Option<u64>, direction: &[f64]) -> bool {
+        point.is_some() && self.action_point == point
+            && self.action_direction.iter().copied().eq(direction.iter().map(|value| value.to_bits()))
+    }
+    pub(super) fn set_action(&mut self, point: Option<u64>, direction: &[f64]) {
+        self.action_point = point;
+        for (bits, value) in self.action_direction.iter_mut().zip(direction) { *bits = value.to_bits(); }
+    }
     pub(super) fn replaced(&mut self, demand: EvaluationDemand) -> Result<(), MathError> {
         let Some(next) = self.generations[demand].checked_add(1) else {
             self.invalidate();
@@ -102,6 +112,7 @@ impl AssemblyCompletion {
         self.receipts[product] = None;
         // Both actions use one completed staging buffer.
         if matches!(product, AssembledProduct::JacobianAction | AssembledProduct::HessianAction) {
+            self.action_point = None;
             self.receipts[AssembledProduct::JacobianAction] = None;
             self.receipts[AssembledProduct::HessianAction] = None;
         }
