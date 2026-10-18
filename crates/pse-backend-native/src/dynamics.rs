@@ -3333,6 +3333,9 @@ mod tests;
 #[cfg(test)]
 mod contextual_tests;
 
+#[cfg(all(test, feature = "idas"))]
+mod idas_initial_tests;
+
 #[cfg(all(test, any(feature = "diffsol", feature = "idas")))]
 mod selected_tests;
 #[cfg(all(test, any(feature = "diffsol", feature = "idas")))]
