@@ -7,8 +7,12 @@ use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
 use pse_model::HeapUsage;
 use pse_operations::canonical::MetadataResponse;
 use pse_operations::canonical_artifacts::{Artifact, ArtifactLocator};
+#[cfg(all(test, feature = "canonical-tests", feature = "solver-diffsol"))]
 use pse_relations::columnar::RelationRow;
 use std::sync::Arc;
+
+#[cfg(all(test, feature = "canonical-tests"))]
+tokio::task_local! { pub(super) static SCIENTIFIC_HANDOFF_REPLY_LOSS: bool; }
 
 /// A bounded original recovery document is a settlement capability, never a reader.
 #[derive(Clone, Debug)]
@@ -63,6 +67,76 @@ fn decode_intent(bytes: &[u8]) -> Result<Artifact, WorkflowError> {
         return Err(contract("artifact original intent identity differs"));
     }
     Ok(intent)
+}
+
+/// Activation is the only permitted mutation of this exact original request.
+/// Both publication ACK and the actual subsequent read must establish it.
+pub(super) fn check_artifact_ack(expected: &Artifact, actual: &Artifact) -> Result<(), WorkflowError> {
+    let equal = actual.active && !actual.retiring
+        && expected.key == actual.key && expected.kind == actual.kind
+        && expected.revision == actual.revision && expected.primary_problem == actual.primary_problem
+        && expected.primary_authority == actual.primary_authority && expected.creation_nonce == actual.creation_nonce
+        && expected.creation_expires_at == actual.creation_expires_at
+        && expected.creation_request_digest == actual.creation_request_digest
+        && expected.interpretation == actual.interpretation && expected.provenance == actual.provenance
+        && expected.block_count == actual.block_count && expected.payload_bytes == actual.payload_bytes;
+    if !equal { return Err(contract("artifact acknowledgement differs from exact original request")); }
+    Ok(())
+}
+
+pub(super) struct ProtectedScientificInput {
+    pub(super) input: Arc<pse_operations::canonical_results::ResultRead>,
+    pub(super) input_owner: Arc<MemoryReservation>,
+    pub(super) sources: Vec<pse_operations::canonical::Revision>,
+    pub(super) revision: pse_operations::canonical::Revision,
+    _sources_owner: MemoryReservation,
+}
+pub(super) struct PreparedScientificMember {
+    name: &'static str,
+    payload: Vec<u8>,
+    rows: u64,
+    original_digest: String,
+    pub(super) facts: Option<super::analyses::MemberFacts>,
+    _owner: MemoryReservation,
+}
+pub(super) struct ScientificArtifactSelection {
+    pub(super) protected: ProtectedScientificInput,
+    pub(super) kind: ScientificArtifactKind,
+    pub(super) prepared: Vec<PreparedScientificMember>,
+}
+pub(super) struct PromotedScientificArtifact {
+    pub(super) artifact: ScientificArtifact,
+    pub(super) protected: ProtectedScientificInput,
+    pub(super) facts: super::analyses::ArtifactEvidence,
+}
+
+pub(super) fn prepare_scientific_member(runtime: &Runtime, name: &'static str,
+    batch: &pse_relations::columnar::FieldCheckedBatch, original_digest: &str,
+    analysis: bool) -> Result<PreparedScientificMember, WorkflowError> {
+    let owner = MemoryConsumer::new("canonical:prepared-scientific-member").register(&runtime.shared.pool());
+    owner.try_grow(3 * super::result_files::MAX_FILE_BYTES).map_err(pse_engine::EngineError::from)?;
+    if let Some(context) = pse_diagnostics::observation::current() { context.count("canonical.artifact.scientific_encodes", "count", 1); }
+    let payload = super::result_files::encode_result_file(batch.batch())?;
+    let facts = super::analyses::MemberFacts::mine(runtime, name, batch, analysis)?;
+    let retained = payload.capacity() + name.len() + original_digest.len() + size_of::<PreparedScientificMember>();
+    if retained > owner.size() {return Err(contract("scientific member allocation exceeds admission"));}
+    owner.shrink(owner.size() - retained);
+    Ok(PreparedScientificMember {name, payload, rows: batch.batch().num_rows() as u64,
+        original_digest: original_digest.into(), facts, _owner: owner})
+}
+
+fn retain_prepared_member(mut member: PreparedScientificMember,
+    copied: &mut Vec<(&'static str, Vec<u8>, u64, String)>, members: &MemoryReservation,
+    facts: &mut super::analyses::ArtifactEvidence, analysis: bool) -> Result<(), WorkflowError> {
+    if copied.len() >= 64 {return Err(contract("scientific artifact member bound"));}
+    members.try_grow(member.payload.capacity() + member.original_digest.capacity() + 2 * size_of::<(&str, Vec<u8>, u64, String)>())
+        .map_err(pse_engine::EngineError::from)?;
+    copied.try_reserve_exact(1).map_err(|_| contract("scientific artifact member allocation refused"))?;
+    if let Some(evidence) = member.facts.take() {
+        facts.append(evidence, copied.len() as u64, analysis, member.name, member.rows)?;
+    }
+    copied.push((member.name, member.payload, member.rows, member.original_digest));
+    Ok(())
 }
 
 /// A promised scientific product, distinct from arbitrary result row selection.
@@ -478,6 +552,33 @@ impl Runtime {
             })
             .await
     }
+    pub(super) async fn select_scientific_input(&self, run: &str, attempt: &str) -> Result<ProtectedScientificInput, WorkflowError> {
+        let response = super::connected_results::response_owner(self,
+            "canonical:scientific-selection-response", MetadataResponse::Selection)?;
+        if let Some(context) = pse_diagnostics::observation::current() { context.count("canonical.artifact.scientific_selection_requests", "count", 1); }
+        let input = Arc::new(pse_operations::canonical::response_ownership_scope(response.clone(),
+            self.canonical_store()?.read_results(run, attempt)).await?);
+        let input_owner = Arc::new(super::connected_results::retain_protected_metadata(&self.shared.pool(),
+            response, input.retained_bytes()?, |owner| input.retain_metadata_owner(owner))?);
+        input.retain_metadata_owner(input_owner.clone())?;
+        let response = super::connected_results::response_owner(self,
+            "canonical:scientific-sources-response", MetadataResponse::Selection)?;
+        if let Some(context) = pse_diagnostics::observation::current() { context.count("canonical.artifact.scientific_source_requests", "count", 1); }
+        let sources = pse_operations::canonical::response_ownership_scope(
+            Arc::new((input.clone(), input_owner.clone(), response.clone())),
+            self.canonical_store()?.analysis_run_sources(run)).await?;
+        let revision = sources.iter().find(|source| source.key == input.run().revision)
+            .ok_or_else(|| contract("scientific primary result source absent"))?;
+        let extent = sources.iter().try_fold(sources.capacity() * size_of::<pse_operations::canonical::Revision>(),
+            |n, source| n.checked_add(source.heap_bytes())).and_then(|n| n.checked_add(revision.heap_bytes()))
+            .ok_or_else(|| contract("scientific source allocation extent"))?;
+        let owner = MemoryConsumer::new("canonical:scientific-protected-sources").register(&self.shared.pool());
+        owner.try_grow(extent).map_err(pse_engine::EngineError::from)?;
+        let revision = revision.clone();
+        drop(response);
+        Ok(ProtectedScientificInput {input, input_owner, sources, revision, _sources_owner: owner})
+    }
+
     /// Copy a scientifically sufficient immutable product without rerunning science.
     /// The trajectory product retains its entire recorded prefix; no row-level
     /// reclamation is promised for a physical IPC block.
@@ -498,10 +599,13 @@ impl Runtime {
                 memory
                     .try_grow(128 * 1024 * 1024)
                     .map_err(pse_engine::EngineError::from)?;
-                self.promote_scientific_artifact_body(
-                    run, attempt, kind, owner_kind, owner, &cancel, &memory,
-                )
-                .await
+                cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+                let protected = self.select_scientific_input(run, attempt).await?;
+                let product = self.promote_selected_scientific_artifact(
+                    ScientificArtifactSelection {protected, kind, prepared: Vec::new()},
+                    owner_kind, owner, &cancel, &memory, false,
+                ).await?;
+                Ok(product.artifact)
             })
             .await
     }
@@ -514,36 +618,24 @@ impl Runtime {
         reason = "artifact selection and durable owner association remain explicit alongside the borrowed cancellation token and prepaid grant"
     )]
     #[inline(never)]
-    fn promote_scientific_artifact_body<'a>(
+    pub(super) fn promote_selected_scientific_artifact<'a>(
         &'a self,
-        run: &'a str,
-        attempt: &'a str,
-        kind: ScientificArtifactKind,
+        selection: ScientificArtifactSelection,
         owner_kind: &'a str,
         owner: &'a str,
         cancel: &'a CancellationToken,
-        memory: &'a MemoryReservation,
-    ) -> futures_util::future::BoxFuture<'a, Result<ScientificArtifact, WorkflowError>> {
+        _memory: &'a MemoryReservation,
+        analysis: bool,
+    ) -> futures_util::future::BoxFuture<'a, Result<PromotedScientificArtifact, WorkflowError>> {
         Box::pin(async move {
-            let response = super::connected_results::response_owner(
-                self,
-                "canonical:artifact-promotion-selection-response",
-                MetadataResponse::Selection,
-            )?;
-            let input = Arc::new(
-                pse_operations::canonical::response_ownership_scope(
-                    response.clone(),
-                    self.canonical_store()?.read_results(run, attempt),
-                )
-                .await?,
-            );
-            let input_owner = Arc::new(super::connected_results::retain_protected_metadata(
-                &self.shared.pool(),
-                response,
-                input.retained_bytes()?,
-                |owner| input.retain_metadata_owner(owner),
-            )?);
-            input.retain_metadata_owner(input_owner.clone())?;
+            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+            let ScientificArtifactSelection {protected, kind, mut prepared} = selection;
+            let input = &protected.input;
+            let input_owner = &protected.input_owner;
+            let sources = &protected.sources;
+            let revision = &protected.revision;
+            let run = input.run().key.as_str();
+            let attempt = input.attempt().key.as_str();
             let mut names = vec![
                 "runtime.scientific_contexts",
                 "runtime.candidate_assessments",
@@ -586,25 +678,10 @@ impl Runtime {
                     "runtime.solve_metrics",
                 ]),
             }
-            let response = super::connected_results::response_owner(
-                self,
-                "canonical:artifact-promotion-sources-response",
-                MetadataResponse::Selection,
-            )?;
-            let sources = pse_operations::canonical::response_ownership_scope(
-                Arc::new((input.clone(), input_owner.clone(), response)),
-                self.canonical_store()?.analysis_run_sources(run),
-            )
-            .await?;
-            let revision = sources
-                .iter()
-                .find(|source| source.key == input.run().revision)
-                .ok_or_else(|| contract("artifact primary source unavailable"))?;
             let members = MemoryConsumer::new("canonical:scientific-artifact-member-files")
                 .register(&self.shared.pool());
             let mut copied = Vec::new();
-            let mut contexts = Vec::new();
-            let mut endpoints = Vec::new();
+            let mut facts = super::analyses::ArtifactEvidence::new(self)?;
             let mut selected = Vec::new();
             for name in names {
                 let spec = self
@@ -636,6 +713,13 @@ impl Runtime {
                     copied.push((name, payload, 0, set.batches_digest.clone()));
                 }
                 if set.batch_count != 0 {
+                    if prepared.iter().any(|member| member.name == name) {
+                        while let Some(position) = prepared.iter().position(|member| member.name == name) {
+                            let member = prepared.remove(position);
+                            retain_prepared_member(member, &mut copied, &members, &mut facts, analysis)?;
+                        }
+                        continue;
+                    }
                     let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
                         .map_err(|error| contract(error.to_string()))?;
                     let snapshot = super::ResultSnapshot::capture(
@@ -652,45 +736,14 @@ impl Runtime {
                     for block in snapshot.blocks() {
                         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                         let checked = snapshot.read_block(block, cancel).await?;
-                        // Encoding scratch is local to this demanded logical batch;
-                        // the packed producer file is read through the snapshot cache.
-                        let scratch =
-                            MemoryConsumer::new("canonical:scientific-artifact-member-encoding")
-                                .register(&self.shared.pool());
-                        scratch
-                            .try_grow(3 * super::result_files::MAX_FILE_BYTES)
-                            .map_err(pse_engine::EngineError::from)?;
-                        let member = super::result_files::encode_result_file(checked.batch())?;
-                        members
-                            .try_grow(member.capacity())
-                            .map_err(pse_engine::EngineError::from)?;
-                        if name == "runtime.scientific_contexts"
-                            || name == "runtime.trajectory_endpoints"
-                        {
-                            memory
-                                .try_grow(member.len().saturating_mul(4))
-                                .map_err(pse_engine::EngineError::from)?;
-                        }
-                        if name == "runtime.scientific_contexts" {
-                            contexts.extend(
-                                pse_relations::generated::runtime::scientific_contexts::Row::rows(
-                                    &checked,
-                                )
-                                .map_err(super::relation)?,
-                            );
-                        }
-                        if name == "runtime.trajectory_endpoints" {
-                            endpoints.extend(
-                                pse_relations::generated::runtime::trajectory_endpoints::Row::rows(
-                                    &checked,
-                                )
-                                .map_err(super::relation)?,
-                            );
-                        }
-                        copied.push((name, member, block.rows, block.payload_digest.clone()));
+                        let member = prepare_scientific_member(self, name, &checked, &block.payload_digest, analysis)?;
+                        retain_prepared_member(member, &mut copied, &members, &mut facts, analysis)?;
                     }
                 }
             }
+            if !prepared.is_empty() {return Err(contract("scientific dispatch was not consumed by exact family"));}
+            let contexts = facts.evidence.contexts.iter().map(|item| &item.row).collect::<Vec<_>>();
+            let endpoints = facts.evidence.endpoints.iter().map(|item| &item.row).collect::<Vec<_>>();
             if contexts.is_empty()
                 || !selected
                     .iter()
@@ -827,6 +880,7 @@ impl Runtime {
                     )
                 })
                 .collect::<Result<Vec<_>, _>>()?;
+            facts.verify_members(&blocks)?;
             pse_operations::canonical_artifacts::seal_artifact_request(
                 &mut header,
                 &sources,
@@ -843,7 +897,7 @@ impl Runtime {
                 "canonical:artifact-promotion-publication-response",
                 MetadataResponse::Selection,
             )?;
-            pse_operations::canonical::response_ownership_scope(
+            let acknowledged = pse_operations::canonical::response_ownership_scope(
                 // The SDK owns metadata and the original read follower only;
                 // copied member buffers retain their separate local grant.
                 Arc::new((input.clone(), input_owner.clone(), response)),
@@ -857,11 +911,19 @@ impl Runtime {
                 ),
             )
             .await?;
-            Ok(ScientificArtifact {
-                runtime: self.clone(),
-                header: Arc::new(header),
-                _metadata_owner: metadata_owner,
-            })
+            if check_artifact_ack(&header, &acknowledged).is_err() {
+                return Err(pse_operations::canonical::CanonicalError::ArtifactUnsettled {
+                    intent: Box::new(header), source: Box::new(pse_operations::canonical::CanonicalError::IncompleteResponse),
+                }.into());
+            }
+            #[cfg(all(test, feature = "canonical-tests"))]
+            if SCIENTIFIC_HANDOFF_REPLY_LOSS.try_with(|lost| *lost).unwrap_or(false) {
+                return Err(pse_operations::canonical::CanonicalError::ArtifactUnsettled {
+                    intent: Box::new(header), source: Box::new(pse_operations::canonical::CanonicalError::IncompleteResponse),
+                }.into());
+            }
+            let artifact = ScientificArtifact {runtime: self.clone(), header: Arc::new(header), _metadata_owner: metadata_owner};
+            Ok(PromotedScientificArtifact {artifact, protected, facts})
         })
     }
 }
@@ -1341,5 +1403,30 @@ mod response_ownership_tests {
         assert_eq!(pool.reserved(), before);
         drop(pressure);
         assert_eq!(pool.reserved(), baseline);
+    }
+}
+
+#[cfg(test)]
+mod scientific_ack_unit {
+    use super::*;
+    fn intent() -> Artifact {
+        Artifact {key: "original-occurrence".into(), kind: "trajectory".into(), revision: "source".into(),
+            primary_problem: "problem".into(), primary_authority: "authority".into(), creation_nonce: "nonce".into(),
+            creation_expires_at: 1, creation_request_digest: "exact-byte-and-member-request".into(),
+            interpretation: "original-interpretation".into(), provenance: vec![1,2].into(),
+            block_count: 2, payload_bytes: 10, active: false, retiring: false}
+    }
+    #[test]
+    fn scientific_ack_requires_exact_original_request_and_active_independent_content() {
+        let original = intent();
+        let mut ack = original.clone(); ack.active = true;
+        check_artifact_ack(&original, &ack).unwrap();
+        for kind in 0..8 {
+            let mut wrong = ack.clone();
+            match kind {0 => wrong.active = false, 1 => wrong.retiring = true, 2 => wrong.key.push('x'),
+                3 => wrong.creation_request_digest.push('x'), 4 => wrong.block_count += 1,
+                5 => wrong.payload_bytes += 1, 6 => wrong.provenance = vec![9].into(), _ => wrong.kind = "local-analysis".into()}
+            assert!(check_artifact_ack(&original, &wrong).is_err());
+        }
     }
 }

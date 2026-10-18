@@ -1362,7 +1362,7 @@ impl NativeRuntime {
                 cancel.cancel();
             },
         )?;
-        Ok(inspection::TableStream::from_canonical(
+        Ok(inspection::TableStream::from_selected(
             reader,
             self.owner.clone(),
         ))

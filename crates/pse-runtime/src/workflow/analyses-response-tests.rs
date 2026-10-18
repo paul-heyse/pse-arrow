@@ -310,7 +310,7 @@ fn response_graph_preserves_scopes_units_scaling_and_exact_evidence_fields() {
     );
 }
 
-fn transient() -> ResponseEvidence {
+pub(super) fn transient() -> ResponseEvidence {
     let mut context = context(0);
     context.time = Some(coordinate(6));
     context.mode_names = vec!["initial".into()];
