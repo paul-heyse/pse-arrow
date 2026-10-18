@@ -1330,7 +1330,7 @@ mod tests {
                 lower: f64::NEG_INFINITY, upper: f64::INFINITY,
             }).collect(),
             (0..n).map(|i| pse_ids::SemanticId::from_bytes((300 + i as u128).to_le_bytes())).collect(),
-            1, test_residual_bodies(body), 100).unwrap());
+            1, test_residual_bodies(body), n * (n + 1)).unwrap());
         assert_eq!(problem.pattern().compute_nnz(), n * 2);
         let options = Options {
             start: vec![0.1; n], variable_nominals: vec![1.; n],

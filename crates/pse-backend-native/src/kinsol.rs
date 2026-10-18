@@ -1581,7 +1581,14 @@ impl Session {
         let mut result = self.solve_application(initial, controls, accuracy, execution, tolerances, warm);
         // All work is synchronous on this owner. Failed attempts release numerical
         // factors even when they returned before KINSol or original validation.
-        if !result.as_ref().is_ok_and(|report| report.termination.category == Termination::Success) {
+        let successful = result.as_ref().is_ok_and(|report| {
+            report.termination.category == Termination::Success
+                && report.quality.as_ref().is_some_and(Quality::feasible)
+                && report.validation_failure().is_none()
+                && report.shared_effective_failure().is_none_or(|cause|
+                    crate::callback::classify(cause.as_ref()) == crate::callback::Failure::Trial)
+        });
+        if !successful {
             if let Err(cleanup) = self.begin_application() {
                 // The original scientific/callback cause stays authoritative.
                 // This owner cannot be retained after uncertain cleanup.
@@ -2952,6 +2959,7 @@ mod tests {
         fail_at: usize,
         reject_above: Option<f64>,
         distinguish_failures: bool,
+        validation_bias: Option<(usize, f64)>,
     }
     impl FaultOracle {
         fn new(fail_at: usize) -> Self {
@@ -2961,6 +2969,7 @@ mod tests {
                 fail_at,
                 reject_above: None,
                 distinguish_failures: false,
+                validation_bias: None,
             }
         }
         fn trial(&self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
@@ -2986,7 +2995,12 @@ mod tests {
         }
         fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
             self.trial(x, out)?;
-            NleOracle::residual(&mut self.inner, x, out)
+            NleOracle::residual(&mut self.inner, x, out)?;
+            if let Some((at, bias)) = self.validation_bias
+                && self.calls.load(std::sync::atomic::Ordering::SeqCst) == at {
+                out[0] += bias;
+            }
+            Ok(())
         }
         fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
             self.inner.matrix.symbolic()
@@ -3696,6 +3710,40 @@ mod tests {
         assert!(report.evidence.callback.trial_rejections > 0);
         assert!(!report.evidence.callback.terminal_failure);
         assert!(report.callback_failure().is_none());
+        // SAFETY: live canonical session objects after the successful application;
+        // a recovered trial must leave its valid numerical factor available.
+        assert_eq!(unsafe { ffi::SUNLinSolSolve_KLU(session.linear, session.matrix, session.x, session.us, 0.) }, 0);
+    }
+    #[test]
+    fn original_validation_failure_resets_numeric_after_native_success() {
+        let oracle = FaultOracle::new(usize::MAX);
+        let calls = oracle.calls.clone();
+        let mut reference = fault_session(Strategy::LineSearch, oracle);
+        solved(&solve_fault(&mut reference, 0.5));
+        // Deterministic native trajectory is unchanged; only the last independent
+        // original validation differs, after native convergence and factorization.
+        let last = calls.load(std::sync::atomic::Ordering::SeqCst);
+        for domain_failure in [false, true] {
+            let mut oracle = FaultOracle::new(if domain_failure { last } else { usize::MAX });
+            if !domain_failure { oracle.validation_bias = Some((last, 1.)); }
+            let mut session = fault_session(Strategy::LineSearch, oracle);
+            let report = solve_fault(&mut session, 0.5);
+            assert_eq!(report.termination.category, Termination::Success);
+            assert_eq!(report.validation_failure().is_some(), domain_failure);
+            assert!(!report.quality.as_ref().is_some_and(Quality::feasible));
+            assert_eq!(metric(&report, "klu.numeric_factor.completed"), 1);
+            assert!(session.ready_for_retention(), "failed scientific validation drained and reset");
+            // SAFETY: live exclusively owned solver and vectors; missing numerical
+            // validity must refuse substitution without invoking native KLU solve.
+            assert_ne!(unsafe { ffi::SUNLinSolSolve_KLU(session.linear, session.matrix, session.x, session.us, 0.) }, 0);
+            let config = session.settings.clone();
+            let stamp = session.compatibility.clone();
+            session.replace(Function::Equations(Box::new(FaultOracle::new(usize::MAX))), config, stamp).unwrap();
+            let recovered = solve_fault(&mut session, 0.5);
+            solved(&recovered);
+            assert_eq!(metric(&recovered, "klu.symbolic.completed"), 0);
+            assert_eq!(metric(&recovered, "klu.numeric_factor.completed"), 1);
+        }
     }
     #[test]
     fn native_step_tolerance_exit_is_a_limit_with_independent_quality() {
