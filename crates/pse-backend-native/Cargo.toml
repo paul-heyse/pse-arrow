@@ -100,4 +100,5 @@ cc.workspace = true
 pkg-config.workspace = true
 
 [dev-dependencies]
+allocation-counter.workspace = true
 pse-quantity = { workspace = true, features = ["fixtures"] }
