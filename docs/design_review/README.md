@@ -15,13 +15,23 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
+The [post-Plan44 optimization review](reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md)
+combines in-depth short-case interpretation, current source and exact-release library research,
+public local controls, a disposable evidence-join prototype and independent assessment.
+It identifies thirteen current optimization findings and ten follow-up investigations covering
+source/preparation, native execution and result/artifact/analysis work. Recommendations and
+rule impacts await subsequent plan creation; existing implementation status remains with its owners.
+Its [evidence index](evidence/post-plan44-pipeline-optimization-2026-10-18/index.md) records
+what ran, what was source-inspected and what remains unexamined.
+
 The [diagnostics-led pipeline performance review](reviews/design_review_pipeline-performance-optimization_2026-10-17.md)
 uses short production-path cases, native work counts, selected integration records and
 source inspection to assess execution fit after Plan43. It identifies nine findings,
 bounded further investigations and an integrated target without changing scientific
 accuracy. Its [case notes](evidence/pipeline-performance-optimization-2026-10-17/case-notes.md)
-record what ran and what remains unexamined. The review awaits subsequent plan creation;
-it does not change existing plans' implementation status.
+record what ran and what remains unexamined. [Plan44](../plans/44-pipeline-performance-optimization.md)
+owns its adopted implementation and selected acceptance; the historical review does not
+change other plans' implementation status.
 
 [Plan 41's Outcome](../plans/41-simulation-pipeline-efficiency-and-effectiveness.md#outcome-recorded-after-implementation)
 records adoption, settled opportunities and affected acceptance of the simulation-pipeline

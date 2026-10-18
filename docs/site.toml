@@ -28,6 +28,7 @@ asset_bundles = [
   "native-producer-inputs-2026-10-06",
   "plan36-investigation-evidence",
   "pipeline-performance-optimization-2026-10-17",
+  "post-plan44-pipeline-optimization-2026-10-18",
   "unified-state-management-2026-10-10",
 ]
 entrypoints = [
@@ -100,6 +101,17 @@ patterns = [
   "external-review-postgresl-typing-and-other-typing-enhancements.md",
 ]
 scope = "History"
+
+[[asset_bundles]]
+name = "post-plan44-pipeline-optimization-2026-10-18"
+root = "design_review/evidence/post-plan44-pipeline-optimization-2026-10-18"
+files = [
+  "local-pipeline-probe.py",
+  "local-pipeline-summary.json",
+  "local-pipeline-observations.jsonl.gz",
+  "response-membership-probe.rs",
+  "response-membership-results.jsonl",
+]
 
 [[asset_bundles]]
 name = "pipeline-performance-optimization-2026-10-17"
