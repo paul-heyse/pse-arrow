@@ -2646,7 +2646,7 @@ fn kernel_piecewise_proves_boundary_jets_and_keeps_lazy_regions() {
 fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
     use pse_kernels::*;
     #[derive(Debug)]
-    struct Vector(ProviderSpec);
+    struct Vector;
     impl Provider for Vector {
             fn fill(
             &mut self,
@@ -2770,7 +2770,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         &cancel,
     )
     .unwrap();
-    let provider = ProviderBinding::new(spec.clone(), Box::new(Vector(spec.clone())));
+    let provider = ProviderBinding::new(spec.clone(), Box::new(Vector));
     let mut worker = f
         .assembly
         .worker(ProviderBindings::from([(spec.key(), provider)]), cancel);
@@ -2812,7 +2812,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         let a = admit(&mut w, root);
         let cancel = Cancellation::new(false);
         let f = fixture(&a, w.inputs.quantities.clone(), order, &cancel).unwrap();
-        let provider = ProviderBinding::new(spec.clone(), Box::new(Vector(spec.clone())));
+        let provider = ProviderBinding::new(spec.clone(), Box::new(Vector));
         let mut worker = f
             .assembly
             .worker(ProviderBindings::from([(spec.key(), provider)]), cancel.clone());
@@ -6922,7 +6922,7 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
         "only the selected output's executable provider dependency is demanded"
     );
     #[derive(Debug)]
-    struct IdentityProvider(pse_kernels::ProviderSpec);
+    struct IdentityProvider;
     impl pse_kernels::Provider for IdentityProvider {
             fn fill(
             &mut self,
@@ -6962,7 +6962,7 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
         scalars: BTreeMap::from([(variable.id, 2.0)]),
     };
     let first = inners[0].descriptor.spec();
-    let provider = pse_kernels::ProviderBinding::new(first.clone(), Box::new(IdentityProvider(first.clone())));
+    let provider = pse_kernels::ProviderBinding::new(first.clone(), Box::new(IdentityProvider));
     let mut worker = assembly.worker(pse_kernels::ProviderBindings::from([(first.key(), provider)]), cancel.clone());
     assert_eq!(
         worker.constraints(&values).unwrap(),

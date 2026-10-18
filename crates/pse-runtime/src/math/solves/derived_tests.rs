@@ -4246,7 +4246,7 @@ async fn native_component_records_survive_success_and_failed_block_before_report
 }
 
 // Test-only dense assessment boundary: copy only a successfully completed fill.
-#[cfg(test)]
+#[cfg(all(test, feature = "solver-kinsol", feature = "solver-root-isolation"))]
 fn completed_provider_values(provider: &mut pse_kernels::ProviderBinding, inputs: &[f64],
     request: &pse_kernels::ProviderRequest, context: &pse_kernels::EvaluationContext<'_>)
     -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {

@@ -35,7 +35,7 @@ use pse_compiler::workspace::{
 };
 use pse_diagnostics::Cancellation;
 use pse_engine::cache_service::CacheComponent;
-use pse_kernels::{Provider, ProviderKey};
+use pse_kernels::ProviderKey;
 use pse_math::assembly::{CaseAssembly, CaseWorker};
 pub(crate) use staged::NativeSession;
 #[cfg(all(test, feature = "solver-ipopt", not(feature = "canonical-tests")))]
