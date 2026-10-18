@@ -727,7 +727,7 @@ mod refinement_tests {
         };
         assert!(report.quality.as_ref().unwrap().feasible());
         let point = &report.candidate.as_ref().unwrap().primal;
-        let mut values = case.values.clone();
+        let mut values = case.values.as_ref().clone();
         for (id, value) in case.prepared.compiled().plan.columns().iter().zip(point) {
             values.scalars.insert(*id, *value);
         }
@@ -948,7 +948,7 @@ mod refinement_tests {
         let Representation::Algebraic(case) = &original.representation else {
             panic!("expected authored algebraic root");
         };
-        let mut values = case.values.clone();
+        let mut values = case.values.as_ref().clone();
         for (id, value) in case.prepared.compiled().plan.columns().iter().zip(&point) {
             values.scalars.insert(*id, *value);
         }

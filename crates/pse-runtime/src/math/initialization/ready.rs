@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Independent admitted block owners, with canonical wave commits and original assessment.
+//! Independent admitted block owners, with provisional dependency commits and original assessment.
 use super::*;
+use futures_util::StreamExt;
 
 impl MathService {
     #[allow(
@@ -17,6 +18,18 @@ impl MathService {
         strategies: Vec<native::routing::Route>,
         numerics: pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
     ) -> Result<SolveHandle<InitializationReport>, MathRuntimeError> {
+        if strategies.iter().any(|route| matches!(route, native::routing::Route::Native(Backend::Pounce))) {
+            return Err(native::ProblemError::Unsupported("POUNCE block aggregate iteration coverage unavailable".into()).into());
+        }
+        let effective = prepared.blocks.iter().zip(&strategies).map(|(block, route)| {
+            let native::routing::Route::Native(backend) = route else {
+                return Err(native::ProblemError::Contract("ready block requires native team".into()));
+            };
+            let controls = profile.solver.block_profile(block.boundary.id)?.controls;
+            BlockWaveDemand::new(std::iter::once((*backend, controls.clone())), &self.policy)?.admit(self.cores)
+                .map_err(MathRuntimeError::into_problem)?;
+            Ok(controls)
+        }).collect::<Result<Vec<_>, native::ProblemError>>()?;
         let deadline = std::time::Instant::now()
             .checked_add(profile.solver.controls.time_limit)
             .ok_or(MathRuntimeError::Limit(
@@ -63,7 +76,7 @@ impl MathService {
                 scalars: BTreeMap::new(),
             };
             let mut completed_stages = 0;
-            let mut remaining_iterations = profile.solver.controls.iterations;
+            let mut iterations = Iterations::new(profile.solver.controls.iterations);
             let previous_accepted = profile.solver.controls.start == StartPolicy::PreviousAccepted;
             for (stage, updates) in profile.stages.iter().enumerate() {
                 let mut values = original.clone();
@@ -77,161 +90,60 @@ impl MathService {
                     .extend(updates.iter().map(|(id, value)| (*id, *value)));
                 let first = attempts.len();
                 let mut completed = true;
-                let mut done = vec![false; prepared.blocks.len()];
-                while done.iter().any(|done| !done) {
-                    if cancel.token().is_cancelled() || scope.check().is_err() {
-                        completed = false;
-                        break;
-                    }
-                    let wave =
-                        ready_wave(prepared.boundaries(), &done, profile.solver.block_workers)?;
-                    let effective = wave
-                        .iter()
-                        .map(|&index| {
-                            let native::routing::Route::Native(backend) = strategies[index] else {
-                                return Err(native::ProblemError::Contract(
-                                    "ready block requires native team".into(),
-                                ));
-                            };
-                            Ok((
-                                backend,
-                                profile
-                                    .solver
-                                    .block_profile(prepared.blocks[index].boundary.id)?
-                                    .controls,
-                            ))
-                        })
-                        .collect::<Result<Vec<_>, native::ProblemError>>()?;
-                    // Complete-team capacity refusal precedes preparation/session dispatch.
-                    // Each session then acquires its own actual team under shared admission.
-                    let demand = BlockWaveDemand::new(effective.into_iter(), &service.policy)?;
-                    demand.admit(service.cores)?;
-                    let allowance = remaining_iterations
-                        / u32::try_from(wave.len())
-                            .map_err(|_| MathRuntimeError::Limit("ready wave extent"))?;
-                    if allowance == 0 {
-                        completed = false;
-                        break;
-                    }
-                    let mut ready = Vec::with_capacity(wave.len());
-                    // Bind against the last complete commit snapshot, before any native child.
-                    for &index in &wave {
-                        let block = &prepared.blocks[index];
-                        let previous = (previous_accepted && stage > 0)
-                            .then(|| {
-                                attempts.iter().rposition(|attempt| {
-                                    attempt.boundary.id == block.boundary.id && attempt.committed
-                                })
-                            })
-                            .flatten();
-                        let attempt = attempts.len() + ready.len();
-                        let prepared_attempt = service
-                            .prepare_ready_block(
-                                &prepared,
-                                index,
-                                &values,
-                                &providers,
-                                &profile.solver,
-                                &numerics,
-                                strategies[index],
-                                &scope,
-                                admission.clone(),
-                                &cancel,
-                                allowance,
-                                previous,
-                            )
-                            .await;
-                        ready.push((index, attempt, prepared_attempt));
-                    }
-                    // Every future owns its independent native session and closes/joins it
-                    // before returning. join_all drains siblings even after one refuses.
-                    let results = futures_util::future::join_all(ready.into_iter().map(
-                        |(index, attempt, prepared_attempt)| {
-                            let events = events.clone();
-                            let owner = owner.clone();
-                            let service = service.clone();
-                            let cancel = &cancel;
-                            async move {
-                                let result = async {
-                                    let (step, assessor, previous) = prepared_attempt?;
-                                    let session = service.open_session()?;
-                                    let result = session
-                                        .step(
-                                            step,
-                                            previous,
-                                            attempt,
-                                            events,
-                                            owner,
-                                            cancel,
-                                            move |outcome, scope, budget| {
-                                                assessor.assess(outcome, scope, budget)
-                                            },
-                                        )
-                                        .await;
-                                    session.close().await;
-                                    let (outcome, independent, trace) = result?;
-                                    match outcome {
-                                        super::super::solves::Outcome::Native(mut report) => {
-                                            independent.apply(&mut report);
-                                            Ok((report, trace))
-                                        }
-                                        super::super::solves::Outcome::Rejected(error) => {
-                                            Err(MathRuntimeError::Strategy {
-                                                cause: error,
-                                                trace,
-                                            })
-                                        }
-                                        _ => Err(native::ProblemError::Internal(
-                                            "conditional native report unavailable".into(),
-                                        )
-                                        .into()),
-                                    }
-                                }
-                                .await;
-                                (index, result)
-                            }
-                        },
-                    ))
-                    .await;
-                    for (index, attempted) in results {
-                        let trace = match &attempted {
-                            Ok((_, trace)) => Some(trace.clone()),
-                            Err(MathRuntimeError::Strategy { trace, .. }) => Some(trace.clone()),
-                            _ => None,
-                        };
-                        let result = attempted.map(|(report, _)| report).map_err(Arc::new);
-                        let accounted = result
-                            .as_ref()
-                            .ok()
-                            .and_then(|report| report.evidence.work.iterations)
-                            .and_then(|count| u32::try_from(count).ok())
-                            .and_then(|count| remaining_iterations.checked_sub(count));
-                        if let Some(remaining) = accounted {
-                            remaining_iterations = remaining;
+                let mut readiness = prepared.dependencies.start();
+                let mut running = futures_util::stream::FuturesUnordered::new();
+                let mut active_threads = 0usize;
+                let mut issued = (0..prepared.blocks.len()).map(|_| None).collect::<Vec<_>>();
+                while readiness.remaining != 0 || !running.is_empty() {
+                    if cancel.token().is_cancelled() || scope.check().is_err() { completed = false; }
+                    let mut deferred = Vec::new();
+                    while completed && running.len() < profile.solver.block_workers {
+                        let Some(index) = readiness.take() else { break; };
+                        if active_threads + effective[index].threads > service.cores {
+                            deferred.push(index);
+                            continue;
                         }
-                        let committed_block = accounted.is_some()
-                            && commit_block(
-                                &mut values,
-                                &prepared.blocks[index].boundary,
-                                result.as_deref().ok(),
-                                &numerics.policy,
-                            )
-                            .is_ok();
-                        attempts.push(BlockAttempt {
-                            stage,
-                            strategy: strategies[index],
-                            boundary: prepared.blocks[index].boundary.clone(),
-                            result,
-                            trace,
-                            committed: committed_block,
-                        });
-                        done[index] = true;
-                        completed &= committed_block;
+                        let allowance = match iterations.reserve(index, effective[index].iterations,
+                            profile.solver.block_workers - running.len()) {
+                            Ok(allowance) => allowance,
+                            Err(_) => { readiness.defer(index); break; }
+                        };
+                        let input_owner = service.reserve("math:block-dispatch-inputs", prepared.dependencies.binding_bytes(index))?;
+                        let inputs: pse_math::SharedAllocation<CaseValues> = Arc::new(prepared.dependencies.inputs(index, &values)?).into();
+                        let inputs = inputs.with_owner(input_owner);
+                        let block = &prepared.blocks[index];
+                        let previous = (previous_accepted && stage > 0).then(|| {
+                            attempts.iter().rposition(|attempt| attempt.boundary.id == block.boundary.id && attempt.committed)
+                        }).flatten();
+                        active_threads += effective[index].threads;
+                        running.push(service.clone().run_ready_block(
+                            prepared.clone(), index, inputs, providers.clone(), profile.solver.clone(),
+                            numerics.clone(), strategies[index], scope.clone(), admission.as_ref().map(|parent| parent.child()).transpose()?,
+                            cancel.clone(), allowance, previous, first + index, events.clone(), owner.clone()));
                     }
-                    if !completed {
+                    for index in deferred { readiness.defer(index); }
+                    let Some((index, attempted)) = running.next().await else {
+                        if readiness.remaining != 0 { completed = false; }
                         break;
-                    }
+                    };
+                    active_threads -= effective[index].threads;
+                    let trace = match &attempted {
+                        Ok((_, trace)) => Some(trace.clone()),
+                        Err(MathRuntimeError::Strategy { trace, .. }) => Some(trace.clone()),
+                        _ => None,
+                    };
+                    let result = attempted.map(|(report, _)| report).map_err(Arc::new);
+                    let accounted = iterations.complete(index, result.as_ref().ok().and_then(|report| report.evidence.work.iterations)).is_ok();
+                    let committed_block = accounted && commit_block(&mut values,
+                        &prepared.blocks[index].boundary, result.as_deref().ok(), &numerics.policy).is_ok();
+                    if committed_block { readiness.commit(index)?; }
+                    completed &= committed_block;
+                    issued[index] = Some(BlockAttempt { stage, strategy: strategies[index],
+                        boundary: prepared.blocks[index].boundary.clone(), result, trace, committed: committed_block });
+                    // Known failure stops dispatch, while every already-issued future is
+                    // polled to completion. Dependency values remain provisional here.
                 }
+                attempts.extend(issued.into_iter().flatten());
                 if completed && let Some(original_case) = &prepared.original {
                     completed = service
                         .assess_ready_original(
@@ -290,6 +202,38 @@ impl MathService {
         }))
     }
 
+    #[allow(clippy::too_many_arguments, reason = "issued block retains its exact task and admission owners through completion and neutral reset")]
+    async fn run_ready_block(
+        self: Arc<Self>, prepared: PreparedInitialization, index: usize,
+        values: pse_math::SharedAllocation<CaseValues>,
+        providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        profile: SolverProfile,
+        numerics: pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
+        route: native::routing::Route, scope: pse_kernels::ExecutionScope,
+        admission: Option<Arc<super::super::strategy::admission::TaskAdmission>>,
+        cancel: crate::CancelSource, iterations: u32, previous: Option<usize>, attempt: usize,
+        events: Arc<Progress>, owner: Arc<pse_columnar::AllocationLease>,
+    ) -> (usize, Result<(Box<SolveReport>, super::super::solves::StrategyTrace), MathRuntimeError>) {
+        let result = async {
+            let (step, assessor, previous) = self.prepare_ready_block(&prepared, index,
+                values, &providers, &profile, &numerics, route, &scope, admission, &cancel, iterations, previous).await?;
+            let affinity = step.preparation_identity()?;
+            let session = self.independent_session(affinity)?;
+            let result = session.step(step, previous, attempt, events, owner, &cancel,
+                move |outcome, scope, budget| assessor.assess(outcome, scope, budget)).await;
+            let _ = session.park_independent(affinity, Some(scope.clone()), &cancel).await;
+            let (outcome, independent, trace) = result?;
+            match outcome {
+                super::super::solves::Outcome::Native(mut report) => { independent.apply(&mut report); Ok((report, trace)) }
+                super::super::solves::Outcome::Rejected(cause) => Err(MathRuntimeError::Strategy { cause, trace }),
+                _ => Err(native::ProblemError::Internal("conditional native report unavailable".into()).into()),
+            }
+        }.await;
+        #[cfg(test)]
+        prepared.dependencies.delivered(index, &scope, &cancel).await;
+        (index, result)
+    }
+
     #[allow(
         clippy::too_many_arguments,
         reason = "one ready block preserves exact original task, effective profile, numerical policy and predecessor seed authorities"
@@ -298,7 +242,7 @@ impl MathService {
         self: &Arc<Self>,
         prepared: &PreparedInitialization,
         index: usize,
-        values: &CaseValues,
+        values: pse_math::SharedAllocation<CaseValues>,
         providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         original_profile: &SolverProfile,
         numerics: &pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,

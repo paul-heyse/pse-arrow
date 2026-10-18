@@ -2274,7 +2274,7 @@ impl MathService {
                 &source.prepared.prepared.plan,
                 &source.prepared.prepared.structure,
             )?)?;
-        let oracle = native::assembled::AlgebraicOracle::new(worker, source.values.clone())?
+        let oracle = native::assembled::AlgebraicOracle::new(worker, source.values.as_ref().clone())?
             .with_structural_analysis(source.prepared.prepared.structure.clone())?
             .with_presolve_facts(source.prepared.prepared.presolve.clone())?
             .with_normalization(p.original.normalization.clone())?;
@@ -2467,7 +2467,7 @@ impl MathService {
                         .checked_add(n)
                         .ok_or(MathRuntimeError::Limit("goal reconstruction values extent"))?,
                 )?)?;
-                let mut values = p.source.values.clone();
+                let mut values = p.source.values.as_ref().clone();
                 values.scalars.extend(
                     p.physical
                         .coordinates()

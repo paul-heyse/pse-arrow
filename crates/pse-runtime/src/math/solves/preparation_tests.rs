@@ -418,7 +418,7 @@ async fn compiled_preconditioned_krylov_prepares_first_and_actions_for_main_and_
             .prepare_conditional(
                 base.clone(),
                 value_programs,
-                original.model.values.clone(),
+                Arc::new(original.model.values.clone()).into(),
                 BTreeMap::new(),
                 profile,
                 original.solve.numerics.clone(),
@@ -481,9 +481,9 @@ async fn compiled_preconditioned_krylov_prepares_first_and_actions_for_main_and_
                 let direction = [0.75, -0.5];
                 let mut action = [f64::NAN; 2];
                 worker
-                    .jacobian_product(&case.values, &direction, &mut action)
+                    .jacobian_product(case.values.as_ref(), &direction, &mut action)
                     .unwrap();
-                let jacobian = worker.jacobian(&case.values).unwrap();
+                let jacobian = worker.jacobian(case.values.as_ref()).unwrap();
                 let mut reference = [0.0; 2];
                 let mut coupling = 0;
                 for (col, component) in direction.iter().enumerate() {
@@ -659,7 +659,7 @@ async fn explicit_ipopt_auto_demands_independent_affine_rows_and_off_preserves_b
         } = service
             .case_worker(case.case.clone(), case.providers.clone(), &scope, &budget)
             .unwrap();
-        let oracle = native::assembled::AlgebraicOracle::new(worker, case.values.clone())
+        let oracle = native::assembled::AlgebraicOracle::new(worker, case.values.as_ref().clone())
             .unwrap()
             .with_presolve_facts(facts.clone())
             .unwrap()

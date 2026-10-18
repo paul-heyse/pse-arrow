@@ -1397,7 +1397,7 @@ impl MathService {
                 &source.source.prepared.compiled().plan,
                 &source.source.prepared.compiled().structure,
             )?)?;
-        let actual = native::assembled::AlgebraicOracle::new(worker, source.source.values.clone())?
+        let actual = native::assembled::AlgebraicOracle::new(worker, source.source.values.as_ref().clone())?
             .with_structural_analysis(source.source.prepared.compiled().structure.clone())?
             .with_presolve_facts(source.source.prepared.compiled().presolve.clone())?
             .with_normalization(source.original.normalization.clone())?;
@@ -1427,7 +1427,7 @@ impl MathService {
         )?;
         let mut domain = CompiledDomain {
             worker,
-            values: source.source.values.clone(),
+            values: source.source.values.as_ref().clone(),
             columns: source.source.prepared.compiled().plan.columns().to_vec(),
             source: source.physical.obligations().guards,
             scope: scope.clone(),

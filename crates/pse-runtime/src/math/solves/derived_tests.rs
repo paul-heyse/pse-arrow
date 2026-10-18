@@ -2736,7 +2736,7 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
     assert!(report.work.evaluations.is_none());
     if with_goal {
         let receipt = report.certified_reconstruction.as_ref().unwrap();
-        let mut values = prepared.source.values.clone();
+        let mut values = prepared.source.values.as_ref().clone();
         values.scalars.extend(report.coordinates.iter().copied());
         let scope = ExecutionScope::new(Cancellation::default(), None);
         let goals = prepared
@@ -4283,4 +4283,33 @@ fn completed_provider_values(
         jacobian: completed.jacobian.to_vec(),
         hessians: completed.hessians.to_vec(),
     })
+}
+
+#[cfg(feature = "solver-kinsol")]
+#[tokio::test]
+async fn compiled_blocks_release_successor_before_unrelated_sibling_delivery() {
+    let mut profile = crate::workflow::tests::profile();
+    profile.block_workers = 2;
+    let (runtime, original) = original_order_on(crate::workflow::tests::runtime(),
+        "package p {def Root {var a:Scalar; var b:Scalar; var c:Scalar; var d:Scalar; eq first:a==1; eq second:b==2; eq chain:c==a+1; eq downstream:d==c+b; annotation start a(0); annotation start b(0); annotation start c(0); annotation start d(0);}}",
+        DerivativeOrder::First, profile).await;
+    let service = runtime.native().clone();
+    let flag = Cancellation::default();
+    let scope = ExecutionScope::new(flag.clone(), Some(Instant::now() + std::time::Duration::from_secs(45)));
+    let mut prepared = service.prepare_blocks(original.clone(), scope.clone(), &crate::CancelSource::new()).await.unwrap();
+    let (fast, slow, child) = prepared.independent_test_chain();
+    let (release, mut completed) = prepared.fence_completion(slow);
+    let worker = service.clone();
+    let job = tokio::spawn(async move { service.job_scoped(1, 1 << 20, flag, scope.deadline(), move |flag| {
+        let execution = Execution::within(flag, original.controls(), scope)?;
+        Ok(worker.blocks_step(&prepared, execution, &mut Retained::default(),
+            &WorkerBudget::drawing_for(worker.policy.worker_bytes, &worker), &[0.; 4], |_| Ok(()))
+            .unwrap_or_else(|failure| panic!("{}", failure.cause)))
+    }).await });
+    assert_eq!(tokio::time::timeout(std::time::Duration::from_secs(15), completed.recv()).await.unwrap(), Some(fast));
+    assert_eq!(tokio::time::timeout(std::time::Duration::from_secs(15), completed.recv()).await.unwrap(), Some(child));
+    release.notify_one();
+    let Outcome::Constant(report) = job.await.unwrap().unwrap() else { panic!("full original assessment required"); };
+    assert_eq!(report.components.len(), 4);
+    assert!(report.coordinates.iter().all(|(_, value)| value.is_finite()));
 }

@@ -165,7 +165,7 @@ struct AlgebraicCase {
     case: Option<Arc<ExecutableCase>>,
     /// Actual auxiliary NLP callbacks; the primary factorable program keeps its own order.
     pricing_case: Option<PricingCase>,
-    values: CaseValues,
+    values: pse_math::SharedAllocation<CaseValues>,
     providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     certificate: Option<Arc<dyn QuadraticEvidence>>,
     /// Factorable projection under `values`, built only for a factorable route, with the
@@ -1453,7 +1453,7 @@ impl MathService {
         let mut rebound = self
             .prepare_resolved(
                 source.prepared.clone(),
-                source.values.clone(),
+                source.values.as_ref().clone(),
                 source.providers.clone(),
                 profile,
                 original.numerics.clone(),
@@ -3775,7 +3775,7 @@ impl MathService {
                 prepared,
                 case,
                 pricing_case,
-                values,
+                values: pse_math::SharedAllocation::from(Arc::new(values)).with_owner(owner.clone()),
                 providers,
                 certificate,
                 factorable,
@@ -3840,7 +3840,7 @@ impl MathService {
         self: &Arc<Self>,
         prepared: Preparation,
         executable: Arc<ExecutableCase>,
-        values: CaseValues,
+        values: pse_math::SharedAllocation<CaseValues>,
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         profile: SolverProfile,
         numerics: pse_math::SharedAllocation<ResolvedNumericalPolicy>,
@@ -3922,7 +3922,7 @@ impl MathService {
         self: &Arc<Self>,
         prepared: Preparation,
         executable: Arc<ExecutableCase>,
-        values: CaseValues,
+        values: pse_math::SharedAllocation<CaseValues>,
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         mut profile: SolverProfile,
         numerics: pse_math::SharedAllocation<ResolvedNumericalPolicy>,
@@ -3933,7 +3933,11 @@ impl MathService {
         profile.resolve_curvature(prepared.prepared.plan.available_order());
         profile.controls.validate()?;
         let plan = &prepared.prepared.plan;
-        plan.structure().validate_values(&values)?;
+        plan.structure().validate_frozen_values(&values)?;
+        for id in plan.columns().iter().chain(executable.assembly.input_ids()) {
+            let value = values.scalars.get(id).copied().ok_or_else(|| ProblemError::Contract(format!("missing block input {id}")))?;
+            plan.structure().validate_scalar(*id, value)?;
+        }
         if !prepared.prepared.presolve.matches(plan, &values) {
             return Err(ProblemError::Internal(
                 "conditional block values differ from its bound view".into(),
@@ -5109,7 +5113,7 @@ impl MathService {
                 owners.push((_case, _charge));
                 Ok(native::assembled::AlgebraicOracle::relaxation(
                     worker,
-                    values.clone(),
+                    values.as_ref().clone(),
                     normalization.clone(),
                 )?)
             })()
@@ -5139,7 +5143,7 @@ impl MathService {
                 parametric_owners.push((_case, _charge));
                 Ok(native::assembled::AlgebraicOracle::relaxation(
                     worker,
-                    values.clone(),
+                    values.as_ref().clone(),
                     request.normalization.clone(),
                 )?)
             })()
@@ -5246,7 +5250,7 @@ impl MathService {
                 plan,
                 &prepared.prepared.structure,
             )?)?;
-        let mut oracle = native::assembled::AlgebraicOracle::new(worker, values.clone())?
+        let mut oracle = native::assembled::AlgebraicOracle::conditional(worker, values.clone())?
             .with_structural_analysis(prepared.prepared.structure.clone())?
             .with_presolve_facts(prepared.prepared.presolve.clone())?
             .with_normalization(run.normalization.clone())?;
@@ -5883,7 +5887,7 @@ impl MathService {
             .map(|o| {
                 budget.evaluate(|| {
                     worker
-                        .objective(&values)
+                        .objective(values.as_ref())
                         .map(|v| v * o.sense.sign())
                         .map_err(Into::into)
                 })
@@ -5891,7 +5895,7 @@ impl MathService {
             .transpose()?;
         let constraints = budget.evaluate(|| {
             worker
-                .constraints(&values)
+                .constraints(values.as_ref())
                 .map(<[f64]>::to_vec)
                 .map_err(Into::into)
         })?;

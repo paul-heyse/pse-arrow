@@ -414,3 +414,44 @@ fn fresh_native_oracle_prepares_provider_demands_before_any_callback_effect() {
         assert!(effects.load(Ordering::Relaxed) >= 2);
     }
 }
+
+#[test]
+fn shared_conditional_bindings_keep_current_facts_and_lease_without_unread_free_values() {
+    let (base, _) = fixture(ModelingVariableDomain::Continuous);
+    let id = |n| SemanticId::from_bytes([n; 16]);
+    let registry = standard_registry().unwrap();
+    let mut variables = base.structure().variables().to_vec();
+    let mut unread = variables[0].clone(); unread.port.id = id(8); variables.push(unread);
+    let mut parameter = variables[0].port.clone(); parameter.id = id(9);
+    let structure = Arc::new(CaseStructure::new(variables, vec![parameter],
+        base.structure().instances().to_vec(), base.structure().rows().to_vec(), None,
+        CaseLimits::default()).unwrap());
+    let stop = pse_diagnostics::Cancellation::default();
+    let original = pse_math::assembly::CasePlan::prepare(structure, base.bodies().clone(), &registry,
+        DerivativeOrder::Second, AssemblyLimits::default(), &stop.flag()).unwrap();
+    let plan = Arc::new(original.conditional(&[id(2)].into_iter().collect(), &[id(1)].into_iter().collect(),
+        &registry, &stop.flag()).unwrap());
+    let compact = CaseValues { scalars: BTreeMap::from([(id(1), 3.0), (id(9), 7.0)]) };
+    assert!(plan.structure().validate_values(&compact).is_err(), "full-universe public admission remains unchanged");
+    let facts = Arc::new(plan.presolve_domain_facts(&compact, 10000, &stop.flag()).unwrap());
+    let assembly = Arc::new(plan.compile(Optimization::default(), EvaluationLimits::default(),
+        &pse_kernels::ExecutionScope::new(stop.clone(), None)).unwrap());
+    let worker = || assembly.worker(pse_kernels::ProviderBindings::new(), stop.clone());
+    for bad in [CaseValues { scalars: BTreeMap::from([(id(1), 3.)]) },
+        CaseValues { scalars: BTreeMap::from([(id(9), 7.)]) },
+        CaseValues { scalars: BTreeMap::from([(id(1), f64::NAN), (id(9), 7.)]) }] {
+        assert!(assembled::AlgebraicOracle::conditional(worker(), Arc::new(bad).into()).is_err());
+    }
+    #[derive(Debug)] struct Owner(Arc<std::sync::atomic::AtomicBool>);
+    impl Drop for Owner { fn drop(&mut self) { self.0.store(true, std::sync::atomic::Ordering::Release); } }
+    let released = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let shared = pse_math::SharedAllocation::from(Arc::new(compact)).with_owner(Arc::new(Owner(released.clone())));
+    let mut oracle = assembled::AlgebraicOracle::conditional(worker(), shared.clone()).unwrap()
+        .with_presolve_facts(facts.into()).unwrap();
+    drop(shared);
+    assert!(!released.load(std::sync::atomic::Ordering::Acquire));
+    let mut residual = [0.]; NleOracle::residual(&mut oracle, &[3.], &mut residual).unwrap();
+    assert_eq!(residual, [1.]);
+    drop(oracle);
+    assert!(released.load(std::sync::atomic::Ordering::Acquire));
+}

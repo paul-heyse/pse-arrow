@@ -194,7 +194,7 @@ impl MathService {
                 .into());
             }
             let mut original = source.clone();
-            original.values = values.clone();
+            original.values = Arc::new(values.clone()).into();
             let Outcome::Constant(mut evaluated) = self.constant(
                 Representation::Algebraic(original),
                 &prepared.original.tolerances,

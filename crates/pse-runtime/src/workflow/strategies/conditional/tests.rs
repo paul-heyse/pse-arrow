@@ -2430,3 +2430,31 @@ async fn small_block_override_validation_fits_without_all_block_construction() {
     );
     drop(pressure);
 }
+
+#[tokio::test]
+async fn ready_initialization_releases_successor_before_unrelated_sibling_delivery() {
+    let runtime = construction_runtime();
+    let declarations = pse_authoring::language::parse(
+        "package ready {def Root {param p:Scalar=1; var a:Scalar; var b:Scalar; var c:Scalar; var d:Scalar; eq first:a==p; eq second:b==2; eq chain:c==a+1; eq downstream:d==c+b; annotation start a(0); annotation start b(0); annotation start c(0); annotation start d(0);}}",
+        id(94), pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap();
+    let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+    let package = runtime.modeling_package(declarations, physical()).await.unwrap();
+    let cancel = crate::CancelSource::new();
+    let mut analysis = package.declared_execution(root, compiler_profile(),
+        super::super::tests::profile(SolveIntent::Initialize), Default::default(), Default::default(), &cancel)
+        .await.unwrap().analysis;
+    analysis.solver.block_workers = 2;
+    let mut prepared = package.prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel).await.unwrap();
+    let (fast, slow, child) = prepared.prepared.independent_test_chain();
+    let (release, mut completed) = prepared.prepared.fence_completion(slow);
+    let handle = prepared.start().unwrap();
+    let first = tokio::time::timeout(std::time::Duration::from_secs(15), completed.recv()).await.unwrap().unwrap();
+    assert_eq!(first, fast);
+    let second = tokio::time::timeout(std::time::Duration::from_secs(15), completed.recv()).await.unwrap().unwrap();
+    assert_eq!(second, child, "checked dependency commit releases its chain while sibling delivery remains gated");
+    release.notify_one();
+    let report = handle.finish().await.unwrap();
+    assert_eq!(report.completed_stages, 1);
+    assert!(report.attempts.iter().all(|attempt| attempt.committed));
+    assert_eq!(report.attempts.len(), 4);
+}

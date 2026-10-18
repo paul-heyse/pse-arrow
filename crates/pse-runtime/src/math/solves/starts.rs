@@ -291,7 +291,7 @@ impl MathService {
             _case,
             _charge,
         } = self.worker(executable, &case.providers, scope.clone(), budget)?;
-        let mut oracle = native::assembled::AlgebraicOracle::new(worker, case.values.clone())?;
+        let mut oracle = native::assembled::AlgebraicOracle::new(worker, case.values.as_ref().clone())?;
         let contract = NlpOracle::contract(&oracle).clone();
         let execution = Execution::within(
             scope.cancellation_control().clone(),

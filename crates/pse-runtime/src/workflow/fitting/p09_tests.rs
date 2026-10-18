@@ -3377,3 +3377,61 @@ async fn fitting_parallel_affine_exact_hessian_prepares_second_contract_and_reta
     .await
     .unwrap();
 }
+
+/// Compare complete repeated uneven native callbacks under both static ownerships.
+/// Timing is observational; the selected objective is known lane worker residency.
+#[tokio::test]
+async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
+    let (package, mut profile) = source(true, 73.).await;
+    profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
+    for simulation in profile.simulations.values_mut() { simulation.method = native::dynamics::Method::Diffsol; }
+    let (mut problem, _) = package.prepare_fit_problem(id(73).into(), profile, compiler_profile(),
+        Default::default(), &crate::CancelSource::new()).await.unwrap();
+    // Four real experiment occurrences have alternating expensive IVPs and affine
+    // steady evaluations. Each retains its own physical worker and original ordinal.
+    for source in 0..2 {
+        problem.experiments.push(problem.experiments[source].clone());
+        let mut declaration = problem.declaration.experiments[source].clone();
+        declaration.experiment_id = id(90 + source as u8).into();
+        problem.declaration.experiments.push(declaration);
+        let mut measurement = problem.measurements[source].clone();
+        measurement.experiment += 2;
+        problem.measurements.push(measurement);
+    }
+    problem.layout = Arc::new(sparse::Layout::new(&problem.experiments, &problem.measurements,
+        &problem.parameter_columns, problem.contract.rows.len(), problem.contract.variables.len(),
+        DerivativeOrder::First, problem.profile.max_cells).unwrap());
+    problem.bytes *= 2;
+    let problem = Arc::new(problem);
+    with_admitted_fit_oracle(problem, |oracle| {
+        let mut measured = Vec::new();
+        for stride in [true, false] {
+            oracle.point = None;
+            oracle.team.take(); // Actual prior owners drain before constructing the comparison.
+            let resident_before = oracle.prepared.runtime.shared.pool().reserved();
+            let started = std::time::Instant::now();
+            oracle.team = if stride {
+                Some(experiments::ExperimentTeam::stride_for_test(oracle.prepared.clone(), oracle.execution.clone()).unwrap())
+            } else { experiments::ExperimentTeam::new(oracle.prepared.clone(), oracle.execution.clone()).unwrap() };
+            let construction = started.elapsed();
+            let resident = oracle.prepared.runtime.shared.pool().reserved() - resident_before;
+            let started = std::time::Instant::now();
+            for x in [2.5, 0.7, 2.5] {
+                let objective = oracle.objective(&[x]).unwrap();
+                let expected = if x == 2.5 { 2.5 } else { 1.78 };
+                assert!((objective - expected).abs() < 1e-6);
+                let mut gradient = [0.]; oracle.gradient(&[x], &mut gradient).unwrap();
+                let expected = if x == 2.5 { 4. } else { -3.2 };
+                assert!((gradient[0] - expected).abs() < 1e-6);
+                assert_eq!(oracle.team.as_ref().unwrap().test_constructions(), vec![2, 2]);
+                let predictions = &oracle.point.as_ref().unwrap().predictions;
+                assert_eq!(predictions[0], predictions[2]); assert_eq!(predictions[1], predictions[3]);
+            }
+            measured.push((stride, construction, resident, started.elapsed()));
+        }
+        eprintln!("I07 real uneven repeated fitting (stride, construction, resident_bytes, callbacks): {measured:?}");
+        oracle.execution.cancellation_control().cancel();
+        assert!(oracle.objective(&[1.0]).is_err());
+        assert!(oracle.point.is_none());
+    }).await;
+}

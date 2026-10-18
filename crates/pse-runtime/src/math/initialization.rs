@@ -19,6 +19,8 @@ use std::{
 };
 
 mod ready;
+mod dependencies;
+pub(super) use dependencies::{Dependencies, Iterations, consumed_inputs};
 
 /// Compiled predecessor-ordered blocks, with explicit conditional input coordinates.
 #[derive(Clone, Debug)]
@@ -30,6 +32,8 @@ pub struct PreparedInitialization {
     targets: Vec<pse_math::numerics::TargetSpec>,
     requirements: Arc<Vec<pse_math::numerics::SourcedRequirement>>,
     blocks: Vec<ConditionalBlock>,
+    dependencies: Arc<Dependencies>,
+    _dependency_owner: Arc<pse_columnar::AllocationLease>,
     /// Complete original evaluator for transactional final block assessment.
     original: Option<Arc<ExecutableCase>>,
     _owner: Arc<super::products::ProductOwner>,
@@ -82,6 +86,10 @@ impl PreparedInitialization {
         MathRuntimeError,
     > {
         let solver = &profile.solver;
+        // Conditional maps narrow only after one complete original inventory admission.
+        // Conditional views share the original coordinate universe, including unused
+        // free coordinates and every frozen parameter/fixed variable.
+        if let Some(block) = self.blocks.first() { block.view.plan.structure().validate_values(values)?; }
         solver.controls.validate()?;
         solver.validate_block_ids(self.boundaries().map(|block| block.id))?;
         if !matches!(solver.intent, SolveIntent::Initialize | SolveIntent::Root) {
@@ -154,6 +162,12 @@ impl PreparedInitialization {
             }
         }
         Ok((strategies, numerics))
+    }
+    #[cfg(test)]
+    pub(crate) fn independent_test_chain(&self) -> (usize, usize, usize) { self.dependencies.independent_chain() }
+    #[cfg(test)]
+    pub(crate) fn fence_completion(&mut self, slow: usize) -> (Arc<tokio::sync::Notify>, tokio::sync::mpsc::Receiver<usize>) {
+        Arc::make_mut(&mut self.dependencies).fence(slow)
     }
     /// Inspect the immutable conditional boundaries before executing native work.
     pub fn boundaries(&self) -> impl Iterator<Item = &pse_structural::initialization::Block> {
@@ -1363,6 +1377,12 @@ impl MathService {
                 }),
             });
         }
+        let descriptor_bytes = blocks.iter().try_fold(4096usize, |total, block| {
+            total.checked_add(block.view.plan.structure().variables().len().checked_add(block.view.plan.structure().parameters().len())?.checked_add(block.boundary.inputs.len())?.checked_mul(128)?)
+        }).ok_or(MathRuntimeError::Limit("block dependency descriptor extent"))?;
+        let dependency_owner = self.reserve("math:block-dependencies", descriptor_bytes)?;
+        let dependencies = Arc::new(Dependencies::prepare(blocks.iter().map(|b| &b.boundary),
+            blocks.iter().map(|b| consumed_inputs(&b.view.plan, b.executable.assembly.input_ids())).collect())?);
         let _ = self.preparation_driver(&driver)?;
         Ok(PreparedInitialization {
             numerical_owner: self.policy_resolution_owner(),
@@ -1372,6 +1392,8 @@ impl MathService {
             targets,
             requirements: Arc::new(requirements),
             blocks,
+            dependencies,
+            _dependency_owner: dependency_owner,
             original: None,
             _owner: owner,
         })
@@ -1799,7 +1821,7 @@ impl Blocks<'_, '_> {
             Ok(BlockAssessor {
                 service: self.service.clone(),
                 case: executable.clone(),
-                values: values.clone(),
+                values: pse_math::SharedAllocation::from(Arc::new(values.clone())).with_owner(storage.clone()),
                 providers: self.providers.clone(),
                 numerics: self.numerics.clone(),
                 original: self.local.execution().clone(),
@@ -1809,7 +1831,7 @@ impl Blocks<'_, '_> {
         let step = self.service.prepare_conditional_bound(
             bound,
             executable,
-            values.clone(),
+            assessor.values.clone(),
             self.providers.clone(),
             profile,
             self.numerics.clone(),
@@ -1863,7 +1885,7 @@ impl Blocks<'_, '_> {
 struct BlockAssessor {
     service: Arc<MathService>,
     case: Arc<ExecutableCase>,
-    values: CaseValues,
+    values: pse_math::SharedAllocation<CaseValues>,
     providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     numerics: pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
     original: Execution,
@@ -3183,7 +3205,7 @@ mod tests {
             let executable = run.bound[0].as_ref().unwrap().executable.get().unwrap().clone();
             let bytes = executable.assembly.numeric_worker_bytes() + 16384;
             let assessor = local.construct(bytes, |storage| Ok(BlockAssessor {
-                service: service.clone(), case: executable, values: values.clone(),
+                service: service.clone(), case: executable, values: Arc::new(values.clone()).into(),
                 providers: providers.clone(), numerics: numerics.clone(),
                 original: local.execution().clone(), storage,
             })).unwrap();

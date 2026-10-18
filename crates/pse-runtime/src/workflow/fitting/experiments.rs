@@ -30,17 +30,52 @@ pub(super) fn borrowed_capacity<T>(cores: usize, work: impl FnOnce() -> T) -> T 
     drop(restore);
     result
 }
+/// Static ownership is fixed before constructing any experiment worker. Requests
+/// carry only per-trial prior trajectories, in this lane's immutable inventory order.
+fn stride_assignment(experiments: usize, lanes: usize) -> Vec<Vec<usize>> {
+    (0..lanes).map(|lane| (lane..experiments).step_by(lanes).collect()).collect()
+}
+/// Compare the existing stride with stable largest-resident-first affinity. These
+/// are source-issued worker bounds, not a prediction of native execution time.
+/// Unknown extents and equal peaks retain the simpler authored stride.
+pub(super) fn resident_assignment(weights: &[Option<usize>], lanes: usize) -> Vec<Vec<usize>> {
+    let stride = stride_assignment(weights.len(), lanes);
+    let Some(weights) = weights.iter().copied().collect::<Option<Vec<_>>>() else { return stride; };
+    let peak = |assignment: &[Vec<usize>]| assignment.iter().map(|lane| lane.iter().map(|&i| weights[i] as u128).sum::<u128>()).max().unwrap_or(0);
+    let mut order = (0..weights.len()).collect::<Vec<_>>();
+    order.sort_by_key(|&i| (std::cmp::Reverse(weights[i]), i));
+    let mut balanced = vec![Vec::new(); lanes];
+    let mut totals = vec![0u128; lanes];
+    for index in order {
+        let lane = (0..lanes).min_by_key(|&lane| (totals[lane], balanced[lane].len(), lane)).unwrap_or(0);
+        balanced[lane].push(index); totals[lane] += weights[index] as u128;
+    }
+    for lane in &mut balanced { lane.sort_unstable(); }
+    if peak(&balanced) < peak(&stride) { balanced } else { stride }
+}
+fn resident_weights(problem: &FitProblem) -> Result<Vec<Option<usize>>, ProblemError> {
+    problem.experiments.iter().map(|experiment| match experiment {
+        Experiment::Steady(s) => Ok(s.providers.is_empty().then_some(s.case.assembly.numeric_worker_bytes())),
+        Experiment::Transient(s) => {
+            let allowances = crate::workflow::dynamics::allowance_bytes(&s.program.state_allowances, &s.program.output_allowances)
+                .ok_or_else(|| ProblemError::memory("fit experiment allowance extent"))?;
+            crate::workflow::dynamics::DynamicProgram::worker_allocation_bound(&s.program.contract,
+                &s.program.programs, &s.program.coordinates, s.program.modes.iter(), &s.program.layout, allowances)
+        }
+    }).collect()
+}
 struct Request {
     observation: Option<pse_diagnostics::observation::ObservationContext>,
     x: Arc<[f64]>,
     demand: Demand,
     validity: UpgradeValidity,
-    experiments: Vec<(usize, Option<Arc<native::dynamics::Report>>)>,
+    previous: Vec<Option<Arc<native::dynamics::Report>>>,
     reply: SyncSender<(usize, Result<ExperimentProducts, ProblemError>)>,
     #[cfg(all(test, feature = "solver-diffsol"))]
     gate: Option<Arc<std::sync::Barrier>>,
 }
 struct Lane {
+    experiments: Vec<usize>,
     request: Option<SyncSender<Request>>,
     joined: Option<JoinHandle<()>>,
     #[cfg(all(test, feature = "solver-diffsol"))]
@@ -98,6 +133,18 @@ impl ExperimentTeam {
         if count <= 1 {
             return Ok(None);
         }
+        let assignments = resident_assignment(&resident_weights(&problem)?, count);
+        Self::construct(problem, execution, assignments).map(Some)
+    }
+    #[cfg(all(test, feature = "solver-diffsol"))]
+    pub(super) fn stride_for_test(problem: Arc<FitProblem>, execution: Execution) -> Result<Self, ProblemError> {
+        let count = problem.profile.experiment_workers.into_inner().min(problem.experiments.len()).min(problem.runtime.native().cores());
+        let assignments = stride_assignment(problem.experiments.len(), count);
+        Self::construct(problem, execution, assignments)
+    }
+    fn construct(problem: Arc<FitProblem>, execution: Execution, assignments: Vec<Vec<usize>>) -> Result<Self, ProblemError> {
+        let count = assignments.len();
+        let service = problem.runtime.native().clone();
         let borrowed = BORROWED_CAPACITY.with(std::cell::Cell::get);
         if borrowed.is_some_and(|cores| count > cores) {
             return Err(ProblemError::memory(
@@ -119,7 +166,9 @@ impl ExperimentTeam {
         let constructor = pse_math::construction::current();
         let launch = || {
             let mut lanes = Vec::with_capacity(count);
-            for lane in 0..count {
+            for (lane, assigned) in assignments.iter().enumerate() {
+                let experiments = assigned.clone();
+                let assigned = assigned.clone();
                 let (tx, rx) = mpsc::sync_channel::<Request>(1);
                 let (ready, preparation) = mpsc::sync_channel::<Result<(), ProblemError>>(1);
                 let problem = problem.clone();
@@ -136,23 +185,23 @@ impl ExperimentTeam {
                     .spawn(move || {
                         let _runtime = runtime.enter();
                         let mut steady: Vec<Option<pse_math::assembly::CaseWorker>> =
-                            (0..problem.experiments.len()).map(|_| None).collect();
+                            (0..assigned.len()).map(|_| None).collect();
                         #[cfg(feature = "solver-diffsol")]
                         let mut transient: Vec<
                             Option<crate::workflow::dynamics::DynamicWorker>,
-                        > = (0..problem.experiments.len()).map(|_| None).collect();
+                        > = (0..assigned.len()).map(|_| None).collect();
                         // Prepare only this lane's finite assigned experiment set on its
                         // actual owner, before the enclosing native fit can attach callbacks.
                         let mut prepare = || -> Result<(), ProblemError> {
-                            for ei in (lane..problem.experiments.len()).step_by(count) {
+                            for (local, &ei) in assigned.iter().enumerate() {
                                 match &problem.experiments[ei] {
                                     Experiment::Steady(s) => {
-                                        steady[ei] =
+                                        steady[local] =
                                             Some(oracle::prepare_steady_worker(s, &execution)?)
                                     }
                                     #[cfg(feature = "solver-diffsol")]
                                     Experiment::Transient(s) => {
-                                        transient[ei] = Some(s.worker(&execution)?)
+                                        transient[local] = Some(s.worker(&execution)?)
                                     }
                                     #[cfg(not(feature = "solver-diffsol"))]
                                     Experiment::Transient(_) => {}
@@ -202,12 +251,18 @@ impl ExperimentTeam {
                                     );
                                 }
                             }
+                            if request.previous.len() != assigned.len() {
+                                for &ei in &assigned {
+                                    let _ = request.reply.send((ei, Err(ProblemError::internal("fit experiment request inventory"))));
+                                }
+                                continue;
+                            }
                             let mut replies_open = true;
                             #[cfg(all(test, feature = "solver-diffsol"))]
                             if let Some(gate) = &request.gate {
                                 let _ = gate.wait();
                             }
-                            for (ei, previous) in request.experiments {
+                            for (local, (&ei, previous)) in assigned.iter().zip(request.previous).enumerate() {
                                 let mut work = || {
                                     evaluate_experiment(
                                         &problem,
@@ -216,9 +271,9 @@ impl ExperimentTeam {
                                         request.demand,
                                         &execution,
                                         ExperimentWorkers {
-                                            steady: &mut steady[ei],
+                                            steady: &mut steady[local],
                                             #[cfg(feature = "solver-diffsol")]
-                                            transient: &mut transient[ei],
+                                            transient: &mut transient[local],
                                         },
                                         previous.as_deref(),
                                         &request.validity,
@@ -241,20 +296,20 @@ impl ExperimentTeam {
                                     if native::callback::classify(cause)
                                         == native::callback::Failure::Trial
                                     {
-                                        if let Some(worker) = &mut steady[ei] {
+                                        if let Some(worker) = &mut steady[local] {
                                             worker.invalidate_trial();
                                         }
                                         #[cfg(feature = "solver-diffsol")]
-                                        if let Some(worker) = &mut transient[ei] {
+                                        if let Some(worker) = &mut transient[local] {
                                             worker.invalidate_trial();
                                         }
                                     } else {
                                         // Unknown/terminal native validity is not reset by inference.
                                         // A later callback refuses this owner and requires a fresh fit attempt.
-                                        steady[ei] = None;
+                                        steady[local] = None;
                                         #[cfg(feature = "solver-diffsol")]
                                         {
-                                            transient[ei] = None;
+                                            transient[local] = None;
                                         }
                                     }
                                 }
@@ -287,6 +342,7 @@ impl ExperimentTeam {
                     return Err(cause);
                 }
                 lanes.push(Lane {
+                    experiments,
                     request: Some(tx),
                     joined: Some(joined),
                     #[cfg(all(test, feature = "solver-diffsol"))]
@@ -301,7 +357,7 @@ impl ExperimentTeam {
                 .quiescent_phase(count, 0, &execution, launch)
                 .map_err(|e| e.into_problem())??,
         };
-        Ok(Some(Self {
+        Ok(Self {
             problem,
             execution,
             lanes,
@@ -309,7 +365,7 @@ impl ExperimentTeam {
             _owner: owner,
             #[cfg(all(test, feature = "solver-diffsol"))]
             wave_gate: None,
-        }))
+        })
     }
     #[cfg(all(test, feature = "solver-diffsol"))]
     pub(super) fn require_concurrent_test_wave(&mut self) {
@@ -344,16 +400,15 @@ impl ExperimentTeam {
             let (reply, replies) = mpsc::sync_channel(count);
             let mut results: Vec<Option<Result<ExperimentProducts, ProblemError>>> =
                 (0..count).map(|_| None).collect();
-            for (lane, owner) in self.lanes.iter().enumerate() {
-                let experiments = (lane..count)
-                    .step_by(self.lanes.len())
-                    .map(|ei| {
+            for owner in &self.lanes {
+                let previous = owner.experiments.iter()
+                    .map(|&ei| {
                         let prior = previous
                             .and_then(|p| {
                                 p.get(&self.problem.declaration.experiments[ei].experiment_id)
                             })
                             .cloned();
-                        (ei, prior)
+                        prior
                     })
                     .collect::<Vec<_>>();
                 let request = Request {
@@ -361,7 +416,7 @@ impl ExperimentTeam {
                     x: x.clone(),
                     demand,
                     validity: validity.clone(),
-                    experiments,
+                    previous,
                     reply: reply.clone(),
                     #[cfg(all(test, feature = "solver-diffsol"))]
                     gate: self.wave_gate.clone(),
@@ -371,7 +426,7 @@ impl ExperimentTeam {
                     .as_ref()
                     .is_none_or(|sender| sender.send(request).is_err())
                 {
-                    for ei in (lane..count).step_by(self.lanes.len()) {
+                    for &ei in &owner.experiments {
                         results[ei] = Some(Err(ProblemError::internal(
                             "fit experiment lane stopped before dispatch",
                         )));
@@ -420,6 +475,15 @@ impl ExperimentTeam {
 mod tests {
     use super::*;
     #[test]
+    fn residency_affinity_compares_stride_before_private_worker_construction() {
+        let weights = [Some(100), Some(1), Some(100), Some(1)];
+        assert_eq!(resident_assignment(&weights, 2), vec![vec![0, 1], vec![2, 3]]);
+        assert_eq!(resident_assignment(&[Some(1); 4], 2), vec![vec![0, 2], vec![1, 3]]);
+        assert_eq!(resident_assignment(&[Some(100), None, Some(100), Some(1)], 2), vec![vec![0, 2], vec![1, 3]]);
+        let mapped = resident_assignment(&weights, 2).into_iter().flatten().collect::<BTreeSet<_>>();
+        assert_eq!(mapped, (0..4).collect());
+    }
+    #[test]
     fn borrowed_profile_envelope_restores_after_nested_scope_and_panic() {
         assert_eq!(BORROWED_CAPACITY.with(std::cell::Cell::get), None);
         borrowed_capacity(4, || {
@@ -454,6 +518,7 @@ mod startup_tests {
             let (request, joined, drained) = waiting_lane();
             completed.push(drained);
             peers.push(Lane {
+                experiments: Vec::new(),
                 request: Some(request),
                 joined: Some(joined),
                 #[cfg(feature = "solver-diffsol")]

@@ -15,7 +15,7 @@ use pse_model::generated::enums::ModelingVariableDomain;
 #[derive(Debug)]
 pub struct AlgebraicOracle {
     worker: CaseWorker,
-    values: Option<CaseValues>,
+    values: Option<pse_math::SharedAllocation<CaseValues>>,
     bound: BoundValues,
     contract: OracleContract,
     bounds: Vec<(f64, f64)>,
@@ -64,6 +64,22 @@ impl AlgebraicOracle {
             ));
         }
         Self::over_columns(worker, values)
+    }
+    /// A conditional operation over an admitted shared source universe. Retain the
+    /// current frozen assumptions for exact coefficient/presolve checks, while only
+    /// compiled execution inputs and selected unknowns need current scalar values.
+    pub fn conditional(worker: CaseWorker, values: pse_math::SharedAllocation<CaseValues>) -> Result<Self, ProblemError> {
+        let assembly = worker.assembly();
+        assembly.structure().validate_frozen_values(&values)?;
+        for id in assembly.columns().iter().chain(assembly.input_ids()) {
+            let value = values.scalars.get(id).copied().ok_or_else(|| ProblemError::Contract(format!("missing conditional input {id}")))?;
+            assembly.structure().validate_scalar(*id, value)?;
+        }
+        if assembly.structure().variables().iter().any(|v| !v.fixed && v.domain != ModelingVariableDomain::Continuous) {
+            return Err(ProblemError::Unsupported("continuous oracle cannot admit integer variables".into()));
+        }
+        let bound = assembly.bind_inputs(|id| values.scalars.get(&id).copied())?;
+        Self::over_bound(worker, bound, Some(values))
     }
     /// An operation-owned conditional oracle with compact fixed inputs. No complete
     /// semantic map is retained or reconstructed for native trials.
@@ -116,12 +132,12 @@ impl AlgebraicOracle {
     }
     fn over_columns(worker: CaseWorker, values: CaseValues) -> Result<Self, ProblemError> {
         let bound = worker.assembly().bind_values(&values)?;
-        Self::over_bound(worker, bound, Some(values))
+        Self::over_bound(worker, bound, Some(std::sync::Arc::new(values).into()))
     }
     fn over_bound(
         mut worker: CaseWorker,
         bound: BoundValues,
-        values: Option<CaseValues>,
+        values: Option<pse_math::SharedAllocation<CaseValues>>,
     ) -> Result<Self, ProblemError> {
         let assembly = worker.assembly();
         if assembly.structure().lexicographic_levels() {
@@ -295,7 +311,7 @@ impl AlgebraicOracle {
         let bound = self.worker.assembly().bind_values(&values)?;
         self.facts = Default::default();
         self.presolve = None;
-        self.values = Some(values);
+        self.values = Some(std::sync::Arc::new(values).into());
         self.bound = bound;
         Ok(())
     }
