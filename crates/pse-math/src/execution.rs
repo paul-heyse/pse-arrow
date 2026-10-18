@@ -12,7 +12,7 @@ use enum_map::EnumMap;
 use pse_ids::SemanticId;
 use pse_kernels::{
     DerivativeOrder, EvaluationContext, ProviderKey, ProviderRequest, ProviderSpec,
-    PreparedProviderRequest, ProviderBindings, ProviderBuffer, ProviderRuntime,
+    PreparedProviderRequest, ProviderBindings, ProviderBuffer, ProviderRuntime, ProviderLinearizationToken,
 };
 #[cfg(test)]
 use pse_kernels::Provider;
@@ -2300,6 +2300,17 @@ impl PreparedBody {
                 context.count("math.compiled_order_constructions_completed", "count", 1);
             }
         }
+        let mut required_provider_keys = Vec::new();
+        let mut provider_visit_capacity = 0;
+        for stages in programs.values().flatten() {
+            let start = required_provider_keys.len();
+            collect_provider_keys(stages, &mut required_provider_keys);
+            provider_visit_capacity = provider_visit_capacity.max(required_provider_keys.len() - start);
+        }
+        required_provider_keys.sort_unstable();
+        required_provider_keys.dedup();
+        let provider_visit_bytes = provider_visit_capacity.checked_mul(size_of::<ProviderVisit>())
+            .ok_or(MathError::Limit("provider completion observations"))?;
         let evidence_bytes = applicability_extent(&stages)
             .saturating_mul(4)
             .checked_add(
@@ -2324,7 +2335,7 @@ impl PreparedBody {
         let mut evaluation_cache_bytes = result_entries.checked_add(self.inputs)
             .and_then(|n| n.checked_mul(2 * size_of::<f64>()))
             .and_then(|n| n.checked_add(evidence_bytes))
-            .and_then(|n| n.checked_add(size_of::<TrialEvaluation>() + size_of::<Vec<u64>>() + 64))
+            .and_then(|n| n.checked_add(size_of::<TrialEvaluation>() + size_of::<Vec<u64>>() + 64 + 2 * provider_visit_bytes))
             .ok_or(MathError::Limit("evaluation cache storage"))?;
         if product != ProductKind::SelectedPartials {
             let entries = match product {
@@ -2397,6 +2408,7 @@ impl PreparedBody {
                 })
                 .and_then(|n| n.checked_add(evidence_bytes))
                 .and_then(|n| n.checked_add(prepared_support.retained_bytes()))
+                .and_then(|n| n.checked_add(required_provider_keys.capacity() * size_of::<ProviderKey>()))
                 .and_then(|n| n.checked_add(scalar_new_bytes))
                 .and_then(|n| n.checked_add(scalars.descriptor_bytes()))
                 .ok_or(MathError::Limit("retained program storage"))?,
@@ -2404,6 +2416,8 @@ impl PreparedBody {
             layouts: Arc::new(layouts),
             first_layout,
             programs: Arc::new(programs),
+            required_provider_keys: Arc::new(required_provider_keys),
+            provider_visit_capacity,
             limits,
             support: prepared_support.clone(),
             #[cfg(test)]
@@ -2721,6 +2735,8 @@ pub struct CompiledBody {
     first_layout: Arc<FirstLayout>,
     programs: Arc<EnumMap<DerivativeOrder, Option<Vec<CompiledStage>>>>,
     limits: EvaluationLimits,
+    required_provider_keys: Arc<Vec<ProviderKey>>,
+    provider_visit_capacity: usize,
     support: PreparedSupport,
     #[cfg(test)]
     scalar_builds: usize,
@@ -2735,6 +2751,8 @@ impl std::fmt::Debug for CompiledBody {
     }
 }
 impl CompiledBody {
+    /// Exactly the provider keys selected in this compiled artifact, including control arms.
+    pub(crate) fn required_provider_keys(&self) -> &[ProviderKey] { &self.required_provider_keys }
     pub(crate) fn evaluation_limits(&self) -> EvaluationLimits {
         self.limits
     }
@@ -3079,10 +3097,19 @@ impl FirstLayout {
     }
 }
 
+/// One completed premise per actually active original provider stage occurrence.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct ProviderVisit {
+    pub source: SemanticId,
+    pub provider: ProviderKey,
+    pub linearization: Option<ProviderLinearizationToken>,
+}
+
 /// Operation-local result. First and second partials retain support-indexed layouts.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct TrialEvaluation {
     pub applicability: Vec<ApplicabilityWitness>,
+    provider_visits: Vec<ProviderVisit>,
     spare_witnesses: Vec<ApplicabilityWitness>,
     pub values: Vec<f64>,
     pub first: Vec<f64>,
@@ -3094,7 +3121,9 @@ pub(crate) struct TrialEvaluation {
     second_requested: bool,
 }
 impl TrialEvaluation {
+    pub(crate) fn provider_visits(&self) -> &[ProviderVisit] { &self.provider_visits }
     pub(crate) fn clear(&mut self) {
+        self.provider_visits.clear();
         for mut witness in self.applicability.drain(..) {
             witness.inputs.fill(f64::NAN);
             witness.inputs.clear();
@@ -3535,6 +3564,8 @@ impl Worker {
             cancelled,
             max_result_bytes: self.body.limits.scratch_bytes,
         };
+        result.provider_visits.try_reserve_exact(self.body.provider_visit_capacity)
+            .map_err(|_| MathError::Limit("provider completion observations"))?;
         evaluate_stages(
             &mut program.stages,
             frame,
@@ -3543,6 +3574,7 @@ impl Worker {
             &context,
             &mut result.applicability,
             &mut result.spare_witnesses,
+            &mut result.provider_visits,
         )?;
         context.check().map_err(|cause| MathError::Provider {
             source_id: SemanticId::NIL,
@@ -5062,6 +5094,19 @@ fn operation_count(c: symbolica::evaluate::OperationCount) -> usize {
         .saturating_add(c.inversions)
         .saturating_add(c.function_calls)
 }
+fn collect_provider_keys(stages: &[CompiledStage], keys: &mut Vec<ProviderKey>) {
+    for stage in stages {
+        match stage {
+            CompiledStage::Provider { request, .. } => keys.push(request.key()),
+            CompiledStage::Applicability { stages, .. } | CompiledStage::Domain { stages, .. } => collect_provider_keys(stages, keys),
+            CompiledStage::Branch { then, otherwise, .. } => {
+                collect_provider_keys(then, keys);
+                collect_provider_keys(otherwise, keys);
+            }
+            _ => {}
+        }
+    }
+}
 fn evaluate_stages(
     stages: &mut [CompiledStage],
     frame: &mut [f64],
@@ -5070,6 +5115,7 @@ fn evaluate_stages(
     context: &EvaluationContext<'_>,
     observations: &mut Vec<ApplicabilityWitness>,
     spare_witnesses: &mut Vec<ApplicabilityWitness>,
+    provider_visits: &mut Vec<ProviderVisit>,
 ) -> Result<(), MathError> {
     for stage in stages {
         if context.cancelled.load(Ordering::Relaxed) {
@@ -5097,6 +5143,7 @@ fn evaluate_stages(
                     context,
                     observations,
                     spare_witnesses,
+                    provider_visits,
                 )?;
                 if predicates
                     .iter()
@@ -5173,6 +5220,7 @@ fn evaluate_stages(
                     context,
                     observations,
                     spare_witnesses,
+                    provider_visits,
                 )?;
                 if !Condition::Positive.permits(local[*argument]) {
                     return Err(MathError::Validity(Box::new(lineage.as_ref().clone())));
@@ -5263,6 +5311,7 @@ fn evaluate_stages(
                     context,
                     observations,
                     spare_witnesses,
+                    provider_visits,
                 )?;
             }
             CompiledStage::Provider {
@@ -5298,6 +5347,7 @@ fn evaluate_stages(
                 let values = providers
                     .fill(slot, buffer, arguments, request, ProviderRuntime::default(), context)
                     .map_err(error)?;
+                provider_visits.push(ProviderVisit { source: *source, provider: request.key(), linearization: values.linearization });
                 for (row, &slot) in outputs.iter().enumerate() {
                     let columns = match &request.demand {
                         pse_kernels::ProviderDemand::SelectedColumns { columns } => Some(columns.as_slice()),
@@ -8354,6 +8404,7 @@ mod compact_tests {
             .unwrap();
         assert_eq!(product.input_formals(), [X, Y, GUARD]);
         assert_eq!(product.prepared_support().outputs(), [1]);
+        assert_eq!(product.required_provider_keys(), [spec.key()]);
         let key = spec.key();
         #[derive(Debug)]
         struct LatchedProvider {
@@ -8464,6 +8515,11 @@ mod compact_tests {
         assert_eq!(result.values, [6.]);
         assert_eq!(result.jacobian, [2., 3.]);
         assert_eq!(result.hessians, [0., 1., 1., 0.]);
+        let mut traced = TrialEvaluation::default();
+        worker.evaluate_trial_into(&[2., 3., 1.], DerivativeOrder::Second, &mut providers, &cancel, &mut traced).unwrap();
+        assert_eq!(traced.provider_visits(), [ProviderVisit { source: SemanticId::NIL, provider: key, linearization: None }]);
+        assert!(worker.evaluate_trial_into(&[2., 3., -1.], DerivativeOrder::Value, &mut providers, &cancel, &mut traced).is_err());
+        assert!(traced.provider_visits().is_empty(), "failure clears active completion facts");
         let immutable = ["kernel.provider.descriptor_hashes", "kernel.provider.request_preparations",
             "kernel.provider.slot_resolutions", "kernel.provider.request_bindings"];
         let before = immutable.map(count);
