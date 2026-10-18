@@ -125,6 +125,9 @@ impl Operations {
             Arc::as_ptr(&self.pool) as *const () as usize,
         )
     }
+    pub(super) fn physical_worker_owner(&self) -> Arc<str> {
+        self.worker.clone()
+    }
     /// Stable native worker identity for this runtime owner.
     pub fn worker(&self) -> &str {
         &self.worker

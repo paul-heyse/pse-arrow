@@ -1072,7 +1072,7 @@ mod tests {
             "package q { param x:Scalar=3; } package p { param x:Scalar=1; def Root { eq a:x==missing; } }",
             "package q { param x:Scalar=3; } package p { param x:Scalar=1; def Root { param missing:Scalar=4; eq a:x==missing; } }",
             "package q { param x:Scalar=3; } package p { param x:Scalar=1; def Root { param x:Scalar=2; param missing:Scalar=4; eq a:x==missing; } }",
-            "package q { param x:Scalar=3; } package p { import q; param x:Scalar=1; def Root { param missing:Scalar=4; eq a:q.x==missing; } }",
+            "package q { param x:Scalar=3; } package p { use q @ \"1.0.0\"; param x:Scalar=1; def Root { param missing:Scalar=4; eq a:q.x==missing; } }",
             "package q { param x:Scalar=3; } package p { param x:Scalar=1; def Root { eq a:x==missing; } }",
         ];
         let runtime = crate::workflow::tests::runtime();

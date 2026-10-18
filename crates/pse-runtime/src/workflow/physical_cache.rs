@@ -67,7 +67,8 @@ struct Admission {
 }
 #[derive(Debug)]
 pub(super) struct Rows {
-    operations: Operations,
+    worker: Arc<str>,
+    pool: Arc<dyn pse_columnar::MemoryPool>,
     model: pse_engine::session::BoundModel,
     physical: PhysicalContext,
     revisions: Vec<Revision>,
@@ -263,7 +264,7 @@ impl PhysicalCache {
             .get(&row_key(runtime, operations, physical))
             .and_then(|entry| match entry {
                 RetainedProduct::Rows(entry)
-                    if entry.operations.same_physical_owner(operations)
+                    if (Arc::as_ptr(&entry.worker) as *const () as usize, Arc::as_ptr(&entry.pool) as *const () as usize) == operations.physical_owner_identity()
                         && Arc::ptr_eq(entry.model.registry(), runtime.registry())
                         && Arc::ptr_eq(entry.model.factory(), runtime.sessions())
                         && entry.physical.same_sources(physical) =>
@@ -302,7 +303,7 @@ impl PhysicalCache {
         // Retain reconstructible receipt payload and exact checked support only.
         // Per-caller protection/release grants stay with active PhysicalRows;
         // every warm return still establishes fresh native protection below.
-        let bytes = physical.retained_bytes();
+        let bytes = physical.retained_bytes().saturating_add(operations.worker().len());
         if bytes > RETAINED_BYTES {
             return;
         }
@@ -319,7 +320,8 @@ impl PhysicalCache {
         let mut payload = physical.clone();
         payload._source_owner = None;
         let entry = Rows {
-            operations: operations.clone(),
+            worker: operations.physical_worker_owner(),
+            pool: operations.pool.clone(),
             model: runtime.model.clone(),
             physical: payload,
             revisions: revisions.to_vec(),

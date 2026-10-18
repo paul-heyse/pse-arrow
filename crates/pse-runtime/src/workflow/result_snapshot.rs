@@ -921,14 +921,23 @@ mod decoder_lane_inquiry {
                     let serial = Counts::default();
                     let started = Instant::now();
                     let mut expected = (0, 0.);
-                    // A single reader cache switched between files by original
-                    // batch ordinal loses footer reuse on every interleaving.
-                    for &batch in batches { for file in &files {
-                        let (rows, sum, alias) = read_file(file, &[batch], sparse, &pool, &serial, None);
-                        expected.0 += rows; expected.1 += sum;
-                        assert!(alias.retained_bytes().unwrap() > 0);
-                    } }
+                    // A single reader cache reuses a lone file, but switches
+                    // on every interleaved original batch ordinal across files.
+                    let mut serial_aliases = (0..file_count).map(|_| None).collect::<Vec<_>>();
+                    if file_count == 1 {
+                        let (rows, sum, alias) = read_file(&files[0], batches, sparse, &pool, &serial, None);
+                        expected = (rows, sum); serial_aliases[0] = Some(alias);
+                    } else {
+                        for &batch in batches { for (position, file) in files.iter().enumerate() {
+                            let (rows, sum, alias) = read_file(file, &[batch], sparse, &pool, &serial, None);
+                            expected.0 += rows; expected.1 += sum;
+                            assert!(alias.retained_bytes().unwrap() > 0);
+                            serial_aliases[position] = Some(alias);
+                        } }
+                    }
                     let serial_ns = started.elapsed().as_nanos();
+                    assert!(pool.reserved() > 0);
+                    drop(serial_aliases);
                     assert_eq!(pool.reserved(), 0);
                     let affinity = Counts::default();
                     let started = Instant::now();
@@ -941,7 +950,7 @@ mod decoder_lane_inquiry {
                     let affinity_ns = started.elapsed().as_nanos();
                     assert_eq!(actual, expected);
                     assert_eq!(affinity.opens.load(Ordering::SeqCst), file_count);
-                    assert_eq!(serial.opens.load(Ordering::SeqCst), file_count * batches.len());
+                    assert_eq!(serial.opens.load(Ordering::SeqCst), if file_count == 1 { 1 } else { file_count * batches.len() });
                     assert!(pool.reserved() > 0, "escaped Arrow aliases remain charged after readers return");
                     drop(aliases);
                     assert_eq!(pool.reserved(), 0);
@@ -954,20 +963,23 @@ mod decoder_lane_inquiry {
                             let files = &files; let pool = &pool; let parallel = &parallel; let barrier = &barrier;
                             scope.spawn(move || {
                                 let mut answer = (0, 0.);
+                                let mut aliases = Vec::new();
                                 for (position, file) in files.iter().enumerate().filter(|(position, _)| position % lanes == lane) {
                                     let (rows, sum, alias) = read_file(file, batches, sparse, pool, parallel, (position == lane).then_some(barrier));
-                                    answer.0 += rows; answer.1 += sum; drop(alias);
+                                    answer.0 += rows; answer.1 += sum; aliases.push(alias);
                                 }
-                                answer
+                                (answer, aliases)
                             })
                         }).collect::<Vec<_>>().into_iter().map(|task| task.join().unwrap()).collect::<Vec<_>>()
                     });
                     let parallel_ns = started.elapsed().as_nanos();
-                    let actual = outputs.into_iter().fold((0, 0.), |a, b| (a.0 + b.0, a.1 + b.1));
+                    let actual = outputs.iter().fold((0, 0.), |a, b| (a.0 + b.0.0, a.1 + b.0.1));
                     assert_eq!(actual, expected);
                     assert_eq!(parallel.simultaneous.load(Ordering::SeqCst), lanes);
                     assert_eq!(parallel.opens.load(Ordering::SeqCst), file_count);
                     assert_eq!(parallel.decodes.load(Ordering::SeqCst), file_count * batches.len());
+                    assert!(pool.reserved() > 0);
+                    drop(outputs);
                     assert_eq!(pool.reserved(), 0);
                     eprintln!("decoder-inquiry files={file_count} base_rows={base_rows} sparse={sparse} serial_ns={serial_ns} affinity_ns={affinity_ns} lanes_ns={parallel_ns} serial_opens={} affinity_opens={} lane_opens={} decodes={} simultaneous={} lane_charge={} serial_charge={} affinity_charge={} footer_reads={}", serial.opens.load(Ordering::SeqCst), affinity.opens.load(Ordering::SeqCst), parallel.opens.load(Ordering::SeqCst), parallel.decodes.load(Ordering::SeqCst), parallel.simultaneous.load(Ordering::SeqCst), parallel.charge.load(Ordering::SeqCst), serial.charge.load(Ordering::SeqCst), affinity.charge.load(Ordering::SeqCst), parallel.footers.load(Ordering::SeqCst));
                 }
