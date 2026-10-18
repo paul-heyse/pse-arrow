@@ -22,6 +22,10 @@ pub const TARGET_FILE_BYTES: usize = pse_operations::canonical_files::FILE_TARGE
 pub const MAX_FILE_BYTES: usize = pse_operations::canonical_files::FILE_BYTES;
 const MAX_TABLES: usize = 128 * 1024;
 const MAX_BATCHES: usize = 32 * 1024;
+#[cfg(test)]
+std::thread_local! {
+    static PREFLIGHT_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
 
 struct LimitedWriter(Vec<u8>);
 impl Write for LimitedWriter {
@@ -197,6 +201,8 @@ fn preflight<R: Read + Seek>(
     reader: &mut R,
     expected: &SchemaRef,
 ) -> Result<usize, ResultBlockError> {
+    #[cfg(test)]
+    PREFLIGHT_CALLS.with(|count| count.set(count.get() + 1));
     let bytes = reader
         .seek(SeekFrom::End(0))
         .map_err(datafusion::arrow::error::ArrowError::from)?;
@@ -360,26 +366,6 @@ fn preflight<R: Read + Seek>(
     Ok(blocks.len())
 }
 
-/// Read exactly one declared file batch through Arrow's native random access.
-/// Registry admission and allocation attachment follow in the scientific owner.
-pub(super) fn read_file_batch<R: Read + Seek>(
-    mut reader: R,
-    expected: SchemaRef,
-    index: usize,
-    rows: usize,
-) -> Result<RecordBatch, ResultBlockError> {
-    let mut reader = open_file_reader(&mut reader, &expected, None)?;
-    reader.set_index(index)?;
-    let batch = reader
-        .next()
-        .transpose()?
-        .ok_or_else(|| invalid("file batch absent"))?;
-    if batch.num_rows() != rows || batch.schema() != expected {
-        return Err(invalid("file batch rows/schema differ"));
-    }
-    Ok(batch)
-}
-
 pub(super) fn open_file_reader<R: Read + Seek>(
     mut reader: R,
     expected: &SchemaRef,
@@ -401,11 +387,15 @@ pub fn decode_result_file(
     expected: SchemaRef,
     rows: usize,
 ) -> Result<RecordBatch, ResultBlockError> {
-    let mut cursor = Cursor::new(bytes);
-    if preflight(&mut cursor, &expected)? != 1 {
-        return Err(invalid("standalone file has extra batches"));
+    let mut reader = open_file_reader(Cursor::new(bytes), &expected, Some(1))?;
+    let batch = reader
+        .next()
+        .transpose()?
+        .ok_or_else(|| invalid("file batch absent"))?;
+    if batch.num_rows() != rows || batch.schema() != expected {
+        return Err(invalid("file batch rows/schema differ"));
     }
-    read_file_batch(Cursor::new(bytes), expected, 0, rows)
+    Ok(batch)
 }
 /// Backpressured file ingestion. Every visitor receives a completed native file;
 /// no unsealed prefix or unrelated future producer is needed for its ACK.
@@ -464,13 +454,10 @@ mod result_files_unit {
         assert_eq!(&bytes[..6], b"ARROW1");
         assert_eq!(&bytes[bytes.len() - 6..], b"ARROW1");
         for (index, expected) in [first, second].iter().enumerate() {
-            let actual = read_file_batch(
-                Cursor::new(&bytes),
-                expected.schema(),
-                index,
-                expected.num_rows(),
-            )
-            .unwrap();
+            let mut reader = open_file_reader(Cursor::new(&bytes), &expected.schema(), Some(2)).unwrap();
+            reader.set_index(index).unwrap();
+            let actual = reader.next().unwrap().unwrap();
+            assert_eq!(actual.num_rows(), expected.num_rows());
             assert_eq!(actual.schema(), expected.schema());
             let actual = actual
                 .column(0)
@@ -495,7 +482,24 @@ mod result_files_unit {
                     .collect::<Vec<_>>()
             );
         }
-        assert!(read_file_batch(Cursor::new(&bytes), batch(&[]).schema(), 2, 0).is_err());
+        let mut reader = open_file_reader(Cursor::new(&bytes), &batch(&[]).schema(), Some(2)).unwrap();
+        assert!(reader.set_index(2).is_err());
+    }
+
+    #[test]
+    fn standalone_decode_preflights_once_and_preserves_ieee_payloads() {
+        let bits = [0, 1 << 63, 0x7ff8_0000_0000_0042, 0x7ff0_0000_0000_0000];
+        let source = batch(&bits);
+        let bytes = encode_result_file(&source).unwrap();
+        PREFLIGHT_CALLS.with(|count| count.set(0));
+        let decoded = decode_result_file(&bytes, source.schema(), bits.len()).unwrap();
+        PREFLIGHT_CALLS.with(|count| assert_eq!(count.get(), 1));
+        let values = decoded.column(0).as_any().downcast_ref::<Float64Array>().unwrap();
+        assert_eq!(values.values().iter().map(|v| v.to_bits()).collect::<Vec<_>>(), bits);
+        let packed = encode_file_batches(&[source.clone(), source.clone()]).unwrap();
+        PREFLIGHT_CALLS.with(|count| count.set(0));
+        assert!(decode_result_file(&packed, source.schema(), bits.len()).is_err());
+        PREFLIGHT_CALLS.with(|count| assert_eq!(count.get(), 1));
     }
 
     #[test]
@@ -564,6 +568,8 @@ mod result_files_unit {
             false,
         )]));
         assert!(decode_result_file(&bytes, wrong.clone(), 2).is_err());
+        let packed = encode_file_batches(&[source.clone(), source.clone()]).unwrap();
+        assert!(decode_result_file(&packed, source.schema(), 2).is_err());
         let second = RecordBatch::try_new(wrong, source.columns().to_vec()).unwrap();
         assert!(encode_file_batches(&[source, second]).is_err());
     }

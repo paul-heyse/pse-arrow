@@ -250,17 +250,168 @@ impl ResponseEvidence {
         }
         Ok(())
     }
+}
+
+
+type EvidenceRun = pse_model::generated::identities::RunId;
+type EvidenceSample = (EvidenceRun, i64, u64, pse_ids::SemanticId, pse_ids::SemanticId);
+
+#[derive(Default)]
+struct RunEvidence<'a> {
+    contexts: Vec<&'a Located<pse_model::generated::runtime::scientific_contexts::Row>>,
+    computations: Vec<&'a Located<pse_model::generated::runtime::computation_runs::Row>>,
+    endpoints: Vec<&'a Located<pse_model::generated::runtime::trajectory_endpoints::Row>>,
+    events: Vec<&'a Located<pse_model::generated::runtime::simulation_events::Row>>,
+    // Some only when every duplicate agrees and the original family/context
+    // prerequisites hold. Partial/event completion is deliberately permitted.
+    transient: Option<(f64, i64, f64, pse_model::generated::identities::InstanceId)>,
+    parameters: BTreeSet<pse_ids::SemanticId>,
+}
+#[derive(Default)]
+struct StepEvidence<'a> {
+    scalar_contexts: Vec<&'a Located<pse_model::generated::runtime::scientific_contexts::Row>>,
+    routes: Vec<&'a Located<pse_model::generated::runtime::route_decisions::Row>>,
+}
+#[derive(Default)]
+struct CoordinateEvidence<'a> {
+    contexts: Vec<&'a Located<pse_model::generated::runtime::scientific_contexts::Row>>,
+    validity: Vec<&'a Located<pse_model::generated::runtime::local_validity::Row>>,
+    sensitivity_validity: Vec<&'a Located<pse_model::generated::runtime::local_validity::Row>>,
+    family: Option<ResponseFamily>,
+    certified: bool,
+}
+
+// One operation-local typed join; original rows/locators remain in the evidence
+// owner. This index contains no replacement scientific permission oracle.
+struct ResponseEvidenceIndex<'a> {
+    runs: BTreeMap<EvidenceRun, RunEvidence<'a>>,
+    steps: BTreeMap<i64, StepEvidence<'a>>,
+    coordinates: BTreeMap<(EvidenceRun, i64), CoordinateEvidence<'a>>,
+    samples: BTreeSet<EvidenceSample>,
+    // Every retained map node/vector slot is prepaid before any index growth.
+    _owner: MemoryReservation,
+}
+fn evidence_time(time: f64) -> Option<u64> {
+    if time.is_nan() {
+        None
+    } else {
+        Some(if time == 0.0 { 0 } else { time.to_bits() })
+    }
+}
+impl<'a> ResponseEvidenceIndex<'a> {
+    fn new(
+        evidence: &'a ResponseEvidence,
+        pool: &Arc<dyn pse_columnar::MemoryPool>,
+    ) -> Result<Self, WorkflowError> {
+        let owner = MemoryConsumer::new("canonical:response-evidence-index").register(pool);
+        // Bound a newly allocated BTree node, including vacant element/edge
+        // slots, rather than charging just the live key/value. Reference vectors
+        // include the initial four slots and geometric growth. These bounds are
+        // deliberately independent of how many keys happen to share one node.
+        fn tree_node<K, V>() -> usize {
+            16 * size_of::<(K, V)>() + 512
+        }
+        let run = tree_node::<EvidenceRun, RunEvidence<'_>>();
+        let step = tree_node::<i64, StepEvidence<'_>>();
+        let coordinate = tree_node::<(EvidenceRun, i64), CoordinateEvidence<'_>>();
+        let references = 4 * size_of::<&Located<()>>();
+        let inputs = evidence.contexts.iter().try_fold(0usize, |n, c| n.checked_add(c.row.inputs.len()))
+            .ok_or_else(|| contract("analysis index input extent"))?;
+        let extents = [
+            (evidence.contexts.len(), run + step + coordinate + 3 * references),
+            (evidence.routes.len(), step + references),
+            (evidence.validity.len(), coordinate + 2 * references),
+            (evidence.computations.len(), run + references),
+            (evidence.endpoints.len(), run + references),
+            (evidence.events.len(), run + references),
+            (evidence.samples.len(), tree_node::<EvidenceSample, ()>()),
+            (evidence.parametric.len(), coordinate),
+            (inputs, tree_node::<pse_ids::SemanticId, ()>()),
+            // Temporary coordinate-key inventory used while validating groups.
+            (evidence.contexts.len(), 2 * size_of::<(EvidenceRun, i64)>()),
+            (evidence.validity.len(), 2 * size_of::<(EvidenceRun, i64)>()),
+            (evidence.parametric.len(), 2 * size_of::<(EvidenceRun, i64)>()),
+        ];
+        let bytes = extents.into_iter().try_fold(size_of::<Self>(), |bytes, (count, extent)| {
+            count.checked_mul(extent).and_then(|extent| bytes.checked_add(extent))
+        }).ok_or_else(|| contract("analysis index allocation extent"))?;
+        owner.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
+        let mut index = Self { runs: BTreeMap::new(), steps: BTreeMap::new(),
+            coordinates: BTreeMap::new(), samples: BTreeSet::new(), _owner: owner };
+        for item in &evidence.contexts {
+            index.runs.entry(item.row.run_id).or_default().contexts.push(item);
+            index.coordinates.entry((item.row.run_id, item.row.step)).or_default().contexts.push(item);
+            if item.row.time.is_none() {
+                index.steps.entry(item.row.step).or_default().scalar_contexts.push(item);
+            }
+        }
+        for item in &evidence.routes {
+            index.steps.entry(item.row.step).or_default().routes.push(item);
+        }
+        for item in &evidence.validity {
+            let group = index.coordinates.entry((item.row.run_id, item.row.step)).or_default();
+            group.validity.push(item);
+            if item.row.quantity == pse_model::generated::enums::DerivedQuantity::ParametricSensitivity {
+                group.sensitivity_validity.push(item);
+            }
+        }
+        for item in &evidence.parametric {
+            index.coordinates.entry((item.row.run_id, item.row.step)).or_default();
+        }
+        for item in &evidence.computations {
+            index.runs.entry(item.row.run_id).or_default().computations.push(item);
+        }
+        for item in &evidence.endpoints {
+            index.runs.entry(item.row.run_id).or_default().endpoints.push(item);
+        }
+        for item in &evidence.events {
+            index.runs.entry(item.row.run_id).or_default().events.push(item);
+        }
+        for item in &evidence.samples {
+            let row = &item.row;
+            if let Some(time) = evidence_time(row.time) {
+                index.samples.insert((row.run_id, row.sample, time, row.symbol_id, row.unit_id));
+            }
+        }
+        for group in index.runs.values_mut() {
+            use pse_model::generated::enums::ComputationKind;
+            let Some(header) = group.computations.first().map(|v| &v.row) else { continue; };
+            let Some(context) = group.contexts.first().map(|v| &v.row) else { continue; };
+            let Some(endpoint) = group.endpoints.first().map(|v| &v.row) else { continue; };
+            if !group.computations.iter().all(|v| v.row == *header)
+                || !group.contexts.iter().all(|v| v.row == *context)
+                || !group.endpoints.iter().all(|v| v.row == *endpoint)
+                || header.kind != ComputationKind::Simulation
+                || header.response_available != Some(true) || context.time.is_none() {
+                continue;
+            }
+            if let (Some(end), Some(count), Some(instance)) =
+                (header.completed_time, header.completed_samples, context.instance_id) {
+                group.transient = Some((end, count, endpoint.time, instance));
+                group.parameters.extend(context.inputs.iter().map(|v| v.id));
+            }
+        }
+        // Validate family and local certificates once per exact run/step. Do not
+        // cache one run's permission under a step-only route coordinate.
+        let keys = index.coordinates.keys().copied().collect::<Vec<_>>();
+        for (run, step) in keys {
+            let family = index.scalar_family(run, step);
+            let certified = family.is_some_and(|f| index.scalar_certified(run, step, f));
+            let group = index.coordinates.get_mut(&(run, step))
+                .ok_or_else(|| contract("analysis index coordinate absent"))?;
+            group.family = family;
+            group.certified = certified;
+        }
+        Ok(index)
+    }
     fn scalar_family(
         &self,
         run: pse_model::generated::identities::RunId,
         step: i64,
     ) -> Option<ResponseFamily> {
         use pse_model::generated::enums::NativeSolveIntent;
-        let contexts = self
-            .contexts
-            .iter()
-            .filter(|context| context.row.step == step && context.row.time.is_none())
-            .collect::<Vec<_>>();
+        let group = self.steps.get(&step)?;
+        let contexts = &group.scalar_contexts;
         // Route rows have no run_id. Ambiguous step ownership cannot borrow a
         // different run's route, even when its numerical rows happen to agree.
         if contexts.is_empty()
@@ -272,7 +423,7 @@ impl ResponseEvidence {
         {
             return None;
         }
-        let mut routes = self.routes.iter().filter(|route| route.row.step == step);
+        let mut routes = group.routes.iter();
         let first = &routes.next()?.row;
         if routes.any(|route| {
             route.row.request_identity != first.request_identity || route.row.intent != first.intent
@@ -291,16 +442,10 @@ impl ResponseEvidence {
         step: i64,
         family: ResponseFamily,
     ) -> bool {
-        use pse_model::generated::enums::DerivedQuantity;
-        let rows = self
-            .validity
-            .iter()
-            .filter(|row| {
-                row.row.run_id == run
-                    && row.row.step == step
-                    && row.row.quantity == DerivedQuantity::ParametricSensitivity
-            })
-            .collect::<Vec<_>>();
+        let Some(group) = self.coordinates.get(&(run, step)) else {
+            return false;
+        };
+        let rows = &group.sensitivity_validity;
         !rows.is_empty()
             && rows.iter().all(|row| {
                 let v = &row.row.validity;
@@ -336,69 +481,21 @@ impl ResponseEvidence {
                 }
             })
     }
-    // Simulation publication records sensitivity availability, not a scalar
-    // local certificate. Partial/event trajectories retain this weaker meaning.
-    fn transient_recorded(
-        &self,
-        row: &pse_model::generated::runtime::response_sensitivities::Row,
-    ) -> bool {
-        use pse_model::generated::enums::ComputationKind;
-        let Some(time) = row.time else {
-            return false;
-        };
-        if row.parameter_column < 0 {
-            return false;
-        }
-        let headers = self
-            .computations
-            .iter()
-            .filter(|header| header.row.run_id == row.run_id)
-            .collect::<Vec<_>>();
-        let contexts = self
-            .contexts
-            .iter()
-            .filter(|context| context.row.run_id == row.run_id)
-            .collect::<Vec<_>>();
-        let endpoints = self
-            .endpoints
-            .iter()
-            .filter(|endpoint| endpoint.row.run_id == row.run_id)
-            .collect::<Vec<_>>();
-        !headers.is_empty()
-            && headers.iter().all(|header| {
-                header.row == headers[0].row
-                    && header.row.kind == ComputationKind::Simulation
-                    && header.row.response_available == Some(true)
-                    && header.row.completed_time.is_some_and(|end| time <= end)
-                    && header
-                        .row
-                        .completed_samples
-                        .is_some_and(|count| row.sample >= 0 && row.sample < count)
-            })
-            && !contexts.is_empty()
-            && contexts.iter().all(|context| {
-                context.row == contexts[0].row
-                    && context.row.time.is_some()
-                    && context.row.instance_id == Some(row.experiment_id)
-                    && context
-                        .row
-                        .inputs
-                        .iter()
-                        .any(|coordinate| coordinate.id == row.parameter_id)
-            })
-            && !endpoints.is_empty()
-            && endpoints
-                .iter()
-                .all(|endpoint| endpoint.row == endpoints[0].row && time <= endpoint.row.time)
-            && self.samples.iter().any(|sample| {
-                sample.row.run_id == row.run_id
-                    && sample.row.sample == row.sample
-                    && sample.row.time == time
-                    && sample.row.symbol_id == row.output_id
-                    && sample.row.unit_id == row.output_unit_id
-            })
+
+    // Recorded sensitivity is weaker than a scalar local certificate. Preserve
+    // actual endpoint/sample coverage and IEEE equality (NaN never matches).
+    fn transient_recorded(&self, row: &pse_model::generated::runtime::response_sensitivities::Row) -> bool {
+        let Some(time) = row.time else { return false; };
+        let Some(bits) = evidence_time(time) else { return false; };
+        let Some(group) = self.runs.get(&row.run_id) else { return false; };
+        let Some((end, count, endpoint, instance)) = group.transient else { return false; };
+        row.parameter_column >= 0 && row.sample >= 0 && row.sample < count
+            && time <= end && time <= endpoint && row.experiment_id == instance
+            && group.parameters.contains(&row.parameter_id)
+            && self.samples.contains(&(row.run_id, row.sample, bits, row.output_id, row.output_unit_id))
     }
 }
+
 fn evidence_context(
     graph: &mut Graph,
     nodes: &mut BTreeMap<String, NodeIndex>,
@@ -437,7 +534,10 @@ fn project_response_evidence(
     graph: &mut Graph,
     nodes: &mut BTreeMap<String, NodeIndex>,
     attempt: NodeIndex,
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
 ) -> Result<(), WorkflowError> {
+    // Admission precedes even speculative graph mutation.
+    let index = ResponseEvidenceIndex::new(evidence, pool)?;
     use pse_model::generated::enums::NumericalTarget;
     // Interpretation/qualification evidence survives even with no derivative
     // rows, including original withheld reasons and partial event coverage.
@@ -467,7 +567,9 @@ fn project_response_evidence(
     }
     for item in &evidence.parametric {
         let row = &item.row;
-        let family = evidence.scalar_family(row.run_id, row.step);
+        let coordinate = index.coordinates.get(&(row.run_id, row.step))
+            .ok_or_else(|| contract("analysis response coordinate absent"))?;
+        let family = coordinate.family;
         let family_name = family.map_or("unclassified", ResponseFamily::name);
         let parameter = vertex(graph, nodes, row.parameter_id.to_string(), "parameter")?;
         let target_name = if row.target_kind == NumericalTarget::Objective {
@@ -504,11 +606,7 @@ fn project_response_evidence(
             "produced_evidence",
             Some(item.locator.clone()),
         )?;
-        for context in evidence
-            .contexts
-            .iter()
-            .filter(|c| c.row.run_id == row.run_id && c.row.step == row.step)
-        {
+        for context in &coordinate.contexts {
             evidence_context(
                 graph,
                 nodes,
@@ -518,7 +616,7 @@ fn project_response_evidence(
                 &context.locator,
             )?;
         }
-        for route in evidence.routes.iter().filter(|r| r.row.step == row.step) {
+        for route in index.steps.get(&row.step).into_iter().flat_map(|group| &group.routes) {
             evidence_context(
                 graph,
                 nodes,
@@ -528,11 +626,7 @@ fn project_response_evidence(
                 &field_locator(&route.locator, "intent"),
             )?;
         }
-        for validity in evidence
-            .validity
-            .iter()
-            .filter(|v| v.row.run_id == row.run_id && v.row.step == row.step)
-        {
+        for validity in &coordinate.validity {
             evidence_context(
                 graph,
                 nodes,
@@ -547,7 +641,7 @@ fn project_response_evidence(
                 continue;
             }
             let certified = family.is_some_and(|family| {
-                evidence.scalar_certified(row.run_id, row.step, family)
+                coordinate.certified
                     && (family != ResponseFamily::Root
                         || (field == "primal" && row.target_kind == NumericalTarget::Variable))
             });
@@ -567,7 +661,7 @@ fn project_response_evidence(
     }
     for item in &evidence.responses {
         let row = &item.row;
-        let recorded = evidence.transient_recorded(row);
+        let recorded = index.transient_recorded(row);
         let parameter = vertex(graph, nodes, row.parameter_id.to_string(), "parameter")?;
         // Each sample retains its own quantitative row locator even when the
         // semantic output node is shared. Sample/time/unit and parameter-column
@@ -590,11 +684,7 @@ fn project_response_evidence(
             },
             Some(field_locator(&item.locator, "value")),
         )?;
-        for context in evidence
-            .contexts
-            .iter()
-            .filter(|c| c.row.run_id == row.run_id)
-        {
+        for context in index.runs.get(&row.run_id).into_iter().flat_map(|group| &group.contexts) {
             evidence_context(
                 graph,
                 nodes,
@@ -604,11 +694,7 @@ fn project_response_evidence(
                 &context.locator,
             )?;
         }
-        for header in evidence
-            .computations
-            .iter()
-            .filter(|h| h.row.run_id == row.run_id)
-        {
+        for header in index.runs.get(&row.run_id).into_iter().flat_map(|group| &group.computations) {
             evidence_context(
                 graph,
                 nodes,
@@ -618,11 +704,7 @@ fn project_response_evidence(
                 &header.locator,
             )?;
         }
-        for endpoint in evidence
-            .endpoints
-            .iter()
-            .filter(|e| e.row.run_id == row.run_id)
-        {
+        for endpoint in index.runs.get(&row.run_id).into_iter().flat_map(|group| &group.endpoints) {
             evidence_context(
                 graph,
                 nodes,
@@ -635,11 +717,7 @@ fn project_response_evidence(
         // The quantitative row itself preserves exact sample/time/output/unit
         // coordinates. Its matching sample and mode remain in the same retained
         // trajectory; avoid duplicating a graph edge per output/sample metadata.
-        for event in evidence
-            .events
-            .iter()
-            .filter(|e| e.row.run_id == row.run_id)
-        {
+        for event in index.runs.get(&row.run_id).into_iter().flat_map(|group| &group.events) {
             evidence_context(
                 graph,
                 nodes,
@@ -1230,7 +1308,7 @@ impl Runtime {
                         .map_err(pse_engine::EngineError::from)?;
                     evidence.push(relation_name, &batch, &artifact.header().key, ordinal)?;
                 }
-                project_response_evidence(&evidence, &mut graph, &mut nodes, attempt_node)?;
+                project_response_evidence(&evidence, &mut graph, &mut nodes, attempt_node, &self.shared.pool())?;
                 let configuration = serde_json::to_vec(&(2_u8, controls, run, attempt))
                     .map_err(|error| contract(error.to_string()))?;
                 let handle = self

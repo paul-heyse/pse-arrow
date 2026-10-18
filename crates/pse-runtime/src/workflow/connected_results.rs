@@ -213,7 +213,7 @@ pub struct CanonicalResultReader {
     start: u64,
     end: u64,
     after: Option<u64>,
-    last_end: Option<u64>,
+    snapshot_position: usize,
     pending: VecDeque<BlockMetadata>,
     exhausted: bool,
     consumed: bool,
@@ -469,6 +469,31 @@ impl CanonicalResultReader {
     async fn next_checked_body(
         &mut self,
     ) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
+        // Full reads consume the already admitted immutable inventory. Borrow its
+        // descriptors directly: aliases share metadata and its original charge.
+        while self.output.is_none() {
+            let Some(metadata) = self.snapshot.blocks().get(self.snapshot_position) else {
+                self.exhausted = true;
+                return Ok(None);
+            };
+            if metadata.columns != self.schema.fields().len() as u64 {
+                return Err(contract("recorded result block shape differs"));
+            }
+            let checked = self.snapshot.read_block(metadata, &self.cancel).await?;
+            let lower = self.start.max(metadata.start);
+            let upper = self.end.min(metadata.end);
+            self.snapshot_position += 1;
+            self.exhausted = self.snapshot_position == self.snapshot.blocks().len();
+            if lower >= upper {
+                continue;
+            }
+            let offset = usize::try_from(lower - metadata.start)
+                .map_err(|_| contract("result coordinate exceeds platform"))?;
+            let length = usize::try_from(upper - lower)
+                .map_err(|_| contract("result coordinate exceeds platform"))?;
+            let checked = checked.slice(offset, length).map_err(super::relation)?;
+            return Ok(Some(checked));
+        }
         loop {
             if self.pending.is_empty() {
                 self.metadata_owner = None;
@@ -537,22 +562,7 @@ impl CanonicalResultReader {
                             }
                             page.blocks
                         } else {
-                            let page = self
-                                .runtime
-                                .canonical_store()?
-                                .result_block_page(
-                                    &self.read,
-                                    &self.set,
-                                    &self.relation.to_string(),
-                                    "0",
-                                    self.start,
-                                    self.end,
-                                    self.after,
-                                )
-                                .await?;
-                            self.exhausted = page.len() < 64;
-                            self.after = page.last().map(|m| m.ordinal).or(self.after);
-                            page
+                            return Err(contract("selected result filter absent"));
                         };
                         Ok::<_, WorkflowError>(page)
                     },
@@ -575,29 +585,15 @@ impl CanonicalResultReader {
             self.cancel
                 .checkpoint()
                 .map_err(pse_engine::EngineError::from)?;
-            if metadata.columns != self.schema.fields().len() as u64
-                || self.output.is_none() && self.last_end.is_some_and(|end| metadata.start < end)
-            {
-                return Err(contract(
-                    "recorded result block shape/order/coverage overlaps",
-                ));
+            if metadata.columns != self.schema.fields().len() as u64 {
+                return Err(contract("recorded result block shape differs"));
             }
-            self.last_end = Some(metadata.end);
             let checked = self.snapshot.read_block(&metadata, &self.cancel).await?;
             let lower = self.start.max(metadata.start);
             let upper = self.end.min(metadata.end);
             if lower >= upper {
                 continue;
             }
-            let offset = usize::try_from(lower - metadata.start)
-                .map_err(|_| contract("result coordinate exceeds platform"))?;
-            let length = usize::try_from(upper - lower)
-                .map_err(|_| contract("result coordinate exceeds platform"))?;
-            let checked = if self.output.is_some() {
-                checked
-            } else {
-                checked.slice(offset, length).map_err(super::relation)?
-            };
             let checked = if let Some(filter) = &self.output {
                 let indexes = self
                     .indexes
@@ -1017,6 +1013,7 @@ impl Runtime {
             end,
         )
         .await?;
+        let exhausted = snapshot.blocks().is_empty();
         Ok(CanonicalResultReader {
             observation: None,
             runtime: self.clone(),
@@ -1029,10 +1026,10 @@ impl Runtime {
             start,
             end,
             after: None,
-            last_end: None,
+            snapshot_position: 0,
             pending: VecDeque::new(),
             metadata_owner: None,
-            exhausted: start == end,
+            exhausted,
             consumed: false,
             cancel,
             output: None,
@@ -1645,6 +1642,10 @@ mod canonical_connected_results_server_unit {
                 .unwrap();
             assert_eq!(values.value(0), 273.15 + rows as f64);
             rows += 1;
+            assert_eq!(reader.snapshot_position, rows);
+            assert!(reader.pending.is_empty());
+            assert!(reader.metadata_owner.is_none(), "full consumption uses frozen metadata only");
+            assert!(reader.after.is_none(), "no second unrestricted metadata cursor");
         }
         assert_eq!(rows, 65, "every nonempty block opened and decoded");
         let pressure = MemoryConsumer::new("test:exhausted-reader-pressure").register(&pool);
