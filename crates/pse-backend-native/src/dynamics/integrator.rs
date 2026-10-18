@@ -256,8 +256,6 @@ struct Operator<'o> {
     /// Partials in the segment's integration columns: each contract parameter column is
     /// relabeled to its interval's column; the other intervals' columns are empty.
     parameter_pattern: Pattern,
-    /// The selected coordinate of each contract parameter in this operator's segment.
-    columns: Vec<Option<usize>>,
     /// The contract parameter of each integration column in this segment, if any.
     contract: Vec<Option<usize>>,
     direction: RefCell<Vec<f64>>,
@@ -351,10 +349,6 @@ impl<'o> Operator<'o> {
             parameter_adjoint_pattern: transpose(&parameter_pattern)?,
             state_pattern,
             parameter_pattern,
-            columns: columns
-                .iter()
-                .map(|column| shared.axes.iter().position(|axis| axis == column))
-                .collect(),
             contract: contract_columns,
             direction: RefCell::new(vec![0.0; n + np]),
             shared,
@@ -453,8 +447,10 @@ impl<'o> Operator<'o> {
         direction.fill(0.0);
         let n = self.nstates();
         if parameter {
-            for (k, c) in self.columns.iter().enumerate() {
-                direction[n + k] = c.map_or(0.0, |selected| v[selected]);
+            for (selected, contract) in self.contract.iter().enumerate() {
+                if let Some(contract) = contract {
+                    direction[n + contract] = v[selected];
+                }
             }
         } else {
             direction[..n].copy_from_slice(v.as_slice());

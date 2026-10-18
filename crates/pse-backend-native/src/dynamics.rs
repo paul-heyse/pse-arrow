@@ -1035,6 +1035,7 @@ impl<'a> SampleElimination<'a> {
             factorizations,
         })
     }
+    #[cfg(any(feature = "idas", test))]
     pub(crate) fn solve(&mut self, jump: Vec<f64>) -> Result<Eliminated, ProblemError> {
         self.solve_columns(jump, None)
     }
@@ -2023,11 +2024,22 @@ impl Profile {
             })
             .and_then(|cells| cells.checked_mul(size_of::<f64>()))
             .ok_or_else(|| ProblemError::memory("adjoint checkpoint extent overflow"))?;
-        // Parameter quadrature history, selected products, corrections and returned
-        // coordinates coexist with the complete physical state/checkpoint allowance.
+        // Selected backward vectors/history and result axes coexist with the full
+        // physical state allowance. Diffsol also retains one prepared equation per
+        // segment: RHS/Initial/Output contribute at most (2n+m)*k selected CSC entries,
+        // including transpose/construction overlap, parameter maps and column pointers.
+        // These are additional known buffers; no opaque/factor bound is reduced.
         let selected = self.adjoint_width(c.parameters.len());
-        let parameter_bytes = selected.checked_mul(32 * size_of::<f64>() + 4 * size_of::<usize>())
-            .ok_or_else(|| ProblemError::memory("adjoint parameter workspace extent"))?;
+        let parameter_bytes = (|| {
+            let backward = selected.checked_mul(32 * size_of::<f64>() + 4 * size_of::<usize>())?;
+            let preparation = if self.method == Method::Diffsol {
+                let per_axis = n.checked_mul(2)?.checked_add(c.outputs.len())?
+                    .checked_mul(8 * size_of::<usize>())?
+                    .checked_add(32 * size_of::<usize>() + 8 * size_of::<f64>())?;
+                selected.checked_mul(segments)?.checked_mul(per_axis)?
+            } else { 0 };
+            backward.checked_add(preparation)
+        })().ok_or_else(|| ProblemError::memory("adjoint parameter workspace extent"))?;
         bytes.checked_add(parameter_bytes)
             .and_then(|bytes| bytes.checked_add(self.native_scatter_bytes(
                 layout,

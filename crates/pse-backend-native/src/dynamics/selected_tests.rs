@@ -496,8 +496,14 @@ fn selected_adjoint_full_selected_empty_preserve_values_initial_direct_and_sched
             assert_eq!(derivatives.len(), axes.len());
             for (column, axis) in axes.iter().enumerate() {
                 let expected = 0.3 * analytic(0., *axis).2 + 0.7 * analytic(0.5, *axis).2 + 1.2 * analytic(1., *axis).2;
-                assert!((derivatives[column] - expected).abs() < 2e-5, "{method:?}, axis {axis}: {} vs {expected}", derivatives[column]);
-                assert!((derivatives[column] - full.gradient.as_ref().unwrap()[*axis]).abs() < 2e-5);
+                // IDAS uses the existing checkpointed-adjoint agreement from
+                // dynamics::tests::adjoint::tolerance; forward interpolation's
+                // absolute assertion does not bound a backward quadrature.
+                let agreement = if method == Method::Idas { 1e-5 * (1. + expected.abs()) } else { 2e-5 };
+                let full_derivative = full.gradient.as_ref().unwrap()[*axis];
+                assert!((full_derivative - expected).abs() < agreement, "{method:?}, full axis {axis}: {full_derivative} vs {expected}");
+                assert!((derivatives[column] - expected).abs() < agreement, "{method:?}, axis {axis}: {} vs {expected}; full {full_derivative}", derivatives[column]);
+                assert!((derivatives[column] - full_derivative).abs() < agreement);
             }
             for (sample, reference) in selected.report.samples.iter().zip(&full.report.samples) {
                 assert!(sample.state_sensitivities.is_empty() && sample.output_sensitivities.is_empty());
