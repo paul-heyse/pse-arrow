@@ -3057,7 +3057,7 @@ mod tests {
                 mut output: pse_kernels::ProviderOutput<'_>,
                 context: &pse_kernels::EvaluationContext<'_>,
             ) -> Result<(), pse_kernels::ProviderError> {
-                request.validate(&self.0, context)?;
+                request.check_context(context)?;
                 let order = request.order;
                 if x.len() != 1 || x[0] < 0.0 {
                     return Err(ProviderError::Trial("selected physical branch".into()));

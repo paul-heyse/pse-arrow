@@ -134,7 +134,7 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
             mut output: pse_kernels::ProviderOutput<'_>,
             context: &pse_kernels::EvaluationContext<'_>,
         ) -> Result<(), pse_kernels::ProviderError> {
-            request.validate(&self.spec, context)?;
+            request.check_context(context)?;
             self.calls.fetch_add(1, Ordering::Relaxed);
             if inputs[0] < 0. {
                 return Err(ProviderError::Trial(

@@ -1024,7 +1024,7 @@ impl Provider for Cubic {
         mut output: pse_kernels::ProviderOutput<'_>,
         context: &pse_kernels::EvaluationContext<'_>,
     ) -> Result<(), pse_kernels::ProviderError> {
-        request.validate(&self.spec, context)?;
+        request.check_context(context)?;
         self.calls.fetch_add(1, Ordering::Relaxed);
         if inputs[0] <= 0.0 {
             return Err(ProviderError::Trial("positive cubic input".into()));
@@ -1454,7 +1454,7 @@ fn multi_input_provider_lift_preserves_mixed_raw_partials() {
             mut output: pse_kernels::ProviderOutput<'_>,
             c: &pse_kernels::EvaluationContext<'_>,
         ) -> Result<(), pse_kernels::ProviderError> {
-            r.validate(&self.spec, c)?;
+            r.check_context(c)?;
             output.copy_from(&ProviderValues {
                 values: vec![x[0] * x[1]],
                 jacobian: if r.order >= DerivativeOrder::First {
@@ -1535,7 +1535,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
             mut output: pse_kernels::ProviderOutput<'_>,
             c: &pse_kernels::EvaluationContext<'_>,
         ) -> Result<(), pse_kernels::ProviderError> {
-            r.validate(&self.spec, c)?;
+            r.check_context(c)?;
             self.requests.lock().unwrap().push(r.clone());
             if x[0] <= 0.0 {
                 return Err(ProviderError::Trial("positive property input".into()));

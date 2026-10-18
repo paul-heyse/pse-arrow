@@ -69,6 +69,9 @@ pub struct PreparedProviderRequest {
 impl PreparedProviderRequest {
     /// Validate immutable ordinals, capability and representation extents once.
     pub fn new(spec: Arc<ProviderSpec>, request: ProviderRequest) -> Result<Self, ProviderError> {
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("kernel.provider.request_preparations", "count", 1);
+        }
         let n = spec.inputs.len();
         let m = request.outputs.len();
         let unique = |ordinals: &[usize], bound: usize| {
@@ -203,7 +206,7 @@ pub struct ProviderCompletion<'a> {
 }
 
 /// Caller-owned admitted scratch; stale or partially filled cells have no read view.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ProviderBuffer {
     values: Vec<f64>,
     jacobian: Vec<f64>,
@@ -300,9 +303,17 @@ impl ProviderBindings {
     /// Stable identity for this immutable attempt membership.
     pub fn identity(&self) -> u64 { self.identity }
     /// Resolve a prepared key once when a stage first joins this attempt.
-    pub fn resolve(&self, key: ProviderKey) -> Option<usize> { self.index.get(&key).copied() }
+    pub fn resolve(&self, key: ProviderKey) -> Option<usize> {
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("kernel.provider.slot_resolutions", "count", 1);
+        }
+        self.index.get(&key).copied()
+    }
     /// Validate a prepared request against a stable slot without exposing membership mutation.
     pub fn bind_request(&self, slot: usize, request: &mut PreparedProviderRequest) -> Result<(), ProviderError> {
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("kernel.provider.request_bindings", "count", 1);
+        }
         let binding = self.slots.get(slot).ok_or_else(|| ProviderError::Contract("missing provider slot".into()))?;
         request.bind(binding)
     }

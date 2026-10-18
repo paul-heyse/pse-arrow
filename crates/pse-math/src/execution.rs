@@ -1536,7 +1536,7 @@ impl PreparedBody {
                 &mut facts,
                 &mut support.controls,
                 &mut BTreeSet::new(),
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut BTreeMap::new(),
                 &mut vec![],
                 &mut allowance,
                 order,
@@ -3387,7 +3387,7 @@ impl Worker {
         &mut self,
         inputs: &[f64],
         order: DerivativeOrder,
-        providers: &mut pse_kernels::ProviderBindings,
+        providers: &mut ProviderBindings,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<Evaluation, MathError> {
         self.evaluate_trial(inputs, order, providers, cancelled)
@@ -3397,7 +3397,7 @@ impl Worker {
         &mut self,
         inputs: &[f64],
         order: DerivativeOrder,
-        providers: &mut pse_kernels::ProviderBindings,
+        providers: &mut ProviderBindings,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<TrialEvaluation, MathError> {
         let mut result = TrialEvaluation::default();
@@ -3408,7 +3408,7 @@ impl Worker {
         &mut self,
         inputs: &[f64],
         order: DerivativeOrder,
-        providers: &mut pse_kernels::ProviderBindings,
+        providers: &mut ProviderBindings,
         cancelled: &Arc<AtomicBool>,
         result: &mut TrialEvaluation,
     ) -> Result<(), MathError> {
@@ -3430,7 +3430,7 @@ impl Worker {
         &mut self,
         inputs: &[f64],
         direction: &[f64],
-        providers: &mut pse_kernels::ProviderBindings,
+        providers: &mut ProviderBindings,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<Evaluation, MathError> {
         self.evaluate_directional_trial(inputs, direction, providers, cancelled)
@@ -3440,7 +3440,7 @@ impl Worker {
         &mut self,
         inputs: &[f64],
         direction: &[f64],
-        providers: &mut pse_kernels::ProviderBindings,
+        providers: &mut ProviderBindings,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<TrialEvaluation, MathError> {
         let mut result = TrialEvaluation::default();
@@ -3451,7 +3451,7 @@ impl Worker {
         &mut self,
         inputs: &[f64],
         direction: &[f64],
-        providers: &mut pse_kernels::ProviderBindings,
+        providers: &mut ProviderBindings,
         cancelled: &Arc<AtomicBool>,
         result: &mut TrialEvaluation,
     ) -> Result<(), MathError> {
@@ -3482,7 +3482,7 @@ impl Worker {
         inputs: &[f64],
         order: DerivativeOrder,
         direction: Option<&[f64]>,
-        providers: &mut pse_kernels::ProviderBindings,
+        providers: &mut ProviderBindings,
         cancelled: &Arc<AtomicBool>,
         result: &mut TrialEvaluation,
     ) -> Result<(), MathError> {
@@ -5050,7 +5050,7 @@ fn evaluate_stages(
     stages: &mut [CompiledStage],
     frame: &mut [f64],
     layout: &JetLayout,
-    providers: &mut pse_kernels::ProviderBindings,
+    providers: &mut ProviderBindings,
     context: &EvaluationContext<'_>,
     observations: &mut Vec<ApplicabilityWitness>,
     spare_witnesses: &mut Vec<ApplicabilityWitness>,
@@ -6290,7 +6290,7 @@ mod compact_tests {
         worker.evaluate(
             values,
             order,
-            &mut pse_kernels::ProviderBindings::new(),
+            &mut ProviderBindings::new(),
             &Arc::new(AtomicBool::new(false)),
         )
     }
@@ -6465,7 +6465,7 @@ mod compact_tests {
             .evaluate_trial(
                 &[2.0, 3.0, 1.0],
                 DerivativeOrder::Second,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel,
             )
             .unwrap();
@@ -6491,7 +6491,7 @@ mod compact_tests {
             .evaluate_trial(
                 &[2.0, 3.0, 1.0],
                 DerivativeOrder::Value,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel,
             )
             .unwrap();
@@ -6817,7 +6817,7 @@ mod compact_tests {
             .evaluate_trial_into(
                 &[2., 3., 1.],
                 DerivativeOrder::Second,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel,
                 &mut result,
             )
@@ -6828,7 +6828,7 @@ mod compact_tests {
                 .evaluate_trial_into(
                     &[2., 3., 0.],
                     DerivativeOrder::Second,
-                    &mut pse_kernels::ProviderBindings::new(),
+                    &mut ProviderBindings::new(),
                     &cancel,
                     &mut result
                 )
@@ -6965,7 +6965,7 @@ mod compact_tests {
             .evaluate_directional_trial_into(
                 &[2., 3., 1.],
                 &[1., 0.],
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel,
                 &mut result,
             )
@@ -7088,7 +7088,7 @@ mod compact_tests {
             cancelled_worker.evaluate(
                 &[2., 3., 1.],
                 DerivativeOrder::Second,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel
             ),
             Err(MathError::Cancelled)
@@ -7456,7 +7456,7 @@ mod compact_tests {
         let seeds = (0..axes).map(|axis| (axis + 1) as f64).collect::<Vec<_>>();
         let action = direction
             .worker()
-            .evaluate_directional(&values, &seeds, &mut pse_kernels::ProviderBindings::new(), &cancel)
+            .evaluate_directional(&values, &seeds, &mut ProviderBindings::new(), &cancel)
             .unwrap();
         for (row, &actual) in action.jacobian.iter().enumerate() {
             let expected = result.jacobian[row * axes..(row + 1) * axes]
@@ -7574,7 +7574,7 @@ mod compact_tests {
         assert_eq!(directional.input_formals(), [X, Y, GUARD]);
         let result = directional
             .worker()
-            .evaluate_directional(&[2., 3., 1.], &[5., 4.], &mut pse_kernels::ProviderBindings::new(), &cancel)
+            .evaluate_directional(&[2., 3., 1.], &[5., 4.], &mut ProviderBindings::new(), &cancel)
             .unwrap();
         assert_eq!(result.values, [22.]);
         assert_eq!(result.jacobian, [82.]);
@@ -7790,7 +7790,7 @@ mod compact_tests {
             .evaluate_trial(
                 &[2., 3., 1.],
                 DerivativeOrder::Value,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &Arc::new(AtomicBool::new(false)),
             )
             .unwrap();
@@ -7806,7 +7806,7 @@ mod compact_tests {
             .evaluate_trial_into(
                 &[-2., 3., 2.],
                 DerivativeOrder::Value,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &Arc::new(AtomicBool::new(false)),
                 &mut trial,
             )
@@ -7825,7 +7825,7 @@ mod compact_tests {
                 .evaluate_trial_into(
                     &[2., 3., -1.],
                     DerivativeOrder::Value,
-                    &mut pse_kernels::ProviderBindings::new(),
+                    &mut ProviderBindings::new(),
                     &Arc::new(AtomicBool::new(false)),
                     &mut trial
                 )
@@ -7842,7 +7842,7 @@ mod compact_tests {
             .evaluate_trial_into(
                 &[2., 3., 1.],
                 DerivativeOrder::Value,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &Arc::new(AtomicBool::new(false)),
                 &mut trial,
             )
@@ -8105,7 +8105,7 @@ mod compact_tests {
                 mut output: pse_kernels::ProviderOutput<'_>,
                 context: &pse_kernels::EvaluationContext<'_>,
             ) -> Result<(), pse_kernels::ProviderError> {
-                request.validate(&self.0, context)?;
+                request.check_context(context)?;
                 assert_eq!(request.outputs, [1]);
                 assert_eq!(inputs.len(), 3);
                 if inputs[2] <= 0. {
@@ -8206,7 +8206,7 @@ mod compact_tests {
             }))
         };
         let mut scalar = product.worker();
-        let mut prior_providers = pse_kernels::ProviderBindings::from([(key, fresh_provider())]);
+        let mut prior_providers = ProviderBindings::from([(key, fresh_provider())]);
         assert_eq!(
             scalar
                 .evaluate(
@@ -8246,7 +8246,7 @@ mod compact_tests {
             pse_diagnostics::Cancellation::default(),
             None,
         ));
-        let mut fresh_providers = pse_kernels::ProviderBindings::from([(key, fresh_provider())]);
+        let mut fresh_providers = ProviderBindings::from([(key, fresh_provider())]);
         assert_eq!(
             scalar
                 .evaluate(
@@ -8260,8 +8260,18 @@ mod compact_tests {
             [20.]
         );
         let provider = pse_kernels::ProviderBinding::new(spec.clone(), Box::new(ProductProvider(spec)));
-        let mut providers = pse_kernels::ProviderBindings::from([(key, provider)]);
+        let mut providers = ProviderBindings::from([(key, provider)]);
         let mut worker = product.worker();
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("provider.prepared_dispatch");
+        let _entered = operation.context().enter();
+        let count = |name: &str| {
+            operation.reader().snapshot(std::time::Duration::from_secs(60)).metrics.iter()
+                .find_map(|metric| match metric.cumulative {
+                    pse_diagnostics::observation::Value::Count(value) if metric.name == name => Some(value),
+                    _ => None,
+                }).unwrap_or(0)
+        };
         let result = worker
             .evaluate(
                 &[2., 3., 1.],
@@ -8273,6 +8283,17 @@ mod compact_tests {
         assert_eq!(result.values, [6.]);
         assert_eq!(result.jacobian, [2., 3.]);
         assert_eq!(result.hessians, [0., 1., 1., 0.]);
+        let immutable = ["kernel.provider.descriptor_hashes", "kernel.provider.request_preparations",
+            "kernel.provider.slot_resolutions", "kernel.provider.request_bindings"];
+        let before = immutable.map(count);
+        assert_eq!(count("kernel.provider.slot_resolutions"), 1);
+        for _ in 0..4 {
+            assert_eq!(worker.evaluate(&[2., 3., 1.], DerivativeOrder::Second, &mut providers, &cancel).unwrap().values, [6.]);
+        }
+        assert_eq!(immutable.map(count), before, "warm dispatch borrows the prepared descriptor/request/slot");
+        let mut replacement = ProviderBindings::from([(key, fresh_provider())]);
+        assert_eq!(worker.evaluate(&[2., 3., 1.], DerivativeOrder::Second, &mut replacement, &cancel).unwrap().values, [6.]);
+        assert_eq!(count("kernel.provider.slot_resolutions"), 2, "fresh bank rebinds once");
         assert!(
             worker
                 .evaluate(
@@ -8827,7 +8848,7 @@ mod compact_tests {
         assert!(eval(&mut worker, &[f64::INFINITY], DerivativeOrder::Value).is_err());
         control.cancel();
         assert!(matches!(
-            worker.evaluate(&[1.], DerivativeOrder::Value, &mut pse_kernels::ProviderBindings::new(), &cancel),
+            worker.evaluate(&[1.], DerivativeOrder::Value, &mut ProviderBindings::new(), &cancel),
             Err(MathError::Cancelled)
         ));
     }

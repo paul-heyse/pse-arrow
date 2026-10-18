@@ -20,7 +20,7 @@ mod observation;
 use enum_map::EnumMap;
 use observation::CaseObservation;
 use pse_ids::{ContentHash, SemanticId};
-use pse_kernels::{DerivativeOrder, Provider, ProviderKey};
+use pse_kernels::DerivativeOrder;
 use pse_quantity::QuantityRegistry;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -2797,7 +2797,7 @@ impl Drop for CaseWorker {
         };
         // Provider destruction precedes publication of detached storage. No cache or
         // scope/cancellation handle is carried into the lane's pending slot.
-        self.providers.clear();
+        drop(std::mem::take(&mut self.providers));
         self.invalidate_trial();
         for worker in &mut self.workers {
             worker.detach_controls();

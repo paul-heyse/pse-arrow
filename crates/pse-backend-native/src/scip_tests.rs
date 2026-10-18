@@ -1081,7 +1081,7 @@ impl Provider for Cube {
         mut output: pse_kernels::ProviderOutput<'_>,
         context: &pse_kernels::EvaluationContext<'_>,
     ) -> Result<(), pse_kernels::ProviderError> {
-        request.validate(&self.0, context)?;
+        request.check_context(context)?;
         let x = inputs[0];
         output.copy_from(&ProviderValues {
             values: request.outputs.iter().map(|_| x * x * x).collect(),

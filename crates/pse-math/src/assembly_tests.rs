@@ -2871,7 +2871,7 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
             fn fill(
             &mut self,
             _: &[f64],
-            _: &pse_kernels::ProviderRequest,
+            _: &pse_kernels::PreparedProviderRequest,
             _runtime: pse_kernels::ProviderRuntime<'_>,
             mut output: pse_kernels::ProviderOutput<'_>,
             _: &pse_kernels::EvaluationContext<'_>,

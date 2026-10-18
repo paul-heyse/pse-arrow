@@ -2656,7 +2656,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
             mut output: pse_kernels::ProviderOutput<'_>,
             c: &pse_kernels::EvaluationContext<'_>,
         ) -> std::result::Result<(), pse_kernels::ProviderError> {
-            r.validate(&self.0, c)?;
+            r.check_context(c)?;
             if x.len() != 2 {
                 return Err(ProviderError::Contract("vector input extent".into()));
             }
@@ -2686,7 +2686,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
                     });
                 }
             }
-            out.validate(&self.0, r)?;
+            out.check_context(r)?;
             Ok(out)
         }
     }
@@ -6933,7 +6933,7 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
             mut output: pse_kernels::ProviderOutput<'_>,
             context: &pse_kernels::EvaluationContext<'_>,
         ) -> std::result::Result<(), pse_kernels::ProviderError> {
-            request.validate(&self.0, context)?;
+            request.check_context(context)?;
             let values = pse_kernels::ProviderValues {
                 values: vec![inputs[0]; request.outputs.len()],
                 jacobian: if request.order >= DerivativeOrder::First {
@@ -6947,7 +6947,7 @@ fn selected_shared_observation_body_demands_only_its_implicit_provider_output() 
                     vec![]
                 },
             };
-            values.validate(&self.0, request)?;
+            values.check_context(request)?;
             output.copy_from(&values)
         }
     }

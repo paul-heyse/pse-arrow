@@ -623,7 +623,7 @@ impl Worker {
         &mut self,
         inputs: &[f64],
         bindings: ProductValues<'_>,
-        providers: &mut pse_kernels::ProviderBindings,
+        providers: &mut ProviderBindings,
         cancel: &Arc<AtomicBool>,
         output: &mut [f64],
     ) -> Result<(), MathError> {
@@ -634,7 +634,7 @@ impl Worker {
         &mut self,
         inputs: &[f64],
         bindings: ProductValues<'_>,
-        providers: &mut pse_kernels::ProviderBindings,
+        providers: &mut ProviderBindings,
         cancel: &Arc<AtomicBool>,
         output: &mut [f64],
         trial: &mut TrialEvaluation,
@@ -1164,7 +1164,7 @@ mod tests {
                 .evaluate_product_into(
                     &[2., 3.],
                     binding,
-                    &mut pse_kernels::ProviderBindings::new(),
+                    &mut ProviderBindings::new(),
                     &cancel,
                     &mut output,
                 )
@@ -1191,7 +1191,7 @@ mod tests {
                 .evaluate_product_into(
                     &[4., 2.],
                     changed,
-                    &mut pse_kernels::ProviderBindings::new(),
+                    &mut ProviderBindings::new(),
                     &cancel,
                     &mut output,
                 )
@@ -1210,7 +1210,7 @@ mod tests {
                     .evaluate_product_into(
                         &[1e200, 1e200],
                         binding,
-                        &mut pse_kernels::ProviderBindings::new(),
+                        &mut ProviderBindings::new(),
                         &cancel,
                         &mut output
                     )
@@ -1222,7 +1222,7 @@ mod tests {
                 independent.evaluate_product_into(
                     &[2., 3.],
                     binding,
-                    &mut pse_kernels::ProviderBindings::new(),
+                    &mut ProviderBindings::new(),
                     &cancel,
                     &mut output
                 ),
@@ -1273,7 +1273,7 @@ mod tests {
         let mut worker = compiled.worker();
         let mut out = [93.];
         assert!(
-            matches!(worker.evaluate_product_into(&[0.],ProductValues::WeightedHessian{weights:&[1.]},&mut pse_kernels::ProviderBindings::new(),&cancel,&mut out),Err(MathError::Domain{source_id,..}) if source_id==source)
+            matches!(worker.evaluate_product_into(&[0.],ProductValues::WeightedHessian{weights:&[1.]},&mut ProviderBindings::new(),&cancel,&mut out),Err(MathError::Domain{source_id,..}) if source_id==source)
         );
         assert_eq!(out, [93.]);
         cancel.cancel();
@@ -1281,7 +1281,7 @@ mod tests {
             worker.evaluate_product_into(
                 &[2.],
                 ProductValues::WeightedHessian { weights: &[1.] },
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel,
                 &mut out
             ),
@@ -1357,7 +1357,7 @@ mod tests {
             .evaluate_product_into(
                 &[2., 3., 1.],
                 binding,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel,
                 &mut output,
             )
@@ -1367,7 +1367,7 @@ mod tests {
             .evaluate_product_into(
                 &[2., 3., -1.],
                 binding,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel,
                 &mut output,
             )
@@ -1410,7 +1410,7 @@ mod tests {
             .evaluate(
                 &[2., 3.],
                 DerivativeOrder::First,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel,
             )
             .unwrap();
@@ -1422,7 +1422,7 @@ mod tests {
             worker.evaluate(
                 &[2., 3.],
                 DerivativeOrder::Second,
-                &mut pse_kernels::ProviderBindings::new(),
+                &mut ProviderBindings::new(),
                 &cancel
             ),
             Err(MathError::Contract(_))

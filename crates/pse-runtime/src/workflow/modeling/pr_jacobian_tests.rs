@@ -282,7 +282,6 @@ impl Provider for ObservedProvider {
                     .extend_from_slice(&full.hessians[output * n * n..(output + 1) * n * n]);
             }
         }
-        projected.validate(self.inner.spec(), request)?;
         output.copy_from(&projected)
     }
 }
