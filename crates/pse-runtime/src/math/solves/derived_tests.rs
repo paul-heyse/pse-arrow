@@ -188,14 +188,15 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
         inner.unknowns
     );
     assert_eq!(numerical.spec.inputs.len(), 1);
-    assert_eq!(numerical.bodies.parameter.coordinates(), [0, 1, 2]);
+    assert!(numerical.bodies.source.coordinates().is_empty());
+    assert_eq!(numerical.bodies.source.input_formals().len(), 3);
     assert_eq!(
-        numerical.bodies.parameter.prepared_support().outputs(),
+        numerical.bodies.source.prepared_support().outputs(),
         [0, 1]
     );
     assert_eq!(
-        numerical.bodies.parameter.compiled_order(),
-        DerivativeOrder::First
+        numerical.bodies.source.compiled_order(),
+        DerivativeOrder::Value
     );
     assert_eq!(numerical.bodies.unknown.coordinates(), [0, 1]);
     assert_eq!(
@@ -210,7 +211,7 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
     assert_ne!(numerical.configuration_key(), reference.configuration_key());
 
     let spec = factory.spec.clone();
-    let structural = numerical.bodies.parameter.incidence(&flag).unwrap();
+    let structural = numerical.bodies.source.prepared_support().incidence(&[0, 1, 2], &flag).unwrap();
     let incidence = structural
         .outputs()
         .iter()
@@ -1561,10 +1562,10 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
     let flag = Cancellation::default();
     let scope = ExecutionScope::new(flag.clone(), Some(Instant::now() + Duration::from_secs(30)));
     let support = residual
-        .prepare_support(&[output.output], &[0, 1], DerivativeOrder::First, &flag)
+        .prepare_support(&[output.output], &[], DerivativeOrder::Value, &flag)
         .unwrap();
     assert_eq!(support.outputs(), [output.output]);
-    assert_eq!(support.coordinates(), [0, 1]);
+    assert!(support.coordinates().is_empty());
     let body = Arc::new(
         support
             .compile(
@@ -1694,7 +1695,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
                             )
                             .unwrap(),
                     ),
-                    parameter: body,
+                    source: body,
                 },
                 unknowns: unknowns.clone(),
                 rows: vec![row],
@@ -2487,12 +2488,17 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
                 .unwrap(),
                 spec,
                 bodies: {
-                    // No external parameters: Newton and IFT share this exact
-                    // one-coordinate preparation without a broader derivative demand.
-                    let body = compile(&residual, &[0]);
+                    // Native Newton consumes its unknown Jacobian; the residual
+                    // source retains only values until an actual derivative request.
+                    let source = Arc::new(residual.compile(
+                        &[0], &[], DerivativeOrder::Value,
+                        pse_math::library::Optimization::default(),
+                        pse_math::jets::EvaluationLimits::default(),
+                        &ExecutionScope::new(flag.clone(), None),
+                    ).unwrap());
                     pse_math::implicit::ResidualBodies {
-                        unknown: body.clone(),
-                        parameter: body,
+                        unknown: compile(&residual, &[0]),
+                        source,
                     }
                 },
                 unknowns: unknowns.clone(),
@@ -3759,11 +3765,11 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
             .binary(Binary::Sub, unknown, parameter, None, row)
             .unwrap();
         let body = builder.prepare(&[expression]).unwrap();
-        let compiled = Arc::new(
+        let source = Arc::new(
             body.compile(
                 &[0],
-                &[0, 1],
-                DerivativeOrder::First,
+                &[],
+                DerivativeOrder::Value,
                 pse_math::library::Optimization::default(),
                 pse_math::jets::EvaluationLimits::default(),
                 &ExecutionScope::new(flag.clone(), None),
@@ -3806,7 +3812,7 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
                         )
                         .unwrap(),
                     ),
-                    parameter: compiled,
+                    source,
                 },
                 unknowns: unknowns.clone(),
                 rows: vec![row],

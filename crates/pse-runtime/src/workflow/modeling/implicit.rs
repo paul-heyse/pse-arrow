@@ -1747,7 +1747,7 @@ mod tests {
                 })
                 .flat_map(|source| match source.factory() {
                     pse_math::implicit::ImplicitFactory::Root(factory) => {
-                        vec![&factory.bodies.unknown, &factory.bodies.parameter]
+                        vec![&factory.bodies.unknown, &factory.bodies.source]
                             .into_iter()
                             .chain(factory.hints.iter())
                             .chain(factory.terms.iter())

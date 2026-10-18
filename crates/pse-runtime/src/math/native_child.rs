@@ -351,10 +351,10 @@ fn compile_problem(
     scope: &ExecutionScope,
 ) -> Result<Arc<Problem>, MathRuntimeError> {
     checkpoint(scope)?;
-    let compiled = body.math().compile(
+    let source = body.math().compile(
         &(0..rows.len()).collect::<Vec<_>>(),
-        &(0..body.math().input_count()).collect::<Vec<_>>(),
-        DerivativeOrder::First,
+        &[],
+        DerivativeOrder::Value,
         pse_math::library::Optimization::default(),
         limits,
         scope,
@@ -376,7 +376,7 @@ fn compile_problem(
         parameters,
         pse_math::implicit::ResidualBodies {
             unknown: Arc::new(unknown),
-            parameter: Arc::new(compiled),
+            source: Arc::new(source),
         },
         max_entries,
     )?))

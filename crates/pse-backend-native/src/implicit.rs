@@ -396,11 +396,11 @@ impl InnerWorker for Kinsol {
                     })
                     .collect(),
                 rows: problem.rows.clone(),
-                derivatives: problem.requirements.residual_compilation,
+                derivatives: problem.native_order(),
                 smoothness: problem
                     .requirements
                     .output_smoothness
-                    .min(problem.requirements.residual_compilation),
+                    .min(problem.native_order()),
             };
             let pattern = problem
                 .pattern()
@@ -505,7 +505,13 @@ pub(crate) fn test_residual_bodies(
             )
             .unwrap(),
     );
-    pse_math::implicit::ResidualBodies { unknown, parameter }
+    let source = Arc::new(
+        parameter.prepared_support().incidence(&[], &cancel).unwrap()
+            .at_order(DerivativeOrder::Value).unwrap()
+            .compile(Default::default(), Default::default(),
+                &pse_kernels::ExecutionScope::new(cancel, None)).unwrap(),
+    );
+    pse_math::implicit::ResidualBodies { unknown, source }
 }
 
 #[cfg(test)]
@@ -747,8 +753,8 @@ mod tests {
                     })
                     .collect(),
                 rows: problem.rows.clone(),
-                derivatives: problem.compiled_order,
-                smoothness: problem.requirements.output_smoothness,
+                derivatives: problem.native_order(),
+                smoothness: problem.requirements.output_smoothness.min(problem.native_order()),
             };
             let loan = Loan(Rc::new(RefCell::new(Some(problem.clone()))));
             let oracle = LateOriginalOracle {
@@ -1162,7 +1168,9 @@ mod tests {
                 1,
                 test_residual_bodies(body),
                 100,
-            )
+            )?.with_requirements(pse_kernels::DerivativeRequirements::new(
+                order, order, order, DerivativeOrder::First, order,
+            ).map_err(|error| MathError::Contract(error.to_string()))?)
         }
     }
     fn options() -> Options {
@@ -1181,7 +1189,12 @@ mod tests {
         let cancel = pse_diagnostics::Cancellation::default();
         let problem = Arc::new(problem_order(100, false, DerivativeOrder::First).unwrap());
         assert_eq!(Kinsol.minimum_order(), DerivativeOrder::First);
-        assert_eq!(problem.compiled_order, DerivativeOrder::First);
+        assert_eq!(problem.requirements.residual_compilation, DerivativeOrder::First);
+        assert_eq!(problem.native_order(), DerivativeOrder::First);
+        assert!(problem.prepare_complete(DerivativeOrder::Second,
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None)).is_err());
+        problem.prepare_complete(DerivativeOrder::First,
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None)).unwrap();
         let root = Kinsol
             .solve(problem.clone(), &[3.], &options(), &cancel)
             .unwrap();
@@ -1238,6 +1251,8 @@ mod tests {
         };
         let problem = Arc::new(build(false).unwrap());
         assert_eq!(problem.pattern().compute_nnz(), 2);
+        problem.prepare_complete(DerivativeOrder::Second,
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None)).unwrap();
         let root = Kinsol
             .solve(problem.clone(), &[3.], &options, &cancel)
             .unwrap();
@@ -1606,6 +1621,8 @@ mod tests {
             )
             .unwrap(),
         );
+        problem.prepare_complete(DerivativeOrder::Second,
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None)).unwrap();
         let options = Options {
             start: vec![1.0],
             variable_nominals: vec![2.0],
