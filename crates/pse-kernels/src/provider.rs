@@ -270,9 +270,10 @@ impl ProviderBinding {
     /// Cached lookup identity.
     pub fn key(&self) -> ProviderKey { self.key }
     /// Validate and bind a public demand before any evaluation effects.
-    pub fn prepare(&self, request: ProviderRequest) -> Result<PreparedProviderRequest, ProviderError> {
+    pub fn prepare(&mut self, request: ProviderRequest) -> Result<PreparedProviderRequest, ProviderError> {
         let mut prepared = PreparedProviderRequest::new(self.spec.clone(), request)?;
         prepared.bind(self)?;
+        self.prepare_demand(&prepared)?;
         Ok(prepared)
     }
     /// Check prepared meaning and implemented product support at fresh binding.
@@ -289,6 +290,9 @@ impl ProviderBinding {
     pub fn supports_linearization(&self) -> bool { self.worker.supports_linearization() }
     pub(super) fn completed_linearization(&self) -> Option<ContentHash> {
         self.worker.completed_linearization()
+    }
+    pub(super) fn prepare_demand(&mut self, request: &PreparedProviderRequest) -> Result<(), ProviderError> {
+        self.worker.prepare_demand(request)
     }
     pub(super) fn fill_inner(&mut self, inputs: &[f64], request: &PreparedProviderRequest,
         runtime: ProviderRuntime<'_>, output: ProviderOutput<'_>, context: &EvaluationContext<'_>)
@@ -368,10 +372,23 @@ impl ProviderBindings {
         self.index.get(&key).is_some_and(|&slot| self.slots[slot].supports_linearization())
     }
     /// Validate a prepared request against a stable slot without exposing membership mutation.
-    pub fn bind_request(&self, slot: usize, request: &mut PreparedProviderRequest) -> Result<(), ProviderError> {
+    pub fn bind_request(&mut self, slot: usize, request: &mut PreparedProviderRequest) -> Result<(), ProviderError> {
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("kernel.provider.request_bindings", "count", 1);
         }
+        let binding = self.slots.get_mut(slot).ok_or_else(|| ProviderError::Contract("missing provider slot".into()))?;
+        request.bind(binding)?;
+        binding.prepare_demand(request)
+    }
+    /// Prepare a selected immutable demand without exposing mutable membership.
+    pub fn prepare_request(&mut self, request: &PreparedProviderRequest) -> Result<(), ProviderError> {
+        let slot = *self.index.get(&request.key()).ok_or_else(|| ProviderError::Contract("missing provider worker".into()))?;
+        let binding = &mut self.slots[slot];
+        binding.check_prepared(request)?;
+        binding.prepare_demand(request)
+    }
+    /// Bind a demand whose owner preparation was completed before numerical execution.
+    pub fn bind_prepared_request(&self, slot: usize, request: &mut PreparedProviderRequest) -> Result<(), ProviderError> {
         let binding = self.slots.get(slot).ok_or_else(|| ProviderError::Contract("missing provider slot".into()))?;
         request.bind(binding)
     }

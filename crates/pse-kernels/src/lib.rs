@@ -454,6 +454,8 @@ pub trait Provider: std::fmt::Debug + Send {
     fn supports(&self, demand: &ProviderDemand) -> bool {
         matches!(demand, ProviderDemand::CompleteJets)
     }
+    /// Prepare this finite actual demand before numerical effects or native callbacks.
+    fn prepare_demand(&mut self, _request: &PreparedProviderRequest) -> Result<(), ProviderError> { Ok(()) }
     /// Owner can certify the entire derivative context, including visited children.
     fn supports_linearization(&self) -> bool { false }
     /// Complete context from the last successful fill, independent of action seeds.
@@ -683,6 +685,7 @@ impl Provider for ScopedProvider {
     fn supports(&self, demand: &ProviderDemand) -> bool {
         self.inner.supports(demand)
     }
+    fn prepare_demand(&mut self, request: &PreparedProviderRequest) -> Result<(), ProviderError> { self.inner.prepare_demand(request) }
     fn supports_linearization(&self) -> bool { self.inner.supports_linearization() }
     fn completed_linearization(&self) -> Option<ContentHash> { self.inner.completed_linearization() }
     fn fill(
@@ -740,6 +743,7 @@ impl Provider for Enveloped {
     fn supports(&self, demand: &ProviderDemand) -> bool {
         self.inner.supports(demand)
     }
+    fn prepare_demand(&mut self, request: &PreparedProviderRequest) -> Result<(), ProviderError> { self.inner.prepare_demand(request) }
     fn supports_linearization(&self) -> bool { self.inner.supports_linearization() }
     fn completed_linearization(&self) -> Option<ContentHash> { self.inner.completed_linearization() }
     fn fill(
@@ -842,6 +846,7 @@ impl Provider for ObservedProvider {
     fn supports(&self, demand: &ProviderDemand) -> bool {
         self.inner.supports(demand)
     }
+    fn prepare_demand(&mut self, request: &PreparedProviderRequest) -> Result<(), ProviderError> { self.inner.prepare_demand(request) }
     fn supports_linearization(&self) -> bool { self.inner.supports_linearization() }
     fn completed_linearization(&self) -> Option<ContentHash> { self.inner.completed_linearization() }
     fn fill(

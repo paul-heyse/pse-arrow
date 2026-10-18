@@ -2970,6 +2970,7 @@ impl CompiledBody {
             direct_product: None,
             transpose_worker: None,
             product_scratch: Vec::new(),
+            prepared_provider_bank: None,
             prepaid_bytes: self.worker_bytes,
             used_bytes: 0,
             scope: Some(scope),
@@ -3331,6 +3332,7 @@ pub struct Worker {
     direct_product: Option<products::DirectWorker>,
     transpose_worker: Option<Box<products::TransposeWorker>>,
     product_scratch: Vec<f64>,
+    prepared_provider_bank: Option<u64>,
     prepaid_bytes: usize,
     used_bytes: usize,
 }
@@ -3353,6 +3355,29 @@ impl std::fmt::Debug for Worker {
     }
 }
 impl Worker {
+    /// Prepare finite selected provider demands before entering native callbacks.
+    pub fn prepare_providers(&mut self, providers: &mut ProviderBindings) -> Result<(), MathError> {
+        self.check_scope()?;
+        if self.prepared_provider_bank == Some(providers.identity()) { return Ok(()); }
+        fn prepare(stages: &[CompiledStage], providers: &mut ProviderBindings) -> Result<(), MathError> {
+            for stage in stages {
+                match stage {
+                    CompiledStage::Provider { request, source, .. } => providers.prepare_request(request)
+                        .map_err(|cause| MathError::Provider { source_id: *source, provider: request.spec().id, cause })?,
+                    CompiledStage::Domain { stages, .. } | CompiledStage::Applicability { stages, .. } => prepare(stages, providers)?,
+                    CompiledStage::Branch { then, otherwise, .. } => { prepare(then, providers)?; prepare(otherwise, providers)?; }
+                    _ => {}
+                }
+            }
+            Ok(())
+        }
+        for stages in self.body.programs.values().flatten() { prepare(stages, providers)?; }
+        if let Some(product) = &self.body.transpose_product {
+            for stages in product.program.programs.values().flatten() { prepare(stages, providers)?; }
+        }
+        self.prepared_provider_bank = Some(providers.identity());
+        Ok(())
+    }
     /// Copy current owner facts without instantiating an unused order or exporting code.
     pub fn census(&self) -> WorkerCensus {
         WorkerCensus {
@@ -3403,6 +3428,7 @@ impl Worker {
                 "numeric reset requires detached controls".into(),
             ));
         }
+        self.prepared_provider_bank = None;
         self.frame.fill(f64::NAN);
         self.product_scratch.fill(f64::NAN);
         if let Some(direct) = self.direct_product.take() {
@@ -3531,6 +3557,7 @@ impl Worker {
         if cancelled.load(Ordering::Acquire) {
             return Err(MathError::Cancelled);
         }
+        self.prepare_providers(providers)?;
         self.prepare_order(order)?;
         let (Some(layout), Some(program)) = (
             self.body.layouts[order].as_ref(),
@@ -5331,7 +5358,7 @@ fn evaluate_stages(
                     _ => {
                         let slot = providers.resolve(request.key())
                             .ok_or_else(|| MathError::Contract("missing provider worker".into()))?;
-                        providers.bind_request(slot, request).map_err(|e| MathError::Contract(e.to_string()))?;
+                        providers.bind_prepared_request(slot, request).map_err(|e| MathError::Contract(e.to_string()))?;
                         *binding = Some((bank, slot));
                         slot
                     }

@@ -218,3 +218,37 @@ fn provider_linearization_rechecks_current_effects_and_refuses_changed_derivativ
     assert_eq!(calls.load(Ordering::Relaxed), 4, "foreign owner refused before effects");
     assert!(ProviderError::LinearizationChanged.recoverable());
 }
+
+#[test]
+fn provider_demand_preparation_is_distinct_from_numerical_effects() {
+    #[derive(Debug)]
+    struct PreparedOnly { prepared: bool, preparations: Arc<AtomicUsize> }
+    impl Provider for PreparedOnly {
+        fn prepare_demand(&mut self, _: &PreparedProviderRequest) -> Result<(), ProviderError> {
+            self.preparations.fetch_add(1, Ordering::Relaxed);
+            self.prepared = true;
+            Ok(())
+        }
+        fn fill(&mut self, _: &[f64], _: &PreparedProviderRequest, _: ProviderRuntime<'_>,
+            output: ProviderOutput<'_>, _: &EvaluationContext<'_>) -> Result<(), ProviderError> {
+            assert!(self.prepared);
+            output.values.fill(1.);
+            Ok(())
+        }
+    }
+    let calls = Arc::new(AtomicUsize::new(0));
+    let binding = ProviderBinding::new(descriptor(1, 1), Box::new(PreparedOnly { prepared: false, preparations: calls.clone() }));
+    let key = binding.key();
+    let mut request = PreparedProviderRequest::new(Arc::new(binding.spec().clone()),
+        ProviderRequest::all(binding.spec(), DerivativeOrder::Value)).unwrap();
+    let mut bank = ProviderBindings::from([(key, binding)]);
+    bank.prepare_request(&request).unwrap();
+    assert_eq!(calls.load(Ordering::Relaxed), 1);
+    let slot = bank.resolve(key).unwrap();
+    bank.bind_prepared_request(slot, &mut request).unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let context = EvaluationContext { cancelled: &cancel, max_result_bytes: 1024 };
+    let mut buffer = ProviderBuffer::new(&request);
+    for _ in 0..4 { assert_eq!(bank.fill(slot, &mut buffer, &[0.], &request, ProviderRuntime::default(), &context).unwrap().values, [1.]); }
+    assert_eq!(calls.load(Ordering::Relaxed), 1, "fills and prepared slot binds never optimize");
+}

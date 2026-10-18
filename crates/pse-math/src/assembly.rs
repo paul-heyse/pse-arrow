@@ -2542,7 +2542,7 @@ impl CaseAssembly {
     pub fn worker_from_scratch(
         self: &Arc<Self>,
         scratch: CaseScratch,
-        providers: pse_kernels::ProviderBindings,
+        mut providers: pse_kernels::ProviderBindings,
         scope: pse_kernels::ExecutionScope,
     ) -> Result<CaseWorker, MathError> {
         scope.check().map_err(crate::error::scope_error)?;
@@ -2565,6 +2565,7 @@ impl CaseAssembly {
         } = scratch;
         for worker in &mut workers {
             worker.set_scope(scope.clone());
+            worker.prepare_providers(&mut providers)?;
         }
         Ok(CaseWorker {
             scope: scope.clone(),
