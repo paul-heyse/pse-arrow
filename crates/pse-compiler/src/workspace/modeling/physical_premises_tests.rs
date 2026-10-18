@@ -330,7 +330,12 @@ fn physical_context_and_matching_source_publish_as_one_candidate() {
         &inputs.quantities
     ));
     assert!(workspace.selects_modeling_revision(&prior));
-    assert_same_mathematics(&old, &prepare(&mut workspace, root));
+    let restored = prepare(&mut workspace, root);
+    assert_eq!(old.admitted.inputs, restored.admitted.inputs);
+    assert_eq!(old.admitted.outputs, restored.admitted.outputs);
+    for (key, body) in &old.admitted.bodies {
+        assert_eq!(body.spec(), restored.admitted.bodies[key].spec());
+    }
     assert!(matches!(
         candidate(&mut workspace, Arc::new(AtomicBool::new(true)), false),
         Err(CompileError::Cancelled)
@@ -372,8 +377,8 @@ fn unused_provider(inputs: &CompilerContext) -> ProviderCall {
             quantity,
             unit,
         }],
-        derivatives: pse_kernels::DerivativeOrder::First,
-        smoothness: pse_kernels::DerivativeOrder::First,
+        derivatives: DerivativeOrder::First,
+        smoothness: DerivativeOrder::First,
     };
     ProviderCall {
         descriptor: AdmittedProvider::new(spec, &inputs.quantities).unwrap(),
