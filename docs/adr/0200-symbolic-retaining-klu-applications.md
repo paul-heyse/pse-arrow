@@ -35,7 +35,7 @@ Stock KLU has the simplest upstream lifecycle but repeats symbolic work. Skippin
 
 ## Outcome
 
-An explicit KluRetainedSymbolic profile selects the candidate. Exact compatibility includes matrix dimensions/format, occupied CSC pointers/indices and every KLU analysis-affecting input: tol, memgrow, initmem_amd, initmem, maxwork, btf, ordering, scale and halt_if_singular. Floating settings compare exact bits. Eligibility requires stock AMD/COLAMD ordering, absent user_order/user_data callbacks and halt_if_singular enabled; unknown callback semantics refuse. Output statistics are not input settings.
+An explicit KluRetainedSymbolic profile selects the candidate. Exact compatibility includes matrix dimensions/format, occupied CSC pointers/indices and every KLU analysis-affecting input: tol, memgrow, initmem_amd, initmem, maxwork, btf, ordering, scale and halt_if_singular. Floating settings compare exact bits. Eligibility requires finite floating settings, tol in [0,1], memgrow/initmem_amd/initmem at least one, stock AMD/COLAMD ordering, absent user_order/user_data callbacks and halt_if_singular enabled; unknown callback semantics refuse. This prevents KLU's otherwise implicit input normalization from changing a successfully captured key during factorization. Finite nonpositive maxwork retains its library meaning of unlimited BTF work, and signed zeros remain distinct exact inputs. Output statistics are not input settings.
 
 Application entry and initialization invalidate numerical state, including applications that accept their initial point without setup. The first setup of each new application performs fresh numerical factorization; later setup follows stock current-application refactor/condition policy. Solve requires a successful setup for the current application. Pattern/settings changes discard incompatible symbolic state. Failed factorization or cancellation never leaves numerical validity available to a later application.
 
@@ -62,3 +62,4 @@ The candidate removes repeated library structure work while keeping fresh numeri
 ## Status history
 
 - 2026-10-18 — proposed under accepted Plan45 RC08 before candidate implementation; stock default retained pending qualification.
+- 2026-10-18 — independent implementation inspection identified KLU's normalization of four floating inputs; candidate eligibility explicitly rejects those noncanonical ranges before setup rather than reporting successful setup followed by false substitution refusal.
