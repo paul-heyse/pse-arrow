@@ -2221,7 +2221,8 @@ fn implicit_constructor_bound_uses_residual_minimum_and_requested_output() {
     };
     let first = bound(DerivativeOrder::First);
     assert_eq!(bound(DerivativeOrder::Value), first);
-    assert!(first < bound(DerivativeOrder::Second));
+    assert_eq!(first, bound(DerivativeOrder::Second),
+        "factory retention contains the same Value source and native minimum; actual derivatives prepare on demand");
     let solver = pse_math::implicit::Affine::new(&inner.residuals[0].body.math, 1).unwrap();
     let programs = inner
         .compile_programs(
@@ -7525,9 +7526,10 @@ fn implicit_artifact_requests_separate_program_premises_from_fresh_hint_values()
         keys(requests(2, DerivativeOrder::First, limits)),
         "fresh numerical resolvers cannot recompile stable residual/hint programs"
     );
-    assert_ne!(
+    assert_eq!(
         keys(requests(1, DerivativeOrder::First, limits)),
-        keys(requests(1, DerivativeOrder::Second, limits))
+        keys(requests(1, DerivativeOrder::Second, limits)),
+        "scientific capacity does not compile unused complete parameter jets"
     );
     let narrower = EvaluationLimits {
         operations: limits.operations - 1,
@@ -7806,10 +7808,20 @@ fn implicit_dense_parameter_actions_do_not_construct_unused_complete_jets() {
     }
     let parameters = 128;
     let declarations = (0..parameters).map(|i| format!("param p{i}:Scalar=0.001; ")).collect::<String>();
-    let sum = (0..parameters).map(|i| format!("p{i}")).collect::<Vec<_>>().join("+");
+    // Balanced authored syntax keeps this demand test independent of the syntax-depth guard.
+    let mut terms = (0..parameters).map(|i| format!("p{i}")).collect::<Vec<_>>();
+    while terms.len() > 1 {
+        terms = terms.chunks(2).map(|pair| match pair {
+            [left, right] => format!("({left}+{right})"),
+            [only] => only.clone(),
+            _ => unreachable!(),
+        }).collect();
+    }
+    let sum = &terms[0];
     let text = format!("package p {{ def Root {{ {declarations} implicit inner {{ var z:Scalar; eq e:z==({sum})*({sum}); }} realize i on inner using nested; eq e:inner.z==1; }} }}");
     let (mut workspace, _, _, root) = setup(&text);
-    let admitted = admit(&mut workspace, root);
+    let admitted = workspace.admit_modeling(root, InstanceId::from_id(SemanticId::NIL),
+        Bindings::default(), Limits { body_occurrences:Some(1_000_000), ..Limits::default() }).unwrap();
     let inner = admitted.implicit.values().next().unwrap();
     assert_eq!(inner.descriptor.spec().inputs.len(), parameters);
     let configurations = BTreeMap::from([(inner.residuals[0].id,
