@@ -558,7 +558,7 @@ impl DynamicWorker {
             worker.key.capacity(),
         )
     }
-    #[cfg(all(test, feature = "solver-idas"))]
+    #[cfg(all(test, any(feature = "solver-idas", feature = "solver-diffsol")))]
     pub(crate) fn action_buffer_identity(&self, mode: usize, function: Function) -> [usize; 4] {
         let scratch = &self.functions[&(mode, function)].actions;
         [
