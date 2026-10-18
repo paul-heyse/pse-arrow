@@ -1,6 +1,6 @@
 ---
 title: "Plan45f: Short-run qualification and publication"
-status: in-progress
+status: done
 date: 2026-10-18
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
@@ -78,7 +78,7 @@ If longer or materially different testing remains necessary, identify: the obser
 | F02 | Ready companion contrasts and integrated correction slices | Cross-owner short rounds, supported implementation feedback and complete-operation work/resource interpretation | done |
 | F03 | All selected functional changes and required investigation outcomes integrated | Assembled local/native/public/durable/resource acceptance and scope-end quality; zero-target accounting and obsolete paths removed | done |
 | F04 | Prior decision routes and F03 outcomes | Enduring publication, single-owner dispositions/outcomes and precise subsequent-work handoff; older plans unchanged | done |
-| F05 | Ready A06/E05 outcomes | Combined affected-scope journeys, scope-end zero-target checks, independent implementation review and enduring publication with truthful F05/F13 dispositions | open |
+| F05 | Ready A06/E05 outcomes | Combined affected-scope journeys, scope-end zero-target checks, independent implementation review and enduring publication with truthful F05/F13 dispositions | done |
 
 ## F05 — Reopened-scope acceptance and publication
 
@@ -113,12 +113,10 @@ C07 grouped-publication/accounting targeted acceptance passed as recorded in 45c
 
 ## Bounded further-work handoff
 
-These are retained limits and observable decision triggers, not authorization for another campaign or unimplemented packets hidden by closure. The coordinator retains F05/F13; the other rows describe conditional alternatives or qualification exclusions.
+These are retained limits and observable decision triggers, not authorization for another campaign or unimplemented packets hidden by closure. The original F05/F13 handoff was actioned by A06/E05; their corrected dispositions belong to the coordinator. The remaining rows describe conditional alternatives or qualification exclusions.
 
 | Mechanism / actual remaining limit | Required different premise or smallest useful next question | Owner and deciding observations |
 | --- | --- | --- |
-| Conservative physical invalidation (F05) | A complete resolver-issued consumed closure must include negative lookup, candidate membership, scope visibility and checker/provider meaning before finer reuse keys can be sound. A longer simulation cannot supply those missing contracts. | Physical/compiler resolver; migrate all lane/frontier/body/view compatibility consumers together and check unrelated versus consumed/absent/ambiguous changes. |
-| Stock KLU symbolic repetition (F13) | Revisit when a representative workload shows symbolic preparation dominates complete repeated solves. The tested 128/512-variable cases did not justify the experimental owner's extra state/maintenance; its production path is removed. | Native sparse owner; exact CSC/settings compatibility, separate symbolic/numeric/substitution work, original residuals, retained bytes, accepted starts and actual failure/drain. |
 | Larger symbolic composition / JIT | Retained library programs must support the demanded Taylor products and original intermediate failure order. A candidate JIT must establish generic ISA, conservative FP and interruptible construction before a performance tournament is useful. | Mathematical realization owner; eligible scalar/First/Second/weighted products, before-effect refusal, private scratch, compiler stop and resource bounds. |
 | Weighted functional contraction / bulk checkpoint recording | A representative many-channel consumer must show complete-operation benefit. Recorder adoption also requires incremental publication, partial-return, preallocation refusal and corrected-initial interpolation hooks, not only a public bulk API. | Native dynamics and fitting owners; unchanged original objectives/gradients, initial/direct/scheduled mappings, admitted product/storage/replay work and publication/stop boundaries. |
 | Physical publication/cache granularity | Bounded groups are atomic individually; arbitrary large-relation atomic closure is not implemented. Thirteen per-relation/context protection-release grants alone exceed 28 MiB, so that product cannot enter the unchanged 16 MiB optional cache. | Physical publication/operations owners; revisit if representative repeated full-context publication shows material encoding/replay cost. A shared/batched protection or staging design must first preserve independent escaped lifetimes, complete original request replay and overlapping/uncertain release admission. Do not widen defaults or undercharge to assert a warm hit. |
@@ -185,10 +183,59 @@ The first whole-phase stack wrapper passed its allocation unit but failed the un
 
 ### Deviations from the plan, deliberate
 
-The accepted bounded RC03/RC08 outcomes retain unresolved F05/F13 with their actual owners and observable triggers; no AP-07/G9 resolution is claimed. Qualified non-adoption removed the unused symbolic KLU owner. Current arithmetic, checkpoint, projection/file-ownership and method defaults remain where alternatives lacked complete eligibility or useful operation benefit. Arbitrarily large physical relations retain deterministic group closures, and oversized protected contexts cannot enter the unchanged optional cache. The bounded handoff above supplies questions for a subsequent review/planning decision, not another authorized long-duration campaign. Enduring contracts use the architecture/ADR route; formal proposed statuses and older plans remain independent. No environment/provenance proof, full wheel installation, smaller solver tolerance or statistical tournament was revived.
+At the original bounded close, RC03/RC08 retained unresolved F05/F13 and removed the earlier unqualified symbolic KLU owner. A06/E05 subsequently implemented their qualified corrections; the reopened acceptance below supersedes those two retained limitations. Current arithmetic, checkpoint, projection/file-ownership and method defaults remain where alternatives lacked complete eligibility or useful operation benefit. Arbitrarily large physical relations retain deterministic group closures, and oversized protected contexts cannot enter the unchanged optional cache. The bounded handoff above supplies questions for a subsequent review/planning decision, not another authorized long-duration campaign. Enduring contracts use the architecture/ADR route; formal proposed statuses and older plans remain independent. No environment/provenance proof, full wheel installation, smaller solver tolerance or statistical tournament was revived.
 
 
 **Tested, final governance and generated equivalence, baseline zero:** `just governance` passed all leaves, including **25/25 governance tests**, complete code-generation comparison (actual Python contracts/native stub, relation/physical/schema/docs/native store/bindgen outputs) and the family check. Report: `build/assessment/20261018T101745.723880Z-governance-4178450-d2c59b/summary.md`. The final linked workspace/all-target continuing Clippy command above was rerun after the isolated observer-control edit and passed with zero diagnostics in 13.29 seconds (`/tmp/pse45-clippy-linked-fixture-final.log`). Earlier hygiene's unaffected passed leaves plus its repaired metadata/Ruff/Clippy leaves supply composite zero-target scope-end acceptance; the entire bundle was not rerun for documentation edits.
 
 
 **Tested, final document publication, baseline zero:** `scripts/pse-env --native= --resource-class light -- python3 -m scripts.document_lifecycle validate` passed with 626 native scope items; `just docs` published 490 chapters with scoped search. All seven Plan45 lifecycle states and 28 package rows are done; its current-work publication selection was removed, and navigation points to the Outcome and retained limits. The coordinator, consumed companions and source review/evidence remain because current findings, ADRs and qualification readers require them. Every task worktree is integrated/removed; registered disposable services stopped/drained normally. Unrelated dirty environment/workflow files remain outside this change.
+
+## Reopened F05 acceptance (2026-10-18)
+
+**Implemented / Tested, combined main checkout, baseline zero:** the selected native/physical/edit integration passed **12/12** (1,200 unrelated tests excluded), **2.490 seconds** test execution. `PSE_TEST_RESOURCE_STATE=<private registry> just unit-native-capability-package pse-runtime pse-runtime/solver-kinsol,pse-backend-native/kinsol klu <filter below> -p pse-backend-native --test-threads 1 --no-capture` used this exact filter:
+
+```text
+test(local_authored_value_binding_and_structural_edit_journey) | test(physical_refresh_tests) | test(fixed_pattern_complete_operation_contrast) | test(fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric) | test(sparse_implicit_parameters_retain_one_analysis_and_refresh_all_numeric_factors) | test(retained_klu_exact_layout_and_fresh_coefficient_application_boundary) | test(klu_work_getter_reports_failed_guard_singular_factor_and_fresh_application) | test(nested_inner_solver_reuses_session) | test(inner_session_cache_bounded_by_bytes) | test(klu_optional_phase_hook_pairs_failed_and_successful_calls_and_clears) | test(original_validation_failure_resets_numeric_after_native_success) | test(native_newton_line_search_recovers_domain_trial)
+```
+
+The log is `/tmp/pse45-combined-followup.log`. It exercises the actual source ingress → cold/warm prepare → binding/default/span/structural edits → fresh oracle journey with original residuals and exact work-removal assertions. The current/historical physical refresh control runs under the same graph as private KLU adoption, actual implicit parameter Sessions, accepted starts, setup/substitution failure/recovery, original validation, recovered trials, accounting and drain. The adapter explicitly activates runtime Arrow force-validation. A06 additionally records 7 resolver, 54 compiler and 22 runtime targeted controls; E05 records representative short measurements and ten native controls. These are affected-scope acceptance, not a new whole-product/parity or Python-wheel claim. No Python API surface changed, so no extension install was required for this selected public Rust journey.
+
+Independent source review closed the atomic paired context/source admission defect, redundant initial live-lane owners, sparse declaration-string undercharge and unsupported-frontier provider-population mismatch. The final historical provider-map and captured-invariant charges were also reviewed. Scientific-witness/direct implicit construction retains explicit current complete-context identity; unclassified behavior does not receive narrower reuse permission. Generic mutable KLU remains supported. Standard engineering accuracy remains 0.001; no environment/provenance proof or long-duration campaign was added.
+
+`just codegen` published the new frame declarations; generated outputs were not hand-edited. The initial launch was refused before effects because another owned heavy lane was active, then the serialized launch passed. `just turn-end` passed before combined acceptance; hashes of all six unrelated dirty environment/workflow files were unchanged by formatting. The default shared test registry required an unrelated fenced migration, so the supported `PSE_TEST_RESOURCE_STATE` selector chose fresh private registries for this scope; no shared registry or host admission policy was reset. `just ready` passed under that supported selection. One read-only `just activity` snapshot returned nonzero when an unrelated service disappeared during observation; it was not a product qualification and no foreign service was modified.
+
+### Reopened scope-end repair and checks
+
+The initial `just hygiene` run returned **two failed recipes**, both Clippy modes, against baseline zero; all other leaves passed, including Python lint/type/import checks, boundaries/pins/family checks, complete generated equivalence and rustdoc. Report: `build/assessment/20261018T114450.186992Z-hygiene-3890848-b0d2dd/summary.md`. The new capture guard used forbidden `mem::forget`, and fixture helpers contained non-test panic/unwrap sites. Explicit guard disarming preserves error/unwind restoration without forgetting a destructor; fixture failures now occur at actual test owners. All seven resolver controls passed again in 0.004 seconds (`/tmp/pse45-guard-repair.log`), and independent inspection found no lifetime regression.
+
+The first linked Clippy exposed thirteen diagnostics in the new native scope: an equivalent integer assertion/conditional/iteration form and unsafe-operation granularity/safety explanations in test FFI calls. These were fixed without suppressions, numerical changes or FFI call-order changes. All ten native controls passed again in **0.264 seconds** (`/tmp/pse45-native-quality-repair.log`). The initial failures retain their boundaries; they are not reported as passing runs.
+
+**Tested, final continuing Clippy, baseline zero:** `just clippy` passed both complete workspace/all-target modes (`--keep-going`, default and no-default features, `-D warnings`) after all code repairs. Report: `build/assessment/20261018T115855.003636Z-clippy-3949112-41e16d/summary.md`. Linked mode passed in **49.68 seconds**, zero diagnostics, through:
+
+```bash
+PSE_TEST_RESOURCE_STATE=<private-registry> scripts/pse-env --native=solver,klu,isolation,uno,petsc --resource-class compile -- .venv/bin/python -m scripts.arrow_validation clippy --keep-going --no-deps --workspace --all-targets --locked --features pse-py/native-solvers,pse-py/compiled-evaluator,pse-runtime/canonical-tests,pse-tests-conformance/native-acceptance,pse-benches/native-process -- -D warnings
+```
+
+Its log is `/tmp/pse45-clippy-linked-repair.log`. The full linked source selection subsumes the narrower native-contract/data lint selections; those recipe names are not separate executed claims. The unchanged passed hygiene leaves plus repaired Clippy leaves provide composite zero-target scope-end acceptance; the whole bundle was not repeated for document edits.
+
+**Interface-checked, affected features, baseline zero:** the three depth-two runtime combinations of `compiled-evaluator` and `solver-kinsol` passed with zero errors/warnings and actual force-validation: `CARGO_HACK_CARGO_SRC=<checkout>/scripts/cargo_feature_check.py scripts/pse-env --native=klu --resource-class compile -- cargo hack --keep-going check -p pse-runtime --all-targets --feature-powerset --depth 2 --include-features compiled-evaluator,solver-kinsol --locked` (`/tmp/pse45-followup-features.log`). Default/no-default workspace Clippy separately covers the empty feature selection. This is affected-feature coverage, not a new exhaustive workspace powerset.
+
+**Tested, governance and generated equivalence, baseline zero:** `just governance` passed every leaf, including 25/25 governance tests, complete generated-output comparison and the family check. Report: `build/assessment/20261018T115951.534371Z-governance-3954656-4aaee0/summary.md`. No generated file was hand-edited.
+
+### Follow-up Outcome
+
+#### What was built
+
+**Implemented / Tested:** A06/E05 are integrated on main and their qualified F05/F13 corrections are complete. The functional, repaired static and manual checks above preserve their exact scope. All worktree changes were integrated, the formatting-only test-merge conflict was resolved, and both owned worktrees/branches were removed after combined acceptance. Original quality/accuracy and all unrelated dirty environment/workflow files remain intact. The coordinator owns finding decisions; this packet owns composed acceptance. Final document publication is recorded below.
+
+#### A mistake made and corrected
+
+A source edit during the first worktree compile produced an obsolete-API error before tests could run; the frozen-source retry passed. Candidate-generation rollback and invalid fixture-name oracles were corrected without weakening the actual reuse/ownership contract. The first hygiene and linked Clippy failures were repaired at their owners; all subsequent selected modes passed against zero.
+
+#### Deviations from the plan, deliberate
+
+Public Rust composition supplies the affected end-to-end journey; no unchanged Python API needed installation. Complete-context/nonreuse eligibility remains explicit, and no broader model, platform, long-horizon or parity campaign is inferred from these short checks. Other active plans and eliminated proof work remain outside scope. The highest coordinator and consumed qualification/ADR readers require this series to remain retained; retained documents are not an active backlog.
+
+
+**Tested, final document/turn closeout, baseline zero:** final `just turn-end` passed (`build/assessment/20261018T120258.912418Z-turn-end-3969788-16c785/summary.md`); `scripts/pse-env --native= --resource-class light -- python3 -m scripts.document_lifecycle validate` passed with **629 native scope items** and no errors; `just docs` published **491 chapters** with scoped search (`/tmp/pse45-followup-docs.log`). All seven series documents and all 31 package rows are done, current-work publication selection is removed, and the current-work index links the completed Outcome. Only main remains in `git worktree list`; both task branches/worktrees are removed. All six unrelated dirty environment/workflow files retain their pre-format contents. No owned build/test/service remains running and no shared metadata, foreign work or data was reset. Final result is affected-scope completion, with the stated eligibility/qualification limits and other plans unchanged.

@@ -854,9 +854,8 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
     let nnz = unsafe { ffi::SUNSparseMatrix_NNZ(session.matrix) };
     for reinit in [1, 2] {
         // SAFETY: the live fixed-pattern owner refuses reallocation before mutation.
-        let changed = unsafe {
-            ffi::SUNLinSol_KLUReInit(session.linear, session.matrix, nnz + 1, reinit)
-        };
+        let changed =
+            unsafe { ffi::SUNLinSol_KLUReInit(session.linear, session.matrix, nnz + 1, reinit) };
         assert_ne!(changed, 0);
         // SAFETY: read-only extent query after the checked refusal.
         let current_nnz = unsafe { ffi::SUNSparseMatrix_NNZ(session.matrix) };
@@ -949,9 +948,8 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
         {
             // SAFETY: the live matrix still owns the canonical number of numeric
             // entries, exclusively borrowed through this value update.
-            let values = unsafe {
-                std::slice::from_raw_parts_mut(data, session.callback.rows.len())
-            };
+            let values =
+                unsafe { std::slice::from_raw_parts_mut(data, session.callback.rows.len()) };
             for col in 0..4 {
                 for offset in session.callback.columns[col]..session.callback.columns[col + 1] {
                     let offset = usize::try_from(offset).unwrap();
@@ -980,9 +978,8 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
     }
     // A wrong native matrix is refused before use, invalidating uncertain analysis.
     // SAFETY: the context is live; this temporary matrix receives its own allocation.
-    let foreign = unsafe {
-        ffi::SUNSparseMatrix(4, 4, session.callback.rows.len() as i64, 0, session.ctx)
-    };
+    let foreign =
+        unsafe { ffi::SUNSparseMatrix(4, 4, session.callback.rows.len() as i64, 0, session.ctx) };
     assert!(!foreign.is_null());
     // SAFETY: the live solver checks and refuses this independent matrix's identity.
     let factored = unsafe { ffi::SUNLinSolSetup_KLU(session.linear, foreign) };

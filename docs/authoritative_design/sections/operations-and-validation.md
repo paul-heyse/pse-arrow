@@ -594,9 +594,12 @@ refused observations; its isolated growth fixture joins the independent periodic
 before measurement while keeping collection and strict coverage checks enabled. Ordinary
 physical accuracy remains 0.001 and independent gradient oracles remain separate. Inclusive
 clocks and once-only contrasts do not establish statistical speedup or exclusive CPU cost.
-Conservative physical-context invalidation and repeated stock KLU symbolic analysis remain
-unresolved under the accepted bounded outcomes; register R-54/R-53 preserve their observable
-triggers. Unsupported composition/JIT/projection/checkpoint alternatives, arbitrary large
+The later Plan45 A06/E05 follow-up implements consumed physical reuse and private fixed-pattern
+KLU symbolic retention. Its combined twelve-control native/edit journey passed with original
+checks and actual current/historical owners; the [reopened 45f acceptance](../../plans/45f-short-run-qualification-and-publication.md#reopened-f05-acceptance-2026-10-18) records repaired zero-target scope-end checks, affected feature combinations and governance/generated equivalence.
+Scientific-witness/direct implicit and unclassified dependency paths remain explicitly
+complete-context, and generic mutable KLU keeps its original supported lifetime. R-54/R-53
+are resolved and removed from the deferred register. Unsupported composition/JIT/projection/checkpoint alternatives, arbitrary large
 relation atomic closure and oversized optional-cache retention are not claimed.
 
 ### 24.3 Benchmarks

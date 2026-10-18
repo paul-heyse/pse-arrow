@@ -61,7 +61,7 @@ The tested candidate compared exact occupied CSC structure and all KLU analysis-
 
 ### Compensating controls
 
-Keep stock numerical initialization and failure/recovery semantics. Retained native allocations do not authorize old factors. Explicit Krylov selection retains its existing problem eligibility and original physical residual checks; this observation does not make it the global default. Plan45 F13 remains unresolved under the accepted bounded RC08 disposition.
+Keep stock numerical initialization and failure/recovery semantics. Retained native allocations do not authorize old factors. Explicit Krylov selection retains its existing problem eligibility and original physical residual checks; this observation does not make it the global default. F13 remained unresolved at that earlier close; the current follow-up outcome above records its subsequent qualified correction.
 
 ### Confirmation
 

@@ -1595,9 +1595,7 @@ impl Session {
                     crate::callback::classify(cause.as_ref()) == crate::callback::Failure::Trial
                 })
         });
-        if !successful
-            && let Err(cleanup) = self.begin_application()
-        {
+        if !successful && let Err(cleanup) = self.begin_application() {
             // The original scientific/callback cause stays authoritative.
             // This owner cannot be retained after uncertain cleanup.
             if let Ok(report) = &mut result {
@@ -3783,13 +3781,7 @@ mod tests {
             // SAFETY: live exclusively owned solver and vectors; missing numerical
             // validity must refuse substitution without invoking native KLU solve.
             let substituted = unsafe {
-                ffi::SUNLinSolSolve_KLU(
-                    session.linear,
-                    session.matrix,
-                    session.x,
-                    session.us,
-                    0.,
-                )
+                ffi::SUNLinSolSolve_KLU(session.linear, session.matrix, session.x, session.us, 0.)
             };
             assert_ne!(substituted, 0);
             let config = session.settings.clone();

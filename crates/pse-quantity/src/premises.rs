@@ -700,7 +700,11 @@ mod tests {
     fn facts() -> Result<PhysicalPreconditions, QuantityError> {
         PhysicalPreconditions::new(generated::standard_preconditions())
     }
-    fn entity(registry: &QuantityRegistry, byte: u8, name: &str) -> Result<QuantityRegistry, QuantityError> {
+    fn entity(
+        registry: &QuantityRegistry,
+        byte: u8,
+        name: &str,
+    ) -> Result<QuantityRegistry, QuantityError> {
         let mut builder = registry.to_builder();
         builder.entity_kind(EntityKind {
             id: EntityKindId::from_id(pse_ids::SemanticId::from_bytes([byte; 16])),

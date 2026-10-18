@@ -4,13 +4,6 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
-[Plan45: Pipeline execution optimization](45-pipeline-execution-optimization.md)
-is reopened for F05 physical-premise reuse and F13 conditional fixed-pattern KLU qualification.
-The [follow-up checkpoint](45-pipeline-execution-optimization.md#reopened-follow-up-checkpoint-2026-10-18)
-owns the authorized remaining scope; 45a/A06, 45e/E05 and 45f/F05 own implementation
-and acceptance. The original 28 packages and their bounded Outcomes remain complete within
-their recorded conditions. Other retained alternatives and other plans keep their owners.
-
 [Plan43: Solver diagnostics and performance](43-solver-diagnostics-and-performance.md)
 is complete after its production-completeness remediation. Its
 [current checkpoint](43-solver-diagnostics-and-performance.md#current-checkpoint) records
@@ -123,6 +116,14 @@ execution follows only the explicitly recorded scope of active plans from 28 onw
 Plan 32 owns workspace content lifecycle work; Plan 28 retains its own scope.
 
 ## Completed plans retained for current qualification
+
+[Plan45: Pipeline execution optimization](45-pipeline-execution-optimization.md)
+is complete, including the reopened F05 physical-premise and F13 fixed-pattern KLU follow-up.
+Its [follow-up Outcome](45-pipeline-execution-optimization.md#reopened-follow-up-outcome)
+records all 31 packages done, qualified finding corrections, short functional acceptance,
+repaired zero-target static/manual checks and deliberate eligibility boundaries. The
+coordinator and consumed companions remain for live ADR/qualification readers; they authorize
+no further work. Other plans keep their existing scope and status.
 
 [Plan39](39-implementation-friction-and-codex-effectiveness.md#outcome-recorded-after-implementation)
 is complete (2026-10-17), including all remaining inherited Plan38 scope.

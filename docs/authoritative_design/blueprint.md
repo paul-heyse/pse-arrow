@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 206
+revision: 207
 date: 2026-10-18
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 207 | 2026-10-18 | Reconcile qualified Plan45 F05/F13 completion (§24.2), current physical/native eligibility and proposed ADR-0183/0200 evidence; retire resolved R-54/R-53 register rows. | Maintainer-authorized Plan45 execution; PSE_DESIGN_EDIT=1. Targeted/combined acceptance, three continuing Clippy modes, affected features and governance passed; formal ADR statuses and other plans unchanged. |
 | 206 | 2026-10-18 | Publish implemented Plan45 RC03 resolver-issued consumed premises, versioned body/view frames and current-owner compiler/runtime migration (§5/§14.4), with explicit complete-context fallback boundaries. | Maintainer-authorized F05 follow-up; PSE_DESIGN_EDIT=1. Proposed ADR-0183 owns rationale; 45a/A06 targeted and 45f/F05 combined acceptance remain authoritative. |
 | 205 | 2026-10-18 | Publish Plan45e/E05 private fixed-pattern KLU adoption (§18) under proposed ADR-0200 after the representative short comparison, actual implicit cache and failure/original-validation controls. | Maintainer-authorized RC08 execution; PSE_DESIGN_EDIT=1. Ten targeted controls passed; combined acceptance remains 45f/F05, with no public solver/default/accuracy change. |
 | 204 | 2026-10-18 | Install accepted Plan45 RC03 consumed physical premises/current-owner lane refresh target (§8/§14.4/§5) and conditional RC08 private fixed-pattern KLU lifetime (§18); proposed ADR-0183/0200 amendments precede dependent implementation. | Maintainer-authorized F05/F13 follow-up; PSE_DESIGN_EDIT=1. Target installation only; behavioral qualification/adoption remain with 45a/A06, 45e/E05 and 45f/F05. Formal ADR statuses unchanged. |
