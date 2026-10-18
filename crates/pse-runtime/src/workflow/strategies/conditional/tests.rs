@@ -1333,7 +1333,7 @@ async fn conditional_retention_control(ambiguous: bool) {
         budget,
     )
     .unwrap();
-    let charged = unit.budget.used();
+    let mut charged = unit.budget.used();
     for (attempt, (input, expected)) in [(4.0_f64, 6.0), (8.0, 10.0), (4.0, 6.0)]
         .into_iter()
         .enumerate()
@@ -1363,6 +1363,12 @@ async fn conditional_retention_control(ambiguous: bool) {
             "Fresh must refresh changed numeric setup"
         );
         assert_eq!(unit.program.values.identity(), original);
+        // First execution installs the charged native callback/proof owner.
+        // Later overlays replace that owner; retained residency must plateau.
+        if attempt == 0 {
+            assert!(unit.budget.used() >= charged);
+            charged = unit.budget.used();
+        }
         assert_eq!(unit.budget.used(), charged);
     }
     let independent_budget = crate::math::WorkerBudget::new(16 << 20);
@@ -1639,6 +1645,7 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
     let controls = Controls::default();
     let execution = Execution::new(pse_diagnostics::Cancellation::new(false), &controls);
     let budget = crate::math::WorkerBudget::new(16 << 20);
+    let live_budget = budget.clone();
     let mut unit = UnitWorker::new(
         program,
         runtime.native(),
@@ -1647,8 +1654,9 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
         budget,
     )
     .unwrap();
-    let charged = unit.budget.used();
-    for (input, expected) in [(4.0, 4.0), (8.0, 6.0), (4.0, 4.0)] {
+    let mut charged = unit.budget.used();
+    for (attempt, (input, expected)) in [(4.0, 4.0), (8.0, 6.0), (4.0, 4.0)].into_iter().enumerate()
+    {
         let outputs = unit
             .evaluate(
                 &BTreeMap::from([(inlet, input), (auxiliary, 2.0)]),
@@ -1658,6 +1666,12 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
         assert!((outputs[&outlet] - expected).abs() < 1e-7);
         assert!((outputs[&auxiliary_outlet] - 5.0).abs() < 1e-7);
         assert_eq!(unit.program.values.identity(), original);
+        // First execution installs the charged native callback/proof owner.
+        // Later overlays replace that owner; retained residency must plateau.
+        if attempt == 0 {
+            assert!(unit.budget.used() >= charged);
+            charged = unit.budget.used();
+        }
         assert_eq!(unit.budget.used(), charged);
     }
     assert!(unit.evaluate(&BTreeMap::new(), &execution).is_err());
@@ -1677,6 +1691,8 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
     );
     assert_eq!(unit.program.values.identity(), original);
     assert_eq!(unit.budget.used(), charged);
+    drop(unit);
+    assert_eq!(live_budget.used(), 0);
 
     let mut explicit = request.clone();
     explicit.units[0].realization = CausalUnitRealization::ExplicitMap;
@@ -2047,6 +2063,7 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
         &Controls::default(),
     );
     let budget = crate::math::WorkerBudget::new(16 << 20);
+    let live_budget = budget.clone();
     let mut unit = UnitWorker::new(
         program,
         runtime.native(),
@@ -2055,13 +2072,19 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
         budget,
     )
     .unwrap();
-    let charged = unit.budget.used();
-    for target in [310.0, 320.0, 310.0] {
+    let mut charged = unit.budget.used();
+    for (attempt, target) in [310.0, 320.0, 310.0].into_iter().enumerate() {
         let outputs = unit
             .evaluate(&BTreeMap::from([(inlet, target)]), &execution)
             .unwrap();
         assert!((outputs[&outlet] - target).abs() < 1e-7);
         assert_eq!(unit.program.values.identity(), original);
+        // First execution installs the charged native callback/proof owner.
+        // Later overlays replace that owner; retained residency must plateau.
+        if attempt == 0 {
+            assert!(unit.budget.used() >= charged);
+            charged = unit.budget.used();
+        }
         assert_eq!(unit.budget.used(), charged);
     }
     assert!(
@@ -2078,6 +2101,8 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
     );
     assert_eq!(unit.program.values.identity(), original);
     assert_eq!(unit.budget.used(), charged);
+    drop(unit);
+    assert_eq!(live_budget.used(), 0);
 }
 
 #[tokio::test]

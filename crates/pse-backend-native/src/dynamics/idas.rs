@@ -5038,10 +5038,9 @@ mod checkpoint_owner_tests {
         fn new(spacing: c_long) -> Self {
             let mut context = std::ptr::null_mut();
             // SAFETY: the local output is writable and the serial fixture uses no MPI.
-            assert_eq!(
-                unsafe { ffi::SUNContext_Create(ffi::comm_no_mpi(), &raw mut context) },
-                0
-            );
+            let context_status =
+                unsafe { ffi::SUNContext_Create(ffi::comm_no_mpi(), &raw mut context) };
+            assert_eq!(context_status, 0);
             // SAFETY: context is live and this owner requests exactly one scalar.
             let state = unsafe { ffi::N_VNew_Serial(1, context) };
             // SAFETY: the same live context owns the matching one-entry rate vector.
@@ -5072,22 +5071,16 @@ mod checkpoint_owner_tests {
             };
             assert!(!linear.is_null());
             // SAFETY: decay uses the matching live vectors owned through final teardown.
-            assert_eq!(
-                unsafe { ffi::IDAInit(memory, Some(decay), 0., state, rate) },
-                0
-            );
+            let init_status = unsafe { ffi::IDAInit(memory, Some(decay), 0., state, rate) };
+            assert_eq!(init_status, 0);
             // SAFETY: initialized memory receives finite positive scalar tolerances.
             assert_eq!(unsafe { ffi::IDASStolerances(memory, 0.001, 0.001) }, 0);
             // SAFETY: the solver and matrix share the memory's context and dimensions.
-            assert_eq!(
-                unsafe { ffi::IDASetLinearSolver(memory, linear, matrix) },
-                0
-            );
+            let linear_status = unsafe { ffi::IDASetLinearSolver(memory, linear, matrix) };
+            assert_eq!(linear_status, 0);
             // SAFETY: initialized private memory receives the supplied positive spacing.
-            assert_eq!(
-                unsafe { ffi::IDAAdjInit(memory, spacing, ffi::IDA_HERMITE) },
-                0
-            );
+            let adjoint_status = unsafe { ffi::IDAAdjInit(memory, spacing, ffi::IDA_HERMITE) };
+            assert_eq!(adjoint_status, 0);
             owner
         }
         fn limit(&mut self, maximum: c_long) -> i32 {
@@ -5097,17 +5090,15 @@ mod checkpoint_owner_tests {
         fn usage(&self) -> (c_long, c_long, i32) {
             let (mut current, mut peak, mut refused) = (0, 0, 0);
             // SAFETY: live owned memory and independent initialized output storage.
-            assert_eq!(
-                unsafe {
-                    ffi::IDAGetCheckpointUsage(
-                        self.memory,
-                        &raw mut current,
-                        &raw mut peak,
-                        &raw mut refused,
-                    )
-                },
-                0
-            );
+            let usage_status = unsafe {
+                ffi::IDAGetCheckpointUsage(
+                    self.memory,
+                    &raw mut current,
+                    &raw mut peak,
+                    &raw mut refused,
+                )
+            };
+            assert_eq!(usage_status, 0);
             (current, peak, refused)
         }
         fn solve(&mut self, target: f64, task: i32) -> (i32, f64, f64) {
@@ -5198,10 +5189,8 @@ mod checkpoint_owner_tests {
             set_scalar(native.rate, -1.);
         }
         // SAFETY: reset private memory with its matching owned vectors.
-        assert_eq!(
-            unsafe { ffi::IDAReInit(native.memory, 0., native.state, native.rate) },
-            0
-        );
+        let reset_status = unsafe { ffi::IDAReInit(native.memory, 0., native.state, native.rate) };
+        assert_eq!(reset_status, 0);
         // SAFETY: release the checkpoint population on its sole owning thread.
         assert_eq!(unsafe { ffi::IDAAdjReInit(native.memory) }, 0);
         assert_eq!(

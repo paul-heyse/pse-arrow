@@ -215,7 +215,7 @@ def test_canonical_open_failure_and_invalid_user_range_keep_distinct_diagnostics
 
 
 @pytest.mark.integration
-def test_canonical_close_and_idempotent_cache_clear_after_retention_refusal(
+def test_canonical_close_and_idempotent_cache_clear_with_retained_payload(
     inspection_settings: pse.EngineSettings,
     canonical_substrate: CanonicalFixture,
 ) -> None:
@@ -236,16 +236,17 @@ def test_canonical_close_and_idempotent_cache_clear_after_retention_refusal(
     (record,) = pa.table(runtime.attempt_record(attempt)).to_pylist()
     assert record["terminal"]
     assert record["outcome"] == "succeeded"
-    # This full physical-row receipt closure exceeds the optional cache budget
-    # once every independent protection and release grant is included.
-    assert _physical_cache_usage(runtime) == (0, 0)
+    # The immutable receipt payload fits retention; active caller protection
+    # is a separate owner and is never kept alive by this optional entry.
+    retained = _physical_cache_usage(runtime)
+    assert retained[0] == 1
+    assert retained[1] > 0
     del variables, result, handle, prepared, package
-    assert _physical_cache_usage(runtime) == (0, 0)
-    # Caller close and explicit optional-cache clearing remain separate operations
-    # even when this product was refused retention.
+    assert _physical_cache_usage(runtime) == retained
+    # Caller close and explicit optional-cache clearing are separate operations.
     runtime.close()
     runtime.close()
-    assert _physical_cache_usage(runtime) == (0, 0)
+    assert _physical_cache_usage(runtime) == retained
     with pytest.raises(pse.InspectionError, match="runtime caller is closed"):
         runtime.attempt_record(attempt)
     runtime.clear_program_cache()
@@ -275,9 +276,11 @@ def test_canonical_close_preserves_live_result_reader_and_independent_caller(
     del result, handle, prepared, package
     independent = canonical_substrate.runtime(inspection_settings)
     try:
-        # Full physical-row retention is refused; the reader's independent
-        # protection, rather than an optional cache entry, owns its later fetch.
-        assert _physical_cache_usage(runtime) == (0, 0)
+        # Retained payloads own no active protection. Evict the optional entry;
+        # the admitted reader must keep its independent permission for the fetch.
+        retained = _physical_cache_usage(runtime)
+        assert retained[0] == 1
+        assert retained[1] > 0
         runtime.clear_program_cache()
         runtime.close()
         runtime.close()
