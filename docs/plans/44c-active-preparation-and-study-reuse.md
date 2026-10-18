@@ -1,6 +1,6 @@
 ---
 title: Active preparation and study reuse
-status: in-progress
+status: done
 date: 2026-10-17
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_pipeline-performance-optimization_2026-10-17.md]
@@ -65,7 +65,7 @@ No host resource guard is bypassed and no shared registry/service is reset for t
 
 [44e](44e-short-run-investigation-and-optimization.md) owns case rounds and measurements, including the cold/repeat/seed distinctions. Targeted C01 lifetime/reuse tests are necessary even when all analytic roots already pass. Benefit reports name work removed and actual conditions; parallel speedup is not inferred from fewer views or a larger pool. Final integration/quality belongs to 44f. All C packages were open at authoring.
 
-## Specified-change checkpoint
+## Historical specified-change checkpoint
 
 **Implemented and targeted Tested:** each active lane owns one compatible current numerical view checked before optional global lookup. The complete bound key, source attribution and original domain admission govern reuse; fresh values are rebound, incompatible keys replace the slot, and payload/metadata references retain their existing shared accounting owners. Native scope drain precedes slot release. The local coordinator future is boxed inside observation wrappers, matching the existing durable route, so the public local path does not embed its large state through nested caller frames. Tests cover four real point preparations with one/two lanes and Full/Compact retention under between-point trimming, key/attribution changes, concurrent warm sharing, metadata denial and cancellation while a real retained native session is held. The cancellation control uses the production study lane's staged execution path with an eligible nonlinear, non-presolved KINSOL model. C02–C04 remain investigations; F04 stays open for C04's separate constructor/accounting question. No RSS-based allowance reduction or measured parallel speedup is claimed.
 
@@ -92,3 +92,9 @@ Four once-only native-local controls (`compact-root-diagonal-4`, `compact-diffso
 The loader/Serde/schema/allocation stacks in the earlier partial CPU capture remain leads rather than an exclusive attribution. No additional duplicate representation or repeated per-point source import was established in the inspected local route; no schema/representation rewrite is selected. A larger repeated-source or property-heavy workload that actually makes admission material must first separate document loading, physical admission and modeling admission on that workload, with aligned CPU/allocation capture and retained-source controls. This is a distinct scaling question, not a reason to postpone the demonstrated N01 correction or claim every admission path is optimized. C02 removes the separately demonstrated repeated immutable compilation, while C04 retains sound conservative allowances.
 
 **Deliberate limits:** process durations include fresh source/runtime setup and observer overhead; compiler spans are task-scoped inclusive observations. No universal speedup, complete allocation profile, smaller foreign bound or elimination of all preparation is claimed. A mistake corrected during the breadth round was treating quadratic positive-root expectations as unique solutions; the affirmative root ladder now uses unique monotone systems, and a separate negative-branch control preserves original rejection rather than weakening it.
+
+## Outcome
+
+**Implemented and Tested:** active numerical views survive optional-cache pressure until actual lane drain. Immutable inner programs share the existing compilation owner while mutable native/configuration state stays fresh; retained payload, wrappers and job containers are separately charged. Targeted identity/invalidation, pressure, cancellation, accounting and assembled native-local controls passed at baseline zero. [44f](44f-integrated-acceptance-and-follow-up.md#assembled-acceptance-checkpoint) owns integrated commands and qualification.
+
+**Mistake corrected:** compact local science inadvertently constructed durable fixture state; N01 now uses one existing local runtime and its shared physical context. **Deliberate limits:** C03 selected that demonstrated correction rather than a speculative representation rewrite. C04 retains conservative foreign/workspace allowances; RSS and logical bounds measure different populations. Fresh source/support declaration and necessary first preparation remain.

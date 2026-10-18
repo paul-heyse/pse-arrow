@@ -111,11 +111,11 @@ pub(super) async fn recycle(
         .as_str()
         .is_some_and(|shape| matches!(shape, "coupled" | "stagnating"));
     let runtime = if spec["operation"] == "compact-recycle" {
-        super::compact::local_runtime(owner)
+        compact::local_runtime(owner)
     } else {
         runtime(owner)
     };
-    let physical = fixture::physical_on(owner, &runtime).await;
+    let physical = physical_on(owner, &runtime).await;
     let source = match spec["shape"].as_str() {
         Some("coupled") => {
             "package benchmark {def Root {var x:Scalar; var y:Scalar; let a:Scalar=0.4*x+0.1*y+2; let b:Scalar=0.2*x+0.3*y+2; port inlet:Scalar=x; annotation connectivity inlet(1,0); port outlet:Scalar=a; annotation connectivity outlet(0,1); port inlet_y:Scalar=y; annotation connectivity inlet_y(1,0); port outlet_y:Scalar=b; annotation connectivity outlet_y(0,1); connect outlet -> inlet; connect outlet_y -> inlet_y; annotation start x(1); annotation start y(2);}}"

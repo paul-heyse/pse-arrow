@@ -901,8 +901,12 @@ unsafe extern "C" fn quadrature_sensitivities(
         };
         let columns = (0..c.axes.len())
             .map(|k| {
-                // SAFETY: each state sensitivity has n entries.
-                unsafe { read(*ys.add(k), n) }
+                // SAFETY: IDAS supplies one handle for each of the ns checked axes.
+                let handle = unsafe { ys.add(k) };
+                // SAFETY: that in-bounds handle is initialized for this callback.
+                let vector = unsafe { *handle };
+                // SAFETY: each live state sensitivity vector has n entries.
+                unsafe { read(vector, n) }
             })
             .collect::<Vec<_>>();
         let product = chained(&j, &columns, n, &c.map, &c.axes);
@@ -916,8 +920,12 @@ unsafe extern "C" fn quadrature_sensitivities(
                 ));
                 return -1;
             }
-            // SAFETY: IDAS supplies one nq-entry output vector for each selected axis.
-            unsafe { write(*out.add(k), &values) };
+            // SAFETY: IDAS supplies one output handle for each checked selected axis.
+            let handle = unsafe { out.add(k) };
+            // SAFETY: the in-bounds output handle is initialized for this callback.
+            let vector = unsafe { *handle };
+            // SAFETY: the live output vector has the checked nq entries in values.
+            unsafe { write(vector, &values) };
         }
         0
     }));

@@ -205,8 +205,8 @@ unsafe extern "C" fn linear_phase(id: i32, begin: i32, userdata: *mut c_void) {
 }
 fn solve_observed(session: &mut Session, start: &[f64]) -> (SolveReport, LinearPhases) {
     let mut phases = LinearPhases::default();
-    // SAFETY: live exclusively owned KLU owner; phases remains fixed during solve.
     assert_eq!(
+        // SAFETY: live exclusively owned KLU owner; phases remains fixed during solve.
         unsafe {
             ffi::SUNLinSol_KLUSetObserver(
                 session.linear,
@@ -217,8 +217,8 @@ fn solve_observed(session: &mut Session, start: &[f64]) -> (SolveReport, LinearP
         0
     );
     let report = solve(session, start);
-    // SAFETY: clear exact live owner's hook before stack userdata may move or drop.
     assert_eq!(
+        // SAFETY: clear exact live owner's hook before stack userdata may move or drop.
         unsafe { ffi::SUNLinSol_KLUSetObserver(session.linear, None, std::ptr::null_mut()) },
         0
     );
@@ -328,9 +328,9 @@ fn retained_klu_exact_layout_and_fresh_coefficient_application_boundary() {
             );
         }
         for ordering in [0, 2] {
-            // SAFETY: documented KLU ordering choices on the exclusively owned
-            // live solver; next KINSol still performs its required initialization.
             assert_eq!(
+                // SAFETY: documented KLU ordering choices on the exclusively owned
+                // live solver; next KINSol still performs its required initialization.
                 unsafe { ffi::SUNLinSol_KLUSetOrdering(session.linear, ordering) },
                 0
             );

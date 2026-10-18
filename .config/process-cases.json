@@ -1929,13 +1929,13 @@
       ]
     },
     {
-      "id": "p44-results-admitted-retained-4-5",
+      "id": "p44-results-admitted-retained-80-5",
       "operation": "result_analysis",
       "reuse": "admitted-retained",
-      "blocks": 4,
+      "blocks": 80,
       "threads": 1,
       "variables": [
-        4
+        80
       ],
       "result_reads": 3,
       "functional_scopes": [
@@ -1956,17 +1956,17 @@
           "result.materialization",
           "resource.shared_pool_reserved"
         ],
-        "interpretation_limits": "One complete observation; distinct admitted/read and source-to-published scopes, no throughput or statistical claim."
+        "interpretation_limits": "One complete observation; distinct admitted/read and source-to-published scopes, no throughput or statistical claim. Preserve the existing x73 selection and graph-pagination assertions; 80/96 states are small native linear fixtures, not longer horizons."
       }
     },
     {
-      "id": "p44-results-admitted-retained-4-25",
+      "id": "p44-results-admitted-retained-80-25",
       "operation": "result_analysis",
       "reuse": "admitted-retained",
-      "blocks": 4,
+      "blocks": 80,
       "threads": 1,
       "variables": [
-        4
+        80
       ],
       "result_reads": 3,
       "functional_scopes": [
@@ -1987,17 +1987,17 @@
           "result.materialization",
           "resource.shared_pool_reserved"
         ],
-        "interpretation_limits": "One complete observation; distinct admitted/read and source-to-published scopes, no throughput or statistical claim."
+        "interpretation_limits": "One complete observation; distinct admitted/read and source-to-published scopes, no throughput or statistical claim. Preserve the existing x73 selection and graph-pagination assertions; 80/96 states are small native linear fixtures, not longer horizons."
       }
     },
     {
-      "id": "p44-results-admitted-retained-8-5",
+      "id": "p44-results-admitted-retained-96-5",
       "operation": "result_analysis",
       "reuse": "admitted-retained",
-      "blocks": 8,
+      "blocks": 96,
       "threads": 1,
       "variables": [
-        8
+        96
       ],
       "result_reads": 3,
       "functional_scopes": [
@@ -2018,17 +2018,17 @@
           "result.materialization",
           "resource.shared_pool_reserved"
         ],
-        "interpretation_limits": "One complete observation; distinct admitted/read and source-to-published scopes, no throughput or statistical claim."
+        "interpretation_limits": "One complete observation; distinct admitted/read and source-to-published scopes, no throughput or statistical claim. Preserve the existing x73 selection and graph-pagination assertions; 80/96 states are small native linear fixtures, not longer horizons."
       }
     },
     {
-      "id": "p44-results-publish-chain-4-5",
+      "id": "p44-results-publish-chain-80-5",
       "operation": "result_analysis",
       "reuse": "publish-chain",
-      "blocks": 4,
+      "blocks": 80,
       "threads": 1,
       "variables": [
-        4
+        80
       ],
       "result_reads": 3,
       "physical_padding_bytes": 0,
@@ -2050,7 +2050,7 @@
           "result.materialization",
           "resource.shared_pool_reserved"
         ],
-        "interpretation_limits": "One complete observation; distinct admitted/read and source-to-published scopes, no throughput or statistical claim."
+        "interpretation_limits": "One complete observation; distinct admitted/read and source-to-published scopes, no throughput or statistical claim. Preserve the existing x73 selection and graph-pagination assertions; 80/96 states are small native linear fixtures, not longer horizons."
       }
     }
   ]

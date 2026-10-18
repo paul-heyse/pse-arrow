@@ -1,6 +1,6 @@
 ---
 title: Invocation coverage and diagnostic readiness
-status: in-progress
+status: done
 date: 2026-10-17
 adrs: [ADR-0192]
 review_sources: [docs/design_review/reviews/design_review_pipeline-performance-optimization_2026-10-17.md]
@@ -65,7 +65,7 @@ Use targeted unit/compile checks for affected owners and public Python integrati
 
 At authoring, all A packages were open. Document authoring itself implemented no recorder, producer or runner behavior; the checkpoint below records subsequent execution. Outcome will identify exact tested scope, remaining collection limitations and deliberate changes to the clock boundary.
 
-## Specified-change checkpoint
+## Historical specified-change checkpoint
 
 **Implemented:** A01 creates a fresh recorder inside the entered activity owner before synchronous dispatch; the supervisor and native worker carry that same recorder. Invocation/comparison version2 excludes earlier preparation and refuses old supervisor-only comparison meaning. The actual native-worker owner supplies one bounded inclusive `native.worker_execution` interval. A02 publishes integration completion before closing its experiment operation. The native final-assessment and cancellation controls compare selected source records with retained producer state. All four actual start boundaries were migrated; assembled durable/live journeys remain with 44f. A03 currently supplies these decisive owner facts, sparse verification support visits, and `workflow.integration.v1.forward_direction_columns` from the fitting/shooting selected request. That field describes the physical response layout, not an executed-vector count, and non-forward work retains explicit NotRequested availability. Standalone trajectory observations project the report's `forward_axes`; its campaign-driven inventory remains open. A04 uses one declared audit capability per case and an existing case-owned finite detail session; runner tests cover stop/order/failure/drain. Four once-only harness readiness controls passed with original assertions, registered cleanup and normal owned-service stop. Actual selected-detail loss remains explicit; no campaign has run.
 
@@ -82,3 +82,9 @@ Aggregate `tables()` access calls `table_by_id` directly, so named-table child s
 **N02 — campaign-consumer correction; priority medium:** compact root/class fixtures checked acceptance before copying already-returned invocation/native observations. Their failed output retained a generic incomplete prefix, preventing the available result facts from distinguishing native convergence from original rejection. Copy those observations before the assertion and include at most eight component-local candidate prefixes/eight failed checks in the shared assertion's failure context. This changes no solver work, product permission or outcome; failed assertions still fail. The expected negative-branch control checks successful feasible native candidates alongside unusable original results. It is a C12 adverse control, never affirmative C03 coverage. No new native event family or globally increased retention budget is warranted. Verification remains with the coordinator's resweep.
 
 **Tested — N02 adverse control:** `compact-root-negative-branch-refusal-4` deliberately converges to a feasible negative branch while the independent positive-root target rejects it. Returned native and original-assessment observations are retained before the assertion/expected-refusal boundary. The final 38-case compact resweep completed all intended assertions with zero diagnostic or cleanup failures; loss in burst raw root streams remains explicit, not a claim of complete tracing.
+
+## Outcome
+
+**Implemented and Tested:** pre-dispatch invocation context, terminal-before-close publication and the existing declared case route compose with the short campaign. N02 retains returned numerical observations before independent scientific assertions; its adverse negative-branch control confirms that native convergence alone grants no original permission. The 84 runner tests, assembled 86-test native-local selection and public Python diagnostic/live controls passed at baseline zero; exact commands, durable/managed coverage and final quality belong to [44f](44f-integrated-acceptance-and-follow-up.md#assembled-acceptance-checkpoint).
+
+**Mistake corrected:** the original root fixture checked acceptance before copying returned observations, concealing the native/original distinction on failure. Observation copying now precedes the assertion, with bounded component-local failure context. **Deliberate limits:** existing performing-owner facts were sufficient; no global trace vocabulary, increased retention budget or mandatory profiler was added. Burst loss, inclusive intervals and unavailable exclusive CPU remain explicit.

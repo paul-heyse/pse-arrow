@@ -153,7 +153,7 @@ Observation effects are classified before any preparation identity is narrowed. 
 settings and resource/reporting consequences remain visible; no identical-deadline-trajectory or
 zero-overhead claim follows.
 
-> Decision: ADR-0192 (proposed; Plan44/RC01 implemented). The invocation recorder is established inside the entered activity owner before native dispatch, and that one context transfers through worker and supervisor. Version 2 uses wall seconds from that establishment, excluding earlier preparation; synchronous admission/refusal and nested invocation boundaries remain. Version-1 supervisor-only observations do not supply that expanded coverage. The native worker records its actual bounded inclusive execution interval; it is not exclusive CPU accounting. Targeted invocation, comparison, final-assessment and Python projection controls passed; assembled journeys remain with Plan44f.
+> Decision: ADR-0192 (proposed; Plan44/RC01 implemented). The invocation recorder is established inside the entered activity owner before native dispatch, and that one context transfers through worker and supervisor. Version 2 uses wall seconds from that establishment, excluding earlier preparation; synchronous admission/refusal and nested invocation boundaries remain. Version-1 supervisor-only observations do not supply that expanded coverage. The native worker records its actual bounded inclusive execution interval; it is not exclusive CPU accounting. Targeted invocation, comparison, final-assessment and Python projection controls passed; selected assembled native, durable/managed and public Python acceptance is recorded in §24.2.
 
 > Decision: ADR-0196 (proposed; Plan43e target). Retained source-event pages can be projected through the registry-declared `runtime.diagnostic_evidence_fields`, `runtime.diagnostic_invocations` and `runtime.diagnostic_captures` relations. Operation/producer/generation/event/field membership, exact time, units, typed values and explicit loss/availability survive projection. Existing source artifacts remain raw authority; finite analytical allocation leases remain attached to escaped Arrow buffers. DataFusion and Python consume this same projection without scientific-store availability, implicit evaluation or a second retention authority. Repeated event identities refuse the derived view rather than silently deduplicate raw evidence.
 
@@ -547,10 +547,33 @@ native contract/data checks and the depth-two feature matrix retain their exact 
 and composite repair boundaries there. The optional compiled route has its separately
 selected qualification. This is selected assembled acceptance, not a replacement of the
 historical full basis, certification of the whole physical model library, a statistical
-speedup or an all-platform campaign. An unchanged external-report metadata error blocks
-full-book publication; authored-scope metadata/native tables/links/rendering remain a
+speedup or an all-platform campaign. At that checkpoint, an external-report metadata error blocked
+full-book publication; authored-scope metadata/native tables/links/rendering were a
 separate check. Older plans and formal proposed ADR statuses are not reassessed.
 Environment/provenance proof and compulsory repeated benchmarking remain eliminated.
+
+Selected Plan44 acceptance of 2026-10-17 belongs to the
+[Plan44f Outcome](../../plans/44f-integrated-acceptance-and-follow-up.md#outcome).
+The integrated scope includes 86 native-local scientific/resource/diagnostic controls,
+eleven actual compiled-evaluator controls, one canonical exact-manifest reopen,
+three managed publication/continuation/cancellation-and-drain controls, and four local
+plus four durable public Python controls. Fast editable native correctness builds were
+used; Arrow-consuming correctness closures explicitly activated force-validation.
+The 38-case compact resweep, four matched output-density observations and four corrected
+retained-result/publication observations retain their different populations and once-only
+conditions in Plan44e. Scope-end static/publication results retain their exact commands
+and composite repair boundaries in Plan44f; no full wheel, whole-product/parity rerun,
+statistical speedup or environment/provenance attestation follows.
+
+Conditional combined shooting quadrature products and shared immutable inner programs
+remove tested unnecessary work while preserving independent original assessment,
+mutable-owner isolation, accounting and the ordinary 0.001 engineering fraction.
+Integral-only/preflight adjoints, lazy trial defaults, generic stateful-provider barriers,
+conservative foreign bounds and explicit numerical profiles remain. Repeated KLU symbolic
+setup is a confirmed deferred limitation, with a material-cost trigger and safe-owner
+prerequisites in Plan44f; investigation completion does not resolve it. The supplied external
+report's authorized title/front-matter/H1 repair permits full-book publication. Formal
+proposed ADR status and older plan reconciliation remain separate.
 
 ### 24.3 Benchmarks
 

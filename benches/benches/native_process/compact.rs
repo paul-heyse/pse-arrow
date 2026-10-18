@@ -28,7 +28,7 @@ async fn package(owner: &WorkflowRuntime, source: &str) -> (ModelingPackage, Dec
         .unwrap()
         .declaration_id;
     let runtime = local_runtime(owner);
-    let physical = fixture::physical_on(owner, &runtime).await;
+    let physical = physical_on(owner, &runtime).await;
     let package = runtime.modeling_package(rows, physical).await.unwrap();
     (package, root)
 }
@@ -73,7 +73,7 @@ async fn roots(
                 .filter(|j| *j != i)
                 .map(|j| format!("+0.1*(x{j}-{})", j + 1))
                 .collect(),
-            _ => unreachable!(),
+            _ => panic!("unsupported compact root shape: {shape}"),
         };
         let equation = if reject_negative {
             format!("x{i}*x{i}=={}", (i + 1) * (i + 1))
@@ -147,10 +147,7 @@ async fn roots(
         };
         assert!(!native.is_empty());
         for native in native {
-            assert_eq!(
-                native.termination.category,
-                native::solve::Termination::Success
-            );
+            assert_eq!(native.termination.category, Termination::Success);
             assert!(native.quality.as_ref().unwrap().feasible());
             assert!(
                 native
@@ -786,7 +783,7 @@ async fn study(
         retention => panic!("unsupported compact study retention {retention}"),
     };
     let runtime = local_runtime(owner);
-    let physical = fixture::physical_on(owner, &runtime).await;
+    let physical = physical_on(owner, &runtime).await;
     let scalar = physical.quantities().neutral_dimensionless().unwrap();
     let unit = physical
         .quantities()
@@ -976,7 +973,7 @@ async fn study(
                     .table_cursor("runtime.solve_strategy_events")
                     .unwrap();
                 while let Some(batch) = cursor.next_batch().await.unwrap() {
-                    observations.rows(&solve_strategy_events::Row::rows(&batch).unwrap());
+                    observations.rows(solve_strategy_events::Row::rows(&batch).unwrap());
                 }
                 (variables, checks)
             }
@@ -1012,7 +1009,7 @@ pub(super) async fn run(
     observations: &mut observations::Observations,
 ) {
     match spec["operation"].as_str().unwrap() {
-        "compact-recycle" => Box::pin(super::extended::recycle(owner, spec, observations)).await,
+        "compact-recycle" => Box::pin(extended::recycle(owner, spec, observations)).await,
         "compact-root" => Box::pin(roots(owner, spec, observations)).await,
         "compact-lp" | "compact-milp" | "compact-minlp" | "compact-uno" => {
             Box::pin(classes(

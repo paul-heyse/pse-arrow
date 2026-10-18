@@ -1,6 +1,6 @@
 ---
 title: Sparse verification and native effectiveness
-status: in-progress
+status: done
 date: 2026-10-17
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_pipeline-performance-optimization_2026-10-17.md]
@@ -69,7 +69,7 @@ Acceptance tests selected profile resolution and original answers/refusals, incl
 
 Source-established work growth warrants D01 without a large benchmark. D02–D04 need their respective compatibility/consumer premises before changes; a library API name alone is insufficient. Targeted mechanism tests precede deletion. [44f](44f-integrated-acceptance-and-follow-up.md) owns assembled native/scientific and final quality checks. At authoring all D packages were open; no new factor, provider or solver policy is implemented at authoring.
 
-## Specified-change checkpoint
+## Historical specified-change checkpoint
 
 **Implemented and targeted Tested:** implicit derivative verification traverses the actual CSC support for each first/packed-second RHS, using O(n) row accumulators, deterministic column order, RHS-inclusive absolute contribution scale and the existing tolerance/floor. Matrix, solved/RHS coordinates, residual and absolute-scale finiteness are checked; a cancelling action with an overflowing absolute scale is refused. The affine shared caller uses the same sparse verifier. Performing-owner `implicit.derivatives.verification.support_visits` reports actual contributions. Diagonal/banded, packed RHS, cancellation-scale, singular/bad solve, nonfinite/overflow and end-to-end first/second derivative controls pass. D02–D04 remain unrun; no KLU symbolic-reuse, weighted-provider cache or solver-profile winner is selected.
 
@@ -84,3 +84,9 @@ The coordinator owns command/result totals and the enclosing acceptance boundary
 **Tested — D03:** changed weights/points, order upgrades, late provider refusal, context and cancellation controls preserve the generic stateful provider barrier. Existing nested providers already reuse complete same-point jets under their explicit fixed-configuration, coordinate/order/accuracy premise; dynamic hint resolvers deliberately reexecute in the original refusal order. No current generic ProviderFactory contract establishes evaluation transparency. Retain both the performing provider's qualified reuse and the outer call barrier; no new cache or speculative purity capability was added.
 
 **Tested and Measured — D04:** the root contrasts and six ordinary/slow/oscillatory recycle profiles retained original qualification at 0.001. Interval 1 can save many residual calls while adding Jacobian/refactor work: the four-dimensional uncoupled exponential fixture made 5 residual/3 Jacobian oracle calls versus 13/2 at interval 10, with 3 versus 2 setups. Oracle counts include actual adapter/original calls; they are not interchangeable with native getter populations. The slow recycle used 130 versus 40 iterations with Anderson depth 0 versus 2; other maps had different work. Recycles do not consume the Newton setup interval. Retain existing explicit controls and the interval-10 default: neither these small equations nor their timings establish a general derivative/factor-cost discriminator or universal acceleration winner. A later representative workload may select an explicit existing profile; no host iteration/routing heuristic was introduced.
+
+## Outcome
+
+**Implemented and Tested:** sparse first/packed-second IFT verification visits actual support with the unchanged backward-error and finiteness safeguards. Native/provider/profile mechanism controls passed at baseline zero; the root/recycle contrasts above are once-only observations at ordinary 0.001 engineering accuracy. [44f](44f-integrated-acceptance-and-follow-up.md#assembled-acceptance-checkpoint) owns assembled commands and quality.
+
+**Mistake corrected:** allocation reuse and an accepted initial start could be mistaken for symbolic-factor reuse. Exact source and actual symbolic/numeric counters distinguish them: accepted starts can bypass setup; nontrivial calls still repeat symbolic work. **Deliberate decisions:** retain fresh numeric initialization, stateful provider barriers, explicit profiles and conservative defaults. F06 remains deferred and unresolved with its material-cost trigger and concrete next experiment; finishing D02 does not resolve it. No unsupported symbolic-retention patch or universal profile winner was adopted.

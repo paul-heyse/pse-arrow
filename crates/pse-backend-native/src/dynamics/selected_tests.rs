@@ -67,17 +67,19 @@ impl Oracle for Coupled {
             ),
             _ => (vec![], vec![]),
         };
-        let jacobian = derivative.then(|| {
-            faer::sparse::SparseColMat::try_new_from_triplets(
-                values.len(),
-                6,
-                &partials
-                    .into_iter()
-                    .map(|(r, c, v)| faer::sparse::Triplet::new(r, c, v))
-                    .collect::<Vec<_>>(),
-            )
-            .unwrap()
-        });
+        let jacobian = derivative
+            .then(|| {
+                faer::sparse::SparseColMat::try_new_from_triplets(
+                    values.len(),
+                    6,
+                    &partials
+                        .into_iter()
+                        .map(|(r, c, v)| faer::sparse::Triplet::new(r, c, v))
+                        .collect::<Vec<_>>(),
+                )
+                .map_err(|error| ProblemError::internal(format!("fixture Jacobian: {error:?}")))
+            })
+            .transpose()?;
         Ok(Evaluation {
             values,
             jacobian: jacobian.map(|j| Arc::new(j).into()),
@@ -85,12 +87,12 @@ impl Oracle for Coupled {
     }
 }
 fn methods() -> Vec<Method> {
-    let mut methods = vec![];
-    #[cfg(feature = "diffsol")]
-    methods.push(Method::Diffsol);
-    #[cfg(feature = "idas")]
-    methods.push(Method::Idas);
-    methods
+    vec![
+        #[cfg(feature = "diffsol")]
+        Method::Diffsol,
+        #[cfg(feature = "idas")]
+        Method::Idas,
+    ]
 }
 fn profile(method: Method, axes: Option<Vec<usize>>) -> Profile {
     Profile {
@@ -111,6 +113,10 @@ fn profile(method: Method, axes: Option<Vec<usize>>) -> Profile {
 }
 // Physical integration order is forcing, coupling, initial factor, rate[0], rate[1].
 const VALUES: [f64; 5] = [5., 2., 0.4, 1., 3.];
+#[allow(
+    clippy::unwrap_used,
+    reason = "test helper fails on any fixture integration error"
+)]
 fn run(profile: &Profile, values: &[f64]) -> Report {
     let report = integrate(
         &mut Coupled::new(),
@@ -128,6 +134,10 @@ fn run(profile: &Profile, values: &[f64]) -> Report {
     );
     report
 }
+#[allow(
+    clippy::unreachable,
+    reason = "test analytic oracle accepts only the five declared physical axes"
+)]
 fn analytic(t: f64, axis: usize) -> (f64, f64, f64) {
     let later = (t - 0.5).max(0.);
     let initial = VALUES[2] * VALUES[0];

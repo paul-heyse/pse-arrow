@@ -1743,7 +1743,9 @@ mod tests {
                             .chain(factory.selection.restriction.iter())
                             .collect::<Vec<_>>()
                     }
-                    pse_math::implicit::ImplicitFactory::Regimes(_) => unreachable!(),
+                    pse_math::implicit::ImplicitFactory::Regimes(_) => {
+                        panic!("root-only fixture unexpectedly built a regime factory")
+                    }
                 })
                 .map(|body| {
                     body.allocation_components()
