@@ -25,7 +25,7 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 // prevent nested phase polling from being inlined into one large stack frame.
 // These boundaries affect workflow orchestration, not native numerical kernels.
 #[inline(never)]
-fn boxed_worker_action<F, Fut>(action: F) -> std::pin::Pin<Box<Fut>>
+pub(super) fn boxed_worker_action<F, Fut>(action: F) -> std::pin::Pin<Box<Fut>>
 where
     F: FnOnce() -> Fut,
     Fut: Future,
@@ -34,7 +34,7 @@ where
 }
 
 #[inline(never)]
-fn poll_worker_action<F: Future>(
+pub(super) fn poll_worker_action<F: Future>(
     work: std::pin::Pin<&mut F>,
     context: &mut std::task::Context<'_>,
 ) -> std::task::Poll<F::Output> {

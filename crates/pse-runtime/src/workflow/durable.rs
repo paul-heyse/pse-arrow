@@ -3482,6 +3482,30 @@ pub(super) fn source_edit(
         references: Vec::new(),
     }
 }
+// Keep the physical publication phase's concrete future off its scientific
+// supervisor's frame. Admission precedes construction; out-of-line construction
+// and polling preserve ordinary executor stacks without changing task ownership.
+async fn physical_publication_action<T, F, Fut>(
+    pool: &Arc<dyn MemoryPool>,
+    action: F,
+) -> Result<T, WorkflowError>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = Result<T, WorkflowError>>,
+{
+    fn action_bytes<F, Fut>(_: &F) -> usize
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future,
+    {
+        size_of::<Fut>()
+    }
+    let owner = MemoryConsumer::new("physical:publication-action").register(pool);
+    owner.try_grow(action_bytes(&action)).map_err(pse_engine::EngineError::from)?;
+    let mut work = super::worker::boxed_worker_action(action);
+    futures_util::future::poll_fn(|context| super::worker::poll_worker_action(work.as_mut(), context)).await
+}
+
 impl Operations {
     async fn publish_physical_group(
         &self,
@@ -3517,6 +3541,13 @@ impl Operations {
     /// Persist each registry physical relation independently; each immutable IPC object
     /// is bounded, and no unrelated relation is hydrated on replay.
     pub(super) async fn put_physical_rows(
+        &self,
+        runtime: &super::Runtime,
+        physical: &super::PhysicalContext,
+    ) -> Result<super::physical_cache::PhysicalRows, WorkflowError> {
+        physical_publication_action(&self.pool, || self.put_physical_rows_inner(runtime, physical)).await
+    }
+    async fn put_physical_rows_inner(
         &self,
         runtime: &super::Runtime,
         physical: &super::PhysicalContext,
@@ -3669,6 +3700,71 @@ fn reserve(
 #[cfg(all(test, feature = "canonical-tests"))]
 #[path = "physical-publication-tests.rs"]
 mod physical_publication_unit;
+
+#[cfg(test)]
+mod physical_publication_action_tests {
+    use super::*;
+
+    struct Action {
+        cancel: crate::CancelSource,
+        dropped: Arc<AtomicU64>,
+        _payload: [u8; 1024],
+    }
+    impl Future for Action {
+        type Output = Result<(), WorkflowError>;
+        fn poll(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Self::Output> {
+            if self.cancel.token().is_cancelled() {
+                std::task::Poll::Ready(Ok(()))
+            } else {
+                std::task::Poll::Pending
+            }
+        }
+    }
+    impl Drop for Action {
+        fn drop(&mut self) {
+            self.dropped.fetch_add(1, Ordering::AcqRel);
+        }
+    }
+
+    #[tokio::test]
+    async fn physical_publication_action_admits_before_construction_and_keeps_exact_owner_until_drop() {
+        let extent = size_of::<Action>();
+        let entered = Arc::new(AtomicU64::new(0));
+        let dropped = Arc::new(AtomicU64::new(0));
+        let tiny: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(extent-1));
+        let refused = physical_publication_action(&tiny, || {
+            entered.fetch_add(1, Ordering::AcqRel);
+            Action { cancel: crate::CancelSource::new(), dropped: dropped.clone(), _payload: [0;1024] }
+        }).await;
+        assert!(refused.is_err());
+        assert_eq!(entered.load(Ordering::Acquire), 0);
+        assert_eq!(dropped.load(Ordering::Acquire), 0);
+        assert_eq!(tiny.reserved(), 0);
+
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(extent));
+        for cancelled in [false, true] {
+            let cancel = crate::CancelSource::new();
+            let dropped = Arc::new(AtomicU64::new(0));
+            let mut work = Box::pin(physical_publication_action(&pool, || {
+                assert_eq!(pool.reserved(), extent, "exact future admission precedes construction");
+                Action { cancel: cancel.clone(), dropped: dropped.clone(), _payload: [0;1024] }
+            }));
+            assert!(futures_util::poll!(work.as_mut()).is_pending());
+            assert_eq!(pool.reserved(), extent);
+            if cancelled {
+                cancel.cancel();
+                assert!(work.await.is_ok(), "the original phase observes its original cancellation");
+            } else {
+                drop(work);
+            }
+            assert_eq!(dropped.load(Ordering::Acquire), 1);
+            assert_eq!(pool.reserved(), 0);
+        }
+    }
+}
 
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_durable_codec {
