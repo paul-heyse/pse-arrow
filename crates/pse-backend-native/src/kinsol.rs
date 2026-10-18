@@ -1595,21 +1595,21 @@ impl Session {
                     crate::callback::classify(cause.as_ref()) == crate::callback::Failure::Trial
                 })
         });
-        if !successful {
-            if let Err(cleanup) = self.begin_application() {
-                // The original scientific/callback cause stays authoritative.
-                // This owner cannot be retained after uncertain cleanup.
-                if let Ok(report) = &mut result {
-                    report.metrics.insert(
-                        "klu.retention_reset_failure".into(),
-                        Metric::Text(cleanup.to_string()),
-                    );
-                }
-                if let Some(context) = pse_diagnostics::observation::current() {
-                    context.unavailable("kinsol.retention_reset", &cleanup.to_string());
-                }
-                return result;
+        if !successful
+            && let Err(cleanup) = self.begin_application()
+        {
+            // The original scientific/callback cause stays authoritative.
+            // This owner cannot be retained after uncertain cleanup.
+            if let Ok(report) = &mut result {
+                report.metrics.insert(
+                    "klu.retention_reset_failure".into(),
+                    Metric::Text(cleanup.to_string()),
+                );
             }
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.unavailable("kinsol.retention_reset", &cleanup.to_string());
+            }
+            return result;
         }
         self.retention_ready = match &result {
             Ok(report) => {
@@ -3751,12 +3751,10 @@ mod tests {
         assert!(report.callback_failure().is_none());
         // SAFETY: live canonical session objects after the successful application;
         // a recovered trial must leave its valid numerical factor available.
-        assert_eq!(
-            unsafe {
-                ffi::SUNLinSolSolve_KLU(session.linear, session.matrix, session.x, session.us, 0.)
-            },
-            0
-        );
+        let substituted = unsafe {
+            ffi::SUNLinSolSolve_KLU(session.linear, session.matrix, session.x, session.us, 0.)
+        };
+        assert_eq!(substituted, 0);
     }
     #[test]
     fn original_validation_failure_resets_numeric_after_native_success() {
@@ -3784,18 +3782,16 @@ mod tests {
             );
             // SAFETY: live exclusively owned solver and vectors; missing numerical
             // validity must refuse substitution without invoking native KLU solve.
-            assert_ne!(
-                unsafe {
-                    ffi::SUNLinSolSolve_KLU(
-                        session.linear,
-                        session.matrix,
-                        session.x,
-                        session.us,
-                        0.,
-                    )
-                },
-                0
-            );
+            let substituted = unsafe {
+                ffi::SUNLinSolSolve_KLU(
+                    session.linear,
+                    session.matrix,
+                    session.x,
+                    session.us,
+                    0.,
+                )
+            };
+            assert_ne!(substituted, 0);
             let config = session.settings.clone();
             let stamp = session.compatibility.clone();
             session

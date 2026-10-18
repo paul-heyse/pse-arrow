@@ -1422,7 +1422,7 @@ mod tests {
             assert_eq!(work.symbolic_completed, 1);
             assert_eq!(work.numeric_factor_completed, generation as u64 + 1);
             assert_eq!(work.refactor_completed, 0);
-            assert!(work.solve_completed >= generation as u64 + 1);
+            assert!(work.solve_completed > generation as u64);
             assert_eq!(sessions::created() - before, 1);
             assert_eq!(sessions::retained().0, 1);
         }

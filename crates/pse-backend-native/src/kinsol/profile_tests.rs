@@ -246,19 +246,19 @@ fn solve_observed(session: &mut Session, start: &[f64]) -> (SolveReport, LinearP
 fn stock_session(function: Function, config: Settings, stamp: Compatibility) -> Session {
     let mut session = Session::new(function, config, execution(), stamp).unwrap();
     if session.settings.method.linear == Linear::Klu {
-        // SAFETY: all owners are exclusive and idle. Attach the replacement before
-        // freeing the old owner, then restore the analytic callback reset by attach.
-        unsafe {
-            let linear = ffi::SUNLinSol_KLU(session.x, session.matrix, session.ctx);
-            assert!(!linear.is_null());
-            assert_eq!(
-                ffi::KINSetLinearSolver(session.mem, linear, session.matrix),
-                0
-            );
-            assert_eq!(ffi::KINSetJacFn(session.mem, Some(jacobian)), 0);
-            assert_eq!(ffi::SUNLinSolFree(session.linear), 0);
-            session.linear = linear;
-        }
+        // SAFETY: the vector, matrix and context are live, idle and session owned.
+        let linear = unsafe { ffi::SUNLinSol_KLU(session.x, session.matrix, session.ctx) };
+        assert!(!linear.is_null());
+        // SAFETY: both live owners are idle; attach the replacement before freeing the old owner.
+        let attached = unsafe { ffi::KINSetLinearSolver(session.mem, linear, session.matrix) };
+        assert_eq!(attached, 0);
+        // SAFETY: this live KINSOL owner uses the same stable boxed callback context.
+        let callback = unsafe { ffi::KINSetJacFn(session.mem, Some(jacobian)) };
+        assert_eq!(callback, 0);
+        // SAFETY: the old owner is detached, idle, and exclusively owned by this session.
+        let freed = unsafe { ffi::SUNLinSolFree(session.linear) };
+        assert_eq!(freed, 0);
+        session.linear = linear;
         session.stock_klu = true;
     }
     session
@@ -659,7 +659,7 @@ impl NleOracle for Manufactured {
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         let started = Instant::now();
         let mut offset = 0;
-        for col in 0..x.len() {
+        for (col, coordinate) in x.iter().enumerate() {
             for (row, value) in self
                 .matrix
                 .symbolic()
@@ -668,7 +668,7 @@ impl NleOracle for Manufactured {
             {
                 out[offset] = value
                     + if self.nonlinear && row == col {
-                        3. * x[col] * x[col]
+                        3. * coordinate * coordinate
                     } else {
                         0.
                     };
@@ -829,47 +829,61 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
     let memory = |session: &Session| {
         let mut bytes = 0;
         // SAFETY: scalar read from this exclusively owned, idle native solver.
-        assert_eq!(
-            unsafe { ffi::SUNLinSol_KLUGetMemUsage(session.linear, &raw mut bytes) },
-            0
-        );
+        let status = unsafe { ffi::SUNLinSol_KLUGetMemUsage(session.linear, &raw mut bytes) };
+        assert_eq!(status, 0);
         bytes
     };
     let full_memory = memory(&session);
-    // SAFETY: these API refusals occur on live, exclusively owned native objects.
-    unsafe {
-        assert!(ffi::SUNLinSol_KLUGetCommon(session.linear).is_null());
-        assert!(ffi::SUNLinSol_KLUGetSymbolic(session.linear).is_null());
-        assert!(ffi::SUNLinSol_KLUGetNumeric(session.linear).is_null());
-        for ordering in [0, 1, 2] {
-            assert_ne!(ffi::SUNLinSol_KLUSetOrdering(session.linear, ordering), 0);
-        }
-        let data = ffi::SUNSparseMatrix_Data(session.matrix);
-        let nnz = ffi::SUNSparseMatrix_NNZ(session.matrix);
-        for reinit in [1, 2] {
-            assert_ne!(
-                ffi::SUNLinSol_KLUReInit(session.linear, session.matrix, nnz + 1, reinit),
-                0
-            );
-            assert_eq!(ffi::SUNSparseMatrix_NNZ(session.matrix), nnz);
-            assert_eq!(ffi::SUNSparseMatrix_Data(session.matrix), data);
-        }
-        // Initialize repeats the idempotent fresh-application transition.
-        assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
-        assert_eq!(ffi::SUNLinSolInitialize_KLU(session.linear), 0);
-        assert_eq!(ffi::SUNLinSol_KLUBeginApplication(session.linear), 0);
+    // SAFETY: this getter is a checked refusal on the live fixed-pattern owner.
+    let common = unsafe { ffi::SUNLinSol_KLUGetCommon(session.linear) };
+    assert!(common.is_null());
+    // SAFETY: this getter is a checked refusal on the same exclusively owned solver.
+    let symbolic = unsafe { ffi::SUNLinSol_KLUGetSymbolic(session.linear) };
+    assert!(symbolic.is_null());
+    // SAFETY: this getter is a checked refusal on the same exclusively owned solver.
+    let numeric = unsafe { ffi::SUNLinSol_KLUGetNumeric(session.linear) };
+    assert!(numeric.is_null());
+    for ordering in [0, 1, 2] {
+        // SAFETY: the live fixed-pattern owner refuses each documented ordering choice.
+        let changed = unsafe { ffi::SUNLinSol_KLUSetOrdering(session.linear, ordering) };
+        assert_ne!(changed, 0);
     }
+    // SAFETY: read-only storage query of this live, session-owned matrix.
+    let data = unsafe { ffi::SUNSparseMatrix_Data(session.matrix) };
+    // SAFETY: read-only extent query of the same live matrix.
+    let nnz = unsafe { ffi::SUNSparseMatrix_NNZ(session.matrix) };
+    for reinit in [1, 2] {
+        // SAFETY: the live fixed-pattern owner refuses reallocation before mutation.
+        let changed = unsafe {
+            ffi::SUNLinSol_KLUReInit(session.linear, session.matrix, nnz + 1, reinit)
+        };
+        assert_ne!(changed, 0);
+        // SAFETY: read-only extent query after the checked refusal.
+        let current_nnz = unsafe { ffi::SUNSparseMatrix_NNZ(session.matrix) };
+        assert_eq!(current_nnz, nnz);
+        // SAFETY: read-only storage query after the checked refusal.
+        let current_data = unsafe { ffi::SUNSparseMatrix_Data(session.matrix) };
+        assert_eq!(current_data, data);
+    }
+    // Initialize repeats the idempotent fresh-application transition.
+    // SAFETY: this exclusively owned native solver is live and idle.
+    let initialized = unsafe { ffi::SUNLinSolInitialize_KLU(session.linear) };
+    assert_eq!(initialized, 0);
+    // SAFETY: the same live solver permits repeated idempotent initialization.
+    let initialized = unsafe { ffi::SUNLinSolInitialize_KLU(session.linear) };
+    assert_eq!(initialized, 0);
+    // SAFETY: this live fixed-pattern owner permits an explicit application boundary.
+    let begun = unsafe { ffi::SUNLinSol_KLUBeginApplication(session.linear) };
+    assert_eq!(begun, 0);
     let symbolic_memory = memory(&session);
     assert!(symbolic_memory > 0 && symbolic_memory < full_memory);
     let retained_symbolic = session.retained_bytes();
     let rejected_solve = |session: &Session| {
         // SAFETY: all objects are live; this is a checked numerical-validity refusal.
-        assert_ne!(
-            unsafe {
-                ffi::SUNLinSolSolve_KLU(session.linear, session.matrix, session.x, session.us, 0.)
-            },
-            0
-        );
+        let substituted = unsafe {
+            ffi::SUNLinSolSolve_KLU(session.linear, session.matrix, session.x, session.us, 0.)
+        };
+        assert_ne!(substituted, 0);
     };
     rejected_solve(&session);
     let accepted = solve(&mut session, &[1.; 4]);
@@ -909,35 +923,35 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
 
     // Exercise both a singular fresh factor and a failed in-application refactor.
     for refactor in [false, true] {
-        // SAFETY: owned live matrix values; canonical indices are unchanged.
-        unsafe {
-            if !refactor {
-                assert_eq!(ffi::SUNLinSol_KLUBeginApplication(session.linear), 0);
-            }
-            std::slice::from_raw_parts_mut(
-                ffi::SUNSparseMatrix_Data(session.matrix),
-                session.callback.rows.len(),
-            )
-            .fill(0.);
+        if !refactor {
+            // SAFETY: this exclusively owned, idle solver starts a fresh application.
+            let begun = unsafe { ffi::SUNLinSol_KLUBeginApplication(session.linear) };
+            assert_eq!(begun, 0);
         }
-        // SAFETY: getter and setup on these exclusively owned live objects.
+        // SAFETY: storage query of the live matrix whose canonical support is unchanged.
+        let data = unsafe { ffi::SUNSparseMatrix_Data(session.matrix) };
+        // SAFETY: this matrix owns exactly the canonical pattern's numeric storage,
+        // exclusively borrowed until the fill completes.
+        unsafe { std::slice::from_raw_parts_mut(data, session.callback.rows.len()) }.fill(0.);
+        // SAFETY: read-only work query on this exclusively owned, idle solver.
         let before = unsafe { linear_work::snapshot(session.linear) }.unwrap();
-        assert_ne!(
-            unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) },
-            0
-        );
+        // SAFETY: the canonical singular matrix and solver are both live and exclusive.
+        let factored = unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) };
+        assert_ne!(factored, 0);
         assert_eq!(
             memory(&session),
             symbolic_memory,
             "failed partial factors released"
         );
         rejected_solve(&session);
-        // SAFETY: the canonical CSC and values remain exclusively session owned.
-        unsafe {
-            let values = std::slice::from_raw_parts_mut(
-                ffi::SUNSparseMatrix_Data(session.matrix),
-                session.callback.rows.len(),
-            );
+        // SAFETY: storage query of this live matrix after failed setup released only factors.
+        let data = unsafe { ffi::SUNSparseMatrix_Data(session.matrix) };
+        {
+            // SAFETY: the live matrix still owns the canonical number of numeric
+            // entries, exclusively borrowed through this value update.
+            let values = unsafe {
+                std::slice::from_raw_parts_mut(data, session.callback.rows.len())
+            };
             for col in 0..4 {
                 for offset in session.callback.columns[col]..session.callback.columns[col + 1] {
                     let offset = usize::try_from(offset).unwrap();
@@ -948,8 +962,10 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
                     };
                 }
             }
-            assert_eq!(ffi::SUNLinSolSetup_KLU(session.linear, session.matrix), 0);
         }
+        // SAFETY: the now-nonsingular canonical matrix and live solver are idle and exclusive.
+        let factored = unsafe { ffi::SUNLinSolSetup_KLU(session.linear, session.matrix) };
+        assert_eq!(factored, 0);
         // SAFETY: scalar getter reads completed work on the idle owner.
         let after = unsafe { linear_work::snapshot(session.linear) }.unwrap();
         assert_eq!(after.symbolic_completed, before.symbolic_completed);
@@ -963,14 +979,16 @@ fn fixed_pattern_owner_refuses_mutation_and_recovers_with_fresh_numeric() {
         );
     }
     // A wrong native matrix is refused before use, invalidating uncertain analysis.
-    // SAFETY: temporary independent native matrix, freed before this scope exits.
-    unsafe {
-        let foreign =
-            ffi::SUNSparseMatrix(4, 4, session.callback.rows.len() as i64, 0, session.ctx);
-        assert!(!foreign.is_null());
-        assert_ne!(ffi::SUNLinSolSetup_KLU(session.linear, foreign), 0);
-        ffi::SUNMatDestroy(foreign);
-    }
+    // SAFETY: the context is live; this temporary matrix receives its own allocation.
+    let foreign = unsafe {
+        ffi::SUNSparseMatrix(4, 4, session.callback.rows.len() as i64, 0, session.ctx)
+    };
+    assert!(!foreign.is_null());
+    // SAFETY: the live solver checks and refuses this independent matrix's identity.
+    let factored = unsafe { ffi::SUNLinSolSetup_KLU(session.linear, foreign) };
+    assert_ne!(factored, 0);
+    // SAFETY: the refused matrix is detached, exclusively owned here, and freed once.
+    unsafe { ffi::SUNMatDestroy(foreign) };
     assert_eq!(memory(&session), 0);
     let fresh = solve(&mut session, &[0.3; 4]);
     assert_eq!(count(&fresh, "klu.symbolic.completed"), 1);
