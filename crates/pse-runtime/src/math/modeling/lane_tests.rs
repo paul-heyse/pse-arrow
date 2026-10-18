@@ -179,6 +179,108 @@ fn historical_and_branch_admission_and_preparation_never_rewind_live_compiler() 
     assert_eq!(service.pool.reserved(), 0);
 }
 
+#[tokio::test]
+async fn historical_preparation_reuses_one_exact_bounded_lane_and_trim_releases_it() {
+    use crate::workflow::tests as fixture;
+    let runtime = fixture::runtime_on(512 << 20, super::super::MathPolicy {
+        workspace_bytes: 32 << 20, worker_bytes: 64 << 20, foreign_bytes: 1 << 20,
+        inner_session_bytes: 0, ..Default::default()
+    });
+    let package = runtime.modeling_package(source(1), fixture::physical()).await.unwrap();
+    let service = runtime.shared.math();
+    let workspace = package.pure_workspace().unwrap();
+    let head = admit(service, &workspace, 2, "current", 2);
+    let historical = admit(service, &workspace, 1, "historical", 1);
+    let before = service.preparation_effects.workspaces.load(std::sync::atomic::Ordering::Relaxed);
+    for _ in 0..3 {
+        service.with_modeling_compiler(
+            super::super::CompilerAuthority::private(workspace.clone()).unwrap(),
+            &historical,
+            |compiler| { assert!(compiler.selects_modeling_revision(&historical.admitted)); Ok(()) },
+        ).unwrap();
+    }
+    assert_eq!(service.preparation_effects.workspaces.load(std::sync::atomic::Ordering::Relaxed), before + 1);
+    assert!(workspace.compiler.lock().unwrap().selects_modeling_revision(&head.admitted));
+    assert_eq!(service.compiler_lanes.lock().unwrap().iter().filter(|lane| lane.historical.is_some()).count(), 1);
+    assert!(service.compiler_lanes.lock().unwrap().len() <= service.policy.jobs.max(1));
+    let retained = service.pool.reserved();
+    service.trim_compiler_lanes();
+    assert!(service.pool.reserved() < retained);
+    assert!(service.compiler_lanes.lock().unwrap().iter().all(|lane| lane.historical.is_none()));
+    assert!(workspace.compiler.lock().unwrap().selects_modeling_revision(&head.admitted));
+    assert!(!historical.admitted.declarations().is_empty());
+    service.with_modeling_compiler(
+        super::super::CompilerAuthority::private(workspace.clone()).unwrap(), &historical,
+        |compiler| { assert!(compiler.selects_modeling_revision(&historical.admitted)); Ok(()) },
+    ).unwrap();
+    assert_eq!(service.preparation_effects.workspaces.load(std::sync::atomic::Ordering::Relaxed), before + 2);
+}
+
+#[tokio::test]
+async fn historical_acceleration_respects_one_lane_capacity_and_busy_writer_isolation() {
+    use crate::workflow::tests as fixture;
+    for jobs in [1, 2] {
+        let runtime = fixture::runtime_on(512 << 20, super::super::MathPolicy {
+            jobs, workspace_bytes: 32 << 20, worker_bytes: 64 << 20,
+            foreign_bytes: 1 << 20, inner_session_bytes: 0, ..Default::default()
+        });
+        let service = runtime.shared.math();
+        let package = runtime.modeling_package(source(1), fixture::physical()).await.unwrap();
+        let workspace = package.pure_workspace().unwrap();
+        let head = admit(service, &workspace, 2, "head", 2);
+        let historical = admit(service, &workspace, 1, "old", 1);
+        let before = service.preparation_effects.workspaces.load(std::sync::atomic::Ordering::Relaxed);
+        for _ in 0..2 {
+            service.with_modeling_compiler(
+                super::super::CompilerAuthority::private(workspace.clone()).unwrap(),
+                &historical,
+                |_| Ok(()),
+            ).unwrap();
+        }
+        let created = service.preparation_effects.workspaces.load(std::sync::atomic::Ordering::Relaxed) - before;
+        assert_eq!(created, if jobs == 1 { 2 } else { 1 });
+        assert!(service.compiler_lanes.lock().unwrap().len() <= jobs);
+        assert!(workspace.compiler.lock().unwrap().selects_modeling_revision(&head.admitted));
+        if jobs == 2 {
+            // Hold the actual historical writer while a peer asks for the same revision.
+            // That peer uses a private workspace, rather than aliasing a Salsa writer.
+            let entered = std::sync::Barrier::new(2);
+            let finished = std::sync::Barrier::new(2);
+            std::thread::scope(|scope| {
+                let first = scope.spawn(|| {
+                    service.with_modeling_compiler(
+                        super::super::CompilerAuthority::private(workspace.clone()).unwrap(),
+                        &historical,
+                        |compiler| {
+                            entered.wait();
+                            finished.wait();
+                            assert!(compiler.selects_modeling_revision(&historical.admitted));
+                            Ok(())
+                        },
+                    ).unwrap();
+                });
+                entered.wait();
+                service.with_modeling_compiler(
+                    super::super::CompilerAuthority::private(workspace.clone()).unwrap(),
+                    &historical,
+                    |compiler| {
+                        assert!(compiler.selects_modeling_revision(&historical.admitted));
+                        Ok(())
+                    },
+                ).unwrap();
+                finished.wait();
+                first.join().unwrap();
+            });
+            assert_eq!(
+                service.preparation_effects.workspaces.load(std::sync::atomic::Ordering::Relaxed) - before,
+                2,
+            );
+            assert_eq!(service.compiler_lanes.lock().unwrap().iter().filter(|lane| lane.historical.is_some()).count(), 1);
+        }
+        assert!(workspace.compiler.lock().unwrap().selects_modeling_revision(&head.admitted));
+    }
+}
+
 #[test]
 fn concurrent_protected_writers_publish_monotonic_complete_head() {
     let service = super::super::tests::service();

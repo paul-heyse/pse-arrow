@@ -1444,6 +1444,7 @@ impl LaneStamp {
 }
 pub(super) struct CompilerLane {
     lineage: CompilerLineage,
+    historical: Option<pse_ids::roles::SourceRevisionHash>,
     inputs: pse_compiler::workspace::CompilerContext,
     workspace: Workspace,
     _metadata: Arc<AllocationLease>,
@@ -1482,7 +1483,7 @@ impl MathService {
             })?;
             if let Some(index) = lanes
                 .iter()
-                .position(|lane| lane.lineage == lineage && lane.inputs == inputs)
+                .position(|lane| lane.historical.is_none() && lane.lineage == lineage && lane.inputs == inputs)
             {
                 let lane = lanes.remove(index);
                 let result = lane.workspace.clone();
@@ -1518,7 +1519,7 @@ impl MathService {
             .map_err(|_| MathRuntimeError::Infrastructure("compiler lane map poisoned".into()))?;
         if let Some(lane) = lanes
             .iter()
-            .find(|lane| lane.lineage == lineage && lane.inputs == inputs)
+            .find(|lane| lane.historical.is_none() && lane.lineage == lineage && lane.inputs == inputs)
         {
             return Ok(lane.workspace.clone());
         }
@@ -1537,11 +1538,57 @@ impl MathService {
         }
         lanes.push(CompilerLane {
             lineage,
+            historical: None,
             inputs,
             workspace: workspace.clone(),
             _metadata: metadata,
         });
         Ok(workspace)
+    }
+    /// Optional exact historical acceleration shares the existing bounded lane
+    /// population. Busy/missing accelerators retain the fresh private route.
+    fn historical_compiler(
+        self: &Arc<Self>,
+        origin: &Workspace,
+        revision: &ModelingRevision,
+        inputs: pse_compiler::workspace::CompilerContext,
+    ) -> Result<(Workspace, tokio::sync::OwnedSemaphorePermit), MathRuntimeError> {
+        let lineage = {
+            let mut lanes = self.compiler_lanes.lock().map_err(|_| MathRuntimeError::Infrastructure("compiler lane map poisoned".into()))?;
+            let lineage = lanes.iter().find(|lane| lane.historical.is_none() && Arc::ptr_eq(&lane.workspace.compiler, &origin.compiler))
+                .map(|lane| lane.lineage.clone());
+            if let Some(lineage) = &lineage
+                && let Some(index) = lanes.iter().position(|lane| lane.lineage == *lineage && lane.inputs == inputs && lane.historical == Some(revision.identity))
+                && let Ok(permit) = lanes[index].workspace.admission.clone().try_acquire_owned()
+            {
+                let lane = lanes.remove(index);
+                let result = lane.workspace.clone();
+                lanes.push(lane);
+                return Ok((result, permit));
+            }
+            lineage
+        };
+        let workspace = self.workspace(inputs.clone(), pse_compiler::workspace::WorkspaceLimits::default())?;
+        let permit = workspace.admission.clone().try_acquire_owned()
+            .map_err(|_| MathRuntimeError::Infrastructure("fresh historical compiler admission unavailable".into()))?;
+        if let Some(lineage) = lineage
+            && let Ok(metadata) = self.reserve("modeling:historical-lineage", lineage.retained_bytes())
+        {
+            let mut lanes = self.compiler_lanes.lock().map_err(|_| MathRuntimeError::Infrastructure("compiler lane map poisoned".into()))?;
+            // Never create a second retained writer for one exact historical key.
+            // An active peer retains its own authority; this caller stays private.
+            if !lanes.iter().any(|lane| lane.lineage == lineage && lane.inputs == inputs && lane.historical == Some(revision.identity)) {
+                while lanes.len() >= self.policy.jobs.max(1) {
+                    let Some(index) = lanes.iter().position(|lane| Arc::strong_count(&lane.workspace.compiler) == 1) else { break; };
+                    lanes.remove(index);
+                }
+                if lanes.len() < self.policy.jobs.max(1) {
+                    lanes.push(CompilerLane { lineage, historical: Some(revision.identity), inputs,
+                        workspace: workspace.clone(), _metadata: metadata });
+                }
+            }
+        }
+        Ok((workspace, permit))
     }
     /// Run preparation under the exact head, or a separately charged detached lane.
     /// The comparison and current-lane operation share the same exclusive compiler guard.
@@ -1565,11 +1612,12 @@ impl MathService {
         let inputs = compiler.context();
         drop(compiler);
         authority.release()?;
-        let detached =
-            self.workspace(inputs, pse_compiler::workspace::WorkspaceLimits::default())?;
-        let detached = authority.replace_private(detached)?;
+        let (detached, permit) = self.historical_compiler(&authority.workspace, revision, inputs)?;
+        let detached = authority.replace_held(detached, permit)?;
         let mut compiler = detached.lock()?;
-        compiler.publish_modeling_revision(revision.admitted.clone())?;
+        if !compiler.selects_modeling_revision(&revision.admitted) {
+            compiler.publish_modeling_revision(revision.admitted.clone())?;
+        }
         operation(&mut compiler)
     }
     /// Admit an owned local source without letting an older/branch request rewind the live head.
