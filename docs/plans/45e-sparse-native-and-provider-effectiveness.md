@@ -62,13 +62,15 @@ Integrate a supported explicit profile or fitting library-owned improvement in t
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| E01 | Exact sparse/native controls; RC08 before new binding | Meaningful repeated sparse comparison and selected qualified implementation/retained limitation; fresh-numeric and failure/drain tests | open |
-| E02 | Actual repeated class consumer and exact library model/update contract | Supported class-specific integration/profile changes or precise no-change; original objective/feasibility/integrality/certificate tests | open |
-| E03 | Existing valid property/implicit model and requested derivative eligibility | Provider work diagnosis and supported implementation; value/derivative/branch/stateful/stop controls | open |
-| E04 | Same declared recycle map/tear/start and explicit numerical controls | Recycle mechanism comparison and supported implementation/profile; original closure/nonconvergence/drain tests | open |
+| E01 | Exact sparse/native controls; RC08 before new binding | Meaningful repeated sparse comparison and selected qualified implementation/retained limitation; fresh-numeric and failure/drain tests | in-progress |
+| E02 | Actual repeated class consumer and exact library model/update contract | Supported class-specific integration/profile changes or precise no-change; original objective/feasibility/integrality/certificate tests | in-progress |
+| E03 | Existing valid property/implicit model and requested derivative eligibility | Provider work diagnosis and supported implementation; value/derivative/branch/stateful/stop controls | in-progress |
+| E04 | Same declared recycle map/tear/start and explicit numerical controls | Recycle mechanism comparison and supported implementation/profile; original closure/nonconvergence/drain tests | in-progress |
 
 ## Verification and checkpoint
 
 **Planned:** touched native/math/runtime compile checks and targeted force-validated units through existing recipes. Source feasibility is Interface-checked; production integration is Implemented; actual scoped checks are Tested; work/time/capacity are Measured only under their named conditions. A successful test body with failed enclosing drain is not assembled acceptance. 45f owns final selected native/public/resource integration and quality after functional scope.
 
 All four packages remain open. No new source/library/runtime qualification was performed merely to write this plan; existing exact evidence supplies the initial branches. E01's potentially retained F13 limitation stays separate from investigation completion. E02–E04 preserve established mechanisms where the experiment finds no better sound complete realization.
+
+Current execution checkpoint: proposed ADR-0200 and blueprint revision 199 publish the opt-in symbolic-retaining KLU target before its binding. The candidate is being qualified against stock and Krylov under exact CSC/settings compatibility and fresh numerical factorization per application; stock remains default. E02 class-specific comparisons are open. E03's real local Peng–Robinson root/IFT controls are authored and compiled; this does not claim full selected-regime/reference-model qualification. E04's actual recycle-map contrast and explicit orthogonalization composition are in progress. Final adoption and assembled/static acceptance remain open.

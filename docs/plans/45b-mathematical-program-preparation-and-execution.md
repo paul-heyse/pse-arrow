@@ -50,12 +50,14 @@ Choose and implement one qualified native realization per explicit admitted poli
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| B01 | Current immutable artifact/representation contracts | Prepared region and once-per-representation inspection across all consumers; original-check/order/accounting controls; redundant descriptions removed | open |
-| B02 | B01 consumed description; RC09 before changed eligibility | Exact composition qualification and implemented supported branch; guard/provider/derivative/refusal tests | open |
-| B03 | B01 actual export/representation; RC09 before production realization | Conservative JIT/C++ comparison and selected qualified implementation or explicit retained route; numerical/resource/stop/private-worker tests | open |
+| B01 | Current immutable artifact/representation contracts | Prepared region and once-per-representation inspection across all consumers; original-check/order/accounting controls; redundant descriptions removed | in-progress |
+| B02 | B01 consumed description; RC09 before changed eligibility | Exact composition qualification and implemented supported branch; guard/provider/derivative/refusal tests | in-progress |
+| B03 | B01 actual export/representation; RC09 before production realization | Conservative JIT/C++ comparison and selected qualified implementation or explicit retained route; numerical/resource/stop/private-worker tests | in-progress |
 
 ## Verification and checkpoint
 
 **Planned:** touched math/runtime compile checks, pure targeted arithmetic/admission units and selected force-validated compiled-evaluator units when that optional profile is changed. Use the native-solver and Symbolica/faer/Oximo capability skills only for the contracts actually consumed; verify the exact installed release rather than copying newer Context7 examples. Dependency changes, if warranted, use ordinary exact-pin policy and affected tests; no wholesale re-resolution.
 
 All packages remain open. B01 needs no JIT decision to remove metadata work. The coordinator records I03's integrated outcome; a proposed alternative, a successful compiler invocation or faster warm evaluation alone cannot qualify the complete realization. 45f owns final optional-feature/native/public integration and static qualification.
+
+Current execution checkpoint: B01's prepared region descriptions and once-per-representation facts are integrated; 81 targeted arithmetic/admission/compiled-evaluator controls passed against zero failures. B02/B03 exact-release inquiry retains original stage barriers and the interpreted/current C++ routes while qualification is completed. Larger inlining must preserve original intermediate failures and demanded Taylor products; disabling SymJIT SIMD/fastmath does not establish generic ISA or interruptible construction. These are candidate eligibility limits, not a claim of a measured JIT benefit. Final integrated acceptance remains 45f.

@@ -92,17 +92,19 @@ For each selected outcome, integrate consumers, retire replaced mechanisms and r
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| C01 | Current full snapshot contract | Full-reader frozen-inventory consumption; future-file/late-error/alias tests; duplicate walk removed | open |
-| C02 | RC04 decision; exact selection/protection | Distinct selected stream/snapshot/provider; all Rust/Python consumers migrated; no broad selected discovery or silent snapshot narrowing | open |
-| C03 | Exact byte/fact/final-locator and ACK-state contract; C04 shared evidence representation where consumed | One protected selection and standalone promotion handoff; retirement/cancel/unknown-ACK controls | open |
-| C04 | Existing family/permission predicates; bounded index admission | Exact production membership/grouped evidence with adverse/full-graph tests; repeated searches removed | open |
-| C05 | Actual generated server transaction/replay contract | Distinct fact validation per bounded page; generated output and adverse/query-plan controls | open |
-| C06 | Existing bounded standalone codec | Single preflight with hostile/extra-batch/schema/IEEE tests; duplicate preflight removed | open |
-| C07 | Current source identity/scratch ownership; RC06 before new granularity | Single spool and qualified grouped-publication decision/implementation; cold/warm/changed/interrupt controls | open |
-| C08 | Relevant working contracts; RC04/RC05/RC06 for affected selected branches | Complete larger I04 alternatives, supported implementation and explicit no-change/unresolved outcomes | open |
+| C01 | Current full snapshot contract | Full-reader frozen-inventory consumption; future-file/late-error/alias tests; duplicate walk removed | in-progress |
+| C02 | RC04 decision; exact selection/protection | Distinct selected stream/snapshot/provider; all Rust/Python consumers migrated; no broad selected discovery or silent snapshot narrowing | in-progress |
+| C03 | Exact byte/fact/final-locator and ACK-state contract; C04 shared evidence representation where consumed | One protected selection and standalone promotion handoff; retirement/cancel/unknown-ACK controls | in-progress |
+| C04 | Existing family/permission predicates; bounded index admission | Exact production membership/grouped evidence with adverse/full-graph tests; repeated searches removed | in-progress |
+| C05 | Actual generated server transaction/replay contract | Distinct fact validation per bounded page; generated output and adverse/query-plan controls | in-progress |
+| C06 | Existing bounded standalone codec | Single preflight with hostile/extra-batch/schema/IEEE tests; duplicate preflight removed | in-progress |
+| C07 | Current source identity/scratch ownership; RC06 before new granularity | Single spool and qualified grouped-publication decision/implementation; cold/warm/changed/interrupt controls | in-progress |
+| C08 | Relevant working contracts; RC04/RC05/RC06 for affected selected branches | Complete larger I04 alternatives, supported implementation and explicit no-change/unresolved outcomes | in-progress |
 
 ## Verification and checkpoint
 
 **Planned:** touched runtime/operations/codegen compile checks and targeted force-validated reader/codec/evidence/transaction units. Real service tests use owned registered fixtures and normal cleanup; no shared registry migration/reset or another owner's service. Reuse one committed run for matched constructor/read/analysis contrasts. Include source/result/artifact identity and original scientific assertions, not returned row counts alone. Final assembled durable/Python/DataFusion/publication and static qualification belongs to 45f.
 
 All eight packages are open. Existing source/retained case evidence establishes the work, not the remedies. RC04–RC06 are accepted within their recorded bounds; direct full-reader, join, server-fact and codec work has an independent existing-contract path. Ordinary stream, native plan, retained artifact and reopened analysis lifetimes must all remain explicit at completion.
+
+Current execution checkpoint: C01/C04/C06's first slice is integrated and its 26 pure reader/evidence/codec controls passed. C02/C03 selected discovery and protected fact/ACK handoff are in integration; real canonical acceptance is pending. C05 distinct bounded-page facts are generated and syntax checked; actual server replay/adverse/index-plan controls remain pending. C07 once-encoded memory/managed-spill storage passed targeted exact-byte, pressure, disk-quota and release controls. Per-block source revision/ACK granularity is retained under RC06: the current coherent edit API consumes a complete edit list, and unbounded accumulation would defeat the bounded spool; no streaming grouped receipt/retry contract has qualified. Cold/warm/changed actual publication remains to qualify. C08 branch decisions and whole-operation acceptance remain open.

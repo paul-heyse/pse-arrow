@@ -62,13 +62,15 @@ Implement the qualified bounded outcome: an exact library API/adapter correction
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| D01 | RC07 decision; current derivative/value/initial mapping | Distinct selected adjoint contract through both native adapters and actual fitting/shooting consumers; full/selected/empty and second-order controls | open |
-| D02 | Current combined quadrature controls; working D01 for selected comparison; RC10 before new functional binding | Crossover investigation, selected exact implementation and objective/gradient/preflight/failure tests | open |
-| D03 | Actual class/method eligibility and short case; decision route before a new binding | Stiffness/shape/method investigation and qualified integration/profile; original-state and native-work/refusal tests | open |
-| D04 | Existing checkpoint/adjoint contracts; RC10 before changed binding/API | Recording/replay/history investigation and qualified implementation or supported retained route; schedule/initial/stop/memory controls | open |
+| D01 | RC07 decision; current derivative/value/initial mapping | Distinct selected adjoint contract through both native adapters and actual fitting/shooting consumers; full/selected/empty and second-order controls | in-progress |
+| D02 | Current combined quadrature controls; working D01 for selected comparison; RC10 before new functional binding | Crossover investigation, selected exact implementation and objective/gradient/preflight/failure tests | in-progress |
+| D03 | Actual class/method eligibility and short case; decision route before a new binding | Stiffness/shape/method investigation and qualified integration/profile; original-state and native-work/refusal tests | in-progress |
+| D04 | Existing checkpoint/adjoint contracts; RC10 before changed binding/API | Recording/replay/history investigation and qualified implementation or supported retained route; schedule/initial/stop/memory controls | in-progress |
 
 ## Verification and checkpoint
 
 **Planned:** touched runtime/native compile checks and targeted force-validated integration/fitting/shooting units. Existing exact initial/quadrature/anchor/derivative tests retain their meaningful thresholds; ordinary simulation accuracy is not tightened to make a performance comparison. Final public projection/replay, durable framing if actually changed, integrated native/resource journeys and static checks belong to 45f.
 
 All four packages are open, with no new numerical observations at authoring. Current-route characterizations can proceed independently of D01; selected-adjoint comparisons require its real migrated implementation. Shared `idas.rs`, integrator and runtime integrated/shooting files require one writer despite logically independent questions. The coordinator records each inquiry outcome and F12 closure separately.
+
+Current execution checkpoint: D01 is integrated through both native backends and fitting/shooting consumers. Its selected native suite passed 28/28 and the runtime gradient/schedule/fitting/shooting selection passed 10/10 against zero failures. Known selected buffers are admitted in addition to unchanged state/factor/opaque allowances. The new IDAS test uses the existing adjoint oracle threshold; no scientific profile accuracy changed. D02–D04 short contrasts and selected outcomes remain open; final assembled acceptance remains 45f.
