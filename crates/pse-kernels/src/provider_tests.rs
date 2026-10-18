@@ -178,9 +178,12 @@ fn narrowed_worker_capability_binds_to_admitted_provider_identity() {
 #[test]
 fn provider_linearization_rechecks_current_effects_and_refuses_changed_derivative_context() {
     #[derive(Debug)]
-    struct Linearized { coefficient: Arc<AtomicUsize>, calls: Arc<AtomicUsize>, completed: Option<ContentHash> }
+    struct Linearized { coefficient: Arc<AtomicUsize>, calls: Arc<AtomicUsize>, capability_checks: Arc<AtomicUsize>, completed: Option<ContentHash> }
     impl Provider for Linearized {
-        fn supports_linearization(&self) -> bool { true }
+        fn supports_linearization(&self) -> bool {
+            self.capability_checks.fetch_add(1, Ordering::Relaxed);
+            true
+        }
         fn completed_linearization(&self) -> Option<ContentHash> { self.completed }
         fn fill(&mut self, _: &[f64], _: &PreparedProviderRequest, _: ProviderRuntime<'_>,
             output: ProviderOutput<'_>, _: &EvaluationContext<'_>) -> Result<(), ProviderError> {
@@ -197,8 +200,9 @@ fn provider_linearization_rechecks_current_effects_and_refuses_changed_derivativ
     let context = EvaluationContext { cancelled: &cancel, max_result_bytes: 1024 };
     let coefficient = Arc::new(AtomicUsize::new(2));
     let calls = Arc::new(AtomicUsize::new(0));
+    let capability_checks = Arc::new(AtomicUsize::new(0));
     let fresh = || ProviderBinding::new(descriptor(1, 1), Box::new(Linearized {
-        coefficient: coefficient.clone(), calls: calls.clone(), completed: None,
+        coefficient: coefficient.clone(), calls: calls.clone(), capability_checks: capability_checks.clone(), completed: None,
     }));
     let mut provider = fresh();
     let request = provider.prepare(ProviderRequest::all(provider.spec(), DerivativeOrder::First)).unwrap();
@@ -216,6 +220,7 @@ fn provider_linearization_rechecks_current_effects_and_refuses_changed_derivativ
     let mut other = fresh();
     assert!(matches!(buffer.fill(&mut other, &[0.], &request, runtime, &context), Err(ProviderError::Contract(_))));
     assert_eq!(calls.load(Ordering::Relaxed), 4, "foreign owner refused before effects");
+    assert_eq!(capability_checks.load(Ordering::Relaxed), 2, "immutable capability checked once per fresh binding, never per fill");
     assert!(ProviderError::LinearizationChanged.recoverable());
 }
 

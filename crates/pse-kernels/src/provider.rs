@@ -258,12 +258,14 @@ pub struct ProviderBinding {
     identity: u64,
     spec: Arc<ProviderSpec>,
     key: ProviderKey,
+    linearization_capability: bool,
     worker: Box<dyn Provider>,
 }
 impl ProviderBinding {
     /// Pair fresh mutable implementation state with its immutable descriptor.
     pub fn new(spec: ProviderSpec, worker: Box<dyn Provider>) -> Self {
-        Self { identity: NEXT_BANK.fetch_add(1, Ordering::Relaxed), key: spec.key(), spec: Arc::new(spec), worker }
+        let linearization_capability = worker.supports_linearization();
+        Self { identity: NEXT_BANK.fetch_add(1, Ordering::Relaxed), key: spec.key(), spec: Arc::new(spec), linearization_capability, worker }
     }
     /// Inspect immutable bound physical meaning.
     pub fn spec(&self) -> &ProviderSpec { &self.spec }
@@ -287,7 +289,7 @@ impl ProviderBinding {
     /// Forward immutable capability through a wrapping binding.
     pub fn supports(&self, demand: &ProviderDemand) -> bool { self.worker.supports(demand) }
     /// Whether the owner can certify its complete derivative context.
-    pub fn supports_linearization(&self) -> bool { self.worker.supports_linearization() }
+    pub fn supports_linearization(&self) -> bool { self.linearization_capability }
     pub(super) fn completed_linearization(&self) -> Option<ContentHash> {
         self.worker.completed_linearization()
     }

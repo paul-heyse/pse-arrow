@@ -456,7 +456,9 @@ pub trait Provider: std::fmt::Debug + Send {
     }
     /// Prepare this finite actual demand before numerical effects or native callbacks.
     fn prepare_demand(&mut self, _request: &PreparedProviderRequest) -> Result<(), ProviderError> { Ok(()) }
-    /// Owner can certify the entire derivative context, including visited children.
+    /// Immutable capability to certify the entire derivative context, including
+    /// visited children. Fresh binding captures this fact once; actual completion
+    /// remains invocation-local through `completed_linearization`.
     fn supports_linearization(&self) -> bool { false }
     /// Complete context from the last successful fill, independent of action seeds.
     /// None means no complete derivative context was established at that invocation.
