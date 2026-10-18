@@ -2873,7 +2873,7 @@ fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
             _: &[f64],
             _: &pse_kernels::PreparedProviderRequest,
             _runtime: pse_kernels::ProviderRuntime<'_>,
-            output: pse_kernels::ProviderOutput<'_>,
+            _output: pse_kernels::ProviderOutput<'_>,
             _: &pse_kernels::EvaluationContext<'_>,
         ) -> Result<(), pse_kernels::ProviderError> {
             Err(pse_kernels::ProviderError::Trial(
@@ -4713,7 +4713,7 @@ fn concurrent_exclusive_case_lanes_isolate_stateful_providers_failure_and_cancel
             inputs: &[f64],
             request: &pse_kernels::PreparedProviderRequest,
             _runtime: pse_kernels::ProviderRuntime<'_>,
-            mut output: pse_kernels::ProviderOutput<'_>,
+            output: pse_kernels::ProviderOutput<'_>,
             context: &pse_kernels::EvaluationContext<'_>,
         ) -> Result<(), pse_kernels::ProviderError> {
             if !self.entered {

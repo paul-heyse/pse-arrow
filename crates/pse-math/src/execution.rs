@@ -1276,7 +1276,7 @@ impl PreparedBody {
                 }),
             );
         }
-        let mut providers = ProviderBindings::new();
+        let mut providers = BTreeMap::new();
         let mut obligations = vec![];
         analyze(
             &stages,
@@ -5469,7 +5469,7 @@ fn lower_stages(stages: &mut [Stage], offsets: &BTreeMap<usize, usize>) -> Resul
     Ok(())
 }
 fn stage_providers(stages: &[Stage]) -> BTreeMap<ProviderKey, ProviderSpec> {
-    let mut providers = ProviderBindings::new();
+    let mut providers = BTreeMap::new();
     for stage in stages {
         match stage {
             Stage::Provider { spec, .. } => {

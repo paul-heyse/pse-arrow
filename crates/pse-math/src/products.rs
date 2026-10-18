@@ -987,7 +987,7 @@ mod tests {
         let mut result = [f64::NAN; 2];
         for (weights, expected) in [([2., 3.], [18., 17.]), ([0., -1.], [-2., -3.])] {
             worker.evaluate_product_into(&[2., 3.], ProductValues::TransposeJacobianAction { weights: &weights },
-                &mut pse_kernels::ProviderBindings::default(), &cancel, &mut result).unwrap();
+                &mut ProviderBindings::default(), &cancel, &mut result).unwrap();
             assert_eq!(result, expected);
         }
         let x = library::formal(0).unwrap();
@@ -1005,16 +1005,16 @@ mod tests {
         let mut worker = compiled.worker_scoped(scope);
         for (guard, expected) in [(1., [48., 72.]), (-1., [12., 24.]), (1., [48., 72.])] {
             worker.evaluate_product_into(&[2., 3., guard], ProductValues::TransposeJacobianAction { weights: &[2.] },
-                &mut pse_kernels::ProviderBindings::default(), &cancel, &mut result).unwrap();
+                &mut ProviderBindings::default(), &cancel, &mut result).unwrap();
             assert_eq!(result, expected);
         }
         let saved = result;
         assert!(worker.evaluate_product_into(&[1e200, 3., 1.],
-            ProductValues::TransposeJacobianAction { weights: &[0.] }, &mut pse_kernels::ProviderBindings::default(), &cancel, &mut result).is_err());
+            ProductValues::TransposeJacobianAction { weights: &[0.] }, &mut ProviderBindings::default(), &cancel, &mut result).is_err());
         assert_eq!(result, saved);
         cancel.cancel();
         assert!(matches!(worker.evaluate_product_into(&[2., 3., 1.],
-            ProductValues::TransposeJacobianAction { weights: &[2.] }, &mut pse_kernels::ProviderBindings::default(), &cancel, &mut result), Err(MathError::Cancelled)));
+            ProductValues::TransposeJacobianAction { weights: &[2.] }, &mut ProviderBindings::default(), &cancel, &mut result), Err(MathError::Cancelled)));
         assert_eq!(result, saved);
     }
 
