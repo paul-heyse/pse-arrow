@@ -186,10 +186,12 @@ enum Demand {
 }
 impl Demand {
     fn visits(self) -> usize {
-        if matches!(self, Self::HessianAction) {
-            3
-        } else {
-            1
+        match self {
+            Self::HessianAction => 3,
+            // The composed reverse route establishes its primal linearization,
+            // then requests the provider pullback under that exact owner token.
+            Self::TransposeJacobianAction => 2,
+            _ => 1,
         }
     }
     fn evaluate(self, worker: &mut CaseWorker, values: &CaseValues) -> Result<Vec<f64>, MathError> {
