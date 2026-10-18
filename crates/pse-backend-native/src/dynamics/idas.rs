@@ -3545,7 +3545,7 @@ impl Session<'_> {
         let parameter_columns = self.callback.gradient_axes.iter()
             .map(|axis| self.callback.map.iter().position(|column| column == axis)).collect::<Vec<_>>();
         let first = elimination.solve_selected(selected_transposed_product(
-            output.as_ref().as_ref(), cotangent, n, &parameter_columns), &parameter_columns)?;
+            output.as_ref().as_ref(), cotangent, n, &parameter_columns)?, &parameter_columns)?;
         let directions = self.backward_mut()?.directions.clone();
         for (index, (state, sum)) in states.iter_mut().zip(sums.iter_mut()).enumerate() {
             for (a, d) in state.iter_mut().zip(&first.state) {

@@ -811,7 +811,7 @@ pub(crate) fn sample_jump(
         return Err(ProblemError::internal("adjoint jump extent"));
     }
     let eliminated = SampleElimination::prepared(differential, rhs, output.ncols(), preparation)?
-        .solve_selected(selected_transposed_product(output, cotangent, differential.len(), parameter_columns), parameter_columns)?;
+        .solve_selected(selected_transposed_product(output, cotangent, differential.len(), parameter_columns)?, parameter_columns)?;
     Ok((eliminated.state, eliminated.parameters))
 }
 /// A total derivative over the state followed by the contract parameters after the
@@ -856,11 +856,17 @@ pub(crate) fn selected_transposed_product(
     v: &[f64],
     states: usize,
     parameters: &[Option<usize>],
-) -> Vec<f64> {
-    (0..states).map(Some).chain(parameters.iter().map(|column| column.map(|q| states + q)))
+) -> Result<Vec<f64>, ProblemError> {
+    if matrix.nrows() != v.len() || matrix.ncols() < states
+        || states.checked_add(parameters.len()).is_none()
+        || parameters.iter().flatten().any(|q| states.checked_add(*q).is_none_or(|column| column >= matrix.ncols()))
+    {
+        return Err(ProblemError::internal("selected adjoint transpose shape or parameter column"));
+    }
+    Ok((0..states).map(Some).chain(parameters.iter().map(|column| column.map(|q| states + q)))
         .map(|column| column.map_or(0., |column| matrix.col_range(column)
             .map(|entry| matrix.val()[entry] * v[matrix.row_idx()[entry]]).sum()))
-        .collect()
+        .collect())
 }
 /// Eliminate the algebraic states from `b`, a derivative over the state followed by the
 /// contract parameters: with `F_aaᵀ w = b_a`, the result is `b − F_zᵀw` with its algebraic
@@ -1076,8 +1082,10 @@ impl<'a> SampleElimination<'a> {
             let f = self
                 .rhs
                 .ok_or_else(|| ProblemError::internal("adjoint constraint partials"))?;
-            let corrections = columns.map_or_else(|| transposed_product(f, &multipliers),
-                |columns| selected_transposed_product(f, &multipliers, self.n, columns));
+            let corrections = match columns {
+                Some(columns) => selected_transposed_product(f, &multipliers, self.n, columns)?,
+                None => transposed_product(f, &multipliers),
+            };
             for (total, correction) in jump.iter_mut().zip(corrections) {
                 *total -= correction;
             }
@@ -3334,6 +3342,19 @@ mod sample_elimination_tests {
             ],
         )
         .unwrap()
+    }
+    #[test]
+    fn selected_transpose_refuses_malformed_columns_and_shapes_before_indexing() {
+        let f = matrix(2.);
+        for columns in [vec![Some(1)], vec![Some(usize::MAX)]] {
+            assert!(selected_transposed_product(f.as_ref(), &[1., 2.], 2, &columns).is_err());
+        }
+        assert!(selected_transposed_product(f.as_ref(), &[1.], 2, &[Some(0)]).is_err());
+        assert!(selected_transposed_product(f.as_ref(), &[1., 2.], 4, &[]).is_err());
+        assert_eq!(selected_transposed_product(f.as_ref(), &[1., 2.], 2, &[]).unwrap(), [6., 4.]);
+        assert_eq!(selected_transposed_product(f.as_ref(), &[1., 2.], 2, &[None, Some(0)]).unwrap(), [6., 4., 0., 10.]);
+        #[cfg(feature = "diffsol")]
+        assert!(sample_jump(&[true, false], f.as_ref(), Some(f.as_ref()), &[1., 2.], &[Some(usize::MAX)], &mut SampleEliminationPreparation::default()).is_err());
     }
     #[test]
     fn sample_elimination_factors_once_for_distinct_rhs_and_refreshes_samples() {
