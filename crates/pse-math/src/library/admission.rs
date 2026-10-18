@@ -712,15 +712,13 @@ mod tests {
                 let mut output = [f64::NAN; 3];
                 floating.evaluate(&[2., 1., 0.], &mut output);
                 assert_eq!(
-                    output,
-                    expected,
+                    output, expected,
                     "the inlined route emits Second Taylor coefficients"
                 );
             } else {
                 let refusal = expanded.unwrap_err();
                 assert!(
-                    refusal.contains("Sub-evaluator")
-                        && refusal.contains("cannot be vectorized"),
+                    refusal.contains("Sub-evaluator") && refusal.contains("cannot be vectorized"),
                     "{refusal}"
                 );
             }

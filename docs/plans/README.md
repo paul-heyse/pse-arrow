@@ -5,13 +5,13 @@ progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
 [Plan45: Pipeline execution optimization](45-pipeline-execution-optimization.md)
-is an active standalone series covering the post-Plan44 review's thirteen findings, ten
-investigations and supported implementation follow-through. Its
-[rule decisions](45-pipeline-execution-optimization.md#rule-decisions) record all ten
-recommendations accepted on 2026-10-18; its [checkpoint](45-pipeline-execution-optimization.md#completion-verification-and-current-checkpoint)
-owns authoring readiness and the product-execution boundary. Companions 45a–45f own
-source/preparation, mathematical programs, result/artifact/analysis, dynamics/derivatives,
-native/provider work and assembled qualification. Older plans retain their own scope/status.
+is complete within its accepted bounded scope. Its [Outcome](45-pipeline-execution-optimization.md#outcome-recorded-after-implementation)
+and [45f qualification](45f-short-run-qualification-and-publication.md#outcome-recorded-after-implementation)
+record integrated corrections, ten inquiry decisions, selected functional/static acceptance,
+repaired failures and precise further-work triggers. The coordinator retains unresolved F05/F13
+under accepted RC03/RC08; bounded completion does not resolve the review's AP-07/G9 judgment.
+The highest coordinator, consumed companions and review/evidence remain retained for those
+findings and live readers. Other plans keep their own scope and status.
 
 [Plan43: Solver diagnostics and performance](43-solver-diagnostics-and-performance.md)
 is complete after its production-completeness remediation. Its

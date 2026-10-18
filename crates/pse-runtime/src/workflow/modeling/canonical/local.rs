@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Owned source bytes and exact local lookup premises, without store permission.
 use super::*;
-use std::hash::{Hash, Hasher};
 use rpds::RedBlackTreeMapSync;
+use std::hash::{Hash, Hasher};
 
 #[cfg(test)]
 thread_local! {
@@ -29,21 +29,59 @@ struct TypedDeclarationInput {
     parsed: Arc<pse_modeling::expression::occurrences::ParsedFields>,
 }
 impl TypedSourceInputs {
-    pub(super) fn fit(&mut self, row: pse_model::generated::authored::fit_cases::Row) -> Result<ObjectEdit, WorkflowError> {
-        let encoded = edit(format!("fit:{}", row.fit_id), "fits".into(), row.fit_id.to_string(), "fit".into(), payload(&row)?, Vec::new());
+    pub(super) fn fit(
+        &mut self,
+        row: pse_model::generated::authored::fit_cases::Row,
+    ) -> Result<ObjectEdit, WorkflowError> {
+        let encoded = edit(
+            format!("fit:{}", row.fit_id),
+            "fits".into(),
+            row.fit_id.to_string(),
+            "fit".into(),
+            payload(&row)?,
+            Vec::new(),
+        );
         self.object(encoded, TypedObjectPayload::Fit(Arc::new(row)))
     }
-    pub(super) fn document(&mut self, row: pse_model::generated::authored::documents::Row) -> Result<ObjectEdit, WorkflowError> {
-        let encoded = edit(format!("document:{}", row.document_id), "documents".into(), row.document_id.to_string(), "document".into(), payload(&row)?, Vec::new());
+    pub(super) fn document(
+        &mut self,
+        row: pse_model::generated::authored::documents::Row,
+    ) -> Result<ObjectEdit, WorkflowError> {
+        let encoded = edit(
+            format!("document:{}", row.document_id),
+            "documents".into(),
+            row.document_id.to_string(),
+            "document".into(),
+            payload(&row)?,
+            Vec::new(),
+        );
         self.object(encoded, TypedObjectPayload::Document(Arc::new(row)))
     }
-    pub(super) fn package(&mut self, row: pse_model::generated::authored::packages::Row) -> Result<ObjectEdit, WorkflowError> {
-        let encoded = edit(format!("package:{}", row.package_id), "packages".into(), row.package_id.to_string(), "package".into(), payload(&row)?, Vec::new());
+    pub(super) fn package(
+        &mut self,
+        row: pse_model::generated::authored::packages::Row,
+    ) -> Result<ObjectEdit, WorkflowError> {
+        let encoded = edit(
+            format!("package:{}", row.package_id),
+            "packages".into(),
+            row.package_id.to_string(),
+            "package".into(),
+            payload(&row)?,
+            Vec::new(),
+        );
         self.object(encoded, TypedObjectPayload::Package(Arc::new(row)))
     }
-    fn object(&mut self, encoded: ObjectEdit, source: TypedObjectPayload) -> Result<ObjectEdit, WorkflowError> {
-        let version = encoded.version.as_ref().ok_or_else(|| contract("typed source object version absent"))?;
-        self.objects.insert(encoded.logical.clone(), (version.key.clone(), source));
+    fn object(
+        &mut self,
+        encoded: ObjectEdit,
+        source: TypedObjectPayload,
+    ) -> Result<ObjectEdit, WorkflowError> {
+        let version = encoded
+            .version
+            .as_ref()
+            .ok_or_else(|| contract("typed source object version absent"))?;
+        self.objects
+            .insert(encoded.logical.clone(), (version.key.clone(), source));
         Ok(encoded)
     }
     pub(super) fn source(&self, logical: &str) -> Option<&SourcePayload> {
@@ -58,8 +96,12 @@ impl TypedSourceInputs {
     ) -> Result<ObjectEdit, WorkflowError> {
         let source = (row.clone(), fields);
         let encoded = edit(
-            logical(row.declaration_id), scope(row.parent_id), row.name.clone(),
-            kind(row), payload(&source)?, references,
+            logical(row.declaration_id),
+            scope(row.parent_id),
+            row.name.clone(),
+            kind(row),
+            payload(&source)?,
+            references,
         );
         self.decoded(&encoded, source, parsed)?;
         Ok(encoded)
@@ -71,18 +113,28 @@ impl TypedSourceInputs {
         source: SourcePayload,
         parsed: Arc<pse_modeling::expression::occurrences::ParsedFields>,
     ) -> Result<(), WorkflowError> {
-        let version = edit.version.as_ref().ok_or_else(|| contract("typed source version absent"))?;
+        let version = edit
+            .version
+            .as_ref()
+            .ok_or_else(|| contract("typed source version absent"))?;
         if edit.logical != logical(source.0.declaration_id)
             || edit.scope != scope(source.0.parent_id)
             || edit.name != source.0.name
             || version.kind != kind(&source.0)
             || !parsed.matches(&source.0, source.1.as_ref())
         {
-            return Err(contract("typed source payload or parsed fields differ from membership"));
+            return Err(contract(
+                "typed source payload or parsed fields differ from membership",
+            ));
         }
-        self.declarations.insert(edit.logical.clone(), TypedDeclarationInput {
-            version: version.key.clone(), payload: source, parsed,
-        });
+        self.declarations.insert(
+            edit.logical.clone(),
+            TypedDeclarationInput {
+                version: version.key.clone(),
+                payload: source,
+                parsed,
+            },
+        );
         Ok(())
     }
 }
@@ -126,7 +178,12 @@ impl LocalSourceObject {
     pub(crate) fn retained_bytes(&self) -> usize {
         self.lease.size()
     }
-    fn from_edit(runtime: &Runtime, edit: ObjectEdit, input: Option<&TypedDeclarationInput>, typed: Option<&(String, TypedObjectPayload)>) -> Result<Option<Arc<Self>>, WorkflowError> {
+    fn from_edit(
+        runtime: &Runtime,
+        edit: ObjectEdit,
+        input: Option<&TypedDeclarationInput>,
+        typed: Option<&(String, TypedObjectPayload)>,
+    ) -> Result<Option<Arc<Self>>, WorkflowError> {
         let Some(version) = edit.version else {
             return Ok(None);
         };
@@ -141,7 +198,9 @@ impl LocalSourceObject {
                 .sum::<usize>()
             + size_of::<Self>()
             + 256;
-        let declaration_extent = if (version.kind.starts_with("modeling:") && version.kind != CONTEXT) || typed.is_some()
+        let declaration_extent = if (version.kind.starts_with("modeling:")
+            && version.kind != CONTEXT)
+            || typed.is_some()
         {
             version
                 .payload
@@ -176,7 +235,9 @@ impl LocalSourceObject {
         };
         let (declaration, parsed) = if let Some(input) = input {
             if input.version != value.version {
-                return Err(contract("typed source input belongs to another immutable version"));
+                return Err(contract(
+                    "typed source input belongs to another immutable version",
+                ));
             }
             (Some(input.payload.clone()), Some(input.parsed.clone()))
         } else if value.kind.starts_with("modeling:") && value.kind != CONTEXT {
@@ -188,13 +249,17 @@ impl LocalSourceObject {
         } else {
             (None, None)
         };
-        let typed = typed.map(|(version, source)| {
-            if version != &value.version {
-                Err(contract("typed object input belongs to another immutable version"))
-            } else {
-                Ok(source.clone())
-            }
-        }).transpose()?;
+        let typed = typed
+            .map(|(version, source)| {
+                if version != &value.version {
+                    Err(contract(
+                        "typed object input belongs to another immutable version",
+                    ))
+                } else {
+                    Ok(source.clone())
+                }
+            })
+            .transpose()?;
         Ok(Some(Arc::new(Self {
             value,
             lease,
@@ -313,7 +378,13 @@ impl AdmittedModelRevision {
         edits: &[ObjectEdit],
         cancel: Option<&crate::CancelSource>,
     ) -> Result<Arc<Self>, WorkflowError> {
-        Self::apply_inputs(runtime, previous, edits, &TypedSourceInputs::default(), cancel)
+        Self::apply_inputs(
+            runtime,
+            previous,
+            edits,
+            &TypedSourceInputs::default(),
+            cancel,
+        )
     }
     pub(super) fn apply_inputs(
         runtime: &Runtime,
@@ -357,9 +428,12 @@ impl AdmittedModelRevision {
                 .and_then(|bytes| bytes.checked_add(size_of::<Self>() + 2048))
                 .ok_or_else(|| contract("owned indexed source extent"))?,
         )?;
-        let mut objects = previous.map_or_else(RedBlackTreeMapSync::new_sync, |p| p.objects.as_ref().clone());
-        let mut inventories =
-            previous.map_or_else(RedBlackTreeMapSync::new_sync, |p| p.inventories.as_ref().clone());
+        let mut objects = previous.map_or_else(RedBlackTreeMapSync::new_sync, |p| {
+            p.objects.as_ref().clone()
+        });
+        let mut inventories = previous.map_or_else(RedBlackTreeMapSync::new_sync, |p| {
+            p.inventories.as_ref().clone()
+        });
         let mut map_bytes = old_bytes;
         // Count possible insertions so each affected vector is reserved before
         // copying it, even when several edits touch the same bucket.
@@ -404,7 +478,12 @@ impl AdmittedModelRevision {
             }) {
                 continue;
             }
-            let new = LocalSourceObject::from_edit(runtime, edit.clone(), inputs.declarations.get(&edit.logical), inputs.objects.get(&edit.logical))?;
+            let new = LocalSourceObject::from_edit(
+                runtime,
+                edit.clone(),
+                inputs.declarations.get(&edit.logical),
+                inputs.objects.get(&edit.logical),
+            )?;
             for object in old.iter().chain(new.iter()) {
                 for query in LocalInventory::keys(
                     &object.scope,
@@ -450,16 +529,19 @@ impl AdmittedModelRevision {
             }
             if let Some(new) = new {
                 if let Some((key, _)) = objects.get_key_value(&edit.logical) {
-                    map_bytes = map_bytes.checked_sub(key.capacity() + size_of::<String>() + 256)
+                    map_bytes = map_bytes
+                        .checked_sub(key.capacity() + size_of::<String>() + 256)
                         .ok_or_else(|| contract("source map extent"))?;
                 }
                 let key = edit.logical.clone();
-                map_bytes = map_bytes.checked_add(key.capacity() + size_of::<String>() + 256)
+                map_bytes = map_bytes
+                    .checked_add(key.capacity() + size_of::<String>() + 256)
                     .ok_or_else(|| contract("source map extent"))?;
                 objects.insert_mut(key, new);
             } else {
                 if let Some((key, _)) = objects.get_key_value(&edit.logical) {
-                    map_bytes = map_bytes.checked_sub(key.capacity() + size_of::<String>() + 256)
+                    map_bytes = map_bytes
+                        .checked_sub(key.capacity() + size_of::<String>() + 256)
                         .ok_or_else(|| contract("source map extent"))?;
                 }
                 objects.remove_mut(&edit.logical);
@@ -469,16 +551,19 @@ impl AdmittedModelRevision {
             check()?;
             if members.is_empty() {
                 if let Some((key, _)) = inventories.get_key_value(&query) {
-                    map_bytes = map_bytes.checked_sub(key.retained_bytes() + 256)
+                    map_bytes = map_bytes
+                        .checked_sub(key.retained_bytes() + 256)
                         .ok_or_else(|| contract("source inventory extent"))?;
                 }
                 inventories.remove_mut(&query);
             } else {
                 if let Some((key, _)) = inventories.get_key_value(&query) {
-                    map_bytes = map_bytes.checked_sub(key.retained_bytes() + 256)
+                    map_bytes = map_bytes
+                        .checked_sub(key.retained_bytes() + 256)
                         .ok_or_else(|| contract("source inventory extent"))?;
                 }
-                map_bytes = map_bytes.checked_add(query.retained_bytes() + 256)
+                map_bytes = map_bytes
+                    .checked_add(query.retained_bytes() + 256)
                     .ok_or_else(|| contract("source inventory extent"))?;
                 inventories.insert_mut(
                     query,
@@ -489,7 +574,8 @@ impl AdmittedModelRevision {
                 );
             }
         }
-        let retained = map_bytes.checked_add(size_of::<Self>() + 512)
+        let retained = map_bytes
+            .checked_add(size_of::<Self>() + 512)
             .ok_or_else(|| contract("indexed retained root extent"))?;
         let metadata = metadata
             .partition(&[retained])
@@ -718,46 +804,97 @@ mod tests {
     fn local_typed_source_preserves_encoded_identity_and_exact_parser_owner() {
         let runtime = crate::workflow::tests::runtime();
         let row = pse_authoring::language::parse(
-            "package p {param a:Scalar=1;}", SemanticId::NIL,
-            pse_authoring::language::IdentityPolicy::Named, Default::default(),
-        ).unwrap().remove(0);
+            "package p {param a:Scalar=1;}",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap()
+        .remove(0);
         let parsed = parsed_fields(&runtime, &row, None).unwrap();
         let mut inputs = TypedSourceInputs::default();
-        let edit = inputs.declaration(&row, None, parsed.clone(), Vec::new()).unwrap();
+        let edit = inputs
+            .declaration(&row, None, parsed.clone(), Vec::new())
+            .unwrap();
         CONSTRUCTION_DECODES.with(|count| count.set(0));
-        let typed = AdmittedModelRevision::apply_inputs(&runtime, None, std::slice::from_ref(&edit), &inputs, None).unwrap();
+        let typed = AdmittedModelRevision::apply_inputs(
+            &runtime,
+            None,
+            std::slice::from_ref(&edit),
+            &inputs,
+            None,
+        )
+        .unwrap();
         assert_eq!(CONSTRUCTION_DECODES.with(std::cell::Cell::get), 0);
-        let imported = AdmittedModelRevision::apply(&runtime, None, std::slice::from_ref(&edit), None).unwrap();
+        let imported =
+            AdmittedModelRevision::apply(&runtime, None, std::slice::from_ref(&edit), None)
+                .unwrap();
         assert_eq!(CONSTRUCTION_DECODES.with(std::cell::Cell::get), 1);
         let object = &typed.objects[&edit.logical];
         assert_eq!(object.value, imported.objects[&edit.logical].value);
-        assert_eq!(object.declaration, imported.objects[&edit.logical].declaration);
+        assert_eq!(
+            object.declaration,
+            imported.objects[&edit.logical].declaration
+        );
         // A cache hit alone does not establish carry-through: the exact caller's
         // parser owner is retained by the newly constructed source object.
         assert!(Arc::ptr_eq(object.parsed.as_ref().unwrap(), &parsed));
         let mut other = edit.clone();
         other.version.as_mut().unwrap().key.push_str("-different");
-        assert!(AdmittedModelRevision::apply_inputs(&runtime, None, &[other], &inputs, None).is_err());
+        assert!(
+            AdmittedModelRevision::apply_inputs(&runtime, None, &[other], &inputs, None).is_err()
+        );
     }
     #[test]
     fn local_shared_indexes_keep_old_roots_and_charge_complete_live_roots() {
         let runtime = crate::workflow::tests::runtime();
-        let edits = (0..128).map(|i| object(
-            &format!("object:{i}"), "scope", &format!("name{i}"), "item", b"initial", &[],
-        )).collect::<Vec<_>>();
+        let edits = (0..128)
+            .map(|i| {
+                object(
+                    &format!("object:{i}"),
+                    "scope",
+                    &format!("name{i}"),
+                    "item",
+                    b"initial",
+                    &[],
+                )
+            })
+            .collect::<Vec<_>>();
         let old = AdmittedModelRevision::apply(&runtime, None, &edits, None).unwrap();
         let same = AdmittedModelRevision::apply(&runtime, Some(&old), &[], None).unwrap();
         assert!(old.objects.ptr_eq(same.objects.as_ref()));
         assert!(old.inventories.ptr_eq(same.inventories.as_ref()));
-        let changed = AdmittedModelRevision::apply(&runtime, Some(&old), &[
-            object("object:1", "scope", "name1", "item", b"changed", &[]),
-        ], None).unwrap();
+        let changed = AdmittedModelRevision::apply(
+            &runtime,
+            Some(&old),
+            &[object(
+                "object:1",
+                "scope",
+                "name1",
+                "item",
+                b"changed",
+                &[],
+            )],
+            None,
+        )
+        .unwrap();
         assert_eq!(old.objects["object:1"].payload, b"initial");
         assert_eq!(changed.objects["object:1"].payload, b"changed");
-        assert!(Arc::ptr_eq(&old.objects["object:2"], &changed.objects["object:2"]));
+        assert!(Arc::ptr_eq(
+            &old.objects["object:2"],
+            &changed.objects["object:2"]
+        ));
         assert_eq!(old.map_bytes, changed.map_bytes);
-        let expected = changed.objects.keys().map(|key| key.capacity() + size_of::<String>() + 256).sum::<usize>()
-            + changed.inventories.keys().map(|key| key.retained_bytes() + 256).sum::<usize>();
+        let expected = changed
+            .objects
+            .keys()
+            .map(|key| key.capacity() + size_of::<String>() + 256)
+            .sum::<usize>()
+            + changed
+                .inventories
+                .keys()
+                .map(|key| key.retained_bytes() + 256)
+                .sum::<usize>();
         assert_eq!(changed.map_bytes, expected);
         assert!(changed._metadata.size() >= expected);
         drop(old);

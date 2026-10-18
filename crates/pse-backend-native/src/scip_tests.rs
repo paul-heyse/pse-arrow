@@ -19,7 +19,7 @@ use crate::{
     solve::{
         Assurance, Backend, BoundSource, Controls, Execution, IisMember, IpoptLinearSolver,
         OptionValue, PrimalSource, Qualification, ResolvedAccuracy, SolveIntent, SolveReport,
-        StartPolicy, Termination, WarmCapability, WitnessSource,
+        Termination, WarmCapability, WitnessSource,
     },
     solver_tests::stamp,
 };
@@ -1007,6 +1007,7 @@ fn minlp_candidate_from_fixed_assignment_resolve() {
 #[test]
 fn fixed_assignment_resolve_keeps_local_analysis() {
     use crate::kkt::{Activity, Curvature, Licq, Side};
+    use crate::solve::StartPolicy;
     use pse_math::index::{OriginalCol, OriginalRow};
     let registry = standard_registry().unwrap();
     let case = synthesis(&registry);
@@ -2858,6 +2859,7 @@ fn semiinteger_lowering_keeps_integrality() {
 /// min w·s² + 4p  s.t.  s + p ≥ 3, s ∈ {0} ∪ [2, 5], p ∈ [0, 4]. Over the relaxed box the
 /// optimum s = 2/w falls in the gap (0, 2): w = 1.5 takes the active branch at its lower
 /// end (s = 2, p = 1: 10 against 12), w = 3 the zero branch (s = 0, p = 3: 12 against 16).
+#[cfg(any(feature = "ipopt", feature = "pounce"))]
 fn semi_process(registry: &QuantityRegistry, weight: f64) -> Case {
     let mut b = Body::new(registry, 2);
     let (s, p) = (b.x[0].clone(), b.x[1].clone());

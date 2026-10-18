@@ -67,7 +67,7 @@ pub struct RecycleRequest {
     #[serde(default)]
     pub anderson_delay: usize,
     /// Explicit native Anderson orthogonalization. Absence retains modified
-    /// Gram–Schmidt; a selected value requires nonzero Anderson history.
+    /// Gram-Schmidt; a selected value requires nonzero Anderson history.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub orthogonalization: Option<pse_model::generated::enums::KinsolOrthogonalization>,
     /// Explicit finite screened restarts; omission never restarts.

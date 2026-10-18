@@ -8,7 +8,7 @@ level: decision
 principles: [AP-04, AP-07, PS-06, PS-08]
 blueprint: [§18, §23.1]
 review: docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md
-evidence: "Tested and Measured: Plan45e/E01 exact-settings/fresh-numeric controls and short 128/512-variable comparisons; the candidate did not establish material complete-operation benefit and was removed. Stock KLU and explicit Krylov routes remain."
+evidence: Measured
 supersedes: []
 superseded-by: null
 revisit: A representative repeated workload is materially dominated by symbolic analysis, making a complete-operation benefit plausible despite additional state and adapter maintenance.

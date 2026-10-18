@@ -625,7 +625,11 @@ impl CompilerAuthority {
     }
     /// Transfer only after the previous authority has been released. A retained
     /// historical accelerator has the same exclusive writer semaphore as a live one.
-    fn replace_held(mut self, workspace: Workspace, permit: tokio::sync::OwnedSemaphorePermit) -> Result<Self, MathRuntimeError> {
+    fn replace_held(
+        mut self,
+        workspace: Workspace,
+        permit: tokio::sync::OwnedSemaphorePermit,
+    ) -> Result<Self, MathRuntimeError> {
         *self.retention.lock().map_err(|_| {
             MathRuntimeError::Infrastructure("compiler retention lock poisoned".into())
         })? = Some(CompilerOwner {

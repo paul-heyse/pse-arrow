@@ -688,5 +688,7 @@ pub async fn cancel_after_artifact_append_ack<F: Future>(
     cancel: impl Fn() + Send + Sync + 'static,
     future: F,
 ) -> F::Output {
-    crate::canonical_artifacts::CANCEL_AFTER_ARTIFACT_APPEND_ACK.scope(std::sync::Arc::new(cancel), future).await
+    crate::canonical_artifacts::CANCEL_AFTER_ARTIFACT_APPEND_ACK
+        .scope(std::sync::Arc::new(cancel), future)
+        .await
 }

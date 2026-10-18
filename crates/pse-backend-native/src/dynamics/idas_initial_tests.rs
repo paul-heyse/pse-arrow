@@ -75,7 +75,10 @@ impl Oracle for AlgebraicFlux {
                 faer::sparse::SparseColMat::try_new_from_triplets(
                     values.len(),
                     4,
-                    &partials.into_iter().map(|(r, c, v)| faer::sparse::Triplet::new(r, c, v)).collect::<Vec<_>>(),
+                    &partials
+                        .into_iter()
+                        .map(|(r, c, v)| faer::sparse::Triplet::new(r, c, v))
+                        .collect::<Vec<_>>(),
                 )
                 .map_err(|error| ProblemError::internal(format!("fixture Jacobian: {error:?}")))
             })
@@ -87,10 +90,20 @@ impl Oracle for AlgebraicFlux {
     }
 }
 
-#[allow(clippy::unwrap_used, reason = "the deterministic fixture must complete every declared route")]
+#[allow(
+    clippy::unwrap_used,
+    reason = "the deterministic fixture must complete every declared route"
+)]
 fn corrected_algebraic_flux(scheduled: bool) {
-    for corrector in [SensitivityCorrector::Simultaneous, SensitivityCorrector::Staggered] {
-        for selected in [None, Some(vec![if scheduled { 2 } else { 1 }, 0]), Some(vec![])] {
+    for corrector in [
+        SensitivityCorrector::Simultaneous,
+        SensitivityCorrector::Staggered,
+    ] {
+        for selected in [
+            None,
+            Some(vec![if scheduled { 2 } else { 1 }, 0]),
+            Some(vec![]),
+        ] {
             let mut oracle = AlgebraicFlux::new();
             let mut p = Profile {
                 method: Method::Idas,
@@ -106,7 +119,10 @@ fn corrected_algebraic_flux(scheduled: bool) {
             };
             p.idas.sensitivity = corrector;
             let parameters = if scheduled {
-                p.schedule = vec![ScheduledInput { parameter: 0, times: vec![0.5] }];
+                p.schedule = vec![ScheduledInput {
+                    parameter: 0,
+                    times: vec![0.5],
+                }];
                 vec![2., 3., 5.]
             } else {
                 vec![3., 2.]
@@ -120,9 +136,15 @@ fn corrected_algebraic_flux(scheduled: bool) {
                 Arc::new(crate::solve::Progress::new(256)),
                 &snapshot,
                 32 << 20,
-            ).unwrap();
+            )
+            .unwrap();
             let report = product.report;
-            assert_eq!(report.termination, Termination::Completed, "{corrector:?} {selected:?}: {:?}", report.error);
+            assert_eq!(
+                report.termination,
+                Termination::Completed,
+                "{corrector:?} {selected:?}: {:?}",
+                report.error
+            );
             assert_eq!(report.requested_initial, [2., 0.]);
             assert!((report.consistent_initial[1] - 12.).abs() < 1e-8);
             let axes = selected.unwrap_or_else(|| (0..parameters.len()).collect());
@@ -130,15 +152,31 @@ fn corrected_algebraic_flux(scheduled: bool) {
             // This is a history-initialization assertion, independent of whether an
             // adaptive step can eventually recover from an incorrect initial slope.
             // Q and QS must both evaluate at the segment start with corrected z.
-            for (time, coefficient) in if scheduled { vec![(0., 3.), (0.5, 5.)] } else { vec![(0., 3.)] } {
-                for derivative in [false, true].into_iter().filter(|d| !*d || !axes.is_empty()) {
-                    assert!(oracle.flux_calls.iter().any(|&(t, c, z, d)|
-                        t == time && c == coefficient && d == derivative && (z - 4. * coefficient).abs() < 1e-8
-                    ), "{corrector:?} axes {axes:?}: missing corrected Q/QS history at {time}, derivative={derivative}: {:?}", oracle.flux_calls);
+            for (time, coefficient) in if scheduled {
+                vec![(0., 3.), (0.5, 5.)]
+            } else {
+                vec![(0., 3.)]
+            } {
+                for derivative in [false, true]
+                    .into_iter()
+                    .filter(|d| !*d || !axes.is_empty())
+                {
+                    assert!(
+                        oracle.flux_calls.iter().any(|&(t, c, z, d)| t == time
+                            && c == coefficient
+                            && d == derivative
+                            && (z - 4. * coefficient).abs() < 1e-8),
+                        "{corrector:?} axes {axes:?}: missing corrected Q/QS history at {time}, derivative={derivative}: {:?}",
+                        oracle.flux_calls
+                    );
                 }
             }
             for sample in &report.samples {
-                let expected_z = if scheduled && sample.time >= 0.5 { 20. } else { 12. };
+                let expected_z = if scheduled && sample.time >= 0.5 {
+                    20.
+                } else {
+                    12.
+                };
                 assert!((sample.state[0] - 2.).abs() < 1e-8);
                 assert!((sample.state[1] - expected_z).abs() < 1e-8);
                 let first = sample.time.min(0.5);
@@ -149,7 +187,10 @@ fn corrected_algebraic_flux(scheduled: bool) {
                     [144. * sample.time, 12. * sample.time]
                 };
                 for (actual, exact) in sample.integrals.iter().zip(expected) {
-                    assert!((actual - exact).abs() <= 0.001 * (1. + exact.abs()), "{actual} vs {exact}");
+                    assert!(
+                        (actual - exact).abs() <= 0.001 * (1. + exact.abs()),
+                        "{actual} vs {exact}"
+                    );
                 }
             }
             let gradients = if scheduled {
@@ -163,12 +204,20 @@ fn corrected_algebraic_flux(scheduled: bool) {
                 for (column, axis) in axes.iter().enumerate() {
                     let actual = derivatives[q * axes.len() + column];
                     let exact = expected[*axis];
-                    assert!((actual - exact).abs() <= 0.001 * (1. + exact.abs()), "{corrector:?} axis {axis} q{q}: {actual} vs {exact}");
+                    assert!(
+                        (actual - exact).abs() <= 0.001 * (1. + exact.abs()),
+                        "{corrector:?} axis {axis} q{q}: {actual} vs {exact}"
+                    );
                 }
             }
             // The retained native summary still reports the actual IC/step work;
             // the production repair changes no counter reset or segment boundary.
-            assert!(report.statistics.iter().all(|stats| stats["nonlinear_iterations"].as_u64().unwrap() > 0));
+            assert!(
+                report
+                    .statistics
+                    .iter()
+                    .all(|stats| stats["nonlinear_iterations"].as_u64().unwrap() > 0)
+            );
         }
     }
 }
@@ -183,7 +232,10 @@ fn quadrature_histories_use_corrected_algebraic_scheduled_state_and_sensitivitie
 }
 
 #[test]
-#[allow(clippy::unwrap_used, reason = "the fixture must return an attributable callback failure")]
+#[allow(
+    clippy::unwrap_used,
+    reason = "the fixture must return an attributable callback failure"
+)]
 fn corrected_quadrature_history_callback_failures_stop_before_physical_steps() {
     for derivatives in [false, true] {
         let mut oracle = AlgebraicFlux::new();
@@ -200,13 +252,26 @@ fn corrected_quadrature_history_callback_failures_stop_before_physical_steps() {
         };
         let snapshot = crate::execution::Snapshot::observe(&crate::execution::LINKED);
         let product = forward_quadratures_observed(
-            &mut oracle, &p, &[3., 2.], Cancellation::default(),
-            Arc::new(crate::solve::Progress::new(256)), &snapshot, 32 << 20,
-        ).unwrap();
+            &mut oracle,
+            &p,
+            &[3., 2.],
+            Cancellation::default(),
+            Arc::new(crate::solve::Progress::new(256)),
+            &snapshot,
+            32 << 20,
+        )
+        .unwrap();
         assert_ne!(product.report.termination, Termination::Completed);
         assert_eq!(product.report.completed_time, p.start);
         assert!(product.derivatives.is_none());
-        assert!(product.report.error.unwrap().to_string().contains("intentional corrected quadrature history failure"));
+        assert!(
+            product
+                .report
+                .error
+                .unwrap()
+                .to_string()
+                .contains("intentional corrected quadrature history failure")
+        );
         assert!(oracle.flux_calls.iter().all(|&(t, _, _, _)| t == p.start));
     }
 }

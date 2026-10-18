@@ -348,7 +348,9 @@ impl EvaluatorFacts {
             .ok_or(MathError::Limit("evaluator instruction extent"))?;
         Ok(Self {
             storage: Storage {
-                numeric_entries: export.input_count.checked_add(export.constants.len())
+                numeric_entries: export
+                    .input_count
+                    .checked_add(export.constants.len())
                     .and_then(|n| n.checked_add(export.temporary_count))
                     .ok_or(MathError::Limit("evaluator stack extent"))?,
                 instruction_bytes: description.bytes,
@@ -372,8 +374,16 @@ pub(crate) struct FloatingEvaluator {
 impl FloatingEvaluator {
     fn new(evaluator: ExpressionEvaluator<f64>) -> Result<Self, MathError> {
         let export = evaluator.export_instructions();
-        let facts = EvaluatorFacts::inspect(&export, evaluator.count_operations(), "math.floating_representation_inspections")?;
-        Ok(Self { evaluator, facts, export })
+        let facts = EvaluatorFacts::inspect(
+            &export,
+            evaluator.count_operations(),
+            "math.floating_representation_inspections",
+        )?;
+        Ok(Self {
+            evaluator,
+            facts,
+            export,
+        })
     }
 }
 struct InstructionDescription {
@@ -393,14 +403,26 @@ fn instruction_description<T>(export: &ExportedInstructions<T>) -> Option<Instru
     };
     for instruction in &export.instructions {
         let bytes = match instruction {
-            Instruction::Add(_, arguments, _) | Instruction::Mul(_, arguments, _) => size_of_val(arguments.as_slice()),
+            Instruction::Add(_, arguments, _) | Instruction::Mul(_, arguments, _) => {
+                size_of_val(arguments.as_slice())
+            }
             Instruction::Fun(_, call, _) => {
                 let (symbol, tags, arguments) = call.as_ref();
                 result.resettable = false;
-                result.taylor_supported &= [Symbol::SQRT, Symbol::EXP, Symbol::LOG,
-                    Symbol::SIN, Symbol::COS, Symbol::ABS, Symbol::CONJ].contains(symbol);
-                size_of_val(call.as_ref()) + size_of_val(tags.as_slice())
-                    + tags.iter().map(String::len).sum::<usize>() + size_of_val(arguments.as_slice())
+                result.taylor_supported &= [
+                    Symbol::SQRT,
+                    Symbol::EXP,
+                    Symbol::LOG,
+                    Symbol::SIN,
+                    Symbol::COS,
+                    Symbol::ABS,
+                    Symbol::CONJ,
+                ]
+                .contains(symbol);
+                size_of_val(call.as_ref())
+                    + size_of_val(tags.as_slice())
+                    + tags.iter().map(String::len).sum::<usize>()
+                    + size_of_val(arguments.as_slice())
             }
             _ => 0,
         };
@@ -408,10 +430,16 @@ fn instruction_description<T>(export: &ExportedInstructions<T>) -> Option<Instru
     }
     for sub in &export.sub_evaluators {
         let own = &sub.instructions;
-        let numeric = own.input_count.checked_add(own.constants.len())?
-            .checked_add(own.temporary_count)?.checked_mul(size_of::<f64>())?;
+        let numeric = own
+            .input_count
+            .checked_add(own.constants.len())?
+            .checked_add(own.temporary_count)?
+            .checked_mul(size_of::<f64>())?;
         let nested = instruction_description(own)?;
-        result.bytes = result.bytes.checked_add(numeric)?.checked_add(nested.bytes)?;
+        result.bytes = result
+            .bytes
+            .checked_add(numeric)?
+            .checked_add(nested.bytes)?;
         result.count = result.count.checked_add(nested.count)?;
     }
     Some(result)

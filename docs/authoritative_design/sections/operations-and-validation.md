@@ -575,6 +575,30 @@ prerequisites in Plan44f; investigation completion does not resolve it. The supp
 report's authorized title/front-matter/H1 repair permits full-book publication. Formal
 proposed ADR status and older plan reconciliation remain separate.
 
+Selected Plan45 qualification of 2026-10-18 belongs to the
+[Plan45f Outcome](../../plans/45f-short-run-qualification-and-publication.md#outcome-recorded-after-implementation).
+It composes typed/persistent source and historical preparation, inspected mathematical
+programs, full/selected durable results, protected artifact/analysis transfer, bounded
+physical groups, consumed adjoint products, corrected IDAS quadrature histories and
+provider/recycle controls through selected Rust/native/public Python and actual managed
+journeys. The retained evidence distinguishes original failures, corrected test setup,
+not-run commands, subsequent passes and normal owned drain. Full continuing Clippy passed
+default/no-default and linked-native workspace/all-target modes; the scoped 31 feature
+combinations retain explicit warning-repair boundaries. These are affected-scope checks,
+not renewed whole-product/parity or release-wheel qualification.
+
+The four result-growth shapes are recorded-evidence fixtures; the unchanged complete
+80-state/five-time publication case separately exercised scientific execution and original
+result/locator/retirement assertions. Exact work-count qualification rejects lost or
+refused observations; its isolated growth fixture joins the independent periodic publisher
+before measurement while keeping collection and strict coverage checks enabled. Ordinary
+physical accuracy remains 0.001 and independent gradient oracles remain separate. Inclusive
+clocks and once-only contrasts do not establish statistical speedup or exclusive CPU cost.
+Conservative physical-context invalidation and repeated stock KLU symbolic analysis remain
+unresolved under the accepted bounded outcomes; register R-54/R-53 preserve their observable
+triggers. Unsupported composition/JIT/projection/checkpoint alternatives, arbitrary large
+relation atomic closure and oversized optional-cache retention are not claimed.
+
 ### 24.3 Benchmarks
 
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)

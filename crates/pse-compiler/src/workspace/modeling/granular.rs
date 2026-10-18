@@ -200,41 +200,81 @@ impl State {
         census.add(self.occurrences.keys().map(|key| key.role.capacity()).sum());
         for input in self.sources.values() {
             for row in [input.row(db), input.signature(db)] {
-                if census.include_shared(row) { census.add(row.owned_bytes()); }
+                if census.include_shared(row) {
+                    census.add(row.owned_bytes());
+                }
             }
             if let Some(fields) = input.fields(db) {
-                census.add(fields.keys().map(|key| key.capacity() + size_of::<pse_authoring::SourceSpan>() + 128).sum());
+                census.add(
+                    fields
+                        .keys()
+                        .map(|key| key.capacity() + size_of::<pse_authoring::SourceSpan>() + 128)
+                        .sum(),
+                );
             }
-            if let Some(parsed) = input.parsed(db) {
-                if census.include_shared(parsed) { census.add(parsed.retained_bytes()); }
+            if let Some(parsed) = input.parsed(db)
+                && census.include_shared(parsed)
+            {
+                census.add(parsed.retained_bytes());
             }
         }
         for input in self.types.values() {
             input.environment(db).collect_retained_inputs(&mut census);
-            if census.include_shared(input.scope(db)) { census.add(scope_bytes(input.scope(db))); }
+            if census.include_shared(input.scope(db)) {
+                census.add(scope_bytes(input.scope(db)));
+            }
         }
         for input in self.occurrences.values() {
             input.namespace(db).collect_retained_inputs(&mut census);
-            census.add(pse_modeling::expression::occurrences::field_retained_bytes(input.key(db), input.expression(db), true));
+            census.add(pse_modeling::expression::occurrences::field_retained_bytes(
+                input.key(db),
+                input.expression(db),
+                true,
+            ));
         }
-        for phase in self.members.values() { phase.input(db).collect_retained_inputs(&mut census); }
+        for phase in self.members.values() {
+            phase.input(db).collect_retained_inputs(&mut census);
+        }
         for phase in self.expressions.values() {
             phase.input(db).collect_retained_inputs(&mut census);
-            if census.include_shared(phase.scope(db)) { census.add(scope_bytes(phase.scope(db))); }
+            if census.include_shared(phase.scope(db)) {
+                census.add(scope_bytes(phase.scope(db)));
+            }
         }
-        for phase in self.references.values() { phase.input(db).collect_retained_inputs(&mut census); }
-        if let Some(environment) = &self.expression_environment { environment.collect_retained_inputs(&mut census); }
+        for phase in self.references.values() {
+            phase.input(db).collect_retained_inputs(&mut census);
+        }
+        if let Some(environment) = &self.expression_environment {
+            environment.collect_retained_inputs(&mut census);
+        }
         if let Some(input) = self.complete {
-            if census.include_shared(input.package(db)) { census.add(input.package(db).retained_bytes()); }
-            if census.include_shared(input.documents(db)) { census.add(input.documents(db).retained_bytes()); }
-            if census.include_shared(input.scope(db)) { census.add(scope_bytes(input.scope(db))); }
+            if census.include_shared(input.package(db)) {
+                census.add(input.package(db).retained_bytes());
+            }
+            if census.include_shared(input.documents(db)) {
+                census.add(input.documents(db).retained_bytes());
+            }
+            if census.include_shared(input.scope(db)) {
+                census.add(scope_bytes(input.scope(db)));
+            }
             collect_document_inputs(db, input.inputs(db), &mut census);
         }
         if let Some(input) = self.inventory {
-            if census.include_shared(input.rows(db)) { census.add(input.rows(db).owned_bytes()); }
-            if census.include_shared(input.documents(db)) { census.add(input.documents(db).retained_bytes()); }
-            if census.include_shared(input.scope(db)) { census.add(scope_bytes(input.scope(db))); }
-            census.add(input.sources(db).capacity().saturating_mul(size_of::<Source>()));
+            if census.include_shared(input.rows(db)) {
+                census.add(input.rows(db).owned_bytes());
+            }
+            if census.include_shared(input.documents(db)) {
+                census.add(input.documents(db).retained_bytes());
+            }
+            if census.include_shared(input.scope(db)) {
+                census.add(scope_bytes(input.scope(db)));
+            }
+            census.add(
+                input
+                    .sources(db)
+                    .capacity()
+                    .saturating_mul(size_of::<Source>()),
+            );
             collect_document_inputs(db, input.inputs(db), &mut census);
         }
         census.bytes()
@@ -245,12 +285,18 @@ fn collect_document_inputs<'a>(
     inputs: &BTreeMap<SemanticId, DataDocumentInput>,
     census: &mut phases::RetainedInputs<'a>,
 ) {
-    census.add(inputs.len().saturating_mul(size_of::<(SemanticId, DataDocumentInput)>() + 128));
+    census.add(
+        inputs
+            .len()
+            .saturating_mul(size_of::<(SemanticId, DataDocumentInput)>() + 128),
+    );
     // DataDocumentInput also has no Salsa heap callback. A retained handle may
     // still select rows absent from the latest DocumentInventory.
     for input in inputs.values() {
         let document = input.document(db);
-        if census.include_shared(document) { census.add(document.retained_bytes()); }
+        if census.include_shared(document) {
+            census.add(document.retained_bytes());
+        }
     }
 }
 pub(super) fn configure(db: &mut CompilerDatabase, capacity: usize) {

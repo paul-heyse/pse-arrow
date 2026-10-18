@@ -986,8 +986,14 @@ unsafe extern "C" fn residual_b(
         // SAFETY: as above.
         let rate = unsafe { read(ypb, n) };
         let symbolic = j.symbolic();
-        let product = (0..n).map(|col| symbolic.col_range(col)
-            .map(|e| j.val()[e] * lambda[symbolic.row_idx()[e]]).sum::<f64>()).collect::<Vec<_>>();
+        let product = (0..n)
+            .map(|col| {
+                symbolic
+                    .col_range(col)
+                    .map(|e| j.val()[e] * lambda[symbolic.row_idx()[e]])
+                    .sum::<f64>()
+            })
+            .collect::<Vec<_>>();
         let out: Vec<_> = (0..n)
             .map(|i| {
                 let mass = if c.contract.differential[i] {
@@ -1092,7 +1098,8 @@ unsafe extern "C" fn quadrature_b(
         let mut rate = vec![0.0; c.gradient_axes.len()];
         for (selected, axis) in c.gradient_axes.iter().enumerate() {
             if let Some(q) = c.map.iter().position(|column| column == axis) {
-                rate[selected] = symbolic.col_range(n + q)
+                rate[selected] = symbolic
+                    .col_range(n + q)
                     .map(|e| -j.val()[e] * lambda[symbolic.row_idx()[e]])
                     .sum();
             }
@@ -1709,7 +1716,9 @@ impl<'a> Session<'a> {
         };
         s.callback.gradient_axes = if p.sensitivity == DynamicSensitivity::Adjoint {
             p.adjoint_axes(s.callback.contract.parameters.len())
-        } else { Vec::new() };
+        } else {
+            Vec::new()
+        };
         if forward {
             let j = initial
                 .jacobian
@@ -3239,7 +3248,11 @@ impl Session<'_> {
         } else {
             (n, width, self.callback.layout.rows_b.len())
         };
-        crate::observation::integer("idas.adjoint.parameter_quadrature_width", "count", width as i64);
+        crate::observation::integer(
+            "idas.adjoint.parameter_quadrature_width",
+            "count",
+            width as i64,
+        );
         let opaque_fill = size
             .checked_mul(size)
             .and_then(|cells| cells.checked_mul(32))
@@ -3282,7 +3295,11 @@ impl Session<'_> {
         for target in targets {
             let y = self.vector(&vec![0.0; size])?;
             let yp = self.vector(&vec![0.0; size])?;
-            let quadrature = if quadratures == 0 { std::ptr::null_mut() } else { self.vector(&vec![0.0; quadratures])? };
+            let quadrature = if quadratures == 0 {
+                std::ptr::null_mut()
+            } else {
+                self.vector(&vec![0.0; quadratures])?
+            };
             let mut problem = Problem {
                 which: 0,
                 matrix: std::ptr::null_mut(),
@@ -3501,7 +3518,9 @@ impl Session<'_> {
             // SAFETY: the problem's adjoint vector holds `size` values (`create_backward`).
             states.push(unsafe { read(problem.y, size) });
             // SAFETY: its quadrature vector holds `quadratures` values.
-            sums.push(if quadratures == 0 { vec![] } else {
+            sums.push(if quadratures == 0 {
+                vec![]
+            } else {
                 // SAFETY: the live quadrature vector has the admitted nonzero extent.
                 unsafe { read(problem.quadrature, quadratures) }
             });
@@ -3549,10 +3568,21 @@ impl Session<'_> {
             output.ncols(),
             &mut self.callback.sample_elimination,
         )?;
-        let parameter_columns = self.callback.gradient_axes.iter()
-            .map(|axis| self.callback.map.iter().position(|column| column == axis)).collect::<Vec<_>>();
-        let first = elimination.solve_selected(selected_transposed_product(
-            output.as_ref().as_ref(), cotangent, n, &parameter_columns)?, &parameter_columns)?;
+        let parameter_columns = self
+            .callback
+            .gradient_axes
+            .iter()
+            .map(|axis| self.callback.map.iter().position(|column| column == axis))
+            .collect::<Vec<_>>();
+        let first = elimination.solve_selected(
+            selected_transposed_product(
+                output.as_ref().as_ref(),
+                cotangent,
+                n,
+                &parameter_columns,
+            )?,
+            &parameter_columns,
+        )?;
         let directions = self.backward_mut()?.directions.clone();
         for (index, (state, sum)) in states.iter_mut().zip(sums.iter_mut()).enumerate() {
             for (a, d) in state.iter_mut().zip(&first.state) {
@@ -3617,7 +3647,9 @@ impl Session<'_> {
     ) -> Result<(), ProblemError> {
         let n = self.callback.contract.states.len();
         let width = self.callback.gradient_axes.len();
-        if width == 0 { return Ok(()); }
+        if width == 0 {
+            return Ok(());
+        }
         let zeros = vec![0.0; n];
         let Some(j) = self
             .callback
@@ -3640,8 +3672,10 @@ impl Session<'_> {
             let symbolic = j.symbolic();
             for (selected, axis) in self.callback.gradient_axes.iter().enumerate() {
                 if let Some(q) = self.callback.map.iter().position(|column| column == axis) {
-                    sum[selected] += symbolic.col_range(n + q)
-                        .map(|e| j.val()[e] * lambda[symbolic.row_idx()[e]]).sum::<f64>();
+                    sum[selected] += symbolic
+                        .col_range(n + q)
+                        .map(|e| j.val()[e] * lambda[symbolic.row_idx()[e]])
+                        .sum::<f64>();
                 }
             }
             let Some(&column) = directions.get(index) else {
@@ -4246,7 +4280,10 @@ fn backward_route(
         None => (None, None),
     };
     Ok(Gradient {
-        parameter_axes: p.adjoint_axes(p.contract_width(integration.len()).unwrap_or(integration.len())),
+        parameter_axes: p.adjoint_axes(
+            p.contract_width(integration.len())
+                .unwrap_or(integration.len()),
+        ),
         gradient: gradient.filter(|_| completed),
         hessian: hessian.filter(|_| completed),
         report,

@@ -33,7 +33,9 @@ impl Periodic {
         1. + 0.2
             * (theta * i as f64).cos()
             * (-(rate + diffusion * (2. - 2. * theta.cos())) * t).exp()
-            + 0.05 * if i.is_multiple_of(2) { 1. } else { -1. } * (-(rate + 4. * diffusion) * t).exp()
+            + 0.05
+                * if i.is_multiple_of(2) { 1. } else { -1. }
+                * (-(rate + 4. * diffusion) * t).exp()
     }
 }
 impl Oracle for Periodic {
@@ -98,7 +100,8 @@ impl Oracle for Periodic {
             Function::Output => (vec![x[0]], vec![(0, 0, 1.)]),
             _ => (vec![], vec![]),
         };
-        let jacobian = derivative.then(|| {
+        let jacobian = derivative
+            .then(|| {
                 faer::sparse::SparseColMat::try_new_from_triplets(
                     values.len(),
                     n + 2,
@@ -107,9 +110,15 @@ impl Oracle for Periodic {
                         .map(|(r, c, v)| faer::sparse::Triplet::new(r, c, v))
                         .collect::<Vec<_>>(),
                 )
-                .map_err(|error| ProblemError::internal(format!("periodic fixture Jacobian: {error:?}")))
-        }).transpose()?;
-        Ok(Evaluation { values, jacobian: jacobian.map(|j| Arc::new(j).into()) })
+                .map_err(|error| {
+                    ProblemError::internal(format!("periodic fixture Jacobian: {error:?}"))
+                })
+            })
+            .transpose()?;
+        Ok(Evaluation {
+            values,
+            jacobian: jacobian.map(|j| Arc::new(j).into()),
+        })
     }
 }
 #[test]

@@ -7628,7 +7628,7 @@ class RecycleRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Native fixed-point damping in (0,1].
     damping: Fraction
     #: Explicit native Anderson orthogonalization. Absence retains modified
-    #: Gram–Schmidt; a selected value requires nonzero Anderson history.
+    #: Gram-Schmidt; a selected value requires nonzero Anderson history.
     orthogonalization: enums.KinsolOrthogonalization | None = None
     #: Explicit finite screened restarts; omission never restarts.
     restarts: RecycleRestartRequest | None = None

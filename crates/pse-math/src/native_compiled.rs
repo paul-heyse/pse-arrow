@@ -611,7 +611,12 @@ mod tests {
         compiler: &str,
     ) -> Result<Evaluator, MathError> {
         let export = evaluator.export_instructions();
-        let storage = library::EvaluatorFacts::inspect(&export, evaluator.count_operations(), "math.test_representation_inspections")?.storage;
+        let storage = library::EvaluatorFacts::inspect(
+            &export,
+            evaluator.count_operations(),
+            "math.test_representation_inspections",
+        )?
+        .storage;
         compile_prepared_with(evaluator, &storage, &export, module_bytes, scope, compiler)
     }
     fn compile(

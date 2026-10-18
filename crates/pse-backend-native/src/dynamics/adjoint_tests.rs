@@ -1014,7 +1014,13 @@ fn second_order_route_limits_are_typed_refusals() {
     let mut selected_first_order = idas.clone();
     selected_first_order.adjoint_parameters = AdjointParameters::Selected(vec![0]);
     refusal(
-        run(&mut Reactor::new(true), &selected_first_order, &[0], 1 << 30).unwrap_err(),
+        run(
+            &mut Reactor::new(true),
+            &selected_first_order,
+            &[0],
+            1 << 30,
+        )
+        .unwrap_err(),
         Method::Idas,
         true,
         "explicit full first-order",
@@ -1350,30 +1356,55 @@ fn zero_functional_preserves_forward_coverage_without_a_reverse_trajectory() {
     }
 }
 
-
 #[test]
 fn selected_adjoint_dae_preserves_algebraic_jumps_and_initial_correction() {
     for method in [
-        #[cfg(feature = "diffsol")] Method::Diffsol,
-        #[cfg(feature = "idas")] Method::Idas,
+        #[cfg(feature = "diffsol")]
+        Method::Diffsol,
+        #[cfg(feature = "idas")]
+        Method::Idas,
     ] {
         let mut p = reactor_profile(method, DiffsolMethod::Bdf, true, true);
         let parameters = reactor_parameters(true);
         p.sensitivity = DynamicSensitivity::Forward;
-        let forward = integrate(&mut Reactor::new(true), &p, &parameters, Cancellation::default()).unwrap();
+        let forward = integrate(
+            &mut Reactor::new(true),
+            &p,
+            &parameters,
+            Cancellation::default(),
+        )
+        .unwrap();
         assert_eq!(forward.termination, Termination::Completed);
         let w = weights(forward.samples.len());
         p.sensitivity = DynamicSensitivity::Adjoint;
         for axes in [vec![3, 0], vec![]] {
             p.adjoint_parameters = AdjointParameters::Selected(axes.clone());
             let product = adjoint(&mut Reactor::new(true), &p, &parameters);
-            assert_eq!(product.report.termination, Termination::Completed, "{method:?}: {:?}", product.report.error);
+            assert_eq!(
+                product.report.termination,
+                Termination::Completed,
+                "{method:?}: {:?}",
+                product.report.error
+            );
             assert_eq!(product.parameter_axes, axes);
             for (actual, axis) in product.gradient.unwrap().iter().zip(&axes) {
-                let expected = forward.samples.iter().enumerate().map(|(i, sample)| {
-                    (0..2).map(|o| w[i * 2 + o] * sample.output_sensitivities[o * parameters.len() + axis]).sum::<f64>()
-                }).sum::<f64>();
-                assert!((actual - expected).abs() <= tolerance(method).1 * (1. + expected.abs()), "{method:?} axis {axis}: {actual} vs {expected}");
+                let expected = forward
+                    .samples
+                    .iter()
+                    .enumerate()
+                    .map(|(i, sample)| {
+                        (0..2)
+                            .map(|o| {
+                                w[i * 2 + o]
+                                    * sample.output_sensitivities[o * parameters.len() + axis]
+                            })
+                            .sum::<f64>()
+                    })
+                    .sum::<f64>();
+                assert!(
+                    (actual - expected).abs() <= tolerance(method).1 * (1. + expected.abs()),
+                    "{method:?} axis {axis}: {actual} vs {expected}"
+                );
             }
         }
     }

@@ -558,7 +558,7 @@ impl DynamicWorker {
             worker.key.capacity(),
         )
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-idas"))]
     pub(crate) fn action_buffer_identity(&self, mode: usize, function: Function) -> [usize; 4] {
         let scratch = &self.functions[&(mode, function)].actions;
         [
@@ -1526,13 +1526,17 @@ mod tests {
     #[test]
     fn simulation_identity_distinguishes_ordered_adjoint_parameter_demand() {
         let mut keys = std::collections::BTreeSet::new();
-        for selection in [native::AdjointParameters::All,
+        for selection in [
+            native::AdjointParameters::All,
             native::AdjointParameters::Selected(vec![]),
             native::AdjointParameters::Selected(vec![0]),
             native::AdjointParameters::Selected(vec![1, 0]),
-            native::AdjointParameters::Selected(vec![0, 1])] {
-            let mut profile = SimulationProfile::default();
-            profile.adjoint_parameters = selection;
+            native::AdjointParameters::Selected(vec![0, 1]),
+        ] {
+            let profile = SimulationProfile {
+                adjoint_parameters: selection,
+                ..SimulationProfile::default()
+            };
             assert!(keys.insert(profile_identity(&profile).unwrap()));
         }
     }

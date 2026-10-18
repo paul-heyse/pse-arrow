@@ -996,7 +996,8 @@ impl ShootingProblem {
                 let mut profile = observed.profile(&window.profile);
                 profile.sensitivity = DynamicSensitivity::Adjoint;
                 profile.forward_axes = None;
-                profile.adjoint_parameters = native::dynamics::AdjointParameters::Selected(self.adjoint_axes(k));
+                profile.adjoint_parameters =
+                    native::dynamics::AdjointParameters::Selected(self.adjoint_axes(k));
                 profile
                     .validate(native::dynamics::Oracle::contract(&observed), &parameters)
                     .map_err(problem)?;
@@ -1010,7 +1011,10 @@ impl ShootingProblem {
     }
     /// Physical window axes actually consumed by the integral objective gradient.
     fn adjoint_axes(&self, window: usize) -> Vec<usize> {
-        self.windows[window].columns.iter().enumerate()
+        self.windows[window]
+            .columns
+            .iter()
+            .enumerate()
             .filter_map(|(axis, source)| self.variable(window, source).map(|_| axis))
             .collect()
     }
@@ -1594,7 +1598,10 @@ impl ShootingOracle {
                 observation.finish(product.is_ok());
                 let (_, axes, gradient) = product?;
                 for (axis, d) in axes.iter().zip(&gradient) {
-                    let column = window.columns.get(*axis).ok_or_else(|| ProblemError::internal("shooting adjoint coordinate"))?;
+                    let column = window
+                        .columns
+                        .get(*axis)
+                        .ok_or_else(|| ProblemError::internal("shooting adjoint coordinate"))?;
                     if let Some(v) = p.variable(k, column) {
                         total[v] += d;
                     }

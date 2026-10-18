@@ -811,7 +811,10 @@ pub(crate) fn sample_jump(
         return Err(ProblemError::internal("adjoint jump extent"));
     }
     let eliminated = SampleElimination::prepared(differential, rhs, output.ncols(), preparation)?
-        .solve_selected(selected_transposed_product(output, cotangent, differential.len(), parameter_columns)?, parameter_columns)?;
+        .solve_selected(
+        selected_transposed_product(output, cotangent, differential.len(), parameter_columns)?,
+        parameter_columns,
+    )?;
     Ok((eliminated.state, eliminated.parameters))
 }
 /// A total derivative over the state followed by the contract parameters after the
@@ -857,15 +860,30 @@ pub(crate) fn selected_transposed_product(
     states: usize,
     parameters: &[Option<usize>],
 ) -> Result<Vec<f64>, ProblemError> {
-    if matrix.nrows() != v.len() || matrix.ncols() < states
+    if matrix.nrows() != v.len()
+        || matrix.ncols() < states
         || states.checked_add(parameters.len()).is_none()
-        || parameters.iter().flatten().any(|q| states.checked_add(*q).is_none_or(|column| column >= matrix.ncols()))
+        || parameters.iter().flatten().any(|q| {
+            states
+                .checked_add(*q)
+                .is_none_or(|column| column >= matrix.ncols())
+        })
     {
-        return Err(ProblemError::internal("selected adjoint transpose shape or parameter column"));
+        return Err(ProblemError::internal(
+            "selected adjoint transpose shape or parameter column",
+        ));
     }
-    Ok((0..states).map(Some).chain(parameters.iter().map(|column| column.map(|q| states + q)))
-        .map(|column| column.map_or(0., |column| matrix.col_range(column)
-            .map(|entry| matrix.val()[entry] * v[matrix.row_idx()[entry]]).sum()))
+    Ok((0..states)
+        .map(Some)
+        .chain(parameters.iter().map(|column| column.map(|q| states + q)))
+        .map(|column| {
+            column.map_or(0., |column| {
+                matrix
+                    .col_range(column)
+                    .map(|entry| matrix.val()[entry] * v[matrix.row_idx()[entry]])
+                    .sum()
+            })
+        })
         .collect())
 }
 /// Eliminate the algebraic states from `b`, a derivative over the state followed by the
@@ -1040,13 +1058,27 @@ impl<'a> SampleElimination<'a> {
         self.solve_columns(jump, None)
     }
     /// The same state factor and elimination with only demanded parameter corrections.
-    pub(crate) fn solve_selected(&mut self, jump: Vec<f64>, columns: &[Option<usize>]) -> Result<Eliminated, ProblemError> {
-        if columns.iter().flatten().any(|q| self.n.checked_add(*q).is_none_or(|c| c >= self.width)) {
-            return Err(ProblemError::internal("selected adjoint constraint columns"));
+    pub(crate) fn solve_selected(
+        &mut self,
+        jump: Vec<f64>,
+        columns: &[Option<usize>],
+    ) -> Result<Eliminated, ProblemError> {
+        if columns
+            .iter()
+            .flatten()
+            .any(|q| self.n.checked_add(*q).is_none_or(|c| c >= self.width))
+        {
+            return Err(ProblemError::internal(
+                "selected adjoint constraint columns",
+            ));
         }
         self.solve_columns(jump, Some(columns))
     }
-    fn solve_columns(&mut self, jump: Vec<f64>, columns: Option<&[Option<usize>]>) -> Result<Eliminated, ProblemError> {
+    fn solve_columns(
+        &mut self,
+        jump: Vec<f64>,
+        columns: Option<&[Option<usize>]>,
+    ) -> Result<Eliminated, ProblemError> {
         if !self.ready {
             return Err(ProblemError::numerical(
                 "sample elimination factor is invalid",
@@ -1061,7 +1093,11 @@ impl<'a> SampleElimination<'a> {
         }
         result
     }
-    fn solve_ready(&self, mut jump: Vec<f64>, columns: Option<&[Option<usize>]>) -> Result<Eliminated, ProblemError> {
+    fn solve_ready(
+        &self,
+        mut jump: Vec<f64>,
+        columns: Option<&[Option<usize>]>,
+    ) -> Result<Eliminated, ProblemError> {
         use faer::linalg::solvers::Solve;
         let width = columns.map_or(self.width, |columns| self.n.saturating_add(columns.len()));
         if jump.len() != width || jump.iter().any(|v| !v.is_finite()) {
@@ -2033,19 +2069,26 @@ impl Profile {
         let parameter_bytes = (|| {
             let backward = selected.checked_mul(32 * size_of::<f64>() + 4 * size_of::<usize>())?;
             let preparation = if self.method == Method::Diffsol {
-                let per_axis = n.checked_mul(2)?.checked_add(c.outputs.len())?
-                    .checked_mul(8 * size_of::<usize>())?
+                let per_axis = n
+                    .checked_mul(2)?
+                    .checked_add(c.outputs.len())?
+                    .checked_mul(size_of::<[usize; 8]>())?
                     .checked_add(32 * size_of::<usize>() + 8 * size_of::<f64>())?;
                 selected.checked_mul(segments)?.checked_mul(per_axis)?
-            } else { 0 };
+            } else {
+                0
+            };
             backward.checked_add(preparation)
-        })().ok_or_else(|| ProblemError::memory("adjoint parameter workspace extent"))?;
-        bytes.checked_add(parameter_bytes)
-            .and_then(|bytes| bytes.checked_add(self.native_scatter_bytes(
-                layout,
-                DynamicDemand::Base,
-                c.parameters.len(),
-            ).ok()?))
+        })()
+        .ok_or_else(|| ProblemError::memory("adjoint parameter workspace extent"))?;
+        bytes
+            .checked_add(parameter_bytes)
+            .and_then(|bytes| {
+                bytes.checked_add(
+                    self.native_scatter_bytes(layout, DynamicDemand::Base, c.parameters.len())
+                        .ok()?,
+                )
+            })
             .and_then(|bytes| bytes.checked_add(sample_elimination_bytes(c, layout)?))
             .and_then(|bytes| {
                 if self.method == Method::Diffsol {
@@ -2078,7 +2121,9 @@ impl Profile {
         directions: &[usize],
     ) -> Result<(), ProblemError> {
         if self.adjoint_parameters != AdjointParameters::All {
-            return Err(contract("exact Hessians require explicit full first-order parameter gradients"));
+            return Err(contract(
+                "exact Hessians require explicit full first-order parameter gradients",
+            ));
         }
         if self.sensitivity != DynamicSensitivity::Adjoint {
             return Err(contract(
@@ -2396,9 +2441,14 @@ impl Profile {
         if let AdjointParameters::Selected(axes) = &self.adjoint_parameters
             && (self.sensitivity != DynamicSensitivity::Adjoint
                 || axes.iter().any(|axis| *axis >= np)
-                || axes.iter().enumerate().any(|(k, axis)| axes[..k].contains(axis)))
+                || axes
+                    .iter()
+                    .enumerate()
+                    .any(|(k, axis)| axes[..k].contains(axis)))
         {
-            return Err(contract("adjoint parameter axes must be unique physical integration coordinates"));
+            return Err(contract(
+                "adjoint parameter axes must be unique physical integration coordinates",
+            ));
         }
         if let Some(axes) = &self.forward_axes
             && (self.sensitivity != DynamicSensitivity::Forward
@@ -3337,9 +3387,9 @@ mod contextual_tests;
 mod idas_initial_tests;
 
 #[cfg(all(test, any(feature = "diffsol", feature = "idas")))]
-mod selected_tests;
-#[cfg(all(test, any(feature = "diffsol", feature = "idas")))]
 mod method_contrast_tests;
+#[cfg(all(test, any(feature = "diffsol", feature = "idas")))]
+mod selected_tests;
 
 #[cfg(all(test, any(feature = "diffsol", feature = "idas")))]
 mod sample_elimination_tests {
@@ -3368,10 +3418,26 @@ mod sample_elimination_tests {
         }
         assert!(selected_transposed_product(f.as_ref(), &[1.], 2, &[Some(0)]).is_err());
         assert!(selected_transposed_product(f.as_ref(), &[1., 2.], 4, &[]).is_err());
-        assert_eq!(selected_transposed_product(f.as_ref(), &[1., 2.], 2, &[]).unwrap(), [6., 4.]);
-        assert_eq!(selected_transposed_product(f.as_ref(), &[1., 2.], 2, &[None, Some(0)]).unwrap(), [6., 4., 0., 10.]);
+        assert_eq!(
+            selected_transposed_product(f.as_ref(), &[1., 2.], 2, &[]).unwrap(),
+            [6., 4.]
+        );
+        assert_eq!(
+            selected_transposed_product(f.as_ref(), &[1., 2.], 2, &[None, Some(0)]).unwrap(),
+            [6., 4., 0., 10.]
+        );
         #[cfg(feature = "diffsol")]
-        assert!(sample_jump(&[true, false], f.as_ref(), Some(f.as_ref()), &[1., 2.], &[Some(usize::MAX)], &mut SampleEliminationPreparation::default()).is_err());
+        assert!(
+            sample_jump(
+                &[true, false],
+                f.as_ref(),
+                Some(f.as_ref()),
+                &[1., 2.],
+                &[Some(usize::MAX)],
+                &mut SampleEliminationPreparation::default()
+            )
+            .is_err()
+        );
     }
     #[test]
     fn sample_elimination_factors_once_for_distinct_rhs_and_refreshes_samples() {

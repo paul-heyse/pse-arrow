@@ -336,7 +336,9 @@ impl ProviderLift {
                     / Atom::num(layout.raw_factor(component)))
             })
             .collect::<Result<Vec<_>, MathError>>()?;
-        let library::FloatingEvaluator { evaluator, facts, .. } = library::bounded_scalar_evaluator(
+        let library::FloatingEvaluator {
+            evaluator, facts, ..
+        } = library::bounded_scalar_evaluator(
             &expressions,
             &parameters,
             options,

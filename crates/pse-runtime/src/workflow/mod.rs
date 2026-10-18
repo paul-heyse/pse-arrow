@@ -25,8 +25,8 @@ pub use replay::{
     ReplaySourceDocument, ReplaySourceObject, ReplayVariableState, ScientificReplay,
 };
 mod connected_results;
-pub mod result_blocks;
 mod physical_spool;
+pub mod result_blocks;
 pub mod result_files;
 mod result_snapshot;
 pub use result_snapshot::{ResultSnapshot, SelectedResultSnapshot};

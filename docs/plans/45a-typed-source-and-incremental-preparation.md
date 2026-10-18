@@ -1,6 +1,6 @@
 ---
 title: "Plan45a: Typed source and incremental preparation"
-status: in-progress
+status: done
 date: 2026-10-18
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
@@ -66,18 +66,34 @@ Select and implement the supported bounded reuse/base-description outcome, or ke
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| A01 | RC01 decision; current receiving/identity contracts | Typed ingress through all actual constructors/edits/rebinds; same predicates/identity; immediate reconstruction removed | in-progress |
-| A02 | Exact changed-object contract; sound shared-map allocation model | Persistent authoritative indexes with bounded ownership, cold/edit/absence/adverse tests; full-map copies removed | in-progress |
-| A03 | RC02 decision; phase/product lifetime inventory | Separate temporary candidate and retained ownership; edit/backdating/pressure/cancel controls; retained-history inflation removed | in-progress |
-| A04 | RC03 decision; exact physical resolution premises | Investigate and implement qualified consumed closure across lane/frontier/body/view checks; invalidating and non-invalidating controls | in-progress |
-| A05 | Existing active-view/source contracts; A03 where accounting is consumed; A04 only for finer physical eligibility | Historical/study investigation, selected bounded implementation and complete-context/pressure/drain tests | in-progress |
+| A01 | RC01 decision; current receiving/identity contracts | Typed ingress through all actual constructors/edits/rebinds; same predicates/identity; immediate reconstruction removed | done |
+| A02 | Exact changed-object contract; sound shared-map allocation model | Persistent authoritative indexes with bounded ownership, cold/edit/absence/adverse tests; full-map copies removed | done |
+| A03 | RC02 decision; phase/product lifetime inventory | Separate temporary candidate and retained ownership; edit/backdating/pressure/cancel controls; retained-history inflation removed | done |
+| A04 | RC03 decision; exact physical resolution premises | Investigate and implement qualified consumed closure across lane/frontier/body/view checks; invalidating and non-invalidating controls | done |
+| A05 | Existing active-view/source contracts; A03 where accounting is consumed; A04 only for finer physical eligibility | Historical/study investigation, selected bounded implementation and complete-context/pressure/drain tests | done |
 
 ## Verification and checkpoint
 
 **Planned:** compile touched `pse-runtime`, `pse-compiler` and actual affected source/modeling packages through the scope-aware recipes, then targeted force-validated units for the changed mechanisms. Use existing fixtures for identity, indexed delta, source attribution, phase backdating and active study reuse; add revealing cases where absent. Package tests must exercise actual migrated entrypoints, not only new helpers. Regenerate through the owner if declarations change. Integrated science/static checks belong to 45f after functional scope.
 
-At authoring, the review and source provide interface evidence only; all five packages are open. The first target keeps canonical bytes and reserved defaults. RC03 selects the target; finer physical reuse remains unimplemented until its complete premises qualify and its prerequisite design route is complete. Any hidden-node or physical-closure premise that stays unsettled remains explicit at the coordinator rather than being converted into a completion claim.
+At authoring, the review and source provided interface evidence only. All five bounded package outcomes now have targeted acceptance; assembled series qualification remains 45f. The first target keeps canonical bytes and reserved defaults. RC03 selects the target; finer physical reuse remains unimplemented until its complete premises qualify and its prerequisite design route is complete. Any hidden-node or physical-closure premise that stays unsettled remains explicit at the coordinator rather than being converted into a completion claim.
 
 Current execution checkpoint: A01/A02 typed construction and persistent source roots are integrated. A03 replaces cumulative candidate allowances with a census of current retained inputs; existing opaque/default allowances remain. The targeted compiler/modeling controls passed 18/18, and the runtime source/spool/historical selection passed 18/18, against zero failures. A05 retains one exclusively borrowed exact historical accelerator when the existing lane budget permits; one-lane pressure and a busy peer keep fresh private construction, without rewinding the live head. Final cross-owner/source/study qualification remains 45f.
 
 A04's bounded investigation retains conservative whole-context invalidation under accepted RC03. Successful PhysicalAdmission/ResolvedInference products do not issue complete negative lookup, candidate-membership, package visibility or checker/provider interpretation premises. In particular, resolve_key absence can change raw versus named representation; adding another matching operation can change ambiguity. The current fact-boundary control passed, but no finer key was adopted. F05 remains explicitly unresolved at the coordinator. Stable bound-view hashing also retains V5: the stable suffix follows structure/context/order in the preimage; a prehashed suffix would change identity, while another owner-retaining cache has no demonstrated material benefit in clone-heavy consumers. A materially costly repeated view-key profile is its revisit trigger.
+
+The two actual runtime source-size controls passed at 8/32/128 declarations, including real byte receiving and changed-byte refusal. Equal preparation and independent equal ingress issued no new workspace/frontier/completion; an unrelated deletion likewise issued none. Default/span/expression edits retained the current workspace while issuing one affected frontier/completion. Independent fresh source identities/order and retained original source/bound products remained valid. These are scoped work observations; first-ingress clocks include receiving setup and do not establish a source-size latency ranking. The three-control selection also exposed an unrelated E04 test-shape error; it did not fail either source control.
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented / targeted Tested:** Typed source admission, persistent ordered indexes and current retained-input census replace the immediate local decode, full-map copy and cumulative candidate charges. One bounded historical accelerator is exclusively borrowed; busy or inadmissible history uses fresh private construction. Canonical identity, receiving checks and opaque/default allowances remain unchanged. The preceding package verification records targeted conditions; [45f](45f-short-run-qualification-and-publication.md#verification-and-checkpoint) records assembled acceptance and the shared scope-end checks.
+
+### A mistake made and corrected
+
+The first source-size fixture mixed receiving setup with the preparation clock. The final controls separate ingress from equal/edit preparation and compare actual workspace/frontier/completion counts rather than claiming a source-size latency ranking.
+
+### Deviations from the plan, deliberate
+
+RC03 retains conservative complete-context physical invalidation because no complete resolver-issued negative/membership/scope/checker/provider closure exists. F05 remains unresolved. Stable bound-view hashing retains V5; no additional view-key cache was justified.

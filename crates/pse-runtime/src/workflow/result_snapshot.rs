@@ -56,17 +56,29 @@ impl ProtectedResultDecode {
         relation: pse_ids::SemanticId,
         schema: SchemaRef,
     ) -> Result<Arc<Self>, WorkflowError> {
-        let required = read.retained_bytes()?
+        let required = read
+            .retained_bytes()?
             .checked_add(MetadataResponse::Protection.allocation_bytes())
             .ok_or_else(|| contract("result protected metadata extent"))?;
         if read_owner.size() < required {
             return Err(contract("result read metadata is not prepaid"));
         }
         read.retain_metadata_owner(read_owner.clone())?;
-        let owner = MemoryConsumer::new("canonical:protected-result-decoder").register(&runtime.shared.pool());
-        owner.try_grow(size_of::<Self>() + 2 * size_of::<usize>()).map_err(pse_engine::EngineError::from)?;
-        Ok(Arc::new(Self { runtime: runtime.clone(), read, read_owner, relation, schema,
-            admission: runtime.admission_context(), cache: tokio::sync::Mutex::new(None), _owner: owner }))
+        let owner = MemoryConsumer::new("canonical:protected-result-decoder")
+            .register(&runtime.shared.pool());
+        owner
+            .try_grow(size_of::<Self>() + 2 * size_of::<usize>())
+            .map_err(pse_engine::EngineError::from)?;
+        Ok(Arc::new(Self {
+            runtime: runtime.clone(),
+            read,
+            read_owner,
+            relation,
+            schema,
+            admission: runtime.admission_context(),
+            cache: tokio::sync::Mutex::new(None),
+            _owner: owner,
+        }))
     }
 }
 
@@ -125,7 +137,9 @@ impl ResultSnapshot {
                     "canonical:result-snapshot-page",
                     MetadataResponse::BlockPage,
                 )?;
-                if let Some(context) = pse_diagnostics::observation::current() { context.count("canonical.result.block_page_requests", "count", 1); }
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("canonical.result.block_page_requests", "count", 1);
+                }
                 let page = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), read_owner.clone(), response.clone())),
                     runtime.canonical_store()?.result_block_page(
@@ -160,7 +174,9 @@ impl ResultSnapshot {
                     "canonical:result-snapshot-descriptors",
                     MetadataResponse::Page,
                 )?;
-                if let Some(context) = pse_diagnostics::observation::current() { context.count("canonical.result.descriptor_page_requests", "count", 1); }
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("canonical.result.descriptor_page_requests", "count", 1);
+                }
                 let descriptors = pse_operations::canonical::response_ownership_scope(
                     Arc::new((read.clone(), read_owner.clone(), response.clone())),
                     runtime
@@ -222,7 +238,12 @@ impl ResultSnapshot {
         }
         Ok(Self(Arc::new(SnapshotInner {
             decode: ProtectedResultDecode::new(runtime, read, read_owner, relation, schema)?,
-            batches, blocks, positions, start, end, _owner: owner,
+            batches,
+            blocks,
+            positions,
+            start,
+            end,
+            _owner: owner,
         })))
     }
     /// Exact registry relation schema, including its original metadata.
@@ -284,9 +305,12 @@ impl ProtectedResultDecode {
         cancel: &CancellationToken,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-        if descriptor.key != block.batch || descriptor.ordinal != block.ordinal
-            || descriptor.row_count != block.rows || descriptor.digest != block.payload_digest
-            || descriptor.payload_bytes != block.payload_bytes {
+        if descriptor.key != block.batch
+            || descriptor.ordinal != block.ordinal
+            || descriptor.row_count != block.rows
+            || descriptor.digest != block.payload_digest
+            || descriptor.payload_bytes != block.payload_bytes
+        {
             return Err(contract("protected result descriptor coverage differs"));
         }
         let owner = MemoryConsumer::new("canonical:result-file-decode")
@@ -330,8 +354,7 @@ impl ProtectedResultDecode {
             )?;
             let file = pse_operations::canonical::response_ownership_scope(
                 Arc::new((self.read.clone(), self.read_owner.clone(), response)),
-                self
-                    .runtime
+                self.runtime
                     .canonical_store()?
                     .open_result_file(&self.read, descriptor),
             )
@@ -364,7 +387,11 @@ impl ProtectedResultDecode {
         drop(cache);
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("canonical.result.native_decodes", "count", 1);
-            context.count("canonical.result.decoded_array_bytes", "bytes", batch.get_array_memory_size() as u64);
+            context.count(
+                "canonical.result.decoded_array_bytes",
+                "bytes",
+                batch.get_array_memory_size() as u64,
+            );
         }
         if batch.num_rows() as u64 != block.rows || batch.schema() != self.schema.clone() {
             return Err(contract("frozen file batch rows/schema differ"));
@@ -411,18 +438,34 @@ struct SelectedBlock {
 /// actual allocation, never the complete decoded trajectory.
 #[derive(Debug)]
 pub(super) enum SelectedRows {
-    Range { offset: usize, length: usize },
-    Sparse { offsets: Vec<u32>, _owner: MemoryReservation },
+    Range {
+        offset: usize,
+        length: usize,
+    },
+    Sparse {
+        offsets: Vec<u32>,
+        _owner: MemoryReservation,
+    },
 }
 impl SelectedRows {
-    pub(super) fn from_offsets(offsets: Vec<u32>, owner: MemoryReservation) -> Result<Self, WorkflowError> {
-        let bytes = offsets.capacity().checked_mul(size_of::<u32>())
+    pub(super) fn from_offsets(
+        offsets: Vec<u32>,
+        owner: MemoryReservation,
+    ) -> Result<Self, WorkflowError> {
+        let bytes = offsets
+            .capacity()
+            .checked_mul(size_of::<u32>())
             .ok_or_else(|| contract("selected offset extent"))?;
-        if bytes > owner.size() { return Err(contract("selected offsets are not prepaid")); }
+        if bytes > owner.size() {
+            return Err(contract("selected offsets are not prepaid"));
+        }
         if offsets.windows(2).any(|pair| pair[0] >= pair[1]) {
             return Err(contract("selected offsets repeat or reverse source rows"));
         }
-        if offsets.windows(2).all(|pair| pair[0].checked_add(1) == Some(pair[1])) {
+        if offsets
+            .windows(2)
+            .all(|pair| pair[0].checked_add(1) == Some(pair[1]))
+        {
             let offset = offsets.first().copied().unwrap_or(0) as usize;
             let length = offsets.len();
             drop(offsets);
@@ -430,23 +473,37 @@ impl SelectedRows {
             Ok(Self::Range { offset, length })
         } else {
             owner.shrink(owner.size() - bytes);
-            Ok(Self::Sparse { offsets, _owner: owner })
+            Ok(Self::Sparse {
+                offsets,
+                _owner: owner,
+            })
         }
     }
     fn len(&self) -> usize {
-        match self { Self::Range {length, ..} => *length, Self::Sparse {offsets, ..} => offsets.len() }
-    }
-    pub(super) fn apply(&self, batch: &pse_relations::columnar::FieldCheckedBatch,
-        pool: &Arc<dyn pse_columnar::MemoryPool>, cancel: &CancellationToken)
-        -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         match self {
-            Self::Range {offset, length} => batch.slice(*offset, *length).map_err(super::relation),
-            Self::Sparse {offsets, ..} => {
+            Self::Range { length, .. } => *length,
+            Self::Sparse { offsets, .. } => offsets.len(),
+        }
+    }
+    pub(super) fn apply(
+        &self,
+        batch: &pse_relations::columnar::FieldCheckedBatch,
+        pool: &Arc<dyn pse_columnar::MemoryPool>,
+        cancel: &CancellationToken,
+    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        match self {
+            Self::Range { offset, length } => {
+                batch.slice(*offset, *length).map_err(super::relation)
+            }
+            Self::Sparse { offsets, .. } => {
                 let scratch = MemoryConsumer::new("canonical:selected-take-offsets").register(pool);
-                scratch.try_grow(offsets.len().saturating_mul(size_of::<u32>()))
+                scratch
+                    .try_grow(offsets.len().saturating_mul(size_of::<u32>()))
                     .map_err(pse_engine::EngineError::from)?;
                 let indices = datafusion::arrow::array::UInt32Array::from(offsets.clone());
-                let batch = batch.take_reserved(&indices, pool, cancel).map_err(super::relation);
+                let batch = batch
+                    .take_reserved(&indices, pool, cancel)
+                    .map_err(super::relation);
                 drop(indices);
                 drop(scratch);
                 batch
@@ -462,34 +519,69 @@ pub(super) struct SelectedSnapshotBuilder {
 }
 impl SelectedSnapshotBuilder {
     pub(super) fn new(decode: Arc<ProtectedResultDecode>) -> Result<Self, WorkflowError> {
-        let owner = MemoryConsumer::new("canonical:selected-snapshot-inventory").register(&decode.runtime.shared.pool());
-        owner.try_grow(size_of::<SelectedSnapshotInner>() + 2 * size_of::<usize>())
+        let owner = MemoryConsumer::new("canonical:selected-snapshot-inventory")
+            .register(&decode.runtime.shared.pool());
+        owner
+            .try_grow(size_of::<SelectedSnapshotInner>() + 2 * size_of::<usize>())
             .map_err(pse_engine::EngineError::from)?;
-        Ok(Self {decode, entries: Vec::new(), rows: 0, owner})
+        Ok(Self {
+            decode,
+            entries: Vec::new(),
+            rows: 0,
+            owner,
+        })
     }
-    pub(super) fn push(&mut self, block: &Block, descriptor: &FileBatch, rows: SelectedRows) -> Result<(), WorkflowError> {
+    pub(super) fn push(
+        &mut self,
+        block: &Block,
+        descriptor: &FileBatch,
+        rows: SelectedRows,
+    ) -> Result<(), WorkflowError> {
         use pse_model::HeapUsage;
         let extent = 2 * size_of::<SelectedBlock>() + block.heap_bytes() + descriptor.heap_bytes();
-        self.owner.try_grow(extent).map_err(pse_engine::EngineError::from)?;
-        self.entries.try_reserve_exact(1).map_err(|_| contract("selected snapshot inventory allocation refused"))?;
-        self.rows = self.rows.checked_add(rows.len() as u64).ok_or_else(|| contract("selected snapshot row count extent"))?;
-        self.entries.push(SelectedBlock {block: block.clone(), descriptor: descriptor.clone(), rows});
+        self.owner
+            .try_grow(extent)
+            .map_err(pse_engine::EngineError::from)?;
+        self.entries
+            .try_reserve_exact(1)
+            .map_err(|_| contract("selected snapshot inventory allocation refused"))?;
+        self.rows = self
+            .rows
+            .checked_add(rows.len() as u64)
+            .ok_or_else(|| contract("selected snapshot row count extent"))?;
+        self.entries.push(SelectedBlock {
+            block: block.clone(),
+            descriptor: descriptor.clone(),
+            rows,
+        });
         Ok(())
     }
     pub(super) fn finish(self) -> SelectedResultSnapshot {
-        SelectedResultSnapshot(Arc::new(SelectedSnapshotInner {decode: self.decode, entries: self.entries,
-            rows: self.rows, _owner: self.owner}))
+        SelectedResultSnapshot(Arc::new(SelectedSnapshotInner {
+            decode: self.decode,
+            entries: self.entries,
+            rows: self.rows,
+            _owner: self.owner,
+        }))
     }
 }
 impl SelectedResultSnapshot {
     /// Full original registry schema; row restrictions are owned by this snapshot.
-    pub fn schema(&self) -> SchemaRef { self.0.decode.schema.clone() }
+    pub fn schema(&self) -> SchemaRef {
+        self.0.decode.schema.clone()
+    }
     /// Exact original terminal run/attempt/manifest, including partiality.
-    pub fn selection(&self) -> &ResultRead { &self.0.decode.read }
+    pub fn selection(&self) -> &ResultRead {
+        &self.0.decode.read
+    }
     /// Number of rows in the complete frozen selected universe.
-    pub fn row_count(&self) -> u64 { self.0.rows }
+    pub fn row_count(&self) -> u64 {
+        self.0.rows
+    }
     /// Original configured native functions, registry and pool.
-    pub fn session_state(&self) -> SessionState { self.0.decode.runtime.bound_model().native_state() }
+    pub fn session_state(&self) -> SessionState {
+        self.0.decode.runtime.bound_model().native_state()
+    }
     /// Native provider restricting rows before any residual, limit or projection.
     pub fn table_provider(&self) -> Arc<dyn TableProvider> {
         Arc::new(SnapshotProvider(FrozenSnapshot::Selected(self.clone())))
@@ -497,38 +589,78 @@ impl SelectedResultSnapshot {
 }
 
 #[derive(Clone, Debug)]
-enum FrozenSnapshot { Full(ResultSnapshot), Selected(SelectedResultSnapshot) }
+enum FrozenSnapshot {
+    Full(ResultSnapshot),
+    Selected(SelectedResultSnapshot),
+}
 impl FrozenSnapshot {
     fn decode(&self) -> &Arc<ProtectedResultDecode> {
-        match self {Self::Full(s) => &s.0.decode, Self::Selected(s) => &s.0.decode}
+        match self {
+            Self::Full(s) => &s.0.decode,
+            Self::Selected(s) => &s.0.decode,
+        }
     }
-    fn schema(&self) -> SchemaRef { self.decode().schema.clone() }
-    async fn next(&self, index: &mut usize, cache: &mut Option<(usize, pse_relations::columnar::FieldCheckedBatch)>,
-        cancel: &CancellationToken) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
+    fn schema(&self) -> SchemaRef {
+        self.decode().schema.clone()
+    }
+    async fn next(
+        &self,
+        index: &mut usize,
+        cache: &mut Option<(usize, pse_relations::columnar::FieldCheckedBatch)>,
+        cancel: &CancellationToken,
+    ) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
         match self {
             Self::Full(snapshot) => {
                 while let Some(block) = snapshot.0.blocks.get(*index) {
                     *index += 1;
                     let lower = snapshot.0.start.max(block.start);
                     let upper = snapshot.0.end.min(block.end);
-                    if lower >= upper {continue;}
+                    if lower >= upper {
+                        continue;
+                    }
                     let batch = snapshot.read_block(block, cancel).await?;
-                    let offset = usize::try_from(lower - block.start).map_err(|_| contract("snapshot row offset extent"))?;
-                    let count = usize::try_from(upper - lower).map_err(|_| contract("snapshot row count extent"))?;
-                    return batch.slice(offset, count).map(Some).map_err(super::relation);
+                    let offset = usize::try_from(lower - block.start)
+                        .map_err(|_| contract("snapshot row offset extent"))?;
+                    let count = usize::try_from(upper - lower)
+                        .map_err(|_| contract("snapshot row count extent"))?;
+                    return batch
+                        .slice(offset, count)
+                        .map(Some)
+                        .map_err(super::relation);
                 }
                 Ok(None)
             }
             Self::Selected(snapshot) => {
-                let Some(entry) = snapshot.0.entries.get(*index) else { *cache = None; return Ok(None); };
-                let cached = cache.as_ref().and_then(|(position, batch)| snapshot.0.entries.get(*position)
-                    .filter(|prior| prior.block == entry.block && prior.descriptor == entry.descriptor)
-                    .map(|_| batch.clone()));
-                let checked = match cached { Some(batch) => batch,
-                    None => snapshot.0.decode.read_block(&entry.block, &entry.descriptor, cancel).await? };
+                let Some(entry) = snapshot.0.entries.get(*index) else {
+                    *cache = None;
+                    return Ok(None);
+                };
+                let cached = cache.as_ref().and_then(|(position, batch)| {
+                    snapshot
+                        .0
+                        .entries
+                        .get(*position)
+                        .filter(|prior| {
+                            prior.block == entry.block && prior.descriptor == entry.descriptor
+                        })
+                        .map(|_| batch.clone())
+                });
+                let checked = match cached {
+                    Some(batch) => batch,
+                    None => {
+                        snapshot
+                            .0
+                            .decode
+                            .read_block(&entry.block, &entry.descriptor, cancel)
+                            .await?
+                    }
+                };
                 *cache = Some((*index, checked.clone()));
                 *index += 1;
-                entry.rows.apply(&checked, &snapshot.0.decode.runtime.shared.pool(), cancel).map(Some)
+                entry
+                    .rows
+                    .apply(&checked, &snapshot.0.decode.runtime.shared.pool(), cancel)
+                    .map(Some)
             }
         }
     }
@@ -605,18 +737,29 @@ impl PartitionStream for SnapshotPartition {
             (snapshot, 0usize, None, cancel, pool_matches),
             |(snapshot, mut index, mut cache, cancel, pool_matches)| async move {
                 if !pool_matches {
-                    return Err(DataFusionError::Execution("snapshot execution uses another deployment pool".into()));
+                    return Err(DataFusionError::Execution(
+                        "snapshot execution uses another deployment pool".into(),
+                    ));
                 }
-                let batch = snapshot.next(&mut index, &mut cache, &cancel).await.map_err(pse_columnar::external)?;
-                let Some(batch) = batch else { return Ok(None); };
-                let batch = batch.checked_export(&cancel).map_err(pse_columnar::external)?;
-                Ok::<_, DataFusionError>(Some((batch, (snapshot, index, cache, cancel, pool_matches))))
+                let batch = snapshot
+                    .next(&mut index, &mut cache, &cancel)
+                    .await
+                    .map_err(pse_columnar::external)?;
+                let Some(batch) = batch else {
+                    return Ok(None);
+                };
+                let batch = batch
+                    .checked_export(&cancel)
+                    .map_err(pse_columnar::external)?;
+                Ok::<_, DataFusionError>(Some((
+                    batch,
+                    (snapshot, index, cache, cancel, pool_matches),
+                )))
             },
         );
         Box::pin(RecordBatchStreamAdapter::new(self.0.schema(), stream))
     }
 }
-
 
 #[cfg(test)]
 mod selected_snapshot_unit {
@@ -626,22 +769,31 @@ mod selected_snapshot_unit {
     fn selected_offsets_require_admission_coalesce_dense_ranges_and_release_sparse_storage() {
         let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(4096));
         let grant = || MemoryConsumer::new("test:selected-offsets").register(&pool);
-        let owner = grant(); owner.try_grow(12).unwrap();
-        let dense = SelectedRows::from_offsets(vec![2,3,4], owner).unwrap();
-        assert!(matches!(dense, SelectedRows::Range {offset: 2, length: 3}));
+        let owner = grant();
+        owner.try_grow(12).unwrap();
+        let dense = SelectedRows::from_offsets(vec![2, 3, 4], owner).unwrap();
+        assert!(matches!(
+            dense,
+            SelectedRows::Range {
+                offset: 2,
+                length: 3
+            }
+        ));
         assert_eq!(pool.reserved(), 0);
-        let owner = grant(); owner.try_grow(12).unwrap();
-        let sparse = SelectedRows::from_offsets(vec![0,2,u32::MAX], owner).unwrap();
+        let owner = grant();
+        owner.try_grow(12).unwrap();
+        let sparse = SelectedRows::from_offsets(vec![0, 2, u32::MAX], owner).unwrap();
         assert_eq!(sparse.len(), 3);
         assert_eq!(pool.reserved(), 12);
         drop(sparse);
         assert_eq!(pool.reserved(), 0);
-        for offsets in [vec![2,2], vec![2,1]] {
-            let owner = grant(); owner.try_grow(8).unwrap();
+        for offsets in [vec![2, 2], vec![2, 1]] {
+            let owner = grant();
+            owner.try_grow(8).unwrap();
             assert!(SelectedRows::from_offsets(offsets, owner).is_err());
             assert_eq!(pool.reserved(), 0);
         }
-        assert!(SelectedRows::from_offsets(vec![1,2], grant()).is_err());
+        assert!(SelectedRows::from_offsets(vec![1, 2], grant()).is_err());
         assert_eq!(pool.reserved(), 0);
     }
 }

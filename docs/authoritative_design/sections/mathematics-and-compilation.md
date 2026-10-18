@@ -987,9 +987,13 @@ Compiler exclusion is acquired cancellably under the existing bounded population
 before active CPU/native dispatch. That same ticket transfers workspace authority into the
 worker and retains its permit and generation storage through actual thread/TLS join. Head
 comparison, publication and use remain coherent under one writer. Historical/branch work
-releases live-lane authority before acquiring a separately charged private workspace; it
-neither rewinds the head nor waits recursively for the same permit. No second scheduler or
-population ticket is introduced.
+releases live-lane authority before acquiring its separately charged workspace; it neither
+rewinds the head nor waits recursively for the same permit. A bounded historical
+accelerator retains one exact revision and consumed context under an exclusive writer,
+sharing the existing lane population and workspace accounting. Exact repeated historical
+requests may reuse it; busy or pressure refusal falls back to a fresh workspace without
+mutating the live head or invalidating detached products. It is an optional accelerator,
+not source or scientific authority. No second scheduler or population ticket is introduced.
 
 Selected import lookup consumes maintained declaration-ordered root buckets after the same
 completeness checks. Immutable specialization owns its reusable lexical bases; current

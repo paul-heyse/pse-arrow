@@ -1378,9 +1378,9 @@ impl ModelingPackage {
                 strategy: kinsol::Strategy::FixedPoint,
                 anderson: request.anderson,
                 anderson_delay: request.anderson_delay,
-                orthogonalization: request.orthogonalization.unwrap_or(
-                    kinsol::Orthogonalization::ModifiedGramSchmidt,
-                ),
+                orthogonalization: request
+                    .orthogonalization
+                    .unwrap_or(kinsol::Orthogonalization::ModifiedGramSchmidt),
                 damping: request.damping,
                 ..kinsol::Method::default()
             },

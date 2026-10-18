@@ -77,16 +77,33 @@ impl PartialEq for PreparedSupport {
     }
 }
 impl PreparedSupport {
-    fn from_data(data: PreparedSupportData, owner: Option<Arc<dyn crate::AllocationOwner>>, cancel: &Arc<AtomicBool>, retained: Option<Arc<PreparedStages>>) -> Result<Self, MathError> {
-        if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
-        let program = if let Some(program) = retained { program } else {
-        let parameters = data.body.parameters()?;
-        let symbols = symbol_map(&parameters);
-        let stages = data.body.demand(&(0..data.outputs.len()).collect::<Vec<_>>(), &symbols);
-        Arc::new(PreparedStages::new(&stages, &parameters, &symbols, cancel)?)
+    fn from_data(
+        data: PreparedSupportData,
+        owner: Option<Arc<dyn crate::AllocationOwner>>,
+        cancel: &Arc<AtomicBool>,
+        retained: Option<Arc<PreparedStages>>,
+    ) -> Result<Self, MathError> {
+        if cancel.load(Ordering::Acquire) {
+            return Err(MathError::Cancelled);
+        }
+        let program = if let Some(program) = retained {
+            program
+        } else {
+            let parameters = data.body.parameters()?;
+            let symbols = symbol_map(&parameters);
+            let stages = data
+                .body
+                .demand(&(0..data.outputs.len()).collect::<Vec<_>>(), &symbols);
+            Arc::new(PreparedStages::new(&stages, &parameters, &symbols, cancel)?)
         };
-        if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
-        Ok(Self { data: Arc::new(data), program, owner })
+        if cancel.load(Ordering::Acquire) {
+            return Err(MathError::Cancelled);
+        }
+        Ok(Self {
+            data: Arc::new(data),
+            program,
+            owner,
+        })
     }
     /// Original body output ordinals; support rows use this ordered map.
     pub fn outputs(&self) -> &[usize] {
@@ -413,7 +430,8 @@ impl PreparedSupport {
             }
         }
         construction.record("success", true);
-        Self::from_data(PreparedSupportData {
+        Self::from_data(
+            PreparedSupportData {
                 body: self
                     .body()
                     .compact(&rows, self.coordinates(), self.data.source_inputs)?,
@@ -425,7 +443,11 @@ impl PreparedSupport {
                 support,
                 remaining_occurrences: remaining,
                 derivative_operations: 0,
-            }, self.owner.clone(), cancel, None)
+            },
+            self.owner.clone(),
+            cancel,
+            None,
+        )
     }
     /// Mechanical conditional projection of already established derivative support.
     /// No symbolic construction is repeated and no exhausted allowance is reset.
@@ -487,7 +509,8 @@ impl PreparedSupport {
         } else {
             Vec::new()
         };
-        Self::from_data(PreparedSupportData {
+        Self::from_data(
+            PreparedSupportData {
                 body: self.body().compact(
                     &outputs
                         .iter()
@@ -521,7 +544,11 @@ impl PreparedSupport {
                 },
                 remaining_occurrences: self.remaining_occurrences(),
                 derivative_operations: 0,
-            }, self.owner.clone(), cancel, None)
+            },
+            self.owner.clone(),
+            cancel,
+            None,
+        )
     }
     /// Initial selected numeric construction population. Fixed inputs remain value
     /// parameters, while only the demanded coordinates contribute Taylor axes.
@@ -787,8 +814,16 @@ impl PreparedSupport {
         ) -> Result<(), MathError> {
             for prepared in &program.stages {
                 scope.check().map_err(crate::error::scope_error)?;
-                if let (Stage::Block { expressions, .. }, Some(region)) = (&prepared.stage, &prepared.region) {
-                    cache.admit_prepare(expressions, &region.parameters, options, scope.cancellation(), limits)?;
+                if let (Stage::Block { expressions, .. }, Some(region)) =
+                    (&prepared.stage, &prepared.region)
+                {
+                    cache.admit_prepare(
+                        expressions,
+                        &region.parameters,
+                        options,
+                        scope.cancellation(),
+                        limits,
+                    )?;
                 }
                 for child in &prepared.children {
                     collect(child, options, limits, scope, cache)?;
@@ -1106,7 +1141,6 @@ impl PreparedBody {
     /// Known symbolic payload and container contents. The library's global symbol interner
     /// is process state that no product owns or releases, so it is not counted here.
     pub fn retained_bytes(&self) -> usize {
-
         size_of::<PreparedBodyData>()
             + self.formal_slots.capacity() * size_of::<usize>()
             + self.symbols.capacity() * (size_of::<Symbol>() + size_of::<usize>() + 16)
@@ -1532,7 +1566,8 @@ impl PreparedBody {
             }
         }
         let derivative_operations = allowance.derivatives;
-        let prepared = PreparedSupport::from_data(PreparedSupportData {
+        let prepared = PreparedSupport::from_data(
+            PreparedSupportData {
                 body: self.clone(),
                 source: Arc::downgrade(&self.data),
                 source_inputs: self.inputs,
@@ -1542,7 +1577,11 @@ impl PreparedBody {
                 support,
                 remaining_occurrences: remaining,
                 derivative_operations,
-            }, None, cancel, retained_program)?;
+            },
+            None,
+            cancel,
+            retained_program,
+        )?;
         construction.record("success", true);
         construction.record("derivative_operations", derivative_operations as u64);
         if let Some(context) = pse_diagnostics::observation::current() {
@@ -3994,71 +4033,71 @@ fn provider_request_order(
     }
 }
 fn stage_retained_bytes(items: &[Stage], seen: &mut BTreeSet<usize>) -> usize {
-            fn lineage_bytes(
-                lineage: &Arc<pse_model::diagnostic::ValidityLineage>,
-                seen: &mut BTreeSet<usize>,
-            ) -> usize {
-                if seen.insert(Arc::as_ptr(lineage) as usize) {
-                    size_of_val(lineage.as_ref()) + lineage.heap_bytes() + 2 * size_of::<usize>()
-                } else {
-                    0
-                }
-            }
-            size_of_val(items)
-                + items
-                    .iter()
-                    .map(|s| match s {
-                        Stage::Block {
-                            expressions,
-                            outputs,
-                            ..
-                        } => {
-                            size_of_val(expressions.as_slice())
-                                + expressions
-                                    .iter()
-                                    .map(|a| a.as_view().get_byte_size())
-                                    .sum::<usize>()
-                                + size_of_val(outputs.as_slice())
-                        }
-                        Stage::Branch {
-                            then, otherwise, ..
-                        } => stage_retained_bytes(then, seen) + stage_retained_bytes(otherwise, seen),
-                        Stage::Domain {
-                            stages: local,
-                            lineage,
-                            ..
-                        } => stage_retained_bytes(local, seen) + lineage_bytes(lineage, seen),
-                        Stage::Applicability {
-                            stages: local,
-                            predicates,
-                            inputs,
-                            plan,
-                            ..
-                        } => {
-                            stage_retained_bytes(local, seen)
-                                + (predicates.capacity() + inputs.capacity()) * size_of::<usize>()
-                                + plan.retained_bytes()
-                        }
-                        Stage::Provider {
-                            inputs,
-                            outputs,
-                            spec,
-                            partial,
-                            ..
-                        } => {
-                            size_of_val(inputs.as_slice())
-                                + size_of_val(partial.as_slice())
-                                + size_of_val(outputs.as_slice())
-                                + size_of_val(spec.inputs.as_slice())
-                                + size_of_val(spec.outputs.as_slice())
-                                + spec.shapes.retained_bytes()
-                        }
-                        Stage::Require { lineage, .. } => lineage
-                            .as_ref()
-                            .map_or(0, |lineage| lineage_bytes(lineage, seen)),
-                    })
-                    .sum::<usize>()
+    fn lineage_bytes(
+        lineage: &Arc<pse_model::diagnostic::ValidityLineage>,
+        seen: &mut BTreeSet<usize>,
+    ) -> usize {
+        if seen.insert(Arc::as_ptr(lineage) as usize) {
+            size_of_val(lineage.as_ref()) + lineage.heap_bytes() + 2 * size_of::<usize>()
+        } else {
+            0
         }
+    }
+    size_of_val(items)
+        + items
+            .iter()
+            .map(|s| match s {
+                Stage::Block {
+                    expressions,
+                    outputs,
+                    ..
+                } => {
+                    size_of_val(expressions.as_slice())
+                        + expressions
+                            .iter()
+                            .map(|a| a.as_view().get_byte_size())
+                            .sum::<usize>()
+                        + size_of_val(outputs.as_slice())
+                }
+                Stage::Branch {
+                    then, otherwise, ..
+                } => stage_retained_bytes(then, seen) + stage_retained_bytes(otherwise, seen),
+                Stage::Domain {
+                    stages: local,
+                    lineage,
+                    ..
+                } => stage_retained_bytes(local, seen) + lineage_bytes(lineage, seen),
+                Stage::Applicability {
+                    stages: local,
+                    predicates,
+                    inputs,
+                    plan,
+                    ..
+                } => {
+                    stage_retained_bytes(local, seen)
+                        + (predicates.capacity() + inputs.capacity()) * size_of::<usize>()
+                        + plan.retained_bytes()
+                }
+                Stage::Provider {
+                    inputs,
+                    outputs,
+                    spec,
+                    partial,
+                    ..
+                } => {
+                    size_of_val(inputs.as_slice())
+                        + size_of_val(partial.as_slice())
+                        + size_of_val(outputs.as_slice())
+                        + size_of_val(spec.inputs.as_slice())
+                        + size_of_val(spec.outputs.as_slice())
+                        + spec.shapes.retained_bytes()
+                }
+                Stage::Require { lineage, .. } => lineage
+                    .as_ref()
+                    .map_or(0, |lineage| lineage_bytes(lineage, seen)),
+            })
+            .sum::<usize>()
+}
 
 /// A demanded arithmetic description, owned with immutable selected support. Control
 /// stages retain their barriers; their local value layouts are prepared once as well.
@@ -4085,22 +4124,46 @@ struct PreparedValueScope {
     offsets: BTreeMap<usize, usize>,
 }
 impl PreparedStages {
-    fn new(stages: &[Stage], parameters: &[Atom], symbols: &HashMap<Symbol, usize>, cancel: &Arc<AtomicBool>) -> Result<Self, MathError> {
-        if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
+    fn new(
+        stages: &[Stage],
+        parameters: &[Atom],
+        symbols: &HashMap<Symbol, usize>,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Self, MathError> {
+        if cancel.load(Ordering::Acquire) {
+            return Err(MathError::Cancelled);
+        }
         let source = stage_retained_bytes(stages, &mut BTreeSet::new());
-        let parameter_bytes = parameters.iter().try_fold(0usize, |bytes, atom| bytes.checked_add(size_of::<Atom>() + atom.as_view().get_byte_size()))
+        let parameter_bytes = parameters
+            .iter()
+            .try_fold(0usize, |bytes, atom| {
+                bytes.checked_add(size_of::<Atom>() + atom.as_view().get_byte_size())
+            })
             .ok_or(MathError::Limit("prepared arithmetic parameters"))?;
         // Prepay clones, region maps and compact nested-scope maps before forming
         // descriptions; each recursive child has its own source-qualified allowance.
-        let allowance = source.checked_mul(4)
-            .and_then(|bytes| parameter_bytes.checked_add(parameters.len().checked_mul(128)?)?.checked_mul(stages.len())?.checked_add(bytes))
-            .and_then(|bytes| stages.len().checked_mul(size_of::<PreparedStage>())?.checked_add(bytes))
+        let allowance = source
+            .checked_mul(4)
+            .and_then(|bytes| {
+                parameter_bytes
+                    .checked_add(parameters.len().checked_mul(128)?)?
+                    .checked_mul(stages.len())?
+                    .checked_add(bytes)
+            })
+            .and_then(|bytes| {
+                stages
+                    .len()
+                    .checked_mul(size_of::<PreparedStage>())?
+                    .checked_add(bytes)
+            })
             .ok_or(MathError::Limit("prepared arithmetic description"))?;
         crate::construction::additional(allowance)?;
         let mut prepared = Vec::new();
         let mut cursor = 0;
         while cursor < stages.len() {
-            if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
+            if cancel.load(Ordering::Acquire) {
+                return Err(MathError::Cancelled);
+            }
             let initial = cursor;
             let (next, combined, checks) = arithmetic_region(stages, initial, symbols, cancel)?;
             cursor = next;
@@ -4112,25 +4175,58 @@ impl PreparedStages {
                 Stage::Block { expressions, .. } => {
                     let inputs = reads(expressions, symbols)?;
                     let parameters = inputs.iter().map(|&i| parameters[i].clone()).collect();
-                    region = Some(PreparedArithmeticRegion { inputs, parameters, checks });
+                    region = Some(PreparedArithmeticRegion {
+                        inputs,
+                        parameters,
+                        checks,
+                    });
                     if let Some(context) = pse_diagnostics::observation::current() {
                         context.count("math.arithmetic_region_preparations", "count", 1);
                     }
                 }
-                Stage::Applicability { stages, predicates, inputs, .. } => {
-                    let captures = predicates.iter().chain(inputs.iter()).copied().collect::<Vec<_>>();
+                Stage::Applicability {
+                    stages,
+                    predicates,
+                    inputs,
+                    ..
+                } => {
+                    let captures = predicates
+                        .iter()
+                        .chain(inputs.iter())
+                        .copied()
+                        .collect::<Vec<_>>();
                     let local = value_scope(stages, &captures, parameters, symbols)?;
-                    children.push(Self::new(&local.stages, &local.parameters, &local.symbols, cancel)?);
-                    scope = Some(PreparedValueScope { reads: local.reads, offsets: local.offsets });
+                    children.push(Self::new(
+                        &local.stages,
+                        &local.parameters,
+                        &local.symbols,
+                        cancel,
+                    )?);
+                    scope = Some(PreparedValueScope {
+                        reads: local.reads,
+                        offsets: local.offsets,
+                    });
                     *stages = Vec::new();
                 }
-                Stage::Domain { stages, argument, .. } => {
+                Stage::Domain {
+                    stages, argument, ..
+                } => {
                     let local = value_scope(stages, &[*argument], parameters, symbols)?;
-                    children.push(Self::new(&local.stages, &local.parameters, &local.symbols, cancel)?);
-                    scope = Some(PreparedValueScope { reads: local.reads, offsets: local.offsets });
+                    children.push(Self::new(
+                        &local.stages,
+                        &local.parameters,
+                        &local.symbols,
+                        cancel,
+                    )?);
+                    scope = Some(PreparedValueScope {
+                        reads: local.reads,
+                        offsets: local.offsets,
+                    });
                     *stages = Vec::new();
                 }
-                Stage::Branch { then, otherwise, .. } => {
+                Stage::Branch {
+                    then, otherwise, ..
+                } => {
                     children.push(Self::new(then, parameters, symbols, cancel)?);
                     children.push(Self::new(otherwise, parameters, symbols, cancel)?);
                     *then = Vec::new();
@@ -4138,26 +4234,53 @@ impl PreparedStages {
                 }
                 Stage::Provider { .. } | Stage::Require { .. } => {}
             }
-            prepared.push(PreparedStage { stage, region, scope, children });
+            prepared.push(PreparedStage {
+                stage,
+                region,
+                scope,
+                children,
+            });
         }
         let product = Self { stages: prepared };
-        if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
+        if cancel.load(Ordering::Acquire) {
+            return Err(MathError::Cancelled);
+        }
         Ok(product)
     }
     fn retained_bytes(&self) -> usize {
-        size_of::<Self>() + self.stages.capacity() * size_of::<PreparedStage>()
-            + self.stages.iter().map(|prepared| {
-                stage_retained_bytes(std::slice::from_ref(&prepared.stage), &mut BTreeSet::new()).saturating_sub(size_of::<Stage>())
-                    + prepared.region.as_ref().map_or(0, |region| {
-                        region.inputs.capacity() * size_of::<usize>()
-                            + region.parameters.capacity() * size_of::<Atom>()
-                            + region.parameters.iter().map(|atom| atom.as_view().get_byte_size()).sum::<usize>()
-                            + region.checks.capacity() * size_of::<SourceCheck>()
-                    })
-                    + prepared.scope.as_ref().map_or(0, |scope| scope.reads.capacity() * size_of::<usize>() + scope.offsets.len() * (2 * size_of::<usize>() + 96))
-                    + prepared.children.capacity() * size_of::<PreparedStages>()
-                    + prepared.children.iter().map(Self::retained_bytes).sum::<usize>()
-            }).sum::<usize>()
+        size_of::<Self>()
+            + self.stages.capacity() * size_of::<PreparedStage>()
+            + self
+                .stages
+                .iter()
+                .map(|prepared| {
+                    stage_retained_bytes(
+                        std::slice::from_ref(&prepared.stage),
+                        &mut BTreeSet::new(),
+                    )
+                    .saturating_sub(size_of::<Stage>())
+                        + prepared.region.as_ref().map_or(0, |region| {
+                            region.inputs.capacity() * size_of::<usize>()
+                                + region.parameters.capacity() * size_of::<Atom>()
+                                + region
+                                    .parameters
+                                    .iter()
+                                    .map(|atom| atom.as_view().get_byte_size())
+                                    .sum::<usize>()
+                                + region.checks.capacity() * size_of::<SourceCheck>()
+                        })
+                        + prepared.scope.as_ref().map_or(0, |scope| {
+                            scope.reads.capacity() * size_of::<usize>()
+                                + scope.offsets.len() * (2 * size_of::<usize>() + 96)
+                        })
+                        + prepared.children.capacity() * size_of::<PreparedStages>()
+                        + prepared
+                            .children
+                            .iter()
+                            .map(Self::retained_bytes)
+                            .sum::<usize>()
+                })
+                .sum::<usize>()
     }
 }
 
@@ -4288,7 +4411,9 @@ fn compile_stages(
                 token,
                 plan,
             } => {
-                let scope = prepared.scope.as_ref().ok_or_else(|| MathError::Contract("missing prepared applicability scope".into()))?;
+                let scope = prepared.scope.as_ref().ok_or_else(|| {
+                    MathError::Contract("missing prepared applicability scope".into())
+                })?;
                 let value_layout = JetLayout::new(vec![], DerivativeOrder::Value, limits)?;
                 allowance.entries = allowance
                     .entries
@@ -4322,7 +4447,10 @@ fn compile_stages(
                 token,
                 lineage,
             } => {
-                let scope = prepared.scope.as_ref().ok_or_else(|| MathError::Contract("missing prepared domain scope".into()))?;
+                let scope = prepared
+                    .scope
+                    .as_ref()
+                    .ok_or_else(|| MathError::Contract("missing prepared domain scope".into()))?;
                 let value_layout = JetLayout::new(vec![], DerivativeOrder::Value, limits)?;
                 allowance.entries = allowance
                     .entries
@@ -4354,7 +4482,9 @@ fn compile_stages(
                 outputs,
                 source,
             } => {
-                let region = prepared.region.as_ref().ok_or_else(|| MathError::Contract("missing prepared arithmetic region".into()))?;
+                let region = prepared.region.as_ref().ok_or_else(|| {
+                    MathError::Contract("missing prepared arithmetic region".into())
+                })?;
                 let inputs = &region.inputs;
                 let params = &region.parameters;
                 let active = active_block_axes(
@@ -4614,9 +4744,7 @@ fn compile_stages(
                 } else {
                     None
                 };
-                let lift_storage = lift
-                    .as_ref()
-                    .map(|lift| lift.facts.storage);
+                let lift_storage = lift.as_ref().map(|lift| lift.facts.storage);
                 if let Some(storage) = &lift_storage {
                     allowance.instruction_count = allowance
                         .instruction_count
@@ -6284,7 +6412,10 @@ mod compact_tests {
             DerivativeOrder::Second,
         ] {
             let support = value.upgrade(order, &cancel).unwrap();
-            assert!(Arc::ptr_eq(&value.program, &support.program), "unchanged compact regions survive a derivative-order upgrade");
+            assert!(
+                Arc::ptr_eq(&value.program, &support.program),
+                "unchanged compact regions survive a derivative-order upgrade"
+            );
             let program = support
                 .compile_reusing(
                     Optimization::default(),
@@ -7836,18 +7967,47 @@ mod compact_tests {
         struct Owner;
         let owner = Arc::new(Owner);
         let weak_owner = Arc::downgrade(&owner);
-        let support = body.prepare_support(&[0, 1], &[0, 1], DerivativeOrder::Second, &cancel.flag()).unwrap().with_owner(owner.clone());
+        let support = body
+            .prepare_support(&[0, 1], &[0, 1], DerivativeOrder::Second, &cancel.flag())
+            .unwrap()
+            .with_owner(owner.clone());
         drop(owner);
-        let scalars = support.prepare_scalars(Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
-        let compiled = support.compile_reusing(Optimization::default(), EvaluationLimits::default(), &scope, &scalars).unwrap();
+        let scalars = support
+            .prepare_scalars(Optimization::default(), EvaluationLimits::default(), &scope)
+            .unwrap();
+        let compiled = support
+            .compile_reusing(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &scope,
+                &scalars,
+            )
+            .unwrap();
         let count = |name: &str| {
-            context.reader().snapshot(std::time::Duration::from_secs(60)).metrics.iter()
-                .find(|metric| metric.name == name).map(|metric| metric.cumulative.clone())
+            context
+                .reader()
+                .snapshot(std::time::Duration::from_secs(60))
+                .metrics
+                .iter()
+                .find(|metric| metric.name == name)
+                .map(|metric| metric.cumulative.clone())
         };
-        assert_eq!(count("math.arithmetic_region_preparations"), Some(Value::Count(2)));
-        assert_eq!(count("math.rational_representation_inspections"), Some(Value::Count(2)));
-        assert_eq!(count("math.taylor_representation_inspections"), Some(Value::Count(4)));
-        assert_eq!(count("math.floating_representation_inspections"), Some(Value::Count(6)));
+        assert_eq!(
+            count("math.arithmetic_region_preparations"),
+            Some(Value::Count(2))
+        );
+        assert_eq!(
+            count("math.rational_representation_inspections"),
+            Some(Value::Count(2))
+        );
+        assert_eq!(
+            count("math.taylor_representation_inspections"),
+            Some(Value::Count(4))
+        );
+        assert_eq!(
+            count("math.floating_representation_inspections"),
+            Some(Value::Count(6))
+        );
         assert_eq!(
             compiled.census[DerivativeOrder::Second]
                 .unwrap()
@@ -7879,8 +8039,16 @@ mod compact_tests {
         let mut first_worker = compiled.worker();
         let mut second_worker = compiled.worker();
         let result = eval(&mut first_worker, &[1., 2.], DerivativeOrder::Second).unwrap();
-        assert_eq!(eval(&mut second_worker, &[2., 3.], DerivativeOrder::Second).unwrap().values, [125., 625.]);
-        assert_eq!(eval(&mut first_worker, &[1., 2.], DerivativeOrder::Second).unwrap(), result);
+        assert_eq!(
+            eval(&mut second_worker, &[2., 3.], DerivativeOrder::Second)
+                .unwrap()
+                .values,
+            [125., 625.]
+        );
+        assert_eq!(
+            eval(&mut first_worker, &[1., 2.], DerivativeOrder::Second).unwrap(),
+            result
+        );
         assert_eq!(result.values, [27., 81.]);
         assert_eq!(result.jacobian, [27., 27., 108., 108.]);
         assert_eq!(
@@ -7901,17 +8069,45 @@ mod compact_tests {
             Err(MathError::Domain { source_id, .. }) if source_id == second_source),
             "the first finite sibling must not mask the next original failure"
         );
-        assert!(matches!(support.compile_reusing(Optimization::default(), EvaluationLimits { operations: 1, ..Default::default() }, &scope, &scalars), Err(MathError::Limit(_))));
-        assert_eq!(count("math.arithmetic_region_preparations"), Some(Value::Count(2)));
-        assert_eq!(count("math.rational_representation_inspections"), Some(Value::Count(2)), "current policy checks retained facts without a new rational export");
-        assert_eq!(count("math.floating_representation_inspections"), Some(Value::Count(6)), "evaluation and refusal do not inspect new representations");
+        assert!(matches!(
+            support.compile_reusing(
+                Optimization::default(),
+                EvaluationLimits {
+                    operations: 1,
+                    ..Default::default()
+                },
+                &scope,
+                &scalars
+            ),
+            Err(MathError::Limit(_))
+        ));
+        assert_eq!(
+            count("math.arithmetic_region_preparations"),
+            Some(Value::Count(2))
+        );
+        assert_eq!(
+            count("math.rational_representation_inspections"),
+            Some(Value::Count(2)),
+            "current policy checks retained facts without a new rational export"
+        );
+        assert_eq!(
+            count("math.floating_representation_inspections"),
+            Some(Value::Count(6)),
+            "evaluation and refusal do not inspect new representations"
+        );
         drop(support);
         drop(scalars);
         drop(compiled);
         drop(first_worker);
-        assert!(weak_owner.upgrade().is_some(), "a live worker retains prepared-region ownership after optional retention is cleared");
+        assert!(
+            weak_owner.upgrade().is_some(),
+            "a live worker retains prepared-region ownership after optional retention is cleared"
+        );
         drop(second_worker);
-        assert!(weak_owner.upgrade().is_none(), "the last worker releases the prepared description owner");
+        assert!(
+            weak_owner.upgrade().is_none(),
+            "the last worker releases the prepared description owner"
+        );
     }
 
     #[cfg(feature = "compiled-evaluator")]
@@ -8195,10 +8391,22 @@ mod compact_tests {
             Some(Value::Count(1))
         );
         assert!(matches!(count("math.scalar_cache_reuses"), Some(Value::Count(n)) if n > 0));
-        assert_eq!(count("math.arithmetic_region_preparations"), Some(Value::Count(1)));
-        assert_eq!(count("math.rational_representation_inspections"), Some(Value::Count(1)));
-        assert_eq!(count("math.taylor_representation_inspections"), Some(Value::Count(1)));
-        assert_eq!(count("math.floating_representation_inspections"), Some(Value::Count(2)));
+        assert_eq!(
+            count("math.arithmetic_region_preparations"),
+            Some(Value::Count(1))
+        );
+        assert_eq!(
+            count("math.rational_representation_inspections"),
+            Some(Value::Count(1))
+        );
+        assert_eq!(
+            count("math.taylor_representation_inspections"),
+            Some(Value::Count(1))
+        );
+        assert_eq!(
+            count("math.floating_representation_inspections"),
+            Some(Value::Count(2))
+        );
         assert_eq!(count("math.evaluator_template_instantiations"), None);
         let mut worker = program.worker();
         worker.prepare_order(DerivativeOrder::Value).unwrap();

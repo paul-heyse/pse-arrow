@@ -8,7 +8,7 @@ level: decision
 principles: [AP-04, AP-07, PS-06, PS-10]
 blueprint: [§13.6, §19.4]
 review: docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md
-evidence: "Proposed: Plan45 RC07 accepted; native and workflow source inspected; implementation and verification owned by 45d/D01."
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A consumer needs a derivative coordinate or second-order mapping absent from the explicit layout.
@@ -19,7 +19,7 @@ verification: D01 full/selected/empty Diffsol and IDAS adjoint controls, fitting
 
 ## Context
 
-Native adjoints currently construct complete parameter gradients before fitting and shooting project consumed coordinates. Plan45 F12 identifies unnecessary parameter products and quadratures; complete physical values and state adjoints remain necessary (blueprint §13.6).
+Before this change, native adjoints constructed complete parameter gradients before fitting and shooting projected consumed coordinates. Plan45 F12 identifies unnecessary parameter products and quadratures; complete physical values and state adjoints remain necessary (blueprint §13.6).
 
 ## Scope
 
@@ -47,7 +47,7 @@ Reject duplicate/out-of-range coordinates before effects; retain original deriva
 
 ### Confirmation
 
-The accepted RC07 target supplies design authority. Plan45d/D01 owns implementation and targeted cross-backend full/selected/empty, mapping, failure and second-order acceptance. Plan45f owns assembled qualification; this proposed record claims neither.
+The accepted RC07 target supplies design authority. Implemented and Tested: Plan45d/D01 records cross-backend full/selected/empty, mapping, failure and second-order controls; the actual 24-route shooting grid and selected assembled native/public journeys passed under their recorded conditions in Plan45f. These checks preserve the ordinary 0.001 engineering fraction and separate derivative oracles. The record remains proposed; selected qualification is not a formal status transition or whole-product certification.
 
 ## Pros and cons
 

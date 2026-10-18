@@ -387,7 +387,9 @@ pub fn decode_result_file(
     expected: SchemaRef,
     rows: usize,
 ) -> Result<RecordBatch, ResultBlockError> {
-    if let Some(context) = pse_diagnostics::observation::current() { context.count("canonical.result.standalone_decodes", "count", 1); }
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.count("canonical.result.standalone_decodes", "count", 1);
+    }
     let mut reader = open_file_reader(Cursor::new(bytes), &expected, Some(1))?;
     let batch = reader
         .next()
@@ -455,7 +457,8 @@ mod result_files_unit {
         assert_eq!(&bytes[..6], b"ARROW1");
         assert_eq!(&bytes[bytes.len() - 6..], b"ARROW1");
         for (index, expected) in [first, second].iter().enumerate() {
-            let mut reader = open_file_reader(Cursor::new(&bytes), &expected.schema(), Some(2)).unwrap();
+            let mut reader =
+                open_file_reader(Cursor::new(&bytes), &expected.schema(), Some(2)).unwrap();
             reader.set_index(index).unwrap();
             let actual = reader.next().unwrap().unwrap();
             assert_eq!(actual.num_rows(), expected.num_rows());
@@ -483,7 +486,8 @@ mod result_files_unit {
                     .collect::<Vec<_>>()
             );
         }
-        let mut reader = open_file_reader(Cursor::new(&bytes), &batch(&[]).schema(), Some(2)).unwrap();
+        let mut reader =
+            open_file_reader(Cursor::new(&bytes), &batch(&[]).schema(), Some(2)).unwrap();
         assert!(reader.set_index(2).is_err());
     }
 
@@ -495,8 +499,19 @@ mod result_files_unit {
         PREFLIGHT_CALLS.with(|count| count.set(0));
         let decoded = decode_result_file(&bytes, source.schema(), bits.len()).unwrap();
         PREFLIGHT_CALLS.with(|count| assert_eq!(count.get(), 1));
-        let values = decoded.column(0).as_any().downcast_ref::<Float64Array>().unwrap();
-        assert_eq!(values.values().iter().map(|v| v.to_bits()).collect::<Vec<_>>(), bits);
+        let values = decoded
+            .column(0)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        assert_eq!(
+            values
+                .values()
+                .iter()
+                .map(|v| v.to_bits())
+                .collect::<Vec<_>>(),
+            bits
+        );
         let packed = encode_file_batches(&[source.clone(), source.clone()]).unwrap();
         PREFLIGHT_CALLS.with(|count| count.set(0));
         assert!(decode_result_file(&packed, source.schema(), bits.len()).is_err());

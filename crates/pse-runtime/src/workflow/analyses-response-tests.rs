@@ -167,12 +167,19 @@ fn response_family_requires_admitted_intent_not_validity_or_finite_primal() {
         NativeSolveIntent::Certify,
     ] {
         evidence.routes = vec![located(route(0, intent), 1, 0)];
-        assert_eq!(ResponseEvidenceIndex::new(&evidence, &pool()).unwrap().scalar_family(run(), 0), None);
+        assert_eq!(
+            ResponseEvidenceIndex::new(&evidence, &pool())
+                .unwrap()
+                .scalar_family(run(), 0),
+            None
+        );
     }
     // Root-looking evidence never overrides an optimizing admission.
     evidence.routes = vec![located(route(0, NativeSolveIntent::Optimize), 1, 0)];
     assert_eq!(
-        ResponseEvidenceIndex::new(&evidence, &pool()).unwrap().scalar_family(run(), 0),
+        ResponseEvidenceIndex::new(&evidence, &pool())
+            .unwrap()
+            .scalar_family(run(), 0),
         Some(ResponseFamily::Optimal)
     );
     assert_eq!(
@@ -658,7 +665,6 @@ fn response_produced_provenance_preserves_distinct_blocks_and_quantitative_rows(
     );
 }
 
-
 #[test]
 fn response_index_preserves_ieee_membership_and_all_transient_predicates() {
     let mut evidence = transient();
@@ -708,10 +714,18 @@ fn response_index_preserves_ieee_membership_and_all_transient_predicates() {
 #[test]
 fn response_index_duplicate_context_headers_endpoints_keep_conflict_classification() {
     let mut evidence = transient();
-    evidence.contexts.push(located(evidence.contexts[0].row.clone(), 10, 0));
-    evidence.computations.push(located(evidence.computations[0].row.clone(), 11, 0));
-    evidence.endpoints.push(located(evidence.endpoints[0].row.clone(), 12, 0));
-    evidence.samples.push(located(evidence.samples[0].row.clone(), 13, 0));
+    evidence
+        .contexts
+        .push(located(evidence.contexts[0].row.clone(), 10, 0));
+    evidence
+        .computations
+        .push(located(evidence.computations[0].row.clone(), 11, 0));
+    evidence
+        .endpoints
+        .push(located(evidence.endpoints[0].row.clone(), 12, 0));
+    evidence
+        .samples
+        .push(located(evidence.samples[0].row.clone(), 13, 0));
     assert_eq!(count(&graph(&evidence), "recorded_transient_response"), 1);
     assert_eq!(count(&graph(&evidence), "response_coordinates"), 2);
     assert_eq!(count(&graph(&evidence), "response_completion"), 2);
@@ -719,12 +733,21 @@ fn response_index_duplicate_context_headers_endpoints_keep_conflict_classificati
     for kind in 0..3 {
         let mut conflict = transient();
         match kind {
-            0 => { let mut row = conflict.contexts[0].row.clone(); row.configuration = vec![2].into();
-                conflict.contexts.push(located(row, 10, 0)); }
-            1 => { let mut row = conflict.computations[0].row.clone(); row.completed_samples = Some(3);
-                conflict.computations.push(located(row, 11, 0)); }
-            _ => { let mut row = conflict.endpoints[0].row.clone(); row.endpoint_satisfied = true;
-                conflict.endpoints.push(located(row, 12, 0)); }
+            0 => {
+                let mut row = conflict.contexts[0].row.clone();
+                row.configuration = vec![2].into();
+                conflict.contexts.push(located(row, 10, 0));
+            }
+            1 => {
+                let mut row = conflict.computations[0].row.clone();
+                row.completed_samples = Some(3);
+                conflict.computations.push(located(row, 11, 0));
+            }
+            _ => {
+                let mut row = conflict.endpoints[0].row.clone();
+                row.endpoint_satisfied = true;
+                conflict.endpoints.push(located(row, 12, 0));
+            }
         }
         let graph = graph(&conflict);
         assert_eq!(count(&graph, "recorded_transient_response"), 0);
@@ -765,7 +788,9 @@ fn indexed_campaign(samples: usize, directions: usize) -> ResponseEvidence {
             row.sample = sample as i64;
             row.time = time;
             row.symbol_id = id(20 + output);
-            evidence.samples.push(located(row, 3, (sample * 80 + usize::from(output)) as u64));
+            evidence
+                .samples
+                .push(located(row, 3, (sample * 80 + usize::from(output)) as u64));
             for direction in 0..directions {
                 let mut row = response_template.clone();
                 row.sample = sample as i64;
@@ -773,7 +798,9 @@ fn indexed_campaign(samples: usize, directions: usize) -> ResponseEvidence {
                 row.output_id = id(20 + output);
                 row.parameter_id = id(110 + direction as u8);
                 row.parameter_column = direction as i64;
-                evidence.responses.push(located(row, 4, evidence.responses.len() as u64));
+                evidence
+                    .responses
+                    .push(located(row, 4, evidence.responses.len() as u64));
             }
         }
     }
@@ -800,19 +827,35 @@ fn response_index_campaign_shapes_preserve_exact_permissions_locators_and_bounds
                 let mut graph = Graph::new();
                 let mut nodes = BTreeMap::new();
                 let attempt = vertex(&mut graph, &mut nodes, "attempt".into(), "attempt").unwrap();
-                assert!(project_response_evidence(&evidence, &mut graph, &mut nodes, attempt, &pool()).is_err());
+                assert!(
+                    project_response_evidence(&evidence, &mut graph, &mut nodes, attempt, &pool())
+                        .is_err()
+                );
                 assert_eq!(graph.edge_count(), ANALYSIS_EDGES);
             } else {
                 let graph = graph(&evidence);
-                let expected = (0..80 * samples * directions).map(|row| ArtifactLocator {
-                    artifact: "independent-evidence".into(), block: 4, row: Some(row as u64), field: Some("value".into()),
-                }).collect::<BTreeSet<_>>();
-                let actual = graph.edge_weights().filter(|(kind, _)| kind == "recorded_transient_response")
-                    .map(|(_, locator)| locator.clone().unwrap()).collect::<BTreeSet<_>>();
+                let expected = (0..80 * samples * directions)
+                    .map(|row| ArtifactLocator {
+                        artifact: "independent-evidence".into(),
+                        block: 4,
+                        row: Some(row as u64),
+                        field: Some("value".into()),
+                    })
+                    .collect::<BTreeSet<_>>();
+                let actual = graph
+                    .edge_weights()
+                    .filter(|(kind, _)| kind == "recorded_transient_response")
+                    .map(|(_, locator)| locator.clone().unwrap())
+                    .collect::<BTreeSet<_>>();
                 assert_eq!(actual, expected);
                 assert_eq!(count(&graph, "produced_evidence"), 80);
                 assert_eq!(count(&graph, "withheld_response_claim"), 0);
-                for kind in ["response_coordinates", "response_completion", "response_endpoint", "response_event_context"] {
+                for kind in [
+                    "response_coordinates",
+                    "response_completion",
+                    "response_endpoint",
+                    "response_event_context",
+                ] {
                     assert_eq!(count(&graph, kind), 80);
                 }
             }

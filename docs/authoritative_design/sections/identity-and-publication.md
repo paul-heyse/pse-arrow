@@ -743,7 +743,18 @@ the parent. The final per-relation revision and separate context receipt preserv
 selective replay and package/context association. Fitting relations activate coherently
 in one group; larger relations retain deterministic group closures and existing payload
 staging crossings. Atomic whole-relation publication of arbitrarily large spilled input
-is not claimed. Plan45c/C07 owns the dependent implementation and qualification.
+is not claimed. Group and context edits admit their concrete future before construction
+and use separate non-inline construction/poll boundaries on the original task, preserving
+activity, cancellation and transport ownership without increasing the runtime stack.
+
+The optional physical cache charges exact receipt copies and independently retained
+protection/release owners. Warm hits borrow the charged entry; an escaped owner retains
+its actual grants after cache eviction. Empty physical input still prepays context transport.
+The unchanged 16 MiB cache can refuse a complete thirteen-receipt context because its
+independent protection-release allowances alone exceed 28 MiB. Such refusal preserves
+canonical replay and one encoding per call; it is not a warm hit or grounds to undercharge.
+A smaller eligible context can retain a warm entry. Plan45c and Plan45f record targeted
+and complete-operation qualification and its limits.
 
 **Local export.** Exact checked reads finish, the IPC stream finishes and the file is
 synchronized before final publication. Interrupted staging remains `.incomplete`; the final

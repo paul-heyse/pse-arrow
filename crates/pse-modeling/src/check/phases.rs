@@ -34,12 +34,16 @@ impl<'a> RetainedInputs<'a> {
         self.bytes = self.bytes.saturating_add(bytes);
     }
     /// Complete known reachable input population; foreign envelopes stay independent.
-    pub fn bytes(&self) -> usize { self.bytes }
+    pub fn bytes(&self) -> usize {
+        self.bytes
+    }
 }
 fn type_root_bytes(types: &Types) -> usize {
-    types.iter().map(|(_, ty)| size_of::<(DeclarationId, Type)>() + 256 + crate::extent::ty(ty)).sum()
+    types
+        .iter()
+        .map(|(_, ty)| size_of::<(DeclarationId, Type)>() + 256 + crate::extent::ty(ty))
+        .sum()
 }
-
 
 /// Pure phase composition. The fresh implementation is the complete functional oracle.
 pub trait Phases {
@@ -196,7 +200,9 @@ impl Namespace {
     }
     /// Include this actual shared namespace allocation in a live input census.
     pub fn collect_retained_inputs<'a>(&'a self, census: &mut RetainedInputs<'a>) {
-        if census.include_shared(&self.0) { census.add(self.0.retained_bytes()); }
+        if census.include_shared(&self.0) {
+            census.add(self.0.retained_bytes());
+        }
     }
     /// Bind one occurrence using the existing lexical and physical-name owners.
     pub fn bind(&self, key: &OccurrenceKey, value: CheckedExpression) -> CheckedExpression {
@@ -289,9 +295,10 @@ impl Signature {
     /// Conservative known storage retained by one signature.
     pub fn retained_bytes(&self) -> usize {
         self.ty.as_ref().map_or(0, crate::extent::ty)
-            + self.function.as_ref().map_or(0, |f| {
-                size_of::<Function>() + crate::extent::function(f)
-            })
+            + self
+                .function
+                .as_ref()
+                .map_or(0, |f| size_of::<Function>() + crate::extent::function(f))
             + 256
     }
 }
@@ -559,7 +566,8 @@ impl Inheritance {
     }
     fn heap_bytes(&self) -> usize {
         let (nodes, edges) = self.0.capacity();
-        nodes.saturating_mul(size_of::<petgraph::graph::Node<DeclarationId>>())
+        nodes
+            .saturating_mul(size_of::<petgraph::graph::Node<DeclarationId>>())
             .saturating_add(edges.saturating_mul(size_of::<petgraph::graph::Edge<()>>()))
     }
     fn retained_bytes(&self) -> usize {
@@ -764,13 +772,17 @@ impl MemberInput {
         self.namespace.collect_retained_inputs(census);
         census.add(self.owned_contract_bytes());
         census.add(type_root_bytes(&self.types));
-        census.add(self.members.size().saturating_mul(size_of::<(DeclarationId, Arc<BTreeMap<String, DeclarationId>>)>() + 256));
+        census.add(self.members.size().saturating_mul(
+            size_of::<(DeclarationId, Arc<BTreeMap<String, DeclarationId>>)>() + 256,
+        ));
         for (_, members) in &self.members {
             if census.include_shared(members) {
                 census.add(members.keys().map(|name| name.capacity() + 128).sum());
             }
         }
-        if census.include_shared(&self.inheritance.0) { census.add(self.inheritance.heap_bytes()); }
+        if census.include_shared(&self.inheritance.0) {
+            census.add(self.inheritance.heap_bytes());
+        }
     }
     /// Admit effective inheritance, overrides, domains and signatures through the existing rules.
     /// # Errors
@@ -945,13 +957,22 @@ pub struct InventoryProduct {
 impl InventoryProduct {
     /// Known complete enclosing phase storage.
     pub fn retained_bytes(&self) -> usize {
-        size_of::<Self>() + self.package.retained_bytes()
+        size_of::<Self>()
+            + self.package.retained_bytes()
             + self.inheritance.retained_bytes()
             + self.order.capacity() * size_of::<petgraph::graph::NodeIndex>()
-            + self.candidates.values().map(|(own, inherited, contracts)| {
-                128 + own.keys().chain(inherited.keys()).map(|name| name.capacity() + 128).sum::<usize>()
-                    + contracts.len() * (size_of::<DeclarationId>() + 128)
-            }).sum::<usize>()
+            + self
+                .candidates
+                .values()
+                .map(|(own, inherited, contracts)| {
+                    128 + own
+                        .keys()
+                        .chain(inherited.keys())
+                        .map(|name| name.capacity() + 128)
+                        .sum::<usize>()
+                        + contracts.len() * (size_of::<DeclarationId>() + 128)
+                })
+                .sum::<usize>()
     }
 }
 /// Run complete namespace and inheritance admission through the pure semantic owner.
@@ -983,23 +1004,47 @@ mod retained_input_tests {
         assert!(census.include_shared(&equal));
         census.add(1234);
         assert_eq!(census.bytes(), 2 * once);
-        assert_eq!(Arc::strong_count(&first), 2, "the census borrows owners without retaining a second product");
+        assert_eq!(
+            Arc::strong_count(&first),
+            2,
+            "the census borrows owners without retaining a second product"
+        );
     }
     #[test]
     fn signature_extent_covers_owned_arguments_and_type_variables() {
         let mut function = Function {
-            applicability: Vec::new(), applicability_uses: Vec::new(), prerequisites: Vec::new(),
-            physical_admissions: Default::default(), physical_operation: None, reduction: None,
-            validity: None, envelopes: Vec::new(), validity_reads: Default::default(),
-            external: None, continuity: None,
+            applicability: Vec::new(),
+            applicability_uses: Vec::new(),
+            prerequisites: Vec::new(),
+            physical_admissions: Default::default(),
+            physical_operation: None,
+            reduction: None,
+            validity: None,
+            envelopes: Vec::new(),
+            validity_reads: Default::default(),
+            external: None,
+            continuity: None,
             id: DeclarationId::from_id(SemanticId::NIL),
-            variables: BTreeSet::new(), arguments: Vec::new(), result: Type::Text, body: None,
+            variables: BTreeSet::new(),
+            arguments: Vec::new(),
+            result: Type::Text,
+            body: None,
         };
-        let small = Signature { ty: None, function: Some(function.clone()) }.retained_bytes();
+        let small = Signature {
+            ty: None,
+            function: Some(function.clone()),
+        }
+        .retained_bytes();
         function.variables.insert("v".repeat(8192));
         function.arguments.push(("a".repeat(8192), Type::Text));
-        let large = Signature { ty: None, function: Some(function) }.retained_bytes();
-        assert!(large >= small + 2 * 8192, "body-free functions still retain argument and variable strings");
+        let large = Signature {
+            ty: None,
+            function: Some(function),
+        }
+        .retained_bytes();
+        assert!(
+            large >= small + 2 * 8192,
+            "body-free functions still retain argument and variable strings"
+        );
     }
-
 }

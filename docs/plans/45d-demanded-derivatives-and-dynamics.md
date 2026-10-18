@@ -1,6 +1,6 @@
 ---
 title: "Plan45d: Demanded derivatives and dynamics"
-status: in-progress
+status: done
 date: 2026-10-18
 adrs: [ADR-0199]
 review_sources: [docs/design_review/reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md]
@@ -62,17 +62,33 @@ Implement the qualified bounded outcome: an exact library API/adapter correction
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| D01 | RC07 decision; current derivative/value/initial mapping | Distinct selected adjoint contract through both native adapters and actual fitting/shooting consumers; full/selected/empty and second-order controls | in-progress |
-| D02 | Current combined quadrature controls; working D01 for selected comparison; RC10 before new functional binding | Crossover investigation, selected exact implementation and objective/gradient/preflight/failure tests | in-progress |
-| D03 | Actual class/method eligibility and short case; decision route before a new binding | Stiffness/shape/method investigation and qualified integration/profile; original-state and native-work/refusal tests | in-progress |
-| D04 | Existing checkpoint/adjoint contracts; RC10 before changed binding/API | Recording/replay/history investigation and qualified implementation or supported retained route; schedule/initial/stop/memory controls | in-progress |
+| D01 | RC07 decision; current derivative/value/initial mapping | Distinct selected adjoint contract through both native adapters and actual fitting/shooting consumers; full/selected/empty and second-order controls | done |
+| D02 | Current combined quadrature controls; working D01 for selected comparison; RC10 before new functional binding | Crossover investigation, selected exact implementation and objective/gradient/preflight/failure tests | done |
+| D03 | Actual class/method eligibility and short case; decision route before a new binding | Stiffness/shape/method investigation and qualified integration/profile; original-state and native-work/refusal tests | done |
+| D04 | Existing checkpoint/adjoint contracts; RC10 before changed binding/API | Recording/replay/history investigation and qualified implementation or supported retained route; schedule/initial/stop/memory controls | done |
 
 ## Verification and checkpoint
 
 **Planned:** touched runtime/native compile checks and targeted force-validated integration/fitting/shooting units. Existing exact initial/quadrature/anchor/derivative tests retain their meaningful thresholds; ordinary simulation accuracy is not tightened to make a performance comparison. Final public projection/replay, durable framing if actually changed, integrated native/resource journeys and static checks belong to 45f.
 
-All four packages are open, with no new numerical observations at authoring. Current-route characterizations can proceed independently of D01; selected-adjoint comparisons require its real migrated implementation. Shared `idas.rs`, integrator and runtime integrated/shooting files require one writer despite logically independent questions. The coordinator records each inquiry outcome and F12 closure separately.
+D01–D04 have bounded targeted acceptance; shared assembled qualification is recorded in 45f. D01's selected native suite passed 28/28 and the runtime gradient/schedule/fitting/shooting selection passed 10/10 against zero failures. Known selected buffers are admitted in addition to unchanged state/factor/opaque allowances. No scientific profile accuracy changed.
 
-Current execution checkpoint: D01 is integrated through both native backends and fitting/shooting consumers. Its selected native suite passed 28/28 and the runtime gradient/schedule/fitting/shooting selection passed 10/10 against zero failures. Known selected buffers are admitted in addition to unchanged state/factor/opaque allowances. The new IDAS test uses the existing adjoint oracle threshold; no scientific profile accuracy changed. D02–D04 short contrasts and selected outcomes remain open; final assembled acceptance remains 45f.
+D02 exposed coordinator N02. The adapter now installs optional quadrature sensitivities before consistent initialization, and the bundled IDAS owner refreshes quadrature derivative history after successful corrected initialization, including scheduled and backward owners. This preserves counters, physical history, offsets and callback failures without a full ReInit. The six-control corrected-algebraic/native selection passed. The actual 24-route shooting grid then passed in 3.13 seconds through the linked runtime: one/three channels, two/three controls, one/two windows, combined/integral-only consumers and the before-effect adjoint comparison. The existing conditional exact forward-quadrature/adjoint route is retained. A contracted weighted-functional binding needs a representative many-channel consumer where complete admitted storage/work, ordinary integral values and public full reports establish its benefit; this small grid does not justify another binding or universal crossover threshold.
 
-D02 exposed coordinator N02: IDAS quadrature-sensitivity initialization occurred after the consistent-initialization setup that initializes its history derivatives. Moving the optional initialization before that native phase passed the deterministic initial-history control. Further native source inspection found that the successful consistent-initialization return updates primal/sensitivity history without refreshing quadrature derivatives from those corrected states. A bounded derivative-only native repair is in progress for both successful return paths, including scheduled and backward owners; it preserves counters and quadrature offsets without a full ReInit. Corrected-algebraic initial/scheduled controls and the actual multichannel/multiwindow shooting rerun remain pending. D04 diagnostics separated physical integration accuracy from adjoint-gradient accuracy: original physical outputs met the unchanged 0.001 policy, while the worst observed IDAS derivative error was about 1.4%. The new comparison uses the established engineering derivative oracle (64 × rtol), not an invented tighter gradient guarantee or changed solver tolerance. Full physical, gradient and checkpoint-spacing controls passed in the five-control native repair selection; assembled qualification remains with 45f.
+D03's matched 64-state nonstiff/stiff contrasts independently varied output density. Explicit integration was effective on the nonstiff shape; the stiff shape required 571 explicit steps versus 50 BDF steps and 35–36 IDAS direct/Krylov steps. These counters have backend-specific meanings, and all original physical checks passed at the unchanged 0.001 policy. Explicit eligible methods and current implicit/preconditioner routes remain; no global default changes.
+
+D04's checkpoint contrasts reduced replay at larger intervals but slightly increased admitted interpolant storage. Retain the host recorder and current defaults. Diffsol's public bulk checkpoint API does not yet provide the complete incremental publication, partial-return, preallocation refusal and corrected-initial interpolation hooks needed by this composition; no cross-trial retained history is introduced. Physical outputs met the unchanged 0.001 policy; the worst IDAS derivative error was about 1.4%. The comparison uses the established engineering derivative oracle (64 × rtol), not a tighter guarantee or changed solver tolerance. Full physical, gradient and checkpoint-spacing controls passed; public/resource/static acceptance is recorded in 45f.
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented / targeted Tested:** A distinct consumed adjoint-gradient layout reaches fitting/shooting and both native adapters without dropping complete physical inputs or required state adjoints. IDAS initializes optional quadrature sensitivities before setup and refreshes derivative history after corrected consistent initialization, including scheduled and backward paths. The preceding package verification records targeted conditions; [45f](45f-short-run-qualification-and-publication.md#verification-and-checkpoint) records assembled acceptance and the shared scope-end checks.
+
+### A mistake made and corrected
+
+The functional-route comparison exposed N02: initialization ordering and stale post-consistency quadrature derivatives. Both were corrected at their actual adapter/native owners, preserving totals, counters, callback errors and history without full reinitialization. Six native controls and the actual 24-route grid passed.
+
+### Deviations from the plan, deliberate
+
+Keep conditional forward-quadrature/adjoint routes, explicit method/preconditioner selection and current checkpoint recorder/defaults. No universal crossover threshold or weighted-functional binding was justified. Physical accuracy remains 0.001; the checkpoint derivative oracle remains 64 times rtol, with worst observed IDAS derivative error about 1.4%, not a 0.001 gradient guarantee.

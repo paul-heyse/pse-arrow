@@ -1661,6 +1661,22 @@ status_column = 2
 owner_column = 3
 
 [[scope_tables]]
+path = "docs/plans/45-pipeline-execution-optimization.md"
+name = "additional-in-bound-findings"
+heading = "Additional in-bound findings"
+headers = [
+  "Identifier",
+  "Diagnosis and consequence",
+  "Corrective contract / preservation",
+  "State and owner",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(N[0-9]+)\b'
+status_profile = "finding"
+status_column = 3
+
+[[scope_tables]]
 path = "docs/plans/45a-typed-source-and-incremental-preparation.md"
 name = "work-packages"
 heading = "Work packages"

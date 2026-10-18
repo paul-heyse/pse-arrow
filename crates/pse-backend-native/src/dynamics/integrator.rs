@@ -380,28 +380,42 @@ impl<'o> Operator<'o> {
     // Gather only demanded CSC columns: faer's complete transpose matmul would
     // calculate fixed parameter products, or require a new sparse matrix per call.
     fn transpose_product(&self, x: &V, t: f64, v: &V, y: &mut V, parameter: bool) {
-        if parameter && self.shared.width() == 0 { return; }
+        if parameter && self.shared.width() == 0 {
+            return;
+        }
         let j = self.raw_partials(x, t);
         let n = self.nstates();
         if parameter {
-            crate::observation::integer("diffsol.adjoint.parameter_product_width", "count", self.shared.width() as i64);
+            crate::observation::integer(
+                "diffsol.adjoint.parameter_product_width",
+                "count",
+                self.shared.width() as i64,
+            );
             let symbolic = j.symbolic();
             for (k, slot) in y.as_mut_slice().iter_mut().enumerate() {
                 *slot = self.contract[k].map_or(0.0, |c| {
-                    symbolic.col_range(n + c).map(|e| -j.val()[e] * v[symbolic.row_idx()[e]]).sum()
+                    symbolic
+                        .col_range(n + c)
+                        .map(|e| -j.val()[e] * v[symbolic.row_idx()[e]])
+                        .sum()
                 });
             }
             return;
         }
         let symbolic = j.symbolic();
         for (col, slot) in y.as_mut_slice().iter_mut().enumerate() {
-            *slot = symbolic.col_range(col).map(|e| -j.val()[e] * v[symbolic.row_idx()[e]]).sum();
+            *slot = symbolic
+                .col_range(col)
+                .map(|e| -j.val()[e] * v[symbolic.row_idx()[e]])
+                .sum();
         }
     }
     /// −Jᵀ in its transposed pattern: each column is a function row, each row a state or
     /// an integration column of the segment.
     fn transpose_partials(&self, x: &V, t: f64, matrix: &mut M, parameter: bool) {
-        if parameter && self.shared.width() == 0 { return; }
+        if parameter && self.shared.width() == 0 {
+            return;
+        }
         let j = self.raw_partials(x, t);
         let n = self.nstates();
         let target = matrix.inner_mut();

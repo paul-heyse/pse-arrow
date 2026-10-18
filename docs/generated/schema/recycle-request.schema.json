@@ -3427,7 +3427,7 @@
           "type": "null"
         }
       ],
-      "description": "Explicit native Anderson orthogonalization. Absence retains modified\nGram–Schmidt; a selected value requires nonzero Anderson history."
+      "description": "Explicit native Anderson orthogonalization. Absence retains modified\nGram-Schmidt; a selected value requires nonzero Anderson history."
     },
     "restarts": {
       "anyOf": [

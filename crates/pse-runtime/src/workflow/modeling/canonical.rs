@@ -16,12 +16,14 @@ use std::{
     sync::Arc,
 };
 mod delta;
-mod local;
-mod rebind;
 #[cfg(test)]
 mod incremental_tests;
+mod local;
+mod rebind;
 pub(crate) use local::{AdmittedModelRevision, LocalSourcePremises};
-use local::{LocalInventory, LocalSourceObject, SourceMember, TypedObjectPayload, TypedSourceInputs};
+use local::{
+    LocalInventory, LocalSourceObject, SourceMember, TypedObjectPayload, TypedSourceInputs,
+};
 pub(crate) mod reload;
 
 fn checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
@@ -230,7 +232,8 @@ impl SourceRevision {
                     && object.logical != CONTEXT_LOGICAL
                     && object.logical != PHYSICAL_SCOPE_LOGICAL
                 {
-                    let (row, _) = typed.source(&object.logical)
+                    let (row, _) = typed
+                        .source(&object.logical)
                         .ok_or_else(|| contract("imported typed source absent"))?;
                     object.references = index
                         .references(row)?
@@ -273,7 +276,13 @@ impl SourceRevision {
                     ));
                 }
             }
-            let admitted = AdmittedModelRevision::apply_inputs(runtime, None, &imported, &typed, Some(&cancel))?;
+            let admitted = AdmittedModelRevision::apply_inputs(
+                runtime,
+                None,
+                &imported,
+                &typed,
+                Some(&cancel),
+            )?;
             Ok((admitted, identity))
         }
         .await;
@@ -335,13 +344,18 @@ type FieldSpans = BTreeMap<String, SourceSpan>;
 type SourcePayload = (Declaration, Option<FieldSpans>);
 
 trait LocalSourceRow: Clone {
-    fn carried(_source: &TypedObjectPayload) -> Option<&Self> { None }
+    fn carried(_source: &TypedObjectPayload) -> Option<&Self> {
+        None
+    }
 }
 macro_rules! carried_source_row {
     ($variant:ident, $row:ty) => {
         impl LocalSourceRow for $row {
             fn carried(source: &TypedObjectPayload) -> Option<&Self> {
-                match source { TypedObjectPayload::$variant(row) => Some(row.as_ref()), _ => None }
+                match source {
+                    TypedObjectPayload::$variant(row) => Some(row.as_ref()),
+                    _ => None,
+                }
             }
         }
     };
@@ -1548,8 +1562,13 @@ impl ModelingPackage {
             .shared
             .math()
             .reserve("modeling:owned-source-decode", extent)?;
-        let value = object.typed.as_ref().and_then(T::carried).cloned()
-            .map(Ok).unwrap_or_else(|| decode(&object.payload))?;
+        let value = object
+            .typed
+            .as_ref()
+            .and_then(T::carried)
+            .cloned()
+            .map(Ok)
+            .unwrap_or_else(|| decode(&object.payload))?;
         Ok((value, owner))
     }
     pub(super) async fn declaration_inventory(

@@ -143,7 +143,11 @@ fn schemes<LS: LinearSolver<M>>(
         boundaries,
     };
     let complete_scales = p.integration_parameters(&p.parameter_scales);
-    let scales = shared.axes.iter().map(|axis| complete_scales[*axis]).collect::<Vec<_>>();
+    let scales = shared
+        .axes
+        .iter()
+        .map(|axis| complete_scales[*axis])
+        .collect::<Vec<_>>();
     let mut problems = Vec::with_capacity(segments.starts.len());
     for start in &segments.starts {
         *shared.columns.borrow_mut() = p.columns_at(np, *start);
@@ -547,7 +551,11 @@ impl<'o> Passes<'_, 'o> {
             None
         };
         let columns = shared.columns.borrow();
-        let selected = shared.axes.iter().map(|axis| columns.iter().position(|column| column == axis)).collect::<Vec<_>>();
+        let selected = shared
+            .axes
+            .iter()
+            .map(|axis| columns.iter().position(|column| column == axis))
+            .collect::<Vec<_>>();
         let (lambda, parameters) = sample_jump(
             &shared.contract.differential,
             output.as_ref().as_ref(),

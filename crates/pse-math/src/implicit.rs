@@ -50,6 +50,9 @@ mod cubic;
 mod isolation;
 #[path = "implicit_observation.rs"]
 mod observation;
+#[cfg(test)]
+#[path = "implicit_property_tests.rs"]
+mod property_tests;
 #[path = "implicit_reconstruction.rs"]
 pub mod reconstruction;
 #[path = "implicit_regimes.rs"]
@@ -58,9 +61,6 @@ mod regimes;
 mod scalar;
 #[path = "implicit_selection.rs"]
 mod selection;
-#[cfg(test)]
-#[path = "implicit_property_tests.rs"]
-mod property_tests;
 use crate::{
     MathError,
     guarded::{CompiledBody, Evaluation, Worker},
@@ -1521,7 +1521,9 @@ impl Nested {
             let reason = match (&self.numerical, self.configuration.fixed_identity()) {
                 (None, _) => "implicit.product.miss.empty",
                 (Some(_), None) => "implicit.product.miss.dynamic_configuration",
-                (Some(_), _) if !self.selection.permits_fixed_reuse() => "implicit.product.miss.selection_effect",
+                (Some(_), _) if !self.selection.permits_fixed_reuse() => {
+                    "implicit.product.miss.selection_effect"
+                }
                 (Some(product), Some((identity, _)))
                     if product.fixed_configuration != Some(identity) =>
                 {
@@ -1623,10 +1625,11 @@ impl Nested {
         };
         self.scope
             .remaining(allowance.saturating_sub(started.elapsed()))?;
-        if !self.selection.reusable_restriction() || self
-            .numerical
-            .as_ref()
-            .is_none_or(|product| product.key != numerical_key || product.order < request.order)
+        if !self.selection.reusable_restriction()
+            || self
+                .numerical
+                .as_ref()
+                .is_none_or(|product| product.key != numerical_key || product.order < request.order)
         {
             self.selection
                 .verify(&self.problem, inputs, &point, request.order, &self.cancel)

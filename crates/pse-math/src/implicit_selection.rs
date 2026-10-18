@@ -152,8 +152,14 @@ impl SelectionWorker {
             sign: selection.sign,
             // Provider has no purity or retained-premise capability. Its current
             // effect must run even when the enclosing root inputs are unchanged.
-            pure_anchor: selection.anchor.as_ref().is_none_or(|body| body.census().all(|order| order.provider_stages == 0)),
-            pure_restriction: selection.restriction.as_ref().is_none_or(|body| body.census().all(|order| order.provider_stages == 0)),
+            pure_anchor: selection
+                .anchor
+                .as_ref()
+                .is_none_or(|body| body.census().all(|order| order.provider_stages == 0)),
+            pure_restriction: selection
+                .restriction
+                .as_ref()
+                .is_none_or(|body| body.census().all(|order| order.provider_stages == 0)),
         }
     }
     pub(super) fn permits_fixed_reuse(&self) -> bool {

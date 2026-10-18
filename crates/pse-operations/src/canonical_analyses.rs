@@ -743,18 +743,24 @@ mod canonical_analyses_server_unit {
             )
             .await
             .unwrap();
-        assert_eq!(store.analysis_edge_page(key, None).await.unwrap(), vec![edge.clone()]);
+        assert_eq!(
+            store.analysis_edge_page(key, None).await.unwrap(),
+            vec![edge.clone()]
+        );
         let mut conflicting = edge.clone();
         conflicting.kind = "changed".into();
         assert!(
-            store.append_analysis(
-                key,
-                vec![],
-                vec![
-                    wire::encode_canonical_analysis_edges(&edge).unwrap(),
-                    wire::encode_canonical_analysis_edges(&conflicting).unwrap(),
-                ],
-            ).await.is_err(),
+            store
+                .append_analysis(
+                    key,
+                    vec![],
+                    vec![
+                        wire::encode_canonical_analysis_edges(&edge).unwrap(),
+                        wire::encode_canonical_analysis_edges(&conflicting).unwrap(),
+                    ],
+                )
+                .await
+                .is_err(),
             "page-local duplicate keys do not bypass immutable replay"
         );
         let mut incomplete = edge.clone();
@@ -763,20 +769,36 @@ mod canonical_analyses_server_unit {
         unretained.evidence_artifact = Some("not-retained".into());
         unretained.evidence_block = Some(0);
         for invalid in [incomplete, unretained] {
-            assert!(store.append_analysis(
-                key,
-                vec![],
-                vec![wire::encode_canonical_analysis_edges(&invalid).unwrap()],
-            ).await.is_err());
+            assert!(
+                store
+                    .append_analysis(
+                        key,
+                        vec![],
+                        vec![wire::encode_canonical_analysis_edges(&invalid).unwrap()],
+                    )
+                    .await
+                    .is_err()
+            );
         }
-        assert_eq!(store.analysis_edge_page(key, None).await.unwrap(), vec![edge.clone()]);
+        assert_eq!(
+            store.analysis_edge_page(key, None).await.unwrap(),
+            vec![edge.clone()]
+        );
         // These are the actual predicates used by the distinct per-page facts.
         // Existing compound indexes must serve them without unrelated table scans.
         for (query, index) in [
-            ("SELECT key FROM canonical_analysis_inputs WHERE analysis=$key AND artifact='not-retained' LIMIT 1 EXPLAIN FULL;", "analysis_input_artifact"),
-            ("SELECT rows FROM canonical_artifact_blocks WHERE artifact='not-retained' AND ordinal=0 LIMIT 1 EXPLAIN FULL;", "artifact_blocks"),
+            (
+                "SELECT key FROM canonical_analysis_inputs WHERE analysis=$key AND artifact='not-retained' LIMIT 1 EXPLAIN FULL;",
+                "analysis_input_artifact",
+            ),
+            (
+                "SELECT rows FROM canonical_artifact_blocks WHERE artifact='not-retained' AND ordinal=0 LIMIT 1 EXPLAIN FULL;",
+                "artifact_blocks",
+            ),
         ] {
-            let mut response = bounded_query(store.db.query(query).bind(("key", key))).await.unwrap();
+            let mut response = bounded_query(store.db.query(query).bind(("key", key)))
+                .await
+                .unwrap();
             let plan = response.take::<surrealdb::types::Value>(0).unwrap();
             let plan = format!("{plan:?}");
             assert!(plan.contains("IndexScan") && plan.contains(index), "{plan}");

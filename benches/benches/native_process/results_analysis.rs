@@ -79,44 +79,55 @@ enum TrajectoryReader {
     Selected(pse_runtime::workflow::SelectedResultReader),
 }
 impl TrajectoryReader {
-    async fn next_relation_batch(&mut self) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, pse_runtime::workflow::WorkflowError> {
-        match self { Self::Full(reader) => reader.next_relation_batch().await,
-            Self::Selected(reader) => reader.next_relation_batch().await }
+    async fn next_relation_batch(
+        &mut self,
+    ) -> Result<
+        Option<pse_relations::columnar::FieldCheckedBatch>,
+        pse_runtime::workflow::WorkflowError,
+    > {
+        match self {
+            Self::Full(reader) => reader.next_relation_batch().await,
+            Self::Selected(reader) => reader.next_relation_batch().await,
+        }
     }
 }
 
 async fn trajectory(runtime: &Runtime, expected: &Expected, one_output: bool) -> ReadObservation {
     let cancel = audit::cancel_source();
     let mut reader = if one_output {
-        TrajectoryReader::Selected(runtime
-            .output_results(
-                &expected.run,
-                &expected.attempt,
-                "runtime.simulation_samples",
-                expected.selected,
-                "value",
-                "0",
-                0,
-                u64::MAX,
-                None,
-                None,
-                None,
-                cancel.token(),
-            )
-            .await
-            .unwrap())
+        TrajectoryReader::Selected(
+            runtime
+                .output_results(
+                    &expected.run,
+                    &expected.attempt,
+                    "runtime.simulation_samples",
+                    expected.selected,
+                    "value",
+                    "0",
+                    0,
+                    u64::MAX,
+                    None,
+                    None,
+                    None,
+                    cancel.token(),
+                )
+                .await
+                .unwrap(),
+        )
     } else {
-        TrajectoryReader::Full(runtime
-            .results(
-                &expected.run,
-                &expected.attempt,
-                "runtime.simulation_samples",
-                0,
-                u64::MAX,
-                cancel.token(),
-            )
-            .await
-            .unwrap())
+        TrajectoryReader::Full(
+            runtime
+                .results(
+                    &expected.run,
+                    &expected.attempt,
+                    "runtime.simulation_samples",
+                    0,
+                    u64::MAX,
+                    cancel.token(),
+                )
+                .await
+                .unwrap(),
+        )
     };
     let mut hash = hasher("trajectory");
     let mut rows = 0_u64;

@@ -346,17 +346,27 @@ impl IntegratedExperiment {
                 "adjoint gradients need the worker's admitted foreign allowance".into(),
             )
         })?;
-        let bindings = selected.iter().map(|index| self.bindings.get(*index)
-            .ok_or_else(|| ProblemError::internal("adjoint binding extent")))
+        let bindings = selected
+            .iter()
+            .map(|index| {
+                self.bindings
+                    .get(*index)
+                    .ok_or_else(|| ProblemError::internal("adjoint binding extent"))
+            })
             .collect::<Result<Vec<_>, _>>()?;
         let mut axes = Vec::new();
         for binding in &bindings {
-            if !axes.contains(&binding.local) { axes.push(binding.local); }
+            if !axes.contains(&binding.local) {
+                axes.push(binding.local);
+            }
         }
         let mut profile = attempt(&self.profile, execution, DynamicSensitivity::Adjoint);
         profile.adjoint_parameters = native::dynamics::AdjointParameters::Selected(axes);
         let native::dynamics::Gradient {
-            report, gradient, parameter_axes, ..
+            report,
+            gradient,
+            parameter_axes,
+            ..
         } = native::dynamics::gradient_observed(
             worker,
             &profile,
@@ -369,9 +379,12 @@ impl IntegratedExperiment {
         let report = completed(report)?;
         let gradient = gradient
             .ok_or_else(|| ProblemError::internal("completed adjoint without a gradient"))?;
-        let contributions = bindings.iter()
+        let contributions = bindings
+            .iter()
             .map(|b| {
-                parameter_axes.iter().position(|axis| *axis == b.local)
+                parameter_axes
+                    .iter()
+                    .position(|axis| *axis == b.local)
                     .and_then(|column| gradient.get(column))
                     .map(|g| (b.parameter, g * b.conversion.scale))
                     .ok_or_else(|| ProblemError::internal("adjoint gradient extent"))
@@ -567,7 +580,10 @@ impl IntegratedExperiment {
     /// the cotangent's functional over the selected window integration columns, with
     /// their physical coordinate identity. The checkpoints
     /// are charged against the attempt's foreign allowance.
-    #[expect(clippy::too_many_arguments, reason = "window values, original execution and ordered parameter-gradient demand have separate owners")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "window values, original execution and ordered parameter-gradient demand have separate owners"
+    )]
     pub(crate) fn window_gradient(
         &self,
         worker: &mut super::dynamics::DynamicWorker,
@@ -593,9 +609,13 @@ impl IntegratedExperiment {
             execution,
             DynamicSensitivity::Adjoint,
         ));
-        profile.adjoint_parameters = native::dynamics::AdjointParameters::Selected(selected.to_vec());
+        profile.adjoint_parameters =
+            native::dynamics::AdjointParameters::Selected(selected.to_vec());
         let native::dynamics::Gradient {
-            report, gradient, parameter_axes, ..
+            report,
+            gradient,
+            parameter_axes,
+            ..
         } = native::dynamics::gradient_observed(
             &mut oracle,
             &profile,

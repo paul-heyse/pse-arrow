@@ -154,7 +154,11 @@ fn analytic(t: f64, axis: usize) -> Result<(f64, f64, f64), ProblemError> {
             VALUES[1] * later * later / 2.,
             if t >= 0.5 { 2. } else { 0. },
         ),
-        _ => return Err(ProblemError::internal(format!("undeclared analytic physical axis {axis}"))),
+        _ => {
+            return Err(ProblemError::internal(format!(
+                "undeclared analytic physical axis {axis}"
+            )));
+        }
     };
     Ok((dx, dy, dx + dy + direct))
 }
@@ -172,7 +176,8 @@ fn selected_physical_axes_preserve_initial_coupled_scheduled_and_scaled_response
                 assert_eq!(sample.output_sensitivities.len(), width);
                 assert!((sample.outputs[0] - reference.outputs[0]).abs() < 2e-5);
                 for (column, axis) in selected.iter().enumerate() {
-                    let expected = analytic(sample.time, *axis).expect("selected axis has an analytic response");
+                    let expected = analytic(sample.time, *axis)
+                        .expect("selected axis has an analytic response");
                     for (actual, exact) in [
                         (sample.state_sensitivities[column], expected.0),
                         (sample.state_sensitivities[width + column], expected.1),
@@ -250,7 +255,8 @@ fn selected_anchor_and_later_interval_keep_fixed_anchor_values() {
         );
         assert_eq!(report.forward_axes, vec![6, 3]);
         for sample in &report.samples {
-            let later = analytic(sample.time, 4).expect("later interval axis has an analytic response");
+            let later =
+                analytic(sample.time, 4).expect("later interval axis has an analytic response");
             assert!((sample.output_sensitivities[0] - later.2).abs() < 2e-5);
             assert!((sample.state_sensitivities[1] - 1.).abs() < 2e-5);
             assert!((sample.state_sensitivities[3] - 2. * sample.time).abs() < 2e-5);
@@ -469,7 +475,11 @@ fn adjoint_profile(method: Method, selection: AdjointParameters) -> Profile {
     profile.adjoint_parameters = selection;
     profile
 }
-fn selected_gradient(oracle: &mut dyn Oracle, p: &Profile, values: &[f64]) -> Result<Gradient, ProblemError> {
+fn selected_gradient(
+    oracle: &mut dyn Oracle,
+    p: &Profile,
+    values: &[f64],
+) -> Result<Gradient, ProblemError> {
     let mut weights = |r: &Report| {
         Ok(r.samples
             .iter()
@@ -490,7 +500,11 @@ fn selected_gradient(oracle: &mut dyn Oracle, p: &Profile, values: &[f64]) -> Re
         64 << 20,
     )
 }
-fn selected_native_width(result: &Gradient, method: Method, width: usize) -> Result<(), ProblemError> {
+fn selected_native_width(
+    result: &Gradient,
+    method: Method,
+    width: usize,
+) -> Result<(), ProblemError> {
     let adjoint = result
         .report
         .statistics
@@ -500,7 +514,11 @@ fn selected_native_width(result: &Gradient, method: Method, width: usize) -> Res
     if method == Method::Diffsol {
         assert_eq!(adjoint["parameter_product_width"], width);
     } else {
-        let problems = adjoint["backward"].as_array().ok_or_else(|| ProblemError::internal(format!("{method:?}: missing backward problem statistics array")))?;
+        let problems = adjoint["backward"].as_array().ok_or_else(|| {
+            ProblemError::internal(format!(
+                "{method:?}: missing backward problem statistics array"
+            ))
+        })?;
         assert!(
             !problems.is_empty(),
             "empty parameter demand retains the state adjoint"
@@ -519,8 +537,14 @@ fn selected_adjoint_full_selected_empty_preserve_values_initial_direct_and_sched
             &mut Coupled::new(),
             &adjoint_profile(method, AdjointParameters::All),
             &VALUES,
-        ).expect("full selected-gradient fixture integrates successfully");
-        assert_eq!(full.report.termination, Termination::Completed, "{method:?}: {:?}", full.report.error);
+        )
+        .expect("full selected-gradient fixture integrates successfully");
+        assert_eq!(
+            full.report.termination,
+            Termination::Completed,
+            "{method:?}: {:?}",
+            full.report.error
+        );
         assert_eq!(full.parameter_axes, [0, 1, 2, 3, 4]);
         selected_native_width(&full, method, 5).expect("full adjoint reports native width");
         for axes in [vec![4, 2, 3], vec![0], vec![1, 0], vec![]] {
@@ -528,17 +552,33 @@ fn selected_adjoint_full_selected_empty_preserve_values_initial_direct_and_sched
                 &mut Coupled::new(),
                 &adjoint_profile(method, AdjointParameters::Selected(axes.clone())),
                 &VALUES,
-            ).expect("selected-gradient fixture integrates successfully");
-            assert_eq!(selected.report.termination, Termination::Completed, "{method:?}: {:?}", selected.report.error);
+            )
+            .expect("selected-gradient fixture integrates successfully");
+            assert_eq!(
+                selected.report.termination,
+                Termination::Completed,
+                "{method:?}: {:?}",
+                selected.report.error
+            );
             assert_eq!(selected.parameter_axes, axes);
-            selected_native_width(&selected, method, axes.len()).expect("selected adjoint reports native width");
+            selected_native_width(&selected, method, axes.len())
+                .expect("selected adjoint reports native width");
             assert!(selected.reserved_bytes < full.reserved_bytes);
             let derivatives = selected.gradient.as_ref().unwrap();
             assert_eq!(derivatives.len(), axes.len());
             for (column, axis) in axes.iter().enumerate() {
-                let expected = 0.3 * analytic(0., *axis).expect("initial selected axis is declared").2
-                    + 0.7 * analytic(0.5, *axis).expect("interior selected axis is declared").2
-                    + 1.2 * analytic(1., *axis).expect("terminal selected axis is declared").2;
+                let expected = 0.3
+                    * analytic(0., *axis)
+                        .expect("initial selected axis is declared")
+                        .2
+                    + 0.7
+                        * analytic(0.5, *axis)
+                            .expect("interior selected axis is declared")
+                            .2
+                    + 1.2
+                        * analytic(1., *axis)
+                            .expect("terminal selected axis is declared")
+                            .2;
                 // IDAS uses the existing checkpointed-adjoint agreement from
                 // dynamics::tests::adjoint::tolerance; forward interpolation's
                 // absolute assertion does not bound a backward quadrature.
@@ -589,12 +629,24 @@ fn selected_adjoint_anchor_and_later_interval_keep_physical_identity() {
         let mut profile = oracle.profile(&adjoint_profile(method, AdjointParameters::All));
         let values = [5., 2., 0.4, 2., 1., 1., 3.];
         profile.adjoint_parameters = AdjointParameters::Selected(vec![6, 3]);
-        let result = selected_gradient(&mut oracle, &profile, &values).expect("anchored selected-gradient fixture integrates successfully");
-        assert_eq!(result.report.termination, Termination::Completed, "{method:?}: {:?}", result.report.error);
+        let result = selected_gradient(&mut oracle, &profile, &values)
+            .expect("anchored selected-gradient fixture integrates successfully");
+        assert_eq!(
+            result.report.termination,
+            Termination::Completed,
+            "{method:?}: {:?}",
+            result.report.error
+        );
         assert_eq!(result.parameter_axes, [6, 3]);
         selected_native_width(&result, method, 2).expect("anchored adjoint reports native width");
         let expected = [
-            0.7 * analytic(0.5, 4).expect("interior later interval axis is declared").2 + 1.2 * analytic(1., 4).expect("terminal later interval axis is declared").2,
+            0.7 * analytic(0.5, 4)
+                .expect("interior later interval axis is declared")
+                .2
+                + 1.2
+                    * analytic(1., 4)
+                        .expect("terminal later interval axis is declared")
+                        .2,
             0.3 + 0.7 * 2. + 1.2 * 3.,
         ];
         for (actual, exact) in result.gradient.unwrap().iter().zip(expected) {
@@ -735,8 +787,14 @@ fn selected_adjoint_one_parameter_without_fixed_inputs_and_derivative_failure() 
         p.schedule.clear();
         p.atol.truncate(1);
         p.parameter_scales.truncate(1);
-        let result = selected_gradient(&mut Single(contract), &p, &[2.]).expect("single-parameter gradient fixture integrates successfully");
-        assert_eq!(result.report.termination, Termination::Completed, "{method:?}: {:?}", result.report.error);
+        let result = selected_gradient(&mut Single(contract), &p, &[2.])
+            .expect("single-parameter gradient fixture integrates successfully");
+        assert_eq!(
+            result.report.termination,
+            Termination::Completed,
+            "{method:?}: {:?}",
+            result.report.error
+        );
         let expected = 0.3 * 3. + 0.7 * 3.5 + 1.2 * 4.;
         assert!((result.gradient.unwrap()[0] - expected).abs() < 2e-5);
         for sample in result.report.samples {
@@ -854,7 +912,11 @@ fn scheduled_checkpoint_spacing_and_interior_weights_preserve_analytic_product()
                                         1 => 0.4 + *t + 2. * (0.4 * *t + *t * *t / 2.) + 3.,
                                         2 => 2. * *t + 3. * *t * *t,
                                         3 => 5. + 10. * *t,
-                                        _ => return Err(ProblemError::internal(format!("undeclared unscheduled analytic axis {axis}"))),
+                                        _ => {
+                                            return Err(ProblemError::internal(format!(
+                                                "undeclared unscheduled analytic axis {axis}"
+                                            )));
+                                        }
                                     }
                                 };
                                 Ok(w * response)

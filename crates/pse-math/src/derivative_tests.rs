@@ -1744,10 +1744,19 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
     // Each changed weighted product preserves the original provider effect, with
     // its two selected outputs coalesced into one complete Second request. The
     // identical third demand reuses the complete product and issues no new call.
-    assert_eq!(requests.lock().unwrap().as_slice(), &[
-        ProviderRequest { outputs: vec![0, 1], order: DerivativeOrder::Second },
-        ProviderRequest { outputs: vec![0, 1], order: DerivativeOrder::Second },
-    ]);
+    assert_eq!(
+        requests.lock().unwrap().as_slice(),
+        &[
+            ProviderRequest {
+                outputs: vec![0, 1],
+                order: DerivativeOrder::Second
+            },
+            ProviderRequest {
+                outputs: vec![0, 1],
+                order: DerivativeOrder::Second
+            },
+        ]
+    );
     let bad = CaseValues {
         scalars: BTreeMap::from([(id(1), -2.0)]),
     };

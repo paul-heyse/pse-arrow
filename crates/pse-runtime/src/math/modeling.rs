@@ -1481,10 +1481,9 @@ impl MathService {
             let mut lanes = self.compiler_lanes.lock().map_err(|_| {
                 MathRuntimeError::Infrastructure("compiler lane map poisoned".into())
             })?;
-            if let Some(index) = lanes
-                .iter()
-                .position(|lane| lane.historical.is_none() && lane.lineage == lineage && lane.inputs == inputs)
-            {
+            if let Some(index) = lanes.iter().position(|lane| {
+                lane.historical.is_none() && lane.lineage == lineage && lane.inputs == inputs
+            }) {
                 let lane = lanes.remove(index);
                 let result = lane.workspace.clone();
                 lanes.push(lane);
@@ -1517,10 +1516,9 @@ impl MathService {
             .compiler_lanes
             .lock()
             .map_err(|_| MathRuntimeError::Infrastructure("compiler lane map poisoned".into()))?;
-        if let Some(lane) = lanes
-            .iter()
-            .find(|lane| lane.historical.is_none() && lane.lineage == lineage && lane.inputs == inputs)
-        {
+        if let Some(lane) = lanes.iter().find(|lane| {
+            lane.historical.is_none() && lane.lineage == lineage && lane.inputs == inputs
+        }) {
             return Ok(lane.workspace.clone());
         }
         // A borrowed resident is the sole writer for its exact lineage. Evicting it
@@ -1554,11 +1552,22 @@ impl MathService {
         inputs: pse_compiler::workspace::CompilerContext,
     ) -> Result<(Workspace, tokio::sync::OwnedSemaphorePermit), MathRuntimeError> {
         let lineage = {
-            let mut lanes = self.compiler_lanes.lock().map_err(|_| MathRuntimeError::Infrastructure("compiler lane map poisoned".into()))?;
-            let lineage = lanes.iter().find(|lane| lane.historical.is_none() && Arc::ptr_eq(&lane.workspace.compiler, &origin.compiler))
+            let mut lanes = self.compiler_lanes.lock().map_err(|_| {
+                MathRuntimeError::Infrastructure("compiler lane map poisoned".into())
+            })?;
+            let lineage = lanes
+                .iter()
+                .find(|lane| {
+                    lane.historical.is_none()
+                        && Arc::ptr_eq(&lane.workspace.compiler, &origin.compiler)
+                })
                 .map(|lane| lane.lineage.clone());
             if let Some(lineage) = &lineage
-                && let Some(index) = lanes.iter().position(|lane| lane.lineage == *lineage && lane.inputs == inputs && lane.historical == Some(revision.identity))
+                && let Some(index) = lanes.iter().position(|lane| {
+                    lane.lineage == *lineage
+                        && lane.inputs == inputs
+                        && lane.historical == Some(revision.identity)
+                })
                 && let Ok(permit) = lanes[index].workspace.admission.clone().try_acquire_owned()
             {
                 let lane = lanes.remove(index);
@@ -1568,23 +1577,50 @@ impl MathService {
             }
             lineage
         };
-        let workspace = self.workspace(inputs.clone(), pse_compiler::workspace::WorkspaceLimits::default())?;
-        let permit = workspace.admission.clone().try_acquire_owned()
-            .map_err(|_| MathRuntimeError::Infrastructure("fresh historical compiler admission unavailable".into()))?;
+        let workspace = self.workspace(
+            inputs.clone(),
+            pse_compiler::workspace::WorkspaceLimits::default(),
+        )?;
+        let permit = workspace
+            .admission
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| {
+                MathRuntimeError::Infrastructure(
+                    "fresh historical compiler admission unavailable".into(),
+                )
+            })?;
         if let Some(lineage) = lineage
-            && let Ok(metadata) = self.reserve("modeling:historical-lineage", lineage.retained_bytes())
+            && let Ok(metadata) =
+                self.reserve("modeling:historical-lineage", lineage.retained_bytes())
         {
-            let mut lanes = self.compiler_lanes.lock().map_err(|_| MathRuntimeError::Infrastructure("compiler lane map poisoned".into()))?;
+            let mut lanes = self.compiler_lanes.lock().map_err(|_| {
+                MathRuntimeError::Infrastructure("compiler lane map poisoned".into())
+            })?;
             // Never create a second retained writer for one exact historical key.
             // An active peer retains its own authority; this caller stays private.
-            if !lanes.iter().any(|lane| lane.lineage == lineage && lane.inputs == inputs && lane.historical == Some(revision.identity)) {
+            if !lanes.iter().any(|lane| {
+                lane.lineage == lineage
+                    && lane.inputs == inputs
+                    && lane.historical == Some(revision.identity)
+            }) {
                 while lanes.len() >= self.policy.jobs.max(1) {
-                    let Some(index) = lanes.iter().position(|lane| Arc::strong_count(&lane.workspace.compiler) == 1) else { break; };
+                    let Some(index) = lanes
+                        .iter()
+                        .position(|lane| Arc::strong_count(&lane.workspace.compiler) == 1)
+                    else {
+                        break;
+                    };
                     lanes.remove(index);
                 }
                 if lanes.len() < self.policy.jobs.max(1) {
-                    lanes.push(CompilerLane { lineage, historical: Some(revision.identity), inputs,
-                        workspace: workspace.clone(), _metadata: metadata });
+                    lanes.push(CompilerLane {
+                        lineage,
+                        historical: Some(revision.identity),
+                        inputs,
+                        workspace: workspace.clone(),
+                        _metadata: metadata,
+                    });
                 }
             }
         }
@@ -1612,7 +1648,8 @@ impl MathService {
         let inputs = compiler.context();
         drop(compiler);
         authority.release()?;
-        let (detached, permit) = self.historical_compiler(&authority.workspace, revision, inputs)?;
+        let (detached, permit) =
+            self.historical_compiler(&authority.workspace, revision, inputs)?;
         let detached = authority.replace_held(detached, permit)?;
         let mut compiler = detached.lock()?;
         if !compiler.selects_modeling_revision(&revision.admitted) {

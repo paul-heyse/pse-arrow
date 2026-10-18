@@ -102,13 +102,37 @@ pub(super) fn admit_rows(
         }
         match object.kind.as_str() {
             "package" => package_rows
-                .push(object.typed.as_ref().and_then(packages::Row::carried).cloned().map(Ok).unwrap_or_else(|| decode(&object.payload))?)
+                .push(
+                    object
+                        .typed
+                        .as_ref()
+                        .and_then(packages::Row::carried)
+                        .cloned()
+                        .map(Ok)
+                        .unwrap_or_else(|| decode(&object.payload))?,
+                )
                 .map_err(super::super::super::relation)?,
             "document" => document_rows
-                .push(object.typed.as_ref().and_then(documents::Row::carried).cloned().map(Ok).unwrap_or_else(|| decode(&object.payload))?)
+                .push(
+                    object
+                        .typed
+                        .as_ref()
+                        .and_then(documents::Row::carried)
+                        .cloned()
+                        .map(Ok)
+                        .unwrap_or_else(|| decode(&object.payload))?,
+                )
                 .map_err(super::super::super::relation)?,
             "fit" => fit_rows
-                .push(object.typed.as_ref().and_then(fit_cases::Row::carried).cloned().map(Ok).unwrap_or_else(|| decode(&object.payload))?)
+                .push(
+                    object
+                        .typed
+                        .as_ref()
+                        .and_then(fit_cases::Row::carried)
+                        .cloned()
+                        .map(Ok)
+                        .unwrap_or_else(|| decode(&object.payload))?,
+                )
                 .map_err(super::super::super::relation)?,
             CONTEXT
             | "physical_scope"

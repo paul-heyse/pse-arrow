@@ -573,18 +573,19 @@ mod source_stream_unit {
         let mut covered = 0;
         visit_source_blocks_async(&source, |start, rows, bytes| {
             std::future::ready((|| {
-            assert_eq!(start, covered);
-            assert!(bytes.len() <= pse_operations::canonical::PAYLOAD_BYTES);
-            let mut reader = StreamReader::try_new(Cursor::new(bytes), None)?;
-            let decoded = reader.next().unwrap()?;
-            assert_eq!(decoded.schema(), source.schema());
-            assert_eq!(decoded.num_rows(), rows);
-            assert!(reader.next().is_none());
-            covered += rows;
-            Ok::<(), ResultBlockError>(())
+                assert_eq!(start, covered);
+                assert!(bytes.len() <= pse_operations::canonical::PAYLOAD_BYTES);
+                let mut reader = StreamReader::try_new(Cursor::new(bytes), None)?;
+                let decoded = reader.next().unwrap()?;
+                assert_eq!(decoded.schema(), source.schema());
+                assert_eq!(decoded.num_rows(), rows);
+                assert!(reader.next().is_none());
+                covered += rows;
+                Ok::<(), ResultBlockError>(())
             })())
         })
-        .await.unwrap();
+        .await
+        .unwrap();
         assert_eq!(covered, source.num_rows());
     }
 }
