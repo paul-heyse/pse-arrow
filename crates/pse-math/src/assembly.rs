@@ -3018,7 +3018,12 @@ impl CaseWorker {
                 .iter()
                 .zip(&worker.inputs)
                 .all(|(bits, value)| *bits == value.to_bits());
-            if let Some(achieved) = worker.cache.filter(|achieved| *achieved >= order && same) {
+            // A numerical completion does not authorize skipping current provider
+            // effects. The provider owner may reuse its own qualified products.
+            let pure = self.assembly.programs[group.request]
+                .census()
+                .all(|order| order.provider_stages == 0);
+            if let Some(achieved) = worker.cache.filter(|achieved| *achieved >= order && same && pure) {
                 worker.visible = true;
                 if let Some(observation) = &mut self.observation {
                     observation.hit(i, demand, order, achieved);
@@ -3478,7 +3483,10 @@ impl CaseWorker {
                             .chain(&cache.direction),
                     )
                     .all(|(bits, value)| *bits == value.to_bits());
-                if cache.cache.is_some() && same {
+                let pure = self.assembly.programs[group.request]
+                    .census()
+                    .all(|order| order.provider_stages == 0);
+                if cache.cache.is_some() && same && pure {
                     cache.visible = true;
                     if let Some(observation) = &mut self.observation {
                         observation.hit(index, demand, order, order);

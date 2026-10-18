@@ -11,6 +11,9 @@ use pse_kernels::{
 use std::sync::atomic::{AtomicU64, AtomicUsize};
 use symbolica::atom::{Atom, AtomCore};
 
+#[path = "implicit_case_effect_tests.rs"]
+mod case_effects;
+
 #[derive(Debug, Default)]
 struct Work {
     solves: AtomicUsize,

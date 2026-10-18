@@ -4437,6 +4437,11 @@ impl pse_kernels::Provider for ControlledJetProvider {
         context.check()?;
         self.calls
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if self.control.load(std::sync::atomic::Ordering::Acquire) == 4 {
+            return Err(pse_kernels::ProviderError::Trial(
+                "current lower-order refusal".into(),
+            ));
+        }
         if request.order >= DerivativeOrder::First {
             match self.control.swap(0, std::sync::atomic::Ordering::AcqRel) {
                 1 => {
@@ -4529,9 +4534,17 @@ fn failed_or_cancelled_upgrade_preserves_only_independently_complete_provider_re
         assert_eq!(worker.objective(&values).unwrap(), 36.);
         assert_eq!(
             calls.load(std::sync::atomic::Ordering::Relaxed),
-            if refusal == 2 { 3 } else { 2 },
-            "only typed allowance/cancellation refusals preserve the lower completion"
+            3,
+            "retained lower completion cannot bypass current provider effects"
         );
+        control.store(4, std::sync::atomic::Ordering::Release);
+        let error = worker.objective(&values).unwrap_err();
+        assert!(matches!(error, crate::MathError::Instance { cause, .. }
+            if matches!(*cause, crate::MathError::Provider {
+                cause: pse_kernels::ProviderError::Trial(_), ..
+            })));
+        control.store(0, std::sync::atomic::Ordering::Release);
+        assert_eq!(worker.objective(&values).unwrap(), 36.);
         let before = calls.load(std::sync::atomic::Ordering::Relaxed);
         worker.constraints(&values).unwrap();
         assert_eq!(
@@ -4590,7 +4603,7 @@ fn provider_composition_hessian_action_uses_mixed_shape_and_library_chain_partia
 }
 
 #[test]
-fn weighted_provider_products_reexecute_for_changed_weights_points_and_refused_context() {
+fn weighted_provider_products_reexecute_for_same_key_changed_weights_points_and_refused_context() {
     use std::sync::atomic::Ordering;
     let (provider, control, calls) = controlled_jet_provider();
     let key = provider.spec.key();
@@ -4617,6 +4630,20 @@ fn weighted_provider_products_reexecute_for_changed_weights_points_and_refused_c
     let provider: Box<dyn pse_kernels::Provider> = Box::new(provider);
     let mut worker = assembly.worker(BTreeMap::from([(key, provider)]), stop.clone());
     let mut output = [f64::NAN; 2];
+    worker
+        .hessian_product(&values, 1., &[0., 0.], &[5., 7.], &mut output)
+        .unwrap();
+    assert_eq!(output, [258., 176.]);
+    let before = calls.load(Ordering::Relaxed);
+    worker
+        .hessian_product(&values, 1., &[0., 0.], &[5., 7.], &mut output)
+        .unwrap();
+    assert_eq!(output, [258., 176.]);
+    assert_eq!(calls.load(Ordering::Relaxed), before + 1);
+    control.store(2, Ordering::Release);
+    assert!(worker
+        .hessian_product(&values, 1., &[0., 0.], &[5., 7.], &mut output)
+        .is_err());
     worker
         .hessian_product(&values, 1., &[0., 0.], &[5., 7.], &mut output)
         .unwrap();
@@ -4737,8 +4764,8 @@ fn concurrent_exclusive_case_lanes_isolate_stateful_providers_failure_and_cancel
             assert_eq!(worker.objective(&values).unwrap(), 9. * x * x);
             assert_eq!(
                 calls.load(Ordering::Relaxed),
-                1,
-                "each lane owns its provider and reuses its complete same-demand First result"
+                2,
+                "each lane revisits its own provider even for a completed same-demand result"
             );
             values.scalars.insert(id(1), x + 1.);
             if lane == 0 {
@@ -4777,7 +4804,7 @@ fn concurrent_exclusive_case_lanes_isolate_stateful_providers_failure_and_cancel
         }));
     }
     for lane in lanes {
-        assert_eq!(lane.join().unwrap(), 2);
+        assert_eq!(lane.join().unwrap(), 3);
     }
 }
 
