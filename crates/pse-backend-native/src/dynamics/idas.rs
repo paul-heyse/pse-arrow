@@ -5083,21 +5083,30 @@ mod checkpoint_owner_tests {
     }
     #[test]
     fn checkpoint_owner_preserves_normal_interpolation_for_sparse_and_dense_outputs() {
-        let mut values = Vec::new();
+        let mut finals = Vec::new();
         for outputs in [vec![0.3], vec![0.05,0.1,0.15,0.2,0.3]] {
-            let mut native = NativeForward::new(100_000);
-            assert_eq!(native.limit(2), 0);
-            // SAFETY: finite physical stop on live owned IDAS memory.
-            unsafe { assert_eq!(ffi::IDASetStopTime(native.memory, 0.3), 0); }
-            for target in outputs {
-                let (flag, time, value) = native.solve(target, ffi::IDA_NORMAL);
-                assert!(flag == ffi::IDA_SUCCESS || flag == ffi::IDA_TSTOP_RETURN);
-                assert_eq!(time, target);
-                assert!((value - (-target).exp()).abs() < 0.01);
-                assert_eq!(native.usage(), (1,1,0));
-                if target == 0.3 { values.push(value); }
+            let mut observations=Vec::new();
+            for bounded in [false,true] {
+                let mut native=NativeForward::new(100_000);
+                if bounded { assert_eq!(native.limit(2),0); }
+                // SAFETY: finite physical stop on live owned IDAS memory.
+                unsafe { assert_eq!(ffi::IDASetStopTime(native.memory,0.3),0); }
+                let mut values=Vec::new();
+                for &target in &outputs {
+                    let (flag,time,value)=native.solve(target,ffi::IDA_NORMAL);
+                    assert!(flag==ffi::IDA_SUCCESS || flag==ffi::IDA_TSTOP_RETURN);
+                    assert_eq!(time,target);
+                    assert!((value-(-target).exp()).abs()<0.001);
+                    assert_eq!(native.usage(),(1,1,0));
+                    values.push((flag,time,value));
+                }
+                observations.push(values);
             }
+            assert_eq!(observations[0],observations[1],"population permission does not change native output/history semantics");
+            finals.push(observations[0].last().unwrap().2);
         }
-        assert_eq!(values[0], values[1], "output density does not change native integration");
+        // The first requested output influences IDAS's own initial-step estimate;
+        // different output schedules must agree physically, not bit-for-bit.
+        assert!((finals[0]-finals[1]).abs()<0.001);
     }
 }
