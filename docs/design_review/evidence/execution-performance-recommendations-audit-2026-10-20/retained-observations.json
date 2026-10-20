@@ -1,0 +1,788 @@
+{
+  "scope": "Read-only recomputation from retained outputs; no simulations/builds/profilers re-executed",
+  "baseline": "1ee81798a9b884f3054b685ee9629e2c8d124498",
+  "campaign_selected_status_counts": {
+    "interrupted": 9,
+    "completed": 89,
+    "failed": 5
+  },
+  "warm_start_native_attempts": [
+    {
+      "case": "review-nlp-ipopt-2-accepted-exact",
+      "selected_case_status": "completed",
+      "source": "build/external-pipeline-review-20261019/breadth/review-nlp-ipopt-2-accepted-exact/review-nlp-ipopt-2-accepted-exact-observations.jsonl",
+      "attempts": [
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/0/attempts/native_attempts/0/record",
+          "backend": "ipopt",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 33,
+            "iterations": 4,
+            "factorizations": null,
+            "proof_steps": null
+          }
+        },
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/1/attempts/native_attempts/0/record",
+          "backend": "ipopt",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 13,
+            "iterations": 0,
+            "factorizations": null,
+            "proof_steps": null
+          }
+        }
+      ]
+    },
+    {
+      "case": "review-nlp-ipopt-2-accepted-limited-memory",
+      "selected_case_status": "completed",
+      "source": "build/external-pipeline-review-20261019/breadth/review-nlp-ipopt-2-accepted-limited-memory/review-nlp-ipopt-2-accepted-limited-memory-observations.jsonl",
+      "attempts": [
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/0/attempts/native_attempts/0/record",
+          "backend": "ipopt",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 29,
+            "iterations": 4,
+            "factorizations": null,
+            "proof_steps": null
+          }
+        },
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/1/attempts/native_attempts/0/record",
+          "backend": "ipopt",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 13,
+            "iterations": 0,
+            "factorizations": null,
+            "proof_steps": null
+          }
+        }
+      ]
+    },
+    {
+      "case": "review-nlp-ipopt-16-accepted-exact",
+      "selected_case_status": "completed",
+      "source": "build/external-pipeline-review-20261019/breadth/review-nlp-ipopt-16-accepted-exact/review-nlp-ipopt-16-accepted-exact-observations.jsonl",
+      "attempts": [
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/0/attempts/native_attempts/0/record",
+          "backend": "ipopt",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 33,
+            "iterations": 4,
+            "factorizations": null,
+            "proof_steps": null
+          }
+        },
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/1/attempts/native_attempts/0/record",
+          "backend": "ipopt",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 13,
+            "iterations": 0,
+            "factorizations": null,
+            "proof_steps": null
+          }
+        }
+      ]
+    },
+    {
+      "case": "review-nlp-ipopt-16-accepted-limited-memory",
+      "selected_case_status": "completed",
+      "source": "build/external-pipeline-review-20261019/breadth/review-nlp-ipopt-16-accepted-limited-memory/review-nlp-ipopt-16-accepted-limited-memory-observations.jsonl",
+      "attempts": [
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/0/attempts/native_attempts/0/record",
+          "backend": "ipopt",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 29,
+            "iterations": 4,
+            "factorizations": null,
+            "proof_steps": null
+          }
+        },
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/1/attempts/native_attempts/0/record",
+          "backend": "ipopt",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 13,
+            "iterations": 0,
+            "factorizations": null,
+            "proof_steps": null
+          }
+        }
+      ]
+    },
+    {
+      "case": "review-nlp-pounce-2-accepted-exact",
+      "selected_case_status": "completed",
+      "source": "build/external-pipeline-review-20261019/breadth/review-nlp-pounce-2-accepted-exact/review-nlp-pounce-2-accepted-exact-observations.jsonl",
+      "attempts": [
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/0/attempts/native_attempts/0/record",
+          "backend": "pounce",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 36,
+            "iterations": null,
+            "factorizations": 6,
+            "proof_steps": null
+          }
+        },
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/1/attempts/native_attempts/0/record",
+          "backend": "pounce",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 16,
+            "iterations": null,
+            "factorizations": 1,
+            "proof_steps": null
+          }
+        }
+      ]
+    },
+    {
+      "case": "review-nlp-pounce-2-accepted-limited-memory",
+      "selected_case_status": "completed",
+      "source": "build/external-pipeline-review-20261019/breadth/review-nlp-pounce-2-accepted-limited-memory/review-nlp-pounce-2-accepted-limited-memory-observations.jsonl",
+      "attempts": [
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/0/attempts/native_attempts/0/record",
+          "backend": "pounce",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 37,
+            "iterations": null,
+            "factorizations": 6,
+            "proof_steps": null
+          }
+        },
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/1/attempts/native_attempts/0/record",
+          "backend": "pounce",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 39,
+            "iterations": null,
+            "factorizations": 7,
+            "proof_steps": null
+          }
+        }
+      ]
+    },
+    {
+      "case": "review-nlp-pounce-16-accepted-exact",
+      "selected_case_status": "completed",
+      "source": "build/external-pipeline-review-20261019/breadth/review-nlp-pounce-16-accepted-exact/review-nlp-pounce-16-accepted-exact-observations.jsonl",
+      "attempts": [
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/0/attempts/native_attempts/0/record",
+          "backend": "pounce",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 36,
+            "iterations": null,
+            "factorizations": 6,
+            "proof_steps": null
+          }
+        },
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/1/attempts/native_attempts/0/record",
+          "backend": "pounce",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 16,
+            "iterations": null,
+            "factorizations": 1,
+            "proof_steps": null
+          }
+        }
+      ]
+    },
+    {
+      "case": "review-nlp-pounce-16-accepted-limited-memory",
+      "selected_case_status": "completed",
+      "source": "build/external-pipeline-review-20261019/breadth/review-nlp-pounce-16-accepted-limited-memory/review-nlp-pounce-16-accepted-limited-memory-observations.jsonl",
+      "attempts": [
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/0/attempts/native_attempts/0/record",
+          "backend": "pounce",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 37,
+            "iterations": null,
+            "factorizations": 6,
+            "proof_steps": null
+          }
+        },
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/1/attempts/native_attempts/0/record",
+          "backend": "pounce",
+          "termination": {
+            "code": 0,
+            "name": "Solve_Succeeded",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 39,
+            "iterations": null,
+            "factorizations": 7,
+            "proof_steps": null
+          }
+        }
+      ]
+    },
+    {
+      "case": "review-nlp-uno-2-accepted-limited-memory",
+      "selected_case_status": "failed",
+      "source": "build/external-pipeline-review-20261019/breadth-final/review-nlp-uno-2-accepted-limited-memory/review-nlp-uno-2-accepted-limited-memory-observations.jsonl",
+      "attempts": [
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/0/attempts/native_attempts/0/record",
+          "backend": "uno",
+          "termination": {
+            "code": 0,
+            "name": "Uno_optimization_0_iterate_1",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 31,
+            "iterations": 5,
+            "factorizations": null,
+            "proof_steps": null
+          }
+        },
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/1/attempts/native_attempts/0/record",
+          "backend": "uno",
+          "termination": {
+            "code": 0,
+            "name": "Uno_optimization_0_iterate_1",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 15,
+            "iterations": 1,
+            "factorizations": null,
+            "proof_steps": null
+          }
+        }
+      ]
+    },
+    {
+      "case": "review-nlp-uno-16-accepted-limited-memory",
+      "selected_case_status": "failed",
+      "source": "build/external-pipeline-review-20261019/breadth-final/review-nlp-uno-16-accepted-limited-memory/review-nlp-uno-16-accepted-limited-memory-observations.jsonl",
+      "attempts": [
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/0/attempts/native_attempts/0/record",
+          "backend": "uno",
+          "termination": {
+            "code": 0,
+            "name": "Uno_optimization_0_iterate_1",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 31,
+            "iterations": 5,
+            "factorizations": null,
+            "proof_steps": null
+          }
+        },
+        {
+          "source_line": 1,
+          "pointer": "/numerical_observations/workflow_invocations/1/attempts/native_attempts/0/record",
+          "backend": "uno",
+          "termination": {
+            "code": 0,
+            "name": "Uno_optimization_0_iterate_1",
+            "message": null,
+            "category": "success",
+            "assurance": "local_stationary"
+          },
+          "work": {
+            "evaluations": 15,
+            "iterations": 1,
+            "factorizations": null,
+            "proof_steps": null
+          }
+        }
+      ]
+    }
+  ],
+  "plain_replay_harness_records": [
+    {
+      "run": "banded4-plain",
+      "source": "build/claude-review-scratch/runs/banded4-plain/compact-root-banded-4-observations.jsonl",
+      "source_line": 1,
+      "harness_seconds": 1.6966969079999998,
+      "invocations": [
+        {
+          "family": "modeling",
+          "outcome": "completed",
+          "endpoints": {
+            "qualification_seconds": 0.011136132,
+            "terminal_seconds": 0.011140702,
+            "response_ready_seconds": 0.011143412
+          }
+        }
+      ],
+      "limit": "Harness timer differs from outer driver process wall. Time outside an invocation includes preparation and other lifecycle work; it is not a measured preparation span."
+    },
+    {
+      "run": "sweep-banded-16",
+      "source": "build/claude-review-scratch/runs/sweep-banded-16/review-root-banded-256-observations.jsonl",
+      "source_line": 1,
+      "harness_seconds": 2.951467084,
+      "invocations": [
+        {
+          "family": "modeling",
+          "outcome": "completed",
+          "endpoints": {
+            "qualification_seconds": 0.109077481,
+            "terminal_seconds": 0.109087631,
+            "response_ready_seconds": 0.109094361
+          }
+        }
+      ],
+      "limit": "Harness timer differs from outer driver process wall. Time outside an invocation includes preparation and other lifecycle work; it is not a measured preparation span."
+    },
+    {
+      "run": "sweep-banded-32",
+      "source": "build/claude-review-scratch/runs/sweep-banded-32/review-root-banded-256-observations.jsonl",
+      "source_line": 1,
+      "harness_seconds": 2.250443502,
+      "invocations": [
+        {
+          "family": "modeling",
+          "outcome": "completed",
+          "endpoints": {
+            "qualification_seconds": 0.072383051,
+            "terminal_seconds": 0.072388071,
+            "response_ready_seconds": 0.072392422
+          }
+        }
+      ],
+      "limit": "Harness timer differs from outer driver process wall. Time outside an invocation includes preparation and other lifecycle work; it is not a measured preparation span."
+    },
+    {
+      "run": "sweep-banded-64",
+      "source": "build/claude-review-scratch/runs/sweep-banded-64/review-root-banded-256-observations.jsonl",
+      "source_line": 1,
+      "harness_seconds": 3.303583572,
+      "invocations": [
+        {
+          "family": "modeling",
+          "outcome": "completed",
+          "endpoints": {
+            "qualification_seconds": null,
+            "terminal_seconds": 0.103044434,
+            "response_ready_seconds": 0.103049144
+          }
+        }
+      ],
+      "limit": "Harness timer differs from outer driver process wall. Time outside an invocation includes preparation and other lifecycle work; it is not a measured preparation span."
+    },
+    {
+      "run": "sweep-banded-128",
+      "source": "build/claude-review-scratch/runs/sweep-banded-128/review-root-banded-256-observations.jsonl",
+      "source_line": 1,
+      "harness_seconds": 8.670916777,
+      "invocations": [
+        {
+          "family": "modeling",
+          "outcome": "completed",
+          "endpoints": {
+            "qualification_seconds": 0.235182319,
+            "terminal_seconds": 0.23518865,
+            "response_ready_seconds": 0.23519351
+          }
+        }
+      ],
+      "limit": "Harness timer differs from outer driver process wall. Time outside an invocation includes preparation and other lifecycle work; it is not a measured preparation span."
+    },
+    {
+      "run": "sweep-banded-192",
+      "source": "build/claude-review-scratch/runs/sweep-banded-192/review-root-banded-256-observations.jsonl",
+      "source_line": 1,
+      "harness_seconds": 24.352586886,
+      "invocations": [
+        {
+          "family": "modeling",
+          "outcome": "completed",
+          "endpoints": {
+            "qualification_seconds": 0.376868323,
+            "terminal_seconds": 0.376911625,
+            "response_ready_seconds": 0.376915565
+          }
+        }
+      ],
+      "limit": "Harness timer differs from outer driver process wall. Time outside an invocation includes preparation and other lifecycle work; it is not a measured preparation span."
+    },
+    {
+      "run": "banded256-plain",
+      "source": "build/claude-review-scratch/runs/banded256-plain/review-root-banded-256-observations.jsonl",
+      "source_line": 1,
+      "harness_seconds": 53.54258573,
+      "invocations": [
+        {
+          "family": "modeling",
+          "outcome": "completed",
+          "endpoints": {
+            "qualification_seconds": 0.802101196,
+            "terminal_seconds": 0.802116827,
+            "response_ready_seconds": 0.802125527
+          }
+        }
+      ],
+      "limit": "Harness timer differs from outer driver process wall. Time outside an invocation includes preparation and other lifecycle work; it is not a measured preparation span."
+    }
+  ],
+  "lldb_sample_populations": [
+    {
+      "source": "build/claude-review-scratch/runs/banded256-lldb/samples.jsonl",
+      "thread_stack_rows": 3003,
+      "stop_timestamps": 611,
+      "top_frames": [
+        [
+          "syscall",
+          1192
+        ],
+        [
+          "epoll_wait",
+          605
+        ],
+        [
+          "__futex_abstimed_wait_common64",
+          590
+        ],
+        [
+          "<pse_modeling::check::CheckedPackage>::resolve_with_types::<<pse_modeling::check::CheckedPackage>::named_types::{closure#0}>",
+          291
+        ],
+        [
+          "<pse_modeling::check::CheckedPackage>::resolve_with_types::<<pse_modeling::check::phases::ResolutionEnvironment>::resolve::{closure#0}>",
+          165
+        ],
+        [
+          "<pse_modeling::check::CheckedPackage>::declared_member_with::visit",
+          74
+        ],
+        [
+          "__memcmp_evex_movbe",
+          8
+        ],
+        [
+          "_int_free",
+          6
+        ]
+      ],
+      "limit": "All stopped threads are sampled. A blocked-frame filter does not convert these rows into scheduler-qualified on-CPU samples; debugger perturbation is phase-dependent and unquantified."
+    },
+    {
+      "source": "build/claude-review-scratch/runs/banded4-lldb/samples.jsonl",
+      "thread_stack_rows": 476,
+      "stop_timestamps": 187,
+      "top_frames": [
+        [
+          "epoll_wait",
+          185
+        ],
+        [
+          "syscall",
+          94
+        ],
+        [
+          "__libc_malloc",
+          25
+        ],
+        [
+          "__memmove_avx512_unaligned_erms",
+          19
+        ],
+        [
+          "_int_free",
+          17
+        ],
+        [
+          "_int_malloc",
+          11
+        ],
+        [
+          "__memcmp_evex_movbe",
+          10
+        ],
+        [
+          "<indexmap::inner::Core<alloc::string::String, serde_json::value::Value>>::with_entries::<<indexmap::map::IndexMap<alloc::string::String, serde_json::value::Value>>::sort_unstable_keys::{closure#0}>",
+          7
+        ]
+      ],
+      "limit": "All stopped threads are sampled. A blocked-frame filter does not convert these rows into scheduler-qualified on-CPU samples; debugger perturbation is phase-dependent and unquantified."
+    },
+    {
+      "source": "build/claude-review-scratch/runs/compact-property-value-lldb/samples.jsonl",
+      "thread_stack_rows": 3090,
+      "stop_timestamps": 836,
+      "top_frames": [
+        [
+          "syscall",
+          1115
+        ],
+        [
+          "epoll_wait",
+          829
+        ],
+        [
+          "__futex_abstimed_wait_common64",
+          295
+        ],
+        [
+          "__libc_malloc",
+          56
+        ],
+        [
+          "_int_malloc",
+          55
+        ],
+        [
+          "__memmove_avx512_unaligned_erms",
+          54
+        ],
+        [
+          "<pse_modeling::check::CheckedPackage>::resolve_with_types::<<pse_modeling::check::CheckedPackage>::named_types::{closure#0}>",
+          53
+        ],
+        [
+          "__memcmp_evex_movbe",
+          47
+        ]
+      ],
+      "limit": "All stopped threads are sampled. A blocked-frame filter does not convert these rows into scheduler-qualified on-CPU samples; debugger perturbation is phase-dependent and unquantified."
+    },
+    {
+      "source": "build/claude-review-scratch/runs/review-nlp-ipopt-2-cold-exact-lldb/samples.jsonl",
+      "thread_stack_rows": 571,
+      "stop_timestamps": 221,
+      "top_frames": [
+        [
+          "epoll_wait",
+          215
+        ],
+        [
+          "syscall",
+          115
+        ],
+        [
+          "__libc_malloc",
+          27
+        ],
+        [
+          "__memmove_avx512_unaligned_erms",
+          21
+        ],
+        [
+          "_int_free",
+          19
+        ],
+        [
+          "_int_malloc",
+          13
+        ],
+        [
+          "<indexmap::map::IndexMap<alloc::string::String, serde_json::value::Value>>::insert_full",
+          12
+        ],
+        [
+          "__memcmp_evex_movbe",
+          9
+        ]
+      ],
+      "limit": "All stopped threads are sampled. A blocked-frame filter does not convert these rows into scheduler-qualified on-CPU samples; debugger perturbation is phase-dependent and unquantified."
+    },
+    {
+      "source": "build/claude-review-scratch/runs/review-pounce-convex-8-1w-lldb/samples.jsonl",
+      "thread_stack_rows": 2649,
+      "stop_timestamps": 726,
+      "top_frames": [
+        [
+          "syscall",
+          1179
+        ],
+        [
+          "epoll_wait",
+          716
+        ],
+        [
+          "__libc_malloc",
+          99
+        ],
+        [
+          "__memmove_avx512_unaligned_erms",
+          69
+        ],
+        [
+          "_int_free",
+          61
+        ],
+        [
+          "_int_malloc",
+          49
+        ],
+        [
+          "__memcmp_evex_movbe",
+          35
+        ],
+        [
+          "unlink_chunk",
+          26
+        ]
+      ],
+      "limit": "All stopped threads are sampled. A blocked-frame filter does not convert these rows into scheduler-qualified on-CPU samples; debugger perturbation is phase-dependent and unquantified."
+    }
+  ],
+  "registry_gdb": {
+    "source": "build/claude-review-scratch/runs/banded4-gdb/stdout.log",
+    "reported_finish_breakpoint_seconds": [
+      "0.937"
+    ]
+  },
+  "diagnostic_mode": {
+    "driver_source": "build/claude-review-scratch/run_case.py",
+    "runtime_source": "crates/pse-runtime/src/observation.rs::process_diagnostics",
+    "source_observation": "Driver removes PSE_DIAGNOSTICS for null/unset source condition; runtime Policy.enabled is false only for exact off. These are ordinary-observation runs unless another explicit owner override is demonstrated, not established diagnostics-off runs."
+  },
+  "perf_event": {
+    "driver_source": "build/claude-review-scratch/run_case.py",
+    "configured_event": "cpu-clock:u",
+    "correction": "Self share of sampled userspace CPU-clock events is not hardware cycle share or whole-process allocator cost."
+  },
+  "original_facts_preserved": true
+}

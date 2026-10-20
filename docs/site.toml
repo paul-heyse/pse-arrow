@@ -12,10 +12,12 @@ current_work = [
   "plans/32-workspace-content-lifecycle.md",
   "plans/40*.md",
   "plans/44*.md",
+  "plans/48*.md",
 ]
 assets = [
   "capability-maps/evidence/identity-vectors-adr0050.json",
   "design_review/design_principles/standard.toml",
+  "design_review/evidence/execution-performance-recommendations-audit-2026-10-20/retained-observations.json",
 ]
 asset_bundles = [
   "agent-effectiveness-enhancements-2026-10-09",

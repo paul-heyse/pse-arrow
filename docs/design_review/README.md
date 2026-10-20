@@ -15,6 +15,15 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
+The [execution-performance recommendations audit](reviews/design_review_execution-performance-recommendations-audit_2026-10-20.md)
+independently reconciles both external performance reviews against current source and the
+retained short-case observations. Its [recommendation register](evidence/execution-performance-recommendations-audit-2026-10-20/recommendation-register.md)
+assesses every numbered recommendation and rule impact, including compound proposals.
+The integrated target separates confirmed work amplification, measurement corrections and
+conditional native/platform investigations. [Plan48](../plans/48-execution-performance-and-numerical-efficiency.md)
+owns the proposed implementation, bounded inquiries and twelve operator-accepted rule
+boundaries. Its checkpoint owns execution status; the review remains a design assessment.
+
 The [pipeline diagnostics and offline review-artifact review](reviews/design_review_pipeline-diagnostics-and-review-artifacts_2026-10-18.md)
 assesses deeper causal diagnostics after Plan46, targeted CLI analysis and externally
 shareable offline review packs. Its [supporting inquiries and passive-reader control](evidence/pipeline-diagnostics-and-review-artifacts-2026-10-18/README.md)

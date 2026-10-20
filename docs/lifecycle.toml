@@ -2273,3 +2273,117 @@ id_column = 0
 id_pattern = '^(G[0-9]+)\b'
 status_profile = "packet"
 status_column = 3
+
+# Plan48 coordinator owns findings/inquiries; companions own package progress.
+
+[[scope_tables]]
+path = "docs/plans/48-execution-performance-and-numerical-efficiency.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = ['Finding reference', 'Scenario reference', 'Disposition', 'Decision / work owner', 'Evidence or revisit trigger']
+kind = "finding"
+id_column = 0
+id_pattern = '^(AF[0-9]+|N[0-9]+)\b'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/48-execution-performance-and-numerical-efficiency.md"
+name = "investigation-outcomes"
+heading = "Investigation outcomes"
+headers = ['Inquiry', 'Decision question', 'State', 'Decision / work owner', 'Completion or next trigger']
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)\b'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/48a-source-checking-and-incremental-preparation.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/48b-registry-and-receiving-validation.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/48c-mathematical-products-and-compiled-execution.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/48d-native-controls-starts-and-recycle-policies.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/48e-dynamics-fitting-and-preconditioning.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/48f-scheduling-resources-and-result-completion.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(F[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/48g-diagnostics-and-review-publication.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(G[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/48h-qualification-and-design-publication.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Packet", "Prerequisite", "Delivery and acceptance", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(H[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
