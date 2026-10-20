@@ -6,6 +6,21 @@ It explains what the observations represent and connects them to their productio
 owners. It is context for an independent review, not a diagnosis to accept or an
 implementation specification. Paths below are relative to the repository root.
 
+## Pushed source baseline
+
+The implementation baseline for this review is pushed `main` commit
+[`106aef5eca10f194bf1481cfd49ab255627d592d`](https://github.com/paul-heyse/pse-arrow/commit/106aef5eca10f194bf1481cfd49ab255627d592d).
+On 20 October 2026, local `HEAD`, `origin/main` and the live remote `main` all
+resolved to that commit, and the checkout was clean before this documentation-only
+clarification. All 21 files in the bundle's `campaign-setup/source/` excerpts match
+the committed files exactly. The campaign's final implementation and harness changes
+are therefore present in the pushed source.
+
+Older commit identifiers, dirty-checkout descriptions and task patches inside the
+outputs describe collection history. They do not indicate missing changes or a
+divergence from this pushed baseline. Preliminary attempts can still reflect earlier
+harness states; their original outcomes and later corrected attempts remain distinct.
+
 The bundle is generated material under ignored `build/`; an ordinary Git checkout
 does not supply the measurements. The accompanying archive is
 `build/external-pipeline-review-20261019.tar.gz`. Its internal paths remain usable
@@ -278,10 +293,11 @@ allowances, exact detail-page projection and correct gzip capture encoding. Orig
 failures remain in versioned history.
 
 The source copies and task patch in `campaign-setup/` explain these campaign changes.
-The checkout was dirty: a Git HEAD alone does not identify every producing source
-version, and current source must not be retroactively attributed to every preliminary
-attempt. Actual commands, inputs, retained histories and the relevant source contract
-together delimit a claim.
+Collection occurred before the final changes were committed; the pushed source
+baseline above now includes them. Historical embedded HEAD values identify the
+then-current commit beneath those working-tree changes, not the complete final source.
+The per-attempt histories still distinguish preliminary and corrected executions;
+they do not imply that the final implementation is absent from the pushed repository.
 
 The overall evidence is deliberately strongest for identifying unnecessary work and
 mechanism-level opportunities in short executions. It is weaker for asymptotic scaling,
