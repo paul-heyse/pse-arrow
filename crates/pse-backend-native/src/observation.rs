@@ -189,6 +189,43 @@ pub(crate) fn event(event: &mut Event, producer: Option<&pse_diagnostics::observ
             }
             ("native_factor", "input_nonzeros" | "factor_nonzeros") => "nonzeros",
             ("native_factor", "fill_ratio") => "ratio",
+            (
+                "native_factor" | "native_refinement" | "native_linear_call",
+                "call_ordinal" | "parent_call_ordinal" | "detail_group_ordinal",
+            ) => "attempt_local_call_ordinal",
+            ("native_factor", "mc64_retry_attempts") => "issued_mc64_numeric_retry_attempts",
+            ("native_factor", "mc64_to_infnorm_fallbacks") => "mc64_to_infnorm_scaling_fallbacks",
+            (
+                "native_factor",
+                "supernodes"
+                | "max_front_rows"
+                | "static_pivot_perturbations"
+                | "inertia_positive"
+                | "inertia_negative"
+                | "inertia_zero",
+            ) => "native_count",
+            ("native_factor", "min_abs_pivot" | "max_abs_pivot") => "native_factor_pivot",
+            ("dynamic_local_error", "internal_time" | "returned_time" | "last_step") => {
+                "integration_time"
+            }
+            ("dynamic_local_error", "weight") => "inverse_normalized_state",
+            ("dynamic_local_error", "estimated_local_error") => "normalized_state",
+            (
+                "dynamic_local_error",
+                "weighted_local_error" | "weighted_rms" | "squared_norm_contribution",
+            ) => "dimensionless",
+            (
+                "dynamic_local_error",
+                "native_generation"
+                | "native_return_ordinal"
+                | "accepted_steps"
+                | "state_index"
+                | "contributor_ordinal"
+                | "contributors_retained"
+                | "contributors_omitted"
+                | "norm_denominator",
+            ) => "native_count",
+
             ("native_refinement", name)
                 if name.contains("rhs_issued") || name.contains("rhs_completed") =>
             {
@@ -275,7 +312,11 @@ pub(crate) fn event(event: &mut Event, producer: Option<&pse_diagnostics::observ
             RecordField {
                 name: name.clone(),
                 unit: unit(
-                    source.family.strip_suffix(".v1").unwrap_or(&source.family),
+                    source
+                        .family
+                        .strip_suffix(".v2")
+                        .or_else(|| source.family.strip_suffix(".v1"))
+                        .unwrap_or(&source.family),
                     name,
                 )
                 .into(),

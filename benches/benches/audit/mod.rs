@@ -22,7 +22,48 @@ use std::{
 };
 
 const MAX_INSPECTIONS: u64 = 128;
+// The entrypoint's compiled capabilities, not a claim that a particular case used them.
+// Actual performing constructors separately declare source activation in the collector.
+fn supported_record_families() -> Vec<&'static str> {
+    let mut families = vec![
+        "evaluator_demand_batch.v1",
+        "evaluator_demand.v1",
+        "evaluator_census.v1",
+        "workflow.integration.v1",
+        "workflow.fit_demand.v1",
+    ];
+    if cfg!(feature = "native-process") {
+        families.extend([
+            "native_owner_return.v1",
+            "root_evaluation.v1",
+            "root_raw_map.v1",
+            "callback_boundary.v1",
+            "callback_failure.v1",
+            "nonlinear_iteration.v1",
+            "dynamic_native_return.v1",
+            "dynamic_native_step.v1",
+            "dynamic_segment_summary.v1",
+            "dynamic_local_error.v1",
+            "native_linear_work.v1",
+            "dynamic_replay_effort.v1",
+            "dynamic_output.v1",
+            "dynamic_adjoint.v1",
+            "branch_and_bound.v1",
+            "linear_search.v1",
+            "conic_iteration.v1",
+            "convex_return.v1",
+            "native_linear_call.v1",
+            "native_factor.v2",
+            "native_refinement.v2",
+            "petsc_event.v1",
+        ]);
+    }
+    families
+}
 static STATE: OnceLock<Option<Arc<State>>> = OnceLock::new();
+type RecordingOwner = Arc<Mutex<Option<pse_runtime::capture::SourceRecordingSession>>>;
+static RECORDING: OnceLock<RecordingOwner> = OnceLock::new();
+static SOURCE_CONTEXT: OnceLock<ObservationContext> = OnceLock::new();
 #[derive(Debug)]
 struct State {
     directory: PathBuf,
@@ -40,6 +81,8 @@ struct State {
     joins: AtomicU64,
     receiver_drains: AtomicU64,
     receiver_drain_failures: AtomicU64,
+    result_export_remaining: AtomicU64,
+    result_exports: AtomicU64,
     errors: Mutex<Vec<String>>,
 }
 fn state() -> Option<&'static Arc<State>> {
@@ -84,23 +127,266 @@ impl State {
         }
     }
 }
+fn install_recording(
+    session: Option<pse_runtime::capture::SourceRecordingSession>,
+) -> Option<RecordingOwner> {
+    session.map(|session| {
+        let owner = Arc::new(Mutex::new(Some(session)));
+        assert!(
+            RECORDING.set(owner.clone()).is_ok(),
+            "one recording owner per process"
+        );
+        owner
+    })
+}
+fn take_recording(owner: RecordingOwner) -> Option<pse_runtime::capture::SourceRecordingSession> {
+    owner
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .take()
+}
+/// Optional failures never alter the original scientific result or cancellation owner.
+pub(crate) fn review_context_error(error: impl ToString) {
+    let message = format!("review handoff unavailable: {}", error.to_string());
+    if let Some(state) = state() {
+        state.error(&message);
+    } else {
+        let _ =
+            std::io::Write::write_all(&mut std::io::stderr(), format!("{message}\n").as_bytes());
+    }
+}
+pub(crate) fn review_context_request() -> Option<pse_runtime::workflow::ReviewContextRequest> {
+    let recording = RECORDING
+        .get()?
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    recording
+        .as_ref()?
+        .acknowledgement()
+        .review
+        .as_ref()
+        .filter(|review| review.accepted)
+        .map(|review| review.request.context.clone())
+}
+pub(crate) fn retain_context(context: &pse_runtime::workflow::ReviewContextDocument) {
+    if let Some(owner) = RECORDING.get() {
+        let mut owner = owner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(recording) = owner.as_mut()
+            && let Err(error) = recording.retain_context(context)
+        {
+            review_context_error(error);
+        }
+    }
+}
+pub(crate) fn retain_result(result: &Arc<pse_runtime::workflow::RunResult>) {
+    if result.canonical_run_key().is_none()
+        && std::env::var("PSE_CASE_REVIEW_RESULTS").as_deref() == Ok("1")
+        && let Some(state) = state()
+    {
+        let directory = state
+            .directory
+            .parent()
+            .unwrap_or(&state.directory)
+            .join("review-results");
+        let outcome = std::fs::create_dir_all(&directory).map_err(|error| error.to_string()).and_then(|()| {
+            write(&directory, &format!("{}-export.json", result.run_id), &json!({
+                "version":1,"run":result.run_id,"status":"unavailable",
+                "canonical_run":null,"canonical_attempt":null,"pack":null,
+                "error":"original result is ephemeral; protected canonical export is unavailable"
+            }))
+        });
+        if let Err(error) = outcome {
+            review_context_error(error);
+        }
+    }
+    if let Some(owner) = RECORDING.get() {
+        let mut owner = owner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(recording) = owner.as_mut()
+            && let Err(error) = recording.retain_result(result)
+        {
+            review_context_error(error);
+        }
+    }
+}
+
+/// Preserve actual direct-math facts without inventing a workflow invocation.
+pub(crate) fn retain_math_output(name: &str, document: &Value) {
+    if review_context_request().is_none() {
+        return;
+    }
+    let Some(state) = state() else {
+        return;
+    };
+    let directory = state.directory.join("math-originals");
+    let outcome = (|| -> Result<(), String> {
+        std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+        let bytes = serde_json::to_vec_pretty(document).map_err(|error| error.to_string())?;
+        if bytes.len() > 16 << 20 {
+            return Err("direct math original exceeds 16 MiB handoff allowance".into());
+        }
+        write(&directory, &format!("{name}.json"), document)
+    })();
+    if let Err(error) = outcome {
+        review_context_error(error);
+    }
+    review_context_error(format!(
+        "{name}: original math output retained separately; workflow context adapter unavailable"
+    ));
+}
+
+/// Publish exact original protected selections while their fixture still exists.
+/// This diagnostic export has its own finite allowance and cancellation token.
+pub(crate) async fn export_result(
+    runtime: &pse_runtime::workflow::Runtime,
+    result: &Arc<pse_runtime::workflow::RunResult>,
+) {
+    if std::env::var("PSE_CASE_REVIEW_RESULTS").as_deref() != Ok("1") {
+        return;
+    }
+    let Some(state) = state() else {
+        return;
+    };
+    let base = state
+        .directory
+        .parent()
+        .unwrap_or(&state.directory)
+        .join("review-results");
+    let run = result.run_id.to_string();
+    let destination = base.join(&run);
+    if destination.exists() {
+        return;
+    }
+    let sequence = state.result_exports.fetch_add(1, Ordering::Relaxed);
+    let maximum_members = RECORDING
+        .get()
+        .and_then(|recording| {
+            recording
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .as_ref()
+                .and_then(|recording| recording.acknowledgement().review.as_ref())
+                .filter(|review| review.accepted)
+                .map(|review| review.request.maximum_members)
+        })
+        .unwrap_or(256);
+    // A whole remaining grant prevents concurrent exports from overcommitting the cap.
+    let allowance = if sequence < maximum_members as u64 {
+        state.result_export_remaining.swap(0, Ordering::AcqRel)
+    } else {
+        0
+    };
+    let outcome: Result<(), String> = async {
+        if allowance == 0 { return Err("selected result export allowance exhausted".into()); }
+        let (Some(canonical_run), Some(attempt)) = (result.canonical_run_key(), result.canonical_attempt_key()) else {
+            return Err("original result is ephemeral; protected canonical export is unavailable".into());
+        };
+        std::fs::create_dir_all(&base).map_err(|error| error.to_string())?;
+        let evidence = pse_runtime::frozen_inspection::FrozenEvidenceSet::default();
+        let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(16 << 20));
+        let cancel = pse_columnar::CancellationToken::new();
+        let analysis = pse_runtime::review_analysis::analyze(
+            &evidence, &pse_runtime::review_analysis::AnalysisRequest::new(state.context.id()),
+            &pool, &cancel,
+        ).map_err(|error| error.to_string())?;
+        let mut request = pse_runtime::review_pack::PackExportRequest::default();
+        request.selection.maximum_output_bytes = allowance;
+        request.selection.missing_context.push("Original descriptive context is retained independently by the selected source-recording handoff; this pack exports only actual protected result selections.".into());
+        request.scientific_results = result.table_names().into_iter().enumerate().map(|(index, relation)| {
+            pse_runtime::workflow::ReviewScientificSelection {
+                member: format!("result-{index:03}"), run: canonical_run.into(), attempt: attempt.into(),
+                relation, row_start: 0, row_end: u64::MAX, output: None,
+            }
+        }).collect();
+        runtime.export_review_pack(&destination, &evidence, &analysis, request, cancel)
+            .await.map_err(|error| error.to_string())?;
+        Ok(())
+    }.await;
+    // Include incomplete retained prefixes in the finite campaign allowance.
+    fn retained_bytes(path: &Path) -> u64 {
+        std::fs::read_dir(path)
+            .ok()
+            .into_iter()
+            .flatten()
+            .filter_map(Result::ok)
+            .map(|entry| {
+                let path = entry.path();
+                if path.is_dir() {
+                    retained_bytes(&path)
+                } else {
+                    entry.metadata().map(|meta| meta.len()).unwrap_or(0)
+                }
+            })
+            .fold(0, u64::saturating_add)
+    }
+    let bytes = retained_bytes(&destination);
+    state
+        .result_export_remaining
+        .fetch_add(allowance.saturating_sub(bytes), Ordering::AcqRel);
+    if let Err(error) = &outcome {
+        review_context_error(format!("result {}: {error}", result.run_id));
+    }
+    if let Err(error) = std::fs::create_dir_all(&base).map_err(|error| error.to_string()).and_then(|()| {
+        write(&base, &format!("{run}-export.json"), &json!({
+            "version":1,"run":run,"canonical_run":result.canonical_run_key(),
+            "canonical_attempt":result.canonical_attempt_key(),"pack":destination,
+            "status":if outcome.is_ok() { "published" } else { "unavailable" },
+            "error":outcome.err(),"retained_bytes":bytes,
+            "scope":"actual protected original result selections exported before fixture teardown; no reconstructed science"
+        }))
+    }) { review_context_error(error); }
+}
+
 /// One pre-runtime operation. It coexists with the benchmark's tracing subscriber.
 #[derive(Debug)]
 pub(crate) struct Audit {
     operation: Option<OperationGuard>,
     state: Option<Arc<State>>,
     publisher: Option<JoinHandle<()>>,
-    detail: Option<pse_runtime::capture::DetailSession>,
+    detail: Option<RecordingOwner>,
+    capture: Option<pse_runtime::capture::CaptureSession>,
+    context: Option<ObservationContext>,
     completed: bool,
 }
 impl Audit {
+    pub(crate) fn capture_layer(&self) -> Option<pse_runtime::capture::CaptureLayer> {
+        self.capture.as_ref().and_then(|session| session.layer())
+    }
+
     pub(crate) fn start(case: &str, workload: &Value) -> Self {
         let Some(directory) = std::env::var_os("PSE_CASE_AUDIT_DIR").map(PathBuf::from) else {
+            // A direct CLI launch can cooperate without enabling the audit publisher.
+            let operation = std::env::var_os(pse_runtime::capture::SOURCE_RECORDING_REQUEST_ENV)
+                .map(|_| process_diagnostics().hub().start("audit.simulation_case"));
+            let detail = operation.as_ref().and_then(|operation| {
+                match pse_runtime::capture::source_recording_from_environment(
+                    operation.context(),
+                    &supported_record_families(),
+                ) {
+                    Ok(detail) => detail,
+                    Err(error) => {
+                        let _ = std::io::Write::write_all(
+                            &mut std::io::stderr(),
+                            format!("source recording unavailable: {error}\n").as_bytes(),
+                        );
+                        None
+                    }
+                }
+            });
+            let context = detail.as_ref().map(|detail| detail.context());
+            if let Some(context) = &context {
+                let _ = SOURCE_CONTEXT.set(context.clone());
+            }
             return Self {
-                operation: None,
+                operation,
                 state: None,
                 publisher: None,
-                detail: None,
+                detail: install_recording(detail),
+                capture: None,
+                context,
                 completed: false,
             };
         };
@@ -119,43 +405,19 @@ impl Audit {
         // Select source sequences before constructing any scientific invocation.
         // Failure is observational and leaves the ordinary scientific route intact.
         let mut detail_error = None;
-        let detail = workload
-            .get("detail_families")
-            .and_then(Value::as_array)
-            .filter(|families| !families.is_empty())
-            .and_then(|families| {
-                let families = families
-                    .iter()
-                    .map(|family| family.as_str().map(str::to_owned))
-                    .collect::<Option<Vec<_>>>();
-                let Some(families) = families else {
-                    detail_error =
-                        Some("detail_families must contain source-family strings".to_owned());
-                    return None;
-                };
-                let request = pse_runtime::capture::DetailRequest {
-                    version: pse_model::document::Version,
-                    families,
-                    requirement: pse_runtime::capture::DetailRequirement::Complete,
-                    sample_every: 1,
-                    boundary_thread_cpu: true,
-                    managed_budget: None,
-                    expiry_monotonic_ns: None,
-                    duration: Duration::from_secs(60),
-                    output: directory.join("detail"),
-                    budget: Default::default(),
-                };
-                match pse_runtime::capture::start_detailed_collection(context.clone(), request) {
-                    Ok(session) => {
-                        context = session.context();
-                        Some(session)
-                    }
-                    Err(error) => {
-                        detail_error = Some(error.to_string());
-                        None
-                    }
-                }
-            });
+        let detail = match pse_runtime::capture::source_recording_from_environment(
+            context.clone(),
+            &supported_record_families(),
+        ) {
+            Ok(detail) => detail,
+            Err(error) => {
+                detail_error = Some(error.to_string());
+                None
+            }
+        };
+        if let Some(detail) = &detail {
+            context = detail.context();
+        }
         context.source_ref("audit.case", case.as_bytes());
         context.text("audit.case", case);
         context.text("audit.workload", &workload.to_string());
@@ -175,6 +437,8 @@ impl Audit {
             joins: AtomicU64::new(0),
             receiver_drains: AtomicU64::new(0),
             receiver_drain_failures: AtomicU64::new(0),
+            result_export_remaining: AtomicU64::new(256 << 20),
+            result_exports: AtomicU64::new(0),
             errors: Mutex::new(Vec::new()),
         });
         if let Some(error) = detail_error {
@@ -191,6 +455,33 @@ impl Audit {
             "scope":"harness setup, original scientific operation, assessment and explicit teardown"
         })).unwrap();
         state.snapshot("startup");
+        // The real root is discoverable before attachment and before preparation.
+        let capture = if std::env::var("PSE_CASE_CAPTURE_FROM_START").as_deref() == Ok("1") {
+            let request = pse_runtime::capture::CaptureRequest {
+                version: pse_model::document::Version,
+                checkpoint: diagnostics.checkpoint_path().to_path_buf(),
+                operation: state.context.id(),
+                kind: pse_runtime::capture::CaptureKind::Timeline,
+                output: state.directory.join("capture-from-start"),
+                duration: Duration::from_secs(3600),
+                budget: pse_runtime::capture::CaptureBudget {
+                    memory_bytes: 64 << 20,
+                    output_bytes: 256 << 20,
+                },
+            };
+            if let Err(error) = write(&state.directory, "timeline-request.json", &json!(request)) {
+                state.error(error);
+            }
+            match pse_runtime::capture::start_capture(request) {
+                Ok(session) => Some(session),
+                Err(error) => {
+                    state.error(format!("timeline capture unavailable: {error}"));
+                    None
+                }
+            }
+        } else {
+            None
+        };
         let worker = state.clone();
         let publisher = std::thread::spawn(move || {
             let mut last_publish = Instant::now();
@@ -232,14 +523,16 @@ impl Audit {
         });
         Self {
             operation: Some(operation),
+            context: Some(state.context.clone()),
             state: Some(state),
             publisher: Some(publisher),
-            detail,
+            detail: install_recording(detail),
+            capture,
             completed: false,
         }
     }
     pub(crate) fn enter(&self) -> Option<pse_diagnostics::observation::EnterGuard> {
-        self.state.as_ref().map(|state| state.context.enter())
+        self.context.as_ref().map(ObservationContext::enter)
     }
     pub(crate) fn complete(&mut self) {
         checkpoint();
@@ -249,6 +542,20 @@ impl Audit {
 impl Drop for Audit {
     fn drop(&mut self) {
         let Some(state) = &self.state else {
+            if let Some(detail) = self.detail.take().and_then(take_recording) {
+                let _ = if self.completed && !std::thread::panicking() {
+                    detail.finish()
+                } else {
+                    detail.stop()
+                };
+            }
+            if let Some(operation) = self.operation.take() {
+                operation.finish(if self.completed && !std::thread::panicking() {
+                    Outcome::Completed
+                } else {
+                    Outcome::Failed
+                });
+            }
             return;
         };
         state.publisher_stop.store(true, Ordering::Release);
@@ -276,7 +583,7 @@ impl Drop for Audit {
                 _ => Outcome::Failed,
             });
         }
-        if let Some(detail) = self.detail.take() {
+        if let Some(detail) = self.detail.take().and_then(take_recording) {
             let result = if std::thread::panicking() {
                 detail.stop()
             } else {
@@ -292,6 +599,20 @@ impl Drop for Audit {
             }
         }
         state.snapshot("terminal");
+        if let Some(capture) = self.capture.take() {
+            match capture.stop() {
+                Ok(document) => {
+                    if let Err(error) = write(
+                        &state.directory,
+                        "capture-from-start.json",
+                        &json!(document),
+                    ) {
+                        state.error(error);
+                    }
+                }
+                Err(error) => state.error(format!("timeline capture join: {error}")),
+            }
+        }
         // Terminal always has its own file even when bounded intermediate retention filled.
         let document = process_diagnostics().inspect(InspectionRequest::new(state.context.id()));
         if let Err(error) = write(
@@ -400,7 +721,10 @@ pub(crate) fn checkpoint() {
     }
 }
 pub(crate) async fn scope<T>(future: impl Future<Output = T>) -> T {
-    pse_diagnostics::observation::scope(state().map(|state| state.context.clone()), future).await
+    let context = state()
+        .map(|state| state.context.clone())
+        .or_else(|| SOURCE_CONTEXT.get().cloned());
+    pse_diagnostics::observation::scope(context, future).await
 }
 #[derive(Debug)]
 pub(crate) struct OwnerBinding {
@@ -561,13 +885,23 @@ pub(crate) async fn wait_ref(
     } else {
         handle.wait().await
     };
-    if result.is_ok()
-        && let Some(state) = state()
-    {
+    if let Ok(result) = &result {
+        retain_result(result);
+        if let Some(state) = state() {
+            state.joins.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    // Return the joined original before any stop checkpoint can unwind its caller.
+    // The caller may still need to copy context/results before fixture teardown.
+    result
+}
+
+/// Account only for an external native scope that has already returned joined.
+/// This creates no workflow identity or cancellation authority.
+pub(crate) fn direct_joined() {
+    if let Some(state) = state() {
         state.joins.fetch_add(1, Ordering::Relaxed);
     }
-    checkpoint();
-    result
 }
 
 /// Direct mathematical handles retain only their cancellation signal while finish owns join.
@@ -590,6 +924,6 @@ pub(crate) async fn finish<T>(
     {
         state.joins.fetch_add(1, Ordering::Relaxed);
     }
-    checkpoint();
+    // Standalone callers must first retain the actual joined report/context.
     result
 }

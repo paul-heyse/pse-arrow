@@ -48,6 +48,41 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
         "Immutable diagnostic field projection. Operation/producer/generation/event identifies one source event; field ordinal is one-based, zero preserves an empty event. Typed values, units, availability and exact monotonic time retain source meaning. Partial never implies complete history; raw source pages remain authority.",
     );
+    relation(
+        b,
+        N::Runtime,
+        "diagnostic_query_results",
+        S::Derived,
+        &["member"],
+        vec![
+            column("member", text()),
+            column("question", text()),
+            column("clock_scope", text()),
+            column("status", text()),
+            column("query_version", T::native(D::UInt32)),
+            column("tool_version", text()).optional(),
+            column("rows", count()).optional(),
+            column("document_json", text()),
+        ],
+        "Selected declared-query result and exact query/tool/window/schema context. Failed, unavailable, empty successful and partial outputs are distinct; source clock and full UInt64 authority remain with original native evidence.",
+    );
+    relation(
+        b,
+        N::Runtime,
+        "diagnostic_engine_observations",
+        S::Derived,
+        &["member", "observation"],
+        vec![
+            column("member", text()),
+            column("observation", count()),
+            column("operation", text()).optional(),
+            column("policy", text()),
+            column("status", text()).optional(),
+            column("dropped", count()),
+            column("document_json", text()),
+        ],
+        "Copied retained engine observations. Actual policy, metric unit/kind and stream completion/abandonment stay in the typed document; absent plans/metrics are unavailable rather than implicitly enabled or zero.",
+    );
     for (name, key, columns, doc) in [
         (
             "diagnostic_invocations",

@@ -1444,6 +1444,151 @@ fn supported_idas_correctors_and_linear_routes_preserve_the_requested_response()
     }
 }
 
+/// The same small corrector/linear-route matrix at ordinary engineering accuracy.
+/// Local integration controls are not a certificate of global endpoint error:
+/// retain every original error and fail explicitly when its engineering check fails.
+#[cfg(feature = "idas")]
+#[test]
+fn short_idas_corrector_route_inquiry_at_engineering_accuracy() {
+    let engineering = pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY;
+    assert_eq!(engineering, 0.001);
+    let perturbation = 0.1;
+    let mut violations = Vec::new();
+    for dae in [false, true] {
+        for corrector in [
+            SensitivityCorrector::Simultaneous,
+            SensitivityCorrector::Staggered,
+        ] {
+            for linear in [
+                IdasLinear::Klu,
+                IdasLinear::Spgmr {
+                    dimension: PositiveCount::try_new(8).unwrap(),
+                    preconditioner: crate::solve::Preconditioner::None,
+                },
+                IdasLinear::Spfgmr {
+                    dimension: PositiveCount::try_new(8).unwrap(),
+                    preconditioner: crate::solve::Preconditioner::Jacobi,
+                },
+            ] {
+                let mut p = profile(dae);
+                p.method = Method::Idas;
+                p.sensitivity = DynamicSensitivity::Forward;
+                p.rtol = engineering;
+                p.atol.fill(engineering);
+                p.idas.sensitivity = corrector;
+                p.idas.linear = linear;
+                let started = std::time::Instant::now();
+                let report = run(&mut Toy::new(dae, false), &p);
+                let elapsed = started.elapsed();
+                let mut samples = Vec::new();
+                let mut maximum_state_error = 0.0_f64;
+                let mut maximum_output_error = 0.0_f64;
+                let mut maximum_response_error = 0.0_f64;
+                let mut maximum_response_effect_error = 0.0_f64;
+                let mut maximum_state_error_ratio = 0.0_f64;
+                let mut maximum_output_error_ratio = 0.0_f64;
+                let mut maximum_response_effect_error_ratio = 0.0_f64;
+                for sample in &report.samples {
+                    assert_eq!(sample.outputs.len(), 1);
+                    assert_eq!(sample.output_sensitivities.len(), 1);
+                    let exact_x = 2. * (-2. * sample.time).exp();
+                    let exact_output = exact_x + 2.;
+                    let exact_response = (1. - 2. * sample.time) * (-2. * sample.time).exp() + 1.;
+                    let mut state_errors = Vec::new();
+                    let mut state_allowances = Vec::new();
+                    for (i, actual) in sample.state.iter().enumerate() {
+                        let exact = if i == 0 { exact_x } else { 2. * exact_x };
+                        let error = (actual - exact).abs();
+                        let allowance = p.atol[i] + p.rtol * exact.abs();
+                        maximum_state_error = maximum_state_error.max(error);
+                        maximum_state_error_ratio =
+                            maximum_state_error_ratio.max(error / allowance);
+                        state_errors.push(error);
+                        state_allowances.push(allowance);
+                        if !error.is_finite() || error > allowance {
+                            violations.push(format!(
+                                "dae={dae} {corrector:?}/{linear:?} t={} state={i}: error={error}, allowance={allowance}",
+                                sample.time
+                            ));
+                        }
+                    }
+                    let output_allowance = engineering + engineering * exact_output.abs();
+                    let output_error = (sample.outputs[0] - exact_output).abs();
+                    let response_error = (sample.output_sensitivities[0] - exact_response).abs();
+                    let response_effect_error = response_error * perturbation;
+                    maximum_output_error = maximum_output_error.max(output_error);
+                    maximum_response_error = maximum_response_error.max(response_error);
+                    maximum_response_effect_error =
+                        maximum_response_effect_error.max(response_effect_error);
+                    maximum_output_error_ratio =
+                        maximum_output_error_ratio.max(output_error / output_allowance);
+                    maximum_response_effect_error_ratio = maximum_response_effect_error_ratio
+                        .max(response_effect_error / output_allowance);
+                    if !output_error.is_finite()
+                        || !response_effect_error.is_finite()
+                        || output_error > output_allowance
+                        || response_effect_error > output_allowance
+                    {
+                        violations.push(format!(
+                            "dae={dae} {corrector:?}/{linear:?} t={}: output_error={output_error}, response_effect_error={response_effect_error}, output_allowance={output_allowance}",
+                            sample.time
+                        ));
+                    }
+                    samples.push(serde_json::json!({
+                        "time":sample.time,"state":sample.state,"exact_x":exact_x,
+                        "state_errors":state_errors,"state_allowances":state_allowances,
+                        "output":sample.outputs[0],"exact_output":exact_output,"output_error":output_error,
+                        "response":sample.output_sensitivities[0],"exact_response":exact_response,
+                        "response_error":response_error,"response_effect_error":response_effect_error,
+                        "output_allowance":output_allowance
+                    }));
+                }
+                eprintln!(
+                    "idas-corrector-route-inquiry {}",
+                    serde_json::json!({
+                        "backend":p.method,"idas":p.idas,"dae":dae,
+                        "states":if dae {2} else {1},"parameters":[2.],
+                        "requested_samples":p.samples,"rtol":p.rtol,"atol":p.atol,
+                        "parameter_scales":p.parameter_scales,
+                        "response_effect_parameter_perturbation":perturbation,
+                        "elapsed_seconds":elapsed.as_secs_f64(),"elapsed_scope":"complete synchronous integrate call including native teardown",
+                        "termination":report.termination,"error":report.error.as_ref().map(ToString::to_string),
+                        "statistics":report.statistics,"samples":samples,
+                        "maximum_state_error":maximum_state_error,"maximum_output_error":maximum_output_error,
+                        "maximum_response_error":maximum_response_error,
+                        "maximum_response_effect_error":maximum_response_effect_error,
+                        "maximum_state_error_ratio":maximum_state_error_ratio,
+                        "maximum_output_error_ratio":maximum_output_error_ratio,
+                        "maximum_response_effect_error_ratio":maximum_response_effect_error_ratio,
+                        "accuracy_scope":"empirical original analytic state/output envelope and first-order output-effect agreement; no global error certificate"
+                    })
+                );
+                assert_eq!(
+                    report.termination,
+                    Termination::Completed,
+                    "{:?}",
+                    report.error
+                );
+                assert_eq!(report.samples.len(), p.samples.len());
+                assert!(
+                    report
+                        .samples
+                        .iter()
+                        .all(|sample| sample.state.len() == if dae { 2 } else { 1 })
+                );
+                assert!(report.statistics[0]["steps"].as_u64().unwrap() > 0);
+                assert!(
+                    report.statistics[0]["sensitivity_residual_evaluations"]
+                        .as_u64()
+                        .unwrap()
+                        > 0
+                );
+            }
+        }
+    }
+    assert!(violations.is_empty(), "engineering checks: {violations:?}");
+}
+
 #[cfg(feature = "idas")]
 #[test]
 fn checkpointed_dense_output_uses_returned_time_for_sensitivities_and_quadratures() {

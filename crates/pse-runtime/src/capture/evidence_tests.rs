@@ -40,6 +40,7 @@ fn record(sequence: u64, family_sequence: Option<u64>, values: Vec<RecordField>)
 }
 fn page(records: Vec<CoherentRecord>) -> DetailRecordPage {
     DetailRecordPage {
+        activations: vec![],
         version: Default::default(),
         records,
         producers: Vec::new(),
@@ -360,4 +361,162 @@ fn evidence_invocation_and_failed_capture_keep_independent_readiness_and_raw_lin
         [0x0a, 0x00, 0x0a],
         "failed capture projection retains the original source bytes"
     );
+}
+
+fn query_document(
+    status: crate::review_query::ReviewQueryStatus,
+    rows: Option<u64>,
+) -> crate::review_query::ReviewQueryDocument {
+    use crate::review_query::*;
+    let request = ReviewQueryRequest {
+        version: Default::default(),
+        input_member: "frozen#/captures/0".into(),
+        question: ReviewQuery::Numerical,
+        clock_scope: "capture-0:monotonic".into(),
+        interval: Some(QueryInterval { start: 3, end: 9 }),
+        timeout_seconds: 0.5,
+        output_bytes: 4096,
+    };
+    let spec = specification(&request).unwrap();
+    ReviewQueryDocument {
+        version: Default::default(),
+        request,
+        query_version: spec.query_version,
+        sql: spec.sql,
+        tool_version: Some("actual controlled tool version".into()),
+        status,
+        exit_code: None,
+        columns: spec.columns,
+        covered_interval: None,
+        output: "private/output.csv".into(),
+        output_prefix_bytes: 7,
+        error_output: "private/error.log".into(),
+        error_prefix_bytes: 5,
+        rows,
+        limitations: spec.limitations,
+    }
+}
+#[test]
+fn evidence_query_projection_preserves_failed_empty_and_exact_unsigned_populations() {
+    use crate::review_query::{ReviewQueryDocument, ReviewQueryStatus};
+    let pool = pool(2 << 20);
+    let cancel = CancellationToken::new();
+    for (status, rows, label) in [
+        (ReviewQueryStatus::Failed, None, "failed"),
+        (ReviewQueryStatus::Completed, Some(0), "completed"),
+        (
+            ReviewQueryStatus::Completed,
+            Some((1u64 << 53) + 1),
+            "completed",
+        ),
+    ] {
+        let document = query_document(status, rows);
+        let raw = serde_json::to_vec(&document).unwrap();
+        let batch = query_arrow("frozen#/query_results/0", &document, &pool, &cancel).unwrap();
+        assert_eq!(batch.num_rows(), 1);
+        assert_eq!(
+            array::<StringArray>(&batch, "member").value(0),
+            "frozen#/query_results/0"
+        );
+        assert_eq!(array::<StringArray>(&batch, "status").value(0), label);
+        let count = array::<UInt64Array>(&batch, "rows");
+        assert_eq!(count.is_null(0), rows.is_none());
+        if let Some(expected) = rows {
+            assert_eq!(count.value(0), expected);
+        }
+        let decoded: ReviewQueryDocument =
+            serde_json::from_str(array::<StringArray>(&batch, "document_json").value(0)).unwrap();
+        assert_eq!(decoded.rows, rows);
+        assert_eq!(decoded.output_prefix_bytes, 7);
+        assert_eq!(decoded.error_prefix_bytes, 5);
+        assert_eq!(decoded.request.clock_scope, "capture-0:monotonic");
+        assert_eq!(decoded.sql, document.sql);
+        assert_eq!(serde_json::to_vec(&document).unwrap(), raw);
+        drop(batch);
+        assert_eq!(pool.reserved(), 0);
+    }
+    let document = query_document(ReviewQueryStatus::Failed, None);
+    let tiny = self::pool(1);
+    assert!(query_arrow("selected", &document, &tiny, &cancel).is_err());
+    assert_eq!(tiny.reserved(), 0);
+}
+#[test]
+fn evidence_engine_projection_preserves_off_abandoned_units_and_drop_scope() {
+    use pse_engine::session::*;
+    let operation = record(1, Some(1), vec![]).producer.operation;
+    let source = CopiedExecutionObservations {
+        policy: None,
+        operation: None,
+        dropped: u64::MAX,
+        observations: vec![
+            CopiedPlanObservation {
+                operation: Some(operation),
+                policy: CopiedObservationPolicy::Off,
+                logical_plan: String::new(),
+                physical_plan: None,
+                rules: vec![],
+                diagnostic: None,
+                execution: None,
+            },
+            CopiedPlanObservation {
+                operation: Some(operation),
+                policy: CopiedObservationPolicy::Contract,
+                logical_plan: String::new(),
+                physical_plan: Some(String::new()),
+                rules: vec![],
+                diagnostic: Some("retained partial capture".into()),
+                execution: Some(CopiedExecutionSnapshot {
+                    execution: (1u64 << 53) + 1,
+                    status: CopiedExecutionStatus::Abandoned,
+                    metrics: vec![ObservedMetric {
+                        node: 0,
+                        operator: "actual operator".into(),
+                        name: "peak_memory_usage".into(),
+                        partition: Some(2),
+                        labels: vec![("scope".into(), "actual partition".into())],
+                        unit: MetricUnit::Bytes,
+                        kind: MetricKind::Gauge,
+                        value: Some(17),
+                    }],
+                    truncated: true,
+                    observed_after_start: Duration::from_secs(2),
+                    collection_elapsed: Duration::from_nanos(13),
+                }),
+            },
+        ],
+    };
+    let raw = serde_json::to_vec(&source).unwrap();
+    let pool = pool(2 << 20);
+    let cancel = CancellationToken::new();
+    let batch = engine_arrow("frozen#/engine_observations/0", &source, &pool, &cancel).unwrap();
+    assert_eq!(batch.num_rows(), 2);
+    assert_eq!(array::<StringArray>(&batch, "policy").value(0), "off");
+    assert_eq!(array::<StringArray>(&batch, "policy").value(1), "contract");
+    assert!(array::<StringArray>(&batch, "status").is_null(0));
+    assert_eq!(array::<StringArray>(&batch, "status").value(1), "abandoned");
+    assert_eq!(array::<UInt64Array>(&batch, "observation").value(1), 1);
+    assert_eq!(array::<UInt64Array>(&batch, "dropped").value(0), u64::MAX);
+    let decoded: CopiedPlanObservation =
+        serde_json::from_str(array::<StringArray>(&batch, "document_json").value(1)).unwrap();
+    let execution = decoded.execution.unwrap();
+    assert_eq!(execution.execution, (1u64 << 53) + 1);
+    assert_eq!(execution.status, CopiedExecutionStatus::Abandoned);
+    assert!(execution.truncated);
+    assert_eq!(execution.metrics[0].unit, MetricUnit::Bytes);
+    assert_eq!(execution.metrics[0].kind, MetricKind::Gauge);
+    assert_eq!(execution.metrics[0].value, Some(17));
+    assert_eq!(execution.collection_elapsed, Duration::from_nanos(13));
+    assert_eq!(serde_json::to_vec(&source).unwrap(), raw);
+    drop(batch);
+    assert_eq!(pool.reserved(), 0);
+    let empty = CopiedExecutionObservations {
+        policy: None,
+        operation: None,
+        observations: vec![],
+        dropped: 0,
+    };
+    let empty = engine_arrow("selected", &empty, &pool, &cancel).unwrap();
+    assert_eq!(empty.num_rows(), 0);
+    drop(empty);
+    assert_eq!(pool.reserved(), 0);
 }

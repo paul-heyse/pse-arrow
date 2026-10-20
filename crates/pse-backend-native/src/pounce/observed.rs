@@ -7,6 +7,15 @@ use crate::{
 };
 use pounce_common::observed::{Abort, Event, Layout, Observer, Path, Primitive};
 use std::cell::RefCell;
+#[derive(Clone, Copy)]
+struct Call {
+    ordinal: Option<u64>,
+    parent: Option<u64>,
+    path: Path,
+    primitive: Primitive,
+    rhs: usize,
+    refinement_bound: usize,
+}
 #[derive(Default)]
 struct State {
     phases: [[Vec<pse_diagnostics::observation::PhaseGuard>; 2]; 3],
@@ -24,6 +33,11 @@ struct State {
     application_opaque: bool,
     linear_seen: bool,
     error: Option<ProblemError>,
+    next_call: u64,
+    call_overflow: bool,
+    next_detail: u64,
+    detail_overflow: bool,
+    calls: Vec<Call>,
 }
 pub(super) struct Observation {
     execution: Execution,
@@ -31,6 +45,13 @@ pub(super) struct Observation {
     allowance: Option<usize>,
     state: RefCell<State>,
     detail: Option<pse_diagnostics::observation::Producer>,
+}
+fn detail_family(family: &str) -> &str {
+    match family {
+        "native_factor.v1" => "native_factor.v2",
+        "native_refinement.v1" => "native_refinement.v2",
+        _ => family,
+    }
 }
 fn index(path: Path) -> usize {
     match path {
@@ -51,10 +72,18 @@ impl Observation {
             allowance,
             state: RefCell::new(State::default()),
             detail: pse_diagnostics::observation::current().map(|context| {
-                context.producer(
+                let producer = context.producer(
                     pse_diagnostics::observation::ProducerRole::NativeFactor,
                     "pounce.linear.detail",
-                )
+                );
+                for family in [
+                    "native_linear_call.v1",
+                    "native_factor.v2",
+                    "native_refinement.v2",
+                ] {
+                    producer.activate_record_family(family);
+                }
+                producer
             }),
         }
     }
@@ -79,6 +108,7 @@ impl Observation {
                 phases.clear();
             }
         }
+        self.state.borrow_mut().calls.clear();
         let pending = std::mem::take(&mut self.state.borrow_mut().pending_factors);
         let count: u64 = pending.iter().sum();
         if count == 0 {
@@ -108,19 +138,60 @@ impl Observation {
             );
         }
     }
+    fn call_detail(
+        &self,
+        stage: &'static str,
+        succeeded: Option<bool>,
+        rhs: usize,
+        refinement_bound: usize,
+    ) {
+        use pounce_common::observed::{DetailField as Field, DetailValue as Value};
+        // Optional publication must never trip the compulsory native admission latch.
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if !self.wants_detail("native_linear_call.v1") {
+                return;
+            }
+            let mut fields = vec![
+                Field {
+                    name: "stage",
+                    value: Value::Text(stage),
+                },
+                Field {
+                    name: "rhs",
+                    value: Value::Count(rhs as u64),
+                },
+                Field {
+                    name: "refinement_bound",
+                    value: Value::Count(refinement_bound as u64),
+                },
+            ];
+            if let Some(succeeded) = succeeded {
+                fields.push(Field {
+                    name: "succeeded",
+                    value: Value::Flag(succeeded),
+                });
+            }
+            self.detail("native_linear_call.v1", &fields);
+        }));
+        if result.is_err() {
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                self.detail_failed("native_linear_call.v1")
+            }));
+        }
+    }
     pub(super) fn record(&self, report: &mut SolveReport) {
         let state = self.state.borrow();
         report.evidence.work.factorizations = Some(state.factors.iter().sum());
         report.metrics.insert(
             "linear.observed.factor_scope".into(),
             Metric::Text(
-                "FERAL Solver::factor invocations; unrestricted internal numeric retries unknown"
+                "FERAL Solver::factor invocations; native_factor.v2 carries MC64 numeric retry and MC64-to-InfNorm scaling fallback deltas for selected monolithic calls; other internal numeric retries unknown"
                     .into(),
             ),
         );
         report.metrics.insert(
             "linear.observed.refinement_actual_steps".into(),
-            Metric::Text("unknown; per-call upper bound emitted before operation".into()),
+            Metric::Text("native_refinement.v2 carries actual RHS, correction batches, residual products and outcomes for selected monolithic calls; aggregate and outer refinement unknown".into()),
         );
         for (i, path) in ["monolithic", "schur.f", "schur.s"].into_iter().enumerate() {
             for (kind, count) in [
@@ -189,58 +260,119 @@ impl Observer for Observation {
     fn wants_detail(&self, family: &str) -> bool {
         self.detail
             .as_ref()
-            .is_some_and(|producer| producer.detail_selected(family))
+            .is_some_and(|producer| producer.detail_selected(detail_family(family)))
     }
     fn detail(&self, family: &str, fields: &[pounce_common::observed::DetailField<'_>]) {
         use pounce_common::observed::DetailValue;
+        let family = detail_family(family);
         let Some(producer) = &self.detail else {
             return;
         };
         let overflow = fields.iter().any(|field| {
             field.name == "counter_overflow" && matches!(field.value, DetailValue::Flag(true))
         });
-        let mut values =
+        let mut identity =
             std::collections::BTreeMap::from([("backend".into(), Metric::Text("pounce".into()))]);
-        for field in fields {
-            let value = match field.value {
-                DetailValue::Count(value) => (if overflow {
-                    None
-                } else {
-                    i64::try_from(value).ok()
-                })
-                .map_or(
+        {
+            let mut state = self.state.borrow_mut();
+            let ordinal = |value: Option<u64>| {
+                value.and_then(|value| i64::try_from(value).ok()).map_or(
                     Metric::Unavailable(crate::solve::UnavailableReason::Unknown),
                     Metric::Integer,
-                ),
-                DetailValue::Number(value) => Metric::Real(value),
-                DetailValue::Flag(value) => Metric::Bool(value),
-                DetailValue::Text(value) => Metric::Text(value.into()),
+                )
             };
-            values.insert(field.name.into(), value);
+            let group = if state.detail_overflow {
+                None
+            } else {
+                state.next_detail.checked_add(1)
+            };
+            if let Some(group) = group {
+                state.next_detail = group;
+            } else {
+                state.detail_overflow = true;
+            }
+            identity.insert("detail_group_ordinal".into(), ordinal(group));
+            if let Some(call) = state.calls.last() {
+                identity.insert("call_ordinal".into(), ordinal(call.ordinal));
+                identity.insert("parent_call_ordinal".into(), ordinal(call.parent));
+                identity.insert(
+                    "parent_call_present".into(),
+                    Metric::Bool(state.calls.len() > 1),
+                );
+                identity.insert(
+                    "call_path".into(),
+                    Metric::Text(["monolithic", "schur_f", "schur_s"][index(call.path)].into()),
+                );
+                identity.insert(
+                    "call_primitive".into(),
+                    Metric::Text(
+                        if call.primitive == Primitive::Factor {
+                            "factor"
+                        } else {
+                            "backsolve"
+                        }
+                        .into(),
+                    ),
+                );
+            } else {
+                identity.insert(
+                    "call_ordinal".into(),
+                    Metric::Unavailable(crate::solve::UnavailableReason::Unknown),
+                );
+            }
         }
-        self.execution.progress.push_from(
-            crate::solve::Event {
-                source: Some(
-                    crate::solve::EventSource::new(
-                        family.strip_suffix(".v1").unwrap_or(family),
-                        Some("native_linear_system"),
-                        None,
-                    )
-                    .with_role(pse_diagnostics::observation::ProducerRole::NativeFactor),
-                ),
-                phase: format!("pounce.{family}"),
-                elapsed: self.execution.started.elapsed(),
-                values,
-                incumbent: None,
-            },
-            producer,
-        );
+        // Progress retains at most 4 KiB per event. Bound every coherent part
+        // after adding adapter identity; missing parts remain detectable.
+        let part_count = fields.len().max(1).div_ceil(12);
+        let elapsed = self.execution.started.elapsed();
+        for part in 0..part_count {
+            let mut values = identity.clone();
+            values.insert("detail_part".into(), Metric::Integer(part as i64));
+            values.insert("detail_parts".into(), Metric::Integer(part_count as i64));
+            for field in fields.iter().skip(part * 12).take(12) {
+                let value = match field.value {
+                    DetailValue::Count(value) => (if overflow {
+                        None
+                    } else {
+                        i64::try_from(value).ok()
+                    })
+                    .map_or(
+                        Metric::Unavailable(crate::solve::UnavailableReason::Unknown),
+                        Metric::Integer,
+                    ),
+                    DetailValue::Number(value) => Metric::Real(value),
+                    DetailValue::Flag(value) => Metric::Bool(value),
+                    DetailValue::Text(value) => Metric::Text(value.into()),
+                };
+                values.insert(field.name.into(), value);
+            }
+            let mut source = crate::solve::EventSource::new(
+                "native_linear_detail",
+                Some("native_linear_system"),
+                None,
+            )
+            .with_role(pse_diagnostics::observation::ProducerRole::NativeFactor);
+            source.family = family.into();
+            self.execution.progress.push_from(
+                crate::solve::Event {
+                    source: Some(source),
+                    phase: format!("pounce.{family}"),
+                    elapsed,
+                    values,
+                    incumbent: None,
+                },
+                producer,
+            );
+        }
     }
     fn detail_failed(&self, family: &str) {
         if let Some(producer) = &self.detail {
             producer
                 .context()
-                .unavailable("native.detail.failed", family);
+                .record_source_unavailable(detail_family(family));
+            producer
+                .context()
+                .unavailable("native.detail.failed", detail_family(family));
         }
     }
     fn bind_layout(&self, layout: &Layout) -> Result<Option<Vec<usize>>, Abort> {
@@ -355,7 +487,10 @@ impl Observer for Observation {
                 }
             }
             Event::Begin {
-                path, primitive, ..
+                path,
+                primitive,
+                rhs,
+                refinement_bound,
             } => {
                 let work = WorkEvidence {
                     evaluations: Some(0),
@@ -387,12 +522,53 @@ impl Observer for Observation {
                     }
                     Primitive::Backsolve => state.solves[index(*path)] += 1,
                 }
+                let ordinal = if state.call_overflow {
+                    None
+                } else {
+                    state.next_call.checked_add(1)
+                };
+                if let Some(ordinal) = ordinal {
+                    state.next_call = ordinal;
+                } else {
+                    state.call_overflow = true;
+                }
+                let parent = state.calls.last().and_then(|call| call.ordinal);
+                state.calls.push(Call {
+                    ordinal,
+                    parent,
+                    path: *path,
+                    primitive: *primitive,
+                    rhs: *rhs,
+                    refinement_bound: *refinement_bound,
+                });
+                drop(state);
+                self.call_detail("begin", None, *rhs, *refinement_bound);
             }
             Event::End {
                 path,
                 primitive,
                 succeeded,
             } => {
+                let (rhs, bound) = self
+                    .state
+                    .borrow()
+                    .calls
+                    .last()
+                    .map_or((0, 0), |call| (call.rhs, call.refinement_bound));
+                self.call_detail("end", Some(*succeeded), rhs, bound);
+                // Source operations are synchronous and nested. A malformed optional
+                // stack loses correlation; it cannot revoke compulsory work permission.
+                let mut state = self.state.borrow_mut();
+                if state
+                    .calls
+                    .last()
+                    .is_some_and(|call| call.path == *path && call.primitive == *primitive)
+                {
+                    state.calls.pop();
+                } else {
+                    state.calls.clear();
+                }
+                drop(state);
                 self.state.borrow_mut().phases[index(*path)]
                     [usize::from(*primitive == Primitive::Backsolve)]
                 .pop();
@@ -474,6 +650,226 @@ mod tests {
         ) -> Result<(), ProblemError> {
             Ok(())
         }
+    }
+    #[derive(Debug, Default)]
+    struct Details(std::sync::Mutex<Vec<pse_diagnostics::observation::CoherentRecord>>);
+    impl pse_diagnostics::observation::RecordTap for Details {
+        fn selected(&self, family: &str) -> bool {
+            matches!(
+                family,
+                "native_linear_call.v1" | "native_factor.v2" | "native_refinement.v2"
+            )
+        }
+        fn observe(&self, record: &pse_diagnostics::observation::CoherentRecord) {
+            if self.selected(&record.family) {
+                self.0.lock().unwrap().push(record.clone());
+            }
+        }
+    }
+    #[test]
+    fn selected_detail_has_exact_nested_call_parent_and_balanced_boundaries() {
+        use pounce_common::observed::{DetailField, DetailValue};
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let operation = ObservationHub::new(Policy::default()).start("nested-pounce-linear");
+        let tap = Arc::new(Details::default());
+        let _entered = operation.context().with_record_tap(tap.clone()).enter();
+        let observer = Observation::new(
+            Execution::new(
+                pse_diagnostics::Cancellation::default(),
+                &crate::solve::Controls::default(),
+            ),
+            None,
+            None,
+        );
+        observer
+            .event(&Event::Begin {
+                path: Path::SchurF,
+                primitive: Primitive::Factor,
+                rhs: 0,
+                refinement_bound: 0,
+            })
+            .unwrap();
+        observer
+            .event(&Event::Begin {
+                path: Path::Monolithic,
+                primitive: Primitive::Factor,
+                rhs: 0,
+                refinement_bound: 0,
+            })
+            .unwrap();
+        observer.detail(
+            "native_factor.v1",
+            &[DetailField {
+                name: "factor_values_available",
+                value: DetailValue::Flag(true),
+            }],
+        );
+        observer
+            .event(&Event::End {
+                path: Path::Monolithic,
+                primitive: Primitive::Factor,
+                succeeded: false,
+            })
+            .unwrap();
+        observer
+            .event(&Event::End {
+                path: Path::SchurF,
+                primitive: Primitive::Factor,
+                succeeded: false,
+            })
+            .unwrap();
+        observer
+            .event(&Event::Begin {
+                path: Path::Monolithic,
+                primitive: Primitive::Backsolve,
+                rhs: 2,
+                refinement_bound: 3,
+            })
+            .unwrap();
+        observer.detail(
+            "native_refinement.v1",
+            &[DetailField {
+                name: "initial_rhs_completed",
+                value: DetailValue::Count(2),
+            }],
+        );
+        observer
+            .event(&Event::End {
+                path: Path::Monolithic,
+                primitive: Primitive::Backsolve,
+                succeeded: true,
+            })
+            .unwrap();
+        let records = tap.0.lock().unwrap();
+        let field = |record: &pse_diagnostics::observation::CoherentRecord, name: &str| {
+            record
+                .values
+                .iter()
+                .find(|field| field.name == name)
+                .unwrap()
+                .value
+                .clone()
+        };
+        let factor = records
+            .iter()
+            .find(|record| record.family == "native_factor.v2")
+            .unwrap();
+        assert_eq!(field(factor, "call_ordinal"), Value::Integer(2));
+        assert_eq!(field(factor, "parent_call_ordinal"), Value::Integer(1));
+        assert_eq!(field(factor, "parent_call_present"), Value::Boolean(true));
+        assert_eq!(field(factor, "call_path"), Value::Text("monolithic".into()));
+        let refinement = records
+            .iter()
+            .find(|record| record.family == "native_refinement.v2")
+            .unwrap();
+        assert_eq!(field(refinement, "call_ordinal"), Value::Integer(3));
+        assert_eq!(
+            field(refinement, "parent_call_present"),
+            Value::Boolean(false)
+        );
+        let boundaries: Vec<_> = records
+            .iter()
+            .filter(|record| record.family == "native_linear_call.v1")
+            .collect();
+        assert_eq!(boundaries.len(), 6);
+        assert_eq!(field(boundaries[5], "rhs"), Value::Integer(2));
+        assert_eq!(field(boundaries[5], "refinement_bound"), Value::Integer(3));
+        assert!(observer.state.borrow().calls.is_empty());
+        assert!(observer.take_error().is_none());
+    }
+    #[test]
+    fn optional_call_identity_overflow_and_sink_failure_do_not_abort_work() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, RecordTap};
+        #[derive(Debug)]
+        struct Failing;
+        impl RecordTap for Failing {
+            fn selected(&self, _: &str) -> bool {
+                true
+            }
+            fn observe(&self, _: &pse_diagnostics::observation::CoherentRecord) {
+                panic!("optional sink");
+            }
+        }
+        let operation = ObservationHub::new(Policy::default()).start("optional-pounce-linear");
+        let _entered = operation
+            .context()
+            .with_record_tap(Arc::new(Failing))
+            .enter();
+        let observer = std::rc::Rc::new(Observation::new(
+            Execution::new(
+                pse_diagnostics::Cancellation::default(),
+                &crate::solve::Controls::default(),
+            ),
+            None,
+            None,
+        ));
+        observer.state.borrow_mut().next_call = u64::MAX;
+        observer.state.borrow_mut().next_detail = u64::MAX;
+        let scope = pounce_common::observed::Scope::enter(observer.clone());
+        assert!(
+            pounce_common::observed::Operation::begin(Path::Monolithic, Primitive::Factor, 0, 0)
+                .unwrap()
+                .finish(true)
+        );
+        assert!(observer.state.borrow().call_overflow);
+        assert!(observer.state.borrow().detail_overflow);
+        assert!(observer.state.borrow().calls.is_empty());
+        let current = observer.execution.progress.current().unwrap();
+        assert!(matches!(
+            current.values["call_ordinal"],
+            Metric::Unavailable(_)
+        ));
+        assert!(matches!(
+            current.values["detail_group_ordinal"],
+            Metric::Unavailable(_)
+        ));
+        assert!(scope.abort().is_none());
+        assert!(observer.take_error().is_none());
+    }
+    #[test]
+    fn optional_progress_tap_panic_cannot_abort_compulsory_native_operations() {
+        use pse_diagnostics::observation::{ObservationHub, Policy};
+        #[derive(Debug)]
+        struct FailingProgress;
+        impl crate::solve::ProgressTap for FailingProgress {
+            fn observe(&self, _: &crate::solve::Event) {
+                panic!("optional progress sink");
+            }
+        }
+        let operation = ObservationHub::new(Policy::default()).start("optional-pounce-progress");
+        let tap = Arc::new(Details::default());
+        let _entered = operation.context().with_record_tap(tap.clone()).enter();
+        let mut execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &crate::solve::Controls::default(),
+        );
+        execution.progress = Arc::new(crate::solve::Progress::tapped(
+            32,
+            Arc::new(FailingProgress),
+        ));
+        let observer = std::rc::Rc::new(Observation::new(execution, None, None));
+        let scope = pounce_common::observed::Scope::enter(observer.clone());
+        let call =
+            pounce_common::observed::Operation::begin(Path::Monolithic, Primitive::Factor, 0, 0)
+                .unwrap();
+        pounce_common::observed::detail("native_factor.v1", &[]);
+        assert!(call.finish(true));
+        assert!(observer.state.borrow().calls.is_empty());
+        assert!(observer.take_error().is_none());
+        assert!(scope.abort().is_none());
+        let records = tap.0.lock().unwrap();
+        assert!(
+            records
+                .iter()
+                .any(|record| record.family == "native_factor.v2")
+        );
+        assert_eq!(
+            records
+                .iter()
+                .filter(|record| record.family == "native_linear_call.v1")
+                .count(),
+            2
+        );
     }
     #[test]
     fn failed_factor_and_missing_end_reconcile_once() {

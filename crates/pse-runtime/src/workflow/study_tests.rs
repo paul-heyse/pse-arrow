@@ -733,6 +733,17 @@ async fn related_case_study_uses_secant_then_original_correction() {
     };
     assert!((report.candidate.as_ref().unwrap().primal[0] - 4.08_f64.sqrt()).abs() < 1e-8);
     assert_eq!(study.outcomes[2].key, OccurrenceKey(3));
+    let StudyOccurrenceResult::Ephemeral(third_run) = study.results[2].as_ref().unwrap() else {
+        panic!("original ephemeral occurrence owner required");
+    };
+    review_qualification_tests::assert_review_transport(
+        third_run,
+        &[
+            ("/steps/0/constructor", "replay-case-constructor.v2"),
+            ("/steps/0/decisions", "replay-decisions.v2"),
+        ],
+    )
+    .await;
 }
 
 async fn related_definition(runtime: &Runtime) -> (ModelingPackage, LocalStudy) {
@@ -921,10 +932,18 @@ async fn managed_primary_reopened_continuation_uses_shared_secant_and_original_c
         .record_study(&definition, &crate::CancelSource::new())
         .await
         .unwrap();
-    let study = fixture
-        .dispatch(&cancel, runtime.execute_study(&definition, 3, &cancel))
-        .await
-        .unwrap();
+    let observed = runtime
+        .observations()
+        .hub()
+        .start("qualification.managed-study");
+    let observation = observed.reader();
+    let study = pse_diagnostics::observation::scope(
+        Some(observed.context()),
+        fixture.dispatch(&cancel, runtime.execute_study(&definition, 3, &cancel)),
+    )
+    .await
+    .unwrap();
+    observed.finish(pse_diagnostics::observation::Outcome::Completed);
     assert!(
         study
             .outcomes
@@ -934,6 +953,31 @@ async fn managed_primary_reopened_continuation_uses_shared_secant_and_original_c
         study.outcomes
     );
     let third = study.results[2].as_ref().unwrap();
+    let selected = study.diagnostic_selection().await.unwrap().unwrap();
+    let inventory = runtime
+        .study(selected.study_id)
+        .review_inventory(&ReviewInventoryRequest {
+            attempts: ReviewAttemptSelection::Retained,
+            maximum_members: 64,
+        })
+        .await
+        .unwrap();
+    assert!(!inventory.truncated);
+    for original in study.results.iter().flatten() {
+        let (run, attempt) = original.stored_keys().unwrap();
+        assert!(
+            inventory
+                .members
+                .iter()
+                .any(|member| member.run.as_deref() == Some(run)
+                    && member.attempt.as_deref() == Some(attempt)
+                    && member.terminal)
+        );
+    }
+    review_qualification_tests::assert_inventory_transport(
+        inventory,
+        observation.snapshot(Duration::from_secs(60)),
+    );
     let (run, attempt) = third.stored_keys().unwrap();
     let reopened = operations.record(run, attempt).await.unwrap();
     assert_eq!(reopened.solutions.len(), 1);

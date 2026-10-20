@@ -599,6 +599,7 @@ async fn prepare(
     drop(numerical_stage);
     let _assessment = audit::stage("original_trajectory_and_analysis_assessment");
     mark(&mut phase_seconds, "simulate_and_publish", started);
+    audit::export_result(runtime, &result).await;
     let started = Instant::now();
     assert!(
         result.usable(),

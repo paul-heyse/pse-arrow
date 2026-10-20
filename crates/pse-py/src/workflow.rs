@@ -298,6 +298,57 @@ impl NativeStoredResult {
             }))),
         })
     }
+    #[pyo3(signature=(relation,destination,evidence,analysis,request,*,member="result",start=0,end=u64::MAX))]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "The Python boundary exposes exact result, destination, evidence and row selectors directly; publication delegates to the shared typed request."
+    )]
+    fn export_review_pack(
+        &self,
+        py: Python<'_>,
+        relation: &str,
+        destination: std::path::PathBuf,
+        evidence: documents::RecordedInput<pse_runtime::frozen_inspection::FrozenEvidenceSet>,
+        analysis: documents::RecordedInput<pse_runtime::review_analysis::AnalysisDocument>,
+        request: documents::RecordedInput<pse_runtime::review_pack::PackExportRequest>,
+        member: &str,
+        start: u64,
+        end: u64,
+    ) -> PyResult<documents::DocumentValue<pse_runtime::review_pack::PackIndex>> {
+        let mut request = request.0;
+        request
+            .scientific_results
+            .push(native::ReviewScientificSelection {
+                member: member.into(),
+                run: self.run.clone(),
+                attempt: self.attempt.clone(),
+                relation: relation.into(),
+                row_start: start,
+                row_end: end,
+                output: None,
+            });
+        let cancel = pse_columnar::CancellationToken::new();
+        blocking_native_call(
+            py,
+            || {
+                self.owner
+                    .executor
+                    .block_on(self.inner.export_review_pack(
+                        &destination,
+                        &evidence.0,
+                        &analysis.0,
+                        request,
+                        cancel.clone(),
+                    ))
+                    .map_err(|error| pse_engine::EngineError::Infrastructure {
+                        op: "export selected protected review pack".into(),
+                        source: Box::new(error),
+                    })
+            },
+            || cancel.cancel(),
+        )
+        .map(documents::DocumentValue)
+    }
     #[pyo3(signature=(relation,destination,*,start=0,end=u64::MAX))]
     fn export(
         &self,
@@ -909,6 +960,20 @@ impl NativeRuntime {
             .map(documents::DocumentValue)
             .map_err(|error| errors::diagnostic(py, &error))
     }
+    fn diagnose_documents(
+        &self,
+        py: Python<'_>,
+        request: documents::RecordedInput<native::DiagnosticExecutionRequest>,
+    ) -> PyResult<documents::DocumentValue<native::DiagnosticExecutionDocument>> {
+        let cancel = CancelSource::new();
+        blocking(
+            py,
+            &self.owner,
+            self.inner.diagnose_documents(request.0, &cancel),
+            || cancel.cancel(),
+        )
+        .map(documents::DocumentValue)
+    }
     fn physical_from_documents(
         &self,
         py: Python<'_>,
@@ -945,6 +1010,38 @@ impl NativeRuntime {
         Ok(NativePhysicalContext { inner })
     }
     /// Exact canonical run metadata through its generated one-row Arrow contract.
+    fn export_review_pack(
+        &self,
+        py: Python<'_>,
+        destination: std::path::PathBuf,
+        evidence: documents::RecordedInput<pse_runtime::frozen_inspection::FrozenEvidenceSet>,
+        analysis: documents::RecordedInput<pse_runtime::review_analysis::AnalysisDocument>,
+        request: documents::RecordedInput<pse_runtime::review_pack::PackExportRequest>,
+    ) -> PyResult<documents::DocumentValue<pse_runtime::review_pack::PackIndex>> {
+        let stop = CancelSource::new();
+        let cancel = pse_columnar::CancellationToken::new();
+        let work_cancel = cancel.clone();
+        blocking(
+            py,
+            &self.owner,
+            self.recording_operation(&stop, |recording| async move {
+                recording
+                    .export_review_pack(
+                        &destination,
+                        &evidence.0,
+                        &analysis.0,
+                        request.0,
+                        work_cancel,
+                    )
+                    .await
+            }),
+            || {
+                stop.cancel();
+                cancel.cancel();
+            },
+        )
+        .map(documents::DocumentValue)
+    }
     fn run_record(&self, py: Python<'_>, run: &str) -> PyResult<inspection::TableStream> {
         let connection_stop = CancelSource::new();
         let batch = blocking(
@@ -1709,6 +1806,11 @@ pub(crate) struct NativeRunResult {
     inner: Arc<native::RunResult>,
     owner: Arc<runtime::Runtime>,
 }
+impl NativeRunResult {
+    pub(crate) fn retained_result(&self) -> &Arc<native::RunResult> {
+        &self.inner
+    }
+}
 #[pymethods]
 impl NativeRunResult {
     #[pyo3(signature=(step=None))]
@@ -1769,12 +1871,24 @@ impl NativeRunResult {
             .map(documents::DocumentValue)
             .map_err(|error| errors::diagnostic(py, &error))
     }
+    /// Export original descriptive facts without admitting executable Replay.
+    #[pyo3(signature=(*,request=None))]
+    fn review_context(
+        &self,
+        py: Python<'_>,
+        request: Option<documents::DocumentInput<native::ReviewContextRequest>>,
+    ) -> PyResult<Vec<u8>> {
+        let context = self
+            .inner
+            .review_context(&request.map_or_else(Default::default, |r| r.0))
+            .map_err(|error| errors::diagnostic(py, &error))?;
+        documents::encode(py, context.document())
+    }
     /// Joined actual invocation endpoints and existing attempt/work evidence.
     fn invocation_evidence(
         &self,
         py: Python<'_>,
-    ) -> PyResult<documents::DocumentValue<pse_runtime::invocation::InvocationEvidenceDocument>>
-    {
+    ) -> PyResult<documents::DocumentValue<pse_runtime::invocation::InvocationEvidence>> {
         self.inner
             .invocation_evidence()
             .map(documents::DocumentValue)
@@ -1972,6 +2086,20 @@ impl NativeStudyHandle {
     ) -> PyResult<documents::DocumentValue<native::ManagedStudyDiagnosticsDocument>> {
         blocking(py, &self.owner, self.inner.diagnostic_selection(), || {})
             .map(documents::DocumentValue)
+    }
+    /// Select current or retained attempts once; subsequent pages are immutable.
+    fn review_inventory(
+        &self,
+        py: Python<'_>,
+        request: documents::DocumentInput<native::ReviewInventoryRequest>,
+    ) -> PyResult<documents::DocumentValue<native::ReviewInventorySelection>> {
+        blocking(
+            py,
+            &self.owner,
+            self.inner.review_inventory(&request.0),
+            || {},
+        )
+        .map(documents::DocumentValue)
     }
     /// The study identity.
     #[getter]

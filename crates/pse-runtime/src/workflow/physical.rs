@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Admitted physical context shared by authored models and explicit analysis requests.
 use super::{Runtime, WorkflowError};
+pub use pse_admission::physical::PhysicalAdmissionReceipt;
 use pse_admission::physical::PhysicalPackage;
 use pse_ids::ContentHash;
 use pse_quantity::{PhysicalPreconditions, QuantityRegistry};
@@ -10,6 +11,7 @@ use std::{collections::BTreeMap, sync::Arc};
 /// Immutable physical declarations retaining their actual admitted source rows.
 #[derive(Clone, Debug)]
 pub struct PhysicalContext {
+    pub(super) engine_receipt: Option<PhysicalAdmissionReceipt>,
     pub(super) documents: Option<pse_admission::authoring_driver::document::OwnedDocumentSet>,
     pub(crate) quantities: Arc<QuantityRegistry>,
     pub(crate) preconditions: Arc<PhysicalPreconditions>,
@@ -36,6 +38,7 @@ impl PhysicalContext {
         let preconditions = inventory.compiler_preconditions();
         let key = pse_compiler::workspace::physical_identity(&quantities, &preconditions);
         Self {
+            engine_receipt: None,
             documents: None,
             quantities,
             preconditions,
@@ -45,6 +48,10 @@ impl PhysicalContext {
             _inventory: Some(inventory),
             _source_owner: None,
         }
+    }
+    /// Copied observations from the session that actually admitted these physical documents.
+    pub fn engine_receipt(&self) -> Option<&PhysicalAdmissionReceipt> {
+        self.engine_receipt.as_ref()
     }
     /// Full exact physical context identity, not a caller's revision assertion.
     pub fn identity(&self) -> ContentHash {
@@ -108,6 +115,11 @@ impl PhysicalContext {
                 .saturating_add(512)
         });
         sources
+            .saturating_add(
+                self.engine_receipt
+                    .as_ref()
+                    .map_or(0, PhysicalAdmissionReceipt::retained_bytes),
+            )
             .saturating_add(self.quantities.allocation_extent())
             .saturating_add(self.preconditions.allocation_extent())
             .saturating_add(
@@ -126,9 +138,27 @@ impl Runtime {
         documents: &pse_admission::authoring_driver::document::OwnedDocumentSet,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<PhysicalContext, WorkflowError> {
+        self.physical_from_documents_with_receipt(documents, cancel, None)
+            .await
+    }
+    /// Optional caller-owned copy survives admission failure or dropped/cancelled work.
+    pub async fn physical_from_documents_with_receipt(
+        &self,
+        documents: &pse_admission::authoring_driver::document::OwnedDocumentSet,
+        cancel: &pse_columnar::CancellationToken,
+        mut receipt: Option<&mut PhysicalAdmissionReceipt>,
+    ) -> Result<PhysicalContext, WorkflowError> {
+        if let Some(receipt) = receipt.as_deref_mut() {
+            receipt.reset();
+        }
         let activity = self.admit_activity()?;
         activity
-            .scope(async { PhysicalContext::from_documents(documents, &self.model, cancel).await })
+            .scope(PhysicalContext::from_documents_with_receipt(
+                documents,
+                &self.model,
+                cancel,
+                receipt,
+            ))
             .await
     }
 }
@@ -139,19 +169,32 @@ impl PhysicalContext {
         model: &pse_engine::session::BoundModel,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, WorkflowError> {
-        let admitted =
-            pse_admission::physical::PhysicalDocuments::from_documents(documents, model, cancel)
-                .await
-                .map_err(|error| match error {
-                    pse_admission::physical::PhysicalError::Authoring(error) => {
-                        WorkflowError::Authoring(error)
-                    }
-                    error => {
-                        WorkflowError::Engine(pse_engine::EngineError::Semantic(Arc::new(error)))
-                    }
-                })?;
+        Self::from_documents_with_receipt(documents, model, cancel, None).await
+    }
+    async fn from_documents_with_receipt(
+        documents: &pse_admission::authoring_driver::document::OwnedDocumentSet,
+        model: &pse_engine::session::BoundModel,
+        cancel: &pse_columnar::CancellationToken,
+        receipt: Option<&mut PhysicalAdmissionReceipt>,
+    ) -> Result<Self, WorkflowError> {
+        let mut retained = PhysicalAdmissionReceipt::new(16 << 20);
+        let receipt = receipt.unwrap_or(&mut retained);
+        let admitted = pse_admission::physical::PhysicalDocuments::from_documents_with_receipt(
+            documents,
+            model,
+            cancel,
+            Some(&mut *receipt),
+        )
+        .await
+        .map_err(|error| match error {
+            pse_admission::physical::PhysicalError::Authoring(error) => {
+                WorkflowError::Authoring(error)
+            }
+            error => WorkflowError::Engine(pse_engine::EngineError::Semantic(Arc::new(error))),
+        })?;
         let (inventory, sources, package) = admitted.into_parts();
         let mut context = Self::admitted(inventory);
+        context.engine_receipt = Some(receipt.clone());
         context.documents = Some(documents.clone());
         context.package = package;
         context.sources = sources;

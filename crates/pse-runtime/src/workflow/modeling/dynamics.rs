@@ -627,6 +627,34 @@ impl ModelingSimulation {
         run_id: RunId,
         profile_identity: ContentHash,
     ) -> Result<pse_model::generated::runtime::scientific_contexts::Row, WorkflowError> {
+        let coordinates = self.review_coordinates(run_id)?;
+        Ok(pse_model::generated::runtime::scientific_contexts::Row {
+            run_id: coordinates.run_id,
+            step: coordinates.step,
+            model_id: coordinates.model_id,
+            fit_id: coordinates.fit_id,
+            case_id: coordinates.case_id,
+            instance_id: coordinates.instance_id,
+            source_identity: coordinates.source_identity,
+            physical_identity: coordinates.physical_identity,
+            preparation_identity: self.identity(),
+            profile_identity,
+            configuration: coordinates.configuration,
+            binding: coordinates.binding,
+            state: coordinates.state,
+            inputs: coordinates.inputs,
+            outputs: coordinates.outputs,
+            integrals: coordinates.integrals,
+            time: coordinates.time,
+            mode_names: coordinates.mode_names,
+            mode_identities: coordinates.mode_identities,
+        })
+    }
+    /// Copy known affine scientific coordinates without querying an executable factory or generating a profile identity.
+    pub(in crate::workflow) fn review_coordinates(
+        &self,
+        run_id: RunId,
+    ) -> Result<super::super::review_context::ReviewScientificCoordinates, WorkflowError> {
         let product = self.model().compiled();
         let quantity = |id: SemanticId| {
             if let Some(port) = product
@@ -712,7 +740,7 @@ impl ModelingSimulation {
         let configuration =
             serde_json::to_vec(&(1u8, native::profile_json(&self.profile), &self.parameters))
                 .map_err(|error| contract(error.to_string()))?;
-        Ok(pse_model::generated::runtime::scientific_contexts::Row {
+        Ok(super::super::review_context::ReviewScientificCoordinates {
             run_id,
             step: 0,
             model_id: Some(self.solved.model()),
@@ -721,8 +749,8 @@ impl ModelingSimulation {
             instance_id: Some(self.solved.instance()),
             source_identity: self.source.revision.identity().as_id(),
             physical_identity: self.source.physical.identity(),
-            preparation_identity: self.identity(),
-            profile_identity,
+            preparation_identity: Some(self.identity()),
+            profile_identity: None,
             configuration: configuration.into(),
             binding: None,
             state,

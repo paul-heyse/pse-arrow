@@ -318,7 +318,7 @@ pub fn select_window(
         .max(snapshot.started_at);
     let old_request = snapshot.requested_interval;
     let old_read = snapshot.read_at;
-    let end = snapshot.finished_at.unwrap_or(read_at);
+    let end = snapshot.finished_at.unwrap_or(read_at).min(read_at);
     let start = read_at
         .saturating_sub(interval)
         .max(snapshot.started_at)

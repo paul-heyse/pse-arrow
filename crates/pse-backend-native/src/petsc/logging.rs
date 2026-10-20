@@ -50,10 +50,12 @@ impl Log {
             return None;
         }
         let producers = std::array::from_fn(|index| {
-            context.producer(
+            let producer = context.producer(
                 ProducerRole::NativeFactor,
                 &format!("petsc.events.{}", EVENTS[index].to_string_lossy()),
-            )
+            );
+            producer.activate_record_family(FAMILY);
+            producer
         });
         Some(Self {
             raw,

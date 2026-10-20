@@ -26,6 +26,66 @@ use surrealdb::types::{Bytes, Object, Value};
 #[cfg(all(test, feature = "canonical-tests"))]
 tokio::task_local! { static APPEND_GROUP_REPLY_LOSS: bool; }
 
+/// Small descriptive projection of one retained attempt; excludes request and result payloads.
+#[derive(Clone, Debug)]
+pub struct CanonicalAttemptMetadata {
+    /// Exact retained identity.
+    pub key: String,
+    /// Exact parent run.
+    pub run: String,
+    /// Original retry generation.
+    pub generation: u64,
+    /// Original terminal fact.
+    pub terminal: bool,
+    /// Original outcome when recorded.
+    pub outcome: Option<String>,
+    /// Exact immutable result manifest when closed.
+    pub closed_manifest: Option<String>,
+    /// Actual closed readable generation prefix when retained.
+    pub close_generation: Option<u64>,
+}
+impl From<CanonicalAttempt> for CanonicalAttemptMetadata {
+    fn from(row: CanonicalAttempt) -> Self {
+        Self {
+            key: row.key,
+            run: row.run,
+            generation: row.generation,
+            terminal: row.terminal,
+            outcome: row.outcome,
+            closed_manifest: row.closed_manifest,
+            close_generation: row.close_generation,
+        }
+    }
+}
+fn decode_attempt_metadata(mut row: Object) -> Result<CanonicalAttemptMetadata, CanonicalError> {
+    use canonical_codec::{decode_boolean, decode_string, decode_uint, required};
+    let key = decode_string(required(&mut row, "key")?)?;
+    if let Some(id) = row.remove("id") {
+        canonical_codec::check_record_identity(id, "canonical_attempts", &key)?;
+    }
+    Ok(CanonicalAttemptMetadata {
+        key,
+        run: decode_string(required(&mut row, "run")?)?,
+        generation: decode_uint(required(&mut row, "generation")?)?,
+        terminal: decode_boolean(required(&mut row, "terminal")?)?,
+        outcome: row
+            .remove("outcome")
+            .filter(|value| !matches!(value, Value::None | Value::Null))
+            .map(decode_string)
+            .transpose()?,
+        closed_manifest: row
+            .remove("closed_manifest")
+            .filter(|value| !matches!(value, Value::None | Value::Null))
+            .map(decode_string)
+            .transpose()?,
+        close_generation: row
+            .remove("close_generation")
+            .filter(|value| !matches!(value, Value::None | Value::Null))
+            .map(decode_uint)
+            .transpose()?,
+    })
+}
+
 /// Decode an acknowledged guarded refusal before the ordinary generated row codec.
 /// No driver error or later cancellation observation grants this classification.
 pub(crate) fn writer_response(mut row: Object) -> Result<Object, CanonicalError> {
@@ -3630,6 +3690,30 @@ impl CanonicalStore {
             .await
         }).await
     }
+    /// Exact retained retries in a bounded generation prefix, under the history-owner guard.
+    /// The endpoint is supplied by the caller's recorded run selection; this never follows
+    /// a newer current pointer while reading subsequent pages.
+    pub async fn canonical_attempt_page(
+        &self,
+        run: &str,
+        after: Option<u64>,
+        through: u64,
+    ) -> Result<Vec<CanonicalAttemptMetadata>, CanonicalError> {
+        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Page, async {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
+            within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                identity(run)?;
+                let mut response = bounded_query(self.db.query(crate::canonical_history::run_query(
+                    "SELECT key,run,generation,terminal,outcome,closed_manifest,close_generation FROM canonical_attempts WHERE run=$run AND generation>$after AND generation<=$through ORDER BY generation LIMIT 64;", "run"))
+                    .bind(("run", run.to_owned()))
+                    .bind(("after", after.map(canonical_codec::encode_uint).transpose()?.unwrap_or(canonical_codec::encode_int(-1)?)))
+                    .bind(("through", canonical_codec::encode_uint(through)?))).await?;
+                response.take::<Vec<Object>>(0)?.into_iter().map(decode_attempt_metadata).collect()
+            }).await
+        }).await
+        }).await
+    }
     /// Read an explicit attempt; terminal history is independent of the latest pointer.
     pub async fn canonical_attempt(
         &self,
@@ -5120,5 +5204,35 @@ mod canonical_result_admission_unit {
         assert!(
             result_metadata_extent(&Value::Object(envelope)).unwrap() > EXECUTION_METADATA_BYTES
         );
+    }
+}
+
+#[cfg(test)]
+mod review_attempt_metadata_tests {
+    use super::*;
+    #[test]
+    fn review_attempt_metadata_preserves_uint_fences_and_absent_result() {
+        let mut row = Object::default();
+        row.insert(
+            "key",
+            canonical_codec::encode_string("attempt:old".into()).unwrap(),
+        );
+        row.insert(
+            "run",
+            canonical_codec::encode_string("run:exact".into()).unwrap(),
+        );
+        row.insert(
+            "generation",
+            canonical_codec::encode_uint(u64::MAX).unwrap(),
+        );
+        row.insert("terminal", canonical_codec::encode_boolean(true).unwrap());
+        row.insert("close_generation", canonical_codec::encode_uint(0).unwrap());
+        row.insert("closed_manifest", Value::None);
+        let actual = decode_attempt_metadata(row.clone()).unwrap();
+        assert_eq!(actual.generation, u64::MAX);
+        assert_eq!(actual.close_generation, Some(0));
+        assert!(actual.closed_manifest.is_none());
+        row.remove("generation");
+        assert!(decode_attempt_metadata(row).is_err());
     }
 }

@@ -1,5 +1,7 @@
 # Analysis and offline publication capabilities
 
+Supporting inquiry for the [principal review](../../reviews/design_review_pipeline-diagnostics-and-review-artifacts_2026-10-18.md); the [evidence overview](README.md) records integration and execution limits.
+
 Bounded source investigation, 2026-10-18, for the diagnostics/causal-pipeline design review. Baseline: HEAD `e9d24396c`; existing dirty documentation preserved. This is library evidence and conditional design advice, not a formal review or acceptance result. No builds, tests, probes, services, dependency changes or environment reproduction campaign were run.
 
 ## Versions and evidence boundary
@@ -58,3 +60,34 @@ Existing precedents differ in scope: `observation.rs` publishes a checkpoint thr
 ## Remaining decision work
 
 The coordinator must choose the supported analysis questions and population/clock semantics, which source context a selected window retains, pack completion/readability behavior, and the recipient's minimum offline interaction. Representative large-artifact feasibility, actual host profiler versions, cross-artifact clock alignment and offline symbol completeness remain unmeasured/unqualified. No new platform, mandatory redundant format, provenance campaign or rerun environment is recommended by this investigation.
+
+## Implementation inquiry disposition (2026-10-18)
+
+The installed optional tool observations were `perf version 7.0.14`, `samply 0.13.1` and
+Trace Processor `58.2-add693d8b` (RPC API 14). These identify the tools examined; they are not
+an environment compatibility proof. Samply's matching source accepts the perf-import
+presymbolication flag but does not consume that setting on the import path. No symbol
+sidecar or correction is adopted. Keep existing raw perf data, actual resolved/unresolved,
+unwind/loss and leaf-only limitations and the existing readable summary. A successful
+conversion alone cannot establish portable symbol resolution.
+
+**Interface-checked:** the maintained selected-window query uses an explicit ordered
+running maximum and islands/union composition, rather than applying `SPAN_JOIN` to nested
+intervals. Its half-open clipped union and original/clipped inclusive populations are
+separate. Canonical text companions preserve native unsigned event identities in Perfetto;
+earlier traces without those companions yield unavailable values. Native JSON/Arrow remains
+the full-UInt64 authority.
+
+No additional speedscope, CTF, OTLP or symbol format is required for the selected local
+report. No Heaptrack, Callgrind, BPF/off-CPU platform, Tokio Console, SUNProfiler, Caliper or
+uProf integration is adopted: there is no remaining selected question requiring their
+instrumentation after the available owner facts and CPU/timeline routes. Reopen an individual
+candidate for a concrete unresolved allocation, native-phase, async-scheduling, blocked-time
+or stack question that existing observations cannot discriminate. This is a bounded
+no-adoption decision, not a conclusion that those tools lack useful capabilities.
+
+Directory publication and registry IPC stream export remain the selected boundary. Current
+DataFusion/Arrow source supports the existing local stream/query path; remote IPC-stream
+loading can buffer the full object and is not adopted as a purported bounded remote reader.
+No new provider, analytics engine or diagnostic store is introduced. Larger skew/growth and
+observer/export cost assessment remains Plan47f's assembled qualification scope.

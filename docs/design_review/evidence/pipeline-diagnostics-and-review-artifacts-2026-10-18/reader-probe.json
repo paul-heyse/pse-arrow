@@ -1,0 +1,102 @@
+{
+  "source": "build/p44-density-22s_40tp/cases/compact-idas-ode-5/diagnostics/checkpoints/000000006ad40b87-000c546e08367563.json",
+  "source_bytes": 868800,
+  "operation": "000000006ad40b87000c546e08367563:52",
+  "raw_counts": {
+    "detail": 256,
+    "recent": 34,
+    "producers": 6
+  },
+  "control_description": "Scratch-only clock=null exercises existing unavailable-clock fallback",
+  "original": {
+    "exit_code": 0,
+    "stderr": "",
+    "counts": {
+      "detail": 0,
+      "recent": 0,
+      "producers": 6
+    },
+    "read_at": {
+      "nanos": 288796596,
+      "secs": 68436
+    },
+    "interval_start": {
+      "nanos": 861542614,
+      "secs": 1
+    },
+    "interval_end": {
+      "nanos": 861542614,
+      "secs": 1
+    },
+    "coverage": {
+      "available": true,
+      "counter_overflow": false,
+      "curtailed": true,
+      "dropped_detail": 102,
+      "dropped_updates": 0,
+      "enabled": true,
+      "interrupted": false,
+      "refused_items": 372,
+      "sampled": true,
+      "stale": false
+    },
+    "transport": {
+      "checkpoint": "build/p44-density-22s_40tp/cases/compact-idas-ode-5/diagnostics/checkpoints/000000006ad40b87-000c546e08367563.json",
+      "clock_uncertainty_nanoseconds": 250,
+      "failure": null,
+      "partial": false,
+      "process": {
+        "executable": "/home/paul/pse-arrow/target/debug/build/pse-benches/158ca640ec59a4fb/out/native_process-158ca640ec59a4fb",
+        "pid": 808046,
+        "start_ticks": 10243944
+      },
+      "published_unix_micros": 1792281481283669
+    }
+  },
+  "control": {
+    "exit_code": 0,
+    "stderr": "",
+    "counts": {
+      "detail": 256,
+      "recent": 34,
+      "producers": 6
+    },
+    "read_at": {
+      "nanos": 146078823,
+      "secs": 2
+    },
+    "interval_start": {
+      "nanos": 859574745,
+      "secs": 1
+    },
+    "interval_end": {
+      "nanos": 861542614,
+      "secs": 1
+    },
+    "coverage": {
+      "available": true,
+      "counter_overflow": false,
+      "curtailed": true,
+      "dropped_detail": 102,
+      "dropped_updates": 0,
+      "enabled": true,
+      "interrupted": false,
+      "refused_items": 372,
+      "sampled": true,
+      "stale": false
+    },
+    "transport": {
+      "checkpoint": "/tmp/pse-frozen-reader-control-xun59j9t/clock-absent.json",
+      "clock_uncertainty_nanoseconds": null,
+      "failure": null,
+      "partial": true,
+      "process": {
+        "executable": "/home/paul/pse-arrow/target/debug/build/pse-benches/158ca640ec59a4fb/out/native_process-158ca640ec59a4fb",
+        "pid": 808046,
+        "start_ticks": 10243944
+      },
+      "published_unix_micros": 1792281481283669
+    }
+  },
+  "source_unchanged": true
+}

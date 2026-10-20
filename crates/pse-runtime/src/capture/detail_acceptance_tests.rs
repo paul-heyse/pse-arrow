@@ -48,6 +48,65 @@ fn iteration_values(page: &DetailRecordPage) -> Vec<i64> {
 }
 
 #[test]
+fn acknowledged_empty_source_is_complete_but_unobserved_and_refused_are_not() {
+    let directory = tempfile::tempdir().unwrap();
+    let operation = ObservationHub::new(Policy::default()).start("science");
+    for (label, activate, refuse, expected) in [
+        ("empty", true, false, DetailOutcome::Complete),
+        ("unobserved", false, false, DetailOutcome::Incomplete),
+        ("refused", true, true, DetailOutcome::Incomplete),
+    ] {
+        let session =
+            start_detailed_collection(operation.context(), selection(directory.path().join(label)))
+                .unwrap();
+        let source = session
+            .context()
+            .producer(ProducerRole::NativeIteration, "real source");
+        if activate {
+            source.activate_record_family("iteration.v1");
+        }
+        if refuse {
+            source.context().record_source_unavailable("iteration.v1");
+        }
+        let document = session.finish().unwrap();
+        assert_eq!(document.outcome, expected);
+        assert_eq!(
+            (document.families[0].issued, document.families[0].observed),
+            (0, 0)
+        );
+        assert_eq!(
+            read_detailed_collection(&document.records, 1 << 20)
+                .unwrap()
+                .outcome,
+            expected
+        );
+    }
+}
+
+#[test]
+fn v1_header_is_refused_by_both_detail_readers() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("legacy.jsonl");
+    let old = serde_json::json!({"kind":"header", "value":selection(directory.path().join("old"))});
+    std::fs::write(&path, format!("{old}\n")).unwrap();
+    assert!(read_detailed_collection(&path, 1 << 20).is_err());
+    assert!(read_detail_records(&path, 0, 8, 1 << 20).is_err());
+    let mut header = serde_json::to_value(DetailHeader {
+        version: pse_model::document::Version,
+        request: selection(directory.path().join("unknown")),
+    })
+    .unwrap();
+    header["version"] = serde_json::json!(1);
+    std::fs::write(
+        &path,
+        format!("{}\n", serde_json::json!({"kind":"header", "value":header})),
+    )
+    .unwrap();
+    assert!(read_detailed_collection(&path, 1 << 20).is_err());
+    assert!(read_detail_records(&path, 0, 8, 1 << 20).is_err());
+}
+
+#[test]
 fn finish_waits_for_admitted_offer_and_drains_before_terminal_counts() {
     let directory = tempfile::tempdir().unwrap();
     let hub = ObservationHub::new(Policy::default());
@@ -417,7 +476,11 @@ fn selected_mapping_refusal_and_tiny_header_allowance_stay_explicit() {
     assert_eq!(document.outcome, DetailOutcome::Incomplete);
     assert!(document.source_partial);
     let header_only = directory.path().join("header.jsonl");
-    let mut header = serde_json::to_vec(&Frame::Header(document.request)).unwrap();
+    let mut header = serde_json::to_vec(&Frame::Header(DetailHeader {
+        version: pse_model::document::Version,
+        request: document.request,
+    }))
+    .unwrap();
     header.push(b'\n');
     std::fs::write(&header_only, header).unwrap();
     assert!(read_detail_records(&header_only, 0, 1, 1).is_err());

@@ -956,6 +956,9 @@ fn capture_builtin_clock_relationship_precedes_typed_source_events() {
         Some("original-infinity"),
         vec![
             field("iteration", Value::Count(u64::MAX)),
+            field("above53", Value::Count((1u64 << 53) + 1)),
+            field("signed_max", Value::Count(i64::MAX as u64)),
+            field("above_signed", Value::Count(i64::MAX as u64 + 1)),
             field("signed", Value::Integer(i64::MIN)),
             field("zero", Value::Number(0.)),
             field("predicate", Value::Boolean(false)),
@@ -1051,6 +1054,18 @@ fn capture_builtin_clock_relationship_precedes_typed_source_events() {
         assert_eq!(
             annotation(name),
             debug_annotation::Value::UintValue(expected)
+        );
+    }
+    for (name, value) in [
+        ("iteration", u64::MAX),
+        ("above53", (1u64 << 53) + 1),
+        ("signed_max", i64::MAX as u64),
+        ("above_signed", i64::MAX as u64 + 1),
+        ("generation", record.generation),
+    ] {
+        assert_eq!(
+            annotation(&format!("{name}.u64_text")),
+            debug_annotation::Value::StringValue(value.to_string())
         );
     }
     assert_eq!(

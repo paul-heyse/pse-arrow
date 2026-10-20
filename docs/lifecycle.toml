@@ -1289,6 +1289,110 @@ id_pattern = '^(G[0-9]+)\b'
 status_profile = "packet"
 status_column = 3
 
+# Plan47 owns finding/inquiry decisions; companions own package progress.
+
+[[scope_tables]]
+path = "docs/plans/47-pipeline-diagnostics-and-review-artifacts.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision / work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^((?:F|CA)[0-9]+)\b'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/47-pipeline-diagnostics-and-review-artifacts.md"
+name = "investigation-outcomes"
+heading = "Investigation outcomes"
+headers = [
+  "Inquiry",
+  "Decision question",
+  "State",
+  "Decision / work owner",
+  "Completion or next trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)\b'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/47a-frozen-evidence-and-review-context.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Package", "Delivered capability", "Prerequisites", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/47b-native-diagnostics-and-causal-attribution.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Package", "Delivered capability", "Prerequisites", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/47c-analysis-and-recording.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Package", "Delivered capability", "Prerequisites", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/47d-offline-review-pack-publication.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Package", "Delivered capability", "Prerequisites", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/47e-cli-review-workflows.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Package", "Delivered capability", "Prerequisites", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
+[[scope_tables]]
+path = "docs/plans/47f-qualification-and-design-publication.md"
+name = "work-packages"
+heading = "Work packages"
+headers = ["Package", "Delivered capability", "Prerequisites", "State"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(F[0-9]+)\b'
+status_profile = "packet"
+status_column = 3
+
 [[scope_tables]]
 path = "docs/plans/40a-operation-context-and-live-history.md"
 name = "work-packages"

@@ -385,3 +385,131 @@ async fn kernel_source_map_finite_byte_clock_and_cancel_refusals_leave_prepared_
         "failed inspection does not mutate retained source maps or numerical inputs"
     );
 }
+
+fn retained_map_with_unused_fixed_formal() -> ModelingSourceMapDocument {
+    let row = SemanticId::from_bytes([121; 16]);
+    let variable = SemanticId::from_bytes([122; 16]);
+    let fixed = SemanticId::from_bytes([123; 16]);
+    let body = ContentHash::from_bytes([124; 32]);
+    ModelingSourceMapDocument {
+        version: Default::default(),
+        source_identity: body,
+        numerical_identity: body,
+        scope: SourceMapScope::StaticEligibleAlternatives,
+        rows: vec![row],
+        columns: vec![variable],
+        fixed_inputs: vec![],
+        row_nominals: vec![(row, 1.)],
+        variable_nominals: vec![(variable, 1.)],
+        objective_signs: vec![],
+        fields: vec![],
+        members: vec![SourceMemberDocument {
+            member: fixed,
+            declaration: fixed,
+            instance: row,
+            path: "cell.unused_fixed".into(),
+        }],
+        templates: vec![SourceTemplateDocument {
+            template: 0,
+            body,
+            order: DerivativeOrder::First,
+            product: ProductKind::SelectedPartials,
+            outputs: vec![0],
+            coordinates: vec![0],
+            arithmetic_mapping: ArithmeticMappingScope::SelectedCompiledProduct,
+            arithmetic: vec![],
+        }],
+        instances: vec![SourceInstanceDocument {
+            ordinal: 0,
+            instance: row,
+            body,
+            checked_members: vec![],
+            slots: vec![
+                SourceSlotDocument {
+                    formal: 0,
+                    member: variable,
+                    scale: 1.,
+                    offset: 0.,
+                    fixed: false,
+                },
+                SourceSlotDocument {
+                    formal: 1,
+                    member: fixed,
+                    scale: 2.,
+                    offset: 3.,
+                    fixed: true,
+                },
+            ],
+            contributions: vec![SourceContributionDocument {
+                output: 0,
+                target: SourceContributionTarget::Row { row },
+                scale: 1.,
+            }],
+            demands: vec![SourceDemandDocument {
+                demand: EvaluationDemand::Constraints,
+                template: 0,
+                outputs: vec![0],
+                coordinates: vec![0],
+            }],
+        }],
+        native_pullback_unavailable: "no transformed native pullback".into(),
+    }
+}
+
+#[test]
+fn retained_source_map_allows_unused_original_fixed_formals_outside_consumed_frame() {
+    // Producer-shaped complete original gather: only formal zero is demanded by
+    // the selected compiled template, so formal one has no compact fixed read.
+    let mut map = retained_map_with_unused_fixed_formal();
+    let unused = &map.instances[0].slots[1];
+    assert!(!map.fixed_inputs.contains(&unused.member));
+    assert!(
+        !map.instances[0].demands[0]
+            .coordinates
+            .contains(&unused.formal)
+    );
+    map.validate().unwrap();
+    let restored: ModelingSourceMapDocument =
+        serde_json::from_slice(&serde_json::to_vec(&map).unwrap()).unwrap();
+    restored.validate().unwrap();
+    assert_eq!(restored.instances[0].slots[1].offset, 3.);
+    map.instances[0].slots[1].fixed = false;
+    assert!(
+        map.validate().is_err(),
+        "absent free columns cannot be declared free slots"
+    );
+    map.instances[0].slots[1].fixed = true;
+    map.instances[0].slots[0].fixed = true;
+    assert!(
+        map.validate().is_err(),
+        "actual free columns cannot be declared fixed slots"
+    );
+}
+
+#[test]
+fn retained_source_map_rejects_contradictory_member_lineage_in_either_order() {
+    let map = retained_map_with_unused_fixed_formal();
+    let original = map.members[0].clone();
+    let mut repeated = map.clone();
+    repeated.members.push(original.clone());
+    repeated.validate().unwrap();
+    for field in 0..3 {
+        let mut conflicting = original.clone();
+        match field {
+            0 => conflicting.declaration = SemanticId::from_bytes([125; 16]),
+            1 => conflicting.instance = SemanticId::from_bytes([126; 16]),
+            _ => conflicting.path = "other.unused_fixed".into(),
+        }
+        for members in [
+            vec![original.clone(), conflicting.clone()],
+            vec![conflicting, original.clone()],
+        ] {
+            let mut contradictory = map.clone();
+            contradictory.members = members;
+            assert!(
+                contradictory.validate().is_err(),
+                "first-match order cannot select member meaning"
+            );
+        }
+    }
+}

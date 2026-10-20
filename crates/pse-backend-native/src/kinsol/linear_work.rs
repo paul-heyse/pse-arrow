@@ -76,9 +76,17 @@ pub(super) fn install(context: &mut Context) {
         ffi::SUNLinSol_KLUSetObserver(context.klu, Some(phase), std::ptr::from_mut(context).cast())
     };
     context.klu_observer_installed = status == 0;
+    if status == 0
+        && let Some(producer) = &context.klu_producer
+    {
+        producer.activate_record_family("native_linear_work.v1");
+    }
     if status != 0
         && let Some(producer) = &context.klu_producer
     {
+        producer
+            .context()
+            .record_source_unavailable("native_linear_work.v1");
         producer
             .context()
             .unavailable("kinsol.klu.phase", "native observer registration refused");

@@ -1027,6 +1027,15 @@ async fn advanced_step_matches_full_resolve() {
         predictions: vec![("x0".into(), "x[0.25{s}]".into())],
     }))
     .await;
+    crate::workflow::review_qualification_tests::assert_review_transport(
+        &advanced,
+        &[
+            ("/horizon/constructor", "replay-horizon-constructor.v2"),
+            ("/horizon/plant/context", "scientific-coordinates.v1"),
+            ("/horizon/provenance", "horizon-provenance.v1"),
+        ],
+    )
+    .await;
     let decisions = matches_full_resolve(&advanced, &full);
     assert_eq!(decisions[0], HorizonDecision::Solved);
     let predicted = decisions

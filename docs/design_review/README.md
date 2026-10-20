@@ -15,6 +15,16 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
+The [pipeline diagnostics and offline review-artifact review](reviews/design_review_pipeline-diagnostics-and-review-artifacts_2026-10-18.md)
+assesses deeper causal diagnostics after Plan46, targeted CLI analysis and externally
+shareable offline review packs. Its [supporting inquiries and passive-reader control](evidence/pipeline-diagnostics-and-review-artifacts-2026-10-18/README.md)
+distinguish existing native capabilities, proposed extensions and frozen-reading limits.
+[Plan47](../plans/47-pipeline-diagnostics-and-review-artifacts.md) owns the adopted findings,
+accepted RC01–RC03, diagnostic recommendations and bounded investigations. Its checkpoint
+and companion Outcomes record completed implementation, composed acceptance and retained
+support limits; [47f](../plans/47f-qualification-and-design-publication.md#outcome) owns final
+qualification. The review retains its original observation scope.
+
 The [post-Plan44 optimization review](reviews/design_review_post-plan44-pipeline-optimization_2026-10-18.md)
 combines in-depth short-case interpretation, current source and exact-release library research,
 public local controls, a disposable evidence-join prototype and independent assessment.

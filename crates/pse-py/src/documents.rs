@@ -162,6 +162,9 @@ impl DocumentType for pse_runtime::inspection_comparison::ComparisonPolicy {
     const NAME: &'static str = "ComparisonPolicy";
 }
 
+impl DocumentType for pse_runtime::invocation::InvocationEvidence {
+    const NAME: &'static str = "InvocationEvidenceDocument";
+}
 impl DocumentType for pse_runtime::invocation::InvocationEvidenceDocument {
     const NAME: &'static str = "InvocationEvidenceDocument";
 }
@@ -278,4 +281,213 @@ impl<T: serde::de::DeserializeOwned + DocumentType> FromPyObject<'_, '_> for Doc
         let bytes = encoded.cast::<PyBytes>()?;
         decode(py, T::NAME, bytes.as_bytes(), 1 << 20).map(Self)
     }
+}
+
+/// Version-first factual ingress, with no runtime/admitted-owner deserialization.
+pub(crate) trait RecordedDocument: DocumentType + serde::de::DeserializeOwned {
+    const VERSION: u32;
+    fn validate_recorded(&self) -> Result<(), pse_runtime::observation::ObservationError> {
+        Ok(())
+    }
+}
+pub(crate) struct RecordedInput<T>(pub(crate) T);
+impl<T: RecordedDocument> FromPyObject<'_, '_> for RecordedInput<T> {
+    type Error = PyErr;
+    const INPUT_TYPE: pyo3::inspect::PyStaticExpr =
+        pyo3::type_hint_identifier!("pse.contracts.documents", T::NAME);
+    fn extract(value: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
+        let py = value.py();
+        let target = py.import("pse.contracts.documents")?.getattr(T::NAME)?;
+        if !value.is_instance(&target)? {
+            return Err(pyo3::exceptions::PyTypeError::new_err(format!(
+                "expected {} document",
+                T::NAME
+            )));
+        }
+        let encoded = py
+            .import("pse.codec")?
+            .call_method1("encode_json", (value,))?;
+        let bytes = encoded.cast::<PyBytes>()?;
+        let bytes = bytes.as_bytes();
+        if bytes.len() > pse_runtime::frozen_inspection::MAXIMUM_DOCUMENT_BYTES {
+            return Err(crate::workflow::invalid(py, "recorded document extent"));
+        }
+        #[derive(serde::Deserialize)]
+        struct Header {
+            version: u32,
+        }
+        let header: Header = decode(
+            py,
+            T::NAME,
+            bytes,
+            pse_runtime::frozen_inspection::MAXIMUM_DOCUMENT_BYTES,
+        )?;
+        if header.version != T::VERSION {
+            return Err(crate::workflow::invalid(
+                py,
+                format!("unsupported {} version {}", T::NAME, header.version),
+            ));
+        }
+        let document: T = decode(
+            py,
+            T::NAME,
+            bytes,
+            pse_runtime::frozen_inspection::MAXIMUM_DOCUMENT_BYTES,
+        )?;
+        document
+            .validate_recorded()
+            .map_err(|error| crate::inspection::errors::diagnostic(py, &error))?;
+        Ok(Self(document))
+    }
+}
+impl DocumentType for pse_runtime::frozen_inspection::FrozenEvidenceSet {
+    const NAME: &'static str = "FrozenEvidenceSet";
+}
+impl RecordedDocument for pse_runtime::frozen_inspection::FrozenEvidenceSet {
+    const VERSION: u32 = 2;
+    fn validate_recorded(&self) -> Result<(), pse_runtime::observation::ObservationError> {
+        self.validate()
+    }
+}
+impl DocumentType for pse_runtime::frozen_inspection::FrozenInspectionRequest {
+    const NAME: &'static str = "FrozenInspectionRequest";
+}
+impl RecordedDocument for pse_runtime::frozen_inspection::FrozenInspectionRequest {
+    const VERSION: u32 = 1;
+}
+impl DocumentType for pse_runtime::frozen_inspection::FrozenInspectionDocument {
+    const NAME: &'static str = "FrozenInspectionDocument";
+}
+impl RecordedDocument for pse_runtime::frozen_inspection::FrozenInspectionDocument {
+    const VERSION: u32 = 1;
+}
+impl DocumentType for pse_runtime::workflow::ReviewContextDocument {
+    const NAME: &'static str = "ReviewContextDocument";
+}
+impl RecordedDocument for pse_runtime::workflow::ReviewContextDocument {
+    const VERSION: u32 = 1;
+}
+impl DocumentType for pse_runtime::workflow::ReviewContextRequest {
+    const NAME: &'static str = "ReviewContextRequest";
+}
+impl DocumentType for pse_runtime::workflow::ReviewInventoryRequest {
+    const NAME: &'static str = "ReviewInventoryRequest";
+}
+impl DocumentType for pse_runtime::workflow::ReviewInventorySelection {
+    const NAME: &'static str = "ReviewInventorySelection";
+}
+impl RecordedDocument for pse_runtime::workflow::ReviewInventorySelection {
+    const VERSION: u32 = 1;
+}
+impl DocumentType for pse_runtime::workflow::ReviewInventoryPage {
+    const NAME: &'static str = "ReviewInventoryPage";
+}
+impl RecordedDocument for pse_runtime::workflow::ReviewInventoryPage {
+    const VERSION: u32 = 1;
+}
+impl RecordedDocument for pse_runtime::invocation::InvocationEvidenceDocument {
+    const VERSION: u32 = 2;
+    fn validate_recorded(&self) -> Result<(), pse_runtime::observation::ObservationError> {
+        self.validate()
+    }
+}
+
+impl DocumentType for pse_runtime::review_analysis::AnalysisRequest {
+    const NAME: &'static str = "AnalysisRequest";
+}
+impl RecordedDocument for pse_runtime::review_analysis::AnalysisRequest {
+    const VERSION: u32 = 2;
+}
+
+impl DocumentType for pse_runtime::review_analysis::AnalysisDocument {
+    const NAME: &'static str = "AnalysisDocument";
+}
+impl RecordedDocument for pse_runtime::review_analysis::AnalysisDocument {
+    const VERSION: u32 = 2;
+    fn validate_recorded(&self) -> Result<(), pse_runtime::observation::ObservationError> {
+        self.validate()
+    }
+}
+
+impl DocumentType for pse_runtime::review_pack::PackSelection {
+    const NAME: &'static str = "PackSelection";
+}
+impl RecordedDocument for pse_runtime::review_pack::PackSelection {
+    const VERSION: u32 = 2;
+}
+
+impl DocumentType for pse_runtime::review_pack::PackIndex {
+    const NAME: &'static str = "PackIndex";
+}
+impl RecordedDocument for pse_runtime::review_pack::PackIndex {
+    const VERSION: u32 = 2;
+}
+
+impl DocumentType for pse_runtime::review_query::ReviewQueryRequest {
+    const NAME: &'static str = "ReviewQueryRequest";
+}
+impl RecordedDocument for pse_runtime::review_query::ReviewQueryRequest {
+    const VERSION: u32 = 1;
+}
+
+impl DocumentType for pse_runtime::review_query::ReviewQueryDocument {
+    const NAME: &'static str = "ReviewQueryDocument";
+}
+impl RecordedDocument for pse_runtime::review_query::ReviewQueryDocument {
+    const VERSION: u32 = 1;
+}
+
+impl DocumentType for pse_runtime::review_query::ReviewQuerySpecification {
+    const NAME: &'static str = "ReviewQuerySpecification";
+}
+impl RecordedDocument for pse_runtime::review_query::ReviewQuerySpecification {
+    const VERSION: u32 = 1;
+}
+
+impl DocumentType for pse_runtime::capture::SourceRecordingRequest {
+    const NAME: &'static str = "SourceRecordingRequest";
+}
+impl RecordedDocument for pse_runtime::capture::SourceRecordingRequest {
+    const VERSION: u32 = 2;
+}
+
+impl DocumentType for pse_runtime::capture::SourceRecordingAcknowledgement {
+    const NAME: &'static str = "SourceRecordingAcknowledgement";
+}
+impl RecordedDocument for pse_runtime::capture::SourceRecordingAcknowledgement {
+    const VERSION: u32 = 2;
+}
+
+impl DocumentType for pse_runtime::review_pack::PackExportRequest {
+    const NAME: &'static str = "PackExportRequest";
+}
+impl RecordedDocument for pse_runtime::review_pack::PackExportRequest {
+    const VERSION: u32 = 2;
+}
+
+impl DocumentType for pse_runtime::workflow::DiagnosticExecutionRequest {
+    const NAME: &'static str = "DiagnosticExecutionRequest";
+}
+impl RecordedDocument for pse_runtime::workflow::DiagnosticExecutionRequest {
+    const VERSION: u32 = 1;
+}
+impl DocumentType for pse_runtime::workflow::DiagnosticExecutionDocument {
+    const NAME: &'static str = "DiagnosticExecutionDocument";
+}
+
+impl DocumentType for pse_runtime::review_query::ReviewTableRequest {
+    const NAME: &'static str = "ReviewTableRequest";
+}
+impl RecordedDocument for pse_runtime::review_query::ReviewTableRequest {
+    const VERSION: u32 = 1;
+}
+
+impl DocumentType for pse_runtime::review_analysis::Analysis {
+    const NAME: &'static str = "AnalysisDocument";
+}
+impl DocumentType for pse_runtime::capture::ReviewHandoffReceipt {
+    const NAME: &'static str = "ReviewHandoffReceipt";
+}
+impl RecordedDocument for pse_runtime::capture::ReviewHandoffReceipt {
+    const VERSION: u32 = 1;
 }

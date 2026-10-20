@@ -113,7 +113,10 @@ fn build(
         owners: Vec::new(),
         configuration_owner: None,
         requires_fresh: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-        trace: Arc::new(super::trace::ExecutionTrace::new(&pool)),
+        trace: Arc::new(super::trace::ExecutionTrace::new(
+            &pool,
+            super::assurance::ObservationPolicy::from_state(&factory.state),
+        )),
         registry,
         bindings,
         policies: Arc::clone(&factory.policies),

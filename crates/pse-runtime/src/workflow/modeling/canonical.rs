@@ -2359,6 +2359,27 @@ impl ModelingPackage {
     }
 }
 
+/// A bounded counting sink; retained Arrow buffers are borrowed by StreamWriter.
+struct ReviewSourceIpcExtent {
+    written: usize,
+    limit: usize,
+}
+impl std::io::Write for ReviewSourceIpcExtent {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.written = self
+            .written
+            .checked_add(bytes.len())
+            .filter(|total| *total <= self.limit)
+            .ok_or_else(|| {
+                std::io::Error::other("selected review physical source exceeds finite allocation")
+            })?;
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 impl ModelingPackage {
     pub(in crate::workflow) fn replay_source_extent(&self) -> usize {
         let providers = self
@@ -2393,6 +2414,98 @@ impl ModelingPackage {
             .saturating_mul(16)
             .saturating_add(providers)
             .saturating_add(65536)
+    }
+    /// Bound only descriptive fields before cloning them. Admitted parse trees,
+    /// typed inventories, physical registries and runtime owners are not exported.
+    pub(in crate::workflow) fn review_source_extent(
+        &self,
+        maximum_bytes: usize,
+    ) -> Result<usize, WorkflowError> {
+        use datafusion::arrow::ipc::writer::StreamWriter;
+        let mut extent = 1024_usize;
+        {
+            let mut add = |bytes: usize| -> Result<(), WorkflowError> {
+                extent = extent
+                    .checked_add(bytes)
+                    .filter(|total| *total <= maximum_bytes)
+                    .ok_or_else(|| contract("selected review source exceeds finite allocation"))?;
+                Ok(())
+            };
+            for object in self.revision.admitted.objects.values() {
+                // JSON text may escape every byte as six ASCII bytes; a byte-array
+                // element needs at most three digits plus a delimiter. Fixed headers
+                // also cover owned String/Vec/reference metadata in the copied object.
+                let strings = [
+                    &object.logical,
+                    &object.scope,
+                    &object.name,
+                    &object.version,
+                    &object.kind,
+                ]
+                .into_iter()
+                .fold(0_usize, |bytes, value| bytes.saturating_add(value.len()));
+                add(512_usize
+                    .saturating_add(strings.saturating_mul(6))
+                    .saturating_add(object.payload.len().saturating_mul(4)))?;
+                for (scope, name) in &object.references {
+                    add(128_usize
+                        .saturating_add(scope.len().saturating_add(name.len()).saturating_mul(6)))?;
+                }
+            }
+            for (name, provider) in self.providers.iter() {
+                let spec = provider.spec();
+                add(1024_usize
+                    .saturating_add(name.len().saturating_mul(6))
+                    .saturating_add(
+                        spec.inputs
+                            .len()
+                            .saturating_add(spec.outputs.len())
+                            .saturating_mul(256),
+                    ))?;
+                for shape in spec.shapes.inputs.iter().chain(&spec.shapes.outputs) {
+                    add(512_usize.saturating_add(
+                        shape
+                            .axes
+                            .len()
+                            .saturating_add(shape.cells.len())
+                            .saturating_mul(64),
+                    ))?;
+                    for coordinates in &shape.coordinates {
+                        add(128_usize.saturating_add(coordinates.len().saturating_mul(64)))?;
+                    }
+                }
+            }
+        }
+        // Count the original IPC stream without allocating a Vec of encoded data.
+        // StreamWriter forwards the admitted arrays to this finite sink; no source
+        // reconstruction, numerical preparation or provider callback is involved.
+        for batch in self.physical.sources.values() {
+            let remaining = maximum_bytes
+                .checked_sub(extent)
+                .and_then(|bytes| bytes.checked_sub(128))
+                .ok_or_else(|| contract("selected review source exceeds finite allocation"))?;
+            let mut sink = ReviewSourceIpcExtent {
+                written: 0,
+                limit: remaining / 4,
+            };
+            {
+                let mut writer = StreamWriter::try_new(&mut sink, &batch.batch().schema())
+                    .map_err(|error| contract(format!("review physical source extent: {error}")))?;
+                writer
+                    .write(batch.batch())
+                    .map_err(|error| contract(format!("review physical source extent: {error}")))?;
+                writer
+                    .finish()
+                    .map_err(|error| contract(format!("review physical source extent: {error}")))?;
+            }
+            extent = extent
+                .checked_add(128 + sink.written * 4)
+                .ok_or_else(|| contract("selected review source extent overflow"))?;
+        }
+        if extent > maximum_bytes {
+            return Err(contract("selected review source exceeds finite allocation"));
+        }
+        Ok(extent)
     }
     /// Record retained immutable object edits in the receiving canonical store.
     pub(in crate::workflow) async fn record_study_source(
@@ -2508,12 +2621,15 @@ impl ModelingPackage {
         })
     }
 
-    /// Export owned immutable inputs; physical sources are actual admitted bytes.
-    pub(in crate::workflow) fn replay_source(
+    /// Export retained source facts without querying executable factory configuration.
+    pub(in crate::workflow) fn review_source(
         &self,
-    ) -> Result<crate::workflow::replay::ReplaySourceDocument, WorkflowError> {
-        use crate::workflow::replay::{ReplayProvider, ReplaySourceDocument, ReplaySourceObject};
-        Ok(ReplaySourceDocument {
+    ) -> Result<crate::workflow::review_context::ReviewSourceDocument, WorkflowError> {
+        use crate::workflow::{
+            replay::ReplaySourceObject,
+            review_context::{ReviewProviderDescriptor, ReviewSourceDocument},
+        };
+        Ok(ReviewSourceDocument {
             identity: self.revision.identity().as_id(),
             interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
             build: pse_backend_native::execution::LINKED.build_identity(),
@@ -2522,7 +2638,7 @@ impl ModelingPackage {
             providers: self
                 .providers
                 .iter()
-                .map(|(name, provider)| ReplayProvider::new(name, provider))
+                .map(|(name, provider)| ReviewProviderDescriptor::new(name, provider))
                 .collect(),
             objects: self
                 .revision
@@ -2538,6 +2654,26 @@ impl ModelingPackage {
                     payload: object.payload.clone(),
                     references: object.references.clone(),
                 })
+                .collect(),
+        })
+    }
+    /// Replay adds its stronger actual factory configuration premise to the shared source facts.
+    pub(in crate::workflow) fn replay_source(
+        &self,
+    ) -> Result<crate::workflow::replay::ReplaySourceDocument, WorkflowError> {
+        use crate::workflow::replay::{ReplayProvider, ReplaySourceDocument};
+        let source = self.review_source()?;
+        Ok(ReplaySourceDocument {
+            identity: source.identity,
+            interpretation: source.interpretation,
+            build: source.build,
+            physical_identity: source.physical_identity,
+            physical_sources: source.physical_sources,
+            objects: source.objects,
+            providers: self
+                .providers
+                .iter()
+                .map(|(name, provider)| ReplayProvider::new(name, provider))
                 .collect(),
         })
     }
@@ -3774,5 +3910,89 @@ mod plan39_selection_tests {
             })
             .await
             .unwrap();
+    }
+}
+
+#[cfg(test)]
+mod review_source_extent_tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn physical_source_extent_sink_refuses_before_crossing_its_bound() {
+        let mut sink = ReviewSourceIpcExtent {
+            written: 0,
+            limit: 3,
+        };
+        sink.write_all(&[1, 2, 3]).unwrap();
+        assert_eq!(sink.written, 3);
+        assert!(sink.write_all(&[4]).is_err());
+        assert_eq!(sink.written, 3);
+    }
+
+    #[test]
+    fn physical_source_extent_counts_original_ipc_and_refuses_a_short_allowance() {
+        use datafusion::arrow::{
+            array::{ArrayRef, Int32Array},
+            datatypes::{DataType, Field, Schema},
+            ipc::writer::StreamWriter,
+            record_batch::RecordBatch,
+        };
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "original",
+            DataType::Int32,
+            false,
+        )]));
+        let values: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3]));
+        let batch = RecordBatch::try_new(schema.clone(), vec![values]).unwrap();
+        let mut actual = Vec::new();
+        {
+            let mut writer = StreamWriter::try_new(&mut actual, &schema).unwrap();
+            writer.write(&batch).unwrap();
+            writer.finish().unwrap();
+        }
+        let mut sink = ReviewSourceIpcExtent {
+            written: 0,
+            limit: actual.len(),
+        };
+        {
+            let mut writer = StreamWriter::try_new(&mut sink, &schema).unwrap();
+            writer.write(&batch).unwrap();
+            writer.finish().unwrap();
+        }
+        assert_eq!(sink.written, actual.len());
+        let mut short = ReviewSourceIpcExtent {
+            written: 0,
+            limit: actual.len() - 1,
+        };
+        let mut writer = StreamWriter::try_new(&mut short, &schema).unwrap();
+        writer.write(&batch).unwrap();
+        assert!(writer.finish().is_err());
+    }
+
+    #[tokio::test]
+    async fn descriptive_source_extent_bounds_actual_bytes_without_runtime_inventory() {
+        let runtime = crate::workflow::tests::runtime();
+        let rows = pse_authoring::language::parse(
+            "package review { def Root { var x:Scalar; eq balance:x==3; } }",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let extent = package.review_source_extent(16 << 20).unwrap();
+        let source = package.review_source().unwrap();
+        assert!(serde_json::to_vec(&source).unwrap().len() <= extent);
+        assert!(package.review_source_extent(1).is_err());
+        let exact_bound = package.review_source_extent(extent).unwrap();
+        assert_eq!(exact_bound, extent);
+        assert!(package.review_source_extent(extent - 1).is_err());
+        // Broad replay admission owns parsed/typed/physical/runtime material that
+        // this descriptive source never clones into the review document.
+        assert!(extent < package.replay_source_extent());
     }
 }

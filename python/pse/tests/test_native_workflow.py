@@ -153,8 +153,9 @@ def test_runtime_startup_allows_python_thread_progress_inside_native_constructor
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize("context_selected", [False, True])
 def test_explicit_cone_strategy_preserves_native_qualification(
-    runtime: pse.Runtime, physical: pse.PhysicalContext
+    runtime: pse.Runtime, physical: pse.PhysicalContext, context_selected: bool
 ) -> None:
     def port(n: int) -> dict[str, str]:
         return {
@@ -193,8 +194,20 @@ def test_explicit_cone_strategy_preserves_native_qualification(
         settings,
     )
     assert [route.backend for route in prepared.routes] == ["clarabel"]
-    result = prepared.run()
+    result = prepared.run(
+        review_context=documents.ReviewContextRequest(
+            steps=(),
+            include_native_records=True,
+            include_sources=True,
+            maximum_bytes=16 * 1024 * 1024,
+        )
+        if context_selected
+        else None
+    )
     assert not result.failures()
+    if context_selected:
+        with pytest.raises(pse.InspectionError, match="context unavailable"):
+            result.review_context()
     events = codec.structure_rows(
         pa.table(result.strategy_events()).to_pylist(),
         result_contracts.RuntimeSolveStrategyEventsRow,

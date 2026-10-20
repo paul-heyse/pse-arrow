@@ -10,6 +10,11 @@
       "body_occurrences": 1048576,
       "functional_scopes": [
         "preparation"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "evaluator_census.v1",
+        "evaluator_demand.v1"
       ]
     },
     {
@@ -51,6 +56,11 @@
       "body_occurrences": 1048576,
       "functional_scopes": [
         "preparation"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "evaluator_census.v1",
+        "evaluator_demand.v1"
       ]
     },
     {
@@ -61,6 +71,11 @@
       "body_occurrences": 1048576,
       "functional_scopes": [
         "preparation"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "evaluator_census.v1",
+        "evaluator_demand.v1"
       ]
     },
     {
@@ -88,7 +103,11 @@
       "functional_scopes": [
         "preparation"
       ],
-      "audit_supported": true
+      "audit_supported": true,
+      "detail_families": [
+        "evaluator_census.v1",
+        "evaluator_demand.v1"
+      ]
     },
     {
       "id": "k4-retention-pressure",

@@ -42,6 +42,7 @@ pub(super) struct CaseObservation {
     overflow: PreparedFact,
     batch: DemandCounts,
     total: DemandCounts,
+    timing: Option<EvaluationTiming>,
 }
 impl CaseObservation {
     pub(super) fn new(context: &ObservationContext, assembly: &CaseAssembly) -> Option<Box<Self>> {
@@ -56,6 +57,13 @@ impl CaseObservation {
             }
             return None;
         };
+        for family in [
+            "evaluator_demand_batch.v1",
+            "evaluator_demand.v1",
+            "evaluator_census.v1",
+        ] {
+            producer.activate_record_family(family);
+        }
         let facts =
             std::array::from_fn(|index| producer.fact(COUNTERS[index], "calls", FactKind::Counter));
         let overflow = producer.fact("math.demand.overflowed", "predicate", FactKind::Gauge);
@@ -141,12 +149,29 @@ impl CaseObservation {
             overflow,
             batch: DemandCounts::default(),
             total: DemandCounts::default(),
+            timing: None,
         };
         result.publish_census(assembly);
         Some(Box::new(result))
     }
     pub(super) fn begin(&mut self) {
         self.batch = DemandCounts::default();
+        self.timing = self
+            .producer
+            .detail_selected("evaluator_demand_batch.v1")
+            .then(EvaluationTiming::default);
+    }
+    pub(super) fn evaluation_started(&self) -> Option<std::time::Instant> {
+        self.timing.as_ref().map(|_| std::time::Instant::now())
+    }
+    pub(super) fn evaluation_finished(
+        &mut self,
+        started: Option<std::time::Instant>,
+        completed: bool,
+    ) {
+        if let (Some(timing), Some(started)) = (&mut self.timing, started) {
+            timing.record(started.elapsed(), completed);
+        }
     }
     pub(super) fn phase(
         &self,
@@ -288,6 +313,9 @@ impl CaseObservation {
             ),
         ];
         fields.extend(counter_fields(&self.batch));
+        if let Some(timing) = &self.timing {
+            fields.extend(timing.fields());
+        }
         let record = self.producer.record(
             "evaluator_demand_batch.v1",
             "evaluation_return",
@@ -532,5 +560,85 @@ fn demand_name(demand: EvaluationDemand) -> &'static str {
         EvaluationDemand::Directional => "directional",
         EvaluationDemand::TransposeDirectional => "transpose_directional",
         EvaluationDemand::HessianAction => "hessian_action",
+    }
+}
+
+/// Selected successful actual evaluator invocations, excluding request cache/projection hits.
+/// Scope includes provider/implicit work and the final execution-scope check, not value binding.
+#[derive(Debug, Default)]
+struct EvaluationTiming {
+    completed: u64,
+    failed: u64,
+    completed_nanoseconds: u64,
+    failed_nanoseconds: u64,
+    overflow: bool,
+}
+impl EvaluationTiming {
+    fn record(&mut self, elapsed: std::time::Duration, completed: bool) {
+        let (count, nanos) = if completed {
+            (&mut self.completed, &mut self.completed_nanoseconds)
+        } else {
+            (&mut self.failed, &mut self.failed_nanoseconds)
+        };
+        match (
+            count.checked_add(1),
+            u64::try_from(elapsed.as_nanos())
+                .ok()
+                .and_then(|elapsed| nanos.checked_add(elapsed)),
+        ) {
+            (Some(next_count), Some(next_nanos)) => {
+                *count = next_count;
+                *nanos = next_nanos;
+            }
+            _ => self.overflow = true,
+        }
+    }
+    fn fields(&self) -> Vec<RecordField> {
+        let mut fields = [
+            ("actual_evaluations_completed", "calls", self.completed),
+            ("actual_evaluations_failed", "calls", self.failed),
+            (
+                "actual_evaluations_completed_nanoseconds",
+                "nanoseconds",
+                self.completed_nanoseconds,
+            ),
+            (
+                "actual_evaluations_failed_nanoseconds",
+                "nanoseconds",
+                self.failed_nanoseconds,
+            ),
+        ]
+        .into_iter()
+        .map(|(name, unit, value)| {
+            field(
+                name,
+                unit,
+                if self.overflow {
+                    Value::Overflow
+                } else {
+                    Value::Count(value)
+                },
+            )
+        })
+        .collect::<Vec<_>>();
+        fields.push(field("actual_evaluation_timing_scope","scope",Value::Text("inclusive actual local evaluator plus provider/implicit work and final execution-scope check; excludes input binding, cache/projection hits and assembly; successful and failed populations separate".into())));
+        fields
+    }
+}
+#[cfg(test)]
+mod selected_evaluator_timing_tests {
+    use super::*;
+    #[test]
+    fn selected_evaluator_timing_separates_completed_failed_and_overflow() {
+        let mut timing = EvaluationTiming::default();
+        timing.record(std::time::Duration::from_nanos(17), true);
+        timing.record(std::time::Duration::from_nanos(23), false);
+        let fields = timing.fields();
+        assert_eq!(fields[0].value, Value::Count(1));
+        assert_eq!(fields[1].value, Value::Count(1));
+        assert_eq!(fields[2].value, Value::Count(17));
+        assert_eq!(fields[3].value, Value::Count(23));
+        timing.record(std::time::Duration::MAX, true);
+        assert!(matches!(timing.fields()[0].value, Value::Overflow));
     }
 }

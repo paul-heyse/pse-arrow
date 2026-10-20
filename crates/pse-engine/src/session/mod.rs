@@ -58,8 +58,10 @@ pub mod round;
 mod schema_transform;
 mod semantic_extent;
 mod trace;
+pub use trace::CopiedExecutionObservations;
 mod traversal;
 pub use observation::{
+    CopiedExecutionSnapshot, CopiedExecutionStatus, CopiedObservationPolicy, CopiedPlanObservation,
     ExecutionSnapshot, LiveExecutionSnapshot, MetricKind, MetricUnit, ObservedMetric,
     PlanObservation,
 };

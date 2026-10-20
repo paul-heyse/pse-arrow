@@ -6,7 +6,7 @@ use pse_model::diagnostic::Observation;
 use std::mem::{align_of, size_of};
 
 /// Actual submitted source-coordinate seed, distinct from an output or native checkpoint.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SubmittedStartRecord {
     /// Original predecessor attempt selection.
@@ -22,10 +22,10 @@ pub struct SubmittedStartRecord {
 }
 /// Native-owned compact attempt record; scientific workflow position belongs to its caller.
 /// No factor, actor, oracle, candidate or complete SolveReport is retained here.
-#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "NativeAttemptRecord")]
-pub struct AttemptRecord {
+pub struct NativeAttemptRecordDocument {
     /// Actual executed adapter.
     pub backend: Backend,
     /// Complete original variable correspondence recorded by the adapter's report.
@@ -33,13 +33,9 @@ pub struct AttemptRecord {
     /// Complete original row correspondence recorded by the adapter's report.
     pub rows: Vec<SemanticId>,
     /// Complete actual adapter options, separate from queried defaults.
-    #[serde(serialize_with = "super::serialize_option_observations")]
-    #[schemars(with = "BTreeMap<String, Observation>")]
-    pub options: Options,
+    pub options: BTreeMap<String, Observation>,
     /// Native defaults only when supplied by a getter.
-    #[serde(serialize_with = "super::serialize_option_observations")]
-    #[schemars(with = "BTreeMap<String, Observation>")]
-    pub native_defaults: Options,
+    pub native_defaults: BTreeMap<String, Observation>,
     /// Actual owner-emitted build/runtime/numerical provenance, without parsing.
     pub provenance: BTreeMap<String, String>,
     /// Actual native status and the adapter's conservative interpretation.
@@ -58,10 +54,43 @@ pub struct AttemptRecord {
     pub observations: Option<Arc<NativeObservations>>,
     /// Shared bounded raw map history, preserving omissions, failures and sample roles.
     pub raw_map: Option<Arc<RawMapHistory>>,
-    /// The caller's pre-admitted record allocation, retained through every Arc consumer.
+    // The actual shared allocation carries its admission for every Arc consumer.
+    // Offline decoding supplies owned bounded reader memory, never this live admission.
     #[serde(skip)]
     #[schemars(skip)]
+    _allocation: Option<Arc<dyn pse_math::AllocationOwner>>,
+}
+/// Admitted live owner of immutable native facts. File readback admits only its document.
+#[derive(Debug, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AttemptRecord {
+    #[serde(flatten)]
+    document: Arc<NativeAttemptRecordDocument>,
+    #[serde(skip)]
     _owner: Arc<dyn pse_math::AllocationOwner>,
+}
+impl schemars::JsonSchema for AttemptRecord {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        NativeAttemptRecordDocument::schema_name()
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        NativeAttemptRecordDocument::schema_id()
+    }
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        NativeAttemptRecordDocument::json_schema(generator)
+    }
+}
+impl std::ops::Deref for AttemptRecord {
+    type Target = NativeAttemptRecordDocument;
+    fn deref(&self) -> &Self::Target {
+        &self.document
+    }
+}
+impl AttemptRecord {
+    /// Shared factual document; no native handle or execution permission is present.
+    pub fn document(&self) -> Arc<NativeAttemptRecordDocument> {
+        self.document.clone()
+    }
 }
 
 struct Extent(usize);
@@ -95,7 +124,7 @@ impl Extent {
         self.add(length.checked_add(1)?.checked_mul(node)?)
     }
     fn options(&mut self, options: &Options) -> Option<()> {
-        self.tree::<String, OptionValue>(options.len())?;
+        self.tree::<String, Observation>(options.len())?;
         for (key, value) in options {
             self.add(key.capacity())?;
             if let OptionValue::Text(value) = value {
@@ -159,6 +188,7 @@ impl Extent {
     }
     fn report(&mut self, report: &SolveReport) -> Option<()> {
         self.arc::<AttemptRecord>()?;
+        self.arc::<NativeAttemptRecordDocument>()?;
         self.vector::<SemanticId>(report.variables.capacity())?;
         self.vector::<SemanticId>(report.rows.capacity())?;
         self.options(&report.options)?;
@@ -243,33 +273,36 @@ impl AttemptRecord {
     ) -> Result<Arc<Self>, ProblemError> {
         Self::retained_extent(report)?;
         Ok(Arc::new(Self {
-            backend: report.backend,
-            variables: report.variables.clone(),
-            rows: report.rows.clone(),
-            options: report.options.clone(),
-            native_defaults: report.native_defaults.clone(),
-            provenance: report.provenance.clone(),
-            termination: report.termination.clone(),
-            work: report.evidence.work,
-            abandoned: report.evidence.abandoned,
-            start_submitted: report.evidence.start_submitted,
-            reused_native_state: report.evidence.reused_native_state,
-            start: report
-                .start_receipt
-                .as_ref()
-                .map(|start| SubmittedStartRecord {
-                    previous_attempt: start.previous_attempt,
-                    seed: start.seed.as_ref().map(WarmStart::snapshot),
-                    sparse_seed: start.sparse_seed.as_ref().map(|seed| {
-                        seed.iter()
-                            .map(|(id, value)| (*id, value.to_bits()))
-                            .collect()
+            document: Arc::new(NativeAttemptRecordDocument {
+                backend: report.backend,
+                variables: report.variables.clone(),
+                rows: report.rows.clone(),
+                options: option_observations(&report.options),
+                native_defaults: option_observations(&report.native_defaults),
+                provenance: report.provenance.clone(),
+                termination: report.termination.clone(),
+                work: report.evidence.work,
+                abandoned: report.evidence.abandoned,
+                start_submitted: report.evidence.start_submitted,
+                reused_native_state: report.evidence.reused_native_state,
+                start: report
+                    .start_receipt
+                    .as_ref()
+                    .map(|start| SubmittedStartRecord {
+                        previous_attempt: start.previous_attempt,
+                        seed: start.seed.as_ref().map(WarmStart::snapshot),
+                        sparse_seed: start.sparse_seed.as_ref().map(|seed| {
+                            seed.iter()
+                                .map(|(id, value)| (*id, value.to_bits()))
+                                .collect()
+                        }),
+                        transformations: start.transformations.clone(),
+                        submitted: start.submitted,
                     }),
-                    transformations: start.transformations.clone(),
-                    submitted: start.submitted,
-                }),
-            observations: report.evidence.native_observations.clone(),
-            raw_map: report.evidence.raw_map.clone(),
+                observations: report.evidence.native_observations.clone(),
+                raw_map: report.evidence.raw_map.clone(),
+                _allocation: Some(owner.clone()),
+            }),
             _owner: owner,
         }))
     }
@@ -472,7 +505,20 @@ mod tests {
             raw.last_evaluation.as_ref().unwrap().failure,
             Some(RawMapFailure::Trial)
         ));
+        let document = retained.document();
+        let encoded = serde_json::to_vec(&document).unwrap();
         drop(retained);
+        assert!(
+            weak.upgrade().is_some(),
+            "escaped factual Arc must retain the real admission"
+        );
+        let decoded: NativeAttemptRecordDocument = serde_json::from_slice(&encoded).unwrap();
+        assert!(
+            decoded._allocation.is_none(),
+            "decoding cannot recreate live allocation authority"
+        );
+        assert_eq!(serde_json::to_vec(&decoded).unwrap(), encoded);
+        drop(document);
         assert!(weak.upgrade().is_none());
     }
 }

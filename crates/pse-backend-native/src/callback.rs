@@ -324,6 +324,7 @@ impl CallbackState {
             .map(|context| context.producer(role, "native.callback"))
             .filter(pse_diagnostics::observation::Producer::enabled);
         if let Some(producer) = &observation_producer {
+            producer.activate_record_family("callback_boundary.v1");
             producer
                 .fact(
                     "callback.work_owner",

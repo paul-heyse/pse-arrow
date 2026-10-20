@@ -1,5 +1,7 @@
 # Native and mathematics diagnostic capabilities
 
+Supporting inquiry for the [principal review](../../reviews/design_review_pipeline-diagnostics-and-review-artifacts_2026-10-18.md); the [evidence overview](README.md) records integration and execution limits.
+
 Source investigation for the pipeline diagnostics and offline review-artifact inquiry,
 2026-10-18. Baseline: coordinator-specified `e9d24396c` plus the existing working tree.
 This is bounded library evidence for Core 3.4 / process-simulator 1.5 review, not the

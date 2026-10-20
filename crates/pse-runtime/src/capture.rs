@@ -22,12 +22,23 @@ mod cpu;
 mod launch;
 pub use launch::{LaunchCaptureRequest, LaunchedCommand, launch_capture};
 mod detail;
+mod handoff;
+mod recording;
+pub use handoff::{
+    ReviewHandoffAcknowledgement, ReviewHandoffMember, ReviewHandoffReceipt, ReviewHandoffRequest,
+    ReviewHandoffState, read_review_handoff,
+};
+pub use recording::{
+    SOURCE_RECORDING_PROTOCOL_BYTES, SOURCE_RECORDING_REQUEST_ENV, SourceRecordingAcknowledgement,
+    SourceRecordingFamilyAcknowledgement, SourceRecordingRequest, SourceRecordingSession,
+    consume_source_recording_request, source_recording_from_environment, start_source_recording,
+};
 pub mod evidence;
 pub use detail::{
-    DetailDocument, DetailEnd, DetailFamilyCoverage, DetailOutcome, DetailRecordPage,
-    DetailRequest, DetailRequirement, DetailSession, claim_managed_detail_budget,
-    current_detail_request, mark_detail_scope_unavailable, read_detail_records,
-    read_detailed_collection, start_detailed_collection,
+    DetailDocument, DetailEnd, DetailFamilyActivation, DetailFamilyCoverage, DetailOutcome,
+    DetailRecordPage, DetailRequest, DetailRequirement, DetailSession, DetailSourceActivation,
+    claim_managed_detail_budget, current_detail_request, mark_detail_scope_unavailable,
+    read_detail_records, read_detailed_collection, start_detailed_collection,
 };
 mod layer;
 mod timeline;

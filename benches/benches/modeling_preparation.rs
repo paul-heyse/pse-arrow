@@ -43,6 +43,7 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
+    sync::atomic::{AtomicU64, Ordering},
     time::{Duration, Instant},
 };
 use workflow_runtime::WorkflowRuntime;
@@ -85,6 +86,66 @@ fn package_documents(root: &Path) -> BTreeMap<String, Vec<u8>> {
     documents
 }
 
+// These are copied input bytes at the actual loader boundary, never workflow context.
+static INPUT_GROUPS: AtomicU64 = AtomicU64::new(0);
+static INPUT_MEMBERS: AtomicU64 = AtomicU64::new(0);
+static INPUT_BYTES: AtomicU64 = AtomicU64::new(0);
+fn retain_preparation_inputs(label: &str, documents: &BTreeMap<String, Vec<u8>>) {
+    if audit::review_context_request().is_none() {
+        return;
+    }
+    let Some(directory) = std::env::var_os("PSE_CASE_AUDIT_DIR").map(PathBuf::from) else {
+        return;
+    };
+    let sequence = INPUT_GROUPS.fetch_add(1, Ordering::Relaxed);
+    let directory = directory
+        .join("preparation-originals")
+        .join(format!("input-{sequence:03}"));
+    let outcome = (|| -> Result<(), String> {
+        use std::io::Write;
+        std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+        let mut members = Vec::new();
+        for (name, bytes) in documents {
+            let member = INPUT_MEMBERS.fetch_add(1, Ordering::Relaxed);
+            if member >= 256
+                || INPUT_BYTES
+                    .try_update(Ordering::AcqRel, Ordering::Acquire, |used| {
+                        used.checked_add(bytes.len() as u64)
+                            .filter(|total| *total <= 256 << 20)
+                    })
+                    .is_err()
+            {
+                return Err("preparation input retention exceeded 256 members or 256 MiB".into());
+            }
+            let retained = format!("source-{member:03}.bin");
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(directory.join(&retained))
+                .map_err(|error| error.to_string())?;
+            file.write_all(bytes)
+                .and_then(|()| file.flush())
+                .map_err(|error| error.to_string())?;
+            members.push(json!({"path":retained,"source_path":name,"bytes":bytes.len()}));
+            // Publish each fully flushed prefix so a later refusal does not hide earlier input.
+            let index = json!({"version":1,"source":label,"members":members,
+                "workflow_context":{"status":"unsupported","reason":"source-only preparation has no workflow RunResult or public context adapter"}});
+            let pending = directory.join("inputs.json.pending");
+            std::fs::write(
+                &pending,
+                serde_json::to_vec_pretty(&index).map_err(|error| error.to_string())?,
+            )
+            .map_err(|error| error.to_string())?;
+            std::fs::rename(pending, directory.join("inputs.json"))
+                .map_err(|error| error.to_string())?;
+        }
+        Ok(())
+    })();
+    if let Err(error) = outcome {
+        audit::review_context_error(error);
+    }
+}
+
 /// The seed reference closure, loaded through the declared package document paths, with the
 /// bench package from its authored texts.
 async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> ModelingPackage {
@@ -98,8 +159,10 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
         let mut bundles = names
             .iter()
             .map(|name| {
+                let original = package_documents(&root.join(name));
+                retain_preparation_inputs(name, &original);
                 load_package_documents_owned(
-                    &package_documents(&root.join(name)),
+                    &original,
                     owner.model.registry(),
                     Default::default(),
                     &pool,
@@ -110,12 +173,14 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
         if let Some(texts) = bench {
+            let original = texts
+                .iter()
+                .map(|(path, text)| (path.clone(), text.as_bytes().to_vec()))
+                .collect();
+            retain_preparation_inputs("authored-benchmark", &original);
             bundles.push(
                 load_package_documents_owned(
-                    &texts
-                        .iter()
-                        .map(|(path, text)| (path.clone(), text.as_bytes().to_vec()))
-                        .collect(),
+                    &original,
                     owner.model.registry(),
                     Default::default(),
                     &pool,
@@ -179,8 +244,11 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
 /// Ordered membership of the published bank, read from its authored set declaration.
 fn bank_members(owner: &WorkflowRuntime) -> Vec<String> {
     use pse_authoring::language::{StaticValue, parse_static};
+    let original =
+        package_documents(&repository().join("packages/reference/data/gross-sadowski-2001"));
+    retain_preparation_inputs("data/gross-sadowski-2001-bank", &original);
     let bundle = pse_admission::authoring_driver::document::load_package_documents_owned(
-        &package_documents(&repository().join("packages/reference/data/gross-sadowski-2001")),
+        &original,
         owner.model.registry(),
         Default::default(),
         &owner.runtime.pool(),
@@ -350,7 +418,9 @@ async fn prepare(
         body_occurrences: workload["body_occurrences"].as_u64().map(|v| v as usize),
         ..Default::default()
     };
-    let cancel = CancelSource::new();
+    let _audit_stage = audit::stage(&format!("preparation_{stage}"));
+    audit::checkpoint();
+    let cancel = audit::cancel_source();
     owner.runtime.reset_observation_peak();
     phases.reset();
     let mut seconds = serde_json::Map::new();
@@ -447,6 +517,9 @@ async fn prepare(
         "experiment": "modeling_preparation",
         "id": workload["id"],
         "stage": stage,
+        "original_case":case,
+        "limits":limits,
+        "workflow_context":{"status":"unsupported","reason":"preparation admits and assembles programs without constructing a workflow RunResult"},
         "compiler_phases": phases.report(1),
         "preparations": preparation_counts,
         "workload": workload,
@@ -471,16 +544,25 @@ async fn prepare(
             });
         }
     }
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.text("audit.preparation_result", &record.to_string());
+    }
+    if audit::review_context_request().is_some() {
+        match serde_json::to_vec_pretty(&record) {
+            Ok(bytes) => retain_preparation_inputs(
+                "original-preparation-record",
+                &BTreeMap::from([(format!("{stage}.json"), bytes)]),
+            ),
+            Err(error) => audit::review_context_error(error),
+        }
+    }
+    audit::checkpoint();
     (elapsed, record)
 }
 
 fn preparation(c: &mut Criterion) {
     use tracing_subscriber::prelude::*;
     let phases = phases::Phases::default();
-    tracing_subscriber::registry()
-        .with(phases.clone())
-        .try_init()
-        .unwrap();
     let registered: Value = serde_json::from_str(
         &std::fs::read_to_string(repository().join(".config/preparation-cases.json")).unwrap(),
     )
@@ -493,6 +575,16 @@ fn preparation(c: &mut Criterion) {
             "unregistered preparation workload {id}"
         );
     }
+    let mut audit = selected
+        .as_deref()
+        .and_then(|id| workloads.iter().find(|workload| workload["id"] == id))
+        .map(|workload| audit::Audit::start(workload["id"].as_str().unwrap(), workload));
+    tracing_subscriber::registry()
+        .with(phases.clone())
+        .with(audit.as_ref().and_then(|audit| audit.capture_layer()))
+        .try_init()
+        .unwrap();
+    let _audit_context = audit.as_ref().and_then(|audit| audit.enter());
     // Criterion measures under `--bench`; otherwise it tests each function once, and only
     // the registered smoke workloads run unless one case is selected.
     let measuring = std::env::args().any(|a| a == "--bench");
@@ -502,10 +594,10 @@ fn preparation(c: &mut Criterion) {
         .and_then(|id| workloads.iter().find(|w| w["id"] == id))
         .filter(|w| w["model"] == "scalar-k4")
     {
-        let mut audit = audit::Audit::start(workload["id"].as_str().unwrap(), workload);
-        let _audit_context = audit.enter();
         k4_preparation::measure(c, workload, output.as_deref(), &phases);
-        audit.complete();
+        if let Some(audit) = &mut audit {
+            audit.complete();
+        }
         return;
     }
     let executor = tokio::runtime::Builder::new_multi_thread()
@@ -552,21 +644,26 @@ fn preparation(c: &mut Criterion) {
                     let owner =
                         WorkflowRuntime::with_threads(std::num::NonZeroUsize::new(1).unwrap())
                             .unwrap();
-                    let package = executor.block_on(seed(&owner, &bench));
-                    let case = executor.block_on(case(&package, workload));
-                    let mut stages = Vec::new();
-                    for stage in ["cold", "warm", "value", "structural"] {
-                        let (elapsed, record) = executor
-                            .block_on(prepare(&owner, &package, case, workload, stage, &phases));
-                        timed += elapsed;
-                        stages.push(record);
-                    }
+                    let stages = audit::with_owner_sync(&owner, &executor, || {
+                        let package = executor.block_on(audit::scope(seed(&owner, &bench)));
+                        let case = executor.block_on(audit::scope(case(&package, workload)));
+                        let mut stages = Vec::new();
+                        for stage in ["cold", "warm", "value", "structural"] {
+                            let (elapsed, record) = executor.block_on(audit::scope(prepare(
+                                &owner, &package, case, workload, stage, &phases,
+                            )));
+                            timed += elapsed;
+                            stages.push(record);
+                        }
+                        stages
+                    });
                     records.push(
                         json!({"experiment":"modeling_preparation", "id":id, "stages":stages}),
                     );
-                    drop(package);
                     // Teardown is outside every recorded preparation duration.
-                    executor.block_on(owner.cleanup_fixtures()).unwrap();
+                    let cleanup = executor.block_on(owner.cleanup_fixtures());
+                    audit::cleanup_result(cleanup.is_ok());
+                    cleanup.unwrap();
                 }
                 timed
             });
@@ -600,6 +697,9 @@ fn preparation(c: &mut Criterion) {
         }
     }
     group.finish();
+    if let Some(audit) = &mut audit {
+        audit.complete();
+    }
 }
 
 fn configuration() -> Criterion {

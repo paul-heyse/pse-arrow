@@ -4,7 +4,7 @@
 //! One invocation-owned projection of actual physical source bindings.
 
 mod documents;
-pub use documents::{PhysicalDocuments, PhysicalPackage};
+pub use documents::{PhysicalAdmissionReceipt, PhysicalDocuments, PhysicalPackage};
 mod plans;
 mod preconditions;
 

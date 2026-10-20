@@ -21,6 +21,7 @@ use std::collections::{BTreeMap, BTreeSet};
 /// Immutable original bindings plus a finite declared initialization strategy.
 #[derive(Clone, Debug)]
 pub struct PreparedInitializationStrategy {
+    pub(crate) review_source: ModelingPackage,
     pub(crate) runtime: Runtime,
     pub(crate) values: CaseValues,
     pub(crate) providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
@@ -28,6 +29,22 @@ pub struct PreparedInitializationStrategy {
     pub(crate) profile: InitializationProfile,
 }
 impl PreparedInitializationStrategy {
+    /// Copy an explicitly selected original initialization and its actual joined stages.
+    pub fn review_context(
+        &self,
+        request: &crate::workflow::ReviewContextRequest,
+        operation: Option<pse_diagnostics::observation::OperationId>,
+        report: &InitializationReport,
+    ) -> Result<crate::workflow::ReviewContext, WorkflowError> {
+        crate::workflow::review_context::initialization_context(
+            &self.runtime,
+            &self.review_source,
+            &self.profile,
+            request,
+            operation,
+            report,
+        )
+    }
     /// Predecessor-ordered conditional boundaries, inspected before execution.
     pub fn blocks(&self) -> &PreparedInitialization {
         &self.prepared
@@ -41,14 +58,30 @@ impl PreparedInitializationStrategy {
     }
     /// Execute with this revision's original values and provider bindings.
     pub fn start(&self) -> Result<SolveHandle<InitializationReport>, WorkflowError> {
+        self.start_with_operation().map(|(handle, _)| handle)
+    }
+    /// Start with the actual admitted observation identity, without retaining a new invocation.
+    pub fn start_with_operation(
+        &self,
+    ) -> Result<
+        (
+            SolveHandle<InitializationReport>,
+            Option<pse_diagnostics::observation::OperationId>,
+        ),
+        WorkflowError,
+    > {
         let activity = self.runtime.admit_activity()?;
         activity.sync_scope(|| {
-            Ok(self.runtime.native().initialize(
-                self.prepared.clone(),
-                self.values.clone(),
-                self.providers.clone(),
-                self.profile.clone(),
-            )?)
+            let operation = pse_diagnostics::observation::current().map(|context| context.id());
+            Ok((
+                self.runtime.native().initialize(
+                    self.prepared.clone(),
+                    self.values.clone(),
+                    self.providers.clone(),
+                    self.profile.clone(),
+                )?,
+                operation,
+            ))
         })
     }
 }
@@ -349,6 +382,7 @@ fn causal_preparation_error(error: WorkflowError) -> MathRuntimeError {
 /// Compiled immutable causal functions and the independently checked selected tear graph.
 #[derive(Clone, Debug)]
 pub struct PreparedRecycle {
+    review_source: ModelingPackage,
     runtime: Runtime,
     providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     _source: crate::math::modeling::ModelingCasePreparation,
@@ -372,6 +406,132 @@ pub struct PreparedRecycle {
     resident_foreign_bytes: usize,
 }
 impl PreparedRecycle {
+    /// Copy explicitly selected original request and joined outcomes without evaluation.
+    pub fn review_context(
+        &self,
+        request: &crate::workflow::ReviewContextRequest,
+        operation: Option<pse_diagnostics::observation::OperationId>,
+        report: &DeclaredRootReport,
+    ) -> Result<crate::workflow::ReviewContext, WorkflowError> {
+        use pse_model::{
+            generated::enums::{NumericalProvenanceField, NumericalSource, NumericalTarget},
+            numerics::{
+                EngineeringContext, NumericalPolicy, NumericalProvenance, ResolvedNumericalPolicy,
+                ResolvedTarget,
+            },
+        };
+        // Borrow each selected target/provenance while serializing. The existing
+        // resolved owner is intentionally not given a general serialization API.
+        #[derive(serde::Serialize)]
+        struct Numerics<'a> {
+            policy: &'a NumericalPolicy,
+            key: pse_ids::ContentHash,
+            targets: Targets<'a>,
+        }
+        struct Targets<'a>(&'a [ResolvedTarget]);
+        #[derive(serde::Serialize)]
+        struct Target<'a> {
+            id: SemanticId,
+            kind: NumericalTarget,
+            quantity: SemanticId,
+            unit: SemanticId,
+            nominal: f64,
+            coordinate_scale: f64,
+            required_scale: bool,
+            absolute: f64,
+            relative: f64,
+            budget: f64,
+            engineering: &'a Option<EngineeringContext>,
+            provenance: Provenance<'a>,
+        }
+        struct Provenance<'a>(&'a [NumericalProvenance]);
+        #[derive(serde::Serialize)]
+        struct Origin<'a> {
+            declaration: Option<SemanticId>,
+            source: NumericalSource,
+            field: NumericalProvenanceField,
+            selected: bool,
+            value: f64,
+            description: &'a str,
+        }
+        impl serde::Serialize for Targets<'_> {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                serializer.collect_seq(self.0.iter().map(|target| Target {
+                    id: target.id,
+                    kind: target.kind,
+                    quantity: target.quantity,
+                    unit: target.unit,
+                    nominal: target.nominal,
+                    coordinate_scale: target.coordinate_scale,
+                    required_scale: target.required_scale,
+                    absolute: target.absolute,
+                    relative: target.relative,
+                    budget: target.budget,
+                    engineering: &target.engineering,
+                    provenance: Provenance(&target.provenance),
+                }))
+            }
+        }
+        impl serde::Serialize for Provenance<'_> {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                serializer.collect_seq(self.0.iter().map(|origin| Origin {
+                    declaration: origin.declaration,
+                    source: origin.source,
+                    field: origin.field,
+                    selected: origin.selected,
+                    value: origin.value,
+                    description: &origin.description,
+                }))
+            }
+        }
+        fn numerics(policy: &ResolvedNumericalPolicy) -> Numerics<'_> {
+            Numerics {
+                policy: &policy.policy,
+                key: policy.key,
+                targets: Targets(&policy.targets),
+            }
+        }
+        #[derive(serde::Serialize)]
+        struct Settings<'a> {
+            controls: &'a Controls,
+            method: kinsol::Method,
+            variable_scales: &'a [f64],
+            residual_scales: &'a [f64],
+            step_tolerance: f64,
+            original_numerics: Numerics<'a>,
+            profile: pse_ids::ContentHash,
+            accuracy: &'a ResolvedAccuracy,
+            variable_tolerances: &'a [f64],
+            row_tolerances: &'a [f64],
+            integrality_tolerance: f64,
+            numerics: Numerics<'a>,
+        }
+        let settings = Settings {
+            controls: &self.controls,
+            method: self.settings.method,
+            variable_scales: &self.settings.variable_scales,
+            residual_scales: &self.settings.residual_scales,
+            step_tolerance: self.settings.step_tolerance,
+            original_numerics: numerics(&self.original_numerics),
+            profile: self.profile_key,
+            accuracy: &self.accuracy,
+            variable_tolerances: &self.tolerances.variables,
+            row_tolerances: &self.tolerances.rows,
+            integrality_tolerance: self.tolerances.integrality,
+            numerics: numerics(&self.numerics),
+        };
+        crate::workflow::review_context::recycle_context(
+            &self.runtime,
+            &self.review_source,
+            &self.request,
+            &self.initial,
+            &self.fixed,
+            &settings,
+            request,
+            operation,
+            report,
+        )
+    }
     /// Source-owned numerical magnitudes projected onto selected tear coordinates.
     pub fn numerics(&self) -> &pse_model::numerics::ResolvedNumericalPolicy {
         &self.numerics
@@ -476,28 +636,44 @@ impl PreparedRecycle {
     }
     /// Execute only the explicitly requested map strategy; no automatic fallback follows failure.
     pub fn start(&self) -> Result<SolveHandle<DeclaredRootReport>, WorkflowError> {
+        self.start_with_operation().map(|(handle, _)| handle)
+    }
+    /// Start with the actual admitted observation identity; no synthetic run is constructed.
+    pub fn start_with_operation(
+        &self,
+    ) -> Result<
+        (
+            SolveHandle<DeclaredRootReport>,
+            Option<pse_diagnostics::observation::OperationId>,
+        ),
+        WorkflowError,
+    > {
         let activity = self.runtime.admit_activity()?;
         activity.sync_scope(|| {
             let factory_bytes = self.factory_allocation_bound()?;
             let prepared = self.clone();
             let candidate = Arc::new(std::sync::Mutex::new(None));
             let observed = candidate.clone();
-            Ok(self.runtime.native().solve_declared_root(
-                self.contract.clone(),
-                self.initial.clone(),
-                self.settings.clone(),
-                self.restarts.clone(),
-                self.controls.clone(),
-                self.accuracy.clone(),
-                self.tolerances.clone(),
-                self.numerics.policy.clone(),
-                self.profile_key,
-                Some(candidate),
-                factory_bytes,
-                self.native_backends.clone(),
-                self.resident_foreign_bytes,
-                move |execution, budget| prepared.function(execution, budget, observed),
-            )?)
+            let operation = pse_diagnostics::observation::current().map(|context| context.id());
+            Ok((
+                self.runtime.native().solve_declared_root(
+                    self.contract.clone(),
+                    self.initial.clone(),
+                    self.settings.clone(),
+                    self.restarts.clone(),
+                    self.controls.clone(),
+                    self.accuracy.clone(),
+                    self.tolerances.clone(),
+                    self.numerics.policy.clone(),
+                    self.profile_key,
+                    Some(candidate),
+                    factory_bytes,
+                    self.native_backends.clone(),
+                    self.resident_foreign_bytes,
+                    move |execution, budget| prepared.function(execution, budget, observed),
+                )?,
+                operation,
+            ))
         })
     }
     /// Frozen actual authored unit starts and effective inner accuracy. Inputs are
@@ -1465,6 +1641,7 @@ impl ModelingPackage {
                 .ok_or(MathRuntimeError::Limit("causal resident foreign extent"))?;
         }
         Ok(PreparedRecycle {
+            review_source: self.clone(),
             runtime: self.runtime.clone(),
             providers: resolved.providers,
             _source: resolved.model,

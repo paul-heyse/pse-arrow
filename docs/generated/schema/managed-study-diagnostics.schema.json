@@ -111,8 +111,8 @@
           "type": "boolean"
         },
         "version": {
-          "const": 1,
-          "default": 1,
+          "const": 2,
+          "default": 2,
           "description": "Standalone answer encoding.",
           "type": "integer"
         }
@@ -156,6 +156,31 @@
         }
       ]
     },
+    "DetailFamilyActivation": {
+      "description": "Applicability acknowledged by an actual source, separate from event populations.",
+      "oneOf": [
+        {
+          "const": "unobserved",
+          "description": "No performing owner acknowledged this selected family in the interval.",
+          "type": "string"
+        },
+        {
+          "const": "applicable",
+          "description": "At least one actual owner installed this source before its selected work.",
+          "type": "string"
+        },
+        {
+          "const": "unsupported",
+          "description": "The cooperating construction entrypoint explicitly cannot supply this family.",
+          "type": "string"
+        },
+        {
+          "const": "refused",
+          "description": "Applicable source registration or owner admission was refused.",
+          "type": "string"
+        }
+      ]
+    },
     "DetailFamilyCoverage": {
       "additionalProperties": false,
       "description": "Exact source/writer populations for one selected family.",
@@ -166,6 +191,16 @@
           "minimum": 0,
           "type": "integer"
         },
+        "activated_sources": {
+          "description": "Distinct performing owners which declared this family.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "activation": {
+          "$ref": "#/$defs/DetailFamilyActivation",
+          "description": "Actual applicability, not inferred from a positive event count."
+        },
         "dropped": {
           "description": "Queue/extent/collector refusals, distinct from sampling.",
           "format": "uint64",
@@ -175,6 +210,12 @@
         "family": {
           "description": "Actual selected versioned family.",
           "type": "string"
+        },
+        "issued": {
+          "description": "Source records issued before lossy publication.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
         },
         "observed": {
           "description": "Source events offered during the selected interval.",
@@ -203,6 +244,9 @@
       },
       "required": [
         "family",
+        "activation",
+        "activated_sources",
+        "issued",
         "observed",
         "queued",
         "acknowledged",

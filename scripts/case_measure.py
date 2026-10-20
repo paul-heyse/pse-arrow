@@ -437,6 +437,10 @@ def smoke_campaign(
     *,
     audit_order: list[str] | None = None,
     audit_deadline_seconds: float | None = None,
+    review_artifacts: bool = False,
+    capture_from_start: bool = False,
+    compiled_evaluator: bool = False,
+    recording_mode: str = "selected",
 ) -> None:
     """Execute benchmark controls once; this produces no performance qualification."""
     targets = {
@@ -461,6 +465,8 @@ def smoke_campaign(
         "--no-run",
         "--message-format=json",
     ]
+    if compiled_evaluator:
+        command[command.index("--features") + 1] += ",pse-runtime/compiled-evaluator"
     for target in sorted(targets):
         command.extend(("--bench", target))
     # Every smoke executes correctness assertions. Statistical collection remains
@@ -522,6 +528,9 @@ def smoke_campaign(
                     env=env,
                     directory=directory,
                     deadline_seconds=audit_deadline_seconds,
+                    review_artifacts=review_artifacts,
+                    capture_from_start=capture_from_start,
+                    recording_mode=recording_mode,
                 )
             except KeyboardInterrupt:
                 observation = directory / "diagnostics/observation.json"
@@ -557,6 +566,10 @@ def smoke_campaign(
             "selected_cases": sorted(selected),
             "managed_receiver": receiver,
             "profile": profile,
+            "compiled_evaluator": compiled_evaluator,
+            "review_artifacts": review_artifacts,
+            "recording_mode": recording_mode,
+            "capture_from_start": capture_from_start,
             "binaries": binaries,
         },
     )
@@ -683,6 +696,31 @@ def main() -> int:
         help="Observe explicitly selected once-only smoke cases, retaining live diagnostics and cooperative stop support.",
     )
     parser.add_argument(
+        "--recording-mode",
+        choices=("ordinary", "selected"),
+        default="selected",
+        help="Audit source recording selection; ordinary retains live audit without requesting source detail.",
+    )
+    parser.add_argument(
+        "--review-artifacts",
+        action="store_true",
+        help="Retain original joined review context and bounded offline packs for audited cases.",
+    )
+    parser.add_argument(
+        "--capture-from-start",
+        action="store_true",
+        help="Arm optional CPU sampling before command exec and timeline before case preparation.",
+    )
+    parser.add_argument(
+        "--cargo-profile",
+        help="Override the declaration's Cargo profile (for example profiling).",
+    )
+    parser.add_argument(
+        "--compiled-evaluator",
+        action="store_true",
+        help="Build the compiled evaluator capability for explicitly selected smoke cases.",
+    )
+    parser.add_argument(
         "--audit-deadline-seconds",
         type=float,
         help="Request cooperative stop after this finite positive observation interval, then await native join and fixture cleanup; not a hard execution deadline.",
@@ -694,6 +732,22 @@ def main() -> int:
         help="Declared process, preparation or document-admission case; repeat to select several. Defaults to all.",
     )
     args = parser.parse_args()
+    if args.recording_mode == "ordinary" and (
+        not args.audit_diagnostics or args.review_artifacts
+    ):
+        parser.error(
+            "ordinary recording mode requires --audit-diagnostics and excludes --review-artifacts"
+        )
+    if (
+        args.review_artifacts or args.capture_from_start
+    ) and not args.audit_diagnostics:
+        parser.error(
+            "--review-artifacts and --capture-from-start require --audit-diagnostics"
+        )
+    if args.compiled_evaluator and (not args.smoke or not args.case):
+        parser.error(
+            "--compiled-evaluator requires --smoke and explicit --case selection"
+        )
     if args.audit_deadline_seconds is not None and (
         not args.audit_diagnostics
         or not math.isfinite(args.audit_deadline_seconds)
@@ -734,12 +788,16 @@ def main() -> int:
         output = validation.fresh_output(ROOT, args.output)
         smoke_campaign(
             output,
-            declaration["cargo_profile"],
+            args.cargo_profile or declaration["cargo_profile"],
             declaration,
             preparation,
             selected,
             audit_order=args.case if args.audit_diagnostics else None,
             audit_deadline_seconds=args.audit_deadline_seconds,
+            review_artifacts=args.review_artifacts,
+            capture_from_start=args.capture_from_start,
+            compiled_evaluator=args.compiled_evaluator,
+            recording_mode=args.recording_mode,
         )
         return 0
     snapshot = measurement_inputs(validation.sources(ROOT))
@@ -751,7 +809,7 @@ def main() -> int:
     started = time.time()
     host_started = host_admission.measurement_context()
     profile = {
-        "cargo_profile": declaration["cargo_profile"],
+        "cargo_profile": args.cargo_profile or declaration["cargo_profile"],
         "features": ["native-process", "pse-relations/force-validate"],
     }
     command = [

@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 211
-date: 2026-10-18
+revision: 215
+date: 2026-10-19
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,10 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 215 | 2026-10-19 | Reconcile explicit original initialization/recycle review context, joined native segment statistics and selected table source comparison with separate document/projection bounds (§23.1), and selected assembled diagnostic acceptance (§24.2); Plan47f owns exact qualification results. | Maintainer-authorized Plan47f execution; PSE_DESIGN_EDIT=1; accepted RC01/RC02 and proposed ADR-0196, formal status unchanged. |
+| 214 | 2026-10-18 | Reconcile Plan47 completeness repairs: admitted analysis and context/map ingress, actual performed-session copies, optional producer handoff and composed selected-result/diagnostic offline publication (§23.1). | Maintainer-authorized CA01–CA12 execution; visible .design-edit route; proposed ADR-0196 extension, targeted checks owned by Plan47; assembled qualification remains 47f. |
+| 213 | 2026-10-18 | Install accepted Plan47c–e source-linked analysis, acknowledged source recording, bounded contextual queries and offline pack/CLI targets (§23.1). | Maintainer-authorized C–E implementation; PSE_DESIGN_EDIT=1; proposed ADR-0192/0196 amended before dependent changes; full-series qualification remains 47f. |
+| 212 | 2026-10-18 | Install accepted Plan47 frozen recorded inspection, explicit membership and descriptive scientific context targets (§23.1/§19.2) before dependent implementation; publish selected native observation meaning and causal limits. | Maintainer-authorized 47a/47b execution; visible design-edit route; proposed ADR-0192/0196 amended, accepted ADRs unchanged. Targeted implementation and later assembled acceptance remain separately owned. |
 | 211 | 2026-10-18 | Publish implemented Plan46 root/response, completion/conditional ownership, dynamic actions/checkpoint guards and incremental source/live/result contracts (§13.6/§14.3/§15/§17/§20.4/§21.1), with scoped qualification and retained numerical/platform limits (§24.2). | Maintainer-authorized C–G execution; visible design-edit route. Proposed rationale updated, accepted ADRs unchanged; Plan46g owns exact results and exclusions. |
 | 210 | 2026-10-18 | Install approved remaining Plan46 root/response, completion-driven admission, dynamic checkpoint/action and source/live/result targets (§13.6/§15/§17/§18.8/§19.2/§20.6) before dependent implementation. | Maintainer-approved execution; PSE_DESIGN_EDIT=1. Proposed ADR-0145/0166/0180/0185/0186 amended; bounded inquiries and G06 acceptance remain open. |
 | 209 | 2026-10-18 | Publish implemented Plan46a/46b demanded provider products, Value-source/actual-demand preparation, compact mathematical realization and exact effect-safe completion (§14.3); reconcile proposed ADR-0193 confirmation. | Maintainer-authorized selected execution; PSE_DESIGN_EDIT=1. Targeted compiler/math/compiled/native consumer acceptance and independent source review; G06 whole-series qualification remains open. |

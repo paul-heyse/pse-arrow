@@ -70,3 +70,34 @@ Prepared handles and grouped records make ownership and event membership explici
 ## Status history
 
 - 2026-10-17 — proposed before implementation under the maintainer's accepted target and execution authorization; formal ADR acceptance remains separate.
+
+## Plan47 accepted target extension
+
+The maintainer accepted RC01/RC02 and authorized 47a/47b execution on 2026-10-18.
+Frozen evidence uses recorded source time and explicitly supplied immutable membership;
+live inspection retains current-clock discovery. Descriptive context remains available
+without Replay reconstruction admission. Bounded versioned data-only readback recreates
+neither native permissions nor allocation ownership. Original scientific qualification,
+unknown clock relationships, optional capture loss and per-product availability remain
+independent. Targeted implementation and acceptance are owned by Plan47a/47b; the later
+companions retain assembled publication/CLI/qualification scope. Formal ADR status is unchanged.
+
+**Implemented / Tested — 2026-10-18:** the [47a Outcome](../plans/47a-frozen-evidence-and-review-context.md#outcome)
+and [47b Outcome](../plans/47b-native-diagnostics-and-causal-attribution.md#outcome) record
+selected frozen/context/membership/native delivery, bounded controls and corrections.
+Formal status remains proposed; later analysis, pack, CLI and assembled acceptance remain
+with the active coordinator. No broader scientific or performance qualification follows.
+
+## Accepted Plan47c–e execution target
+
+**Proposed — 2026-10-18:** maintainer-authorized C–E implementation extends §23.1 with
+member-namespaced ten-question analysis over immutable owner facts, copied engine reports,
+explicit preconstruction source activation/acknowledgement, contextual bounded queries and
+selected sealed offline review packs. Detail output and frozen-set v2 replace their v1 codecs;
+DetailRequest remains v1. Complete zero-issued families require actual applicable activation.
+Pack publication, membership/context completeness, capture and scientific outcome remain
+independent. CLI reads never run science or discover live neighbours; explicit diagnostic work
+establishes its finite deadline before source admission/preparation. Existing tools with stated
+limits are selected; no Samply source/version correction or extra profiler platform is adopted.
+The C–E companions own targeted acceptance; 47f owns assembled qualification. Formal ADR status
+and numerical stopping policies are unchanged.

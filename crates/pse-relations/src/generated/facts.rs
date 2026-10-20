@@ -1345,6 +1345,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            101u8, 233u8, 47u8, 114u8, 253u8, 165u8, 128u8, 113u8, 222u8, 242u8, 90u8,
+            158u8, 63u8, 110u8, 110u8, 238u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeDiagnosticEngineObservations(
+                super::r#runtime::r#diagnostic_engine_observations::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             118u8, 64u8, 30u8, 164u8, 255u8, 123u8, 120u8, 0u8, 251u8, 48u8, 73u8, 70u8,
             227u8, 152u8, 165u8, 153u8,
         ])
@@ -1364,6 +1376,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeDiagnosticInvocations(
                 super::r#runtime::r#diagnostic_invocations::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            90u8, 216u8, 96u8, 46u8, 175u8, 72u8, 64u8, 73u8, 78u8, 152u8, 216u8, 96u8,
+            138u8, 95u8, 38u8, 143u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeDiagnosticQueryResults(
+                super::r#runtime::r#diagnostic_query_results::Row::rows(batch)?,
             ),
         );
     }
@@ -2351,10 +2375,16 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeDiagnosticCaptures(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeDiagnosticEngineObservations(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeDiagnosticEvidenceFields(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeDiagnosticInvocations(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeDiagnosticQueryResults(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeDiagnosticsFindings(rows) => {

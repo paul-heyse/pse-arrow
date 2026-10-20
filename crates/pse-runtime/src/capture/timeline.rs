@@ -492,6 +492,9 @@ impl<W: Write> Projection<W> {
             count_annotation("producer_sequence", record.producer.sequence),
             count_annotation("source_sequence", record.sequence),
             count_annotation("generation", record.generation),
+            annotation("producer_sequence.u64_text", record.producer.sequence),
+            annotation("source_sequence.u64_text", record.sequence),
+            annotation("generation.u64_text", record.generation),
             bool_annotation("history_partial", partial),
         ];
         fields.push(record.family_sequence.map_or_else(
@@ -503,6 +506,9 @@ impl<W: Write> Projection<W> {
             },
             |sequence| count_annotation("family_sequence", sequence),
         ));
+        if let Some(sequence) = record.family_sequence {
+            fields.push(annotation("family_sequence.u64_text", sequence));
+        }
         if let Some(coordinates) = &record.coordinates {
             fields.push(annotation("coordinates", coordinates));
         }
@@ -511,6 +517,9 @@ impl<W: Write> Projection<W> {
         }
         for field in &record.values {
             let name = &field.name;
+            if let Value::Count(value) = &field.value {
+                fields.push(annotation(&format!("{name}.u64_text"), value));
+            }
             fields.push(match &field.value {
                 Value::Count(value) => count_annotation(name, *value),
                 Value::Integer(value) => {

@@ -30,6 +30,7 @@ from pse.contracts.documents import (
     AdviceMetric,
     AdviceObservation,
     AnalysisControls,
+    AnalysisDocument,
     AttemptSummary,
     ComparisonPolicy,
     Completion,
@@ -38,15 +39,22 @@ from pse.contracts.documents import (
     EligibilityDocument,
     FitProfileDocument,
     FrozenAdvice,
+    FrozenEvidenceSet,
     InvocationComparisonDocument,
     InvocationEvidenceDocument,
     ManagedStudyDiagnosticsDocument,
     NumericalStrategyDocument,
+    PackExportRequest,
+    PackIndex,
     PointStatus,
     ProgressCheckpointDocument,
     ProgressCoverage,
     ProgressEventDocument,
     ReplayDocument,
+    ReviewContextDocument,
+    ReviewContextRequest,
+    ReviewInventoryRequest,
+    ReviewInventorySelection,
     RouteDocument,
     RuntimeAccuracyGoalAssessmentsRow,
     SolverAdviceInputs,
@@ -109,6 +117,30 @@ class StoredResult:
 
     def progress(self) -> "ProgressStream":
         return ProgressStream(self._handle.progress())
+
+    def export_review_pack(
+        self,
+        relation: str,
+        destination: str,
+        evidence: FrozenEvidenceSet,
+        analysis: AnalysisDocument,
+        request: PackExportRequest,
+        *,
+        member: str = "result",
+        start: int = 0,
+        end: int = (1 << 64) - 1,
+    ) -> PackIndex:
+        """Export protected scientific selections and release their readers."""
+        return self._handle.export_review_pack(
+            relation,
+            destination,
+            evidence,
+            analysis,
+            request,
+            member=member,
+            start=start,
+            end=end,
+        )
 
     def export(
         self,
@@ -384,6 +416,14 @@ class RunResult:
         """Read qualification/readiness endpoints and retained attempt evidence."""
         return self._handle.invocation_evidence()
 
+    def review_context(
+        self, *, request: ReviewContextRequest | None = None
+    ) -> ReviewContextDocument:
+        """Export retained explanatory facts independently of runnable Replay."""
+        return codec.decode_json(
+            self._handle.review_context(request=request), ReviewContextDocument
+        )
+
     def invocation_arrow(self, *, memory_bytes: int = 16 << 20) -> pa.RecordBatch:
         """Project the actual joined invocation with independently missing endpoints."""
         return pa.record_batch(self._handle.invocation_arrow(memory_bytes))
@@ -555,6 +595,12 @@ class StudyHandle:
     """A canonical study: occurrence status and exact retained result handles."""
 
     _handle: _NativeStudyHandle
+
+    def review_inventory(
+        self, request: ReviewInventoryRequest
+    ) -> ReviewInventorySelection:
+        """Select exact attempt metadata with explicit availability gaps."""
+        return self._handle.review_inventory(request)
 
     def diagnostic_selection(self) -> ManagedStudyDiagnosticsDocument:
         """Read bounded actual worker references for explicitly selected detail."""

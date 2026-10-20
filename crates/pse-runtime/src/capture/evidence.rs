@@ -392,6 +392,89 @@ pub fn capture_arrow(
     )
 }
 
+/// Registry projection of one copied optional query result. Raw rows remain an indexed member.
+pub fn query_arrow(
+    member: &str,
+    document: &crate::review_query::ReviewQueryDocument,
+    pool: &Arc<dyn MemoryPool>,
+    cancel: &CancellationToken,
+) -> Result<RecordBatch, CaptureError> {
+    if member.len() > 512 {
+        return Err(invalid("review member identity exceeds bound"));
+    }
+    let owner = reserve_document(document, pool)?;
+    let raw = json(document)?;
+    let question = json(&document.request.question)?;
+    let status = json(&document.status)?;
+    publish(
+        "runtime.diagnostic_query_results",
+        vec![
+            strings([Some(member)]),
+            strings([Some(question.trim_matches('"'))]),
+            strings([Some(document.request.clock_scope.as_str())]),
+            strings([Some(status.trim_matches('"'))]),
+            Arc::new(UInt32Array::from(vec![document.query_version])),
+            strings([document.tool_version.as_deref()]),
+            Arc::new(UInt64Array::from(vec![document.rows])),
+            strings([Some(raw.as_str())]),
+        ],
+        owner,
+        cancel,
+    )
+}
+
+/// Registry projection of retained engine report owners, without enabling collection or getters.
+pub fn engine_arrow(
+    member: &str,
+    document: &pse_engine::session::CopiedExecutionObservations,
+    pool: &Arc<dyn MemoryPool>,
+    cancel: &CancellationToken,
+) -> Result<RecordBatch, CaptureError> {
+    if member.len() > 512 {
+        return Err(invalid("review member identity exceeds bound"));
+    }
+    let owner = reserve_document(document, pool)?;
+    let raw = document
+        .observations
+        .iter()
+        .map(json)
+        .collect::<Result<Vec<_>, _>>()?;
+    let operations = document
+        .observations
+        .iter()
+        .map(|o| o.operation.map(|id| id.to_string()))
+        .collect::<Vec<_>>();
+    let policies = document
+        .observations
+        .iter()
+        .map(|o| json(&o.policy))
+        .collect::<Result<Vec<_>, _>>()?;
+    let statuses = document
+        .observations
+        .iter()
+        .map(|o| o.execution.as_ref().map(|e| json(&e.status)).transpose())
+        .collect::<Result<Vec<_>, _>>()?;
+    let count = document.observations.len();
+    publish(
+        "runtime.diagnostic_engine_observations",
+        vec![
+            strings((0..count).map(|_| Some(member))),
+            Arc::new(UInt64Array::from_iter_values((0..count).map(|n| n as u64))),
+            strings(operations.iter().map(|o| o.as_deref())),
+            strings(policies.iter().map(|p| Some(p.trim_matches('"')))),
+            strings(
+                statuses
+                    .iter()
+                    .map(|s| s.as_deref().map(|s| s.trim_matches('"'))),
+            ),
+            Arc::new(UInt64Array::from(vec![document.dropped; count])),
+            strings(raw.iter().map(|s| Some(s.as_str()))),
+        ],
+        owner,
+        cancel,
+    )
+}
+
 #[cfg(test)]
 #[path = "evidence_tests.rs"]
 mod evidence_tests;

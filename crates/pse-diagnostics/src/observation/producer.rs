@@ -221,6 +221,9 @@ pub struct Producer {
 pub trait RecordTap: std::any::Any + Send + Sync + std::fmt::Debug {
     /// Whether this family belongs to the active selected interval.
     fn selected(&self, family: &str) -> bool;
+    /// An actual performing owner has installed this source before its work starts.
+    /// This is independent from whether that owner eventually issues any events.
+    fn activate(&self, _producer: &ProducerDescriptor, _family: &str) {}
     /// Explicit synchronous boundary thread-CPU selection; never enabled by default.
     fn thread_cpu(&self) -> bool {
         false
@@ -323,6 +326,18 @@ impl ObservationContext {
     }
 }
 impl Producer {
+    /// Declare an applicable source at its real construction boundary. An empty
+    /// completed interval then means zero issued events rather than missing activation.
+    /// Calling this on an old producer does not attach a newly selected collector.
+    pub fn activate_record_family(&self, family: &str) {
+        if let Some(tap) = &self.context.record_tap {
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                if tap.selected(family) {
+                    tap.activate(&self.descriptor, family);
+                }
+            }));
+        }
+    }
     /// Actual performing instance.
     #[must_use]
     pub fn id(&self) -> ProducerId {
@@ -451,6 +466,9 @@ impl Producer {
         norm: Option<&str>,
         values: Vec<RecordField>,
     ) -> CoherentRecord {
+        // Issuing a real event also establishes applicability. Sources which can
+        // legitimately issue no events declare activation at construction instead.
+        self.activate_record_family(family);
         let family_sequence = self.next_family_sequence(family);
         let record = CoherentRecord {
             producer: self.id,

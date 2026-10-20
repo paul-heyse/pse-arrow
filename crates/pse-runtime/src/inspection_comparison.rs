@@ -265,12 +265,18 @@ fn source_partial(doc: &InvocationEvidenceDocument) -> bool {
         || doc.omitted_product_steps > 0
         || doc.attempts.omitted_steps > 0
         || doc.attempts.omitted_native_attempts > 0
+        || doc
+            .attempts
+            .steps
+            .len()
+            .saturating_add(doc.attempts.omitted_steps)
+            != doc.attempts.requested_steps
 }
 fn source_valid(builder: &mut Builder, doc: &InvocationEvidenceDocument) -> bool {
-    if doc.version == 2 && doc.run_id == doc.attempts.run_id {
+    let Err(error) = doc.validate() else {
         return true;
-    }
-    builder.add(StatementKind::Limitation,"invocation.source_identity_unavailable","The joined document version or its retained attempt run identity is incompatible. No joined work or elapsed interpretation is established from this source.",
+    };
+    builder.add(StatementKind::Limitation,"invocation.source_identity_unavailable",format!("The supplied joined document is unsupported or internally inconsistent: {error}. No joined work or elapsed interpretation is established from this source."),
         vec![counted(doc,"/version",Value::Count(u64::from(doc.version)),true),counted(doc,"/run_id",source_text(doc.run_id),true),
             counted(doc,"/attempts/run_id",source_text(doc.attempts.run_id),true)],vec![NextObservation::InspectRelated]);
     false
@@ -335,20 +341,11 @@ fn step_context(
             }
             let key = key.replace('~', "~0").replace('/', "~1");
             let (value, leaf) = match value {
-                pse_backend_native::solve::OptionValue::Bool(v) => (Value::Boolean(*v), "/value"),
-                pse_backend_native::solve::OptionValue::Integer(v) => {
-                    (Value::Integer(i64::from(*v)), "/value")
-                }
-                pse_backend_native::solve::OptionValue::Real(v) if v.is_finite() => {
-                    (Value::number(*v), "/value")
-                }
-                pse_backend_native::solve::OptionValue::Real(_) => (
-                    Value::Unavailable(
-                        "nonfinite native option; inspect original tagged observation".into(),
-                    ),
-                    "",
-                ),
-                pse_backend_native::solve::OptionValue::Text(v) => (text(v), "/value"),
+                pse_model::diagnostic::Observation::Boolean(v) => (Value::Boolean(*v), "/value"),
+                pse_model::diagnostic::Observation::Integer(v) => (Value::Integer(*v), "/value"),
+                pse_model::diagnostic::Observation::Real(v) => (Value::number(*v), "/value"),
+                pse_model::diagnostic::Observation::Text(v) => (text(v), "/value"),
+                _ => (Value::Unavailable("native option observation is not a finite primitive; inspect original tagged observation".into()), ""),
             };
             builder.add(if matches!(value,Value::Unavailable(_)){StatementKind::Limitation}else{StatementKind::Established},if name=="effective_options" {"invocation.submitted_option"}else{"invocation.queried_default"},
                 if name=="effective_options" {"This is an actual adapter-submitted option, distinct from queried defaults and unspecified native behavior."}else{"This is an actual queried native default, distinct from an adapter-submitted override."},
@@ -427,12 +424,30 @@ fn context_comparison(
             &right.native_defaults,
         ),
     ] {
-        if l != r {
+        if !same_options(l, r) {
             builder.add(StatementKind::Limitation,"comparison.native_settings_changed","Submitted options or queried native defaults differ. The individual retained values are reported separately; absent default readback cannot establish matching unspecified behavior.",vec![
             counted(a,format!("/attempts/steps/{ai}/{name}"),Value::Unavailable("inspect bounded submitted option/default facts".into()),true),
             counted(b,format!("/attempts/steps/{bi}/{name}"),Value::Unavailable("inspect bounded submitted option/default facts".into()),true)],vec![NextObservation::InspectRelated]);
         }
     }
+}
+fn same_options(
+    left: &std::collections::BTreeMap<String, pse_model::diagnostic::Observation>,
+    right: &std::collections::BTreeMap<String, pse_model::diagnostic::Observation>,
+) -> bool {
+    use pse_model::diagnostic::Observation as O;
+    left.len() == right.len()
+        && left.iter().zip(right).all(|((lk, l), (rk, r))| {
+            lk == rk
+                && match (l, r) {
+                    (O::Real(l), O::Real(r)) => l == r,
+                    (O::Integer(l), O::Integer(r)) => l == r,
+                    (O::Boolean(l), O::Boolean(r)) => l == r,
+                    (O::Text(l), O::Text(r)) => l == r,
+                    // Unknown/nonfinite observations cannot establish matching native settings.
+                    _ => false,
+                }
+        })
 }
 fn strategy_comparison(builder: &mut Builder, doc: &InvocationEvidenceDocument) {
     let limit = builder.document.policy.source_items;
@@ -829,7 +844,7 @@ pub fn compare_invocations(
                 && l.problem == r.problem
                 && l.profile == r.profile
                 && l.coordinates == r.coordinates
-                && left.effective_options == right.effective_options
+                && same_options(&left.effective_options, &right.effective_options)
         });
         let ratio = matching.and_then(|(l, r)| match (&l.counters, &r.counters) {
             (
@@ -1170,7 +1185,7 @@ mod tests {
                 3 => {
                     step(&mut b).effective_options.insert(
                         "actual_changed_option".into(),
-                        pse_backend_native::solve::OptionValue::Integer(2),
+                        pse_model::diagnostic::Observation::Integer(2),
                     );
                 }
                 change => {
@@ -1448,11 +1463,11 @@ mod tests {
         let mut b = fixture(2, 10, 8.);
         step(&mut b).native_defaults.insert(
             "default/~mode".into(),
-            pse_backend_native::solve::OptionValue::Integer(9),
+            pse_model::diagnostic::Observation::Integer(9),
         );
         step(&mut b).effective_options.insert(
             "submitted_only".into(),
-            pse_backend_native::solve::OptionValue::Bool(true),
+            pse_model::diagnostic::Observation::Boolean(true),
         );
         let result = compare_invocations(&a, &b, ComparisonPolicy::default());
         assert!(has(&result, "comparison.native_settings_changed"));
@@ -1585,6 +1600,71 @@ mod tests {
         assert_eq!(
             invalid.statements[0].code,
             "invocation.source_identity_unavailable"
+        );
+    }
+    #[test]
+    fn saved_invocation_ingress_uses_same_interpreter_after_owner_destruction() {
+        let mut source = fixture(90, u64::MAX, 1.25);
+        step(&mut source).effective_options.insert(
+            "negative_zero".into(),
+            pse_model::diagnostic::Observation::number(-0.0),
+        );
+        step(&mut source).effective_options.insert(
+            "native_sentinel".into(),
+            pse_model::diagnostic::Observation::number(f64::INFINITY),
+        );
+        let encoded = serde_json::to_vec(&source).unwrap();
+        let expected = explain_invocation(&source, ComparisonPolicy::default());
+        drop(source);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("invocation.json");
+        std::fs::write(&path, &encoded).unwrap();
+        let decoded = crate::frozen_inspection::read_invocation(&path).unwrap();
+        assert_eq!(serde_json::to_vec(&decoded).unwrap(), encoded);
+        assert_eq!(
+            serde_json::to_vec(&explain_invocation(&decoded, ComparisonPolicy::default())).unwrap(),
+            serde_json::to_vec(&expected).unwrap()
+        );
+        let compared = compare_invocations(&decoded, &decoded, ComparisonPolicy::default());
+        assert!(!compared.statements.is_empty());
+        let mut invalid = decoded;
+        invalid.version = 99;
+        std::fs::write(&path, serde_json::to_vec(&invalid).unwrap()).unwrap();
+        assert!(crate::frozen_inspection::read_invocation(&path).is_err());
+    }
+
+    #[test]
+    fn saved_invocation_rejects_duplicate_and_invalid_coordinates_before_matching() {
+        let mut source = fixture(94, 3, 1.0);
+        let duplicate = source.attempts.steps[0].clone();
+        Arc::get_mut(&mut source.attempts)
+            .unwrap()
+            .steps
+            .push(duplicate);
+        assert!(source.validate().is_err());
+        let set = crate::frozen_inspection::FrozenEvidenceSet {
+            invocations: vec![source],
+            ..Default::default()
+        };
+        assert!(set.validate().is_err());
+        let mut source = fixture(95, 3, 1.0);
+        step(&mut source).step = 1;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("invalid.json");
+        std::fs::write(&path, serde_json::to_vec(&source).unwrap()).unwrap();
+        assert!(crate::frozen_inspection::read_invocation(&path).is_err());
+        let result = compare_invocations(&source, &source, ComparisonPolicy::default());
+        assert!(
+            result
+                .statements
+                .iter()
+                .any(|statement| statement.kind == StatementKind::Limitation)
+        );
+        assert!(
+            !result
+                .statements
+                .iter()
+                .any(|statement| statement.code == "comparison.native_iteration_cost")
         );
     }
 }

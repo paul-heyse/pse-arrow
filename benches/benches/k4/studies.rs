@@ -129,13 +129,12 @@ impl Drop for ManagedReceiver {
 async fn definition(
     package: &ModelingPackage,
     physical: &workflow::PhysicalContext,
+    sources: &workflow::PackageSources,
     values: &[f64],
     parallel: bool,
 ) -> workflow::LocalStudy {
-    let root = package
-        .declarations()
-        .await
-        .unwrap()
+    let declarations = package.declarations().await.unwrap();
+    let root = declarations
         .iter()
         .find(|row| row.name == "Root")
         .unwrap()
@@ -213,6 +212,19 @@ async fn definition(
         )
         .await
         .unwrap();
+    if audit::review_context_request().is_some() {
+        audit::retain_math_output(
+            "study-original-inputs",
+            &json!({
+                "source_documents":{"physical":sources.physical,"modeling":sources.modeling},
+                "declarations":&*declarations,
+                "requested_points":points,
+                "admitted_definition":{"modeling_revision":admitted.modeling_revision,
+                    "variants":admitted.variants,"points":admitted.points},
+                "workflow_context":{"status":"unsupported","reason":"stored study occurrences expose canonical keys, not original joined RunResult owners; managed workflow review-context bridge unavailable"}
+            }),
+        );
+    }
     assert_eq!(
         admitted.points[0].binding_hash,
         admitted.points[1].binding_hash
@@ -289,6 +301,12 @@ fn ephemeral(
     parallel: bool,
     service: &pse_runtime::math::MathService,
 ) -> Vec<Value> {
+    // Retain every available original before acceptance assertions can unwind.
+    for result in report.results.iter().flatten() {
+        if let workflow::StudyOccurrenceResult::Ephemeral(original) = result {
+            audit::retain_result(original);
+        }
+    }
     assert_eq!(report.results.len(), values.len());
     let mut identities = BTreeSet::new();
     report.results.iter().zip(values).enumerate().map(|(index, (result, expected))| {
@@ -320,6 +338,82 @@ fn ephemeral(
         let variables = solve_variables::Row::rows(&result.table("runtime.solve_variables").unwrap()).unwrap();
         json!({"key":index,"run_id":result.run_id,"execution":match result.report().unwrap() { RunReport::Modeling(reports) => match &reports[0].outcome { pse_runtime::math::solves::Outcome::Native(_) => "direct native", pse_runtime::math::solves::Outcome::Constant(_) => "complete original evaluation with automatic native components", pse_runtime::math::solves::Outcome::Rejected(_) => "rejected" }, _ => "other" },"native_metrics":native,"variables":checked_values(&variables, *expected)})
     }).collect()
+}
+
+/// Copy only exact original stored selections while the fixture remains live.
+/// Descriptive/export failures are independent of the original study outcome.
+async fn export_study_results(runtime: &Runtime, points: &[(u32, String, Option<String>)]) {
+    if std::env::var("PSE_CASE_REVIEW_RESULTS").as_deref() != Ok("1") {
+        return;
+    }
+    let Some(output) = std::env::var_os("PSE_PROCESS_COST_OUTPUT").map(PathBuf::from) else {
+        return;
+    };
+    let parent = output.join("review-results");
+    let destination = parent.join("study-original-results");
+    let outcome: Result<Value, String> = async {
+        let operation = pse_diagnostics::observation::current().ok_or("original study observation context unavailable")?.id();
+        let cancel = pse_columnar::CancellationToken::new();
+        let mut selections = Vec::new();
+        let mut unavailable = Vec::new();
+        for (occurrence, run, attempt) in points {
+            let Some(attempt) = attempt else { continue; };
+            // Discover actual exact-attempt membership through an existing protected reader.
+            let reader = runtime.results(run, attempt, "runtime.solve_variables", 0, u64::MAX, cancel.clone())
+                .await.map_err(|error| error.to_string())?;
+            let available = reader.selection().sets().iter().map(|set| set.name.clone()).collect::<BTreeSet<_>>();
+            drop(reader);
+            for (index, relation) in ["runtime.solve_variables", "runtime.solve_metrics", "runtime.solve_runs",
+                "runtime.solve_strategy_events", "runtime.modeling_checks"].into_iter().enumerate() {
+                let Some(spec) = runtime.registry().relation(relation) else {
+                    unavailable.push(format!("occurrence {occurrence}: {relation} absent from registry"));
+                    continue;
+                };
+                if !available.contains(&spec.id.to_string()) {
+                    unavailable.push(format!("occurrence {occurrence}: {relation} absent from original attempt"));
+                    continue;
+                }
+                selections.push(workflow::ReviewScientificSelection {
+                    member:format!("point-{occurrence:03}-{index}"),run:run.clone(),attempt:attempt.clone(),
+                    relation:relation.into(),row_start:0,row_end:u64::MAX,output:None,
+                });
+            }
+        }
+        if selections.is_empty() { return Err("no original terminal stored point selections available".into()); }
+        let evidence = pse_runtime::frozen_inspection::FrozenEvidenceSet::default();
+        let pool: std::sync::Arc<dyn pse_columnar::MemoryPool> = std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(16 << 20));
+        let analysis = pse_runtime::review_analysis::analyze(&evidence,
+            &pse_runtime::review_analysis::AnalysisRequest::new(operation),&pool,&cancel)
+            .map_err(|error| error.to_string())?;
+        let mut request = pse_runtime::review_pack::PackExportRequest::default();
+        request.selection.maximum_output_bytes = 256 << 20;
+        request.selection.missing_context = unavailable;
+        request.selection.missing_context.push("Original study source/definition bytes retained separately; original managed RunResult review-context bridge unavailable".into());
+        request.scientific_results = selections;
+        std::fs::create_dir_all(&parent).map_err(|error| error.to_string())?;
+        let index = runtime.export_review_pack(&destination,&evidence,&analysis,request,cancel)
+            .await.map_err(|error| error.to_string())?;
+        Ok(json!(index))
+    }.await;
+    let record = match outcome {
+        Ok(index) => {
+            json!({"version":1,"status":"published","pack":destination,"points":points,"index":index})
+        }
+        Err(error) => {
+            audit::review_context_error(format!("study protected results: {error}"));
+            json!({"version":1,"status":"unavailable","pack":destination,"points":points,"error":error})
+        }
+    };
+    if let Err(error) = std::fs::create_dir_all(&parent)
+        .map_err(|error| error.to_string())
+        .and_then(|()| {
+            let bytes = serde_json::to_vec_pretty(&record).map_err(|error| error.to_string())?;
+            std::fs::write(parent.join("study-original-results-export.json"), bytes)
+                .map_err(|error| error.to_string())
+        })
+    {
+        audit::review_context_error(error);
+    }
 }
 
 async fn persisted(
@@ -474,15 +568,27 @@ pub(super) fn measure(
                 let cancel=audit::cancel_source();
                 let database_setup=started.elapsed();
                 let sources=support::sources(support::SOURCE);
+                if audit::review_context_request().is_some() {
+                    audit::retain_math_output("study-original-inputs",&json!({
+                        "source_documents":{"physical":sources.physical,"modeling":sources.modeling},
+                        "definition_status":"not yet admitted",
+                        "workflow_context":{"status":"unsupported","reason":"original managed RunResult context bridge unavailable; actual source input bytes only"}
+                    }));
+                }
                 phases.reset();
                 let started=Instant::now();
                 let ((physical,package,definition,recorded_definition),admission_counts)=pse_runtime::invocation::counted(async {
                 let physical=support::physical(&runtime,&owner,&sources).await;
                 let package=runtime.modeling_from_documents(&support::admitted_documents(&owner,&sources.modeling),physical.clone(),&cancel).await.unwrap();
-                let definition=definition(&package,&physical,&values,independent).await;
+                let definition=definition(&package,&physical,&sources,&values,independent).await;
                 assert!(definition.points.iter().all(|point| point.operation.preparation.compiler.optimization.cores == 1),
                     "reference comparison retains one construction core per occurrence");
                 let recorded_definition = if durable_mode || managed { Some(runtime.record_study(&definition, &cancel).await.unwrap()) } else { None };
+                if audit::review_context_request().is_some()
+                    && let Some(recorded) = &recorded_definition {
+                    audit::retain_math_output("study-recorded-definition",&json!({"definition":recorded,
+                        "workflow_context":{"status":"unsupported","reason":"recorded study definition is original input, not an original joined managed RunResult"}}));
+                }
                 (physical,package,definition,recorded_definition)
                 }).await;
                 let admission=started.elapsed();
@@ -515,17 +621,30 @@ pub(super) fn measure(
                                 if handle.status().await.unwrap().state==StudyState::Concluded { terminal=true; break; }
                                 tokio::time::sleep(Duration::from_millis(10)).await;
                             },
-                            workflow::Processed::Ran {record,..}=>worker_passes.push(json!({"seconds":seconds,"outcome":record.attempt.as_ref().unwrap().outcome,"solutions":record.solutions.len(),"preparations":pass_counts})),
+                            workflow::Processed::Ran {record,..}=> {
+                                audit::direct_joined();
+                                worker_passes.push(json!({"seconds":seconds,"outcome":record.attempt.as_ref().unwrap().outcome,"solutions":record.solutions.len(),"preparations":pass_counts}));
+                            },
                             workflow::Processed::Maintenance{..}|workflow::Processed::Settled{..}|workflow::Processed::Finalized{..}=>worker_passes.push(json!({"seconds":seconds,"preparations":pass_counts})),
                         }
                         assert!(worker_passes.len()<=32,"unexpected study retry");
                         if handle.status().await.unwrap().state==StudyState::Concluded { terminal=true; break; }
                     }
                     let elapsed=started.elapsed();
+                    let status=handle.status().await.unwrap();
+                    if audit::review_context_request().is_some() {
+                        match handle.diagnostic_selection().await {
+                            Ok(document) => audit::retain_math_output("managed-study-diagnostics",&json!(document)),
+                            Err(error) => audit::review_context_error(format!("stored study diagnostic selection: {error}")),
+                        }
+                    }
+                    let selected_points=status.points.iter().filter(|point| point.settled && point.outcome.is_some())
+                        .map(|point| (point.point_index,point.run.clone(),point.attempt.clone())).collect::<Vec<_>>();
+                    export_study_results(&runtime,&selected_points).await;
+                    audit::checkpoint();
                     assert!(terminal,"study did not conclude during the bounded serial drain");
                     let worker_counts=serde_json::to_value(worker_counts).unwrap();
                     let read=Instant::now();
-                    let status=handle.status().await.unwrap();
                     assert_eq!(status.state,StudyState::Concluded,"{status:?}");
                     let outcomes:Vec<_>=status.points.into_iter().map(|p|p.outcome.unwrap()).collect();
                     check(&outcomes, occurrences, independent);
@@ -543,8 +662,21 @@ pub(super) fn measure(
                     } else {
                         tokio::time::timeout(Duration::from_secs(120),study).await.unwrap().unwrap()
                     };
-                    audit::checkpoint();
+                    audit::direct_joined();
                     let elapsed=started.elapsed();
+                    if audit::review_context_request().is_some() {
+                        match report.diagnostic_selection().await {
+                            Ok(Some(document)) => audit::retain_math_output("managed-study-diagnostics",&json!(document)),
+                            Ok(None) => audit::review_context_error("managed study returned no retained diagnostic selection"),
+                            Err(error) => audit::review_context_error(format!("managed study diagnostic selection: {error}")),
+                        }
+                    }
+                    let selected_points=report.results.iter().enumerate().filter_map(|(index,result)| {
+                        let (run,attempt)=result.as_ref()?.stored_keys()?;
+                        Some((index as u32,run.to_owned(),Some(attempt.to_owned())))
+                    }).collect::<Vec<_>>();
+                    export_study_results(&runtime,&selected_points).await;
+                    audit::checkpoint();
                     check(&report.outcomes,occurrences,true);
                     assert_eq!(report.results.len(),occurrences);
                     assert_eq!(report.results.iter().map(|result| result.as_ref().unwrap().run_id()).collect::<BTreeSet<_>>().len(),occurrences);
@@ -558,10 +690,12 @@ pub(super) fn measure(
                     (elapsed,Duration::ZERO,Value::Null,Value::Null,read.elapsed().as_secs_f64(),report.outcomes,metrics)
                 } else {
                     let report=Box::pin(package.study(&definition,occurrences,&cancel)).await.unwrap();
+                    audit::direct_joined();
                     let elapsed=started.elapsed();
-                    check(&report.outcomes, occurrences, independent);
                     let read=Instant::now();
                     let metrics=ephemeral(&report,&values,&mut numerical,independent,owner.runtime.math());
+                    audit::checkpoint();
+                    check(&report.outcomes, occurrences, independent);
                     (elapsed,Duration::ZERO,json!({"views":0,"observations":0,"rebuilt":0,"shared":0}),serde_json::to_value(report.preparations).unwrap(),read.elapsed().as_secs_f64(),report.outcomes,metrics)
                 }}).await;
                 numerical.counted_preparations(execution_counts);

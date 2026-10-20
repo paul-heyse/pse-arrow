@@ -416,7 +416,7 @@ pub fn inspect_snapshot(
     transport.partial |= omitted > 0;
     document(request, operation, Vec::new(), omitted, transport)
 }
-fn document(
+pub(crate) fn document(
     request: InspectionRequest,
     operation: Option<OperationSnapshot>,
     related: Vec<OperationSnapshot>,
@@ -428,6 +428,7 @@ fn document(
         let mut common = pse_diagnostics::inspection::explain(snapshot);
         // Context explanations precede generic point listings so bounds cannot hide meaning.
         statements.extend(context_explanations(snapshot));
+        statements.extend(native_detail_explanations(snapshot));
         if let Some(policy) = &request.numerical_history_policy {
             statements.extend(pse_diagnostics::inspection::explain_numerical_history(
                 snapshot, policy,
@@ -481,6 +482,22 @@ fn document(
         omitted,
         transport,
     }
+}
+fn native_detail_explanations(snapshot: &OperationSnapshot) -> Vec<Statement> {
+    let mut seen = std::collections::BTreeSet::new();
+    snapshot.producers.iter().flat_map(|producer| producer.current.iter().chain(&producer.recent)).filter_map(|record| {
+        let (code,message)=match record.family.as_str() {
+            "dynamic_local_error.v1" => ("native.idas.local_error_scope", "IDAS local-error vectors describe a fresh accepted internal state step on the actual native generation/return, with explicit availability for repeated, negative and zero-step returns. Contributor records join by generation, return ordinal and accepted step; they are state-only normalized coordinates and native weighted RMS contributions, not output accuracy or sensitivity/quadrature error estimates."),
+            "native_factor.v2" => ("native.factor_scope", "Returned factor facts retain the actual factor-call parent, scaling/ordering status and current snapshot validity. Pivot magnitudes are not condition estimates; reported inertia concerns the perturbed native matrix. MC64 retry attempts and scaling fallbacks cover only their stated native populations, not all inner numerical retries."),
+            "native_refinement.v2" => ("native.refinement_scope", "Selected monolithic refinement reports actual issued/completed RHS substitutions, correction batches and residual products. Parent call ordinals identify their actual enclosing backsolve; outer Schur/PdFullSpace paths and unselected intervals do not acquire these counts. Refinement bounds are not executed iteration counts."),
+            "native_linear_call.v1" => ("native.linear_call_scope", "Begin/end boundaries carry actual attempt-local call ordinals and parentage, including nested operations. RHS population, issued/completed work and outer failure stay separate; these inclusive boundaries do not establish exclusive CPU cost."),
+            _ => return None,
+        };
+        if !seen.insert(code) {return None;}
+        Some(Statement {kind:StatementKind::Established,code:code.into(),message:message.into(),evidence:vec![pse_diagnostics::inspection::EvidenceRef {
+            operation:snapshot.id,producer:Some(record.producer),record_sequence:Some(record.sequence),metric:None,observed_at:Some(record.observed_at),generation:Some(record.generation),value:None,partial:snapshot.interval_partial || snapshot.coverage.curtailed,
+        }],next:Vec::new()})
+    }).collect()
 }
 fn context_explanations(snapshot: &OperationSnapshot) -> Vec<Statement> {
     const RECIPES: &[(&str, &str, &str)] = &[
@@ -537,7 +554,7 @@ fn context_explanations(snapshot: &OperationSnapshot) -> Vec<Statement> {
         (
             "uno.",
             "context.nlp",
-            "UNO poll/callback activity is not a structured iteration record; opaque internal intervals require an explicit profile.",
+            "UNO accepted-iterate and termination-check callbacks are structured owner records with separate ordinals and meanings; neither supplies an inferred native iteration number. Opaque internal intervals require an explicit profile.",
         ),
         (
             "highs.",
@@ -703,6 +720,64 @@ fn context_explanations(snapshot: &OperationSnapshot) -> Vec<Statement> {
 mod tests {
     use super::*;
     use pse_diagnostics::observation::{Policy, Relationship};
+    #[test]
+    fn inspection_uno_keeps_accepted_trial_and_missing_kind_without_inferred_iterations() {
+        use pse_diagnostics::observation::{ObservationHub, ProducerRole, RecordField, Value};
+        let hub = ObservationHub::new(Policy::default());
+        let owner = hub.start("uno.recorded");
+        owner.context().count("uno.callbacks", "calls", 3);
+        let producer = owner
+            .context()
+            .producer(ProducerRole::NativeIteration, "uno.actual.callback");
+        for kind in [
+            Some("native_accepted_iterate"),
+            Some("native_termination_check"),
+            None,
+        ] {
+            let mut fields = vec![RecordField {
+                name: "coordinates".into(),
+                unit: "availability".into(),
+                value: Value::Unavailable("truncated coordinate capture".into()),
+                availability: None,
+            }];
+            if let Some(kind) = kind {
+                fields.push(RecordField {
+                    name: "checkpoint_kind".into(),
+                    unit: "interpretation".into(),
+                    value: Value::Text(kind.into()),
+                    availability: None,
+                });
+            }
+            let record = producer.record("native_nlp.v1", "iterate", None, None, fields);
+            assert!(producer.publish(&record));
+        }
+        let snapshot = owner.reader().snapshot(Duration::from_secs(60));
+        let before = serde_json::to_vec(&snapshot).unwrap();
+        let document = inspect_snapshot(snapshot.clone(), InspectionRequest::new(snapshot.id));
+        let statement = document
+            .statements
+            .iter()
+            .find(|statement| statement.code == "context.nlp")
+            .unwrap();
+        assert!(statement.message.contains("separate ordinals"));
+        assert!(statement.message.contains("inferred native iteration"));
+        assert_eq!(
+            serde_json::to_vec(document.operation.as_ref().unwrap()).unwrap(),
+            before
+        );
+        let records = &document.operation.as_ref().unwrap().producers[0].recent;
+        assert!(records.iter().any(|record| record.values.iter().any(
+            |field| matches!(&field.value,Value::Text(kind) if kind=="native_accepted_iterate")
+        )));
+        assert!(records.iter().any(|record| record.values.iter().any(
+            |field| matches!(&field.value,Value::Text(kind) if kind=="native_termination_check")
+        )));
+        assert!(
+            records
+                .iter()
+                .all(|record| record.values.iter().all(|field| field.name != "iteration"))
+        );
+    }
     #[test]
     fn inspection_busy_owner_is_passive_and_context_specific() {
         let directory = tempfile::tempdir().unwrap();

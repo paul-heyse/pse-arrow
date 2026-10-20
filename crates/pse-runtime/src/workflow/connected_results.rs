@@ -237,6 +237,42 @@ impl CanonicalResultReader {
     pub async fn export_ipc(&mut self, destination: &std::path::Path) -> Result<(), WorkflowError> {
         self.reader.export_ipc(destination).await
     }
+    /// Original complete selection coordinates for a portable review member.
+    pub fn pack_selection(
+        &self,
+        usability: crate::review_pack::PackScientificState,
+    ) -> Result<crate::review_pack::PackResultSelection, WorkflowError> {
+        self.reader.pack_selection(usability)
+    }
+    pub(crate) fn validate_pack_selection(
+        &self,
+        selection: &crate::review_pack::PackResultSelection,
+    ) -> Result<(), WorkflowError> {
+        self.reader.validate_pack_selection(selection)
+    }
+    /// Export the unread protected selection with a finite output allowance and
+    /// an independent caller cancellation token. No final file on failure.
+    pub async fn export_ipc_bounded(
+        &mut self,
+        destination: &std::path::Path,
+        maximum_bytes: u64,
+        cancel: &CancellationToken,
+    ) -> Result<u64, WorkflowError> {
+        self.reader
+            .export_ipc_bounded(destination, maximum_bytes, cancel)
+            .await
+    }
+    pub(crate) async fn export_ipc_acknowledged(
+        &mut self,
+        destination: &std::path::Path,
+        maximum_bytes: u64,
+        cancel: &CancellationToken,
+        acknowledged: &mut u64,
+    ) -> Result<u64, WorkflowError> {
+        self.reader
+            .export_ipc_with_prefix(destination, maximum_bytes, cancel, Some(acknowledged))
+            .await
+    }
     /// Decode and admit the next selected native Arrow batch.
     pub async fn next_batch(&mut self) -> Result<Option<RecordBatch>, WorkflowError> {
         self.reader.next_batch().await
@@ -338,6 +374,42 @@ impl SelectedResultReader {
     pub async fn export_ipc(&mut self, destination: &std::path::Path) -> Result<(), WorkflowError> {
         self.reader.export_ipc(destination).await
     }
+    /// Original complete selection coordinates for a portable review member.
+    pub fn pack_selection(
+        &self,
+        usability: crate::review_pack::PackScientificState,
+    ) -> Result<crate::review_pack::PackResultSelection, WorkflowError> {
+        self.reader.pack_selection(usability)
+    }
+    pub(crate) fn validate_pack_selection(
+        &self,
+        selection: &crate::review_pack::PackResultSelection,
+    ) -> Result<(), WorkflowError> {
+        self.reader.validate_pack_selection(selection)
+    }
+    /// Export the unread protected selection with a finite output allowance and
+    /// an independent caller cancellation token. No final file on failure.
+    pub async fn export_ipc_bounded(
+        &mut self,
+        destination: &std::path::Path,
+        maximum_bytes: u64,
+        cancel: &CancellationToken,
+    ) -> Result<u64, WorkflowError> {
+        self.reader
+            .export_ipc_bounded(destination, maximum_bytes, cancel)
+            .await
+    }
+    pub(crate) async fn export_ipc_acknowledged(
+        &mut self,
+        destination: &std::path::Path,
+        maximum_bytes: u64,
+        cancel: &CancellationToken,
+        acknowledged: &mut u64,
+    ) -> Result<u64, WorkflowError> {
+        self.reader
+            .export_ipc_with_prefix(destination, maximum_bytes, cancel, Some(acknowledged))
+            .await
+    }
     /// Decode and admit the next selected native Arrow batch.
     pub async fn next_batch(&mut self) -> Result<Option<RecordBatch>, WorkflowError> {
         self.reader.next_batch().await
@@ -356,6 +428,30 @@ struct SelectedBatch {
     descriptor: pse_model::generated::runtime::canonical_result_batches::Row,
     batch: pse_relations::columnar::FieldCheckedBatch,
     _owner: MemoryReservation,
+}
+
+struct BoundedExportFile {
+    file: std::fs::File,
+    remaining: u64,
+    written: u64,
+    cancel: CancellationToken,
+}
+impl Write for BoundedExportFile {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.cancel.checkpoint().map_err(std::io::Error::other)?;
+        if bytes.len() as u64 > self.remaining {
+            return Err(std::io::Error::other(
+                "review export output allowance exhausted",
+            ));
+        }
+        let written = self.file.write(bytes)?;
+        self.remaining -= written as u64;
+        self.written += written as u64;
+        Ok(written)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.file.flush()
+    }
 }
 
 /// A protected terminal attempt, exact relation and requested row coordinates.
@@ -416,10 +512,88 @@ impl ResultReader {
         self.exhausted = true;
     }
 
+    fn pack_selection(
+        &self,
+        usability: crate::review_pack::PackScientificState,
+    ) -> Result<crate::review_pack::PackResultSelection, WorkflowError> {
+        let spec = self
+            .runtime
+            .registry()
+            .relation_by_id(self.relation)
+            .ok_or_else(|| contract("selected relation absent"))?;
+        Ok(crate::review_pack::PackResultSelection {
+            run: self.read.run().key.clone(),
+            attempt: self.read.attempt().key.clone(),
+            relation: spec.key.qualified_name(),
+            schema_version: spec.key.version,
+            row_start: self.start,
+            row_end: self.end,
+            field: self.output.as_ref().map(|o| o.field.clone()),
+            terminal_class: self
+                .read
+                .attempt()
+                .outcome
+                .clone()
+                .ok_or_else(|| contract("terminal class absent"))?,
+            predicate: self
+                .output
+                .as_ref()
+                .map(|o| crate::review_pack::PackResultPredicate {
+                    output: o.output.clone(),
+                    partition: o.partition.clone(),
+                    minimum_bits: o.minimum.map(f64::to_bits),
+                    maximum_bits: o.maximum.map(f64::to_bits),
+                    missing: o.missing,
+                }),
+            usability,
+        })
+    }
+    fn validate_pack_selection(
+        &self,
+        selection: &crate::review_pack::PackResultSelection,
+    ) -> Result<(), WorkflowError> {
+        let original = self.pack_selection(selection.usability)?;
+        if original.run != selection.run
+            || original.attempt != selection.attempt
+            || original.relation != selection.relation
+            || original.schema_version != selection.schema_version
+            || original.row_start != selection.row_start
+            || original.row_end != selection.row_end
+            || original.field != selection.field
+            || original.terminal_class != selection.terminal_class
+            || original.predicate != selection.predicate
+        {
+            return Err(contract(
+                "declared review selection differs from protected result coordinates",
+            ));
+        }
+        Ok(())
+    }
     /// Publish a local Arrow IPC export only after every selected database read
     /// and final IPC write succeeds. Interrupted staging remains `.incomplete`;
     /// creating the final hard link refuses an existing destination atomically.
     async fn export_ipc(&mut self, destination: &std::path::Path) -> Result<(), WorkflowError> {
+        let cancel = self.cancel.clone();
+        self.export_ipc_bounded(destination, u64::MAX, &cancel)
+            .await
+            .map(|_| ())
+    }
+    async fn export_ipc_bounded(
+        &mut self,
+        destination: &std::path::Path,
+        maximum_bytes: u64,
+        cancel: &CancellationToken,
+    ) -> Result<u64, WorkflowError> {
+        self.export_ipc_with_prefix(destination, maximum_bytes, cancel, None)
+            .await
+    }
+    async fn export_ipc_with_prefix(
+        &mut self,
+        destination: &std::path::Path,
+        maximum_bytes: u64,
+        cancel: &CancellationToken,
+        mut acknowledged: Option<&mut u64>,
+    ) -> Result<u64, WorkflowError> {
         if self.consumed {
             return Err(contract("export requires an unread complete selection"));
         }
@@ -436,6 +610,19 @@ impl ResultReader {
             .open(&staging)
             .map_err(io)?;
         let mut metadata = self.schema.metadata().clone();
+        let relation = self
+            .runtime
+            .registry()
+            .relation_by_id(self.relation)
+            .ok_or_else(|| contract("selected relation absent"))?;
+        metadata.insert(
+            "pse.canonical.relation".into(),
+            relation.key.qualified_name(),
+        );
+        metadata.insert(
+            "pse.canonical.relation-version".into(),
+            relation.key.version.to_string(),
+        );
         metadata.insert(
             "pse.canonical.problem".into(),
             self.read.run().problem.clone(),
@@ -489,17 +676,38 @@ impl ResultReader {
         }
         let schema = Arc::new(self.schema.as_ref().clone().with_metadata(metadata));
         let mut writer = datafusion::arrow::ipc::writer::StreamWriter::try_new(
-            BufWriter::new(file),
+            BufWriter::new(BoundedExportFile {
+                file,
+                remaining: maximum_bytes,
+                written: 0,
+                cancel: cancel.clone(),
+            }),
             schema.as_ref(),
         )
         .map_err(result_blocks::ResultBlockError::from)?;
-        while let Some(batch) = self.next_batch().await? {
+        if let Some(prefix) = acknowledged.as_deref_mut() {
+            writer.get_mut().flush().map_err(io)?;
+            *prefix = writer.get_ref().get_ref().written;
+        }
+        loop {
+            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+            let Some(batch) = cancel
+                .until_cancelled(self.next_batch())
+                .await
+                .map_err(pse_engine::EngineError::from)??
+            else {
+                break;
+            };
             let batch = batch
                 .with_schema(schema.clone())
                 .map_err(result_blocks::ResultBlockError::from)?;
             writer
                 .write(&batch)
                 .map_err(result_blocks::ResultBlockError::from)?;
+            if let Some(prefix) = acknowledged.as_deref_mut() {
+                writer.get_mut().flush().map_err(io)?;
+                *prefix = writer.get_ref().get_ref().written;
+            }
         }
         self.cancel
             .checkpoint()
@@ -508,11 +716,16 @@ impl ResultReader {
             .finish()
             .map_err(result_blocks::ResultBlockError::from)?;
         writer.get_mut().flush().map_err(io)?;
-        writer.get_ref().get_ref().sync_all().map_err(io)?;
+        writer.get_ref().get_ref().file.sync_all().map_err(io)?;
+        let bytes = writer.get_ref().get_ref().written;
+        if let Some(prefix) = acknowledged {
+            *prefix = bytes;
+        }
+        cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         drop(writer);
         std::fs::hard_link(&staging, destination).map_err(io)?;
         std::fs::remove_file(staging).map_err(io)?;
-        Ok(())
+        Ok(bytes)
     }
 
     /// Decode one admitted member from its exact protected native file.
@@ -1008,6 +1221,141 @@ impl ResultReader {
     }
 }
 impl Runtime {
+    /// Bounded exact-attempt metadata preflight for review publication. It never polls rows.
+    pub(super) async fn review_result_selections(
+        &self,
+        requests: &[super::ReviewScientificSelection],
+        cancel: &CancellationToken,
+    ) -> Result<
+        (
+            Vec<crate::review_pack::PackResultSelection>,
+            MemoryReservation,
+        ),
+        WorkflowError,
+    > {
+        use crate::review_pack::{PackResultPredicate, PackResultSelection, PackScientificState};
+        if requests.len() > 1024 {
+            return Err(contract("review selects more than 1024 scientific members"));
+        }
+        let reservation = MemoryConsumer::new("review:scientific-selection-preflight")
+            .register(&self.shared.pool());
+        let extent = requests
+            .iter()
+            .try_fold(0usize, |total, request| {
+                let output = request.output.as_ref().map_or(0, |output| {
+                    output.field.len().saturating_add(output.partition.len())
+                });
+                total.checked_add(2048).and_then(|n| {
+                    n.checked_add(
+                        request
+                            .run
+                            .len()
+                            .saturating_add(request.attempt.len())
+                            .saturating_add(request.relation.len())
+                            .saturating_add(request.member.len())
+                            .saturating_add(output)
+                            .saturating_mul(4),
+                    )
+                })
+            })
+            .ok_or_else(|| contract("review selection extent overflow"))?;
+        reservation
+            .try_grow(extent)
+            .map_err(pse_engine::EngineError::from)?;
+        let mut attempts =
+            BTreeMap::<(String, String), (String, std::collections::BTreeSet<String>)>::new();
+        let mut selected = Vec::with_capacity(requests.len());
+        for request in requests {
+            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+            if request.row_start > request.row_end {
+                return Err(contract("review result row range is reversed"));
+            }
+            let key = (request.run.clone(), request.attempt.clone());
+            if !attempts.contains_key(&key) {
+                let response = response_owner(
+                    self,
+                    "review:exact-result-metadata",
+                    MetadataResponse::Selection,
+                )?;
+                let read = pse_operations::canonical::response_ownership_scope(
+                    response.clone(),
+                    self.canonical_store()?
+                        .read_results(&request.run, &request.attempt),
+                )
+                .await?;
+                let _owner = retain_protected_metadata(
+                    &self.shared.pool(),
+                    response,
+                    read.retained_bytes()?,
+                    |owner| read.retain_metadata_owner(owner),
+                )?;
+                let class = read
+                    .attempt()
+                    .outcome
+                    .clone()
+                    .ok_or_else(|| contract("review requires an exact terminal attempt"))?;
+                let copied_metadata = read
+                    .sets()
+                    .iter()
+                    .try_fold(class.len(), |total, set| {
+                        total.checked_add(256)?.checked_add(set.name.len())
+                    })
+                    .ok_or_else(|| contract("review relation metadata extent overflow"))?;
+                reservation
+                    .try_grow(copied_metadata)
+                    .map_err(pse_engine::EngineError::from)?;
+                let relations = read.sets().iter().map(|set| set.name.clone()).collect();
+                attempts.insert(key.clone(), (class, relations));
+                // ResultRead's protected metadata/borrower is dropped here, before the next attempt.
+            }
+            let (terminal_class, relations) = attempts
+                .get(&key)
+                .ok_or_else(|| contract("review preflight attempt absent"))?;
+            let spec = self
+                .registry()
+                .relation(&request.relation)
+                .ok_or_else(|| contract("unknown selected review relation"))?;
+            if !relations.contains(&spec.id.to_string()) {
+                return Err(contract("review relation is not part of the exact attempt"));
+            }
+            let (field, predicate) = if let Some(output) = &request.output {
+                output.bounds()?;
+                super::result_projection::check_output_field(spec.id, &output.field)?;
+                let dense =
+                    spec.id == pse_relations::generated::runtime::simulation_samples::RELATION_ID;
+                if dense && output.missing.is_some() {
+                    return Err(contract("dense review output has no missing predicate"));
+                }
+                let mut identity = String::with_capacity(66 + output.field.len());
+                write_output_identity(&mut identity, &spec.id, output.owner, &output.field, dense)?;
+                (
+                    Some(output.field.clone()),
+                    Some(PackResultPredicate {
+                        output: identity,
+                        partition: output.partition.clone(),
+                        minimum_bits: output.minimum_bits,
+                        maximum_bits: output.maximum_bits,
+                        missing: output.missing,
+                    }),
+                )
+            } else {
+                (None, None)
+            };
+            selected.push(PackResultSelection {
+                run: request.run.clone(),
+                attempt: request.attempt.clone(),
+                relation: spec.key.qualified_name(),
+                schema_version: spec.key.version,
+                row_start: request.row_start,
+                row_end: request.row_end,
+                field,
+                terminal_class: terminal_class.clone(),
+                predicate,
+                usability: PackScientificState::Unknown,
+            });
+        }
+        Ok((selected, reservation))
+    }
     /// Read the exact canonical run header as its registry-declared Arrow row.
     pub async fn run_record(
         &self,
@@ -1422,13 +1770,7 @@ impl Runtime {
                     .try_grow(admitted + size_of::<OutputFilter>() + 2 * size_of::<usize>())
                     .map_err(pse_engine::EngineError::from)?;
                 let mut output = String::with_capacity(output_length);
-                use std::fmt::Write as _;
-                write!(output, "{}:{owner}", spec.id)
-                    .map_err(|_| contract("output identity formatting"))?;
-                if dense {
-                    output.push(':');
-                    output.push_str(field);
-                }
+                write_output_identity(&mut output, &spec.id, owner, field, dense)?;
                 let filter = OutputFilter {
                     output,
                     field: field.into(),
@@ -1472,6 +1814,22 @@ impl Runtime {
             })
             .await
     }
+}
+
+fn write_output_identity(
+    output: &mut String,
+    relation: &impl std::fmt::Display,
+    owner: pse_ids::SemanticId,
+    field: &str,
+    dense: bool,
+) -> Result<(), WorkflowError> {
+    use std::fmt::Write as _;
+    write!(output, "{relation}:{owner}").map_err(|_| contract("output identity formatting"))?;
+    if dense {
+        output.push(':');
+        output.push_str(field);
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -2911,12 +3269,199 @@ mod canonical_connected_results_server_unit {
             assert_eq!(row.time, (20 + index) as f64);
         }
         assert!(trajectory.next_batch().await.unwrap().is_none());
+        // A selected field/time predicate reaches the same portable exporter,
+        // retaining only its original matching rows and full typed schema.
+        let selected_reader = runtime
+            .output_results(
+                "projection",
+                fence.attempt(),
+                "runtime.simulation_samples",
+                second,
+                "value",
+                "0",
+                0,
+                u64::MAX,
+                Some(20.0),
+                Some(22.0),
+                None,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let selected_borrower = Arc::downgrade(&selected_reader.reader.read);
+        let selected_coordinates = selected_reader
+            .pack_selection(crate::review_pack::PackScientificState::Partial)
+            .unwrap();
+        assert_eq!(selected_coordinates.field.as_deref(), Some("value"));
+        assert_eq!(
+            selected_coordinates
+                .predicate
+                .as_ref()
+                .unwrap()
+                .minimum_bits,
+            Some(20.0_f64.to_bits())
+        );
+        let mut pack_selection = crate::review_pack::PackSelection::default();
+        pack_selection
+            .members
+            .push(crate::review_pack::PackMemberSelection {
+                id: "selected".into(),
+                role: crate::review_pack::PackMemberRole::Result,
+                required: true,
+                format: crate::review_pack::PackFormat::ArrowIpcStream,
+                document_version: None,
+                source: None,
+                references: vec![],
+                result: Some(selected_coordinates),
+                diagnostic_table: None,
+                capture_scope: None,
+            });
+        let pack_directory = tempfile::tempdir().unwrap();
+        let pack_path = pack_directory.path().join("selected-pack");
+        let mut pack = crate::review_pack::PackSession::create(
+            &pack_path,
+            pack_selection,
+            CancellationToken::new(),
+        )
+        .unwrap();
+        let evidence = crate::frozen_inspection::FrozenEvidenceSet::default();
+        let analysis_pool: Arc<dyn MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20));
+        let analysis = crate::review_analysis::analyze(
+            &evidence,
+            &crate::review_analysis::AnalysisRequest::new(
+                pse_diagnostics::observation::OperationId {
+                    process_instance: [1, 2],
+                    sequence: 3,
+                },
+            ),
+            &analysis_pool,
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        // The public composition shares one result-owner path for multiple selected fields.
+        let composed_path = pack_directory.path().join("composed-pack");
+        let make_selection =
+            |member: &str, minimum: f64, maximum: f64| super::super::ReviewScientificSelection {
+                member: member.into(),
+                run: "projection".into(),
+                attempt: fence.attempt().into(),
+                relation: "runtime.simulation_samples".into(),
+                row_start: 0,
+                row_end: u64::MAX,
+                output: Some(super::super::ReviewOutputSelection {
+                    owner: second,
+                    field: "value".into(),
+                    partition: "0".into(),
+                    minimum_bits: Some(minimum.to_bits()),
+                    maximum_bits: Some(maximum.to_bits()),
+                    missing: None,
+                }),
+            };
+        let request = crate::review_pack::PackExportRequest {
+            scientific_results: vec![
+                make_selection("early", 20.0, 21.0),
+                make_selection("late", 22.0, 22.0),
+            ],
+            ..Default::default()
+        };
+        let composed = runtime
+            .export_review_pack(
+                &composed_path,
+                &evidence,
+                &analysis,
+                request,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            composed.publication,
+            crate::review_pack::PackPublication::Sealed
+        );
+        let portable = crate::review_pack::PackReader::open(&composed_path, 8 << 20).unwrap();
+        for (member, expected) in [("early", 2), ("late", 1)] {
+            let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
+                portable.open_member(member).unwrap(),
+                None,
+            )
+            .unwrap();
+            assert_eq!(
+                stream.map(|batch| batch.unwrap().num_rows()).sum::<usize>(),
+                expected
+            );
+            let declared = composed
+                .members
+                .iter()
+                .find(|item| item.selection.id == member)
+                .unwrap()
+                .selection
+                .result
+                .as_ref()
+                .unwrap();
+            assert_eq!(declared.attempt, fence.attempt());
+            assert_eq!(
+                declared.usability,
+                crate::review_pack::PackScientificState::Unknown
+            );
+        }
+        pack.add_frozen(&evidence).unwrap();
+        pack.add_analysis(&analysis).unwrap();
+        pack.export_selected_result("selected", selected_reader)
+            .await
+            .unwrap();
+        assert!(selected_borrower.upgrade().is_none());
+        // Other original fixture selections remain independent live borrowers.
+        assert!(read.sets().iter().any(|set| set.row_count > 0));
+        pack.seal().unwrap();
+        let portable = crate::review_pack::PackReader::open(&pack_path, 1 << 20).unwrap();
+        let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
+            portable.open_member("selected").unwrap(),
+            None,
+        )
+        .unwrap();
+        let mut times = Vec::new();
+        for batch in stream {
+            let batch = batch.unwrap();
+            let time = batch
+                .column_by_name("time")
+                .unwrap()
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .unwrap();
+            for i in 0..batch.num_rows() {
+                times.push(time.value(i));
+            }
+            // Portable streams retain canonical transport metadata in addition
+            // to the original relation fields. Inspect those fields directly.
+            assert_eq!(
+                batch
+                    .schema()
+                    .metadata()
+                    .get("pse.canonical.field")
+                    .map(String::as_str),
+                Some("value")
+            );
+            let symbols = batch
+                .column_by_name("symbol_id")
+                .unwrap()
+                .as_any()
+                .downcast_ref::<datafusion::arrow::array::FixedSizeBinaryArray>()
+                .unwrap();
+            for i in 0..batch.num_rows() {
+                assert_eq!(symbols.value(i), second.as_bytes());
+            }
+        }
+        assert_eq!(times, vec![20.0, 21.0, 22.0]);
         drop(trajectory);
         drop(zero);
         drop(missing);
         drop(late);
         drop(none);
         drop(read);
+        pse_operations::testing::drain_result_releases(store)
+            .await
+            .unwrap();
     }
     #[tokio::test]
     async fn canonical_connected_results_reopens_declared_arrow_exact_range_and_cancellation() {
@@ -3193,6 +3738,138 @@ mod canonical_connected_results_server_unit {
         );
         assert_eq!(file.next().unwrap().unwrap().num_rows(), 4);
         assert!(file.next().is_none());
+        // The pack uses this actual protected selected exporter, with exact
+        // row coordinates, terminal lineage and scientific usability unchanged.
+        use crate::review_pack::{
+            PackAvailability, PackFormat, PackMemberRole, PackMemberSelection, PackPublication,
+            PackReader, PackScientificState, PackSelection, PackSession,
+        };
+        let evidence = crate::frozen_inspection::FrozenEvidenceSet::default();
+        let analysis_pool: Arc<dyn MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20));
+        let analysis = crate::review_analysis::analyze(
+            &evidence,
+            &crate::review_analysis::AnalysisRequest::new(
+                pse_diagnostics::observation::OperationId {
+                    process_instance: [1, 2],
+                    sequence: 3,
+                },
+            ),
+            &analysis_pool,
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        let mut report_bytes = 0;
+        for limited in [false, true] {
+            let reader = runtime
+                .results(
+                    "run",
+                    fence.attempt(),
+                    "runtime.solve_metrics",
+                    1,
+                    3,
+                    CancellationToken::new(),
+                )
+                .await
+                .unwrap();
+            let protected_borrower = Arc::downgrade(&reader.reader.read);
+            let original_selection = reader
+                .pack_selection(PackScientificState::Unusable)
+                .unwrap();
+            assert_eq!(original_selection.row_start, 1);
+            assert_eq!(original_selection.row_end, 3);
+            let mut selection = PackSelection::default();
+            if limited {
+                selection.maximum_output_bytes = report_bytes + 16;
+            }
+            selection.members.push(PackMemberSelection {
+                id: "scientific".into(),
+                role: PackMemberRole::Result,
+                required: true,
+                format: PackFormat::ArrowIpcStream,
+                document_version: None,
+                source: None,
+                references: vec![],
+                result: Some(original_selection),
+                diagnostic_table: None,
+                capture_scope: None,
+            });
+            let pack_path = directory.path().join(if limited {
+                "limited-pack"
+            } else {
+                "sealed-pack"
+            });
+            let mut pack =
+                PackSession::create(&pack_path, selection, CancellationToken::new()).unwrap();
+            pack.add_frozen(&evidence).unwrap();
+            pack.add_analysis(&analysis).unwrap();
+            report_bytes = pack.index().members.iter().map(|m| m.readable_bytes).sum();
+            if limited {
+                // Actual protected IPC writer refuses before exceeding allowance.
+                assert!(pack.export_result("scientific", reader).await.is_err());
+                assert!(protected_borrower.upgrade().is_none());
+                assert!(pack.seal().is_err());
+                assert_eq!(
+                    PackReader::open(&pack_path, 1 << 20)
+                        .unwrap()
+                        .index()
+                        .publication,
+                    PackPublication::Incomplete
+                );
+                continue;
+            }
+            pack.export_result("scientific", reader).await.unwrap();
+            assert!(protected_borrower.upgrade().is_none());
+            let sealed = pack.seal().unwrap();
+            assert_eq!(sealed.publication, PackPublication::Sealed);
+            let scientific = sealed
+                .members
+                .iter()
+                .find(|member| member.selection.id == "scientific")
+                .unwrap();
+            assert_eq!(scientific.availability, PackAvailability::Available);
+            assert_eq!(
+                scientific.selection.result.as_ref().unwrap().usability,
+                PackScientificState::Unusable
+            );
+            assert_eq!(
+                scientific.selection.result.as_ref().unwrap().terminal_class,
+                "partial"
+            );
+            let reopened = PackReader::open(&pack_path, 1 << 20).unwrap();
+            let mut stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
+                reopened.open_member("scientific").unwrap(),
+                None,
+            )
+            .unwrap();
+            assert_eq!(
+                stream
+                    .schema()
+                    .metadata()
+                    .get("pse.canonical.row-start")
+                    .map(String::as_str),
+                Some("1")
+            );
+            assert_eq!(
+                stream
+                    .schema()
+                    .metadata()
+                    .get("pse.canonical.row-end")
+                    .map(String::as_str),
+                Some("3")
+            );
+            let batch = stream.next().unwrap().unwrap();
+            assert_eq!(batch.num_rows(), 2);
+            let selected = batch
+                .column_by_name("real")
+                .unwrap()
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .unwrap();
+            assert_eq!(selected.value(0).to_bits(), (-0.0_f64).to_bits());
+            assert!(selected.is_null(1));
+            assert!(stream.next().is_none());
+        }
         let token = CancellationToken::new();
         let mut interrupted = runtime
             .results(
@@ -3348,5 +4025,84 @@ mod canonical_connected_results_server_unit {
         assert!(late_export.export_ipc(&partial).await.is_err());
         assert!(!partial.exists());
         assert!(directory.path().join("partial.arrow.incomplete").is_file());
+        let broken_reader = runtime
+            .results(
+                "malformed",
+                broken.attempt(),
+                "runtime.solve_metrics",
+                0,
+                5,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let broken_borrower = Arc::downgrade(&broken_reader.reader.read);
+        let mut broken_selection = PackSelection::default();
+        broken_selection.members.push(PackMemberSelection {
+            id: "broken".into(),
+            role: PackMemberRole::Result,
+            required: true,
+            format: PackFormat::ArrowIpcStream,
+            document_version: None,
+            source: None,
+            references: vec![],
+            result: Some(
+                broken_reader
+                    .pack_selection(PackScientificState::Unusable)
+                    .unwrap(),
+            ),
+            diagnostic_table: None,
+            capture_scope: None,
+        });
+        let broken_pack_path = directory.path().join("broken-pack");
+        let mut broken_pack = PackSession::create(
+            &broken_pack_path,
+            broken_selection,
+            CancellationToken::new(),
+        )
+        .unwrap();
+        broken_pack.add_frozen(&evidence).unwrap();
+        broken_pack.add_analysis(&analysis).unwrap();
+        assert!(
+            broken_pack
+                .export_result("broken", broken_reader)
+                .await
+                .is_err()
+        );
+        assert!(broken_borrower.upgrade().is_none());
+        assert!(broken_pack.seal().is_err());
+        let incomplete = PackReader::open(&broken_pack_path, 1 << 20).unwrap();
+        assert_eq!(incomplete.index().publication, PackPublication::Incomplete);
+        let member = incomplete
+            .index()
+            .members
+            .iter()
+            .find(|m| m.selection.id == "broken")
+            .unwrap();
+        assert!(!member.finalized);
+        assert!(member.readable_bytes > 0);
+        let mut prefix = datafusion::arrow::ipc::reader::StreamReader::try_new(
+            incomplete.open_member("broken").unwrap(),
+            None,
+        )
+        .unwrap();
+        assert_eq!(prefix.next().unwrap().unwrap().num_rows(), 4);
+        assert!(prefix.next().is_none());
+        // Drain is a whole-client boundary only after the independent original
+        // fixture readers have completed their own selected work and dropped.
+        drop((
+            latest,
+            history,
+            reader,
+            cancelled,
+            export,
+            interrupted,
+            overwrite,
+            late,
+            late_export,
+        ));
+        pse_operations::testing::drain_result_releases(store)
+            .await
+            .unwrap();
     }
 }

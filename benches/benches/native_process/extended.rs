@@ -31,8 +31,9 @@ async fn algebraic(
     owner: &WorkflowRuntime,
     quadratic: bool,
     mixed: bool,
-) -> (ModelingPackage, DeclarationId) {
-    let physical = physical(owner).await;
+) -> (ModelingPackage, DeclarationId, workflow::Runtime) {
+    let target = runtime(owner);
+    let physical = physical_on(owner, &target).await;
     let (a, b) = if mixed { (1e-6, 1e6) } else { (2.0, 3.0) };
     let equations = if quadratic {
         "let cost:Scalar=(x-a)*(x-a)+(y-b)*(y-b); annotation objective cost(minimize);"
@@ -55,11 +56,9 @@ async fn algebraic(
         .unwrap()
         .declaration_id;
     (
-        runtime(owner)
-            .modeling_package(rows, physical)
-            .await
-            .unwrap(),
+        target.modeling_package(rows, physical).await.unwrap(),
         root,
+        target,
     )
 }
 
@@ -76,14 +75,32 @@ async fn cone(owner: &WorkflowRuntime, observations: &mut observations::Observat
         cones: vec![native::conic::Cone::Nonnegative { dimension: 1 }],
         objective_constant: 3.,
     };
+    let selected = profile(Backend::Clarabel, true);
     let prepared = runtime(owner)
-        .prepare_conic(request, &physical, profile(Backend::Clarabel, true))
+        .prepare_conic(request, &physical, selected.clone())
         .await
         .unwrap();
     let result = audit::finish(prepared.start().unwrap()).await.unwrap();
     let pse_runtime::math::solves::Outcome::Native(report) = &result.outcome else {
         panic!("missing cone result")
     };
+    audit::retain_math_output(
+        "conic",
+        &json!({
+            "request":prepared.request(),"native_report":{
+                "backend":report.backend,"variables":report.variables,"rows":report.rows,
+                "termination":report.termination,"work":report.evidence.work,
+                "options":report.options,"native_defaults":report.native_defaults,"provenance":report.provenance,
+                "dropped_events":report.dropped_events,
+                "unavailable_fields":["full SolveReport, progress Event and Metric do not implement a public serialization contract; native owner observations retained below"],
+                "native_observations":report.evidence.native_observations,"raw_map":report.evidence.raw_map,
+                "primal":report.candidate.as_ref().map(|candidate| &candidate.primal),
+                "objective":report.candidate.as_ref().and_then(|candidate| candidate.objective)
+            },
+            "settings":{"backend":review_cases::settings_json(&selected.backend),"controls":selected.controls,"numerics":selected.numerics},
+            "workflow_handoff":{"status":"unsupported","reason":"direct SolveHandle returns no workflow RunResult and PreparedConic exposes no review_context adapter"}
+        }),
+    );
     // The direct mathematical step has no workflow run identity. This local
     // projection identity is not retained or used as scientific provenance.
     observations.strategy(
@@ -232,7 +249,15 @@ pub(super) async fn recycle(
         .prepare_recycle(&analysis, selection, request, &cancel)
         .await
         .unwrap();
-    let result = audit::finish(prepared.start().unwrap()).await.unwrap();
+    let review = audit::review_context_request();
+    let (handle, operation) = prepared.start_with_operation().unwrap();
+    let result = audit::finish(handle).await.unwrap();
+    if let Some(request) = review {
+        match prepared.review_context(&request, operation, &result) {
+            Ok(context) => audit::retain_context(context.document()),
+            Err(error) => audit::review_context_error(error),
+        }
+    }
     observations.strategy(&result.strategy, result.run_id, 0, owner.runtime.math());
     observations.native(&result.report);
     for value in &result.report.candidate.as_ref().unwrap().primal {
@@ -246,7 +271,8 @@ async fn sparse_fit(
     n: usize,
     observations: &mut observations::Observations,
 ) {
-    let physical = physical(owner).await;
+    let target = runtime(owner);
+    let physical = physical_on(owner, &target).await;
     let source = format!(
         "package benchmark {{ entity kind source provenance {{}} entity source analytic {{}} enum Role {{ measured facets(measured) }} entity kind measurement {{attribute observed:Scalar;}} {} def Identity {{ {} }} }}",
         (0..n).map(|i|format!("@id(\"{}\") entity measurement reading{i} provenance(analytic,Role.measured) {{observed=2.0 ± standard(1.0)}}",id(4000+i as u32))).collect::<String>(),
@@ -271,7 +297,7 @@ async fn sparse_fit(
         "parameters":(0..n).map(|i|json!({"symbol_id":id(1000+i as u32),"fixed":false,"value":1.,"lower":null,"upper":null,"scale":1.})).collect::<Vec<_>>(),
         "experiments":[{"experiment_id":id(74),"case_id":root,"route":"steady","bindings":(0..n).map(|i|json!({"parameter_id":id(1000+i as u32),"path":format!("p{i}")})).collect::<Vec<_>>()}],
         "observations":(0..n).map(|i|json!({"observation_id":id(4000+i as u32),"experiment_id":id(74),"value_attribute":"observed","standard_deviation_attribute":null,"output_path":format!("p{i}"),"time":null,"included":true,"importance":1.})).collect::<Vec<_>>()})).unwrap());
-    let package = runtime(owner)
+    let package = target
         .modeling_package(rows, physical)
         .await
         .unwrap()
@@ -288,7 +314,7 @@ async fn sparse_fit(
                 simulations: BTreeMap::new(),
                 experiment_workers: pse_model::scalars::PositiveCount::try_new(1).unwrap(),
                 rank_tolerance: 1e-8,
-                max_cells: n * 8,
+                max_cells: if n <= 8 { n * n * 8 } else { n * 8 },
                 derivatives: workflow::FitDerivatives::Responses,
                 uncertainty: None,
             },
@@ -299,6 +325,7 @@ async fn sparse_fit(
         .await
         .unwrap();
     let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+    audit::export_result(&target, &result).await;
     observations.run(&result, owner.runtime.math());
     let RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing sparse fit")
@@ -307,10 +334,17 @@ async fn sparse_fit(
     for value in report.candidate.as_ref().unwrap() {
         near(*value, 2., 1e-6);
     }
-    assert!(
-        report.responses.is_none(),
-        "dense rank exceeds its separately declared cell cap"
-    );
+    if n > 8 {
+        assert!(
+            report.responses.is_none(),
+            "dense rank exceeds its separately declared cell cap"
+        );
+    } else {
+        assert!(
+            report.responses.is_some(),
+            "small fit retains its qualified response"
+        );
+    }
 }
 
 async fn run(
@@ -321,6 +355,9 @@ async fn run(
     observations: &mut observations::Observations,
 ) {
     match operation {
+        operation if operation.starts_with("review-") => {
+            Box::pin(review_cases::run(owner, spec, observations)).await
+        }
         operation if operation.starts_with("compact-") => {
             // Keep the case dispatcher on the ordinary caller stack without
             // embedding every compact scientific future in this outer frame.
@@ -336,7 +373,7 @@ async fn run(
         "mixed-scale" | "qp" | "value-sweep" => {
             let quadratic = operation == "qp";
             let mixed = operation == "mixed-scale";
-            let (package, root) = algebraic(owner, quadratic, mixed).await;
+            let (package, root, target) = algebraic(owner, quadratic, mixed).await;
             let cancel = audit::cancel_source();
             let mut selected = profile(
                 if quadratic {
@@ -390,6 +427,7 @@ async fn run(
                 };
                 let coordinates = [symbol("x"), symbol("y")];
                 let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+                audit::export_result(&target, &result).await;
                 authored_success(&result);
                 observations.run(&result, owner.runtime.math());
                 if let Some(context) = pse_diagnostics::observation::current() {
@@ -402,7 +440,8 @@ async fn run(
         }
 
         "vessel" | "dynamic-rebind" => {
-            let package = seed_package(owner).await;
+            let target = runtime(owner);
+            let package = seed_package_on(owner, target.clone()).await;
             let root = DeclarationId::from_id(
                 SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c").unwrap(),
             );
@@ -412,10 +451,15 @@ async fn run(
                 .await
                 .unwrap();
             if operation == "vessel" {
-                let result = prepared.run(&cancel).await.unwrap();
-                assert!(result.accepted(), "{result:?}");
-                observations.trajectory(result.report());
-                std::hint::black_box(result.tables().unwrap());
+                let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+                audit::export_result(&target, &result).await;
+                observations.invocation(&result);
+                let RunReport::Simulation(trajectory) = result.report().unwrap() else {
+                    panic!("missing vessel trajectory")
+                };
+                assert!(trajectory.accepted(), "{trajectory:?}");
+                observations.trajectory(trajectory.report());
+                std::hint::black_box(trajectory.tables().unwrap());
             } else {
                 let analysis = package
                     .declared_execution(
@@ -446,14 +490,20 @@ async fn run(
                         )
                         .await
                         .unwrap();
-                    let result = rebound.run(&cancel).await.unwrap();
-                    assert!(result.accepted(), "{result:?}");
-                    observations.trajectory(result.report());
+                    let result = audit::wait(rebound.start().unwrap()).await.unwrap();
+                    audit::export_result(&target, &result).await;
+                    observations.invocation(&result);
+                    let RunReport::Simulation(trajectory) = result.report().unwrap() else {
+                        panic!("missing rebound trajectory")
+                    };
+                    assert!(trajectory.accepted(), "{trajectory:?}");
+                    observations.trajectory(trajectory.report());
                 }
             }
         }
         "fit" | "evented-fit" => {
-            let package = seed_package(owner).await;
+            let target = runtime(owner);
+            let package = seed_package_on(owner, target.clone()).await;
             let (fit, mut selected) = heat_fit(&package, "transient").await;
             if operation == "evented-fit" {
                 let root = DeclarationId::from_id(
@@ -495,6 +545,7 @@ async fn run(
                 .await
                 .unwrap();
             let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+            audit::export_result(&target, &result).await;
             observations.run(&result, owner.runtime.math());
             let RunReport::Fit(report) = result.report().unwrap() else {
                 panic!("missing fit")
@@ -517,7 +568,7 @@ pub(super) fn measure(
     let size = spec["blocks"].as_u64().unwrap() as usize;
     let threads = if operation == "compact-study" {
         let workers = spec["workers"].as_u64().unwrap() as usize;
-        assert!(matches!(workers, 1 | 2));
+        assert!(matches!(workers, 1 | 2 | 4));
         assert_eq!(spec["threads"].as_u64(), Some(workers as u64));
         workers
     } else {
@@ -606,7 +657,8 @@ pub(super) fn measure(
         "after_retained_runtime_teardown_bytes":null,"workload":spec,
         "observations_file":format!("{name}-observations.jsonl"),
         "observation_population":"all executed closures including warmup; Criterion statistics separate; membership unavailable",
-        "threads":threads,"native_threads":1,
+        "threads":threads,"native_threads":if operation == "review-pounce-convex" { spec["workers"].clone() } else { json!(1) },
+        "native_threads_scope":"configured native team width; actual active concurrency is not inferred",
         "effective_process_parallelism":std::thread::available_parallelism().unwrap().get(),
         "scope":"fresh runtime per iteration; public source/preparation/execution/analytic validation and teardown; value sweep retains one compiler for 1000 revisions; dynamic rebind retains initial preparation",
         "timed_scope":if operation == "shooting" { "fresh runtime, original source/physical admission, IDAS simulation preparation, single-shooting preparation, one native solve, original scientific/transport assessment, fixture and runtime teardown" } else { "complete extended public operation and teardown" },

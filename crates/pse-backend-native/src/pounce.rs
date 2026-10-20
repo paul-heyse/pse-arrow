@@ -1597,7 +1597,10 @@ mod tests {
         struct Tap(Mutex<Vec<CoherentRecord>>);
         impl RecordTap for Tap {
             fn selected(&self, family: &str) -> bool {
-                matches!(family, "native_factor.v1" | "native_refinement.v1")
+                matches!(
+                    family,
+                    "native_factor.v2" | "native_refinement.v2" | "native_linear_call.v1"
+                )
             }
             fn observe(&self, record: &CoherentRecord) {
                 if self.selected(&record.family) {
@@ -1615,9 +1618,23 @@ mod tests {
         assert!(report.quality.unwrap().feasible());
         let records = tap.0.lock().unwrap();
         let field = |record: &CoherentRecord, name: &str| {
-            record
+            let group = record
                 .values
                 .iter()
+                .find(|field| field.name == "detail_group_ordinal")
+                .unwrap()
+                .value
+                .clone();
+            records
+                .iter()
+                .filter(|part| {
+                    part.family == record.family
+                        && part.producer == record.producer
+                        && part.values.iter().any(|field| {
+                            field.name == "detail_group_ordinal" && field.value == group
+                        })
+                })
+                .flat_map(|part| &part.values)
                 .find(|field| field.name == name)
                 .unwrap()
                 .value
@@ -1626,15 +1643,94 @@ mod tests {
         let factor = records
             .iter()
             .find(|record| {
-                record.family == "native_factor.v1"
+                record.family == "native_factor.v2"
                     && field(record, "factor_values_available") == Value::Boolean(true)
             })
             .unwrap();
         assert!(matches!(field(factor, "input_nonzeros"), Value::Integer(value) if value > 0));
         assert!(matches!(field(factor, "actual_ordering"), Value::Text(_)));
+        assert!(matches!(field(factor, "scaling_status"), Value::Text(_)));
+        assert!(matches!(
+            field(factor, "ordering_preprocess"),
+            Value::Text(_)
+        ));
+        assert_eq!(
+            field(factor, "inertia_scope"),
+            Value::Text("factored_matrix_with_static_perturbation".into())
+        );
+        assert!(matches!(field(factor, "supernodes"), Value::Integer(value) if value > 0));
+        assert_eq!(
+            field(factor, "mc64_counter_delta_available"),
+            Value::Boolean(true)
+        );
+        let factor_call = field(factor, "call_ordinal");
+        assert!(matches!(factor_call, Value::Integer(value) if value > 0));
+        assert!(
+            records
+                .iter()
+                .any(|record| record.family == "native_linear_call.v1"
+                    && field(record, "stage") == Value::Text("begin".into())
+                    && field(record, "call_ordinal") == factor_call)
+        );
+        assert!(
+            records
+                .iter()
+                .any(|record| record.family == "native_linear_call.v1"
+                    && field(record, "stage") == Value::Text("end".into())
+                    && field(record, "call_ordinal") == factor_call)
+        );
+        for family in [
+            "native_factor.v2",
+            "native_refinement.v2",
+            "native_linear_call.v1",
+        ] {
+            let retained: Vec<_> = report
+                .events
+                .iter()
+                .filter(|event| {
+                    event
+                        .source
+                        .as_ref()
+                        .is_some_and(|source| source.family == family)
+                })
+                .collect();
+            assert!(
+                !retained.is_empty(),
+                "actual Progress must retain bounded {family} parts"
+            );
+            for event in &retained {
+                assert!(
+                    matches!(event.values.get("call_ordinal"), Some(Metric::Integer(value)) if *value > 0)
+                );
+                assert!(
+                    matches!(event.values.get("detail_group_ordinal"), Some(Metric::Integer(value)) if *value > 0)
+                );
+                let source = event.source.as_ref().unwrap();
+                assert_eq!(source.producer.unwrap().operation, operation.context().id());
+                assert!(source.producer_sequence.is_some());
+            }
+            let final_group = retained
+                .last()
+                .unwrap()
+                .values
+                .get("detail_group_ordinal")
+                .unwrap();
+            let group: Vec<_> = retained
+                .iter()
+                .filter(|event| event.values.get("detail_group_ordinal") == Some(final_group))
+                .collect();
+            let Some(Metric::Integer(parts)) = group[0].values.get("detail_parts") else {
+                panic!("part extent");
+            };
+            assert_eq!(
+                group.len(),
+                *parts as usize,
+                "last coherent group must survive the Progress cap"
+            );
+        }
         let refinement = records
             .iter()
-            .find(|record| record.family == "native_refinement.v1")
+            .find(|record| record.family == "native_refinement.v2")
             .unwrap();
         assert_eq!(field(refinement, "counter_overflow"), Value::Boolean(false));
         assert_eq!(

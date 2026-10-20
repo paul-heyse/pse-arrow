@@ -12,10 +12,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
-import resource
 import shutil
-import subprocess
-import sys
 import tempfile
 import tomllib
 import urllib.parse
@@ -100,58 +97,47 @@ def query(
     timeout: float,
     output_bytes: int,
     binary: Path | None = None,
+    *,
+    request_file: Path | None = None,
 ) -> int:
-    """Run one declared SQL question, retaining finite output/error prefixes on failure."""
-    if not (0 < timeout < float("inf")) or output_bytes < 2:
-        raise ValueError(
-            "query needs a finite positive clock and output allowance >= 2"
-        )
-    tool = binary or binary_path()
-    if not tool.is_file():
-        raise ValueError(
-            "Trace Processor unavailable; run `just diagnostic-tools` explicitly"
-        )
-    sql = ROOT / "scripts/diagnostic_sql" / f"{question}.sql"
-    if question not in {"timeline", "numerical", "coverage"}:
-        raise ValueError("unknown diagnostic SQL question")
-    if not trace.is_file():
-        raise ValueError("selected raw trace is unavailable")
-    output.mkdir(parents=True, exist_ok=False)
+    """Compose the shared typed query product; retain every actual failure prefix."""
+    from pse import (  # noqa: PLC0415 -- install needs no native extension
+        InspectionError,
+        codec,
+    )
+    from pse.contracts.documents import (  # noqa: PLC0415 -- install needs no native extension
+        ReviewQuery,
+        ReviewQueryRequest,
+    )
+    from pse.diagnostics import (  # noqa: PLC0415 -- install needs no native extension
+        query_trace,
+    )
 
-    # A fresh interpreter sets the limit before exec, retaining the same owned PID.
-    # No Python runs between fork/exec in a potentially threaded caller.
-    with (
-        (output / "rows.csv").open("xb") as rows,
-        (output / "stderr.txt").open("xb") as errors,
-    ):
-        child = subprocess.Popen(
-            [
-                sys.executable,
-                "-I",
-                str(Path(__file__).resolve()),
-                "_bounded-query",
-                str(output_bytes // 2),
-                str(tool.resolve()),
-                "query",
-                "-f",
-                str(sql),
-                str(trace),
-            ],
-            stdin=subprocess.DEVNULL,
-            stdout=rows,
-            stderr=errors,
+    if request_file is None:
+        request = ReviewQueryRequest(
+            version=1,
+            input_member=str(trace),
+            question=codec.decode_json(codec.encode_json(question), ReviewQuery),
+            clock_scope=f"capture:{trace.name}",
+            interval=None,
+            timeout_seconds=timeout,
+            output_bytes=output_bytes,
         )
-        try:
-            return child.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            child.kill()
-            child.wait()  # The exact owned process is joined before returning.
-            return 124
-        except BaseException:
-            if child.poll() is None:
-                child.kill()
-            child.wait()
-            raise
+    else:
+        with request_file.open("rb") as source:
+            encoded = source.read((1 << 20) + 1)
+        if len(encoded) > 1 << 20:
+            raise ValueError("query request exceeds protocol allowance")
+        request = codec.decode_json(encoded, ReviewQueryRequest)
+    try:
+        result = query_trace(request, trace, output, binary or binary_path())
+    except InspectionError as error:
+        raise ValueError(str(error)) from error
+    if result.status == "completed":
+        return 0
+    if result.status == "timed_out":
+        return 124
+    return result.exit_code or 1
 
 
 def main() -> int:
@@ -165,6 +151,11 @@ def main() -> int:
     inspect.add_argument("--timeout", type=float, default=60.0)
     inspect.add_argument("--output-bytes", type=int, default=16 << 20)
     inspect.add_argument("--binary", type=Path)
+    inspect.add_argument(
+        "--request",
+        type=Path,
+        help="explicit ReviewQueryRequest JSON overrides leaf query parameters",
+    )
     args = parser.parse_args()
     try:
         if args.command == "install":
@@ -177,16 +168,11 @@ def main() -> int:
             args.timeout,
             args.output_bytes,
             args.binary,
+            request_file=args.request,
         )
     except (OSError, ValueError, zipfile.BadZipFile) as error:
         parser.exit(1, f"diagnostic trace unavailable: {error}\n")
 
 
 if __name__ == "__main__":
-    if sys.argv[1:2] == ["_bounded-query"]:
-        # Internal child entry: both regular output files share this per-file cap.
-        limit = int(sys.argv[2])
-        resource.setrlimit(resource.RLIMIT_FSIZE, (limit, limit))
-        # The parent supplies an absolute owned tool and argv; exec retains its PID.
-        os.execv(sys.argv[3], sys.argv[3:])  # noqa: S606
     raise SystemExit(main())

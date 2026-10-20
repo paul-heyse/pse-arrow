@@ -24,6 +24,7 @@ pub(super) fn diagnostic_pool() -> Arc<dyn MemoryPool> {
 /// Retained diagnostic evidence; never a semantic validation or reuse certificate.
 #[derive(Clone, Debug)]
 pub struct PlanObservation {
+    operation: Option<pse_diagnostics::observation::OperationId>,
     logical: Arc<ObservedPlan>,
     physical: Option<Arc<ObservedPhysical>>,
 }
@@ -47,7 +48,10 @@ struct ObservedPhysical {
     _lease: Arc<AllocationLease>,
 }
 /// Native metric units remain explicit; an absent value is never fabricated as zero.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum MetricUnit {
     /// Rows.
     Rows,
@@ -63,7 +67,10 @@ pub enum MetricUnit {
     Native,
 }
 /// Native value semantics, independent of its unit.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum MetricKind {
     /// Cumulative native work since this execution's metric allocation.
     Counter,
@@ -73,7 +80,8 @@ pub enum MetricKind {
     Native,
 }
 /// One metric from one node and partition of the executed graph.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ObservedMetric {
     /// Stable node ordinal within this execution snapshot.
     pub node: usize,
@@ -338,6 +346,7 @@ impl PlanObservation {
         };
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         Ok(Self {
+            operation: pse_diagnostics::observation::current().map(|context| context.id()),
             logical: Arc::clone(&self.logical),
             physical: Some(Arc::new(ObservedPhysical {
                 explain,
@@ -567,6 +576,7 @@ impl Recorder {
             writer.value
         };
         Ok(PlanObservation {
+            operation: pse_diagnostics::observation::current().map(|context| context.id()),
             logical: Arc::new(ObservedPlan {
                 captured: self.captured,
                 rich: self.enabled,
@@ -1014,5 +1024,268 @@ mod tests {
         }
         drop(reservation);
         assert_eq!(budget.reserved(), 0);
+    }
+}
+
+/// Actual selected instrumentation policy; copying never enables instrumentation.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum CopiedObservationPolicy {
+    /// No retained native instrumentation.
+    Off,
+    /// Actual contract instrumentation without plan text.
+    Contract,
+    /// Contract instrumentation with bounded diagnostic plans/rules.
+    Diagnostic,
+}
+/// Actual stream lifetime status, independent of scientific result acceptance.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum CopiedExecutionStatus {
+    /// Last owner checkpoint only; terminal status unavailable.
+    Running,
+    /// Successful stream exhaustion.
+    Completed,
+    /// Owner failure.
+    Failed,
+    /// Cooperative cancellation.
+    Cancelled,
+    /// Dropped before successful exhaustion.
+    Abandoned,
+}
+/// Data-only copy of one actual execution population; no plan or stream owner survives.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CopiedExecutionSnapshot {
+    /// Process-local execution key; scope with the observation's original operation.
+    pub execution: u64,
+    /// Actual completed/drop state, or a running checkpoint.
+    pub status: CopiedExecutionStatus,
+    /// Native node/partition/label populations with exact units and value kinds.
+    pub metrics: Vec<ObservedMetric>,
+    /// Explicit collection curtailment.
+    pub truncated: bool,
+    /// Original physical-capture clock endpoint.
+    #[schemars(with = "pse_diagnostics::ClosedDuration")]
+    pub observed_after_start: Duration,
+    /// Observer work, never operator execution time.
+    #[schemars(with = "pse_diagnostics::ClosedDuration")]
+    pub collection_elapsed: Duration,
+}
+/// Bounded original reports plus a single latest-or-terminal metric population.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CopiedPlanObservation {
+    /// Actual enclosing operation captured at assembly, absent outside an observation scope.
+    pub operation: Option<pse_diagnostics::observation::OperationId>,
+    /// Actual original capture policy.
+    pub policy: CopiedObservationPolicy,
+    /// Bounded logical graph; empty under Contract/Off or failed capture.
+    pub logical_plan: String,
+    /// Bounded physical graph, absent before physical planning.
+    pub physical_plan: Option<String>,
+    /// Actual fired analyzer/optimizer rules, empty unless Diagnostic captured them.
+    pub rules: Vec<String>,
+    /// Optional capture failure; never an execution failure.
+    pub diagnostic: Option<String>,
+    /// Terminal copy preferred over a live checkpoint; populations are never summed.
+    pub execution: Option<CopiedExecutionSnapshot>,
+}
+impl PlanObservation {
+    /// Copy retained facts only; does not poll a stream or query native metrics.
+    pub fn copied(&self) -> CopiedPlanObservation {
+        self.select_copy().copied()
+    }
+    /// Pin one already copied metric population before sizing or materializing it.
+    pub(super) fn select_copy(&self) -> SelectedPlanObservation<'_> {
+        SelectedPlanObservation {
+            observation: self,
+            execution: if let Some(value) = self.execution() {
+                Some(SelectedExecution::Terminal(value))
+            } else {
+                self.live_execution().map(SelectedExecution::Live)
+            },
+        }
+    }
+}
+pub(super) struct SelectedPlanObservation<'a> {
+    observation: &'a PlanObservation,
+    execution: Option<SelectedExecution<'a>>,
+}
+enum SelectedExecution<'a> {
+    Terminal(&'a ExecutionSnapshot),
+    Live(Arc<LiveExecutionSnapshot>),
+}
+impl SelectedPlanObservation<'_> {
+    /// Owned payload storage, including nested vector elements and string bytes.
+    /// Selection pins live snapshots, so none of these populations can grow before copying.
+    pub(super) fn copied_extent(&self) -> Option<usize> {
+        let observation = self.observation;
+        let mut bytes = size_of::<CopiedPlanObservation>()
+            .checked_add(observation.explain_pgjson().len())?
+            .checked_add(observation.physical_plan().map_or(0, str::len))?
+            .checked_add(observation.diagnostic().map_or(0, str::len))?
+            .checked_add(
+                observation
+                    .rules_fired()
+                    .len()
+                    .checked_mul(size_of::<String>())?,
+            )?;
+        for rule in observation.rules_fired() {
+            bytes = bytes.checked_add(rule.len())?;
+        }
+        let metrics = match &self.execution {
+            Some(SelectedExecution::Terminal(value)) => value.metrics.as_slice(),
+            Some(SelectedExecution::Live(value)) => value.metrics.as_slice(),
+            None => &[],
+        };
+        bytes = bytes.checked_add(metrics.len().checked_mul(size_of::<ObservedMetric>())?)?;
+        for metric in metrics {
+            bytes = bytes
+                .checked_add(metric.operator.len())?
+                .checked_add(metric.name.len())?
+                .checked_add(
+                    metric
+                        .labels
+                        .len()
+                        .checked_mul(size_of::<(String, String)>())?,
+                )?;
+            for (name, value) in &metric.labels {
+                bytes = bytes.checked_add(name.len())?.checked_add(value.len())?;
+            }
+        }
+        Some(bytes)
+    }
+    pub(super) fn copied(self) -> CopiedPlanObservation {
+        let observation = self.observation;
+        let execution = match self.execution {
+            Some(SelectedExecution::Terminal(value)) => {
+                use super::assurance::TerminalStatus as S;
+                Some(CopiedExecutionSnapshot {
+                    execution: value.execution,
+                    status: match value.status {
+                        S::Completed => CopiedExecutionStatus::Completed,
+                        S::Failed => CopiedExecutionStatus::Failed,
+                        S::Cancelled => CopiedExecutionStatus::Cancelled,
+                        S::Abandoned => CopiedExecutionStatus::Abandoned,
+                    },
+                    metrics: value.metrics.clone(),
+                    truncated: value.truncated,
+                    observed_after_start: value.observed_after_start,
+                    collection_elapsed: value.collection_elapsed,
+                })
+            }
+            Some(SelectedExecution::Live(value)) => Some(CopiedExecutionSnapshot {
+                execution: value.execution,
+                status: CopiedExecutionStatus::Running,
+                metrics: value.metrics.clone(),
+                truncated: value.truncated,
+                observed_after_start: value.observed_after_start,
+                collection_elapsed: value.collection_elapsed,
+            }),
+            None => None,
+        };
+        CopiedPlanObservation {
+            operation: observation.operation,
+            policy: if !observation.logical.captured {
+                CopiedObservationPolicy::Off
+            } else if observation.logical.rich {
+                CopiedObservationPolicy::Diagnostic
+            } else {
+                CopiedObservationPolicy::Contract
+            },
+            logical_plan: observation.explain_pgjson().to_owned(),
+            physical_plan: observation.physical_plan().map(str::to_owned),
+            rules: observation.rules_fired().to_vec(),
+            diagnostic: observation.diagnostic().map(str::to_owned),
+            execution,
+        }
+    }
+}
+
+#[cfg(test)]
+mod copied_observation_tests {
+    use super::super::assurance::{ObservationPolicy, TerminalStatus};
+    use super::*;
+    fn observation(policy: ObservationPolicy) -> PlanObservation {
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(0));
+        let logical = datafusion::logical_expr::LogicalPlanBuilder::empty(false)
+            .build()
+            .unwrap();
+        Recorder::new(&pool, policy)
+            .finish(&logical, &pse_columnar::CancellationToken::new())
+            .unwrap()
+    }
+    #[test]
+    fn copied_observation_preserves_off_contract_diagnostic_without_enabling() {
+        let off = observation(ObservationPolicy::Off).copied();
+        assert_eq!(off.policy, CopiedObservationPolicy::Off);
+        assert!(off.logical_plan.is_empty());
+        assert!(off.execution.is_none());
+        let contract = observation(ObservationPolicy::Contract).copied();
+        assert_eq!(contract.policy, CopiedObservationPolicy::Contract);
+        assert!(contract.logical_plan.is_empty());
+        let diagnostic = observation(ObservationPolicy::Diagnostic).copied();
+        assert_eq!(diagnostic.policy, CopiedObservationPolicy::Diagnostic);
+        assert!(!diagnostic.logical_plan.is_empty());
+        let encoded = serde_json::to_vec(&diagnostic).unwrap();
+        let decoded: CopiedPlanObservation = serde_json::from_slice(&encoded).unwrap();
+        assert_eq!(decoded.logical_plan, diagnostic.logical_plan);
+    }
+    #[test]
+    fn selected_copy_keeps_sized_live_population_after_terminal_publication() {
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(0));
+        let plan: Arc<dyn datafusion::physical_plan::ExecutionPlan> =
+            Arc::new(datafusion::physical_plan::empty::EmptyExec::new(Arc::new(
+                datafusion::arrow::datatypes::Schema::empty(),
+            )));
+        let observation = observation(ObservationPolicy::Contract)
+            .with_physical(plan.as_ref(), &pool)
+            .unwrap();
+        let mut guard = CompletionGuard::new(&plan, &observation, &pool);
+        guard.checkpoint();
+        let selected = observation.select_copy();
+        let sized = selected.copied_extent().unwrap();
+        guard.finish(TerminalStatus::Completed);
+        assert_eq!(selected.copied_extent(), Some(sized));
+        let copied = selected.copied();
+        assert_eq!(
+            copied.execution.unwrap().status,
+            CopiedExecutionStatus::Running
+        );
+        assert_eq!(
+            observation.copied().execution.unwrap().status,
+            CopiedExecutionStatus::Completed
+        );
+    }
+    #[test]
+    fn copied_observation_abandonment_and_operation_are_original_facts() {
+        let hub = pse_diagnostics::observation::ObservationHub::new(
+            pse_diagnostics::observation::Policy::default(),
+        );
+        let owner = hub.start("original engine owner");
+        let context = owner.context();
+        let entered = context.enter();
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(0));
+        let plan: Arc<dyn datafusion::physical_plan::ExecutionPlan> =
+            Arc::new(datafusion::physical_plan::empty::EmptyExec::new(Arc::new(
+                datafusion::arrow::datatypes::Schema::empty(),
+            )));
+        let captured = observation(ObservationPolicy::Contract)
+            .with_physical(plan.as_ref(), &pool)
+            .unwrap();
+        drop(CompletionGuard::new(&plan, &captured, &pool));
+        drop(entered);
+        captured.complete(plan.as_ref(), TerminalStatus::Completed, &pool);
+        let copied = captured.copied();
+        assert_eq!(copied.operation, Some(owner.context().id()));
+        assert_eq!(
+            copied.execution.unwrap().status,
+            CopiedExecutionStatus::Abandoned
+        );
     }
 }

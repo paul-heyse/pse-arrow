@@ -19,8 +19,30 @@ fn serialize_optional_number<S: serde::Serializer>(
     )
 }
 
+fn observed_number<E: serde::de::Error>(
+    value: pse_model::diagnostic::Observation,
+) -> Result<f64, E> {
+    use pse_model::diagnostic::{NonfiniteObservation, Observation};
+    match value {
+        Observation::Real(v) => Ok(v),
+        Observation::Nonfinite(NonfiniteObservation::Nan) => Ok(f64::NAN),
+        Observation::Nonfinite(NonfiniteObservation::PositiveInfinity) => Ok(f64::INFINITY),
+        Observation::Nonfinite(NonfiniteObservation::NegativeInfinity) => Ok(f64::NEG_INFINITY),
+        _ => Err(E::custom("expected a tagged numerical observation")),
+    }
+}
+fn deserialize_number<'de, D: serde::Deserializer<'de>>(d: D) -> Result<f64, D::Error> {
+    observed_number(serde::Deserialize::deserialize(d)?)
+}
+fn deserialize_optional_number<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<Option<f64>, D::Error> {
+    let value: Option<pse_model::diagnostic::Observation> = serde::Deserialize::deserialize(d)?;
+    value.map(observed_number).transpose()
+}
+
 /// Checkpoint coverage of the actual adapter, not a promise of native preemption.
-#[derive(Clone, Copy, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum StopFidelity {
     /// Evaluations and native iteration callbacks poll the original execution scope.
     EvaluationAndIterationCheckpoints,
@@ -28,7 +50,9 @@ pub enum StopFidelity {
     EvaluationCheckpoints,
 }
 /// Coordinate authority of a captured point.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub enum ObservationCoordinates {
     /// Coordinates submitted to the oracle; an outer formulation may still transform them.
     SubmittedOracle,
@@ -36,7 +60,9 @@ pub enum ObservationCoordinates {
     PhysicalTears,
 }
 /// Native phase, without inventing internal restoration variables or slacks.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub enum NativePhase {
     /// Ordinary native optimization.
     Main,
@@ -46,18 +72,21 @@ pub enum NativePhase {
     Unknown,
 }
 /// One submitted-oracle coordinate with lossless numeric observation encoding.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NativeCoordinate {
     /// Submitted variable identity.
     pub variable: SemanticId,
     /// Observed IEEE value; nonfinite values retain their explicit tag.
-    #[serde(serialize_with = "serialize_number")]
+    #[serde(
+        serialize_with = "serialize_number",
+        deserialize_with = "deserialize_number"
+    )]
     #[schemars(with = "pse_model::diagnostic::Observation")]
     pub value: f64,
 }
 /// Latest callback point in its submitted coordinate authority, not a resumable state.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NativeSnapshot {
     /// Actual native iteration ordinal.
@@ -72,7 +101,7 @@ pub struct NativeSnapshot {
     pub partial: bool,
 }
 /// Family-specific native meanings; these counters are not interchangeable cost units.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub enum NativeCounters {
@@ -91,15 +120,24 @@ pub enum NativeCounters {
         /// Native Lagrangian Hessian evaluations.
         hessian_evaluations: Option<u64>,
         /// CPU time including callbacks; overlaps wall and system time.
-        #[serde(serialize_with = "serialize_optional_number")]
+        #[serde(
+            serialize_with = "serialize_optional_number",
+            deserialize_with = "deserialize_optional_number"
+        )]
         #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         cpu_seconds: Option<f64>,
         /// System time including callbacks; never summed with wall time.
-        #[serde(serialize_with = "serialize_optional_number")]
+        #[serde(
+            serialize_with = "serialize_optional_number",
+            deserialize_with = "deserialize_optional_number"
+        )]
         #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         system_seconds: Option<f64>,
         /// Native algorithm wall time including callbacks.
-        #[serde(serialize_with = "serialize_optional_number")]
+        #[serde(
+            serialize_with = "serialize_optional_number",
+            deserialize_with = "deserialize_optional_number"
+        )]
         #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         wall_seconds: Option<f64>,
     },
@@ -119,7 +157,10 @@ pub enum NativeCounters {
         subproblems: Option<u64>,
         /// Native process CPU time, including callbacks; overlaps other work and
         /// is neither exclusive callback CPU nor async task CPU.
-        #[serde(serialize_with = "serialize_optional_number")]
+        #[serde(
+            serialize_with = "serialize_optional_number",
+            deserialize_with = "deserialize_optional_number"
+        )]
         #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         cpu_seconds: Option<f64>,
     },
@@ -145,7 +186,7 @@ pub enum NativeCounters {
 }
 /// Native integration state at an actual solver return, separate from work counters.
 /// These observations describe method configuration and mesh, never output accuracy.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum NativeStepObservation {
     /// IDAS 7.1.1 optional outputs from the live forward session.
@@ -155,19 +196,31 @@ pub enum NativeStepObservation {
         /// Current order configured for the next internal attempt, not the last order.
         current_order: Option<u32>,
         /// Last accepted internal step size; never IDACalcIC's artificial step.
-        #[serde(serialize_with = "serialize_optional_number")]
+        #[serde(
+            serialize_with = "serialize_optional_number",
+            deserialize_with = "deserialize_optional_number"
+        )]
         #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         last_step: Option<f64>,
         /// Step size configured for the next internal attempt.
-        #[serde(serialize_with = "serialize_optional_number")]
+        #[serde(
+            serialize_with = "serialize_optional_number",
+            deserialize_with = "deserialize_optional_number"
+        )]
         #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         current_step: Option<f64>,
         /// Native internal mesh time, which may be beyond an interpolated/root return.
-        #[serde(serialize_with = "serialize_optional_number")]
+        #[serde(
+            serialize_with = "serialize_optional_number",
+            deserialize_with = "deserialize_optional_number"
+        )]
         #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         internal_time: Option<f64>,
         /// Successful IDASolve/IDASolveF returned time; absent before a solve or on error.
-        #[serde(serialize_with = "serialize_optional_number")]
+        #[serde(
+            serialize_with = "serialize_optional_number",
+            deserialize_with = "deserialize_optional_number"
+        )]
         #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         returned_time: Option<f64>,
     },
@@ -178,21 +231,30 @@ pub enum NativeStepObservation {
         current_order: Option<u32>,
         /// StateRef.h: proposed next step after success, current configuration on error.
         /// It is not the step just accepted; no last-step getter is exposed here.
-        #[serde(serialize_with = "serialize_optional_number")]
+        #[serde(
+            serialize_with = "serialize_optional_number",
+            deserialize_with = "deserialize_optional_number"
+        )]
         #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         current_step: Option<f64>,
         /// Solver mesh time before state_mut_back, independent of requested samples.
-        #[serde(serialize_with = "serialize_optional_number")]
+        #[serde(
+            serialize_with = "serialize_optional_number",
+            deserialize_with = "deserialize_optional_number"
+        )]
         #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         internal_time: Option<f64>,
         /// Actual successful step return time, including an interpolated root time.
-        #[serde(serialize_with = "serialize_optional_number")]
+        #[serde(
+            serialize_with = "serialize_optional_number",
+            deserialize_with = "deserialize_optional_number"
+        )]
         #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         returned_time: Option<f64>,
     },
 }
 /// Exact profile and problem witness for native facts; unknown counters remain absent.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NativeObservations {
     /// Actual native adapter.
@@ -211,7 +273,9 @@ pub struct NativeObservations {
     pub current: Option<Arc<NativeSnapshot>>,
 }
 /// What the producer knows about a map call, never inferred from numeric proximity.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub enum RawMapRole {
     /// Actual fixed-point callback; not evidence of accepted outer iterate status.
     FixedPointEvaluation,
@@ -223,7 +287,7 @@ pub enum RawMapRole {
     RestartScreening,
 }
 /// Typed failure class; the complete cause remains with the report's callback failure owner.
-#[derive(Clone, Copy, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(
     tag = "kind",
     content = "value",
@@ -239,7 +303,7 @@ pub enum RawMapFailure {
     Stopped(Termination),
 }
 /// One physical tear quantity, or an explicitly submitted-oracle quantity.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RawMapCoordinate {
     /// Tear destination variable ID.
@@ -247,24 +311,33 @@ pub struct RawMapCoordinate {
     /// Original connection residual ID.
     pub row: SemanticId,
     /// Actual map input.
-    #[serde(serialize_with = "serialize_number")]
+    #[serde(
+        serialize_with = "serialize_number",
+        deserialize_with = "deserialize_number"
+    )]
     #[schemars(with = "pse_model::diagnostic::Observation")]
     pub input: f64,
     /// Actual G output; absent for failed calls and residual-only assessments.
     pub mapped: Option<f64>,
     /// Raw G(x)-x, or fresh original residual for OriginalAssessment.
-    #[serde(serialize_with = "serialize_optional_number")]
+    #[serde(
+        serialize_with = "serialize_optional_number",
+        deserialize_with = "deserialize_optional_number"
+    )]
     #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
     pub residual: Option<f64>,
     /// Original physical tolerance, present only with physical coordinate authority.
     pub physical_tolerance: Option<f64>,
     /// Physical abs(residual)/tolerance; never native scaling or accelerated step norm.
-    #[serde(serialize_with = "serialize_optional_number")]
+    #[serde(
+        serialize_with = "serialize_optional_number",
+        deserialize_with = "deserialize_optional_number"
+    )]
     #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
     pub physical_error_ratio: Option<f64>,
 }
 /// A bounded diagnostic map sample; missing fields are unknown, never zero.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RawMapSample {
     /// Evaluation ordinal within this attempt, including failures.
@@ -293,7 +366,17 @@ pub struct RawMapSample {
     pub inner_accuracy: Option<ContentHash>,
 }
 /// Whether an actual inner solve has a supplied frozen scientific context.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum RawMapContextKind {
     /// An opaque producer did not supply the fact.
@@ -320,7 +403,7 @@ pub struct RawMapInnerContext {
     pub accuracy: Option<ContentHash>,
 }
 /// Shared bounded history, independent of lossy progress events.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RawMapHistory {
     /// Submitted map contract.

@@ -3180,6 +3180,10 @@ impl CaseWorker {
             {
                 self.completion.evaluations[demand] += 1;
             }
+            let actual_evaluation_started = self
+                .observation
+                .as_ref()
+                .and_then(|observation| observation.evaluation_started());
             let evaluated = self.workers[group.request]
                 .evaluate_trial_into(
                     &worker.inputs,
@@ -3189,6 +3193,9 @@ impl CaseWorker {
                     &mut worker.spare,
                 )
                 .and_then(|()| self.scope.check().map_err(crate::error::scope_error));
+            if let Some(observation) = &mut self.observation {
+                observation.evaluation_finished(actual_evaluation_started, evaluated.is_ok());
+            }
             if let Err(cause) = evaluated {
                 if let Some(observation) = &mut self.observation {
                     observation.failed(i, demand, order);
@@ -4015,15 +4022,25 @@ impl CaseWorker {
                 {
                     self.completion.evaluations[demand] += 1;
                 }
-                self.workers[group.request].evaluate_product_trial_into(
-                    &cache.inputs,
-                    product,
-                    &mut self.providers,
-                    &self.cancel,
-                    &mut cache.spare_product,
-                    &mut cache.spare,
-                )?;
-                self.scope.check().map_err(crate::error::scope_error)?;
+                let actual_evaluation_started = self
+                    .observation
+                    .as_ref()
+                    .and_then(|observation| observation.evaluation_started());
+                let actual_evaluated = self.workers[group.request]
+                    .evaluate_product_trial_into(
+                        &cache.inputs,
+                        product,
+                        &mut self.providers,
+                        &self.cancel,
+                        &mut cache.spare_product,
+                        &mut cache.spare,
+                    )
+                    .and_then(|()| self.scope.check().map_err(crate::error::scope_error));
+                if let Some(observation) = &mut self.observation {
+                    observation
+                        .evaluation_finished(actual_evaluation_started, actual_evaluated.is_ok());
+                }
+                actual_evaluated?;
                 std::mem::swap(&mut cache.product, &mut cache.spare_product);
                 std::mem::swap(&mut cache.result, &mut cache.spare);
                 cache.spare.clear();
@@ -4154,6 +4171,79 @@ fn finite(value: f64) -> Result<f64, MathError> {
 #[cfg(test)]
 mod observation_counter_tests {
     use super::*;
+    #[test]
+    fn selected_actual_evaluator_timing_excludes_cache_hits_and_is_absent_when_off() {
+        use pse_diagnostics::observation::{CoherentRecord, ObservationHub, RecordTap, Value};
+        #[derive(Debug, Default)]
+        struct Tap(std::sync::Mutex<Vec<CoherentRecord>>);
+        impl RecordTap for Tap {
+            fn selected(&self, family: &str) -> bool {
+                family == "evaluator_demand_batch.v1"
+            }
+            fn observe(&self, record: &CoherentRecord) {
+                if self.selected(&record.family) {
+                    self.0.lock().unwrap().push(record.clone());
+                }
+            }
+        }
+        let (assembly, values) = crate::assembly_tests::fixture(false, false);
+        let hub = ObservationHub::new(Default::default());
+        let operation = hub.start("selected actual evaluator timing");
+        let tap = Arc::new(Tap::default());
+        let selected = operation.context().with_record_tap(tap.clone());
+        let entered = selected.enter();
+        let mut worker = assembly.worker(
+            pse_kernels::ProviderBindings::new(),
+            pse_diagnostics::Cancellation::new(false),
+        );
+        let first = worker.objective(&values).unwrap();
+        assert_eq!(worker.objective(&values).unwrap(), first);
+        drop(entered);
+        let records = tap.0.lock().unwrap();
+        assert_eq!(records.len(), 2);
+        let count = |record: &CoherentRecord, name: &str| match record
+            .values
+            .iter()
+            .find(|field| field.name == name)
+            .unwrap()
+            .value
+        {
+            Value::Count(value) => value,
+            _ => panic!("selected count missing"),
+        };
+        assert!(count(&records[0], "actual_evaluations_completed") > 0);
+        assert_eq!(
+            count(&records[0], "actual_evaluations_completed"),
+            count(&records[0], "math.demand.evaluations")
+        );
+        assert_eq!(count(&records[1], "actual_evaluations_completed"), 0);
+        assert_eq!(
+            count(&records[1], "actual_evaluations_completed_nanoseconds"),
+            0
+        );
+        assert!(count(&records[1], "math.demand.cache_hits") > 0);
+        drop(records);
+        let off = hub.start("ordinary observation without selected timing");
+        let off_context = off.context();
+        let entered = off_context.enter();
+        let mut ordinary = assembly.worker(
+            pse_kernels::ProviderBindings::new(),
+            pse_diagnostics::Cancellation::new(false),
+        );
+        ordinary.objective(&values).unwrap();
+        drop(entered);
+        let snapshot = off.reader().snapshot(std::time::Duration::from_secs(60));
+        assert!(
+            snapshot
+                .producers
+                .iter()
+                .filter_map(|producer| producer.current.as_ref())
+                .all(|record| record
+                    .values
+                    .iter()
+                    .all(|field| !field.name.starts_with("actual_evaluation")))
+        );
+    }
     #[test]
     fn demand_counter_overflow_is_explicit_and_never_wraps_to_zero() {
         let mut counts = DemandCounts {

@@ -881,6 +881,7 @@ impl ModelingPackage {
                     .await?;
                 prepared.validate_profile(&resolved.model.values, &profile)?;
                 Ok(super::PreparedInitializationStrategy {
+                    review_source: self.clone(),
                     runtime: self.runtime.clone(),
                     values: resolved.model.values,
                     providers: resolved.providers,

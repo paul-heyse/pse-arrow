@@ -131,6 +131,10 @@ fn nonstiff_stiff_sparse_profiles_and_output_density_preserve_two_mode_solution(
             (DiffsolMethod::Tsit45, DiffsolLinear::FaerLu),
             (DiffsolMethod::Bdf, DiffsolLinear::FaerLu),
             (DiffsolMethod::Bdf, DiffsolLinear::Klu),
+            // Compare schemes on the same admitted implicit sparse LU route;
+            // the BDF pair above separately contrasts the linear solver.
+            (DiffsolMethod::TrBdf2, DiffsolLinear::FaerLu),
+            (DiffsolMethod::Esdirk34, DiffsolLinear::FaerLu),
         ] {
             let mut p = Profile {
                 method: Method::Diffsol,
@@ -181,9 +185,21 @@ fn nonstiff_stiff_sparse_profiles_and_output_density_preserve_two_mode_solution(
                     p.idas.linear,
                     report.error
                 );
+                if p.method == Method::Diffsol {
+                    for statistics in &report.statistics {
+                        assert_eq!(
+                            statistics["diffsol"]["method"],
+                            serde_json::to_value(p.diffsol.method).unwrap(),
+                            "the requested scheme must be the actual native scheme"
+                        );
+                    }
+                }
+                let mut maximum_state_error = 0.0_f64;
+                let mut maximum_mean_error = 0.0_f64;
                 for sample in &report.samples {
                     for (i, actual) in sample.state.iter().enumerate() {
                         let exact = Periodic::exact(i, n, sample.time, 0.1, diffusion);
+                        maximum_state_error = maximum_state_error.max((actual - exact).abs());
                         assert!(
                             (actual - exact).abs() <= 0.01,
                             "{:?} diffusion={diffusion} t={} state={i}: {actual} vs {exact}",
@@ -191,10 +207,9 @@ fn nonstiff_stiff_sparse_profiles_and_output_density_preserve_two_mode_solution(
                             sample.time
                         );
                     }
-                    assert!(
-                        (sample.state.iter().sum::<f64>() / n as f64 - 1.).abs() <= 0.001,
-                        "mean closure"
-                    );
+                    let mean_error = (sample.state.iter().sum::<f64>() / n as f64 - 1.).abs();
+                    maximum_mean_error = maximum_mean_error.max(mean_error);
+                    assert!(mean_error <= 0.001, "mean closure");
                 }
                 let summaries: Vec<_> = report
                     .statistics
@@ -223,12 +238,28 @@ fn nonstiff_stiff_sparse_profiles_and_output_density_preserve_two_mode_solution(
                     })
                     .collect();
                 eprintln!(
-                    "dynamics method={:?} diffsol={:?} idas={:?} diffusion={diffusion} samples={samples} wall_ns={} callbacks={:?} statistics={summaries:?}",
-                    p.method,
-                    p.diffsol,
-                    p.idas.linear,
-                    started.elapsed().as_nanos(),
-                    calls.borrow()
+                    "dynamics-method-inquiry {}",
+                    serde_json::json!({
+                        "backend": p.method,
+                        "diffsol": p.diffsol,
+                        "idas_linear": p.idas.linear,
+                        "states": n,
+                        "rate": 0.1,
+                        "diffusion": diffusion,
+                        "end": p.end,
+                        "samples": samples,
+                        "rtol": p.rtol,
+                        "atol": p.atol,
+                        "initial_step": p.initial_step,
+                        "elapsed_seconds": started.elapsed().as_secs_f64(),
+                        "elapsed_scope": "integration, original analytic checks and work-summary projection",
+                        "oracle_calls": *calls.borrow(),
+                        "maximum_state_error": maximum_state_error,
+                        "maximum_mean_error": maximum_mean_error,
+                        "termination": report.termination,
+                        "work_summaries": summaries,
+                        "statistics": report.statistics,
+                    })
                 );
                 density_results.push(report);
             }

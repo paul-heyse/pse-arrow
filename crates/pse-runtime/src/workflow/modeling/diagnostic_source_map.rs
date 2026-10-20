@@ -7,14 +7,14 @@ use pse_kernels::DerivativeOrder;
 use pse_math::{assembly::EvaluationDemand, binding::Target, jets::ProductKind};
 
 /// Static eligibility includes both branch alternatives and is never execution evidence.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceMapScope {
     /// Original admitted sources and all statically eligible compiled branch alternatives.
     StaticEligibleAlternatives,
 }
 /// One exact current source field, independent of shared mathematical identity.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceFieldDocument {
     /// Original authored declaration owning this field.
@@ -31,7 +31,7 @@ pub struct SourceFieldDocument {
     pub end: Option<u32>,
 }
 /// Original instantiated member ownership; a display path never becomes executable identity.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceMemberDocument {
     /// Actual instantiated semantic member or alias.
@@ -44,7 +44,7 @@ pub struct SourceMemberDocument {
     pub path: String,
 }
 /// One source check's original range within a potentially shared arithmetic region.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ArithmeticSourceDocument {
     /// Physical arithmetic-region ordinal within the stated check program.
@@ -62,7 +62,7 @@ pub struct ArithmeticSourceDocument {
     pub check_order: DerivativeOrder,
 }
 /// Which actual program owns the exposed source-check ranges.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ArithmeticMappingScope {
     /// Actual selected compiled product, including both static branch alternatives.
@@ -77,7 +77,7 @@ pub enum ArithmeticMappingScope {
     },
 }
 /// One compiler-issued selected product template. Numerical weights/directions are not static identities.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceTemplateDocument {
     /// Compiler-issued template ordinal within this assembly.
@@ -98,7 +98,7 @@ pub struct SourceTemplateDocument {
     pub arithmetic: Vec<ArithmeticSourceDocument>,
 }
 /// An ordered input gather: aliases deliberately retain separate formal positions.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceSlotDocument {
     /// Original formal input ordinal.
@@ -113,7 +113,7 @@ pub struct SourceSlotDocument {
     pub fixed: bool,
 }
 /// Actual selected destination of an original ordered output contribution.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SourceContributionTarget {
     /// Original selected constraint row.
@@ -128,7 +128,7 @@ pub enum SourceContributionTarget {
     },
 }
 /// One ordered addend before duplicate accumulation, including orientation/weight.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceContributionDocument {
     /// Original body output ordinal.
@@ -139,7 +139,7 @@ pub struct SourceContributionDocument {
     pub scale: f64,
 }
 /// The original occurrence's actual selected template and selectors.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceDemandDocument {
     /// Canonical callback demand, distinct from the product kind.
@@ -152,7 +152,7 @@ pub struct SourceDemandDocument {
     pub coordinates: Vec<usize>,
 }
 /// Original semantic occurrence and its concrete coordinate/output gathers.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceInstanceDocument {
     /// Original instance-binding ordinal in the assembly.
@@ -171,7 +171,7 @@ pub struct SourceInstanceDocument {
     pub demands: Vec<SourceDemandDocument>,
 }
 /// Explicit bounded static source map. It supplies no native dual or stationarity pullback.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ModelingSourceMapDocument {
     /// Static source-map interpretation version.
@@ -204,6 +204,135 @@ pub struct ModelingSourceMapDocument {
     pub instances: Vec<SourceInstanceDocument>,
     /// Absent mappings are explicit; this source view is not a transformed native attempt.
     pub native_pullback_unavailable: String,
+}
+impl ModelingSourceMapDocument {
+    /// Check factual internal references only; this admits no executable program.
+    pub fn validate(&self) -> Result<(), WorkflowError> {
+        use std::collections::BTreeSet;
+        let unique = |ids: &[SemanticId]| ids.iter().collect::<BTreeSet<_>>().len() == ids.len();
+        if !unique(&self.rows)
+            || !unique(&self.columns)
+            || !unique(&self.fixed_inputs)
+            || self.columns.iter().any(|id| self.fixed_inputs.contains(id))
+            || self.row_nominals.len() != self.rows.len()
+            || self.variable_nominals.len() != self.columns.len()
+            || self
+                .row_nominals
+                .iter()
+                .zip(&self.rows)
+                .any(|((id, n), row)| id != row || !n.is_finite() || *n <= 0.)
+            || self
+                .variable_nominals
+                .iter()
+                .zip(&self.columns)
+                .any(|((id, n), col)| id != col || !n.is_finite() || *n <= 0.)
+            || self
+                .objective_signs
+                .iter()
+                .any(|n| !n.is_finite() || n.abs() != 1.)
+        {
+            return Err(contract(
+                "source map has conflicting coordinates or invalid physical scales",
+            ));
+        }
+        let mut fields = BTreeSet::new();
+        for field in &self.fields {
+            if !fields.insert((field.declaration, field.role.as_str(), field.position))
+                || field.start.is_some() != field.end.is_some()
+                || field
+                    .start
+                    .zip(field.end)
+                    .is_some_and(|(start, end)| start > end || field.document.is_none())
+            {
+                return Err(contract(
+                    "source map has conflicting source fields or ranges",
+                ));
+            }
+        }
+        let mut members = BTreeMap::new();
+        for member in &self.members {
+            if let Some(previous) = members.insert(member.member, member)
+                && (previous.declaration != member.declaration
+                    || previous.instance != member.instance
+                    || previous.path != member.path)
+            {
+                return Err(contract("source map has contradictory member lineage"));
+            }
+        }
+        let mut templates = BTreeSet::new();
+        for template in &self.templates {
+            if !templates.insert(template.template)
+                || template.arithmetic.iter().any(|a| {
+                    a.start_output > a.end_output
+                        || a.source.is_some() == a.source_unavailable.is_some()
+                })
+            {
+                return Err(contract(
+                    "source map has invalid template or arithmetic references",
+                ));
+            }
+        }
+        let mut ordinals = BTreeSet::new();
+        for instance in &self.instances {
+            if !ordinals.insert(instance.ordinal)
+                || instance
+                    .checked_members
+                    .iter()
+                    .map(|(local, _)| local)
+                    .collect::<BTreeSet<_>>()
+                    .len()
+                    != instance.checked_members.len()
+            {
+                return Err(contract(
+                    "source map has duplicate occurrence or local source token",
+                ));
+            }
+            let mut formals = BTreeSet::new();
+            // Slots retain the complete original formal gather. fixed_inputs
+            // describes only the compiled programs' consumed compact frame, so
+            // an unused original fixed formal need not occur in that frame.
+            for slot in &instance.slots {
+                if !formals.insert(slot.formal)
+                    || !slot.scale.is_finite()
+                    || !slot.offset.is_finite()
+                    || slot.fixed != !self.columns.contains(&slot.member)
+                {
+                    return Err(contract("source map has invalid affine source slot"));
+                }
+            }
+            for contribution in &instance.contributions {
+                let valid = match contribution.target {
+                    SourceContributionTarget::Row { row } => self.rows.contains(&row),
+                    SourceContributionTarget::Objective { ordinal } => {
+                        ordinal < self.objective_signs.len()
+                    }
+                };
+                if !valid || !contribution.scale.is_finite() {
+                    return Err(contract("source map contribution destination is absent"));
+                }
+            }
+            for demand in &instance.demands {
+                let template = self
+                    .templates
+                    .iter()
+                    .find(|t| t.template == demand.template)
+                    .ok_or_else(|| contract("source map demand template is absent"))?;
+                if template.body != instance.body
+                    || template.outputs != demand.outputs
+                    || template.coordinates != demand.coordinates
+                    || demand
+                        .coordinates
+                        .iter()
+                        .any(|formal| !formals.contains(formal))
+                {
+                    return Err(contract(
+                        "source map demand disagrees with its original occurrence/template",
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
 }
 /// The requested static document retains its existing runtime allocation owner.
 #[derive(Debug)]

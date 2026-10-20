@@ -34,10 +34,16 @@ from pse._strategies import (
 from pse.contracts import runtime as result_contracts
 from pse.contracts.documents import (
     AnalysisControls,
+    AnalysisDocument,
     ConicRequest,
+    DiagnosticExecutionDocument,
+    DiagnosticExecutionRequest,
+    FrozenEvidenceSet,
     HistoryObligation,
     HistoryOwner,
     HistoryReclamationPage,
+    PackExportRequest,
+    PackIndex,
     ResourceReport,
     ResultReclamationPage,
     RunControls,
@@ -111,6 +117,12 @@ class Runtime:
         Admitted work continues through drain.
         """
         self._handle.close()
+
+    def diagnose_documents(
+        self, request: DiagnosticExecutionRequest
+    ) -> DiagnosticExecutionDocument:
+        """Run original-source diagnostics under one admission-to-result deadline."""
+        return self._handle.diagnose_documents(request)
 
     def observations(self) -> Diagnostics:
         """Read preparation and execution diagnostics independently of this caller."""
@@ -250,6 +262,18 @@ class Runtime:
             self._handle.latest_results(
                 problem, relation, classes=list(classes), start=start, end=end
             )
+        )
+
+    def export_review_pack(
+        self,
+        destination: str | Path,
+        evidence: "FrozenEvidenceSet",
+        analysis: "AnalysisDocument",
+        request: "PackExportRequest",
+    ) -> "PackIndex":
+        """Export protected scientific selections and release their readers."""
+        return self._handle.export_review_pack(
+            Path(destination), evidence, analysis, request
         )
 
     def results(

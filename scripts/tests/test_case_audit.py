@@ -20,6 +20,117 @@ from unittest.mock import Mock, patch
 from scripts import case_audit, case_measure
 
 
+class SourceRecordingProtocolTests(unittest.TestCase):
+    def test_manifest_selects_actual_dynamic_backend_families(self) -> None:
+        declaration = json.loads(
+            (case_measure.ROOT / ".config/process-cases.json").read_text()
+        )
+        idas = [w for w in declaration["workloads"] if w.get("backend") == "idas"]
+        diffsol = [w for w in declaration["workloads"] if w.get("backend") == "diffsol"]
+        self.assertTrue(idas)
+        self.assertTrue(diffsol)
+        for workload in idas:
+            with self.subTest(case=workload["id"]):
+                families = set(workload["detail_families"])
+                self.assertTrue(
+                    {"dynamic_segment_summary.v1", "dynamic_output.v1"} <= families
+                )
+                self.assertFalse(
+                    {"dynamic_native_return.v1", "dynamic_native_step.v1"} & families
+                )
+        for workload in diffsol:
+            with self.subTest(case=workload["id"]):
+                self.assertIn("dynamic_native_return.v1", workload["detail_families"])
+
+    def test_default_selection_is_materialized_before_launch_and_explicit_request_wins(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            audit = Path(temporary)
+            env = {
+                "PSE_PROCESS_COST_SPEC": json.dumps(
+                    {"detail_families": ["root_evaluation.v1"]}
+                )
+            }
+            selected = case_audit.prepare_source_recording(env, audit)
+            request = json.loads(
+                Path(selected["PSE_DIAGNOSTIC_RECORD_REQUEST"]).read_text()
+            )
+            self.assertEqual(request["version"], 2)
+            self.assertEqual(request["detail"]["families"], ["root_evaluation.v1"])
+            self.assertEqual(request["detail"]["requirement"], "complete")
+            self.assertEqual(request["detail"]["duration"], {"secs": 60, "nanos": 0})
+            self.assertFalse(Path(request["acknowledgement"]).exists())
+            explicit = {
+                **env,
+                "PSE_DIAGNOSTIC_RECORD_REQUEST": selected[
+                    "PSE_DIAGNOSTIC_RECORD_REQUEST"
+                ],
+            }
+            self.assertIs(
+                case_audit.prepare_source_recording(explicit, audit), explicit
+            )
+            self.assertEqual(env.keys(), {"PSE_PROCESS_COST_SPEC"})
+
+    def test_review_selection_uses_v2_envelope_and_v1_detail_with_finite_handoff(
+        self,
+    ) -> None:
+        from pse import codec  # noqa: PLC0415
+        from pse.contracts.documents import SourceRecordingRequest  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as temporary:
+            audit = Path(temporary)
+            selected = case_audit.prepare_source_recording(
+                {
+                    "PSE_PROCESS_COST_SPEC": json.dumps(
+                        {"detail_families": ["root_evaluation.v1"]}
+                    )
+                },
+                audit,
+                review_artifacts=True,
+            )
+            path = Path(selected["PSE_DIAGNOSTIC_RECORD_REQUEST"])
+            request = codec.decode_json(path.read_bytes(), SourceRecordingRequest)
+            self.assertEqual(request.version, 2)
+            self.assertEqual(request.detail.version, 1)
+            self.assertEqual(request.detail.families, ("root_evaluation.v1",))
+            self.assertEqual(request.detail.budget.memory_bytes, 64 << 20)
+            self.assertEqual(request.detail.budget.output_bytes, 256 << 20)
+            self.assertIsNotNone(request.review)
+            assert request.review is not None
+            self.assertTrue(request.review.context.include_sources)
+            self.assertTrue(request.review.context.include_native_records)
+            self.assertEqual(request.review.context.maximum_bytes, 16 << 20)
+            self.assertEqual(request.review.maximum_bytes, 64 << 20)
+            self.assertEqual(request.review.maximum_members, 256)
+            legacy = json.loads(path.read_text())
+            legacy["version"] = 1
+            path.write_text(json.dumps(legacy))
+            with self.assertRaises(ValueError):
+                case_audit.prepare_source_recording(
+                    selected, audit, review_artifacts=True
+                )
+
+    def test_empty_selection_does_not_create_recording_and_invalid_selection_refuses(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            audit = Path(temporary)
+            env = {"PSE_PROCESS_COST_SPEC": json.dumps({"detail_families": []})}
+            self.assertIs(case_audit.prepare_source_recording(env, audit), env)
+            self.assertEqual(list(audit.iterdir()), [])
+            for families in ("root_evaluation.v1", [None], [1]):
+                with self.assertRaises(ValueError):
+                    case_audit.prepare_source_recording(
+                        {
+                            "PSE_PROCESS_COST_SPEC": json.dumps(
+                                {"detail_families": families}
+                            )
+                        },
+                        audit,
+                    )
+
+
 class DiagnosticDouble:
     """Named mock handles for the observer's native diagnostic boundary."""
 
@@ -31,6 +142,7 @@ class DiagnosticDouble:
         list_processes: Mock | None = None,
         read_checkpoint: Mock | None = None,
         inspect_image: Mock | None = None,
+        inspect_frozen: Mock | None = None,
         operation_id: Mock | None = None,
         operation_text: Mock | None = None,
     ) -> None:
@@ -39,6 +151,7 @@ class DiagnosticDouble:
             read_checkpoint if read_checkpoint is not None else Mock()
         )
         self.inspect_image = inspect_image if inspect_image is not None else Mock()
+        self.inspect_frozen = inspect_frozen if inspect_frozen is not None else Mock()
         self.operation_id = operation_id if operation_id is not None else Mock()
         self.operation_text = operation_text if operation_text is not None else Mock()
 
@@ -92,7 +205,7 @@ class AuditTests(unittest.TestCase):
                 return SimpleNamespace(
                     operation=operation, transport=SimpleNamespace(partial=False)
                 )
-            return "document"
+            return SimpleNamespace(operation=None, related=())
 
         observer.diagnostic_double.inspect_image = Mock(side_effect=inspect)
 
@@ -118,6 +231,12 @@ class AuditTests(unittest.TestCase):
         )
         (directory / "primary-receiver.json").write_text(json.dumps(marker))
         observer = object.__new__(ObserverDouble)
+        observer.recorded_operations = {}
+        observer.frozen_member_image = None
+        observer.frozen_member_index = 0
+        observer.frozen_request_index = 0
+        observer.evidence_type = Mock(side_effect=SimpleNamespace)
+        observer.frozen_request_type = Mock(side_effect=SimpleNamespace)
         observer.directory = directory
         observer.managed_checkpoint = None
         observer.managed_association = None
@@ -890,6 +1009,12 @@ class AuditTests(unittest.TestCase):
             )
             for matches in (False, True):
                 observer = object.__new__(ObserverDouble)
+                observer.recorded_operations = {}
+                observer.frozen_member_image = None
+                observer.frozen_member_index = 0
+                observer.frozen_request_index = 0
+                observer.evidence_type = Mock(side_effect=SimpleNamespace)
+                observer.frozen_request_type = Mock(side_effect=SimpleNamespace)
                 observer.directory = directory
                 observer.managed_checkpoint = None
                 observer.managed_operations = []
@@ -933,6 +1058,12 @@ class AuditTests(unittest.TestCase):
             checkpoint = directory / "worker.json"
             checkpoint.write_text("retained worker prefix")
             observer = object.__new__(ObserverDouble)
+            observer.recorded_operations = {}
+            observer.frozen_member_image = None
+            observer.frozen_member_index = 0
+            observer.frozen_request_index = 0
+            observer.evidence_type = Mock(side_effect=SimpleNamespace)
+            observer.frozen_request_type = Mock(side_effect=SimpleNamespace)
             observer.directory = directory
             observer.managed_checkpoint = checkpoint
             observer.managed_association = {
@@ -987,6 +1118,12 @@ class AuditTests(unittest.TestCase):
                 partial=False,
             )
             observer = object.__new__(ObserverDouble)
+            observer.recorded_operations = {}
+            observer.frozen_member_image = None
+            observer.frozen_member_index = 0
+            observer.frozen_request_index = 0
+            observer.evidence_type = Mock(side_effect=SimpleNamespace)
+            observer.frozen_request_type = Mock(side_effect=SimpleNamespace)
             observer.directory = directory
             observer.managed_checkpoint = None
             observer.managed_operations = []
@@ -1024,6 +1161,37 @@ class AuditTests(unittest.TestCase):
             self.assertEqual(observer.failures, [])
 
     def test_terminal_navigation_includes_completed_related_owner(self) -> None:
+        # This typed-snapshot control alone needs the native package boundary.
+        from msgspec.structs import replace  # noqa: PLC0415
+
+        from pse import codec  # noqa: PLC0415
+        from pse.contracts.documents import (  # noqa: PLC0415
+            InspectionDocument,
+            OperationId,
+        )
+        from pse.contracts.enums import OperationOutcome  # noqa: PLC0415
+
+        products = json.loads(
+            (
+                case_measure.ROOT
+                / "python/pse/tests/fixtures/generated-native-boundaries/products.json"
+            ).read_text()
+        )
+        source = codec.decode_json(
+            json.dumps(products["diagnostic_inspection"]).encode(), InspectionDocument
+        )
+        assert source.operation is not None
+        completed = replace(
+            source.operation,
+            id=OperationId(process_instance=(1, 2), sequence=1),
+            outcome=OperationOutcome.COMPLETED,
+            phases=(),
+        )
+        child_operation = replace(
+            completed, id=OperationId(process_instance=(1, 2), sequence=2)
+        )
+        identities = {"root": completed.id, "child": child_operation.id}
+        names = {value: key for key, value in identities.items()}
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
             checkpoint = directory / "worker.json"
@@ -1033,6 +1201,12 @@ class AuditTests(unittest.TestCase):
             )
             for terminal in (False, True):
                 observer = object.__new__(ObserverDouble)
+                observer.recorded_operations = {}
+                observer.frozen_member_image = None
+                observer.frozen_member_index = 0
+                observer.frozen_request_index = 0
+                observer.evidence_type = Mock(side_effect=SimpleNamespace)
+                observer.frozen_request_type = Mock(side_effect=SimpleNamespace)
                 observer.directory = directory
                 observer.request = Mock(side_effect=lambda **kwargs: kwargs)
                 observer.list_request = Mock()
@@ -1041,28 +1215,49 @@ class AuditTests(unittest.TestCase):
                 observer.reads = 0
                 observer.failures = []
                 observer.started = time.monotonic()
-                completed = SimpleNamespace(outcome="completed", phases=[])
                 root = SimpleNamespace(
                     operation=completed,
-                    related=[SimpleNamespace(id="child", outcome="completed")],
+                    related=[child_operation],
                 )
-                child = SimpleNamespace(operation=completed, related=[])
+                child = SimpleNamespace(operation=child_operation, related=[])
+                observer.recorded_operations["child"] = child_operation
                 self.install_diagnostics(
                     observer,
                     DiagnosticDouble(
-                        operation_id=Mock(side_effect=lambda value: value),
-                        operation_text=Mock(side_effect=lambda value: value),
-                        read_checkpoint=Mock(return_value="validated prefix"),
+                        operation_id=Mock(side_effect=identities.__getitem__),
+                        operation_text=Mock(side_effect=names.__getitem__),
+                        read_checkpoint=Mock(
+                            return_value=SimpleNamespace(operations=(completed,))
+                        ),
                         inspect_image=Mock(side_effect=[root, child]),
+                        inspect_frozen=Mock(
+                            side_effect=[
+                                SimpleNamespace(inspection=root),
+                                SimpleNamespace(inspection=child),
+                            ]
+                        ),
                         list_processes=Mock(return_value=SimpleNamespace(processes=[])),
                     ),
                 )
                 observer.inspect(terminal=terminal)
-                requests = observer.diagnostic_double.inspect_image.call_args_list
-                self.assertEqual(
-                    [call.args[1]["operation"] for call in requests],
-                    ["root", "child"] if terminal else ["root"],
-                )
+                if terminal:
+                    observer.diagnostic_double.inspect_image.assert_not_called()
+                    requests = observer.diagnostic_double.inspect_frozen.call_args_list
+                    self.assertTrue(all(call.args[0].version == 2 for call in requests))
+                    self.assertEqual(
+                        [call.args[1].inspection["operation"] for call in requests],
+                        [completed.id, child_operation.id],
+                    )
+                    self.assertEqual(
+                        tuple(op.id for op in requests[0].args[0].operations),
+                        (child_operation.id,),
+                    )
+                    self.assertEqual(observer.frozen_member_index, 1)
+                else:
+                    requests = observer.diagnostic_double.inspect_image.call_args_list
+                    self.assertEqual(
+                        [call.args[1]["operation"] for call in requests], [completed.id]
+                    )
                 self.assertEqual(observer.failures, [])
 
 

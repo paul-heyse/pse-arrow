@@ -710,10 +710,10 @@ mod tests {
         assert_eq!(trace.products.len(), 1);
         let record = trace.products[0].native_attempt.as_ref().unwrap();
         assert_eq!(record.termination.category, Termination::Success);
-        assert_eq!(
+        assert!(matches!(
             record.options["actual_fixture_option"],
-            pse_backend_native::solve::OptionValue::Integer(7)
-        );
+            pse_model::diagnostic::Observation::Integer(7)
+        ));
         assert!(
             trace
                 .events

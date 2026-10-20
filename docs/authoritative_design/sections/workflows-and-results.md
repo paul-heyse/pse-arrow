@@ -412,6 +412,27 @@ qualification basis for the admitted profiles is
 > (proposed; authorized implementation). The current implementation uses the canonical
 > substrate; assembled acceptance and measurements remain with the owning Plan 28 packets.
 
+Descriptive scientific review context is independent of executable Replay admission
+(Plan47 RC02; ADR-0192/0196 proposed). It exports retained authoritative source/input,
+physical semantics, starts, effective settings, identities, original outcomes and available
+source mappings, including failures before a result handle exists. Missing or opaque
+capabilities remain described limitations. Export neither instantiates factories nor evaluates
+models, providers, derivatives or solvers to fill gaps. Shared factual extraction with Replay
+precedes its stronger reconstruction predicates; data-only readback confers no execution or
+allocation permission. Selected bounded reads retain actual owner protection, readable prefixes
+and independent scientific-product availability rather than claiming an atomic global graph.
+
+`RunResult::review_context` projects recorded facts before Replay's executable-capability
+checks, preserving original source positions under selected-step export. Effective solver
+settings come from retained modeling, fitting, horizon and shooting profiles; opaque provider
+configuration and unrecorded implicit implementations remain unavailable instead of invoking
+factory callbacks. A pure pre-handle failure document and a package source/error projection
+retain the earlier failure when no run identity exists. `StudyHandle::review_inventory`
+freezes bounded current or retained historical attempt metadata and its observed prefix/fence;
+missing current pointers do not erase retained retries. Pageable metadata does not establish
+protected result-payload readability, and background/shared/waiter links remain actual
+relationships with explicit gaps.
+
 Public execution begins with an immutable `ModelingPackage` admitted from an explicit
 package closure and physical context. Selected definitions/cases produce immutable prepared
 solves, simulations, fits or strategies. Starting work returns a supervised `RunHandle`;

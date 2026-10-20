@@ -125,3 +125,27 @@ _diagnostic_read_detail = _native.diagnostic_read_detail
 _diagnostic_detail_records = _native.diagnostic_detail_records
 _diagnostic_detail_arrow = _native.diagnostic_detail_arrow
 _diagnostic_capture_arrow = _native.diagnostic_capture_arrow
+
+_diagnostic_inspect_frozen = _native.diagnostic_inspect_frozen
+_diagnostic_read_evidence = _native.diagnostic_read_evidence
+_diagnostic_read_handoff = _native.diagnostic_read_handoff
+_diagnostic_read_invocation = _native.diagnostic_read_invocation
+_diagnostic_read_context = _native.diagnostic_read_context
+_diagnostic_explain_invocation = _native.diagnostic_explain_invocation
+_diagnostic_compare_invocations = _native.diagnostic_compare_invocations
+
+_diagnostic_inventory_page = _native.diagnostic_inventory_page
+
+_diagnostic_inventory_from_evidence = _native.diagnostic_inventory_from_evidence
+
+# Shared passive review operations; no scientific owners are reconstructed.
+_diagnostic_analyze = _native.diagnostic_analyze
+_diagnostic_query_specification = _native.diagnostic_query_specification
+_diagnostic_export_pack = _native.diagnostic_export_pack
+_diagnostic_review_pack = _native.diagnostic_review_pack
+_diagnostic_pack_evidence = _native.diagnostic_pack_evidence
+
+_diagnostic_pack_analysis = _native.diagnostic_pack_analysis
+_diagnostic_render_analysis = _native.diagnostic_render_analysis
+
+_diagnostic_review_arrow = _native.diagnostic_review_arrow

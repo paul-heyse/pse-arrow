@@ -328,7 +328,68 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
         .await
         .unwrap();
     assert_eq!(prepared.blocks().boundaries().count(), 2);
-    let report = prepared.start().unwrap().finish().await.unwrap();
+    let (handle, operation) = prepared.start_with_operation().unwrap();
+    let report = handle.finish().await.unwrap();
+    let (context, work) = crate::math::counted(async {
+        prepared.review_context(
+            &crate::workflow::ReviewContextRequest::default(),
+            operation,
+            &report,
+        )
+    })
+    .await;
+    assert_eq!(work, Default::default());
+    let context = context.unwrap();
+    assert_eq!(context.document().run_id, Some(report.run_id));
+    let original_outcome: serde_json::Value = serde_json::from_slice(
+        &context
+            .document()
+            .facts
+            .iter()
+            .find(|fact| fact.codec == "initialization-outcome.v1")
+            .unwrap()
+            .payload,
+    )
+    .unwrap();
+    assert_eq!(
+        original_outcome["initialization"],
+        serde_json::to_value(InitializationDocument::from(&report)).unwrap()
+    );
+    for (ordinal, attempt) in report.attempts.iter().enumerate() {
+        let fact = context
+            .document()
+            .facts
+            .iter()
+            .find(|fact| fact.path == format!("/initialization/attempts/{ordinal}"))
+            .unwrap();
+        let payload: serde_json::Value = serde_json::from_slice(&fact.payload).unwrap();
+        assert_eq!(
+            payload["boundary_id"],
+            serde_json::to_value(attempt.boundary.id).unwrap()
+        );
+        assert_eq!(
+            payload["boundary_inputs"],
+            serde_json::to_value(&attempt.boundary.inputs).unwrap()
+        );
+        assert_eq!(payload["stage"], attempt.stage);
+        assert_eq!(payload["committed"], attempt.committed);
+    }
+    let mut wrong: crate::workflow::ReviewContextDocument =
+        serde_json::from_slice(&serde_json::to_vec(context.document()).unwrap()).unwrap();
+    let outcome = wrong
+        .facts
+        .iter_mut()
+        .find(|fact| fact.codec == "initialization-outcome.v1")
+        .unwrap();
+    let mut payload: serde_json::Value = serde_json::from_slice(&outcome.payload).unwrap();
+    payload["run_id"] = serde_json::to_value(pse_model::generated::identities::RunId::from_bytes(
+        [254; 16],
+    ))
+    .unwrap();
+    outcome.payload = serde_json::to_vec(&payload).unwrap();
+    assert!(wrong.validate().is_err());
+    crate::workflow::review_qualification_tests::assert_strategy_transport(&context, &runtime);
+
     assert_eq!(report.original.scalars[&a], 4.0);
     assert_eq!(report.original.scalars[&x], 2.0);
     assert_eq!(report.completed_stages, 1, "{report:?}");
@@ -476,7 +537,64 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
                 .any(|p| p.selected && p.declaration == Some(id(91)))
     }));
 
-    let report = prepared.start().unwrap().finish().await.unwrap();
+    let (handle, operation) = prepared.start_with_operation().unwrap();
+    let report = handle.finish().await.unwrap();
+    let (context, work) = crate::math::counted(async {
+        prepared.review_context(
+            &crate::workflow::ReviewContextRequest::default(),
+            operation,
+            &report,
+        )
+    })
+    .await;
+    assert_eq!(work, Default::default());
+    let context = context.unwrap();
+    assert_eq!(context.document().run_id, Some(report.run_id));
+    let original: serde_json::Value = serde_json::from_slice(
+        &context
+            .document()
+            .facts
+            .iter()
+            .find(|fact| fact.codec == "declared-recycle-request.v1")
+            .unwrap()
+            .payload,
+    )
+    .unwrap();
+    assert_eq!(original["request"], serde_json::to_value(&request).unwrap());
+    let settings: serde_json::Value = serde_json::from_slice(
+        &context
+            .document()
+            .facts
+            .iter()
+            .find(|fact| fact.codec == "declared-recycle-settings.v1")
+            .unwrap()
+            .payload,
+    )
+    .unwrap();
+    assert_eq!(
+        settings["controls"],
+        serde_json::to_value(&analysis.solver.controls).unwrap()
+    );
+    assert_eq!(settings["method"]["anderson"], request.anderson);
+    assert!(settings.get("accuracy").is_some());
+    assert!(settings.get("original_numerics").is_some());
+    let targets = settings["numerics"]["targets"].as_array().unwrap();
+    assert_eq!(targets.len(), prepared.numerics().targets.len());
+    for (copied, original) in targets.iter().zip(&prepared.numerics().targets) {
+        assert_eq!(copied["id"], serde_json::to_value(original.id).unwrap());
+        assert_eq!(copied["budget"], original.budget);
+        assert_eq!(copied["coordinate_scale"], original.coordinate_scale);
+        assert_eq!(
+            copied["provenance"].as_array().unwrap().len(),
+            original.provenance.len()
+        );
+    }
+    assert_eq!(
+        settings["numerics"]["policy"],
+        serde_json::to_value(&prepared.numerics().policy).unwrap()
+    );
+    crate::workflow::review_qualification_tests::assert_strategy_transport(&context, &runtime);
+
     assert_eq!(
         report.report.qualification,
         Qualification::Feasible,

@@ -469,6 +469,7 @@ pub(crate) fn physical() -> PhysicalContext {
             .unwrap(),
     );
     PhysicalContext {
+        engine_receipt: None,
         documents: None,
         key: pse_compiler::workspace::physical_identity(&quantities, &preconditions),
         quantities,

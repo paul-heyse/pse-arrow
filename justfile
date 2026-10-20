@@ -1386,6 +1386,6 @@ diagnostic-tools:
 [group('manual')]
 [doc('Query a retained Perfetto trace with a finite owned output; arguments pass through')]
 [positional-arguments]
-[script("bash", "scripts/pse-env", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
 trace-query *args:
-    python3 -m scripts.diagnostic_trace query "$@"
+    "{{ py }}" -m scripts.diagnostic_trace query "$@"

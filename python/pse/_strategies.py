@@ -16,6 +16,8 @@ from pse._inspection import TableStream
 from pse.contracts.documents import (
     FlowGraphDocument,
     InitializationDocument,
+    ReviewContextDocument,
+    ReviewContextRequest,
     RouteDocument,
     SolveSettings,
     TearSelectionDocument,
@@ -55,9 +57,11 @@ class PreparedStrategy:
         """Typed routes selected before execution, without implicit failure fallback."""
         return tuple(self._handle.routes)
 
-    def run(self) -> "StrategyResult":
-        """Run one finite strategy and retain its joined reports."""
-        return StrategyResult(self._handle.run())
+    def run(
+        self, *, review_context: ReviewContextRequest | None = None
+    ) -> "StrategyResult":
+        """Run a finite strategy with optional selected descriptive context."""
+        return StrategyResult(self._handle.run(review_context=review_context))
 
 
 @attrs.frozen
@@ -65,6 +69,10 @@ class StrategyResult:
     """Owned native attempts, including failures and stage overlays."""
 
     _handle: _NativeStrategyResult
+
+    def review_context(self) -> ReviewContextDocument:
+        """Read context explicitly selected for the original joined execution."""
+        return codec.decode_json(self._handle.review_context(), ReviewContextDocument)
 
     @property
     def run_id(self) -> RunId | None:

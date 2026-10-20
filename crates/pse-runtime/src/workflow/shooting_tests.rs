@@ -741,6 +741,15 @@ async fn shooting_trajectory_projection_retains_completion_diagnostic_and_lease(
     });
     let problem = simulation.shooting(profile).unwrap();
     let result = solve(problem, None).await;
+    crate::workflow::review_qualification_tests::assert_review_transport(
+        &result,
+        &[
+            ("/shooting/constructor", "replay-shooting-constructor.v2"),
+            ("/shooting/simulation/context", "scientific-coordinates.v1"),
+            ("/shooting/runtime", "native-execution-snapshot.v1"),
+        ],
+    )
+    .await;
     let report = report_of(&result);
     assert!(!report.completion.permits_use());
     assert!(
@@ -1408,6 +1417,18 @@ async fn plan38b_simulation_replay_reconstructs_original_inputs_and_cancels_pend
     let simulation = tracking(Method::Diffsol).await;
     let original = simulation.start().unwrap().wait().await.unwrap();
     assert!(original.report().is_ok());
+    crate::workflow::review_qualification_tests::assert_review_transport(
+        &original,
+        &[
+            (
+                "/simulation/constructor",
+                "replay-simulation-constructor.v2",
+            ),
+            ("/simulation/context", "scientific-coordinates.v1"),
+            ("/simulation/runtime", "native-execution-snapshot.v1"),
+        ],
+    )
+    .await;
     let replay = original.replay();
     let document = replay.document_with_limit(128 << 20).unwrap();
     assert_eq!(document.simulation_constructors.len(), 1);

@@ -68,6 +68,30 @@ impl NativeDiagnostics {
             .reader(operation.0)
             .map(NativeOperationObservations::new)
     }
+    /// Explicit cooperating construction boundary; an absent environment request does nothing.
+    fn record_from_environment(
+        &self,
+        py: Python<'_>,
+        supported_families: Vec<String>,
+    ) -> PyResult<Option<NativeDetailSession>> {
+        if std::env::var_os(capture::SOURCE_RECORDING_REQUEST_ENV).is_none() {
+            return Ok(None);
+        }
+        let operation = self.inner.hub().start("selected.source.recording");
+        let families = supported_families
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        let session = capture::source_recording_from_environment(operation.context(), &families)
+            .map_err(|error| errors::diagnostic(py, &error))?;
+        Ok(session.map(|session| NativeDetailSession {
+            source_acknowledgement: Some(session.acknowledgement().clone()),
+            session: Some(SelectedDetailSession::Source(Box::new(session))),
+            completed: None,
+            entered: None,
+            operation: Some(operation),
+        }))
+    }
     /// Select finite source detail before constructing work under its entered context.
     fn collect(
         &self,
@@ -81,7 +105,8 @@ impl NativeDiagnostics {
         let session = capture::start_detailed_collection(operation.context(), request.0)
             .map_err(|error| errors::diagnostic(py, &error))?;
         Ok(NativeDetailSession {
-            session: Some(session),
+            session: Some(SelectedDetailSession::Local(session)),
+            source_acknowledgement: None,
             completed: None,
             entered: None,
             operation: Some(operation),
@@ -89,16 +114,109 @@ impl NativeDiagnostics {
     }
 }
 
+enum SelectedDetailSession {
+    Local(capture::DetailSession),
+    Source(Box<capture::SourceRecordingSession>),
+}
+impl SelectedDetailSession {
+    fn context(&self) -> pse_diagnostics::observation::ObservationContext {
+        match self {
+            Self::Local(s) => s.context(),
+            Self::Source(s) => s.context(),
+        }
+    }
+    fn snapshot(&self) -> capture::DetailDocument {
+        match self {
+            Self::Local(s) => s.snapshot(),
+            Self::Source(s) => s.snapshot(),
+        }
+    }
+    fn request_stop(&self) {
+        match self {
+            Self::Local(s) => s.request_stop(),
+            Self::Source(s) => s.request_stop(),
+        }
+    }
+    fn finish(self) -> Result<capture::DetailDocument, capture::CaptureError> {
+        match self {
+            Self::Local(s) => s.finish(),
+            Self::Source(s) => s.finish(),
+        }
+    }
+    fn stop(self) -> Result<capture::DetailDocument, capture::CaptureError> {
+        match self {
+            Self::Local(s) => s.stop(),
+            Self::Source(s) => s.stop(),
+        }
+    }
+}
+
 /// Caller-scoped selected collection; its thread-local guard never crosses an await.
 #[pyclass(unsendable, skip_from_py_object, module = "pse._native")]
 pub(crate) struct NativeDetailSession {
-    session: Option<capture::DetailSession>,
+    session: Option<SelectedDetailSession>,
+    source_acknowledgement: Option<capture::SourceRecordingAcknowledgement>,
     completed: Option<capture::DetailDocument>,
     entered: Option<pse_diagnostics::observation::EnterGuard>,
     operation: Option<pse_diagnostics::observation::OperationGuard>,
 }
 #[pymethods]
 impl NativeDetailSession {
+    #[getter]
+    fn acknowledgement(&self) -> Option<DocumentValue<capture::SourceRecordingAcknowledgement>> {
+        self.source_acknowledgement.clone().map(DocumentValue)
+    }
+    fn retain_result(
+        &mut self,
+        py: Python<'_>,
+        result: &crate::workflow::NativeRunResult,
+    ) -> PyResult<Option<DocumentValue<capture::ReviewHandoffReceipt>>> {
+        let was_entered = self.entered.take().is_some();
+        let Some(session) = self.session.take() else {
+            return Err(crate::workflow::invalid(py, "selected recording has ended"));
+        };
+        let joined = result.retained_result().clone();
+        let (session, outcome) = py.detach(move || {
+            let mut session = session;
+            let outcome = match &mut session {
+                SelectedDetailSession::Source(source) => source.retain_result(&joined),
+                SelectedDetailSession::Local(_) => Ok(None),
+            };
+            (session, outcome)
+        });
+        if was_entered {
+            self.entered = Some(session.context().enter());
+        }
+        self.session = Some(session);
+        outcome
+            .map(|receipt| receipt.map(DocumentValue))
+            .map_err(|error| errors::diagnostic(py, &error))
+    }
+    fn retain_context(
+        &mut self,
+        py: Python<'_>,
+        context: crate::documents::RecordedInput<pse_runtime::workflow::ReviewContextDocument>,
+    ) -> PyResult<Option<DocumentValue<capture::ReviewHandoffReceipt>>> {
+        let was_entered = self.entered.take().is_some();
+        let Some(session) = self.session.take() else {
+            return Err(crate::workflow::invalid(py, "selected recording has ended"));
+        };
+        let (session, outcome) = py.detach(move || {
+            let mut session = session;
+            let outcome = match &mut session {
+                SelectedDetailSession::Source(source) => source.retain_context(&context.0),
+                SelectedDetailSession::Local(_) => Ok(None),
+            };
+            (session, outcome)
+        });
+        if was_entered {
+            self.entered = Some(session.context().enter());
+        }
+        self.session = Some(session);
+        outcome
+            .map(|receipt| receipt.map(DocumentValue))
+            .map_err(|error| errors::diagnostic(py, &error))
+    }
     fn enter(&mut self) -> PyResult<()> {
         if self.entered.is_some() {
             return Err(pyo3::exceptions::PyValueError::new_err(
@@ -114,7 +232,7 @@ impl NativeDetailSession {
     fn snapshot(&self) -> PyResult<DocumentValue<capture::DetailDocument>> {
         self.session
             .as_ref()
-            .map(capture::DetailSession::snapshot)
+            .map(SelectedDetailSession::snapshot)
             .or_else(|| self.completed.clone())
             .map(DocumentValue)
             .ok_or_else(|| {
@@ -539,4 +657,260 @@ pub(crate) fn diagnostic_launch_capture(
             }),
         },
     ))
+}
+
+#[pyfunction]
+pub(crate) fn diagnostic_inspect_frozen(
+    py: Python<'_>,
+    evidence: crate::documents::RecordedInput<pse_runtime::frozen_inspection::FrozenEvidenceSet>,
+    request: crate::documents::RecordedInput<
+        pse_runtime::frozen_inspection::FrozenInspectionRequest,
+    >,
+) -> PyResult<DocumentValue<pse_runtime::frozen_inspection::FrozenInspectionDocument>> {
+    py.detach(|| pse_runtime::frozen_inspection::inspect_frozen(&evidence.0, request.0))
+        .map(DocumentValue)
+        .map_err(|error| errors::diagnostic(py, &error))
+}
+#[pyfunction]
+pub(crate) fn diagnostic_read_evidence(
+    py: Python<'_>,
+    path: PathBuf,
+) -> PyResult<DocumentValue<pse_runtime::frozen_inspection::FrozenEvidenceSet>> {
+    py.detach(|| {
+        let set: pse_runtime::frozen_inspection::FrozenEvidenceSet =
+            pse_runtime::frozen_inspection::read_document::<_, 2>(&path)?;
+        set.validate()?;
+        Ok::<_, pse_runtime::observation::ObservationError>(set)
+    })
+    .map(DocumentValue)
+    .map_err(|error| errors::diagnostic(py, &error))
+}
+#[pyfunction]
+pub(crate) fn diagnostic_read_invocation(
+    py: Python<'_>,
+    path: PathBuf,
+) -> PyResult<DocumentValue<pse_runtime::invocation::InvocationEvidenceDocument>> {
+    py.detach(|| pse_runtime::frozen_inspection::read_invocation(&path))
+        .map(DocumentValue)
+        .map_err(|error| errors::diagnostic(py, &error))
+}
+#[pyfunction]
+pub(crate) fn diagnostic_read_context(
+    py: Python<'_>,
+    path: PathBuf,
+) -> PyResult<DocumentValue<pse_runtime::workflow::ReviewContextDocument>> {
+    py.detach(|| pse_runtime::frozen_inspection::read_context(&path))
+        .map(DocumentValue)
+        .map_err(|error| errors::diagnostic(py, &error))
+}
+#[pyfunction]
+#[pyo3(signature=(source,policy=None))]
+pub(crate) fn diagnostic_explain_invocation(
+    py: Python<'_>,
+    source: crate::documents::RecordedInput<pse_runtime::invocation::InvocationEvidenceDocument>,
+    policy: Option<DocumentInput<pse_runtime::inspection_comparison::ComparisonPolicy>>,
+) -> DocumentValue<pse_runtime::inspection_comparison::InvocationComparisonDocument> {
+    DocumentValue(py.detach(|| {
+        pse_runtime::inspection_comparison::explain_invocation(
+            &source.0,
+            policy.map_or_else(Default::default, |p| p.0),
+        )
+    }))
+}
+#[pyfunction]
+#[pyo3(signature=(left,right,policy=None))]
+pub(crate) fn diagnostic_compare_invocations(
+    py: Python<'_>,
+    left: crate::documents::RecordedInput<pse_runtime::invocation::InvocationEvidenceDocument>,
+    right: crate::documents::RecordedInput<pse_runtime::invocation::InvocationEvidenceDocument>,
+    policy: Option<DocumentInput<pse_runtime::inspection_comparison::ComparisonPolicy>>,
+) -> DocumentValue<pse_runtime::inspection_comparison::InvocationComparisonDocument> {
+    DocumentValue(py.detach(|| {
+        pse_runtime::inspection_comparison::compare_invocations(
+            &left.0,
+            &right.0,
+            policy.map_or_else(Default::default, |p| p.0),
+        )
+    }))
+}
+
+#[pyfunction]
+pub(crate) fn diagnostic_inventory_page(
+    py: Python<'_>,
+    selection: crate::documents::RecordedInput<pse_runtime::workflow::ReviewInventorySelection>,
+    offset: usize,
+    limit: usize,
+) -> PyResult<DocumentValue<pse_runtime::workflow::ReviewInventoryPage>> {
+    py.detach(|| selection.0.page(offset, limit))
+        .map(DocumentValue)
+        .map_err(|error| errors::diagnostic(py, &error))
+}
+
+#[pyfunction]
+#[pyo3(signature=(evidence,request,scope="supplied.operations"))]
+pub(crate) fn diagnostic_inventory_from_evidence(
+    py: Python<'_>,
+    evidence: crate::documents::RecordedInput<pse_runtime::frozen_inspection::FrozenEvidenceSet>,
+    request: DocumentInput<pse_runtime::workflow::ReviewInventoryRequest>,
+    scope: &str,
+) -> PyResult<DocumentValue<pse_runtime::workflow::ReviewInventorySelection>> {
+    py.detach(|| evidence.0.operation_inventory(scope.into(), &request.0))
+        .map(DocumentValue)
+        .map_err(|error| errors::diagnostic(py, &error))
+}
+
+#[pyfunction]
+#[pyo3(signature=(evidence,request,*,memory_bytes=64<<20))]
+pub(crate) fn diagnostic_analyze(
+    py: Python<'_>,
+    evidence: crate::documents::RecordedInput<pse_runtime::frozen_inspection::FrozenEvidenceSet>,
+    request: crate::documents::RecordedInput<pse_runtime::review_analysis::AnalysisRequest>,
+    memory_bytes: usize,
+) -> PyResult<DocumentValue<pse_runtime::review_analysis::Analysis>> {
+    if memory_bytes == 0 {
+        return Err(crate::workflow::invalid(
+            py,
+            "analysis requires a positive finite memory allowance",
+        ));
+    }
+    let pool: Arc<dyn pse_columnar::MemoryPool> =
+        Arc::new(pse_columnar::GreedyMemoryPool::new(memory_bytes));
+    let cancel = pse_columnar::CancellationToken::new();
+    crate::workflow::blocking_native_call(
+        py,
+        || {
+            pse_runtime::review_analysis::analyze(&evidence.0, &request.0, &pool, &cancel).map_err(
+                |error| pse_engine::EngineError::Infrastructure {
+                    op: "analyze supplied review facts".into(),
+                    source: Box::new(error),
+                },
+            )
+        },
+        || cancel.cancel(),
+    )
+    .map(DocumentValue)
+}
+#[pyfunction]
+pub(crate) fn diagnostic_query_specification(
+    py: Python<'_>,
+    request: crate::documents::RecordedInput<pse_runtime::review_query::ReviewQueryRequest>,
+) -> PyResult<DocumentValue<pse_runtime::review_query::ReviewQuerySpecification>> {
+    pse_runtime::review_query::specification(&request.0)
+        .map(DocumentValue)
+        .map_err(|error| errors::diagnostic(py, &error))
+}
+#[pyfunction]
+pub(crate) fn diagnostic_export_pack(
+    py: Python<'_>,
+    destination: PathBuf,
+    evidence: crate::documents::RecordedInput<pse_runtime::frozen_inspection::FrozenEvidenceSet>,
+    analysis: crate::documents::RecordedInput<pse_runtime::review_analysis::AnalysisDocument>,
+    selection: crate::documents::RecordedInput<pse_runtime::review_pack::PackExportRequest>,
+) -> PyResult<DocumentValue<pse_runtime::review_pack::PackIndex>> {
+    let cancel = pse_columnar::CancellationToken::new();
+    crate::workflow::blocking_native_call(
+        py,
+        || {
+            pse_runtime::workflow::export_supplied_review_pack(
+                &destination,
+                &evidence.0,
+                &analysis.0,
+                selection.0,
+                cancel.clone(),
+            )
+            .map_err(|error| pse_engine::EngineError::Infrastructure {
+                op: "export selected review pack".into(),
+                source: Box::new(error),
+            })
+        },
+        || cancel.cancel(),
+    )
+    .map(DocumentValue)
+}
+#[pyfunction]
+pub(crate) fn diagnostic_review_pack(
+    py: Python<'_>,
+    directory: PathBuf,
+) -> PyResult<DocumentValue<pse_runtime::review_pack::PackIndex>> {
+    py.detach(|| {
+        pse_runtime::review_pack::PackReader::open(
+            &directory,
+            pse_runtime::review_pack::MAXIMUM_PACK_DOCUMENT_BYTES,
+        )
+        .map(|reader| reader.index().clone())
+    })
+    .map(DocumentValue)
+    .map_err(|error| errors::diagnostic(py, &error))
+}
+#[pyfunction]
+pub(crate) fn diagnostic_pack_evidence(
+    py: Python<'_>,
+    directory: PathBuf,
+) -> PyResult<DocumentValue<pse_runtime::frozen_inspection::FrozenEvidenceSet>> {
+    py.detach(|| {
+        pse_runtime::review_pack::PackReader::open(
+            &directory,
+            pse_runtime::review_pack::MAXIMUM_PACK_DOCUMENT_BYTES,
+        )?
+        .read_frozen()
+    })
+    .map(DocumentValue)
+    .map_err(|error| errors::diagnostic(py, &error))
+}
+
+#[pyfunction]
+pub(crate) fn diagnostic_pack_analysis(
+    py: Python<'_>,
+    directory: PathBuf,
+) -> PyResult<DocumentValue<pse_runtime::review_analysis::AnalysisDocument>> {
+    py.detach(|| {
+        pse_runtime::review_pack::PackReader::open(
+            &directory,
+            pse_runtime::review_pack::MAXIMUM_PACK_DOCUMENT_BYTES,
+        )?
+        .read_analysis()
+    })
+    .map(DocumentValue)
+    .map_err(|error| errors::diagnostic(py, &error))
+}
+#[pyfunction]
+pub(crate) fn diagnostic_render_analysis(
+    py: Python<'_>,
+    analysis: crate::documents::RecordedInput<pse_runtime::review_analysis::AnalysisDocument>,
+) -> String {
+    py.detach(|| pse_runtime::review_analysis::render_markdown(&analysis.0))
+}
+
+/// Select one immutable registry view; no schema inference, store, native evaluation or live lookup.
+#[pyfunction]
+#[pyo3(signature=(evidence,request) -> "object")]
+pub(crate) fn diagnostic_review_arrow(
+    py: Python<'_>,
+    evidence: crate::documents::RecordedInput<pse_runtime::frozen_inspection::FrozenEvidenceSet>,
+    request: crate::documents::RecordedInput<pse_runtime::review_query::ReviewTableRequest>,
+) -> PyResult<pyo3_arrow::PyRecordBatch> {
+    let cancel = pse_columnar::CancellationToken::new();
+    crate::workflow::blocking_native_call(
+        py,
+        || {
+            pse_runtime::review_query::table_arrow(&evidence.0, &request.0, &cancel).map_err(
+                |error| pse_engine::EngineError::Infrastructure {
+                    op: "project selected review table".into(),
+                    source: Box::new(error),
+                },
+            )
+        },
+        || cancel.cancel(),
+    )
+    .map(pyo3_arrow::PyRecordBatch::new)
+}
+
+#[pyfunction]
+pub(crate) fn diagnostic_read_handoff(
+    py: Python<'_>,
+    path: PathBuf,
+) -> PyResult<DocumentValue<pse_runtime::frozen_inspection::FrozenEvidenceSet>> {
+    py.detach(|| capture::read_review_handoff(&path))
+        .map(DocumentValue)
+        .map_err(|error| errors::diagnostic(py, &error))
 }

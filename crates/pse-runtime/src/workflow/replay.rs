@@ -221,46 +221,20 @@ pub struct ReplayProvider {
 }
 impl ReplayProvider {
     pub(in crate::workflow) fn new(name: &str, registration: &pse_kernels::Registration) -> Self {
-        let spec = registration.spec();
-        let ports = |ports: &[pse_kernels::Port]| {
-            ports
-                .iter()
-                .map(|port| ReplayProviderPort {
-                    id: port.id,
-                    quantity: port.quantity.as_id(),
-                    unit: port.unit.as_id(),
-                })
-                .collect()
-        };
-        let shapes = |shapes: &[pse_kernels::ProviderShape]| {
-            shapes
-                .iter()
-                .map(|shape| ReplayProviderShape {
-                    id: shape.id,
-                    axes: shape.axes.clone(),
-                    coordinates: shape.coordinates.clone(),
-                    cells: shape.cells.clone(),
-                })
-                .collect()
-        };
-        let order = |order| match order {
-            pse_kernels::DerivativeOrder::Value => 0,
-            pse_kernels::DerivativeOrder::First => 1,
-            pse_kernels::DerivativeOrder::Second => 2,
-        };
+        let descriptor = super::review_context::ReviewProviderDescriptor::new(name, registration);
         Self {
-            name: name.into(),
-            implementation: spec.id,
-            revision: spec.revision,
-            data: spec.data,
+            name: descriptor.name,
+            implementation: descriptor.implementation,
+            revision: descriptor.revision,
+            data: descriptor.data,
             configuration: registration.configuration_key(),
-            inputs: ports(&spec.inputs),
-            outputs: ports(&spec.outputs),
-            input_shapes: shapes(&spec.shapes.inputs),
-            output_shapes: shapes(&spec.shapes.outputs),
-            derivative_source: spec.derivative_source,
-            derivatives: order(spec.derivatives),
-            smoothness: order(spec.smoothness),
+            inputs: descriptor.inputs,
+            outputs: descriptor.outputs,
+            input_shapes: descriptor.input_shapes,
+            output_shapes: descriptor.output_shapes,
+            derivative_source: descriptor.derivative_source,
+            derivatives: descriptor.derivatives,
+            smoothness: descriptor.smoothness,
         }
     }
 }
@@ -411,7 +385,7 @@ pub struct ReplayDecisions {
     pub decisions: Vec<super::attempt_documents::AttemptDecision>,
 }
 impl ReplayDecisions {
-    fn new(step: usize, trace: &crate::math::strategy::Trace) -> Self {
+    pub(super) fn new(step: usize, trace: &crate::math::strategy::Trace) -> Self {
         Self {
             step,
             declaration: trace.declaration.clone(),
@@ -428,7 +402,7 @@ impl ReplayDecisions {
     }
 }
 /// Recorded coverage, without promoting an interrupted prefix into a full trajectory.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayCoverage {
     /// Original requested modeling steps or dynamic samples/horizon periods.
@@ -853,12 +827,12 @@ impl ScientificReplay {
     }
 }
 impl RunResult {
-    fn replay_request(&self) -> &RunRequest {
+    pub(super) fn replay_request(&self) -> &RunRequest {
         self.original_horizon_request
             .as_ref()
             .unwrap_or(&self.request)
     }
-    fn replay_traces(
+    pub(super) fn replay_traces(
         &self,
     ) -> Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> {
         let retained: Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> =
@@ -931,6 +905,14 @@ impl RunResult {
     }
     /// Retain the complete immutable input/decision closure, without numerical work or history lookup.
     pub fn replay(self: &Arc<Self>) -> ScientificReplay {
+        ScientificReplay {
+            source_run: self.run_id,
+            result: self.clone(),
+            coverage: self.recorded_coverage(),
+        }
+    }
+    /// Shared retained factual coverage; construction confers no rerun admission.
+    pub(super) fn recorded_coverage(&self) -> ReplayCoverage {
         let (requested, observed, completed_time) = match self.replay_request() {
             RunRequest::Modeling(steps) => {
                 let mut count = 0;
@@ -1004,16 +986,12 @@ impl RunResult {
                         .map(crate::math::strategy::workflow_failure)
                 }),
         };
-        ScientificReplay {
-            source_run: self.run_id,
-            result: self.clone(),
-            coverage: ReplayCoverage {
-                requested,
-                observed,
-                completed_time,
-                usable: self.usable(),
-                terminal,
-            },
+        ReplayCoverage {
+            requested,
+            observed,
+            completed_time,
+            usable: self.usable(),
+            terminal,
         }
     }
 }
@@ -1130,15 +1108,44 @@ impl OriginalCaseInputs {
             .await
     }
     fn document(&self, source: usize) -> Result<ReplayCaseConstructor, WorkflowError> {
-        let original = self
-            .specialization
-            .as_ref()
-            .ok_or_else(|| contract("original specialization constructor was not retained"))?;
+        // Gather retained facts independently of the executable replay predicate.
+        let document = self.descriptive_document(source)?;
         if !self.numerical.implicit.is_empty() {
             return Err(contract(
                 "portable case replay requires library-owned export of caller-supplied implicit PreparedBody capabilities; retained in-process rerun remains available",
             ));
         }
+        Ok(document)
+    }
+    pub(super) fn opaque_descriptors(&self) -> Vec<String> {
+        self.numerical
+            .implicit
+            .keys()
+            .map(|key| format!("{key:?}"))
+            .collect()
+    }
+    pub(super) fn descriptive_extent(&self) -> usize {
+        self._owner
+            .size()
+            .saturating_add(
+                self.specialization
+                    .as_ref()
+                    .map_or(0, |original| original.retained_bytes()),
+            )
+            .saturating_mul(8)
+            .saturating_add(65536)
+    }
+    pub(super) fn descriptive_case_inputs(&self) -> ReplayCaseInputs {
+        ReplayCaseInputs::new(&self.case)
+    }
+    pub(super) fn descriptive_document(
+        &self,
+        source: usize,
+    ) -> Result<ReplayCaseConstructor, WorkflowError> {
+        let original = self
+            .specialization
+            .as_ref()
+            .ok_or_else(|| contract("original specialization constructor was not retained"))?;
         Ok(ReplayCaseConstructor {
             source,
             root: original.root,
@@ -1628,7 +1635,7 @@ pub struct ReplayScreenedStart {
     pub values: BTreeMap<SemanticId, u64>,
 }
 impl ReplayScreenedStart {
-    fn new(screened: &crate::math::prediction::Screened) -> Self {
+    pub(super) fn new(screened: &crate::math::prediction::Screened) -> Self {
         let proposal = screened.proposal();
         Self {
             source: proposal.source(),
@@ -2434,7 +2441,7 @@ mod tests {
             .iter()
             .zip(&exported.native_attempts)
         {
-            assert!(Arc::ptr_eq(&summary.record, &replay.record));
+            assert!(Arc::ptr_eq(&summary.record, &replay.record.document()));
         }
         let omitted = fresh
             .attempt_summary_with_limits(crate::workflow::attempt_documents::AttemptSummaryLimits {
@@ -2622,6 +2629,141 @@ mod tests {
         let restored: pse_modeling::Bindings =
             serde_json::from_slice(&serde_json::to_vec(&bindings).unwrap()).unwrap();
         assert_eq!(bindings, restored);
+    }
+    #[tokio::test]
+    async fn review_context_failed_run_retains_exact_inputs_starts_settings_and_unavailable_products()
+     {
+        use crate::workflow::ReviewContextRequest;
+        let runtime = crate::workflow::tests::runtime();
+        let rows = pse_authoring::language::parse(
+            "package p {def Root {param a:Scalar=1.25;var x:Scalar;eq e:x==a;}}",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let mut solver = crate::workflow::tests::profile();
+        solver.controls.iterations = 17;
+        let mut prepared = package
+            .prepare_solve(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Default::default(),
+                Default::default(),
+                pse_compiler::workspace::ModelingCaseBindings {
+                    values: BTreeMap::from([("x".into(), 1.25)]),
+                    variables: BTreeMap::from([(
+                        "x".into(),
+                        pse_compiler::workspace::ModelingVariableState {
+                            fixed: Some(true),
+                            ..Default::default()
+                        },
+                    )]),
+                    ..Default::default()
+                },
+                pse_kernels::DerivativeOrder::First,
+                crate::workflow::tests::compiler_profile(),
+                solver,
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let opaque_body = prepared
+            .model
+            .model
+            .compiled()
+            .admitted
+            .bodies
+            .values()
+            .next()
+            .unwrap()
+            .math()
+            .clone();
+        let original = Arc::get_mut(&mut prepared.original_inputs).unwrap();
+        original.numerical.implicit.insert(
+            pse_kernels::ProviderKey(ContentHash::from_bytes([41; 32])),
+            pse_math::factorable::ImplicitDefinition {
+                residual: opaque_body,
+                unknowns: vec![(f64::NEG_INFINITY, f64::INFINITY)],
+                bounds: None,
+                selection: pse_math::factorable::SelectedGraph::Unestablished {
+                    meaning: "caller supplied opaque implicit body".into(),
+                },
+            },
+        );
+        assert!(
+            original
+                .document(0)
+                .unwrap_err()
+                .to_string()
+                .contains("caller-supplied implicit")
+        );
+        assert!(original.descriptive_document(0).is_ok());
+        let expected_inputs = prepared
+            .model
+            .values
+            .scalars
+            .iter()
+            .map(|(id, value)| (*id, value.to_bits()))
+            .collect::<BTreeMap<_, _>>();
+        let expected_starts = serde_json::to_vec(&prepared.starts).unwrap();
+        let result = Arc::new(RunResult::joined(
+            RunId::from_bytes([91; 16]),
+            runtime,
+            RunRequest::Modeling(vec![prepared]),
+            None,
+            Err(Arc::new(contract("failed before dispatch"))),
+        ));
+        assert!(
+            result
+                .replay()
+                .document()
+                .unwrap_err()
+                .to_string()
+                .contains("caller-supplied implicit")
+        );
+        let (context, counts) =
+            crate::math::counted(async { result.review_context(&ReviewContextRequest::default()) })
+                .await;
+        let context = context.unwrap();
+        let document = context.document();
+        assert!(
+            document
+                .unavailable
+                .iter()
+                .any(|item| item.path == "/steps/0/implicit")
+        );
+        assert_eq!(counts, crate::math::PreparationCounts::default());
+        assert_eq!(document.solver_settings[0].controls.iterations, 17);
+        let fact = |path: &str| {
+            document
+                .facts
+                .iter()
+                .find(|fact| fact.path == path)
+                .unwrap()
+        };
+        let inputs: BTreeMap<SemanticId, u64> =
+            serde_json::from_slice(&fact("/steps/0/physical_values").payload).unwrap();
+        assert_eq!(inputs, expected_inputs);
+        assert_eq!(fact("/steps/0/starts").payload, expected_starts);
+        let submitted: ReplayCaseInputs =
+            serde_json::from_slice(&fact("/steps/0/submitted_case").payload).unwrap();
+        assert_eq!(submitted.values["x"], 1.25_f64.to_bits());
+        assert!(!document.coverage.as_ref().unwrap().usable);
+        let invocation: serde_json::Value =
+            serde_json::from_slice(&fact("/invocation").payload).unwrap();
+        assert_eq!(invocation["products"][0]["availability"], "unavailable");
+        document.validate().unwrap();
     }
 }
 
@@ -2853,7 +2995,7 @@ impl OriginalFitInputs {
             _owner: owner,
         }))
     }
-    fn document(&self, source: usize) -> ReplayFitConstructor {
+    pub(super) fn document(&self, source: usize) -> ReplayFitConstructor {
         ReplayFitConstructor {
             source,
             ..self.document.clone()
@@ -2949,7 +3091,7 @@ pub struct ReplayShootingConstructor {
 }
 #[cfg(feature = "solver-diffsol")]
 impl ReplayShootingConstructor {
-    fn new(
+    pub(super) fn new(
         problem: &super::ShootingProblem,
         initial: &Option<Vec<f64>>,
     ) -> Result<Self, WorkflowError> {
@@ -3044,6 +3186,12 @@ impl ReplayCaseConstructor {
                 "portable analysis replay requires library-owned export of caller-supplied implicit capabilities",
             ));
         }
+        Self::descriptive_analysis(source, analysis)
+    }
+    fn descriptive_analysis(
+        source: usize,
+        analysis: &super::ModelingAnalysis,
+    ) -> Result<Self, WorkflowError> {
         Ok(Self {
             source,
             root: analysis.root,
@@ -3179,9 +3327,22 @@ pub struct ReplayHorizonConstructor {
 }
 impl ReplayHorizonConstructor {
     pub(in crate::workflow) fn new(horizon: &super::Horizon) -> Result<Self, WorkflowError> {
+        Self::from_retained(horizon, true)
+    }
+    pub(super) fn descriptive(horizon: &super::Horizon) -> Result<Self, WorkflowError> {
+        Self::from_retained(horizon, false)
+    }
+    fn from_retained(horizon: &super::Horizon, executable: bool) -> Result<Self, WorkflowError> {
+        let analysis = |source, body| {
+            if executable {
+                ReplayCaseConstructor::from_analysis(source, body)
+            } else {
+                ReplayCaseConstructor::descriptive_analysis(source, body)
+            }
+        };
         let mut next = 1;
         let estimator = if let Some(estimator) = &horizon.estimator {
-            let analysis = ReplayCaseConstructor::from_analysis(next, &estimator.analysis)?;
+            let analysis = analysis(next, &estimator.analysis)?;
             next += 1;
             Some(ReplayHorizonEstimator {
                 analysis,
@@ -3206,7 +3367,7 @@ impl ReplayHorizonConstructor {
         };
         let controller = if let Some(controller) = &horizon.controller {
             Some(ReplayHorizonController {
-                analysis: ReplayCaseConstructor::from_analysis(next, &controller.analysis)?,
+                analysis: analysis(next, &controller.analysis)?,
                 bindings: controller
                     .bindings
                     .iter()
@@ -3345,7 +3506,10 @@ impl std::io::Write for ExtentWriter {
         Ok(())
     }
 }
-fn encoded_extent(value: &impl serde::Serialize, limit: usize) -> Result<usize, WorkflowError> {
+pub(super) fn encoded_extent(
+    value: &impl serde::Serialize,
+    limit: usize,
+) -> Result<usize, WorkflowError> {
     let mut writer = ExtentWriter { written: 0, limit };
     serde_json::to_writer(&mut writer, value)
         .map_err(|error| contract(format!("replay encoding extent: {error}")))?;
@@ -3609,7 +3773,7 @@ pub(in crate::workflow) fn source_reconstruction_extent(
 }
 
 /// Native record availability, separate from physical sample/period coverage.
-#[derive(Clone, Copy, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReplayNativeRecordCoverage {
     /// All native reports produced by retained strategy operations have compact records.
@@ -3619,9 +3783,9 @@ pub enum ReplayNativeRecordCoverage {
     IntegrationReportOnly,
 }
 /// Workflow attribution over the native owner's immutable compact attempt facts.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct ReplayNativeAttempt {
+pub struct ReplayNativeAttempt<T = pse_backend_native::solve::AttemptRecord> {
     /// Original modeling step, or zero for fit/shooting.
     pub step: usize,
     /// Actual operation ordinal in the retained governing declaration.
@@ -3629,7 +3793,7 @@ pub struct ReplayNativeAttempt {
     /// Actual ordered block/causal component ordinal; absent for a whole-problem native report.
     pub component: Option<usize>,
     /// Full actual native options, termination, counters, start receipt and raw evidence.
-    pub record: Arc<pse_backend_native::solve::AttemptRecord>,
+    pub record: Arc<T>,
 }
 impl ScientificReplay {
     pub(super) fn native_attempts(

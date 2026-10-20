@@ -144,6 +144,15 @@ async fn sensitivities_published_with_local_validity() {
         |_, _| None,
     )
     .await;
+    crate::workflow::review_qualification_tests::assert_review_transport(
+        &result,
+        &[
+            ("/steps/0/constructor", "replay-case-constructor.v2"),
+            ("/steps/0/context", "scientific-coordinates.v1"),
+            ("/steps/0/runtime", "native-execution-snapshot.v1"),
+        ],
+    )
+    .await;
     let (a, b, x, z) = (ids[0], ids[1], ids[2], ids[3]);
     let policy = fixture::profile().numerics;
     let numerics: Vec<resolved_numerics::Row> = rows(&result, "runtime.resolved_numerics");

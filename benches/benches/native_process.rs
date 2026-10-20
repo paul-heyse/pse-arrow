@@ -33,6 +33,8 @@ mod phases;
 mod restart;
 #[path = "native_process/results_analysis.rs"]
 mod results_analysis;
+#[path = "native_process/review_cases.rs"]
+mod review_cases;
 #[path = "native_process/shooting.rs"]
 mod shooting;
 #[path = "native_process/source_reuse.rs"]
@@ -211,13 +213,14 @@ async fn heater_blocks(
 fn process(c: &mut Criterion) {
     use tracing_subscriber::prelude::*;
     let compiler_phases = phases::Phases::default();
-    tracing_subscriber::registry()
-        .with(compiler_phases.clone())
-        .init();
     let spec: serde_json::Value =
         serde_json::from_str(&std::env::var("PSE_PROCESS_COST_SPEC").unwrap()).unwrap();
     let id = spec["id"].as_str().unwrap();
     let mut audit = audit::Audit::start(id, &spec);
+    tracing_subscriber::registry()
+        .with(compiler_phases.clone())
+        .with(audit.capture_layer())
+        .init();
     let _audit_context = audit.enter();
     let operation = spec["operation"].as_str().unwrap();
     let reuse = spec["reuse"].as_str().unwrap();
@@ -310,13 +313,13 @@ fn process(c: &mut Criterion) {
             let prepared = executor
                 .block_on(package.prepare_declared(&execution, &audit::cancel_source()))
                 .unwrap();
-            authored_success(
-                &executor
-                    .block_on(audit::scope(async {
-                        audit::wait(prepared.start().unwrap()).await
-                    }))
-                    .unwrap(),
-            );
+            let result = executor
+                .block_on(audit::scope(async {
+                    audit::wait(prepared.start().unwrap()).await
+                }))
+                .unwrap();
+            executor.block_on(audit::export_result(&target, &result));
+            authored_success(&result);
             (source, package, case, target)
         });
         Some((owner, retained.0, retained.1, retained.2, retained.3))
@@ -476,6 +479,7 @@ fn process(c: &mut Criterion) {
                         .block_on(audit::scope(audit::wait_ref(&handle)))
                         .unwrap();
                     mark(&mut phases, "cancellation_to_join", stop);
+                    executor.block_on(audit::export_result(&target, &result));
                     observations.invocation(&result);
                     observe_joined_cancellation(&result, &mut observations, owner.runtime.math());
                     drop(result);
@@ -483,6 +487,7 @@ fn process(c: &mut Criterion) {
                     let result = executor
                         .block_on(audit::scope(audit::wait_ref(&handle)))
                         .unwrap();
+                    executor.block_on(audit::export_result(&target, &result));
                     mark(&mut phases, "native_join", begin);
                     drop(native_stage);
                     let _assessment_stage = audit::stage("original_assessment_and_results");

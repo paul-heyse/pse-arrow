@@ -545,6 +545,11 @@ async fn reference(
     );
     drop(loading);
     if operation == "compact-reference" {
+        if audit::review_context_request().is_some() {
+            audit::review_context_error(
+                "compact-reference admits source only and creates no workflow RunResult; ModelingPackage has no public descriptive source-only context adapter",
+            );
+        }
         std::hint::black_box(package);
         return;
     }
@@ -646,29 +651,29 @@ fn implicit_derivatives(spec: &Value) {
     let control = pse_diagnostics::Cancellation::new(false);
     let _binding = audit::bind_math_control(&control);
     let scope = pse_kernels::ExecutionScope::new(control.clone(), None);
-    let parameter = Arc::new(
-        builder
-            .finish(
-                &residuals,
-                DerivativeOrder::Second,
-                pse_math::library::Optimization::default(),
-                &scope,
-            )
-            .unwrap(),
+    let body = builder.prepare(&residuals).unwrap();
+    let outputs = (0..n).collect::<Vec<_>>();
+    let source = Arc::new(
+        body.compile(
+            &outputs,
+            &[],
+            DerivativeOrder::Value,
+            pse_math::library::Optimization::default(),
+            pse_math::jets::EvaluationLimits::default(),
+            &scope,
+        )
+        .unwrap(),
     );
     let unknown = Arc::new(
-        parameter
-            .prepared_support()
-            .incidence(&(0..n).collect::<Vec<_>>(), &control.flag())
-            .unwrap()
-            .at_order(DerivativeOrder::First)
-            .unwrap()
-            .compile(
-                pse_math::library::Optimization::default(),
-                pse_math::jets::EvaluationLimits::default(),
-                &scope,
-            )
-            .unwrap(),
+        body.compile(
+            &outputs,
+            &(0..n).collect::<Vec<_>>(),
+            DerivativeOrder::First,
+            pse_math::library::Optimization::default(),
+            pse_math::jets::EvaluationLimits::default(),
+            &scope,
+        )
+        .unwrap(),
     );
     let problem = implicit::Problem::new(
         id("implicit"),
@@ -682,7 +687,7 @@ fn implicit_derivatives(spec: &Value) {
             .collect(),
         (0..n).map(|i| id(&format!("row.{i}"))).collect(),
         2,
-        implicit::ResidualBodies { unknown, parameter },
+        implicit::ResidualBodies { unknown, source },
         100_000,
     )
     .unwrap();
@@ -696,20 +701,41 @@ fn implicit_derivatives(spec: &Value) {
         derivative_tolerance: pse_model::numerics::NumericalPolicy::default()
             .engineering_relative_fraction,
     };
-    let order = match spec["derivative_order"].as_u64().unwrap_or(2) {
+    let requested_order = spec["derivative_order"].as_u64().unwrap_or(2);
+    let order = match requested_order {
         1 => DerivativeOrder::First,
         2 => DerivativeOrder::Second,
         order => panic!("unsupported implicit derivative order {order}"),
     };
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.count("audit.implicit_derivative_requests", "count", 1);
+    }
+    let parameters = [2.0, 3.0];
+    let original_unknowns = vec![19.0; n];
+    problem.prepare_complete(order, &scope).unwrap();
     let jet = problem
         .derivatives(
-            &[2.0, 3.0],
-            &vec![19.0; n],
+            &parameters,
+            &original_unknowns,
             order,
             &options,
             &control.flag(),
         )
         .unwrap();
+    audit::retain_math_output(
+        "implicit-derivatives",
+        &serde_json::json!({
+            "fixture":{"unknowns":n,"parameters":parameters,"original_unknowns":original_unknowns,
+                "derivative_order":requested_order,
+                "source_status":"compiled residual bodies expose no descriptive serialization at this public mathematical boundary"},
+            "settings":{"start":options.start,"variable_nominals":options.variable_nominals,
+                "variable_tolerance":options.variable_tolerance,"residual_tolerance":options.residual_tolerance,
+                "iterations":options.iterations,"time_limit":options.time_limit,
+                "derivative_tolerance":options.derivative_tolerance},
+            "returned":{"values":jet.values,"jacobian":jet.jacobian,"hessians":jet.hessians},
+            "workflow_handoff":{"status":"unsupported","reason":"direct implicit mathematical evaluation has no workflow RunResult or context adapter"}
+        }),
+    );
     assert_eq!(jet.values, vec![19.0; n]);
     for row in 0..n {
         assert_eq!(&jet.jacobian[row * 2..row * 2 + 2], &[7.0, 8.0]);
@@ -772,8 +798,9 @@ async fn study(
     };
     use pse_runtime::workflow;
     let workers = spec["workers"].as_u64().unwrap() as usize;
-    assert!(matches!(workers, 1 | 2));
-    assert_eq!(spec["blocks"].as_u64(), Some(4));
+    assert!(matches!(workers, 1 | 2 | 4));
+    let point_count = spec["blocks"].as_u64().unwrap() as usize;
+    assert!(matches!(point_count, 4 | 16));
     assert_eq!(owner.runtime.budget().threads.pool_threads.get(), workers);
     let continuation = spec["continuation"].as_bool().unwrap_or(false);
     let nonlinear = spec["nonlinear"].as_bool().unwrap_or(false);
@@ -809,11 +836,17 @@ async fn study(
         .unwrap()
         .declaration_id;
     let package = runtime.modeling_package(rows, physical).await.unwrap();
-    let values = if nonlinear {
-        [0.01, 1.0, 3.0, 7.0]
+    let mut values = if nonlinear {
+        vec![0.01, 1.0, 3.0, 7.0]
     } else {
-        [1.0, 2.0, 3.0, 4.0]
+        vec![1.0, 2.0, 3.0, 4.0]
     };
+    // Preserve the original four points exactly; added nonzero overlays remain
+    // deterministic and distinct, with the same independently known x=2+t.
+    if point_count == 16 {
+        values.extend((0..12).map(|index| 0.125 + index as f64 * 0.25));
+    }
+    assert_eq!(values.len(), point_count);
     let points = values
         .iter()
         .enumerate()
@@ -876,8 +909,10 @@ async fn study(
                     "runtime.solve_metrics".into(),
                     "runtime.solve_strategy_events".into(),
                 ],
-                maximum_rows: 1024,
-                maximum_bytes: 1 << 20,
+                // A selected occurrence can retain 256 native history events,
+                // each projecting several metric rows alongside the other relations.
+                maximum_rows: 4096,
+                maximum_bytes: 4 << 20,
                 ..Default::default()
             },
             failed_detail: Default::default(),
@@ -890,7 +925,7 @@ async fn study(
         .admit_study(&workflow::StudyInputs::Explicit(points), &demand, &cancel)
         .await
         .unwrap();
-    assert_eq!(definition.points.len(), 4);
+    assert_eq!(definition.points.len(), point_count);
     assert_eq!(
         definition
             .points
@@ -898,7 +933,7 @@ async fn study(
             .map(|point| point.binding_hash)
             .collect::<BTreeSet<_>>()
             .len(),
-        4
+        point_count
     );
     let trim = spec["trim_cache"].as_bool().unwrap_or(false);
     if trim {
@@ -907,13 +942,33 @@ async fn study(
     let execution = audit::stage("compact_study_joined_execution");
     // The public future owns cancellation and joins its issued lanes before return.
     // There is no separate externally cancellable study handle in this route.
-    let report = Box::pin(package.study(&definition, 4, &cancel))
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.integer("study.requested_points", "occurrences", point_count as i64);
+        context.integer("study.configured_workers", "workers", workers as i64);
+    }
+    let report = Box::pin(package.study(&definition, point_count, &cancel))
         .await
         .unwrap();
+    audit::direct_joined();
     drop(execution);
+    // Preserve every actual joined original before stop handling or an assertion
+    // on an earlier occurrence can unwind. Compact outcomes have no RunResult.
+    for result in report.results.iter().flatten() {
+        if let workflow::StudyOccurrenceResult::Ephemeral(result) = result {
+            audit::retain_result(result);
+            audit::export_result(&runtime, result).await;
+        }
+    }
     audit::checkpoint();
-    assert_eq!(report.outcomes.len(), 4);
-    assert_eq!(report.results.len(), 4);
+    assert_eq!(report.outcomes.len(), point_count);
+    assert_eq!(report.results.len(), point_count);
+    if let Some(context) = pse_diagnostics::observation::current() {
+        context.integer(
+            "study.returned_points",
+            "occurrences",
+            report.outcomes.len() as i64,
+        );
+    }
     if trim {
         owner.runtime.math().clear_program_cache();
     }

@@ -502,7 +502,7 @@ impl RunResult {
     /// Joined invocation facts without performing new mathematics or materializing result tables.
     pub fn invocation_evidence(
         &self,
-    ) -> Result<crate::invocation::InvocationEvidenceDocument, WorkflowError> {
+    ) -> Result<crate::invocation::InvocationEvidence, WorkflowError> {
         use crate::invocation::{
             InvocationEndpoints, InvocationEvidenceDocument, InvocationOutcome, InvocationProduct,
             ProductAvailability,
@@ -679,14 +679,15 @@ impl RunResult {
             RunDurability::Ephemeral => None,
             RunDurability::Durable(record) => Some(record.attempt_id),
         };
-        Ok(InvocationEvidenceDocument { version: 2, run_id: self.run_id, attempt_id, operation, family: family.into(),
+        let owner = self.attempt_summary()?;
+        Ok(crate::invocation::InvocationEvidence { document: InvocationEvidenceDocument { version: 2, run_id: self.run_id, attempt_id, operation, family: family.into(),
             clock_scope: "wall seconds from invocation establishment before dispatch; earlier preparation excluded".into(),
             timing_unavailable: self.invocation_timing_unavailable,
             canonical_run: self.canonical_run_key().map(str::to_owned), canonical_attempt: self.canonical_attempt_key().map(str::to_owned),
             outcome: if self.invocation_cancelled { InvocationOutcome::Cancelled } else if self.report.is_err() { InvocationOutcome::Failed } else { InvocationOutcome::Completed },
             endpoints, intervals, omitted_intervals, preparations,
             products, omitted_product_steps,
-            attempts: self.attempt_summary()?, })
+            attempts: owner.document(), }, _owner: owner })
     }
     /// Full typed reports and backend-specific metrics; errors preserve their original causes.
     pub fn report(&self) -> Result<&RunReport, &WorkflowError> {

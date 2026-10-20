@@ -85,18 +85,23 @@ impl NativePreparedStrategy {
                 .map_err(|e| Python::attach(|py| errors::diagnostic(py, &e))),
         }
     }
-    /// Run one bounded attempt, observing signals while retaining ownership through join.
-    fn run(&self, py: Python<'_>) -> PyResult<NativeStrategyResult> {
+    /// Run one bounded attempt; descriptive copying is selected explicitly.
+    #[pyo3(signature=(*,review_context=None))]
+    fn run(
+        &self,
+        py: Python<'_>,
+        review_context: Option<documents::DocumentInput<native::ReviewContextRequest>>,
+    ) -> PyResult<NativeStrategyResult> {
         macro_rules! run {
-            ($p:expr,$variant:ident) => {{
-                let handle = py
+            ($start:expr,$variant:ident) => {{
+                let (handle, operation) = py
                     .detach(|| {
                         let _enter = self.owner.executor.enter();
-                        $p.start()
+                        $start
                     })
                     .map_err(|e| errors::diagnostic(py, &e))?;
                 let cancellation = handle.cancellation();
-                blocking(
+                let report = blocking(
                     py,
                     &self.owner,
                     async {
@@ -107,17 +112,62 @@ impl NativePreparedStrategy {
                             .map_err(native::WorkflowError::from)
                     },
                     || cancellation.cancel(),
-                )?
+                )?;
+                (report, operation)
             }};
         }
-        let result = match &self.inner {
-            Strategy::Cone(p) => run!(p, Cone),
+        let (result, _operation): (
+            StrategyResult,
+            Option<pse_diagnostics::observation::OperationId>,
+        ) = match &self.inner {
+            Strategy::Cone(p) => run!(p.start().map(|handle| (handle, None)), Cone),
             #[cfg(feature = "native-solvers")]
-            Strategy::Recycle(p) => run!(p, Recycle),
+            Strategy::Recycle(p) => run!(p.start_with_operation(), Recycle),
             #[cfg(feature = "native-solvers")]
-            Strategy::Initialization(p) => run!(p, Initialization),
+            Strategy::Initialization(p) => run!(p.start_with_operation(), Initialization),
         };
-        NativeStrategyResult::new(py, result, &self.owner)
+        // Mandatory science/event transport owns its allocation before optional
+        // descriptive capture can reserve any of the remaining pool.
+        let mut result = NativeStrategyResult::new(py, result, &self.owner)?;
+        #[cfg(feature = "native-solvers")]
+        let selected_context = review_context
+            .map(|request| {
+                match (&self.inner, result.inner.as_ref()) {
+                    #[cfg(feature = "native-solvers")]
+                    (
+                        Strategy::Initialization(prepared),
+                        StrategyResult::Initialization(report),
+                    ) => prepared.review_context(&request.0, _operation, report),
+                    #[cfg(feature = "native-solvers")]
+                    (Strategy::Recycle(prepared), StrategyResult::Recycle(report)) => {
+                        prepared.review_context(&request.0, _operation, report)
+                    }
+                    _ => {
+                        return Err(invalid(
+                            py,
+                            "strategy context has no corresponding original owner",
+                        ));
+                    }
+                }
+                .map(Arc::new)
+                .map_err(|error| errors::diagnostic(py, &error))
+            })
+            .transpose();
+        #[cfg(not(feature = "native-solvers"))]
+        let selected_context: PyResult<Option<Arc<native::ReviewContext>>> =
+            if review_context.is_some() {
+                Err(invalid(
+                    py,
+                    "strategy descriptive context is not supplied by this adapter",
+                ))
+            } else {
+                Ok(None)
+            };
+        match selected_context {
+            Ok(context) => result.review_context = context,
+            Err(error) => result.review_context_failure = Some(error.to_string()),
+        }
+        Ok(result)
     }
 }
 #[derive(Debug)]
@@ -135,6 +185,8 @@ enum StrategyResult {
 pub(crate) struct NativeStrategyResult {
     inner: Arc<StrategyResult>,
     events: Arc<native::StrategyEventExport>,
+    review_context: Option<Arc<native::ReviewContext>>,
+    review_context_failure: Option<String>,
 }
 impl NativeStrategyResult {
     fn new(py: Python<'_>, inner: StrategyResult, owner: &Arc<runtime::Runtime>) -> PyResult<Self> {
@@ -180,11 +232,29 @@ impl NativeStrategyResult {
         Ok(Self {
             inner: Arc::new(inner),
             events: Arc::new(events),
+            review_context: None,
+            review_context_failure: None,
         })
     }
 }
 #[pymethods]
 impl NativeStrategyResult {
+    /// Return only explicitly selected descriptive facts retained at the original join.
+    fn review_context(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        if let Some(error) = &self.review_context_failure {
+            return Err(invalid(
+                py,
+                format!("selected strategy review context unavailable: {error}"),
+            ));
+        }
+        let context = self.review_context.as_ref().ok_or_else(|| {
+            invalid(
+                py,
+                "strategy review context was not selected before execution",
+            )
+        })?;
+        documents::encode(py, context.document())
+    }
     /// Identity of the actual submitted numerical operation; structural tears have none.
     #[getter]
     fn run_id(&self) -> Option<String> {

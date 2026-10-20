@@ -22,13 +22,23 @@ AdviceOutcome = Literal["complete", "budget_exhausted", "policy_preempted", "can
 
 AnalysisDirection = Literal["upstream", "downstream"]
 
+AnalysisQuestion = Literal["preparation", "evaluator_work", "evaluation_cost", "root_progress", "dynamic_work", "dependency_readiness", "factor_recovery", "waiting", "comparability", "physical_attribution"]
+
+AnalysisSelectionScope = Literal["direct", "independent", "unknown"]
+
 AttemptOriginalConclusion = Literal["satisfied", "refused", "unavailable"]
 
 Bytes = tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
 
+CopiedExecutionStatus = Literal["running", "completed", "failed", "cancelled", "abandoned"]
+
+CopiedObservationPolicy = Literal["off", "contract", "diagnostic"]
+
 DerivativeOrder = Literal["value", "first", "second"]
 
 DetailEnd = Literal["window_elapsed", "owner_finished", "stopped", "writer_failed"]
+
+DetailFamilyActivation = Literal["unobserved", "applicable", "unsupported", "refused"]
 
 DetailOutcome = Literal["active", "complete", "sampled", "incomplete"]
 
@@ -48,6 +58,10 @@ ManagedDetailReferenceState = Literal["pending", "refused", "captured", "missing
 
 ManagedDetailRefusal = Literal["no_managed_budget", "budget_already_allocated", "attempt_bound_unavailable", "per_attempt_budget_insufficient", "collector_refused"]
 
+MetricKind = Literal["counter", "gauge", "native"]
+
+MetricUnit = Literal["rows", "batches", "bytes", "nanoseconds", "count", "native"]
+
 NativePhase = Literal["Main", "Restoration", "Unknown"]
 
 ObservationCoordinates = Literal["SubmittedOracle", "PhysicalTears"]
@@ -55,6 +69,14 @@ ObservationCoordinates = Literal["SubmittedOracle", "PhysicalTears"]
 OccurrenceKey = Annotated[int, msgspec.Meta(ge=0)]
 
 OptionValue = bool | int | float | str
+
+PackFormat = Literal["frozen_evidence_v2", "analysis_v2", "json", "json_lines", "arrow_ipc_stream", "text", "markdown", "html", "perfetto", "profile_binary"]
+
+PackMemberRole = Literal["frozen_evidence", "analysis", "context", "detail", "capture", "engine", "query", "result", "report"]
+
+PackPublication = Literal["incomplete", "sealed"]
+
+PackScientificState = Literal["unknown", "usable", "partial", "failed", "unusable"]
 
 PositiveCount = Annotated[int, msgspec.Meta(ge=1)]
 
@@ -73,6 +95,20 @@ RecordAvailability = Literal["not_requested", "running", "interrupted", "unavail
 ReplayNativeRecordCoverage = Literal["strategy_attempts", "integration_report_only"]
 
 ReplayProducerPremise = Literal["blocks", "causal", "multistart", "derived", "surrogate", "petsc", "path"]
+
+RequiredFact = Literal["model", "input", "effective_settings", "physical_coordinates", "invocation", "operation_evidence"]
+
+RequirementStatus = Literal["available", "missing"]
+
+ReviewAttemptSelection = Literal["current", "retained"]
+
+ReviewHandoffState = Literal["active", "complete", "incomplete"]
+
+ReviewQuery = Literal["timeline", "numerical", "coverage"]
+
+ReviewQueryStatus = Literal["completed", "unavailable", "failed", "timed_out", "cancelled", "output_limit", "malformed"]
+
+ReviewTableKind = Literal["detail", "invocation", "capture", "engine", "query"]
 
 SourceMapScope = Literal["static_eligible_alternatives"]
 
@@ -251,6 +287,50 @@ class AnalysisControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
         return (type(self), (v.scalar_key(self.direction), v.sequence_key(v.scalar_key)(self.roots),))
 
 
+class AnalysisDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Shared typed product for live-copy, frozen, CLI and offline pack consumers."""
+
+    _pse_required_version: ClassVar[int] = 2
+
+    #: Current result contract.
+    version: Literal[2] = 2
+    #: Unique original source items inspected; shared facts are counted once.
+    inspected_source_items: Annotated[int, msgspec.Meta(ge=0)]
+    #: Unique eligible source items not inspected due to the selected allowance.
+    omitted_source_items: Annotated[int, msgspec.Meta(ge=0)]
+    #: Derived statements omitted by the response allowance.
+    omitted_statements: Annotated[int, msgspec.Meta(ge=0)]
+    #: Requested independent questions in stable order; all ten when no selector is supplied.
+    questions: tuple[QuestionAnalysis, ...]
+    #: Effective bounded policy actually used.
+    request: AnalysisRequest
+    #: Question-dependent explanatory premises over the supplied set.
+    requirements: tuple[ExplanatoryRequirement, ...]
+    #: Actual source-clock interval used for every selected operation.
+    selections: tuple[AnalysisSelection, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.inspected_source_items), v.scalar_key(self.omitted_source_items), v.scalar_key(self.omitted_statements), v.sequence_key(v.record_key)(self.questions), v.record_key(self.request), v.sequence_key(v.record_key)(self.requirements), v.sequence_key(v.record_key)(self.selections),))
+
+
+class AnalysisEventIdentity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Whole event identity; time, family and iteration alone cannot identify a source event."""
+
+    #: Independent sequence within the declared source family.
+    family_sequence: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Exact source field ordinal, absent for a whole-event fact.
+    field_ordinal: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Source reset/attempt generation.
+    generation: Annotated[int, msgspec.Meta(ge=0)]
+    #: Includes operation and exact performing producer instance.
+    producer: ProducerId
+    #: Source-issued event sequence before fanout.
+    sequence: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.family_sequence), v.optional_key(v.scalar_key)(self.field_ordinal), v.scalar_key(self.generation), v.record_key(self.producer), v.scalar_key(self.sequence),))
+
+
 class AnalysisPort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Explicit physical coordinate of a native analysis request."""
 
@@ -263,6 +343,90 @@ class AnalysisPort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.quantity_id), v.scalar_key(self.symbol_id), v.scalar_key(self.unit_id),))
+
+
+class AnalysisRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit finite review policy; thresholds are forwarded to the existing numerical owner."""
+
+    _pse_required_version: ClassVar[int] = 2
+
+    #: Current request contract; unsupported versions refuse at decode.
+    version: Literal[2] = 2
+    #: Optional exact baseline, never selected by name or a current pointer.
+    baseline: OperationId | None = None
+    #: Exact supplied inventory indices; empty uses exact operation/run/attempt associations.
+    inventory_members: tuple[Annotated[int, msgspec.Meta(ge=0)], ...] = msgspec.field(default_factory=tuple)
+    #: Explicit existing numerical interpretation policy, never a convergence policy.
+    numerical_history_policy: NumericalHistoryPolicy | None = None
+    #: Exact selected original operation.
+    operation: OperationId
+    #: One bounded question; absent selects all ten.
+    question: AnalysisQuestion | None = None
+    #: Unique source records/scalars inspected, capped at 4096.
+    source_items: Annotated[int, msgspec.Meta(ge=0)] = 1024
+    #: Returned statements, capped at 256; all ten questions remain represented.
+    statements: Annotated[int, msgspec.Meta(ge=0)] = 128
+    #: Original source-clock selection.
+    window: RecordedWindow = msgspec.field(default_factory=lambda: msgspec.convert({"kind": "recorded"}, type=RecordedWindow))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.baseline), v.sequence_key(v.scalar_key)(self.inventory_members), v.optional_key(v.record_key)(self.numerical_history_policy), v.record_key(self.operation), v.optional_key(v.scalar_key)(self.question), v.scalar_key(self.source_items), v.scalar_key(self.statements), v.record_key(self.window),))
+
+
+class AnalysisSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual selection, retaining clock and interval uncertainty without a reader-time anchor."""
+
+    #: Whether absolute requested-clock window claims can be made for this selection.
+    aligned_to_request: bool
+    #: Actual upper bound, absent for unknown coverage.
+    interval_end: ClosedDuration | None = None
+    #: Actual lower bound, absent for unknown coverage.
+    interval_start: ClosedDuration | None = None
+    #: Exact selected original operation.
+    operation: OperationId
+    #: Original process-clock identity; equal numeric timestamps do not align other clocks.
+    process_clock: Annotated[tuple[Annotated[int, msgspec.Meta(ge=0)], ...], msgspec.Meta(min_length=2, max_length=2)]
+    #: Direct, independently selected, or unknown source coverage.
+    scope: AnalysisSelectionScope
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.aligned_to_request), v.optional_key(v.record_key)(self.interval_end), v.optional_key(v.record_key)(self.interval_start), v.record_key(self.operation), v.sequence_key(v.scalar_key)(self.process_clock), v.scalar_key(self.scope),))
+
+
+class AnalysisSourceReference(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Reference into the original supplied set, independent of its filesystem location."""
+
+    #: Exact coherent-event identity when applicable.
+    event: AnalysisEventIdentity | None = None
+    #: Explicit pack member identity; `frozen` names the supplied immutable set.
+    member: str
+    #: Original coverage or availability limits this fact.
+    partial: bool
+    #: RFC 6901 pointer relative to this member; empty addresses the whole member.
+    pointer: str
+    #: Source-native value category; UInt64 never passes through floating point.
+    value: Value
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.event), v.scalar_key(self.member), v.scalar_key(self.partial), v.scalar_key(self.pointer), v.record_key(self.value),))
+
+
+class AnalysisStatement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A source-linked fact, qualified hypothesis or explicit limitation."""
+
+    #: Stable semantic code.
+    code: str
+    #: Actual members supporting this explanation.
+    evidence: tuple[AnalysisSourceReference, ...]
+    #: Existing shared interpretation strength.
+    kind: enums.StatementKind
+    #: Bounded explanation generated from the typed source facts.
+    message: str
+    #: Optional discriminating observations; analysis never performs them.
+    next: tuple[enums.NextObservation, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.code), v.sequence_key(v.record_key)(self.evidence), v.scalar_key(self.kind), v.scalar_key(self.message), v.sequence_key(v.scalar_key)(self.next),))
 
 
 class ApplicabilityClaim(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -3451,6 +3615,64 @@ class ControllerOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
         return (type(self), (v.sequence_key(v.record_key)(self.bindings), v.record_key(self.case), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,)))(self.moves), v.optional_key(v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,))))(self.predictions),))
 
 
+class CopiedExecutionObservations(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Passive data-only trace export; empty observations do not imply capture was enabled."""
+
+    #: Original bounded collector's refused observations.
+    dropped: Annotated[int, msgspec.Meta(ge=0)]
+    #: Retained actual executions and preparations, in original collector order.
+    observations: tuple[CopiedPlanObservation, ...]
+    #: Operation active when that session was established; absent is unknown lineage.
+    operation: OperationId | None = None
+    #: Policy on the actual original session; absent in older copied documents.
+    policy: CopiedObservationPolicy | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.dropped), v.sequence_key(v.record_key)(self.observations), v.optional_key(v.record_key)(self.operation), v.optional_key(v.scalar_key)(self.policy),))
+
+
+class CopiedExecutionSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Data-only copy of one actual execution population; no plan or stream owner survives."""
+
+    #: Observer work, never operator execution time.
+    collection_elapsed: ClosedDuration
+    #: Process-local execution key; scope with the observation's original operation.
+    execution: Annotated[int, msgspec.Meta(ge=0)]
+    #: Native node/partition/label populations with exact units and value kinds.
+    metrics: tuple[ObservedMetric, ...]
+    #: Original physical-capture clock endpoint.
+    observed_after_start: ClosedDuration
+    #: Actual completed/drop state, or a running checkpoint.
+    status: CopiedExecutionStatus
+    #: Explicit collection curtailment.
+    truncated: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.collection_elapsed), v.scalar_key(self.execution), v.sequence_key(v.record_key)(self.metrics), v.record_key(self.observed_after_start), v.scalar_key(self.status), v.scalar_key(self.truncated),))
+
+
+class CopiedPlanObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded original reports plus a single latest-or-terminal metric population."""
+
+    #: Optional capture failure; never an execution failure.
+    diagnostic: str | None = None
+    #: Terminal copy preferred over a live checkpoint; populations are never summed.
+    execution: CopiedExecutionSnapshot | None = None
+    #: Bounded logical graph; empty under Contract/Off or failed capture.
+    logical_plan: str
+    #: Actual enclosing operation captured at assembly, absent outside an observation scope.
+    operation: OperationId | None = None
+    #: Bounded physical graph, absent before physical planning.
+    physical_plan: str | None = None
+    #: Actual original capture policy.
+    policy: CopiedObservationPolicy
+    #: Actual fired analyzer/optimizer rules, empty unless Diagnostic captured them.
+    rules: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.diagnostic), v.optional_key(v.record_key)(self.execution), v.scalar_key(self.logical_plan), v.optional_key(v.record_key)(self.operation), v.optional_key(v.scalar_key)(self.physical_plan), v.scalar_key(self.policy), v.sequence_key(v.scalar_key)(self.rules),))
+
+
 class CounterInterval(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Retained additive interval, copied for passive narrower-window reads."""
 
@@ -3552,10 +3774,10 @@ class DependencyUsableResult(msgspec.Struct, frozen=True, forbid_unknown_fields=
 class DetailDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Immutable/readable capture prefix, never scientific publication permission."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Standalone answer encoding.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Producer timestamps use their individual operation process clocks.
     clock_scope: str
     #: Actual acknowledged interval end, absent while active.
@@ -3604,10 +3826,16 @@ class DetailFamilyCoverage(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
     #: Complete records written and flushed by this file owner.
     acknowledged: Annotated[int, msgspec.Meta(ge=0)]
+    #: Distinct performing owners which declared this family.
+    activated_sources: Annotated[int, msgspec.Meta(ge=0)]
+    #: Actual applicability, not inferred from a positive event count.
+    activation: DetailFamilyActivation
     #: Queue/extent/collector refusals, distinct from sampling.
     dropped: Annotated[int, msgspec.Meta(ge=0)]
     #: Actual selected versioned family.
     family: str
+    #: Source records issued before lossy publication.
+    issued: Annotated[int, msgspec.Meta(ge=0)]
     #: Source events offered during the selected interval.
     observed: Annotated[int, msgspec.Meta(ge=0)]
     #: Selected events admitted to the writer queue.
@@ -3618,16 +3846,18 @@ class DetailFamilyCoverage(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     unacknowledged: Annotated[int, msgspec.Meta(ge=0)]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.acknowledged), v.scalar_key(self.dropped), v.scalar_key(self.family), v.scalar_key(self.observed), v.scalar_key(self.queued), v.scalar_key(self.sampled_out), v.scalar_key(self.unacknowledged),))
+        return (type(self), (v.scalar_key(self.acknowledged), v.scalar_key(self.activated_sources), v.scalar_key(self.activation), v.scalar_key(self.dropped), v.scalar_key(self.family), v.scalar_key(self.issued), v.scalar_key(self.observed), v.scalar_key(self.queued), v.scalar_key(self.sampled_out), v.scalar_key(self.unacknowledged),))
 
 
 class DetailRecordPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Bounded page of original source records, independent from derived explanations."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Page encoding contract.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
+    #: Actual source declarations encountered on this page.
+    activations: tuple[DetailSourceActivation, ...]
     #: Exact next JSONL byte boundary, absent at terminal/end-of-file.
     next_offset: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: A retained incomplete tail was encountered.
@@ -3638,7 +3868,7 @@ class DetailRecordPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     records: tuple[CoherentRecord, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.partial), v.sequence_key(v.record_key)(self.producers), v.sequence_key(v.record_key)(self.records),))
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.activations), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.partial), v.sequence_key(v.record_key)(self.producers), v.sequence_key(v.record_key)(self.records),))
 
 
 class DetailRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -3671,6 +3901,18 @@ class DetailRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
         return (type(self), (v.scalar_key(self.version), v.scalar_key(self.boundary_thread_cpu), v.record_key(self.budget), v.record_key(self.duration), v.optional_key(v.scalar_key)(self.expiry_monotonic_ns), v.sequence_key(v.scalar_key)(self.families), v.optional_key(v.record_key)(self.managed_budget), v.scalar_key(self.output), v.scalar_key(self.requirement), v.scalar_key(self.sample_every),))
 
 
+class DetailSourceActivation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded declaration from an actual performing source; never a synthetic event."""
+
+    #: Exact installed versioned source family.
+    family: str
+    #: Actual owner including its process-instance operation locator.
+    producer: ProducerDescriptor
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.family), v.record_key(self.producer),))
+
+
 class DiagnosticAnnotationDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One original query annotation, including every grouped note and help."""
 
@@ -3699,6 +3941,22 @@ class DiagnosticCauseDocument(msgspec.Struct, frozen=True, forbid_unknown_fields
         return (type(self), (v.scalar_key(self.message),))
 
 
+class DiagnosticCommandRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit new-work CLI composition. Passive commands accept none of these capabilities."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Command codec.
+    version: Literal[1] = 1
+    #: Original-source scientific diagnostic operation.
+    operation: DiagnosticExecutionRequest
+    #: Finite existing deployment settings.
+    runtime: DiagnosticRuntimeSettings
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.operation), v.record_key(self.runtime),))
+
+
 class DiagnosticContextDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One typed native leaf and its ordered execution contexts."""
 
@@ -3713,6 +3971,66 @@ class DiagnosticContextDocument(msgspec.Struct, frozen=True, forbid_unknown_fiel
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.code), v.sequence_key(v.scalar_key)(self.contexts), v.sequence_key(v.record_key)(self.diagnostics), v.scalar_key(self.message),))
+
+
+class DiagnosticExecutionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Copied findings from the existing explicit diagnostic operation."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Result codec.
+    version: Literal[1] = 1
+    #: Original case requested.
+    case_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Every requested point/matrix/term analysis completed within its own budgets.
+    complete: bool
+    #: Failure before or during diagnostic work; not erased by an empty finding list.
+    failure: BoundaryDiagnostic | None = None
+    #: Existing diagnostic findings in original coordinates where available.
+    findings: tuple[BoundaryDiagnostic, ...]
+    #: Actual new diagnostic operation established before source admission.
+    operation: OperationId
+    #: Original attribution, never replaced by this operation's outcome.
+    origin: DiagnosticOrigin | None = None
+    #: Actual original row coordinates and physical nominals.
+    row_nominals: tuple[tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float], ...]
+    #: Existing diagnostic run identity, absent on pre-handle failure.
+    run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Actual model counts from the diagnostic owner.
+    statistics: dict[str, Annotated[int, msgspec.Meta(ge=0)]]
+    #: Actual original variable coordinates and physical nominals.
+    variable_nominals: tuple[tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.case_id), v.scalar_key(self.complete), v.optional_key(v.record_key)(self.failure), v.sequence_key(v.record_key)(self.findings), v.record_key(self.operation), v.optional_key(v.record_key)(self.origin), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,)))(self.row_nominals), v.optional_key(v.scalar_key)(self.run_id), v.mapping_key(v.scalar_key, v.scalar_key)(self.statistics), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,)))(self.variable_nominals),))
+
+
+class DiagnosticExecutionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """New numerical work. Descriptive ReviewContext is deliberately not an input constructor."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Request codec.
+    version: Literal[1] = 1
+    #: Finite clock starts before document admission and preparation.
+    allowance: ClosedDuration
+    #: Exact declared case.
+    case_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Existing operation-specific point/matrix/term diagnostic controls.
+    diagnostics: ModelingDiagnosticPolicy
+    #: Finite encoded original-source extent.
+    maximum_source_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Explicit original authored model packages.
+    model_documents: tuple[dict[str, str], ...]
+    #: Original retained failure/attempt link, independent of new success.
+    origin: DiagnosticOrigin | None = None
+    #: Explicit original physical source documents, keyed by declared filename.
+    physical_documents: dict[str, str]
+    #: Existing solve policy; no diagnostic accuracy override is introduced.
+    settings: SolveSettings
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.allowance), v.scalar_key(self.case_id), v.record_key(self.diagnostics), v.scalar_key(self.maximum_source_bytes), v.sequence_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.model_documents), v.optional_key(v.record_key)(self.origin), v.mapping_key(v.scalar_key, v.scalar_key)(self.physical_documents), v.record_key(self.settings),))
 
 
 class DiagnosticListRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -3795,6 +4113,24 @@ class DiagnosticProcessSummary(msgspec.Struct, frozen=True, forbid_unknown_field
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.checkpoint), v.optional_key(v.scalar_key)(self.failure), v.optional_key(v.record_key)(self.locator), v.sequence_key(v.record_key)(self.operations), v.scalar_key(self.partial), v.optional_key(v.scalar_key)(self.process), v.optional_key(v.record_key)(self.summaries),))
+
+
+class DiagnosticRuntimeSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """CLI deployment selection forwarded to the existing runtime settings constructor."""
+
+    #: Existing execution batch size.
+    batch_size: Annotated[int, msgspec.Meta(ge=0)]
+    #: Existing disk-manager spill allowance.
+    max_spill_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Accounted participating execution-memory allowance, not a process RSS promise.
+    memory_limit_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Explicit spill destination, never discovered from descriptive source context.
+    spill_dir: str
+    #: Existing shared runtime thread budget.
+    threads: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.batch_size), v.scalar_key(self.max_spill_bytes), v.scalar_key(self.memory_limit_bytes), v.scalar_key(self.spill_dir), v.scalar_key(self.threads),))
 
 
 class DiagnosticSamplesControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4074,6 +4410,26 @@ class EvidenceRef(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
         return (type(self), (v.optional_key(v.scalar_key)(self.generation), v.optional_key(v.scalar_key)(self.metric), v.optional_key(v.record_key)(self.observed_at), v.record_key(self.operation), v.scalar_key(self.partial), v.optional_key(v.record_key)(self.producer), v.optional_key(v.scalar_key)(self.record_sequence), v.optional_key(v.record_key)(self.value),))
 
 
+class ExplanatoryRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded prerequisite for one exact question and subject."""
+
+    #: Required semantic premise.
+    fact: RequiredFact
+    #: Explicit bounded reason when the premise is absent.
+    missing_reason: str | None = None
+    #: Question whose explanation depends on this fact.
+    question: AnalysisQuestion
+    #: At most eight real pointers into supplied bytes, not decoded payload shortcuts.
+    sources: tuple[AnalysisSourceReference, ...]
+    #: Actual supplied-fact availability.
+    status: RequirementStatus
+    #: Exact original operation, never a current-run alias.
+    subject: OperationId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.fact), v.optional_key(v.scalar_key)(self.missing_reason), v.scalar_key(self.question), v.sequence_key(v.record_key)(self.sources), v.scalar_key(self.status), v.record_key(self.subject),))
+
+
 class FeralSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """The `FeralSettings` document type."""
 
@@ -4347,6 +4703,74 @@ class FrozenAdvice(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.scalar_key)(self.baseline), v.record_key(self.cohort), v.record_key(self.limits), v.scalar_key(self.metric), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.scalar_key)(self.ordered), v.record_key(self.support),))
+
+
+class FrozenEvidenceSet(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A supplied finite set. Paths and locators inside members are descriptive only."""
+
+    _pse_required_version: ClassVar[int] = 2
+
+    #: Current supplied-set codec; v1 is not interpreted.
+    version: Literal[2] = 2
+    #: Capture metadata only. Embedded output paths never authorize file reads.
+    captures: tuple[CaptureDocument, ...] = msgspec.field(default_factory=tuple)
+    #: Exact process publication images, at most 32; conflicting process identities refuse.
+    checkpoints: tuple[ProcessCheckpoint, ...]
+    #: Descriptive scientific context, independent of executable replay.
+    contexts: tuple[ReviewContextDocument, ...] = msgspec.field(default_factory=tuple)
+    #: Explicit immutable pages; embedded paths are descriptive, never resolution authority.
+    detail_pages: tuple[DetailRecordPage, ...] = msgspec.field(default_factory=tuple)
+    #: Detail capture metadata only; raw pages are explicitly supplied separately.
+    details: tuple[DetailDocument, ...] = msgspec.field(default_factory=tuple)
+    #: Copied engine observations, without live plan or session handles.
+    engine_observations: tuple[CopiedExecutionObservations, ...] = msgspec.field(default_factory=tuple)
+    #: Frozen exact membership/current-versus-retained attempt selections.
+    inventories: tuple[ReviewInventorySelection, ...] = msgspec.field(default_factory=tuple)
+    #: Saved invocation facts; no native or allocation owners can be reconstructed.
+    invocations: tuple[InvocationEvidenceDocument, ...] = msgspec.field(default_factory=tuple)
+    #: Exact copied operation members supplied independently of a whole process image.
+    operations: tuple[OperationSnapshot, ...] = msgspec.field(default_factory=tuple)
+    #: Contextual optional query outputs; raw members remain independent.
+    query_results: tuple[ReviewQueryDocument, ...] = msgspec.field(default_factory=tuple)
+    #: Exact copied coherent source records, retaining their own clock and event identity.
+    records: tuple[CoherentRecord, ...] = msgspec.field(default_factory=tuple)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.captures), v.sequence_key(v.record_key)(self.checkpoints), v.sequence_key(v.record_key)(self.contexts), v.sequence_key(v.record_key)(self.detail_pages), v.sequence_key(v.record_key)(self.details), v.sequence_key(v.record_key)(self.engine_observations), v.sequence_key(v.record_key)(self.inventories), v.sequence_key(v.record_key)(self.invocations), v.sequence_key(v.record_key)(self.operations), v.sequence_key(v.record_key)(self.query_results), v.sequence_key(v.record_key)(self.records),))
+
+
+class FrozenInspectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Recorded interpretation plus explicit limits on temporal meaning."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Current result codec.
+    version: Literal[1] = 1
+    #: Existing source-linked interpreter output; not live eligibility.
+    inspection: InspectionDocument
+    #: Independent-clock/current-fact limitations, never guessed alignment or historical state.
+    limitations: tuple[str, ...]
+    #: Actual recorded selection.
+    request: FrozenInspectionRequest
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.inspection), v.sequence_key(v.scalar_key)(self.limitations), v.record_key(self.request),))
+
+
+class FrozenInspectionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit immutable read request, independent of a checkpoint's original filesystem location."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Current request codec.
+    version: Literal[1] = 1
+    #: Shared interpretation policy and exact operation identity.
+    inspection: InspectionRequest
+    #: Recorded endpoint/range. Missing uses the source snapshot's read_at.
+    window: RecordedWindow = msgspec.field(default_factory=lambda: msgspec.convert({"kind": "recorded"}, type=RecordedWindow))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.inspection), v.record_key(self.window),))
 
 
 class HighsDiagnostics(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6346,6 +6770,30 @@ class ObservationText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
         return (type(self), (v.scalar_key(self.value),))
 
 
+class ObservedMetric(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One metric from one node and partition of the executed graph."""
+
+    #: Counter versus gauge semantics from the native metric variant.
+    kind: MetricKind
+    #: Native labels, retaining metric scope.
+    labels: tuple[tuple[str, str], ...]
+    #: Native metric name.
+    name: str
+    #: Stable node ordinal within this execution snapshot.
+    node: Annotated[int, msgspec.Meta(ge=0)]
+    #: Native operator name.
+    operator: str
+    #: Native partition, absent for a global metric.
+    partition: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Explicit units for the captured value.
+    unit: MetricUnit
+    #: Exact native numeric counter, absent for compound/custom/timestamp values.
+    value: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,)))(self.labels), v.scalar_key(self.name), v.scalar_key(self.node), v.scalar_key(self.operator), v.optional_key(v.scalar_key)(self.partition), v.scalar_key(self.unit), v.optional_key(v.scalar_key)(self.value),))
+
+
 class OperandContract(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A complete registered quantity type plus its free-index obligations."""
 
@@ -6528,6 +6976,252 @@ class Optimization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.cores), v.scalar_key(self.cpe_iterations), v.record_key(self.evaluator), v.scalar_key(self.horner_iterations),))
+
+
+class PackAvailabilityAvailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="state", tag="available"):
+    """The selected byte boundary finalized and was published."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class PackAvailabilityFailed(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="state", tag="failed"):
+    """A selected copy/export failed; acknowledged local prefixes may remain readable."""
+
+    #: Actual export error, never substituted for a scientific outcome.
+    reason: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.reason),))
+
+
+class PackAvailabilityPending(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="state", tag="pending"):
+    """No selected exporter has resolved this member yet."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class PackAvailabilityUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="state", tag="unavailable"):
+    """Retention or optional capability is known unavailable without a copy attempt."""
+
+    #: Original observed absence or capability limitation.
+    reason: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.reason),))
+
+
+class PackDiagnosticTable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact diagnostic projection and its declared registry interpretation."""
+
+    #: Qualified actual registry relation.
+    relation: str
+    #: Selected immutable source and bounded allocation.
+    request: ReviewTableRequest
+    #: Actual registry relation schema version.
+    schema_version: Annotated[int, msgspec.Meta(ge=0)]
+    #: Actual supplied source coordinate.
+    source: PackSourceReference
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.relation), v.record_key(self.request), v.scalar_key(self.schema_version), v.record_key(self.source),))
+
+
+class PackExportRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Data-only requested publication with explicitly supplied live file prefixes."""
+
+    _pse_required_version: ClassVar[int] = 2
+
+    #: Current export input codec.
+    version: Literal[2] = 2
+    #: Exact explicitly authorized source prefixes, never discovered from embedded paths.
+    files: tuple[PackFileInput, ...] = msgspec.field(default_factory=tuple)
+    #: Requests to actual protected scientific owners; metadata is derived, never asserted here.
+    scientific_results: tuple[ReviewScientificSelection, ...] = msgspec.field(default_factory=tuple)
+    #: Complete selected scope and independent finite allowances.
+    selection: PackSelection
+    #: Existing selected registry diagnostic tables.
+    tables: tuple[PackTableInput, ...] = msgspec.field(default_factory=tuple)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.files), v.sequence_key(v.record_key)(self.scientific_results), v.record_key(self.selection), v.sequence_key(v.record_key)(self.tables),))
+
+
+class PackFileInput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit live exporter input. Only the exporter opens this path; no offline reader does."""
+
+    #: Exact previously declared selected member.
+    member: str
+    #: Export supplier path, never stored as an offline resolution directive.
+    path: str
+    #: Producer-acknowledged immutable byte boundary; unacknowledged tails are excluded.
+    readable_prefix_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.member), v.scalar_key(self.path), v.scalar_key(self.readable_prefix_bytes),))
+
+
+class PackIndex(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Sole authoritative manifest. The final sealed index is published last."""
+
+    _pse_required_version: ClassVar[int] = 2
+
+    #: Supported version of this document contract.
+    version: Literal[2] = 2
+    #: Actual publication errors retained independently of scientific outcomes.
+    errors: tuple[str, ...]
+    #: Complete selected membership; no first-page completeness inference.
+    members: tuple[PackMember, ...]
+    #: Every declared selected member is available at its indexed boundary.
+    membership_complete: bool
+    #: Known missing explanatory premises; distinct from transport success.
+    missing_context: tuple[str, ...]
+    #: Independent enclosing publication completion state.
+    publication: PackPublication
+    #: Original explicit selection and its finite allowances.
+    selection: PackSelection
+    #: All required members and selected explanatory premises are available.
+    self_contained: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.scalar_key)(self.errors), v.sequence_key(v.record_key)(self.members), v.scalar_key(self.membership_complete), v.sequence_key(v.scalar_key)(self.missing_context), v.scalar_key(self.publication), v.record_key(self.selection), v.scalar_key(self.self_contained),))
+
+
+class PackMember(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The indexed read boundary of one selected member."""
+
+    #: Independent selected export availability.
+    availability: PackAvailability
+    #: Whether the selected member writer completed and drained.
+    finalized: bool
+    #: Acknowledged readable byte prefix. Never inferred from an original moving file.
+    readable_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Generated contained path of the indexed local member.
+    relative_path: str
+    #: Original explicit selection and its finite allowances.
+    selection: PackMemberSelection
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.availability), v.scalar_key(self.finalized), v.scalar_key(self.readable_bytes), v.scalar_key(self.relative_path), v.record_key(self.selection),))
+
+
+class PackMemberSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One explicitly requested member. Missing optional members differ from unrequested members."""
+
+    #: Copied capture sampling/loss/termination scope. No seal can change this text.
+    capture_scope: str | None = None
+    #: Actual registry diagnostic projection, independent of scientific lineage.
+    diagnostic_table: PackDiagnosticTable | None = None
+    #: Original JSON codec version, when declared. None means interpretation is unspecified.
+    document_version: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Declared actual bytes encoding and interpretation version.
+    format: PackFormat
+    #: Unique explicit member identity within this pack.
+    id: str
+    #: Explicit member-namespaced explanatory dependencies.
+    references: tuple[PackSourceReference, ...] = msgspec.field(default_factory=tuple)
+    #: Whether a failed copy prevents complete selected publication.
+    required: bool
+    #: Exact protected scientific selection; present only for result members.
+    result: PackResultSelection | None = None
+    #: Selected explanatory or scientific role.
+    role: PackMemberRole
+    #: Descriptive original source/version/clock selection, never followed by the reader.
+    source: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.capture_scope), v.optional_key(v.record_key)(self.diagnostic_table), v.optional_key(v.scalar_key)(self.document_version), v.scalar_key(self.format), v.scalar_key(self.id), v.sequence_key(v.record_key)(self.references), v.scalar_key(self.required), v.optional_key(v.record_key)(self.result), v.scalar_key(self.role), v.optional_key(v.scalar_key)(self.source),))
+
+
+class PackResultPredicate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact protected output predicate. Floating endpoints retain IEEE bits, not JSON rounding."""
+
+    #: Optional upper predicate endpoint as exact IEEE-754 bits.
+    maximum_bits: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Optional lower predicate endpoint as exact IEEE-754 bits.
+    minimum_bits: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Original missing-value predicate, independent of empty output.
+    missing: bool | None = None
+    #: Original scientific output owner identity.
+    output: str
+    #: Exact original selected output partition.
+    partition: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.maximum_bits), v.optional_key(v.scalar_key)(self.minimum_bits), v.optional_key(v.scalar_key)(self.missing), v.scalar_key(self.output), v.scalar_key(self.partition),))
+
+
+class PackResultSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact original result lineage and range, including independent usability."""
+
+    #: Exact original attempt identity; retries never substitute another attempt.
+    attempt: str
+    #: Optional original field/output selection; schema remains the original typed relation.
+    field: str | None = None
+    #: Exact original output predicate; absent for the whole selected relation.
+    predicate: PackResultPredicate | None = None
+    #: Qualified original registry relation name.
+    relation: str
+    #: Exclusive original row coordinate, before selected filtering.
+    row_end: Annotated[int, msgspec.Meta(ge=0)]
+    #: Inclusive original row coordinate, before selected filtering.
+    row_start: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original canonical run identity; never a current-run alias.
+    run: str
+    #: Original registry relation schema version, independent of IPC transport encoding.
+    schema_version: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original closed attempt classification, independent of publication.
+    terminal_class: str
+    #: Original scientific product usability, never upgraded by copying.
+    usability: PackScientificState
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt), v.optional_key(v.scalar_key)(self.field), v.optional_key(v.record_key)(self.predicate), v.scalar_key(self.relation), v.scalar_key(self.row_end), v.scalar_key(self.row_start), v.scalar_key(self.run), v.scalar_key(self.schema_version), v.scalar_key(self.terminal_class), v.scalar_key(self.usability),))
+
+
+class PackSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Versioned complete explicit membership and finite publication allowances."""
+
+    _pse_required_version: ClassVar[int] = 2
+
+    #: Supported version of this document contract.
+    version: Literal[2] = 2
+    #: Finite encoded size allowance per index, typed document and report.
+    maximum_document_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Total selected payload bytes. Index metadata has the independent finite document allowance.
+    maximum_output_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Complete selected membership; no first-page completeness inference.
+    members: tuple[PackMemberSelection, ...]
+    #: Missing explanatory facts known at selection time, independent of copy success.
+    missing_context: tuple[str, ...] = msgspec.field(default_factory=tuple)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.maximum_document_bytes), v.scalar_key(self.maximum_output_bytes), v.sequence_key(v.record_key)(self.members), v.sequence_key(v.scalar_key)(self.missing_context),))
+
+
+class PackSourceReference(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Namespaced source coordinate. Original paths are never resolution directives."""
+
+    #: Selected pack member identity.
+    member: str
+    #: JSON pointer, event coordinate or named field within that selected member.
+    pointer: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.member), v.scalar_key(self.pointer),))
+
+
+class PackTableInput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One requested diagnostic table from the supplied immutable set."""
+
+    #: Exact selected pack member.
+    member: str
+    #: Existing declared registry projection.
+    request: ReviewTableRequest
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.member), v.record_key(self.request),))
 
 
 class ParameterCovariance(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -7445,6 +8139,30 @@ class PureConformanceControls(msgspec.Struct, frozen=True, forbid_unknown_fields
         return (type(self), (v.optional_key(v.sequence_key(v.scalar_key))(self.fixtures), v.scalar_key(self.maximum_checks), v.scalar_key(self.maximum_fixtures),))
 
 
+class QueryInterval(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A half-open interval in one explicitly named source clock, in exact nanoseconds."""
+
+    #: Exclusive upper bound.
+    end: int
+    #: Inclusive lower bound.
+    start: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.end), v.scalar_key(self.start),))
+
+
+class QuestionAnalysis(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Independent answer, present even when all its required sources are unavailable."""
+
+    #: The selected bounded question.
+    question: AnalysisQuestion
+    #: Facts and limits, with no silent empty-success substitution.
+    statements: tuple[AnalysisStatement, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.question), v.sequence_key(v.record_key)(self.statements),))
+
+
 class RawMapCoordinate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One physical tear quantity, or an explicitly submitted-oracle quantity."""
 
@@ -7616,6 +8334,35 @@ class RecordField(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.availability), v.scalar_key(self.name), v.scalar_key(self.unit), v.record_key(self.value),))
+
+
+class RecordedWindowEndingAt(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="ending_at"):
+    """Explicit endpoint on the selected operation's source clock."""
+
+    #: Recorded source-clock endpoint.
+    at: ClosedDuration
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.at),))
+
+
+class RecordedWindowInterval(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="interval"):
+    """Explicit closed source-clock range, retaining predecessor baselines."""
+
+    #: Requested source-clock end.
+    end: ClosedDuration
+    #: Requested source-clock start.
+    start: ClosedDuration
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.end), v.record_key(self.start),))
+
+
+class RecordedWindowRecorded(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="recorded"):
+    """Anchor at the selected snapshot's recorded read_at with InspectionRequest.window."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
 
 
 class RecycleRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -8381,6 +9128,567 @@ class ResultReclamationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.batches), v.scalar_key(self.complete), v.scalar_key(self.indexes), v.scalar_key(self.sets),))
+
+
+class ReviewContextDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Data-only descriptive context. Deserialization grants no factory or execution capability."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Current descriptive codec version.
+    version: Literal[1] = 1
+    #: Actual durable attempt, only when retained explicitly.
+    attempt_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Original scientific coverage and permission; no permission is inferred from context availability.
+    coverage: ReplayCoverage | None = None
+    #: Existing owner codecs for constructors, contexts, decisions and native coordinate witnesses.
+    facts: tuple[ReviewContextFact, ...]
+    #: Original earlier failure, when present.
+    failure: str | None = None
+    #: Original operation, including operations which failed before a run existed.
+    operation: OperationId | None = None
+    #: Original execution identity; absent for a pre-handle failure.
+    run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Exact selection and its finite allocation.
+    selection: ReviewContextRequest
+    #: Actual materialized settings, in selected original step order.
+    solver_settings: tuple[ReplaySolverSettings, ...]
+    #: Exact original source slots corresponding to sources; selected subsets never renumber constructor references.
+    source_positions: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+    #: Selected original source closures. Build hashes describe source image premises only.
+    sources: tuple[ReviewSourceDocument, ...]
+    #: Explicit omissions and unavailable capabilities.
+    unavailable: tuple[ReviewContextUnavailable, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.attempt_id), v.optional_key(v.record_key)(self.coverage), v.sequence_key(v.record_key)(self.facts), v.optional_key(v.scalar_key)(self.failure), v.optional_key(v.record_key)(self.operation), v.optional_key(v.scalar_key)(self.run_id), v.record_key(self.selection), v.sequence_key(v.record_key)(self.solver_settings), v.sequence_key(v.scalar_key)(self.source_positions), v.sequence_key(v.record_key)(self.sources), v.sequence_key(v.record_key)(self.unavailable),))
+
+
+class ReviewContextFact(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An existing producer's exact JSON document, with its codec and source coordinates."""
+
+    #: Named existing owner codec. No schema is inferred from these bytes.
+    codec: str
+    #: JSON-pointer-shaped coordinate in this retained scientific selection.
+    path: str
+    #: Exact existing owner JSON encoding; integers and IEEE-bit inputs remain lossless.
+    payload: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.codec), v.scalar_key(self.path), v.sequence_key(v.scalar_key)(self.payload),))
+
+
+class ReviewContextRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact explanatory selection, independent of executable replay eligibility."""
+
+    #: Include retained native records; never run a native query to fill gaps.
+    include_native_records: bool
+    #: Include actual authored and physical input bytes.
+    include_sources: bool
+    #: Finite allocation for the complete selected document, up to 256 MiB.
+    maximum_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Empty means all retained original steps; otherwise exact zero-based steps.
+    steps: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.include_native_records), v.scalar_key(self.include_sources), v.scalar_key(self.maximum_bytes), v.sequence_key(v.scalar_key)(self.steps),))
+
+
+class ReviewContextUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Missing explanatory material is independent of scientific product availability."""
+
+    #: Retained opaque descriptor, when available.
+    descriptor: str | None = None
+    #: Exact missing field or capability.
+    path: str
+    #: Observed reason; never inferred executable behavior.
+    reason: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.descriptor), v.scalar_key(self.path), v.scalar_key(self.reason),))
+
+
+class ReviewExportDeployment(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit existing deployment selection for protected CLI reads, never scientific reconstruction."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Deployment-selection codec.
+    version: Literal[1] = 1
+    #: Explicit existing database, or the selected supervisor's configured database.
+    database: str | None = None
+    #: Existing qualified mathematical producer when needed by the deployment.
+    producer: str | None = None
+    #: Existing finite deployment settings.
+    runtime: DiagnosticRuntimeSettings
+    #: Explicit canonical supervisor state; reading does not initialize a database.
+    substrate: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.database), v.optional_key(v.scalar_key)(self.producer), v.record_key(self.runtime), v.scalar_key(self.substrate),))
+
+
+class ReviewHandoffAcknowledgement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Independent admission; an ACK does not establish any terminal context was retained."""
+
+    #: Only this optional handoff was admitted.
+    accepted: bool
+    #: Admission refusal, independent of detail and science.
+    error: str | None = None
+    #: Explicit final receipt within the selected detail output, not a native locator.
+    receipt: str
+    #: Actual requested descriptive selection.
+    request: ReviewHandoffRequest
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.accepted), v.optional_key(v.scalar_key)(self.error), v.scalar_key(self.receipt), v.record_key(self.request),))
+
+
+class ReviewHandoffMember(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One fully published immutable copied evidence set."""
+
+    #: Actual finalized file bytes.
+    bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact original durable attempt key when acknowledged.
+    canonical_attempt: str | None = None
+    #: Exact acknowledged durable locators, absent for ephemeral work.
+    canonical_run: str | None = None
+    #: Original invocation operation when one exists.
+    operation: OperationId | None = None
+    #: Receipt-relative contained file, never an original source path.
+    path: str
+    #: Original semantic run, absent before run establishment.
+    run: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bytes), v.optional_key(v.scalar_key)(self.canonical_attempt), v.optional_key(v.scalar_key)(self.canonical_run), v.optional_key(v.record_key)(self.operation), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.run),))
+
+
+class ReviewHandoffReceipt(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Data-only membership for explicitly requested producer output."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Receipt codec version.
+    version: Literal[1] = 1
+    #: Bounded descriptive publication failures.
+    errors: tuple[str, ...]
+    #: Only fully finalized contained members.
+    members: tuple[ReviewHandoffMember, ...]
+    #: Cooperating construction owner, not necessarily the joined invocation.
+    operation: OperationId
+    #: Actual independently selected descriptive output.
+    request: ReviewHandoffRequest
+    #: Independent handoff completion state.
+    state: ReviewHandoffState
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.scalar_key)(self.errors), v.sequence_key(v.record_key)(self.members), v.record_key(self.operation), v.record_key(self.request), v.scalar_key(self.state),))
+
+
+class ReviewHandoffRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Additional selected descriptive output; absent means no handoff retention."""
+
+    #: Existing callback-free descriptive selection.
+    context: ReviewContextRequest
+    #: Finite total serialized member allowance, independent of detail output.
+    maximum_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Finite number of immutable supplied evidence documents.
+    maximum_members: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.context), v.scalar_key(self.maximum_bytes), v.scalar_key(self.maximum_members),))
+
+
+class ReviewInventoryGap(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit unavailable, omitted or unresolved selection premise."""
+
+    #: Exact affected identity or scope.
+    member: str
+    #: Recorded reason; no absence is promoted to a complete graph.
+    reason: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.member), v.scalar_key(self.reason),))
+
+
+class ReviewInventoryLink(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An actual recorded relationship. Its missing target remains a gap."""
+
+    #: Existing producer role, e.g. parent, shared_producer, waiter or background.
+    role: str
+    #: Exact member identity, never a display name.
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.role), v.scalar_key(self.target),))
+
+
+class ReviewInventoryMember(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Immutable copied member metadata, with actual readable result-prefix facts."""
+
+    #: Exact canonical attempt, when established.
+    attempt: str | None = None
+    #: Recorded canonical generation fence, independent of current pointer drift.
+    generation: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Exact identity in this supplied selection.
+    key: str
+    #: Actual links supplied by the relationship owner.
+    links: tuple[ReviewInventoryLink, ...]
+    #: Original occurrence ordinal when this is study membership.
+    occurrence: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Exact diagnostic operation, including pre-handle failures.
+    operation: OperationId | None = None
+    #: Actual original outcome, including failure/cancellation when retained.
+    outcome: str | None = None
+    #: Actual recorded readable prefix/fence. Canonical attempts use close-generation here,
+    #: which is never a row count or evidence of an empty result; None means unavailable.
+    readable_prefix: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Exact closed result manifest. None means not known, not an empty result.
+    result_manifest: str | None = None
+    #: Existing producer role, not a fabricated global tree classification.
+    role: str
+    #: Canonical semantic run, when established.
+    run: str | None = None
+    #: Actual terminal fact at selection time.
+    terminal: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.attempt), v.optional_key(v.scalar_key)(self.generation), v.scalar_key(self.key), v.sequence_key(v.record_key)(self.links), v.optional_key(v.scalar_key)(self.occurrence), v.optional_key(v.record_key)(self.operation), v.optional_key(v.scalar_key)(self.outcome), v.optional_key(v.scalar_key)(self.readable_prefix), v.optional_key(v.scalar_key)(self.result_manifest), v.scalar_key(self.role), v.optional_key(v.scalar_key)(self.run), v.scalar_key(self.terminal),))
+
+
+class ReviewInventoryPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One exact immutable selection page. Re-reading it performs no live lookup."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Current inventory page codec version.
+    version: Literal[1] = 1
+    #: Selection-level gaps remain available on every page.
+    gaps: tuple[ReviewInventoryGap, ...]
+    #: Actual selected members, including exact empty pages.
+    members: tuple[ReviewInventoryMember, ...]
+    #: Next offset only when another retained member exists.
+    next: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Original selection offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original selected scope.
+    scope: str
+    #: Original bounded-prefix status.
+    truncated: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.gaps), v.sequence_key(v.record_key)(self.members), v.optional_key(v.scalar_key)(self.next), v.scalar_key(self.offset), v.scalar_key(self.scope), v.scalar_key(self.truncated),))
+
+
+class ReviewInventoryRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Finite selected review scope; public pages read only the resulting immutable selection."""
+
+    #: Current occurrence assignments or retained retry history.
+    attempts: ReviewAttemptSelection
+    #: Maximum selected members; 1 through 4096.
+    maximum_members: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempts), v.scalar_key(self.maximum_members),))
+
+
+class ReviewInventorySelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Frozen metadata selected at owner boundaries; never an atomic cross-process graph."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Current immutable inventory codec version.
+    version: Literal[1] = 1
+    #: Retry meaning used by this selection.
+    attempts: ReviewAttemptSelection
+    #: Missing links, unavailable retained history and explicit prefix omissions.
+    gaps: tuple[ReviewInventoryGap, ...]
+    #: Bounded immutable member prefix, in its recorded order.
+    members: tuple[ReviewInventoryMember, ...]
+    #: Explicit scope selected by the caller.
+    scope: str
+    #: True only when selection stopped at its finite member bound.
+    truncated: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.attempts), v.sequence_key(v.record_key)(self.gaps), v.sequence_key(v.record_key)(self.members), v.scalar_key(self.scope), v.scalar_key(self.truncated),))
+
+
+class ReviewOutputSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original output owner/field/partition and finite-value or trajectory-time predicate."""
+
+    #: Original scientific output field.
+    field: str
+    #: Optional finite upper bound represented by IEEE bits.
+    maximum_bits: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Optional finite lower bound represented by IEEE bits.
+    minimum_bits: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Optional original missing-value selection.
+    missing: bool | None = None
+    #: Original scientific output owner.
+    owner: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Original scientific output partition.
+    partition: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.field), v.optional_key(v.scalar_key)(self.maximum_bits), v.optional_key(v.scalar_key)(self.minimum_bits), v.optional_key(v.scalar_key)(self.missing), v.scalar_key(self.owner), v.scalar_key(self.partition),))
+
+
+class ReviewProviderDescriptor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Recorded callable descriptor, independent of opaque factory configuration callbacks."""
+
+    #: Configuration is unavailable unless recorded separately; export never queries a factory.
+    configuration: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: Actual parameter-data identity.
+    data: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Actual derivative provenance.
+    derivative_source: enums.ExternalDerivativeSource
+    #: Recorded implemented derivative order.
+    derivatives: Annotated[int, msgspec.Meta(ge=0, le=255)]
+    #: Recorded implementation identity, not its executable code.
+    implementation: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Full logical input shape.
+    input_shapes: tuple[ReplayProviderShape, ...]
+    #: Exact ordered scalar input ABI.
+    inputs: tuple[ReplayProviderPort, ...]
+    #: Authored registration name.
+    name: str
+    #: Full logical output shape.
+    output_shapes: tuple[ReplayProviderShape, ...]
+    #: Exact ordered scalar output ABI.
+    outputs: tuple[ReplayProviderPort, ...]
+    #: Actual algorithm/physical revision.
+    revision: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Recorded established smoothness order.
+    smoothness: Annotated[int, msgspec.Meta(ge=0, le=255)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.configuration), v.scalar_key(self.data), v.scalar_key(self.derivative_source), v.scalar_key(self.derivatives), v.scalar_key(self.implementation), v.sequence_key(v.record_key)(self.input_shapes), v.sequence_key(v.record_key)(self.inputs), v.scalar_key(self.name), v.sequence_key(v.record_key)(self.output_shapes), v.sequence_key(v.record_key)(self.outputs), v.scalar_key(self.revision), v.scalar_key(self.smoothness),))
+
+
+class ReviewQueryColumn(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A declared output column; strings preserve canonical native integer text."""
+
+    #: Integer, number or text; Perfetto integers are signed, never full UInt64.
+    kind: str
+    #: Stable output name.
+    name: str
+    #: Explicit unit, absent for labels/identities.
+    unit: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.kind), v.scalar_key(self.name), v.optional_key(v.scalar_key)(self.unit),))
+
+
+class ReviewQueryDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Retained query product, including readable failure prefixes and interpretation limits."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Result codec.
+    version: Literal[1] = 1
+    #: Schema expected from this query, not inferred from returned data.
+    columns: tuple[ReviewQueryColumn, ...]
+    #: Interval actually covered by source metadata, if supplied/known.
+    covered_interval: QueryInterval | None = None
+    #: Relative retained stderr path.
+    error_output: str
+    #: Actual retained error bytes.
+    error_prefix_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact process exit status, absent if no process was started.
+    exit_code: int | None = None
+    #: Source gaps, clock limits, unsupported arithmetic and output omissions.
+    limitations: tuple[str, ...]
+    #: Relative private output path and readable bytes, even on failure.
+    output: str
+    #: Actual retained bytes, not necessarily complete CSV rows on failure.
+    output_prefix_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maintained query revision, independent of tool release.
+    query_version: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact accepted request.
+    request: ReviewQueryRequest
+    #: Decoded rows only after successful schema validation; no count on failure.
+    rows: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Exact executed SQL, including interval parameters.
+    sql: str
+    #: Actual execution status.
+    status: ReviewQueryStatus
+    #: Actual `--version` output, unavailable rather than declared pin substitution.
+    tool_version: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.columns), v.optional_key(v.record_key)(self.covered_interval), v.scalar_key(self.error_output), v.scalar_key(self.error_prefix_bytes), v.optional_key(v.scalar_key)(self.exit_code), v.sequence_key(v.scalar_key)(self.limitations), v.scalar_key(self.output), v.scalar_key(self.output_prefix_bytes), v.scalar_key(self.query_version), v.record_key(self.request), v.optional_key(v.scalar_key)(self.rows), v.scalar_key(self.sql), v.scalar_key(self.status), v.optional_key(v.scalar_key)(self.tool_version),))
+
+
+class ReviewQueryRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit optional query request, separate from a scientific operation."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Request codec.
+    version: Literal[1] = 1
+    #: Source clock name, scoped to this capture.
+    clock_scope: str
+    #: Exact selected capture/member identity; not an original-path lookup hint.
+    input_member: str
+    #: Requested interval, or whole supplied capture.
+    interval: QueryInterval | None = None
+    #: Finite combined stdout/stderr extent; metadata has a separate bounded extent.
+    output_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Declared query.
+    question: ReviewQuery
+    #: Finite positive child lifetime in seconds.
+    timeout_seconds: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.clock_scope), v.scalar_key(self.input_member), v.optional_key(v.record_key)(self.interval), v.scalar_key(self.output_bytes), v.scalar_key(self.question), v.scalar_key(self.timeout_seconds),))
+
+
+class ReviewQuerySpecification(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One declared query and its schema. Data values never define a schema."""
+
+    #: Declared result schema.
+    columns: tuple[ReviewQueryColumn, ...]
+    #: Limits applying even to successful output.
+    limitations: tuple[str, ...]
+    #: Query revision.
+    query_version: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact SQL including checked integer parameters.
+    sql: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.columns), v.sequence_key(v.scalar_key)(self.limitations), v.scalar_key(self.query_version), v.scalar_key(self.sql),))
+
+
+class ReviewScientificCoordinates(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Retained scientific coordinates before executable preparation identity predicates."""
+
+    #: Original admitted binding codec when retained.
+    binding: Bytes | None = None
+    #: Original authored case.
+    case_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Existing scientific-coordinate configuration codec, copied from retained inputs.
+    configuration: Bytes
+    #: Original fit identity.
+    fit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Actual retained input coordinates.
+    inputs: tuple[ScientificArtifactCoordinate, ...]
+    #: Original instantiated model.
+    instance_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Actual retained integral coordinates.
+    integrals: tuple[ScientificArtifactCoordinate, ...]
+    #: Actual recorded mode identities.
+    mode_identities: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
+    #: Actual source-owned mode names.
+    mode_names: tuple[str, ...]
+    #: Original model identity.
+    model_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: Actual retained output coordinates.
+    outputs: tuple[ScientificArtifactCoordinate, ...]
+    #: Exact retained physical identity.
+    physical_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Independently retained preparation identity, absent when it would require opaque callbacks.
+    preparation_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: Independently retained profile identity, absent when not separately recorded.
+    profile_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: Original run identity.
+    run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Exact retained source identity.
+    source_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Actual retained state coordinates with units and affine transforms.
+    state: tuple[ScientificArtifactCoordinate, ...]
+    #: Original step ordinal.
+    step: int
+    #: Actual physical time coordinate when retained.
+    time: ScientificArtifactCoordinate | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.sequence_key(v.scalar_key))(self.binding), v.optional_key(v.scalar_key)(self.case_id), v.sequence_key(v.scalar_key)(self.configuration), v.optional_key(v.scalar_key)(self.fit_id), v.sequence_key(v.record_key)(self.inputs), v.optional_key(v.scalar_key)(self.instance_id), v.sequence_key(v.record_key)(self.integrals), v.sequence_key(v.scalar_key)(self.mode_identities), v.sequence_key(v.scalar_key)(self.mode_names), v.optional_key(v.scalar_key)(self.model_id), v.sequence_key(v.record_key)(self.outputs), v.scalar_key(self.physical_identity), v.optional_key(v.scalar_key)(self.preparation_identity), v.optional_key(v.scalar_key)(self.profile_identity), v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.sequence_key(v.record_key)(self.state), v.scalar_key(self.step), v.optional_key(v.record_key)(self.time),))
+
+
+class ReviewScientificSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A request to the scientific owner, not a caller assertion of lineage or permission."""
+
+    #: Exact existing canonical attempt key.
+    attempt: str
+    #: Selected pack member identifier.
+    member: str
+    #: Existing selected-output semantics; absence selects the original relation range.
+    output: ReviewOutputSelection | None = None
+    #: Registered scientific relation name.
+    relation: str
+    #: Exclusive original relation row offset.
+    row_end: Annotated[int, msgspec.Meta(ge=0)]
+    #: Inclusive original relation row offset.
+    row_start: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact existing canonical run key.
+    run: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt), v.scalar_key(self.member), v.optional_key(v.record_key)(self.output), v.scalar_key(self.relation), v.scalar_key(self.row_end), v.scalar_key(self.row_start), v.scalar_key(self.run),))
+
+
+class ReviewSourceDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original source facts, with opaque descriptors and no executable factory predicates."""
+
+    #: Source image build premise; does not prove an executed native version.
+    build: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Exact original source identity.
+    identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Registry interpretation of these source facts.
+    interpretation: str
+    #: Original authored/data/reference objects.
+    objects: tuple[ReplaySourceObject, ...]
+    #: Original admitted physical meaning.
+    physical_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Actual admitted physical source streams, including units/bases/reference definitions.
+    physical_sources: tuple[ReplayPhysicalSource, ...]
+    #: Recorded provider ABI descriptors; opaque implementations stay unavailable.
+    providers: tuple[ReviewProviderDescriptor, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.build), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers),))
+
+
+class ReviewTableDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A finalized selected typed-table export; the IPC schema retains its registry metadata."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Result codec.
+    version: Literal[1] = 1
+    #: Supplied source identity, descriptive only on future offline read.
+    input_member: str
+    #: Explicit finalized local IPC stream, never an IPC file.
+    output: str
+    #: Exact accepted table/member/allocation request.
+    request: ReviewTableRequest
+    #: Returned rows, not a claim about unselected source populations.
+    rows: Annotated[int, msgspec.Meta(ge=0)]
+    #: Actual registry/schema metadata copied from the finalized table.
+    schema_metadata: dict[str, str]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.input_member), v.scalar_key(self.output), v.record_key(self.request), v.scalar_key(self.rows), v.mapping_key(v.scalar_key, v.scalar_key)(self.schema_metadata),))
+
+
+class ReviewTableRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Finite typed-table projection, not an arbitrary SQL or file-discovery request."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Request codec.
+    version: Literal[1] = 1
+    #: Exact zero-based member in the corresponding supplied collection.
+    index: Annotated[int, msgspec.Meta(ge=0)]
+    #: Existing registry view.
+    kind: ReviewTableKind
+    #: Participating projection allocation; escaped Arrow buffers retain their lease.
+    memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.index), v.scalar_key(self.kind), v.scalar_key(self.memory_bytes),))
 
 
 class RouteDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -9299,6 +10607,122 @@ class SourceMemberDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.declaration), v.scalar_key(self.instance), v.scalar_key(self.member), v.scalar_key(self.path),))
+
+
+class SourceRecordingAcknowledgement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual receiver and admitted selection. Never a terminal coverage or science outcome."""
+
+    _pse_required_version: ClassVar[int] = 2
+
+    #: Launch acknowledgement version.
+    version: Literal[2] = 2
+    #: Collector admitted and acknowledgement published before returning its context.
+    accepted: bool
+    #: Bounded collector refusal, independent from the scientific command outcome.
+    error: str | None = None
+    #: Exact per-family capability admission, independent from event activation.
+    families: tuple[SourceRecordingFamilyAcknowledgement, ...]
+    #: Actual operation including the receiving process instance.
+    operation: OperationId
+    #: Actual receiving OS process, separate from its instance locator.
+    pid: Annotated[int, msgspec.Meta(ge=0)]
+    #: Independent optional context-handoff admission and receipt location.
+    review: ReviewHandoffAcknowledgement | None = None
+    #: Admitted selection, including its actual same-host expiry; original on refusal.
+    selection: DetailRequest
+    #: Actual same-host monotonic admission time, absent on refusal or unavailable clock.
+    started_monotonic_ns: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.accepted), v.optional_key(v.scalar_key)(self.error), v.sequence_key(v.record_key)(self.families), v.record_key(self.operation), v.scalar_key(self.pid), v.optional_key(v.record_key)(self.review), v.record_key(self.selection), v.optional_key(v.scalar_key)(self.started_monotonic_ns),))
+
+
+class SourceRecordingFamilyAcknowledgement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Capability admission at this cooperating entrypoint; actual source activation is separate."""
+
+    #: The entrypoint supports this source; this is not a completeness declaration.
+    accepted: bool
+    #: Exact requested versioned family.
+    family: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.accepted), v.scalar_key(self.family),))
+
+
+class SourceRecordingLaunchDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Independent actual command and source-activation outcomes."""
+
+    _pse_required_version: ClassVar[int] = 2
+
+    #: Document codec.
+    version: Literal[2] = 2
+    #: Explicit cooperating owner acknowledgement; absent is not successful selection.
+    acknowledgement: SourceRecordingAcknowledgement | None = None
+    #: Caller cancelled the command, not just its recorder.
+    cancelled: bool
+    #: Exact owned command status after join.
+    command_status: int | None = None
+    #: Exact owned command group no longer exists after stop/join.
+    drained: bool
+    #: Source selection is never inferred from ordinary command success.
+    limitations: tuple[str, ...]
+    #: Logs exceeded their finite prefixes; command pipes were still drained.
+    logs_truncated: bool
+    #: Exact caller request.
+    request: SourceRecordingLaunchRequest
+    #: Retained readable command stderr bytes.
+    stderr_prefix_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Retained readable command stdout bytes.
+    stdout_prefix_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Command deadline, not recorder expiry.
+    timed_out: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.acknowledgement), v.scalar_key(self.cancelled), v.optional_key(v.scalar_key)(self.command_status), v.scalar_key(self.drained), v.sequence_key(v.scalar_key)(self.limitations), v.scalar_key(self.logs_truncated), v.record_key(self.request), v.scalar_key(self.stderr_prefix_bytes), v.scalar_key(self.stdout_prefix_bytes), v.scalar_key(self.timed_out),))
+
+
+class SourceRecordingLaunchRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit command ownership and preconstruction source request."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Request codec.
+    version: Literal[1] = 1
+    #: Finite acknowledgement window; does not grant source coverage.
+    acknowledgement_timeout: ClosedDuration
+    #: Literal executable and arguments; no shell expansion.
+    argv: tuple[str, ...]
+    #: Finite command clock, independent of recording duration.
+    command_timeout: ClosedDuration
+    #: Explicit working directory, or the invoking directory.
+    cwd: str | None = None
+    #: New output directory for bounded command logs and launch result.
+    output: str
+    #: Combined retained stdout/stderr prefix allowance; drains continue after exhaustion.
+    output_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Explicit source request envelope consumed before scientific construction.
+    request_file: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.acknowledgement_timeout), v.sequence_key(v.scalar_key)(self.argv), v.record_key(self.command_timeout), v.optional_key(v.scalar_key)(self.cwd), v.scalar_key(self.output), v.scalar_key(self.output_bytes), v.scalar_key(self.request_file),))
+
+
+class SourceRecordingRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Finite launch selection. It must be consumed before constructing the selected work."""
+
+    _pse_required_version: ClassVar[int] = 2
+
+    #: Launch protocol version, independent from the detail document version.
+    version: Literal[2] = 2
+    #: Exclusive new acknowledgement file, written before selected work construction.
+    acknowledgement: str
+    #: Original explicit finite source selection.
+    detail: DetailRequest
+    #: Optional original-context handoff; absence retains no extra scientific context.
+    review: ReviewHandoffRequest | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.acknowledgement), v.record_key(self.detail), v.optional_key(v.record_key)(self.review),))
 
 
 class SourceRef(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -10421,6 +11845,8 @@ Observation = ObservationMissing | ObservationReal | ObservationNonfinite | Obse
 
 OperationRequest = OperationRequestDeclaredCase | OperationRequestSimulation | OperationRequestFit | OperationRequestHorizon
 
+PackAvailability = PackAvailabilityPending | PackAvailabilityAvailable | PackAvailabilityUnavailable | PackAvailabilityFailed
+
 ProfileWorkerFailure = ProfileWorkerFailurePanic | ProfileWorkerFailureScheduling | ProfileWorkerFailureEnvironment
 
 ProgressCoverage = ProgressCoverageUnknown | ProgressCoverageSampled
@@ -10432,6 +11858,8 @@ ProgressWriteStage = ProgressWriteStageClaim | ProgressWriteStageAllocation | Pr
 ProgressWriterOutcome = ProgressWriterOutcomeComplete | ProgressWriterOutcomeMemoryRefused | ProgressWriterOutcomeFailed | ProgressWriterOutcomeJoinFailed
 
 RawMapFailure = RawMapFailureTrial | RawMapFailureFatal | RawMapFailureStopped
+
+RecordedWindow = RecordedWindowRecorded | RecordedWindowEndingAt | RecordedWindowInterval
 
 ReplayBoundOverride = ReplayBoundOverrideKeep | ReplayBoundOverrideRemove | ReplayBoundOverrideValue
 
@@ -10479,7 +11907,15 @@ __all__ = [
     "AdviceSupportCompleteMatched",
     "AnalysisControls",
     "AnalysisDirection",
+    "AnalysisDocument",
+    "AnalysisEventIdentity",
     "AnalysisPort",
+    "AnalysisQuestion",
+    "AnalysisRequest",
+    "AnalysisSelection",
+    "AnalysisSelectionScope",
+    "AnalysisSourceReference",
+    "AnalysisStatement",
     "ApplicabilityClaim",
     "ApplicabilityInput",
     "ApplicabilityObservation",
@@ -10670,6 +12106,11 @@ __all__ = [
     "ConicRequest",
     "ConnectedPath",
     "ControllerOperation",
+    "CopiedExecutionObservations",
+    "CopiedExecutionSnapshot",
+    "CopiedExecutionStatus",
+    "CopiedObservationPolicy",
+    "CopiedPlanObservation",
     "CounterInterval",
     "CounterWindow",
     "Coverage",
@@ -10682,19 +12123,25 @@ __all__ = [
     "DetailDocument",
     "DetailEnd",
     "DetailEvent",
+    "DetailFamilyActivation",
     "DetailFamilyCoverage",
     "DetailOutcome",
     "DetailRecordPage",
     "DetailRequest",
     "DetailRequirement",
+    "DetailSourceActivation",
     "DiagnosticAnnotationDocument",
     "DiagnosticCauseDocument",
+    "DiagnosticCommandRequest",
     "DiagnosticContextDocument",
+    "DiagnosticExecutionDocument",
+    "DiagnosticExecutionRequest",
     "DiagnosticListRequest",
     "DiagnosticNoteDocument",
     "DiagnosticOrigin",
     "DiagnosticProcessPage",
     "DiagnosticProcessSummary",
+    "DiagnosticRuntimeSettings",
     "DiagnosticSamplesControls",
     "DiagnosticSpanDocument",
     "DiffsolInitialConditionOptions",
@@ -10717,6 +12164,7 @@ __all__ = [
     "EvaluatorInterpreted",
     "EventSource",
     "EvidenceRef",
+    "ExplanatoryRequirement",
     "FeralSettings",
     "FiniteBound",
     "FiniteDifferenceSettings",
@@ -10738,6 +12186,9 @@ __all__ = [
     "FlowSelectionDocument",
     "Fraction",
     "FrozenAdvice",
+    "FrozenEvidenceSet",
+    "FrozenInspectionDocument",
+    "FrozenInspectionRequest",
     "HighsDiagnostics",
     "HighsPenalties",
     "HighsSettings",
@@ -10817,7 +12268,9 @@ __all__ = [
     "ManagedStudyDiagnosticsDocument",
     "MatrixPolicy",
     "Mechanism",
+    "MetricKind",
     "MetricSnapshot",
+    "MetricUnit",
     "ModelingCell",
     "ModelingCellUncertainty",
     "ModelingCellValue",
@@ -10872,6 +12325,7 @@ __all__ = [
     "ObservationPhysical",
     "ObservationReal",
     "ObservationText",
+    "ObservedMetric",
     "OccurrenceKey",
     "OperandContract",
     "OperationContract",
@@ -10887,6 +12341,26 @@ __all__ = [
     "OperationSummary",
     "Optimization",
     "OptionValue",
+    "PackAvailability",
+    "PackAvailabilityAvailable",
+    "PackAvailabilityFailed",
+    "PackAvailabilityPending",
+    "PackAvailabilityUnavailable",
+    "PackDiagnosticTable",
+    "PackExportRequest",
+    "PackFileInput",
+    "PackFormat",
+    "PackIndex",
+    "PackMember",
+    "PackMemberRole",
+    "PackMemberSelection",
+    "PackPublication",
+    "PackResultPredicate",
+    "PackResultSelection",
+    "PackScientificState",
+    "PackSelection",
+    "PackSourceReference",
+    "PackTableInput",
     "ParameterCovariance",
     "PartitionedSettings",
     "PetscSettings",
@@ -10954,6 +12428,8 @@ __all__ = [
     "Propagation",
     "PseudoTime",
     "PureConformanceControls",
+    "QueryInterval",
+    "QuestionAnalysis",
     "RawMapContextKind",
     "RawMapCoordinate",
     "RawMapFailure",
@@ -10968,6 +12444,10 @@ __all__ = [
     "RecordAvailability",
     "RecordCoverage",
     "RecordField",
+    "RecordedWindow",
+    "RecordedWindowEndingAt",
+    "RecordedWindowInterval",
+    "RecordedWindowRecorded",
     "RecycleRequest",
     "RecycleRestartRequest",
     "RefinementLimits",
@@ -11010,12 +12490,45 @@ __all__ = [
     "ReplaySourceDocument",
     "ReplaySourceObject",
     "ReplayVariableState",
+    "RequiredFact",
+    "RequirementStatus",
     "ResourceConsumer",
     "ResourceReport",
     "RestartBarrier",
     "RestartBarrierSeed",
     "RestartBarrierValue",
     "ResultReclamationPage",
+    "ReviewAttemptSelection",
+    "ReviewContextDocument",
+    "ReviewContextFact",
+    "ReviewContextRequest",
+    "ReviewContextUnavailable",
+    "ReviewExportDeployment",
+    "ReviewHandoffAcknowledgement",
+    "ReviewHandoffMember",
+    "ReviewHandoffReceipt",
+    "ReviewHandoffRequest",
+    "ReviewHandoffState",
+    "ReviewInventoryGap",
+    "ReviewInventoryLink",
+    "ReviewInventoryMember",
+    "ReviewInventoryPage",
+    "ReviewInventoryRequest",
+    "ReviewInventorySelection",
+    "ReviewOutputSelection",
+    "ReviewProviderDescriptor",
+    "ReviewQuery",
+    "ReviewQueryColumn",
+    "ReviewQueryDocument",
+    "ReviewQueryRequest",
+    "ReviewQuerySpecification",
+    "ReviewQueryStatus",
+    "ReviewScientificCoordinates",
+    "ReviewScientificSelection",
+    "ReviewSourceDocument",
+    "ReviewTableDocument",
+    "ReviewTableKind",
+    "ReviewTableRequest",
     "RouteDocument",
     "RunControls",
     "Runtime",
@@ -11060,6 +12573,11 @@ __all__ = [
     "SourceLocation",
     "SourceMapScope",
     "SourceMemberDocument",
+    "SourceRecordingAcknowledgement",
+    "SourceRecordingFamilyAcknowledgement",
+    "SourceRecordingLaunchDocument",
+    "SourceRecordingLaunchRequest",
+    "SourceRecordingRequest",
     "SourceRef",
     "SourceSettlement",
     "SourceSlotDocument",

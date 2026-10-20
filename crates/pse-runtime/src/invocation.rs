@@ -10,7 +10,9 @@ use std::{
 };
 
 /// A boundary's observed outcome, independent of scientific product permission.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum InvocationOutcome {
     /// The performing owner completed this responsibility.
@@ -21,7 +23,9 @@ pub enum InvocationOutcome {
     Cancelled,
 }
 /// Explicit scientific product availability; response readiness does not imply availability.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ProductAvailability {
     /// Requested and established by its governing owner.
@@ -32,7 +36,7 @@ pub enum ProductAvailability {
     NotRequested,
 }
 /// One requested product, independently of the invocation's terminal outcome.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct InvocationProduct {
     /// Stable workflow-owned product role, not a solver status.
@@ -43,7 +47,7 @@ pub struct InvocationProduct {
     pub availability: ProductAvailability,
 }
 /// One directly observed inclusive owner interval, relative to invocation establishment.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct InvocationInterval {
     /// Performing responsibility; nested intervals must not be added together.
@@ -56,7 +60,7 @@ pub struct InvocationInterval {
     pub outcome: Option<InvocationOutcome>,
 }
 /// Observed invocation endpoints. Missing endpoints are unavailable, never zero.
-#[derive(Clone, Debug, Default, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct InvocationEndpoints {
     /// Governing original qualification succeeded; absent on failed qualification.
@@ -67,7 +71,7 @@ pub struct InvocationEndpoints {
     pub response_ready_seconds: Option<f64>,
 }
 /// One actual execution. Attempt evidence retains its existing charging and settings authority.
-#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct InvocationEvidenceDocument {
     /// Encoding contract version.
@@ -104,7 +108,62 @@ pub struct InvocationEvidenceDocument {
     pub preparations: Option<PreparationCounts>,
     /// Existing retained attempt evidence: starts, reuse, configuration, work and coverage.
     /// Its native/strategy observations overlap and must not be added together.
-    pub attempts: Arc<AttemptSummary>,
+    pub attempts: Arc<crate::workflow::AttemptSummaryDocument>,
+}
+impl InvocationEvidenceDocument {
+    /// Validate factual coordinates before matching saved evidence; no native admission occurs.
+    pub fn validate(&self) -> Result<(), crate::observation::ObservationError> {
+        let invalid = |message: &str| crate::observation::ObservationError::Format(message.into());
+        if self.version != 2 || self.run_id != self.attempts.run_id {
+            return Err(invalid("unsupported or inconsistent invocation identity"));
+        }
+        let mut steps = std::collections::BTreeSet::new();
+        for step in &self.attempts.steps {
+            if step.step >= self.attempts.requested_steps || !steps.insert(step.step) {
+                return Err(invalid(
+                    "duplicate or out-of-range invocation step identity",
+                ));
+            }
+        }
+        let mut products = std::collections::BTreeSet::new();
+        for product in &self.products {
+            if product
+                .step
+                .is_some_and(|step| step >= self.attempts.requested_steps)
+                || !products.insert((&product.role, product.step))
+            {
+                return Err(invalid(
+                    "duplicate or out-of-range invocation product identity",
+                ));
+            }
+        }
+        let mut native = std::collections::BTreeSet::new();
+        for attempt in &self.attempts.native_attempts {
+            if attempt.step >= self.attempts.requested_steps
+                || !native.insert((attempt.step, attempt.mechanism, attempt.component))
+            {
+                return Err(invalid(
+                    "duplicate or out-of-range invocation native coordinate identity",
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+/// Live admitted invocation retains allocations separately from its readable payload.
+#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct InvocationEvidence {
+    #[serde(flatten)]
+    pub(crate) document: InvocationEvidenceDocument,
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub(crate) _owner: Arc<AttemptSummary>,
+}
+impl std::ops::Deref for InvocationEvidence {
+    type Target = InvocationEvidenceDocument;
+    fn deref(&self) -> &Self::Target {
+        &self.document
+    }
 }
 #[derive(Debug, Default)]
 struct State {
@@ -518,7 +577,9 @@ mod tests {
 }
 
 /// The workflow reason for an actual integration, independently of its derivative product.
-#[derive(Clone, Copy, Debug, Default, serde::Serialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum IntegrationPurpose {
     /// A new optimizer or requested primal point.

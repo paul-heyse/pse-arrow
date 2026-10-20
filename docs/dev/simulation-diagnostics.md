@@ -648,3 +648,283 @@ Caliper and uProf require their actual question, build, permission and lifetime;
 profiler stack or permanent daemon is installed. Compiler remarks/llvm-mca apply to a confirmed
 arithmetic region, not the whole workflow. Retain conservative current ISA/BLAS/allocator/build
 profiles unless independent scientific qualification supports a concrete change.
+
+## Recorded analysis, cooperating recording and offline review
+
+`just diagnostics --help` distinguishes **READ**, **RECORD**, **EXPORT** and **NEW NUMERICAL
+WORK**. Existing `list`, live `inspect`, optional `capture`/`capture-launch` and `read-detail`
+retain their meanings. A source request passed to arbitrary argv does not make that executable
+cooperate. Passive commands never run suggested follow-ups or open a scientific store.
+
+```bash
+just diagnostics inspect-recorded frozen.json --request inspection.json --json
+just diagnostics analyze frozen.json --request analysis.json --json
+just diagnostics compare baseline-invocation.json candidate-invocation.json --json
+just diagnostics context frozen.json --index 0 --json
+just diagnostics inventory frozen.json --index 0 --offset 0 --limit 16 --json
+just diagnostics export frozen.json --analysis analysis.json --request export.json --output new-pack --json
+just diagnostics review relocated-pack --json
+just diagnostics analyze relocated-pack --request analysis.json
+```
+
+Inputs are the generated versioned documents in `pse.contracts.documents`, with JSON Schemas
+under `docs/generated/schema/`. `FrozenEvidenceSet` is **v2**. Inspection uses a
+`FrozenInspectionRequest` v1 and its recorded endpoint by default; its explicit interval is on
+the source clock, never the reader clock. `AnalysisRequest` v2 selects the exact operation,
+optional baseline and source-clock window, finite source/statement limits and optional existing
+numerical-history policy. `question` may select one of preparation, evaluator_work,
+evaluation_cost, root_progress, dynamic_work, dependency_readiness, factor_recovery, waiting,
+comparability or physical_attribution; omission asks all ten. The same Rust owner supplies
+machine results, Markdown and local HTML. Read actual inspected/omitted populations before
+claiming completeness. Missing families limit their questions independently. `AnalysisDocument`
+v2 records each selected operation's own process clock and interval; unrelated processes use
+independent retained intervals rather than the requested parent's numeric range. `inventory_members`
+can explicitly select supplied inventory indices when no exact invocation lineage associates them.
+`--memory-bytes` admits analysis preparation and retained output (default 64 MiB); refusal and
+cancellation do not change science. Actual native gauges use their latest population; work counters
+retain their cumulative/reset/unit meaning.
+
+Analysis references name the indexed `frozen` member and an exact JSON pointer, with whole
+producer/generation/event identity where applicable. Multiple fields do not multiply an event.
+Current/recent copies of the same event are not additional work. Numerical thresholds remain
+interpretation policy; scientific stopping accuracy stays unchanged. Selected actual evaluator
+timing distinguishes executed successful/failed evaluation boundaries from request completion,
+cache hits and projections. It includes provider/implicit work and contention; it is not an
+intrinsic or exclusive CPU cost measurement. Missing product/input/start/reuse compatibility
+withholds a normalized performance winner.
+
+`PackExportRequest` v2 supplies `PackSelection` and optional explicit `PackFileInput` entries.
+Each entry names a selected member and an acknowledged readable prefix, not an invitation to
+scan the source directory. The publisher exclusively creates the destination, writes an
+incomplete `index.json`, finalizes members, renders local reports and seals the index last.
+Existing destinations are refused. Known missing explanatory context is explicit and may
+leave `self_contained=false` in a sealed pack. A failed scientific result can have a valid sealed
+review; required copy/report failure, cancellation or output exhaustion prevents sealing.
+The output-member allowance and finite metadata allowance are separate. For protected scientific
+results, `StoredResult.export_review_pack(...)` composes the same publisher with the actual
+selected canonical reader; Rust `PackSession` also accepts canonical and selected/filtered
+readers. `Runtime.export_review_pack(...)` composes multiple `scientific_results` selectors using
+the same publisher and exact protected readers, one reader at a time. Each selector supplies an
+existing canonical `run`, `attempt`, `relation`, original `row_start`/`row_end`, and optional
+`output` owner/field/partition/predicate; floating endpoints retain IEEE bits. Actual terminal
+lineage is derived by the result owner and scientific usability remains unknown unless established
+by its authority. `tables` selects existing `ReviewTableRequest` projections with registry/source
+metadata; diagnostic IPC does not pretend to be canonical scientific IPC. Borrowers drain before
+sealing or error return. No native handle is needed to read the pack.
+
+CLI export accepts `--source live` for one explicitly supplied checkpoint, `--source handoff`
+for a retained receipt, or recorded input by default. `--handoff receipt.json` adds original
+selected context/invocation facts without replacing the chosen primary operation snapshot.
+Scientific selectors additionally require `--deployment deployment.json`, a generated
+`ReviewExportDeployment` selecting an existing substrate/database and finite runtime settings.
+Supplied-only export opens no runtime or deployment. A standalone protected CLI invocation
+owns that process's selected budget; programmatic callers with an existing runtime use
+`runtime.export_review_pack(...)` to preserve its already configured process budget. For example:
+
+```bash
+just diagnostics export selected-checkpoint.json --source live --handoff source/review/index.json --analysis analysis.json --request export.json --deployment deployment.json --output new-pack --json
+```
+
+Pack selection/index and analysis envelopes are v2. Explanatory completeness follows the selected
+questions and scientific products: missing model/input/settings/coordinates matter when needed,
+and unrelated optional omissions do not block a narrower question. Required supported JSON
+pointers must resolve in actual supplied members. Unsupported coordinate interpretations stay
+explicitly incomplete. HTML includes real local links plus bounded model, input, settings,
+selected-table and retained-profile orientation; raw artifacts remain authoritative.
+
+The recipient can open the indexed Markdown/HTML using ordinary local tools. Assets and source
+links are local; no network, JavaScript numeric conversion or PSE/solver installation is needed
+for the human report. Programmatic review follows only indexed contained paths and readable
+prefixes. Original absolute paths, neighbours and live services are never fallback members.
+Publication, explicit membership, explanatory context, capture availability and scientific
+permission are independent states. Supported incomplete packs remain inspectable at their actual
+indexed scope.
+
+### Explicit preconstruction source recording
+
+`SourceRecordingRequest` v2 contains the existing `DetailRequest` v1 and a new exclusive
+acknowledgement path. Detail headers, documents and pages are **v2**; earlier detail outputs
+are refused. The request specifies exact versioned families, complete/sampled requirement,
+stride, duration, output and finite local/optional managed grants. The cooperator consumes the
+file named by `PSE_DIAGNOSTIC_RECORD_REQUEST` before constructing the work. The shared Rust
+entrypoint is `source_recording_from_environment`; Python uses
+`runtime.observations().record_from_environment(supported_families)` and enters its synchronous
+construction scope. Leave before awaiting. Existing native/async owners retain their selection.
+The benchmark Audit entrypoint and the recurring case runner use this same protocol.
+
+The optional `review` field selects a `ReviewHandoffRequest` containing a `ReviewContextRequest`,
+finite `maximum_bytes` and `maximum_members`. Omission retains no extra context. The independent
+v2 source ACK's `review` acknowledgement names the actual `review/index.json` receipt and does
+not claim terminal success. Cooperators call `collection.retain_result(joined_result)` or
+`collection.retain_context(original_prehandle_context)` while they still own those original facts;
+the native-process benchmark does this at joined-result boundaries. The handoff uses the original
+expiry, refuses broader supplied selections, and independently records active/complete/incomplete
+state and finalized members. Optional failure does not alter science or detail coverage.
+`diagnostics.read_handoff(receipt)` follows only listed finalized contained files, preserving run,
+operation and exact durable locators after relocation. Whole readback obeys the existing 64 MiB
+frozen document aggregate bound before decoding members; larger selected output must be reviewed
+in bounded supplied sets. `SourceRecordingLaunchDocument` is v2; the launch request remains v1.
+
+Standalone initialization and declared-recycle strategies have a separate joined result rather
+than a `RunResult`. Select their context before execution with
+`prepared.run(review_context=ReviewContextRequest(steps=(), include_sources=True,
+include_native_records=True, maximum_bytes=16 << 20))`, then use `result.review_context()` and
+`collection.retain_context(...)` for the handoff. This retains actual source/run/operation,
+submitted settings and original stage/attempt outcomes, without inventing an invocation.
+The default run does not copy context. A selected copy may refuse its allowance while the
+scientific result remains usable; an unrequested context read refuses explicitly. Structural
+tear selection has no scientific run and supplies no synthetic context.
+
+Dynamic context with `include_native_records=True` retains the original joined segment
+statistics as `dynamic-native-statistics.v1`. Counts retain each segment's native reset scope;
+they are not a cumulative sum across reinitializations. The compact live metric catalogue may
+report curtailment before later getter populations fit. Original retained statistics and selected
+detail remain independent sources; no zero-work or complete-history claim follows from an
+absent compact metric. Export only copies the report and never calls native getters again.
+
+```bash
+just diagnostics record-launch --request launch.json --json
+```
+
+`launch.json` is `SourceRecordingLaunchRequest` v1: explicit `request_file`, literal `argv`,
+optional `cwd`, finite `acknowledgement_timeout` and independent `command_timeout`, new `output`
+directory and bounded command-log prefixes. It reports actual process/operation selection
+acknowledgement separately from command status. No acknowledgement means source recording is
+unavailable even when the command succeeds. The receipt publishes atomically and refuses an
+existing path; it is not final coverage. Actual producer/family activation distinguishes
+acknowledged applicable zero work from unobserved/unsupported/refused families. Complete source
+coverage additionally requires issued/observed/queued/acknowledged work, no losses and final
+writer drain. Sampling stays sampled. Spare output space does not imply spare queue capacity: the local
+memory allowance also bounds conservative maximum-record buffering and owner metadata.
+Fast bursts can therefore report dropped records/metadata and `incomplete` below the output
+limit. Choose explicit source-memory allowances for the selected workload and inspect actual
+issued/acknowledged/lost populations; the launcher never upgrades that result to complete.
+IDAS publishes `dynamic_segment_summary.v1` and `dynamic_output.v1`; Diffsol's
+`dynamic_native_return.v1` is a different source, not a universal integration-return family.
+Root acknowledgement does not close managed-child coverage;
+managed grants remain once-only, divided across declared attempts/retries with original expiry.
+
+Closing/stopping collection only joins its writer and never cancels science. The launch owner
+separately cancels/drains its exact command group on its own timeout or caller cancellation.
+Bounded stdout/stderr truncation continues draining pipes rather than blocking the command.
+Generic CPU `capture-launch` retains its distinct profiling contract.
+
+### Contextual queries and typed tables
+
+```bash
+just diagnostics query trace.pftrace --request trace-query.json --binary /explicit/trace_processor_shell --output new-query --json
+just diagnostics query frozen.json --table --request table.json --output new-table --json
+```
+
+The first request is `ReviewQueryRequest` v1: exact input member, timeline/numerical/coverage
+question, capture-scoped clock label, optional half-open nanosecond interval, finite timeout and
+output allowance. The shared query specification owns exact SQL and declared columns. Results
+retain actual tool version, SQL/revision/parameters, requested and available covered interval,
+schema/units, status and stdout/error prefixes. Empty successful CSV, missing binary, nonzero
+exit, timeout, cancellation, malformed schema and output exhaustion are distinct. The tool is
+never installed during a query. `just trace-query` delegates to this same product.
+
+Timeline SQL reports original and clipped inclusive durations separately from running-max interval
+union coverage. Instants and open intervals are separate populations; nesting does not establish
+exclusive CPU or critical path. Track/upid/utid values belong to one capture. Missing covered-clock
+metadata remains unavailable. Numerical unsigned identities/counts use explicit canonical text
+companions; old traces without them leave those columns unavailable. Native JSON/Arrow remains
+full UInt64 authority; SQL signed integers/doubles are never reinterpreted as wrapped counts.
+
+`ReviewTableRequest` v1 selects one detail/invocation/capture/engine/query member by exact index
+with a finite participating memory allowance. It projects the existing registry schema to local
+**IPC stream** output, preserving UInt64 and source categories. Engine views copy actual retained
+policy, reports, metrics and completion/drop scope; exporting never enables instrumentation.
+The finalized table result includes its original registry metadata. Existing DataFusion detail
+providers remain available for ordinary relational selection; streaming output does not bound
+blocking sort/join/window state or all process allocations.
+
+Pack table export compares only the selected original source against the finalized frozen
+member. Unrelated attachments do not become comparison JSON trees. Whole frozen validation
+and decoding still use the independent finite document allowance; the table memory allowance
+covers the participating projection, not all private decoding, copying or process peak memory.
+
+Existing perf/Samply captures and their readable summaries remain the selected optional profiling
+route. Samply 0.13.1's perf-import accepts a presymbolication flag that its implementation does
+not consume, so portable symbol-sidecar adoption is refused for that path. Raw capture and actual
+symbol/unwind/loss coverage remain authority. A concrete unresolved hot-stack/off-CPU question or
+an implemented, locally qualified import correction can reopen that choice; no extra profiler,
+speedscope derivative or optional interchange format is installed by this workflow.
+
+### Explicit original-source numerical diagnostics
+
+```bash
+just diagnostics diagnose --request diagnostic-command.json --json
+```
+
+This command performs new work. `DiagnosticCommandRequest` v1 supplies existing finite runtime
+settings plus a `DiagnosticExecutionRequest` containing original physical/model documents, exact
+case, unchanged solve settings, operation-specific point/matrix/term diagnostic controls,
+optional original failure attribution, finite source extent and one caller allowance. Its Rust
+operation starts the clock before source admission and preparation. A preparation failure still
+returns the distinct new operation and its original failure; opening descriptive review context
+never invokes this path or reconstructs missing model sources. The Python runtime API is
+`Runtime.diagnose_documents(request)`. It reuses the existing diagnostic evaluator and capability
+refusals, without a new solver, stopping policy or automatic follow-up.
+
+### Short external-review campaigns
+
+`python -m scripts.pipeline_review` runs explicitly selected cases from the existing
+process/preparation catalogues using caller-supplied prebuilt benchmark executables. It
+does not build Cargo targets or select a new scientific model registry. For example,
+after building the `native_process` benchmark with the existing Arrow-validation route:
+
+```bash
+scripts/pse-env --native=solver,klu,isolation,uno,petsc,compiler -- \
+  .venv/bin/python -m scripts.pipeline_review build/my-pipeline-review \
+  --binary native_process=/actual/cargo/artifact/native_process \
+  --case compact-root-banded-8 --case compact-idas-ode-5 \
+  --review-artifacts --capture-from-start --label profiling
+```
+
+If directory activation in the calling shell replaces a private store selection,
+pass it to the child after the boundary: `scripts/pse-env --native -- env
+PSE_SURREAL_STATE=/private/state .venv/bin/python -m scripts.pipeline_review ...`.
+The equivalent `python3 scripts/pse_env.py --native -- ...` entry point uses the
+same environment and admission owner without starting another Bash shell.
+
+Use the actual executable reported by Cargo. The existing `profiling` profile supplies
+release-derived optimization and symbols; Python editable-build observations retain
+their separate profile. Catalogue identifiers and their original assertions remain
+authority. The default 60-second deadline requests cooperative scientific stop and
+then awaits joined work and fixture cleanup; it is not a forced execution timeout.
+
+Selected recording uses the typed version-2 launch envelope (version-1 detail selection),
+original producer acknowledgements and original joined review context. Protected results
+are exported while their owning runtime and fixture are live. Preparation-only and direct
+mathematical controls retain their real inputs/reports separately and identify unavailable
+workflow context. Binary preparation inputs use explicit JSON/base64 envelopes in packs;
+only finalized loader-indexed members are selected. Ephemeral results have no protected
+canonical export. Scientific completion, collection coverage, capture usefulness, pack
+publication and cleanup have independent outcomes.
+
+`--capture-from-start` arms CPU sampling before command execution and Timeline before
+case preparation. A short run can still have too few useful CPU samples; consult the
+actual symbol/loss coverage. `--recording-mode ordinary` keeps live audit observations
+without selecting source detail and excludes `--review-artifacts`. Compare independently
+started observations with matching model/settings and retain every raw sample. Inclusive
+phases are not additive exclusive CPU time, and configured workers do not establish
+actual parallelism. No timing threshold or statistical winner is inferred by this tool.
+
+Each campaign publishes `index.html`, `index.md`, `index.json` and `observations.csv`,
+linking original records, result packs and independent coverage. `--publish-only` accepts
+existing `--input` case/campaign directories and `--supplement` artifacts. Keep those
+artifacts inside the delivered directory so the resulting relative links remain portable.
+CSV values retain source paths, JSON pointers, JSONL line numbers and nulls.
+
+The collector gives analysis a finite 256 MiB participating allowance and typed table
+projection its supported 64 MiB allowance; neither bounds whole-process memory. Frozen documents retain the pack
+format's independent 64 MiB maximum, which the Python offline readers also use. Larger
+selected histories can require more caller memory than a small scientific case. Existing
+originals can be republished without repeating the scientific execution; keep the initial
+publication failure and report the republication duration separately.
+
+If a root exceeds the existing 64-subject analysis limit, collection can select a supplied
+operation with a bounded child population. The full frozen input remains in the pack, and
+the original refusal, selected analysis identity and narrower analysis scope remain explicit.
+That analysis does not establish coverage of the omitted part of the root graph.

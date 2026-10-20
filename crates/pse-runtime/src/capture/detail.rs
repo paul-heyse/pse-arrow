@@ -83,12 +83,40 @@ pub enum DetailEnd {
     /// Output failed or exhausted its finite bound.
     WriterFailed,
 }
+/// Applicability acknowledged by an actual source, separate from event populations.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DetailFamilyActivation {
+    /// No performing owner acknowledged this selected family in the interval.
+    Unobserved,
+    /// At least one actual owner installed this source before its selected work.
+    Applicable,
+    /// The cooperating construction entrypoint explicitly cannot supply this family.
+    Unsupported,
+    /// Applicable source registration or owner admission was refused.
+    Refused,
+}
+/// A bounded declaration from an actual performing source; never a synthetic event.
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DetailSourceActivation {
+    /// Actual owner including its process-instance operation locator.
+    pub producer: ProducerDescriptor,
+    /// Exact installed versioned source family.
+    pub family: String,
+}
 /// Exact source/writer populations for one selected family.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DetailFamilyCoverage {
     /// Actual selected versioned family.
     pub family: String,
+    /// Actual applicability, not inferred from a positive event count.
+    pub activation: DetailFamilyActivation,
+    /// Distinct performing owners which declared this family.
+    pub activated_sources: u64,
+    /// Source records issued before lossy publication.
+    pub issued: u64,
     /// Source events offered during the selected interval.
     pub observed: u64,
     /// Selected events admitted to the writer queue.
@@ -107,7 +135,7 @@ pub struct DetailFamilyCoverage {
 #[serde(deny_unknown_fields)]
 pub struct DetailDocument {
     /// Standalone answer encoding.
-    pub version: pse_model::document::Version<1>,
+    pub version: pse_model::document::Version<2>,
     /// Original explicit source selection.
     pub request: DetailRequest,
     /// Collection sufficiency independent of science.
@@ -139,21 +167,30 @@ pub struct DetailDocument {
     deny_unknown_fields
 )]
 enum Frame {
-    Header(DetailRequest),
+    Header(DetailHeader),
+    Activation(DetailSourceActivation),
     Producer(ProducerDescriptor),
     Record(CoherentRecord),
     End(DetailDocument),
+}
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DetailHeader {
+    version: pse_model::document::Version<2>,
+    request: DetailRequest,
 }
 /// Bounded page of original source records, independent from derived explanations.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DetailRecordPage {
     /// Page encoding contract.
-    pub version: pse_model::document::Version<1>,
+    pub version: pse_model::document::Version<2>,
     /// Whole original source records, never reconstructed metric tuples.
     pub records: Vec<CoherentRecord>,
     /// Producer declarations encountered on this page; IDs link earlier declarations.
     pub producers: Vec<ProducerDescriptor>,
+    /// Actual source declarations encountered on this page.
+    pub activations: Vec<DetailSourceActivation>,
     /// Exact next JSONL byte boundary, absent at terminal/end-of-file.
     pub next_offset: Option<u64>,
     /// A retained incomplete tail was encountered.
@@ -162,6 +199,9 @@ pub struct DetailRecordPage {
 #[derive(Debug)]
 struct Family {
     name: String,
+    activation: AtomicU8,
+    activated_sources: AtomicU64,
+    issued: AtomicU64,
     observed: AtomicU64,
     queued: AtomicU64,
     acknowledged: AtomicU64,
@@ -182,6 +222,14 @@ impl Family {
         let acknowledged = self.acknowledged.load(Ordering::Acquire);
         DetailFamilyCoverage {
             family: self.name.clone(),
+            activation: match self.activation.load(Ordering::Acquire) {
+                1 => DetailFamilyActivation::Applicable,
+                2 => DetailFamilyActivation::Unsupported,
+                3 => DetailFamilyActivation::Refused,
+                _ => DetailFamilyActivation::Unobserved,
+            },
+            activated_sources: self.activated_sources.load(Ordering::Acquire),
+            issued: self.issued.load(Ordering::Acquire),
             observed: self.observed.load(Ordering::Acquire),
             queued,
             acknowledged,
@@ -205,6 +253,7 @@ struct Tap {
     sequences: Mutex<HashMap<(ProducerId, usize), (u64, u64)>>,
     issued: Mutex<HashMap<(ProducerId, usize), (u64, u64)>>,
     described: Mutex<std::collections::HashSet<ProducerId>>,
+    activated: Mutex<std::collections::HashSet<(ProducerId, usize)>>,
     in_flight: AtomicUsize,
     managed_claimed: AtomicBool,
     scope_unavailable: Mutex<Vec<String>>,
@@ -333,8 +382,49 @@ impl Tap {
     }
 }
 impl RecordTap for Tap {
-    fn source_unavailable(&self, _family: &str) {
+    fn activate(&self, producer: &ProducerDescriptor, family: &str) {
+        let Some(index) = self.families.iter().position(|f| f.name == family) else {
+            return;
+        };
+        let Some(_guard) = self.enter() else {
+            return;
+        };
+        let family = &self.families[index];
+        let Ok(mut activated) = self.activated.try_lock() else {
+            family.activation.store(3, Ordering::Release);
+            self.source_partial.store(true, Ordering::Release);
+            return;
+        };
+        let key = (producer.id, index);
+        if activated.contains(&key) {
+            return;
+        }
+        if activated.len() >= 256 || producer.name.len() > 256 {
+            family.activation.store(3, Ordering::Release);
+            self.source_partial.store(true, Ordering::Release);
+            return;
+        }
+        activated.insert(key);
+        let _ = family
+            .activation
+            .compare_exchange(0, 1, Ordering::AcqRel, Ordering::Acquire);
+        increment(&family.activated_sources);
+        if self
+            .sender
+            .try_send(Frame::Activation(DetailSourceActivation {
+                producer: producer.clone(),
+                family: family.name.clone(),
+            }))
+            .is_err()
+        {
+            increment(&self.metadata_dropped);
+        }
+    }
+    fn source_unavailable(&self, family: &str) {
         if let Some(_guard) = self.enter() {
+            if let Some(family) = self.families.iter().find(|f| f.name == family) {
+                family.activation.store(3, Ordering::Release);
+            }
             self.source_partial.store(true, Ordering::Release);
         }
     }
@@ -345,6 +435,7 @@ impl RecordTap for Tap {
         let Some(_guard) = self.enter() else {
             return;
         };
+        increment(&self.families[index].issued);
         let Some(sequence) = record.family_sequence else {
             self.source_partial.store(true, Ordering::Release);
             return;
@@ -408,7 +499,7 @@ impl RecordTap for Tap {
         }
     }
 }
-fn monotonic_ns() -> Option<u64> {
+pub(super) fn monotonic_ns() -> Option<u64> {
     #[cfg(target_os = "linux")]
     {
         let clock = rustix::time::clock_gettime_dynamic(rustix::time::DynamicClockId::Known(
@@ -478,11 +569,25 @@ pub fn current_detail_request() -> Option<DetailRequest> {
 #[derive(Debug)]
 pub struct DetailSession {
     context: ObservationContext,
+    started_monotonic_ns: Option<u64>,
     tap: Arc<Tap>,
     state: Arc<Mutex<DetailDocument>>,
     worker: Option<JoinHandle<()>>,
 }
 impl DetailSession {
+    /// Same-host time read at collector admission, independent from terminal drain.
+    pub fn started_monotonic_ns(&self) -> Option<u64> {
+        self.started_monotonic_ns
+    }
+    /// Declare an exact selected family unsupported at the cooperating boundary.
+    /// It remains in the original selection and cannot later become complete.
+    pub fn refuse_unsupported_family(&self, family: &str) {
+        if let Some(_guard) = self.tap.enter()
+            && let Some(family) = self.tap.families.iter().find(|f| f.name == family)
+        {
+            family.activation.store(2, Ordering::Release);
+        }
+    }
     /// Enter this context before constructing the actual invocation/attempt.
     pub fn context(&self) -> ObservationContext {
         self.context.clone()
@@ -574,6 +679,7 @@ pub fn start_detailed_collection(
         ));
     }
     let now = Instant::now();
+    let started_monotonic_ns = monotonic_ns();
     if let Some(expiry) = request.expiry_monotonic_ns {
         let current = monotonic_ns().ok_or_else(|| {
             CaptureError::Invalid("delegated detail clock alignment unavailable".into())
@@ -618,6 +724,9 @@ pub fn start_detailed_collection(
             .iter()
             .map(|name| Family {
                 name: name.clone(),
+                activation: AtomicU8::new(0),
+                activated_sources: AtomicU64::new(0),
+                issued: AtomicU64::new(0),
                 observed: AtomicU64::new(0),
                 queued: AtomicU64::new(0),
                 acknowledged: AtomicU64::new(0),
@@ -634,6 +743,7 @@ pub fn start_detailed_collection(
         sequences: Mutex::new(HashMap::new()),
         issued: Mutex::new(HashMap::new()),
         described: Mutex::new(std::collections::HashSet::new()),
+        activated: Mutex::new(std::collections::HashSet::new()),
         in_flight: AtomicUsize::new(0),
         managed_claimed: AtomicBool::new(false),
         scope_unavailable: Mutex::new(vec![]),
@@ -668,8 +778,15 @@ pub fn start_detailed_collection(
                 *prefix += bytes.len() as u64;
                 Ok(())
             };
-            let mut error =
-                write_frame(&Frame::Header(request.clone()), &mut output, &mut prefix).err();
+            let mut error = write_frame(
+                &Frame::Header(DetailHeader {
+                    version: pse_model::document::Version,
+                    request: request.clone(),
+                }),
+                &mut output,
+                &mut prefix,
+            )
+            .err();
             loop {
                 if error.is_some() {
                     writer_tap.close(DetailEnd::WriterFailed);
@@ -744,18 +861,17 @@ pub fn start_detailed_collection(
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .clone();
-            d.end = Some(if error.is_some() {
-                DetailEnd::WriterFailed
-            } else {
-                writer_tap.end()
-            });
+            d.end = Some(writer_tap.end());
             let sufficient = error.is_none()
                 && d.end != Some(DetailEnd::Stopped)
                 && !d.source_partial
                 && d.metadata_dropped == 0
-                && d.families
-                    .iter()
-                    .all(|f| f.observed > 0 && f.dropped == 0 && f.unacknowledged == 0);
+                && d.families.iter().all(|f| {
+                    f.activation == DetailFamilyActivation::Applicable
+                        && f.issued == f.observed
+                        && f.dropped == 0
+                        && f.unacknowledged == 0
+                });
             d.outcome = if sufficient {
                 if request.requirement == DetailRequirement::Complete {
                     DetailOutcome::Complete
@@ -772,13 +888,13 @@ pub fn start_detailed_collection(
                 && let Err(e) = write_frame(&Frame::End(d.clone()), &mut output, &mut prefix)
             {
                 d.outcome = DetailOutcome::Incomplete;
-                d.end = Some(DetailEnd::WriterFailed);
                 d.error = Some(e.to_string().chars().take(512).collect());
             }
             d.readable_prefix_bytes = prefix;
         })?;
     Ok(DetailSession {
         context: context.with_record_tap(tap.clone()),
+        started_monotonic_ns,
         tap,
         state,
         worker: Some(worker),
@@ -822,11 +938,11 @@ pub fn read_detailed_collection(
         let frame: Frame =
             serde_json::from_slice(&line).map_err(|e| CaptureError::Invalid(e.to_string()))?;
         match frame {
-            Frame::Header(request) => {
+            Frame::Header(header_frame) => {
                 if header.is_some() {
                     return Err(CaptureError::Invalid("duplicate detail header".into()));
                 }
-                header = Some(request);
+                header = Some(header_frame.request);
             }
             Frame::End(document) => {
                 if end.is_some() {
@@ -930,6 +1046,7 @@ pub fn read_detail_records(
         version: pse_model::document::Version,
         records: vec![],
         producers: vec![],
+        activations: vec![],
         next_offset: None,
         partial: false,
     };
@@ -959,12 +1076,16 @@ pub fn read_detail_records(
         {
             Frame::Record(record) => page.records.push(record),
             Frame::Producer(producer) => page.producers.push(producer),
+            Frame::Activation(activation) => page.activations.push(activation),
             Frame::End(_) => break,
             Frame::Header(_) => {
                 return Err(CaptureError::Invalid("duplicate detail header".into()));
             }
         }
-        if page.records.len() == limit || page.producers.len() == 256 {
+        if page.records.len() == limit
+            || page.producers.len() == 256
+            || page.activations.len() == 256
+        {
             page.next_offset = Some(start + n as u64);
             break;
         }
@@ -1174,10 +1295,10 @@ mod tests {
         assert_eq!(result.outcome, DetailOutcome::Incomplete);
         assert_eq!(result.end, Some(DetailEnd::Stopped));
         let path = directory.path().join("crash.jsonl");
-        let mut bytes = serde_json::to_vec(&Frame::Header(request(
-            directory.path().join("prefix"),
-            DetailRequirement::Complete,
-        )))
+        let mut bytes = serde_json::to_vec(&Frame::Header(DetailHeader {
+            version: pse_model::document::Version,
+            request: request(directory.path().join("prefix"), DetailRequirement::Complete),
+        }))
         .unwrap();
         bytes.push(b'\n');
         let prefix = bytes.len();

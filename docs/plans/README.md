@@ -4,6 +4,15 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
+[Plan47: Pipeline diagnostics and review artifacts](47-pipeline-diagnostics-and-review-artifacts.md)
+is complete for all 31 packages, including the production-completeness repairs and selected
+assembled qualification. Its [checkpoint](47-pipeline-diagnostics-and-review-artifacts.md#current-checkpoint)
+owns finding/inquiry/rule disposition; [47f's Outcome](47f-qualification-and-design-publication.md#outcome)
+records composed native/Python/live-to-offline acceptance, short observer/export observations,
+repaired continuing static/manual/feature checks and supported limits. Enduring contracts live
+in blueprint §23.1/§24.2 and the diagnostic operating guide. The highest coordinator and consumed
+companions remain retained; other plans keep their independent scope/status.
+
 [Plan46: Execution speed and numerical efficiency](46-execution-speed-and-numerical-efficiency.md)
 is complete for its adopted implementation and selected qualification. Its
 [coordinator](46-execution-speed-and-numerical-efficiency.md#current-checkpoint) owns finding,

@@ -6,65 +6,112 @@ Standalone reads consume published checkpoints without constructing a Runtime or
 connecting to scientific storage. Rust owns explanations and capture interpretation.
 """
 
+# ruff: noqa: T201 -- the CLI renders requested diagnostic documents and errors.
+
 from __future__ import annotations
 
-# ruff: noqa: T201 -- the CLI renders requested diagnostic documents and errors.
 import argparse
 import math
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Self, TypeVar
 
 import attrs
 import pyarrow as pa
+from msgspec.structs import replace
 
+import pse
 from pse import codec
 from pse._build import (
     InspectionError,
+    _diagnostic_analyze,
     _diagnostic_capture,
     _diagnostic_capture_arrow,
+    _diagnostic_compare_invocations,
     _diagnostic_detail_arrow,
     _diagnostic_detail_records,
+    _diagnostic_explain_invocation,
+    _diagnostic_export_pack,
     _diagnostic_inspect,
+    _diagnostic_inspect_frozen,
     _diagnostic_inspect_image,
+    _diagnostic_inventory_from_evidence,
+    _diagnostic_inventory_page,
     _diagnostic_launch_capture,
     _diagnostic_list,
     _diagnostic_operation_id,
     _diagnostic_operation_text,
+    _diagnostic_pack_analysis,
+    _diagnostic_pack_evidence,
     _diagnostic_read_checkpoint,
+    _diagnostic_read_context,
     _diagnostic_read_detail,
+    _diagnostic_read_evidence,
+    _diagnostic_read_handoff,
+    _diagnostic_read_invocation,
+    _diagnostic_render_analysis,
+    _diagnostic_review_arrow,
+    _diagnostic_review_pack,
     _NativeCaptureSession,
     _NativeDetailSession,
     _NativeDiagnostics,
     _NativeLaunchedCommand,
     _NativeOperationObservations,
 )
+from pse._diagnostic_launch import record_launch as launch
+from pse._diagnostic_query import run_query
 from pse.contracts.documents import (
+    AnalysisDocument,
+    AnalysisRequest,
     CaptureBudget,
     CaptureDocument,
     CaptureRequest,
     CheckpointIdentity,
     ClosedDuration,
+    ComparisonPolicy,
     DetailDocument,
     DetailRecordPage,
     DetailRequest,
+    DiagnosticCommandRequest,
     DiagnosticListRequest,
     DiagnosticProcessPage,
+    FrozenEvidenceSet,
+    FrozenInspectionDocument,
+    FrozenInspectionRequest,
     InspectionDocument,
     InspectionRequest,
+    InvocationComparisonDocument,
+    InvocationEvidenceDocument,
     LaunchCaptureRequest,
     NumericalHistoryPolicy,
     OperationId,
     OperationPage,
     OperationSnapshot,
+    PackExportRequest,
+    PackIndex,
     ProcessCheckpoint,
     ProcessLocator,
+    ReviewContextDocument,
+    ReviewExportDeployment,
+    ReviewHandoffReceipt,
+    ReviewInventoryPage,
+    ReviewInventoryRequest,
+    ReviewInventorySelection,
+    ReviewQueryDocument,
+    ReviewQueryRequest,
+    ReviewTableDocument,
+    ReviewTableRequest,
+    SourceRecordingAcknowledgement,
+    SourceRecordingLaunchDocument,
+    SourceRecordingLaunchRequest,
 )
 from pse.contracts.enums import CaptureKind, CaptureStatus
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from types import TracebackType
+
+    from pse._runs import RunResult
 
 
 @attrs.frozen
@@ -110,6 +157,13 @@ class Diagnostics:
     def inspect(self, request: InspectionRequest) -> InspectionDocument:
         """Read the Rust-owned interpretation without invoking occupied owners."""
         return self._handle.inspect(request)
+
+    def record_from_environment(
+        self, supported_families: Sequence[str]
+    ) -> DetailedCollection | None:
+        """Select source recording before construction; retain activation separately."""
+        session = self._handle.record_from_environment(tuple(supported_families))
+        return None if session is None else DetailedCollection(session)
 
     def collect(self, request: DetailRequest) -> DetailedCollection:
         """Select finite detail before constructing work inside the returned context."""
@@ -219,6 +273,21 @@ class DetailedCollection:
     """
 
     _handle: _NativeDetailSession
+
+    @property
+    def acknowledgement(self) -> SourceRecordingAcknowledgement | None:
+        """Actual cooperating admission, independent of terminal family coverage."""
+        return self._handle.acknowledgement
+
+    def retain_result(self, result: RunResult) -> ReviewHandoffReceipt | None:
+        """Publish requested joined context with failure separate from science."""
+        return self._handle.retain_result(result._handle)  # noqa: SLF001 -- same native boundary
+
+    def retain_context(
+        self, context: ReviewContextDocument
+    ) -> ReviewHandoffReceipt | None:
+        """Publish retained pre-handle facts; never reconstruct or run science."""
+        return self._handle.retain_context(context)
 
     def snapshot(self) -> DetailDocument:
         """Read coverage independently from scientific completion."""
@@ -496,8 +565,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     detail.add_argument("--limit", type=_bounded_count, default=16)
     detail.add_argument("--maximum-bytes", type=_positive, default=16 << 20)
     detail.add_argument("--json", action="store_true")
+    _add_review_commands(commands)
     args = parser.parse_args(argv)
     try:
+        if args.command in _REVIEW_COMMANDS:
+            return _review_command(args)
         if args.command == "read-detail":
             page = detail_records(
                 args.records,
@@ -602,6 +674,497 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
     else:
         return 1 if result.status == CaptureStatus.FAILED else 0
+
+
+def inspect_frozen(
+    evidence: FrozenEvidenceSet, request: FrozenInspectionRequest
+) -> FrozenInspectionDocument:
+    """Interpret only supplied immutable members at recorded source time."""
+    return _diagnostic_inspect_frozen(evidence, request)
+
+
+def read_evidence(path: str | Path) -> FrozenEvidenceSet:
+    """Admit a bounded saved set; embedded paths never authorize lookup."""
+    return _diagnostic_read_evidence(Path(path))
+
+
+def read_invocation(path: str | Path) -> InvocationEvidenceDocument:
+    """Read descriptive invocation facts without a live result handle."""
+    return _diagnostic_read_invocation(Path(path))
+
+
+def read_context(path: str | Path) -> ReviewContextDocument:
+    """Read original descriptive context without Replay admission."""
+    return _diagnostic_read_context(Path(path))
+
+
+def explain_invocation(
+    source: InvocationEvidenceDocument, *, policy: ComparisonPolicy | None = None
+) -> InvocationComparisonDocument:
+    """Explain saved facts using the same pure owner as live invocation readback."""
+    return _diagnostic_explain_invocation(source, policy)
+
+
+def compare_invocations(
+    left: InvocationEvidenceDocument,
+    right: InvocationEvidenceDocument,
+    *,
+    policy: ComparisonPolicy | None = None,
+) -> InvocationComparisonDocument:
+    """Compare supplied facts without rerunning science or choosing a winner."""
+    return _diagnostic_compare_invocations(left, right, policy)
+
+
+def inventory_page(
+    selection: ReviewInventorySelection, *, offset: int = 0, limit: int = 64
+) -> ReviewInventoryPage:
+    """Page an immutable selection without consulting current occurrence pointers."""
+    return _diagnostic_inventory_page(selection, offset, limit)
+
+
+def inventory_from_evidence(
+    evidence: FrozenEvidenceSet,
+    request: ReviewInventoryRequest,
+    *,
+    scope: str = "supplied.operations",
+) -> ReviewInventorySelection:
+    """Project actual copied operation/producer relationships without live discovery."""
+    return _diagnostic_inventory_from_evidence(evidence, request, scope)
+
+
+_REVIEW_COMMANDS = {
+    "inspect-recorded",
+    "analyze",
+    "compare",
+    "context",
+    "inventory",
+    "query",
+    "record-launch",
+    "export",
+    "review",
+    "diagnose",
+}
+
+
+def _add_review_commands(commands: argparse._SubParsersAction) -> None:
+    recorded = commands.add_parser(
+        "inspect-recorded",
+        help="READ supplied file/pack at recorded source time; no live lookup",
+    )
+    recorded.add_argument("subject", type=Path)
+    recorded.add_argument(
+        "--request", required=True, type=Path, help="FrozenInspectionRequest JSON"
+    )
+    recorded.add_argument("--json", action="store_true")
+    recorded.add_argument(
+        "--source", choices=("recorded", "live", "handoff"), default="recorded"
+    )
+    recorded.add_argument("--handoff", type=Path)
+    analysis = commands.add_parser(
+        "analyze", help="READ ten source-linked questions over supplied file/pack"
+    )
+    analysis.add_argument("subject", type=Path)
+    analysis.add_argument(
+        "--request", required=True, type=Path, help="AnalysisRequest JSON"
+    )
+    analysis.add_argument("--json", action="store_true")
+    analysis.add_argument(
+        "--source", choices=("recorded", "live", "handoff"), default="recorded"
+    )
+    analysis.add_argument("--handoff", type=Path)
+    analysis.add_argument("--memory-bytes", type=_positive, default=64 << 20)
+    comparison = commands.add_parser(
+        "compare", help="READ and compare two saved invocation documents"
+    )
+    comparison.add_argument("left", type=Path)
+    comparison.add_argument("right", type=Path)
+    comparison.add_argument("--policy", type=Path)
+    comparison.add_argument("--json", action="store_true")
+    for name in ("context", "inventory"):
+        selected = commands.add_parser(
+            name, help=f"READ selected {name} from supplied file/pack only"
+        )
+        selected.add_argument("subject", type=Path)
+        selected.add_argument("--index", type=int, default=0)
+        selected.add_argument("--offset", type=int, default=0)
+        selected.add_argument("--limit", type=_bounded_count, default=16)
+        selected.add_argument("--json", action="store_true")
+        selected.add_argument(
+            "--source", choices=("recorded", "live", "handoff"), default="recorded"
+        )
+        selected.add_argument("--handoff", type=Path)
+    querying = commands.add_parser(
+        "query",
+        help=(
+            "READ a supplied trace with a declared bounded optional "
+            "tool query; never install"
+        ),
+    )
+    querying.add_argument("trace", type=Path)
+    querying.add_argument(
+        "--request", required=True, type=Path, help="ReviewQueryRequest JSON"
+    )
+    querying.add_argument(
+        "--binary",
+        type=Path,
+        help="explicit optional trace_processor_shell for trace queries",
+    )
+    querying.add_argument(
+        "--table",
+        action="store_true",
+        help=(
+            "READ one registry table from supplied frozen file/pack; "
+            "request is ReviewTableRequest"
+        ),
+    )
+    querying.add_argument("--output", required=True, type=Path)
+    querying.add_argument("--json", action="store_true")
+    launch = commands.add_parser(
+        "record-launch",
+        help=(
+            "RECORD explicit literal argv with preconstruction "
+            "request/ACK; command ownership is separate"
+        ),
+    )
+    launch.add_argument(
+        "--request",
+        required=True,
+        type=Path,
+        help=(
+            "SourceRecordingLaunchRequest JSON (includes literal argv "
+            "and finite clocks)"
+        ),
+    )
+    launch.add_argument("--json", action="store_true")
+    exporting = commands.add_parser(
+        "export",
+        help=(
+            "EXPORT selected immutable facts and explicit readable "
+            "file prefixes to a new offline pack"
+        ),
+    )
+    exporting.add_argument("subject", type=Path)
+    exporting.add_argument(
+        "--analysis",
+        required=True,
+        type=Path,
+        help="AnalysisRequest JSON evaluated by the shared owner",
+    )
+    exporting.add_argument(
+        "--request", required=True, type=Path, help="PackExportRequest JSON"
+    )
+    exporting.add_argument("--output", required=True, type=Path)
+    exporting.add_argument("--json", action="store_true")
+    exporting.add_argument(
+        "--source", choices=("recorded", "live", "handoff"), default="recorded"
+    )
+    exporting.add_argument("--handoff", type=Path)
+    exporting.add_argument(
+        "--deployment",
+        type=Path,
+        help=(
+            "Explicit existing ReviewExportDeployment; required for "
+            "scientific selectors"
+        ),
+    )
+    exporting.add_argument("--memory-bytes", type=_positive, default=64 << 20)
+    reviewing = commands.add_parser(
+        "review", help="READ only indexed contained members of an offline pack"
+    )
+    reviewing.add_argument("subject", type=Path)
+    reviewing.add_argument("--json", action="store_true")
+    diagnosing = commands.add_parser(
+        "diagnose",
+        help=(
+            "NEW NUMERICAL WORK from explicit original model/physical "
+            "documents under one finite deadline"
+        ),
+    )
+    diagnosing.add_argument(
+        "--request",
+        required=True,
+        type=Path,
+        help=(
+            "DiagnosticCommandRequest JSON; descriptive context cannot "
+            "reconstruct a model"
+        ),
+    )
+    diagnosing.add_argument("--json", action="store_true")
+
+
+_Request = TypeVar("_Request")
+
+
+def _read_review_request(path: Path, kind: type[_Request]) -> _Request:
+    with path.open("rb") as source:
+        encoded = source.read((64 << 20) + 1)
+    if len(encoded) > 64 << 20:
+        message = "review document exceeds 64 MiB"
+        raise ValueError(message)
+    return codec.decode_json(encoded, kind)
+
+
+def _subject(
+    path: Path, *, source: str = "recorded", handoff: Path | None = None
+) -> FrozenEvidenceSet:
+    if source == "handoff":
+        evidence = read_handoff(path)
+    elif source == "live":
+        evidence = FrozenEvidenceSet(version=2, checkpoints=(read_checkpoint(path),))
+    else:
+        evidence = (
+            _diagnostic_pack_evidence(path)
+            if path.is_dir()
+            else _diagnostic_read_evidence(path)
+        )
+    if handoff is None:
+        return evidence
+
+    retained = read_handoff(handoff)
+    selected = {operation.id for operation in evidence.operations}
+    selected.update(
+        operation.id for image in evidence.checkpoints for operation in image.operations
+    )
+    # The explicit primary snapshot determines current facts. Retained context never
+    # substitutes another snapshot for that chosen live publication.
+    return replace(
+        evidence,
+        operations=(
+            *evidence.operations,
+            *(
+                operation
+                for operation in retained.operations
+                if operation.id not in selected
+            ),
+        ),
+        invocations=(*evidence.invocations, *retained.invocations),
+        contexts=(*evidence.contexts, *retained.contexts),
+        inventories=(*evidence.inventories, *retained.inventories),
+        engine_observations=(
+            *evidence.engine_observations,
+            *retained.engine_observations,
+        ),
+    )
+
+
+def analyze_evidence(
+    evidence: FrozenEvidenceSet,
+    request: AnalysisRequest,
+    *,
+    memory_bytes: int = 64 << 20,
+) -> AnalysisDocument:
+    """Interpret immutable facts under one cancellable finite working allocation."""
+    return _diagnostic_analyze(evidence, request, memory_bytes=memory_bytes)
+
+
+def read_handoff(path: str | Path) -> FrozenEvidenceSet:
+    """Read an explicit receipt's finalized contained context members."""
+    return _diagnostic_read_handoff(Path(path))
+
+
+def export_review_pack(
+    destination: str | Path,
+    evidence: FrozenEvidenceSet,
+    analysis: AnalysisDocument,
+    request: PackExportRequest,
+) -> PackIndex:
+    """Publish selected facts and prefixes from explicit original input paths."""
+    return _diagnostic_export_pack(Path(destination), evidence, analysis, request)
+
+
+def review_pack(directory: str | Path) -> PackIndex:
+    """Validate an indexed local directory without following original paths."""
+    return _diagnostic_review_pack(Path(directory))
+
+
+def review_arrow(
+    evidence: FrozenEvidenceSet, request: ReviewTableRequest
+) -> pa.RecordBatch:
+    """Select one registry table and retain its finite buffer ownership."""
+    return pa.record_batch(_diagnostic_review_arrow(evidence, request))
+
+
+def query_trace(
+    request: ReviewQueryRequest, trace: Path, output: Path, binary: Path
+) -> ReviewQueryDocument:
+    """Run a declared optional query, retaining failure prefixes and context."""
+    return run_query(request, trace, output, binary)
+
+
+def record_launch(
+    request: SourceRecordingLaunchRequest,
+) -> SourceRecordingLaunchDocument:
+    """Own one literal command and report actual cooperating-source acknowledgement."""
+    return launch(request)
+
+
+def _review_command(args: argparse.Namespace) -> int:
+    if args.command == "compare":
+        policy = (
+            None
+            if args.policy is None
+            else _read_review_request(args.policy, ComparisonPolicy)
+        )
+        result = compare_invocations(
+            read_invocation(args.left), read_invocation(args.right), policy=policy
+        )
+    elif args.command == "query":
+        if args.table:
+            request = _read_review_request(args.request, ReviewTableRequest)
+            batch = review_arrow(_subject(args.trace), request)
+            args.output.mkdir(parents=True, exist_ok=False)
+            with (
+                (args.output / "rows.arrow").open("xb") as output,
+                pa.ipc.new_stream(output, batch.schema) as writer,
+            ):
+                writer.write_batch(batch)
+            (args.output / "request.json").write_bytes(codec.encode_json(request))
+            result = ReviewTableDocument(
+                version=1,
+                request=request,
+                input_member=str(args.trace),
+                output="rows.arrow",
+                rows=batch.num_rows,
+                schema_metadata={
+                    key.decode(): value.decode()
+                    for key, value in (batch.schema.metadata or {}).items()
+                },
+            )
+            (args.output / "table-result.json").write_bytes(codec.encode_json(result))
+            print(codec.encode_json(result).decode())
+            return 0
+        if args.binary is None:
+            message = (
+                "trace query requires explicit --binary; no implicit "
+                "installation or tool discovery"
+            )
+            raise ValueError(message)
+        result = query_trace(
+            _read_review_request(args.request, ReviewQueryRequest),
+            args.trace,
+            args.output,
+            args.binary,
+        )
+        print(codec.encode_json(result).decode())
+        return 0 if result.status == "completed" else 1
+    elif args.command == "record-launch":
+        result = record_launch(
+            _read_review_request(args.request, SourceRecordingLaunchRequest)
+        )
+        print(codec.encode_json(result).decode())
+        return result.command_status or (
+            0
+            if result.drained
+            and result.acknowledgement is not None
+            and result.acknowledgement.accepted
+            else 1
+        )
+    elif args.command == "diagnose":
+        command = _read_review_request(args.request, DiagnosticCommandRequest)
+        settings = command.runtime
+        runtime = pse.Runtime(
+            pse.EngineSettings(
+                memory_limit_bytes=settings.memory_limit_bytes,
+                threads=settings.threads,
+                spill_dir=settings.spill_dir,
+                max_spill_bytes=settings.max_spill_bytes,
+                batch_size=settings.batch_size,
+            ),
+            ephemeral=True,
+        )
+        try:
+            result = runtime.diagnose_documents(command.operation)
+        finally:
+            runtime.close()
+        print(codec.encode_json(result).decode())
+        return 0 if result.failure is None else 1
+    elif args.command == "review":
+        result = review_pack(args.subject)
+        if not args.json:
+            print(
+                f"publication={result.publication} "
+                f"membership_complete={result.membership_complete} "
+                f"self_contained={result.self_contained}"
+            )
+            print(_diagnostic_render_analysis(_diagnostic_pack_analysis(args.subject)))
+            return 0
+    else:
+        evidence = _subject(args.subject, source=args.source, handoff=args.handoff)
+        if args.command == "inspect-recorded":
+            result = inspect_frozen(
+                evidence, _read_review_request(args.request, FrozenInspectionRequest)
+            )
+            if not args.json:
+                _render_inspection(result.inspection)
+                for limitation in result.limitations:
+                    print(f"limitation {limitation}")
+                return 0
+        elif args.command == "analyze":
+            result = analyze_evidence(
+                evidence,
+                _read_review_request(args.request, AnalysisRequest),
+                memory_bytes=args.memory_bytes,
+            )
+            if not args.json:
+                print(_diagnostic_render_analysis(result))
+                return 0
+        elif args.command == "export":
+            analysis = analyze_evidence(
+                evidence,
+                _read_review_request(args.analysis, AnalysisRequest),
+                memory_bytes=args.memory_bytes,
+            )
+            request = _read_review_request(args.request, PackExportRequest)
+            if request.scientific_results:
+                if args.deployment is None:
+                    message = (
+                        "scientific export requires an explicit existing deployment"
+                    )
+                    raise ValueError(message)
+
+                deployment = _read_review_request(
+                    args.deployment, ReviewExportDeployment
+                )
+                settings = deployment.runtime
+                runtime = pse.Runtime(
+                    pse.EngineSettings(
+                        memory_limit_bytes=settings.memory_limit_bytes,
+                        threads=settings.threads,
+                        spill_dir=settings.spill_dir,
+                        max_spill_bytes=settings.max_spill_bytes,
+                        batch_size=settings.batch_size,
+                    ),
+                    substrate=deployment.substrate,
+                    database=deployment.database,
+                    producer=deployment.producer,
+                )
+                try:
+                    result = runtime.export_review_pack(
+                        args.output, evidence, analysis, request
+                    )
+                finally:
+                    runtime.close()
+            else:
+                result = export_review_pack(args.output, evidence, analysis, request)
+        elif args.command == "context":
+            if not 0 <= args.index < len(evidence.contexts):
+                message = (
+                    "selected context is unavailable; no live source lookup attempted"
+                )
+                raise ValueError(message)
+            result = evidence.contexts[args.index]
+        else:
+            if not 0 <= args.index < len(evidence.inventories):
+                message = (
+                    "selected frozen membership is unavailable; no "
+                    "live inventory substituted"
+                )
+                raise ValueError(message)
+            result = inventory_page(
+                evidence.inventories[args.index], offset=args.offset, limit=args.limit
+            )
+    print(codec.encode_json(result).decode())
+    return 0
 
 
 if __name__ == "__main__":

@@ -317,12 +317,20 @@ pub enum FactBatch {
     r#RuntimeComputationRuns(Vec<super::r#runtime::r#computation_runs::Row>),
     #[doc = stringify!(r#RuntimeDiagnosticCaptures)]
     r#RuntimeDiagnosticCaptures(Vec<super::r#runtime::r#diagnostic_captures::Row>),
+    #[doc = stringify!(r#RuntimeDiagnosticEngineObservations)]
+    r#RuntimeDiagnosticEngineObservations(
+        Vec<super::r#runtime::r#diagnostic_engine_observations::Row>,
+    ),
     #[doc = stringify!(r#RuntimeDiagnosticEvidenceFields)]
     r#RuntimeDiagnosticEvidenceFields(
         Vec<super::r#runtime::r#diagnostic_evidence_fields::Row>,
     ),
     #[doc = stringify!(r#RuntimeDiagnosticInvocations)]
     r#RuntimeDiagnosticInvocations(Vec<super::r#runtime::r#diagnostic_invocations::Row>),
+    #[doc = stringify!(r#RuntimeDiagnosticQueryResults)]
+    r#RuntimeDiagnosticQueryResults(
+        Vec<super::r#runtime::r#diagnostic_query_results::Row>,
+    ),
     #[doc = stringify!(r#RuntimeDiagnosticsFindings)]
     r#RuntimeDiagnosticsFindings(Vec<super::r#runtime::r#diagnostics_findings::Row>),
     #[doc = stringify!(r#RuntimeExecutionStatistics)]
@@ -1124,6 +1132,12 @@ impl FactBatch {
                     153u8, 68u8, 22u8, 150u8, 161u8, 252u8,
                 ])
             }
+            Self::r#RuntimeDiagnosticEngineObservations(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    101u8, 233u8, 47u8, 114u8, 253u8, 165u8, 128u8, 113u8, 222u8, 242u8,
+                    90u8, 158u8, 63u8, 110u8, 110u8, 238u8,
+                ])
+            }
             Self::r#RuntimeDiagnosticEvidenceFields(_) => {
                 pse_ids::SemanticId::from_bytes([
                     118u8, 64u8, 30u8, 164u8, 255u8, 123u8, 120u8, 0u8, 251u8, 48u8,
@@ -1134,6 +1148,12 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     62u8, 197u8, 105u8, 255u8, 229u8, 8u8, 166u8, 77u8, 74u8, 150u8,
                     179u8, 12u8, 37u8, 223u8, 189u8, 172u8,
+                ])
+            }
+            Self::r#RuntimeDiagnosticQueryResults(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    90u8, 216u8, 96u8, 46u8, 175u8, 72u8, 64u8, 73u8, 78u8, 152u8, 216u8,
+                    96u8, 138u8, 95u8, 38u8, 143u8,
                 ])
             }
             Self::r#RuntimeDiagnosticsFindings(_) => {
@@ -1570,8 +1590,10 @@ impl FactBatch {
             Self::r#RuntimeCanonicalVersions(rows) => rows.len(),
             Self::r#RuntimeComputationRuns(rows) => rows.len(),
             Self::r#RuntimeDiagnosticCaptures(rows) => rows.len(),
+            Self::r#RuntimeDiagnosticEngineObservations(rows) => rows.len(),
             Self::r#RuntimeDiagnosticEvidenceFields(rows) => rows.len(),
             Self::r#RuntimeDiagnosticInvocations(rows) => rows.len(),
+            Self::r#RuntimeDiagnosticQueryResults(rows) => rows.len(),
             Self::r#RuntimeDiagnosticsFindings(rows) => rows.len(),
             Self::r#RuntimeExecutionStatistics(rows) => rows.len(),
             Self::r#RuntimeFitConstraints(rows) => rows.len(),
@@ -2192,12 +2214,22 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeDiagnosticEngineObservations(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeDiagnosticEvidenceFields(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
             Self::r#RuntimeDiagnosticInvocations(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeDiagnosticQueryResults(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2963,6 +2995,12 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeDiagnosticCaptures(vec![row.clone()]))
             }
+            Self::r#RuntimeDiagnosticEngineObservations(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeDiagnosticEngineObservations(
+                        vec![row.clone()],
+                    ))
+            }
             Self::r#RuntimeDiagnosticEvidenceFields(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeDiagnosticEvidenceFields(
@@ -2972,6 +3010,10 @@ impl FactBatch {
             Self::r#RuntimeDiagnosticInvocations(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeDiagnosticInvocations(vec![row.clone()]))
+            }
+            Self::r#RuntimeDiagnosticQueryResults(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeDiagnosticQueryResults(vec![row.clone()]))
             }
             Self::r#RuntimeDiagnosticsFindings(rows) => {
                 rows.get(index)
@@ -4374,6 +4416,17 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeDiagnosticEngineObservations(left),
+                Self::r#RuntimeDiagnosticEngineObservations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeDiagnosticEvidenceFields(left),
                 Self::r#RuntimeDiagnosticEvidenceFields(right),
             ) => {
@@ -4387,6 +4440,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeDiagnosticInvocations(left),
                 Self::r#RuntimeDiagnosticInvocations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeDiagnosticQueryResults(left),
+                Self::r#RuntimeDiagnosticQueryResults(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -5731,6 +5795,13 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeDiagnosticEngineObservations(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeDiagnosticEvidenceFields(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -5739,6 +5810,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeDiagnosticInvocations(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeDiagnosticQueryResults(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -7433,6 +7511,21 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeDiagnosticEngineObservations(left),
+                Self::r#RuntimeDiagnosticEngineObservations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#member, &right.r#member)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#observation,
+                                &right.r#observation,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeDiagnosticEvidenceFields(left),
                 Self::r#RuntimeDiagnosticEvidenceFields(right),
             ) => {
@@ -7469,6 +7562,17 @@ impl FactBatch {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(&left.r#run, &right.r#run)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeDiagnosticQueryResults(left),
+                Self::r#RuntimeDiagnosticQueryResults(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#member, &right.r#member)
                     }
                     _ => false,
                 }
@@ -8847,6 +8951,11 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#subject, &mut hash);
             }
+            Self::r#RuntimeDiagnosticEngineObservations(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#member, &mut hash);
+                crate::SemanticFrame::frame(&row.r#observation, &mut hash);
+            }
             Self::r#RuntimeDiagnosticEvidenceFields(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#operation, &mut hash);
@@ -8858,6 +8967,10 @@ impl FactBatch {
             Self::r#RuntimeDiagnosticInvocations(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run, &mut hash);
+            }
+            Self::r#RuntimeDiagnosticQueryResults(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#member, &mut hash);
             }
             Self::r#RuntimeDiagnosticsFindings(rows) => {
                 let row = rows.get(index)?;
@@ -9921,6 +10034,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeDiagnosticEngineObservations(left),
+                Self::r#RuntimeDiagnosticEngineObservations(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeDiagnosticEvidenceFields(left),
                 Self::r#RuntimeDiagnosticEvidenceFields(mut right),
             ) => {
@@ -9930,6 +10050,13 @@ impl FactBatch {
             (
                 Self::r#RuntimeDiagnosticInvocations(left),
                 Self::r#RuntimeDiagnosticInvocations(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeDiagnosticQueryResults(left),
+                Self::r#RuntimeDiagnosticQueryResults(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -10538,10 +10665,16 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeCanonicalVersions(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeComputationRuns(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeDiagnosticCaptures(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeDiagnosticEngineObservations(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeDiagnosticEvidenceFields(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeDiagnosticInvocations(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeDiagnosticQueryResults(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeDiagnosticsFindings(rows) => {

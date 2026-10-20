@@ -21,6 +21,110 @@ computation can never change its scientific or publication outcome
 
 ### 23.1 Observability
 
+> Decision: ADR-0192/0196 (proposed; accepted Plan47 RC01/RC02 target). Live inspection
+> observes current time and known local publication. Frozen inspection consumes supplied
+> immutable documents and a recorded endpoint/lookback or explicit source-clock interval;
+> it never consults the reader clock, neighbouring files, a process or the scientific store.
+> Related membership is explicit and bounded, with retained historical attempts distinct
+> from current pointers. Missing members, capture loss, resets and unsupported clock
+> alignment remain limitations, not reconstructed observations. Recorded freshness does not
+> renew live eligibility. Versioned bounded ingress supplies the same pure interpretation
+> used by live owners without reconstructing numerical or allocation authority. Descriptive
+> context and offline completion do not establish executable replay or scientific success.
+
+Frozen Rust/Python ingress accepts versioned copied checkpoint, invocation, context,
+membership and capture documents with finite input bounds. Saved invocation explanation
+and comparison use the live owners' pure interpreter, validating exact step/product/native
+coordinates before matching. Related operations resolve only from supplied members;
+independent process clocks remain independent. A selected earlier interval filters retained
+history and predecessor baselines, but does not reconstruct earlier current/cumulative state.
+Live compact attempt payloads retain their allocation guards even through shared document
+references; decoded facts do not recreate those guards or native execution authority.
+
+Standalone initialization and declared-recycle strategies can explicitly select descriptive
+context at their original join. Their actual run/operation, original source, submitted controls,
+stages/attempts and retained native records remain distinct from a RunResult invocation.
+Unrequested context is not copied; a selected copy refusal does not alter the scientific result.
+Escaped context owns its finite byte allowance and retains no executable or native handle.
+Selected dynamic context also copies the original joined native segment statistics, with
+original run identity and segment/reset boundaries. These retained facts remain available when
+the compact live metric catalogue reports curtailment; export performs no fresh native queries.
+
+Selected review analysis consumes copied immutable inputs through one Rust interpreter. Its
+versioned ten questions retain exact member/event/field references, actual populations, units,
+source clocks, missing coverage and bounded omissions. Inclusive time is not exclusive CPU,
+overlap is not a critical path, and missing physical pullbacks remain unavailable. Engine
+Contract/Diagnostic observations are copied from the sessions that actually performed selected
+physical admission, including failure/drop, without enabling instrumentation. Off remains an
+explicit empty-policy fact. Copy extents are admitted before materialization; descriptive source bounds count only
+selected original objects, provider ABI descriptors and physical streams, excluding parsed
+or runtime inventories from the broader retained-owner estimate. Replay admission is
+unchanged. Retained copies hold no
+session/native handles. Counting physical IPC uses a finite sink before allocating the
+copy; this allowance does not establish Arrow writer scratch or total private peak. Interpreted context headers agree with original run/step/source
+identities; exact retained maps can explain original members, affine slots, occurrences and source
+terms without inventing eliminated/native pullbacks. Analysis preparation and escaped results
+share finite allocation ownership and cooperative cancellation. Independent process selections
+retain their own intervals; parent-clock numbers never filter an unrelated clock population.
+
+Selected source recording is explicitly accepted before construction. Applicable producer/family
+activation is independent of issued work: acknowledged zero work may be complete; unsupported,
+unobserved, sampled, refused and lost sources remain distinct. DetailRequest remains v1;
+source-recording request/acknowledgement and launch-result envelopes are v2, selected detail
+headers/documents/pages and supplied frozen sets are v2. Optional producer handoff is separately
+admitted before construction and publishes only original joined facts or retained pre-handle
+context under its selected byte/member/expiry limits. It has its own completion receipt and
+retains no extra context when absent. Data-only handoff readback obeys frozen aggregate bounds. Earlier
+output codecs are refused rather than interpreted through a compatibility path. A cooperating
+command accepts a request file and publishes an actual operation/process acknowledgement;
+CPU capture of arbitrary argv cannot establish source recording. Closing a recorder drains its
+writer and never cancels science; command cancellation owns its exact child separately.
+
+Offline review publication exclusively creates its destination, publishes an incomplete index,
+finalizes selected members under finite allowances, and seals its index only after required
+copies/reports drain. Membership, explanatory context, capture availability and scientific
+outcome are independent. Selected protected results use their actual reader/export owners and
+release each borrower before opening the next reader. A shared composition serves CLI,
+Runtime and single-result export: explicit supplied/live checkpoint and optional original handoff,
+exact durable attempt/member/range/output predicates, typed diagnostic IPC, then sealing after
+drain. Pure supplied publication opens no deployment; protected rows require an explicit existing
+deployment. Analysis and pack request/selection/index/document envelopes are v2. Explanatory
+closure follows selected questions/products and supported actual source pointers, independently
+of publication success; unrelated optional missing facts do not block a narrow question. Diagnostic
+IPC retains its registry/source contract separately from scientific lineage. Table source
+comparison selects the requested original member before encoding it; unrelated attachments do
+not enter that comparison. Finalized frozen ingress still has its own finite document allowance,
+separate from the table projection pool; neither is a claim about total private process memory. Reports contain
+bounded model/settings/table/profile orientation and clickable local source anchors. Reports and
+local assets are ordinary offline files. Readers
+follow only contained indexed member paths and readable prefixes, refusing identity/version/
+format/path escapes without consulting live neighbours or original absolute locations.
+
+Declared query products retain exact SQL/parameters, input/capture and clock/window, output
+schema/units, actual tool version, status and partial/error prefixes. Half-open interval clipping,
+inclusive sums and union coverage have distinct meanings. Missing tools and failed/truncated
+queries never become empty success. Optional profiling remains question-led; stock Samply
+perf-import portable presymbolication is not adopted because its accepted flag is unused on
+that path. Additional platforms/derivatives require a concrete unanswered question. Explicit
+numerical diagnostics use admitted original source and a caller deadline established before
+preparation; passive inspection and source-following perform no new scientific evaluation.
+
+Selected IDAS `dynamic_local_error.v1` reports state-only weighted local-error estimates
+after eligible fresh successful native returns. Internal time/step/order and returned sample
+time differ; algebraic suppression follows the native full-state-denominator WRMS convention.
+Bounded contributors retain omissions and nonfinite/availability facts. Failed, repeated,
+uninitialized and reset returns cannot reuse a stale estimate. Selection owns its optional
+scratch vectors and private SUNDIALS context; it changes no tolerances or scientific masks.
+POUNCE `native_factor.v2` and `native_refinement.v2` retain actual linear-call parentage and
+bounded multipart group coordinates. Every part is required before treating a group as
+complete. Factor snapshots describe the actual scaling/order/front/perturbation path; inertia
+under static perturbation describes the perturbed matrix. Actual refinement/RHS work and
+MC64 numeric retry/fallback deltas are narrower populations than all possible native inner
+work. `native_linear_call.v1` supplies issued/completed nested calls with inclusive boundaries,
+not exclusive CPU cost. Uno accepted and termination-trial checkpoint ordinals remain
+distinct from generic iteration numbers. Optional capture failure changes no numerical outcome.
+
+
 **Spans.** `tracing` spans named `pse.*` wrap the expensive boundaries:
 
 | Owner | Spans |
@@ -624,6 +728,22 @@ with their current owners. Source-backed no-adoption decisions for inner teams, 
 PGO and GPU do not assert absent benefit. This affected-scope acceptance does not replace
 the historical full basis, rerun all parity/platforms or close other active campaigns.
 Environment/provenance proof remains permanently eliminated.
+
+Selected Plan47 diagnostic acceptance of 2026-10-19 belongs to the
+[Plan47f Outcome](../../plans/47f-qualification-and-design-publication.md#outcome).
+It composes original joined scientific owners, acknowledged CLI recording/handoff,
+selected protected publication and relocated frozen readback. An actual admitted native
+workflow was held pending while copied review ran and only its copied reader was cancelled;
+the original workflow then joined correctly. Current managed inventory is checked against
+actual stored run/attempt keys; historical retry, independent-clock and failure combinations
+also use explicit copied controls. Optional original initialization/recycle context and joined
+dynamic segment statistics remain independent of scientific success and compact retention.
+Short off/ordinary/detail observations preserve original outputs and counter populations;
+finite growth/skew controls establish selected behavior, not statistical overhead, total
+private peak memory or a capacity SLA. The Outcome owns exact commands, zero-target repairs,
+static/manual results and unexamined routes. Numerical defaults and practical accuracies
+remain unchanged; this supplements the historical basis rather than requalifying every
+scientific model, native library, platform or distribution.
 
 ### 24.3 Benchmarks
 

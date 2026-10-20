@@ -22,7 +22,7 @@ use pse_model::{
     scalar,
     scalars::{Fraction, Tolerance},
 };
-pub use record::{AttemptRecord, SubmittedStartRecord};
+pub use record::{AttemptRecord, NativeAttemptRecordDocument, SubmittedStartRecord};
 use std::{
     collections::{BTreeMap, VecDeque},
     sync::{
@@ -78,6 +78,26 @@ pub enum OptionValue {
 }
 /// Effective options retain origin, including native defaults when queried.
 pub type Options = BTreeMap<String, OptionValue>;
+/// Copy admitted factual options using the same tagged wire contract as reports.
+pub fn option_observations(
+    options: &Options,
+) -> BTreeMap<String, pse_model::diagnostic::Observation> {
+    use pse_model::diagnostic::Observation;
+    options
+        .iter()
+        .map(|(key, value)| {
+            (
+                key.clone(),
+                match value {
+                    OptionValue::Bool(v) => Observation::Boolean(*v),
+                    OptionValue::Integer(v) => Observation::Integer(i64::from(*v)),
+                    OptionValue::Real(v) => Observation::number(*v),
+                    OptionValue::Text(v) => Observation::Text(v.clone()),
+                },
+            )
+        })
+        .collect()
+}
 /// Encode observed native options without losing nonfinite library sentinels.
 /// Input options retain their finite, primitive contract; this codec is only for evidence.
 pub fn serialize_option_observations<S: serde::Serializer>(
@@ -452,7 +472,7 @@ impl Controls {
     }
 }
 /// Raw native termination and the adapter's conservative interpretation.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "NativeTerminationRecord")]
 pub struct NativeTermination {
@@ -1423,7 +1443,9 @@ pub(crate) const RESTART_OPTIONS: [&str; 6] = [
     "warm_start_mult_bound_push",
 ];
 /// The interior-point restart an adapter applied to a submitted primal-dual seed.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct AppliedRestart {
     /// Initial barrier parameter set, in native coordinates; `None` left the native default.
@@ -1826,7 +1848,9 @@ impl WorkingSet {
 }
 /// What became of a submitted working set at the presolve boundary: it reaches the native
 /// solver only under the transformation that produced it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct WorkingSetTransfer {
     /// The transformation the working set was produced under.
@@ -1836,7 +1860,7 @@ pub struct WorkingSetTransfer {
 }
 /// One transformation a submitted seed passed through between its source coordinates and
 /// the native API, recorded from what actually ran (F25).
-#[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(
     tag = "kind",
     content = "value",
@@ -1854,7 +1878,7 @@ pub enum SeedTransformation {
     InteriorRestart(AppliedRestart),
 }
 /// Actual presolve coordinate transform submitted with a seed.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PresolveSeedTransformation {
     /// Native coordinate identity of the projection.
@@ -2230,7 +2254,17 @@ pub struct OriginalObjectiveBound {
     pub relative_tolerance: f64,
 }
 /// Work observed by its executing owner; unavailable counters remain absent.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct WorkEvidence {
     /// Actual callback evaluations, including rejected trials; absent when unobserved.

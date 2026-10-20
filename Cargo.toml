@@ -260,19 +260,19 @@ diffsol = { version = "=0.16.2", path = "vendor/diffsol", default-features = fal
 diffsol-la = { version = "=0.1.1", path = "vendor/diffsol-la", default-features = false, features = [
   "faer",
 ] }
-pounce-presolve = { git = "https://github.com/paul-heyse/pounce", rev = "cfa07f0d4089bbab756def9df25dbca740547f03", version = "=0.12.0" }
-pounce-nlp = { git = "https://github.com/paul-heyse/pounce", rev = "cfa07f0d4089bbab756def9df25dbca740547f03", version = "=0.12.0" }
-pounce-common = { git = "https://github.com/paul-heyse/pounce", rev = "cfa07f0d4089bbab756def9df25dbca740547f03", version = "=0.12.0" }
+pounce-presolve = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0" }
+pounce-nlp = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0" }
+pounce-common = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0" }
 finitediff = "=0.2.0"
-pounce-rs = { git = "https://github.com/paul-heyse/pounce", rev = "cfa07f0d4089bbab756def9df25dbca740547f03", version = "=0.12.0", features = [
+pounce-rs = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0", features = [
   "qp",
   "convex",
 ] }
-pounce-feral = { git = "https://github.com/paul-heyse/pounce", rev = "cfa07f0d4089bbab756def9df25dbca740547f03", version = "=0.12.0" }
-pounce-linsol = { git = "https://github.com/paul-heyse/pounce", rev = "cfa07f0d4089bbab756def9df25dbca740547f03", version = "=0.12.0" }
+pounce-feral = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0" }
+pounce-linsol = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0" }
 # The sensitivity core's backsolver contract over a FERAL KKT factor (Plan 22 S0, I1).
-pounce-sens-core = { git = "https://github.com/paul-heyse/pounce", rev = "cfa07f0d4089bbab756def9df25dbca740547f03", version = "=0.12.0" }
-pounce-qp = { git = "https://github.com/paul-heyse/pounce", rev = "cfa07f0d4089bbab756def9df25dbca740547f03", version = "=0.12.0" }
+pounce-sens-core = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0" }
+pounce-qp = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0" }
 egobox-ego = { version = "=0.38.1", default-features = false, features = [
   "persistent",
 ] }
@@ -282,7 +282,7 @@ egobox-doe = { version = "=0.35.1", default-features = false }
 argmin = { version = "=0.11.0", default-features = false }
 ndarray = "=0.16.1"
 # Direct FERAL for conditioning and certified inertia (Plan 22 N4); the version pounce-feral resolves.
-feral = { git = "https://github.com/paul-heyse/pounce", rev = "cfa07f0d4089bbab756def9df25dbca740547f03", version = "=0.18.0" }
+feral = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.18.0" }
 # Quantiles of the fit's confidence intervals (Plan 22 S3, ADR-0118 item 8); default features
 # off: its nalgebra 0.33 and rand would split the pinned graph.
 statrs = { version = "=0.18.0", default-features = false }

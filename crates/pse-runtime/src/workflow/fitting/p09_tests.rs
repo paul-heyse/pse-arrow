@@ -3238,7 +3238,7 @@ async fn transient_fit_trial_scheduling_keeps_rejected_values_lazy_for_both_deri
 /// contain unique physical axes. Both backends see the same complete nonzero values.
 #[tokio::test]
 async fn selected_adjoint_tied_scaled_bindings_use_unique_physical_axes() {
-    let (package, profile) = source_case_on_with_fixed_parameter(
+    let (package, mut profile) = source_case_on_with_fixed_parameter(
         crate::workflow::tests::runtime_with_workspace(32 << 20),
         false,
         73.,
@@ -3246,6 +3246,7 @@ async fn selected_adjoint_tied_scaled_bindings_use_unique_physical_axes() {
         true,
     )
     .await;
+    profile.derivatives = FitDerivatives::Gradient;
     let (problem, assessments) = package
         .prepare_fit_problem(
             FitId::from(id(73)),

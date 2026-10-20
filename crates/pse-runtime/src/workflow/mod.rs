@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One public native workflow. Model declarations are generated; mathematics stays in Rust libraries.
+mod diagnostic_request;
+pub use diagnostic_request::{
+    DiagnosticCommandRequest, DiagnosticExecutionDocument, DiagnosticExecutionRequest,
+    DiagnosticRuntimeSettings,
+};
 mod route_documents;
 pub use route_documents::{EligibilityDocument, IneligibleDocument, RouteDocument};
 mod controls;
@@ -10,10 +15,15 @@ pub use controls::{
 mod attempt_documents;
 mod completion;
 mod replay;
+mod review_context;
+#[cfg(all(test, feature = "solver-kinsol"))]
+mod review_live_qualification_tests;
+#[cfg(test)]
+mod review_qualification_tests;
 pub use attempt_documents::{
     AttemptDecision, AttemptFailureSummary, AttemptFinding, AttemptIntervals,
     AttemptOriginalConclusion, AttemptStartSummary, AttemptStepSummary, AttemptSummary,
-    AttemptSummaryLimits,
+    AttemptSummaryDocument, AttemptSummaryLimits,
 };
 pub use replay::{
     ReplayBoundOverride, ReplayCaseConstructor, ReplayCaseInputs, ReplayCoverage,
@@ -24,7 +34,17 @@ pub use replay::{
     ReplayShootingConstructor, ReplaySimulationConstructor, ReplaySolverSettings,
     ReplaySourceDocument, ReplaySourceObject, ReplayVariableState, ScientificReplay,
 };
+pub use review_context::{
+    ReviewContext, ReviewContextDocument, ReviewContextFact, ReviewContextRequest,
+    ReviewContextUnavailable, ReviewProviderDescriptor, ReviewScientificCoordinates,
+    ReviewSourceAttribution, ReviewSourceDocument, ReviewSourceOccurrence, ReviewSourceTerm,
+};
 mod connected_results;
+mod review_export;
+pub use review_export::{
+    ReviewExportDeployment, ReviewOutputSelection, ReviewScientificSelection,
+    export_supplied_review_pack, prepare_review_pack,
+};
 mod physical_spool;
 pub mod result_blocks;
 pub mod result_files;
@@ -87,7 +107,9 @@ mod study;
 mod study_diagnostics;
 pub use study_diagnostics::{
     ManagedDetailOwner, ManagedDetailReference, ManagedDetailReferenceState, ManagedDetailRefusal,
-    ManagedDetailSelection, ManagedStudyDiagnosticsDocument,
+    ManagedDetailSelection, ManagedStudyDiagnosticsDocument, ReviewAttemptSelection,
+    ReviewInventoryGap, ReviewInventoryLink, ReviewInventoryMember, ReviewInventoryPage,
+    ReviewInventoryRequest, ReviewInventorySelection,
 };
 mod study_execution;
 mod study_tables;
@@ -155,7 +177,7 @@ pub use shooting::{
     ShootingProblem, ShootingProfile, ShootingReport,
 };
 mod physical;
-pub use physical::PhysicalContext;
+pub use physical::{PhysicalAdmissionReceipt, PhysicalContext};
 pub(crate) mod modeling;
 pub(crate) use modeling::PackageAdmission;
 pub use modeling::documents::{

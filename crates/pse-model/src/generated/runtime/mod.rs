@@ -139,9 +139,13 @@ pub mod r#computation_runs;
 ///Generated relation contract.
 pub mod r#diagnostic_captures;
 ///Generated relation contract.
+pub mod r#diagnostic_engine_observations;
+///Generated relation contract.
 pub mod r#diagnostic_evidence_fields;
 ///Generated relation contract.
 pub mod r#diagnostic_invocations;
+///Generated relation contract.
+pub mod r#diagnostic_query_results;
 ///Generated relation contract.
 pub mod r#diagnostics_findings;
 ///Generated relation contract.

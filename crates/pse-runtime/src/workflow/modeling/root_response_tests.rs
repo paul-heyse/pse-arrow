@@ -8,7 +8,7 @@
 use super::results::{PortablePrediction, PredictionSample};
 use super::*;
 use crate::math::{settings::SensitivityRequest, solves::NumericalInputs};
-use crate::workflow::tests as fixture;
+use crate::workflow::{review_qualification_tests, tests as fixture};
 use pse_backend_native::solve::{Backend, SolveIntent, SolverSelection};
 use pse_kernels::DerivativeOrder;
 use pse_relations::{
@@ -440,17 +440,26 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         .unwrap();
     target.solve = target.solve.with_screened_start(&screened).unwrap();
     drop(handle);
-    let corrected = package
-        .solve_case(target, analysis.compiler, &cancel)
-        .await
-        .unwrap();
+    // Run the screened proposal through the actual joined workflow owner. The
+    // original scientific corrector assertions below still qualify acceptance.
+    let corrected_run = target.start().unwrap().wait().await.unwrap();
+    review_qualification_tests::assert_review_transport(
+        &corrected_run,
+        &[
+            ("/steps/0/constructor", "replay-case-constructor.v2"),
+            ("/steps/0/runtime", "native-execution-snapshot.v1"),
+            ("/steps/0/decisions", "replay-decisions.v2"),
+        ],
+    )
+    .await;
+    let corrected = corrected_run.modeling_result(0).unwrap();
     assert!(corrected.completion.decision.permits_use());
     let Outcome::Native(report) = &corrected.outcome else {
         panic!("native original corrector expected");
     };
     assert!(
         (report.candidate.as_ref().unwrap().primal[0] - 4.4_f64.sqrt()).abs()
-            <= variable_budget(&corrected, "x"),
+            <= variable_budget(corrected, "x"),
         "actual={:?}, original_values={:?}, termination={:?}, requested={:?}, quality={:?}",
         report.candidate.as_ref().unwrap().primal,
         report.observation.as_ref().map(|observed| &observed.values),

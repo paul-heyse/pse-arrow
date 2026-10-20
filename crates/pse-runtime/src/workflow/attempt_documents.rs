@@ -16,7 +16,7 @@ use pse_model::{
 use std::sync::Arc;
 
 /// Actual submitted-start provenance. Full portable coordinates belong to replay.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttemptStartSummary {
     /// Prior attempt selected by the original start owner.
@@ -34,7 +34,7 @@ pub struct AttemptStartSummary {
 }
 
 /// Disjoint phase observations are absent until their actual owner measures them.
-#[derive(Clone, Debug, Default, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttemptIntervals {
     /// Preparation wall seconds; unavailable at this reporting boundary.
@@ -50,7 +50,7 @@ pub struct AttemptIntervals {
 }
 
 /// Admission bounds for automatic retained-only explanation.
-#[derive(Clone, Copy, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttemptSummaryLimits {
     /// Retained bounded original steps.
@@ -80,7 +80,7 @@ impl AttemptSummaryLimits {
     }
 }
 /// Independent original acceptance; never inferred from a native success code.
-#[derive(Clone, Copy, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AttemptOriginalConclusion {
     /// Original owner established its requested scientific conclusion.
@@ -91,7 +91,7 @@ pub enum AttemptOriginalConclusion {
     Unavailable,
 }
 /// Compact synchronous decision record. Charging identity preserves inclusive work meaning.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttemptDecision {
     /// Declared mechanism ordinal.
@@ -135,7 +135,7 @@ impl From<&Event> for AttemptDecision {
     }
 }
 /// A retained original-coordinate violation. IDs and physical tolerance belong to the producer.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttemptFinding {
     /// Original authored row or variable identity.
@@ -146,7 +146,7 @@ pub struct AttemptFinding {
     pub tolerance: NumberObservation,
 }
 /// Compact failure explanation over final accepted evidence only.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttemptFailureSummary {
     /// Typed native or boundary observation.
@@ -159,7 +159,7 @@ pub struct AttemptFailureSummary {
     pub retained_only: bool,
 }
 /// One original requested step; missing native facts remain absent.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttemptStepSummary {
     /// Original zero-based step ordinal.
@@ -179,13 +179,9 @@ pub struct AttemptStepSummary {
     /// Maximum original physical violation divided by its declared tolerance.
     pub normalized_physical_violation: Option<NumberObservation>,
     /// Actual options submitted by the adapter, separate from queried native defaults.
-    #[serde(serialize_with = "pse_backend_native::solve::serialize_option_observations")]
-    #[schemars(with = "std::collections::BTreeMap<String, NumberObservation>")]
-    pub effective_options: pse_backend_native::solve::Options,
+    pub effective_options: std::collections::BTreeMap<String, NumberObservation>,
     /// Defaults only when the native library supplies a readback API.
-    #[serde(serialize_with = "pse_backend_native::solve::serialize_option_observations")]
-    #[schemars(with = "std::collections::BTreeMap<String, NumberObservation>")]
-    pub native_defaults: pse_backend_native::solve::Options,
+    pub native_defaults: std::collections::BTreeMap<String, NumberObservation>,
     /// Actual submitted seed transformations and source identity.
     pub start: Option<AttemptStartSummary>,
     /// Available interval observations; overlapping native/callback costs are never added.
@@ -244,8 +240,9 @@ impl AttemptStepSummary {
         self.reused_native_state = Some(native.evidence.reused_native_state);
         self.dropped_progress = Some(native.dropped_events);
         self.native_observations = native.evidence.native_observations.clone();
-        self.effective_options = native.options.clone();
-        self.native_defaults = native.native_defaults.clone();
+        self.effective_options = pse_backend_native::solve::option_observations(&native.options);
+        self.native_defaults =
+            pse_backend_native::solve::option_observations(&native.native_defaults);
         self.start = native
             .start_receipt
             .as_ref()
@@ -305,9 +302,10 @@ impl AttemptStepSummary {
     }
 }
 /// Bounded automatic summary. Partial evidence and truncation are explicit.
-#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct AttemptSummary {
+#[schemars(rename = "AttemptSummary")]
+pub struct AttemptSummaryDocument {
     /// Original execution identity.
     pub run_id: RunId,
     /// Full original requested step count.
@@ -315,7 +313,8 @@ pub struct AttemptSummary {
     /// Retained bounded original steps.
     pub steps: Vec<AttemptStepSummary>,
     /// Shared compact native records, bounded by the requested event capacity.
-    pub native_attempts: Vec<super::ReplayNativeAttempt>,
+    pub native_attempts:
+        Vec<super::ReplayNativeAttempt<pse_backend_native::solve::NativeAttemptRecordDocument>>,
     /// Compact native records omitted by the requested bound.
     pub omitted_native_attempts: usize,
     /// Actual producer availability; integration does not invent adapter records.
@@ -326,18 +325,48 @@ pub struct AttemptSummary {
     pub failure: Option<AttemptFailureSummary>,
     /// These are original recorded reports; a partial trajectory is never a full horizon.
     pub usable: bool,
+    // Retain the real allocation with the shared factual payload, including escapes
+    // through invocation.attempts. Decoded facts own bounded reader allocations instead.
     #[serde(skip)]
     #[schemars(skip)]
+    _allocation: Option<Arc<pse_columnar::AllocationLease>>,
+}
+/// Live admitted owner. Its data-only document is also the offline interpretation contract.
+#[derive(Debug, serde::Serialize)]
+pub struct AttemptSummary {
+    #[serde(flatten)]
+    document: Arc<AttemptSummaryDocument>,
+    #[serde(skip)]
     _owner: Arc<pse_columnar::AllocationLease>,
 }
+impl schemars::JsonSchema for AttemptSummary {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        AttemptSummaryDocument::schema_name()
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        AttemptSummaryDocument::schema_id()
+    }
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        AttemptSummaryDocument::json_schema(generator)
+    }
+}
+impl std::ops::Deref for AttemptSummary {
+    type Target = AttemptSummaryDocument;
+    fn deref(&self) -> &Self::Target {
+        &self.document
+    }
+}
+impl AttemptSummary {
+    /// Immutable copied facts; no resource or scientific execution authority.
+    pub fn document(&self) -> Arc<AttemptSummaryDocument> {
+        self.document.clone()
+    }
+}
+
 #[cfg(test)]
 impl AttemptSummary {
-    pub(crate) fn empty_for_test(run_id: RunId) -> Self {
-        use datafusion::execution::memory_pool::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
-        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64 << 10));
-        let reservation = MemoryConsumer::new("unit:invocation-comparison").register(&pool);
-        reservation.try_grow(64 << 10).unwrap();
-        Self {
+    pub(crate) fn empty_for_test(run_id: RunId) -> AttemptSummaryDocument {
+        AttemptSummaryDocument {
             run_id,
             requested_steps: 0,
             steps: Vec::new(),
@@ -347,7 +376,7 @@ impl AttemptSummary {
             omitted_steps: 0,
             failure: None,
             usable: true,
-            _owner: pse_columnar::AllocationLease::new(reservation),
+            _allocation: None,
         }
     }
 }
@@ -410,7 +439,9 @@ impl RunResult {
                     .findings
                     .saturating_mul(size_of::<AttemptFinding>() + 4096),
             )
-            .saturating_add(size_of::<AttemptSummary>() + 512);
+            .saturating_add(
+                size_of::<AttemptSummary>() + size_of::<AttemptSummaryDocument>() + 512,
+            );
         let requested_steps = match &self.request {
             RunRequest::Modeling(steps) => steps.len(),
             _ => 1,
@@ -440,7 +471,7 @@ impl RunResult {
             .shared
             .math()
             .reserve("attempt:retained-summary", extent)?;
-        let mut summary = AttemptSummary {
+        let mut summary = AttemptSummaryDocument {
             run_id: self.run_id,
             requested_steps,
             steps: Vec::new(),
@@ -459,7 +490,7 @@ impl RunResult {
             },
             failure: None,
             usable: self.usable(),
-            _owner: owner,
+            _allocation: Some(owner.clone()),
         };
         for (step, mechanism, component, record) in self.native_attempt_records() {
             if summary.native_attempts.len() < limits.events {
@@ -467,7 +498,7 @@ impl RunResult {
                     step,
                     mechanism,
                     component,
-                    record: record.clone(),
+                    record: record.document(),
                 });
             } else {
                 summary.omitted_native_attempts += 1;
@@ -532,7 +563,10 @@ impl RunResult {
                 retained_only: true,
             });
         }
-        Ok(summary)
+        Ok(AttemptSummary {
+            document: Arc::new(summary),
+            _owner: owner,
+        })
     }
 }
 
@@ -562,6 +596,28 @@ mod tests {
                 })
                 .is_err()
         );
+    }
+    #[test]
+    fn escaped_summary_document_retains_real_lease_and_decoding_is_data_only() {
+        let result = RunResult::joined(
+            RunId::from_bytes([93; 16]),
+            crate::workflow::tests::runtime(),
+            RunRequest::Modeling(vec![]),
+            None,
+            Ok(RunReport::Modeling(vec![])),
+        )
+        .completed();
+        let summary = result.attempt_summary().unwrap();
+        let weak = Arc::downgrade(summary._allocation.as_ref().unwrap());
+        let document = summary.document();
+        let encoded = serde_json::to_vec(&document).unwrap();
+        drop(summary);
+        drop(result);
+        assert!(weak.upgrade().is_some());
+        let decoded: AttemptSummaryDocument = serde_json::from_slice(&encoded).unwrap();
+        assert!(decoded._allocation.is_none());
+        drop(document);
+        assert!(weak.upgrade().is_none());
     }
     #[test]
     fn retained_nonfinite_physical_violation_is_observed_not_missing() {

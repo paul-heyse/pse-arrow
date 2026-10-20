@@ -1269,7 +1269,8 @@
       "samples": 5,
       "scheduled": false,
       "detail_families": [
-        "dynamic_native_return.v1"
+        "dynamic_segment_summary.v1",
+        "dynamic_output.v1"
       ]
     },
     {
@@ -1299,7 +1300,8 @@
       "samples": 25,
       "scheduled": true,
       "detail_families": [
-        "dynamic_native_return.v1"
+        "dynamic_segment_summary.v1",
+        "dynamic_output.v1"
       ]
     },
     {
@@ -1329,7 +1331,8 @@
       "samples": 5,
       "scheduled": true,
       "detail_families": [
-        "dynamic_native_return.v1"
+        "dynamic_segment_summary.v1",
+        "dynamic_output.v1"
       ]
     },
     {
@@ -1358,7 +1361,8 @@
       "samples": 5,
       "stiff": false,
       "detail_families": [
-        "dynamic_native_return.v1"
+        "dynamic_segment_summary.v1",
+        "dynamic_output.v1"
       ]
     },
     {
@@ -1387,7 +1391,8 @@
       "samples": 25,
       "stiff": true,
       "detail_families": [
-        "dynamic_native_return.v1"
+        "dynamic_segment_summary.v1",
+        "dynamic_output.v1"
       ]
     },
     {
@@ -1440,7 +1445,11 @@
         ],
         "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
       },
-      "detail_families": []
+      "detail_families": [
+        "evaluator_demand.v1",
+        "evaluator_demand_batch.v1",
+        "evaluator_census.v1"
+      ]
     },
     {
       "id": "compact-property-value",
@@ -1465,7 +1474,11 @@
         ],
         "interpretation_limits": "One future observation is not a measured speedup; native counters are scoped to the actual attempt."
       },
-      "detail_families": []
+      "detail_families": [
+        "evaluator_demand.v1",
+        "evaluator_demand_batch.v1",
+        "evaluator_census.v1"
+      ]
     },
     {
       "id": "compact-implicit",
@@ -1516,7 +1529,11 @@
         "interpretation_limits": "Direct public IFT at independently known roots; no nonlinear inner iteration or multivariate branch-selection coverage."
       },
       "derivative_order": 1,
-      "detail_families": []
+      "detail_families": [
+        "evaluator_demand.v1",
+        "evaluator_demand_batch.v1",
+        "evaluator_census.v1"
+      ]
     },
     {
       "id": "compact-implicit-derivatives-4-2",
@@ -1540,7 +1557,11 @@
         "interpretation_limits": "Direct public IFT at independently known roots; no nonlinear inner iteration or multivariate branch-selection coverage."
       },
       "derivative_order": 2,
-      "detail_families": []
+      "detail_families": [
+        "evaluator_demand.v1",
+        "evaluator_demand_batch.v1",
+        "evaluator_census.v1"
+      ]
     },
     {
       "id": "compact-implicit-derivatives-8-2",
@@ -1564,7 +1585,11 @@
         "interpretation_limits": "Direct public IFT at independently known roots; no nonlinear inner iteration or multivariate branch-selection coverage."
       },
       "derivative_order": 2,
-      "detail_families": []
+      "detail_families": [
+        "evaluator_demand.v1",
+        "evaluator_demand_batch.v1",
+        "evaluator_census.v1"
+      ]
     },
     {
       "id": "compact-study-1-full-independent",
@@ -1594,7 +1619,12 @@
         ],
         "interpretation_limits": "Continuation dependencies serialize even when two workers are configured; between-point cache pressure is exercised by the named study lane unit control, not inferred from pre/post trimming."
       },
-      "detail_families": []
+      "detail_families": [
+        "root_evaluation.v1",
+        "native_owner_return.v1",
+        "evaluator_demand_batch.v1",
+        "evaluator_census.v1"
+      ]
     },
     {
       "id": "compact-study-2-compact-independent",
@@ -1624,7 +1654,12 @@
         ],
         "interpretation_limits": "Continuation dependencies serialize even when two workers are configured; between-point cache pressure is exercised by the named study lane unit control, not inferred from pre/post trimming."
       },
-      "detail_families": []
+      "detail_families": [
+        "root_evaluation.v1",
+        "native_owner_return.v1",
+        "evaluator_demand_batch.v1",
+        "evaluator_census.v1"
+      ]
     },
     {
       "id": "compact-study-1-compact-continuation",
@@ -1654,7 +1689,12 @@
         ],
         "interpretation_limits": "Continuation dependencies serialize even when two workers are configured; between-point cache pressure is exercised by the named study lane unit control, not inferred from pre/post trimming."
       },
-      "detail_families": []
+      "detail_families": [
+        "root_evaluation.v1",
+        "native_owner_return.v1",
+        "evaluator_demand_batch.v1",
+        "evaluator_census.v1"
+      ]
     },
     {
       "id": "compact-study-2-full-continuation",
@@ -1684,7 +1724,12 @@
         ],
         "interpretation_limits": "Continuation dependencies serialize even when two workers are configured; between-point cache pressure is exercised by the named study lane unit control, not inferred from pre/post trimming."
       },
-      "detail_families": []
+      "detail_families": [
+        "root_evaluation.v1",
+        "native_owner_return.v1",
+        "evaluator_demand_batch.v1",
+        "evaluator_census.v1"
+      ]
     },
     {
       "id": "compact-study-2-full-independent-nonlinear",
@@ -1925,7 +1970,8 @@
       "samples": 25,
       "scheduled": false,
       "detail_families": [
-        "dynamic_native_return.v1"
+        "dynamic_segment_summary.v1",
+        "dynamic_output.v1"
       ]
     },
     {
@@ -2051,6 +2097,1344 @@
           "resource.shared_pool_reserved"
         ],
         "interpretation_limits": "One complete observation; distinct admitted/read and source-to-published scopes, no throughput or statistical claim. Preserve the existing x73 selection and graph-pagination assertions; 80/96 states are small native linear fixtures, not longer horizons."
+      }
+    },
+    {
+      "id": "review-nlp-ipopt-2-cold-exact",
+      "operation": "review-sparse-nlp",
+      "reuse": "cold",
+      "blocks": 2,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1"
+      ],
+      "backend": "ipopt",
+      "hessian": "exact",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "2 original unknowns in 1 sparse nonlinear circle rows; unique analytic all-one optimum and objective 2; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-ipopt-2-accepted-exact",
+      "operation": "review-sparse-nlp",
+      "reuse": "accepted",
+      "blocks": 2,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1"
+      ],
+      "backend": "ipopt",
+      "hessian": "exact",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "2 original unknowns in 1 sparse nonlinear circle rows; unique analytic all-one optimum and objective 2; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-ipopt-2-cold-limited-memory",
+      "operation": "review-sparse-nlp",
+      "reuse": "cold",
+      "blocks": 2,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1"
+      ],
+      "backend": "ipopt",
+      "hessian": "limited-memory",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "2 original unknowns in 1 sparse nonlinear circle rows; unique analytic all-one optimum and objective 2; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-ipopt-2-accepted-limited-memory",
+      "operation": "review-sparse-nlp",
+      "reuse": "accepted",
+      "blocks": 2,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1"
+      ],
+      "backend": "ipopt",
+      "hessian": "limited-memory",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "2 original unknowns in 1 sparse nonlinear circle rows; unique analytic all-one optimum and objective 2; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-ipopt-16-cold-exact",
+      "operation": "review-sparse-nlp",
+      "reuse": "cold",
+      "blocks": 16,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1"
+      ],
+      "backend": "ipopt",
+      "hessian": "exact",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "16 original unknowns in 8 sparse nonlinear circle rows; unique analytic all-one optimum and objective 16; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-ipopt-16-accepted-exact",
+      "operation": "review-sparse-nlp",
+      "reuse": "accepted",
+      "blocks": 16,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1"
+      ],
+      "backend": "ipopt",
+      "hessian": "exact",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "16 original unknowns in 8 sparse nonlinear circle rows; unique analytic all-one optimum and objective 16; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-ipopt-16-cold-limited-memory",
+      "operation": "review-sparse-nlp",
+      "reuse": "cold",
+      "blocks": 16,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1"
+      ],
+      "backend": "ipopt",
+      "hessian": "limited-memory",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "16 original unknowns in 8 sparse nonlinear circle rows; unique analytic all-one optimum and objective 16; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-ipopt-16-accepted-limited-memory",
+      "operation": "review-sparse-nlp",
+      "reuse": "accepted",
+      "blocks": 16,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1"
+      ],
+      "backend": "ipopt",
+      "hessian": "limited-memory",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "16 original unknowns in 8 sparse nonlinear circle rows; unique analytic all-one optimum and objective 16; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-pounce-2-cold-exact",
+      "operation": "review-sparse-nlp",
+      "reuse": "cold",
+      "blocks": 2,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1",
+        "native_linear_call.v1",
+        "native_factor.v2",
+        "native_refinement.v2"
+      ],
+      "backend": "pounce",
+      "hessian": "exact",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "2 original unknowns in 1 sparse nonlinear circle rows; unique analytic all-one optimum and objective 2; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-pounce-2-accepted-exact",
+      "operation": "review-sparse-nlp",
+      "reuse": "accepted",
+      "blocks": 2,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1",
+        "native_linear_call.v1",
+        "native_factor.v2",
+        "native_refinement.v2"
+      ],
+      "backend": "pounce",
+      "hessian": "exact",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "2 original unknowns in 1 sparse nonlinear circle rows; unique analytic all-one optimum and objective 2; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-pounce-2-cold-limited-memory",
+      "operation": "review-sparse-nlp",
+      "reuse": "cold",
+      "blocks": 2,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1",
+        "native_linear_call.v1",
+        "native_factor.v2",
+        "native_refinement.v2"
+      ],
+      "backend": "pounce",
+      "hessian": "limited-memory",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "2 original unknowns in 1 sparse nonlinear circle rows; unique analytic all-one optimum and objective 2; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-pounce-2-accepted-limited-memory",
+      "operation": "review-sparse-nlp",
+      "reuse": "accepted",
+      "blocks": 2,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1",
+        "native_linear_call.v1",
+        "native_factor.v2",
+        "native_refinement.v2"
+      ],
+      "backend": "pounce",
+      "hessian": "limited-memory",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "2 original unknowns in 1 sparse nonlinear circle rows; unique analytic all-one optimum and objective 2; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-pounce-16-cold-exact",
+      "operation": "review-sparse-nlp",
+      "reuse": "cold",
+      "blocks": 16,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1",
+        "native_linear_call.v1",
+        "native_factor.v2",
+        "native_refinement.v2"
+      ],
+      "backend": "pounce",
+      "hessian": "exact",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "16 original unknowns in 8 sparse nonlinear circle rows; unique analytic all-one optimum and objective 16; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-pounce-16-accepted-exact",
+      "operation": "review-sparse-nlp",
+      "reuse": "accepted",
+      "blocks": 16,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1",
+        "native_linear_call.v1",
+        "native_factor.v2",
+        "native_refinement.v2"
+      ],
+      "backend": "pounce",
+      "hessian": "exact",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "16 original unknowns in 8 sparse nonlinear circle rows; unique analytic all-one optimum and objective 16; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-pounce-16-cold-limited-memory",
+      "operation": "review-sparse-nlp",
+      "reuse": "cold",
+      "blocks": 16,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1",
+        "native_linear_call.v1",
+        "native_factor.v2",
+        "native_refinement.v2"
+      ],
+      "backend": "pounce",
+      "hessian": "limited-memory",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "16 original unknowns in 8 sparse nonlinear circle rows; unique analytic all-one optimum and objective 16; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-pounce-16-accepted-limited-memory",
+      "operation": "review-sparse-nlp",
+      "reuse": "accepted",
+      "blocks": 16,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1",
+        "native_linear_call.v1",
+        "native_factor.v2",
+        "native_refinement.v2"
+      ],
+      "backend": "pounce",
+      "hessian": "limited-memory",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "16 original unknowns in 8 sparse nonlinear circle rows; unique analytic all-one optimum and objective 16; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-uno-2-cold-limited-memory",
+      "operation": "review-sparse-nlp",
+      "reuse": "cold",
+      "blocks": 2,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1"
+      ],
+      "backend": "uno",
+      "hessian": "limited-memory",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "2 original unknowns in 1 sparse nonlinear circle rows; unique analytic all-one optimum and objective 2; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-uno-2-accepted-limited-memory",
+      "operation": "review-sparse-nlp",
+      "reuse": "accepted",
+      "blocks": 2,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1"
+      ],
+      "backend": "uno",
+      "hessian": "limited-memory",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "2 original unknowns in 1 sparse nonlinear circle rows; unique analytic all-one optimum and objective 2; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-uno-16-cold-limited-memory",
+      "operation": "review-sparse-nlp",
+      "reuse": "cold",
+      "blocks": 16,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1"
+      ],
+      "backend": "uno",
+      "hessian": "limited-memory",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "16 original unknowns in 8 sparse nonlinear circle rows; unique analytic all-one optimum and objective 16; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-nlp-uno-16-accepted-limited-memory",
+      "operation": "review-sparse-nlp",
+      "reuse": "accepted",
+      "blocks": 16,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "nonlinear_iteration.v1",
+        "callback_boundary.v1",
+        "callback_failure.v1"
+      ],
+      "backend": "uno",
+      "hessian": "limited-memory",
+      "case_spec": {
+        "family": "C02",
+        "question": "Separate explicit sparse constrained nonquadratic NLP backend, dimension, Hessian profile and accepted native seed submission at unchanged physical accuracy.",
+        "assertions": "16 original unknowns in 8 sparse nonlinear circle rows; unique analytic all-one optimum and objective 16; authored original checks, feasible original quality, exact requested backend and submitted accepted seed receipt when selected.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations",
+          "native_owner_return.v1"
+        ],
+        "interpretation_limits": "Default physical engineering accuracy 0.001, no default altered. Accepted sample includes a separately qualified cold predecessor; native API seed submission is observed, internal consumption or speedup is not inferred. Uno admits its existing first-order limited-memory SQP only; exact comparison applies to Ipopt/POUNCE."
+      }
+    },
+    {
+      "id": "review-pounce-convex-1-1w",
+      "operation": "review-pounce-convex",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "convex_return.v1",
+        "native_owner_return.v1"
+      ],
+      "workers": 1,
+      "case_spec": {
+        "family": "C05",
+        "question": "Measure existing direct POUNCE-convex scalar/batch ownership at one, two and four explicitly admitted native workers.",
+        "assertions": "Each analytic simplex projection independently checks original variable bounds, row feasibility, unique primal and objective; exact Gram certificate, actual PounceConvex backend, real batch cardinality and native report JSON.",
+        "observations": [
+          "native.work",
+          "pounce_convex.member"
+        ],
+        "interpretation_limits": "Direct public coefficient adapter after qualified authored extraction; no workflow invocation or synthetic RunResult. Every member starts cold; a batch distributes independent members, scalar factors may use admitted threads. Native profile has no interrupt after entry: stop before start or bounded ten-second native deadline, then genuine joined pool/native teardown."
+      }
+    },
+    {
+      "id": "review-pounce-convex-1-2w",
+      "operation": "review-pounce-convex",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "convex_return.v1",
+        "native_owner_return.v1"
+      ],
+      "workers": 2,
+      "case_spec": {
+        "family": "C05",
+        "question": "Measure existing direct POUNCE-convex scalar/batch ownership at one, two and four explicitly admitted native workers.",
+        "assertions": "Each analytic simplex projection independently checks original variable bounds, row feasibility, unique primal and objective; exact Gram certificate, actual PounceConvex backend, real batch cardinality and native report JSON.",
+        "observations": [
+          "native.work",
+          "pounce_convex.member"
+        ],
+        "interpretation_limits": "Direct public coefficient adapter after qualified authored extraction; no workflow invocation or synthetic RunResult. Every member starts cold; a batch distributes independent members, scalar factors may use admitted threads. Native profile has no interrupt after entry: stop before start or bounded ten-second native deadline, then genuine joined pool/native teardown."
+      }
+    },
+    {
+      "id": "review-pounce-convex-1-4w",
+      "operation": "review-pounce-convex",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "convex_return.v1",
+        "native_owner_return.v1"
+      ],
+      "workers": 4,
+      "case_spec": {
+        "family": "C05",
+        "question": "Measure existing direct POUNCE-convex scalar/batch ownership at one, two and four explicitly admitted native workers.",
+        "assertions": "Each analytic simplex projection independently checks original variable bounds, row feasibility, unique primal and objective; exact Gram certificate, actual PounceConvex backend, real batch cardinality and native report JSON.",
+        "observations": [
+          "native.work",
+          "pounce_convex.member"
+        ],
+        "interpretation_limits": "Direct public coefficient adapter after qualified authored extraction; no workflow invocation or synthetic RunResult. Every member starts cold; a batch distributes independent members, scalar factors may use admitted threads. Native profile has no interrupt after entry: stop before start or bounded ten-second native deadline, then genuine joined pool/native teardown."
+      }
+    },
+    {
+      "id": "review-pounce-convex-8-1w",
+      "operation": "review-pounce-convex",
+      "reuse": "cold",
+      "blocks": 8,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "convex_return.v1",
+        "native_owner_return.v1"
+      ],
+      "workers": 1,
+      "case_spec": {
+        "family": "C05",
+        "question": "Measure existing direct POUNCE-convex scalar/batch ownership at one, two and four explicitly admitted native workers.",
+        "assertions": "Each analytic simplex projection independently checks original variable bounds, row feasibility, unique primal and objective; exact Gram certificate, actual PounceConvex backend, real batch cardinality and native report JSON.",
+        "observations": [
+          "native.work",
+          "pounce_convex.member"
+        ],
+        "interpretation_limits": "Direct public coefficient adapter after qualified authored extraction; no workflow invocation or synthetic RunResult. Every member starts cold; a batch distributes independent members, scalar factors may use admitted threads. Native profile has no interrupt after entry: stop before start or bounded ten-second native deadline, then genuine joined pool/native teardown."
+      }
+    },
+    {
+      "id": "review-pounce-convex-8-2w",
+      "operation": "review-pounce-convex",
+      "reuse": "cold",
+      "blocks": 8,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "convex_return.v1",
+        "native_owner_return.v1"
+      ],
+      "workers": 2,
+      "case_spec": {
+        "family": "C05",
+        "question": "Measure existing direct POUNCE-convex scalar/batch ownership at one, two and four explicitly admitted native workers.",
+        "assertions": "Each analytic simplex projection independently checks original variable bounds, row feasibility, unique primal and objective; exact Gram certificate, actual PounceConvex backend, real batch cardinality and native report JSON.",
+        "observations": [
+          "native.work",
+          "pounce_convex.member"
+        ],
+        "interpretation_limits": "Direct public coefficient adapter after qualified authored extraction; no workflow invocation or synthetic RunResult. Every member starts cold; a batch distributes independent members, scalar factors may use admitted threads. Native profile has no interrupt after entry: stop before start or bounded ten-second native deadline, then genuine joined pool/native teardown."
+      }
+    },
+    {
+      "id": "review-pounce-convex-8-4w",
+      "operation": "review-pounce-convex",
+      "reuse": "cold",
+      "blocks": 8,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "convex_return.v1",
+        "native_owner_return.v1"
+      ],
+      "workers": 4,
+      "case_spec": {
+        "family": "C05",
+        "question": "Measure existing direct POUNCE-convex scalar/batch ownership at one, two and four explicitly admitted native workers.",
+        "assertions": "Each analytic simplex projection independently checks original variable bounds, row feasibility, unique primal and objective; exact Gram certificate, actual PounceConvex backend, real batch cardinality and native report JSON.",
+        "observations": [
+          "native.work",
+          "pounce_convex.member"
+        ],
+        "interpretation_limits": "Direct public coefficient adapter after qualified authored extraction; no workflow invocation or synthetic RunResult. Every member starts cold; a batch distributes independent members, scalar factors may use admitted threads. Native profile has no interrupt after entry: stop before start or bounded ten-second native deadline, then genuine joined pool/native teardown."
+      }
+    },
+    {
+      "id": "review-root-banded-64",
+      "operation": "compact-root",
+      "reuse": "cold",
+      "blocks": 64,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "backend": "kinsol",
+      "shape": "banded",
+      "case_spec": {
+        "family": "C03",
+        "question": "Extend existing banded sparse root ownership to bounded 64/256 unknown configurations.",
+        "assertions": "Original analytic x_i=i+1, cubic-plus-linear banded rows, authored checks and actual selected KINSOL components with original completion.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations"
+        ],
+        "interpretation_limits": "Existing compact-root scientific route and assertions preserved; each row has at most two variable dependencies. These configurations are not large-plant qualification."
+      }
+    },
+    {
+      "id": "review-root-banded-256",
+      "operation": "compact-root",
+      "reuse": "cold",
+      "blocks": 256,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "backend": "kinsol",
+      "shape": "banded",
+      "case_spec": {
+        "family": "C03",
+        "question": "Extend existing banded sparse root ownership to bounded 64/256 unknown configurations.",
+        "assertions": "Original analytic x_i=i+1, cubic-plus-linear banded rows, authored checks and actual selected KINSOL components with original completion.",
+        "observations": [
+          "native.work",
+          "invocation",
+          "preparations"
+        ],
+        "interpretation_limits": "Existing compact-root scientific route and assertions preserved; each row has at most two variable dependencies. These configurations are not large-plant qualification."
+      }
+    },
+    {
+      "id": "review-study-1w-4p-full-independent-nonlinear",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "workers": 1,
+      "retention": "full",
+      "continuation": false,
+      "nonlinear": true,
+      "trim_cache": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Compare real nonlinear point work and Full/Compact retention across one/two/four worker widths, plus bounded four/sixteen point populations and ordered continuation.",
+        "assertions": "4 distinct nonzero overlays; known monotone x^3+x=(2+t)^3+(2+t) solution x=2+t, original parameter and root checks, requested Fresh/Continuation provenance, each original usable result and joined lane teardown.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "study.requested_points",
+          "study.returned_points",
+          "study.frontier",
+          "study.prepared",
+          "study.in_flight"
+        ],
+        "interpretation_limits": "Four original nonlinear overlay values remain [0.01,1,3,7]; sixteen-point cases append twelve deterministic unique nonzero values. The actual scheduler emits ready/frontier/in-flight observations; configured worker width does not establish active parallelism or speedup. Continuation ordering may serialize all points."
+      }
+    },
+    {
+      "id": "review-study-1w-4p-compact-independent-nonlinear",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "workers": 1,
+      "retention": "compact",
+      "continuation": false,
+      "nonlinear": true,
+      "trim_cache": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Compare real nonlinear point work and Full/Compact retention across one/two/four worker widths, plus bounded four/sixteen point populations and ordered continuation.",
+        "assertions": "4 distinct nonzero overlays; known monotone x^3+x=(2+t)^3+(2+t) solution x=2+t, original parameter and root checks, requested Fresh/Continuation provenance, each original usable result and joined lane teardown.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "study.requested_points",
+          "study.returned_points",
+          "study.frontier",
+          "study.prepared",
+          "study.in_flight"
+        ],
+        "interpretation_limits": "Four original nonlinear overlay values remain [0.01,1,3,7]; sixteen-point cases append twelve deterministic unique nonzero values. The actual scheduler emits ready/frontier/in-flight observations; configured worker width does not establish active parallelism or speedup. Continuation ordering may serialize all points."
+      }
+    },
+    {
+      "id": "review-study-2w-4p-compact-independent-nonlinear",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 2,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "workers": 2,
+      "retention": "compact",
+      "continuation": false,
+      "nonlinear": true,
+      "trim_cache": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Compare real nonlinear point work and Full/Compact retention across one/two/four worker widths, plus bounded four/sixteen point populations and ordered continuation.",
+        "assertions": "4 distinct nonzero overlays; known monotone x^3+x=(2+t)^3+(2+t) solution x=2+t, original parameter and root checks, requested Fresh/Continuation provenance, each original usable result and joined lane teardown.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "study.requested_points",
+          "study.returned_points",
+          "study.frontier",
+          "study.prepared",
+          "study.in_flight"
+        ],
+        "interpretation_limits": "Four original nonlinear overlay values remain [0.01,1,3,7]; sixteen-point cases append twelve deterministic unique nonzero values. The actual scheduler emits ready/frontier/in-flight observations; configured worker width does not establish active parallelism or speedup. Continuation ordering may serialize all points."
+      }
+    },
+    {
+      "id": "review-study-4w-4p-full-independent-nonlinear",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 4,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "workers": 4,
+      "retention": "full",
+      "continuation": false,
+      "nonlinear": true,
+      "trim_cache": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Compare real nonlinear point work and Full/Compact retention across one/two/four worker widths, plus bounded four/sixteen point populations and ordered continuation.",
+        "assertions": "4 distinct nonzero overlays; known monotone x^3+x=(2+t)^3+(2+t) solution x=2+t, original parameter and root checks, requested Fresh/Continuation provenance, each original usable result and joined lane teardown.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "study.requested_points",
+          "study.returned_points",
+          "study.frontier",
+          "study.prepared",
+          "study.in_flight"
+        ],
+        "interpretation_limits": "Four original nonlinear overlay values remain [0.01,1,3,7]; sixteen-point cases append twelve deterministic unique nonzero values. The actual scheduler emits ready/frontier/in-flight observations; configured worker width does not establish active parallelism or speedup. Continuation ordering may serialize all points."
+      }
+    },
+    {
+      "id": "review-study-4w-4p-compact-independent-nonlinear",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 4,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "workers": 4,
+      "retention": "compact",
+      "continuation": false,
+      "nonlinear": true,
+      "trim_cache": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Compare real nonlinear point work and Full/Compact retention across one/two/four worker widths, plus bounded four/sixteen point populations and ordered continuation.",
+        "assertions": "4 distinct nonzero overlays; known monotone x^3+x=(2+t)^3+(2+t) solution x=2+t, original parameter and root checks, requested Fresh/Continuation provenance, each original usable result and joined lane teardown.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "study.requested_points",
+          "study.returned_points",
+          "study.frontier",
+          "study.prepared",
+          "study.in_flight"
+        ],
+        "interpretation_limits": "Four original nonlinear overlay values remain [0.01,1,3,7]; sixteen-point cases append twelve deterministic unique nonzero values. The actual scheduler emits ready/frontier/in-flight observations; configured worker width does not establish active parallelism or speedup. Continuation ordering may serialize all points."
+      }
+    },
+    {
+      "id": "review-study-1w-4p-compact-continuation-nonlinear",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "workers": 1,
+      "retention": "compact",
+      "continuation": true,
+      "nonlinear": true,
+      "trim_cache": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Compare real nonlinear point work and Full/Compact retention across one/two/four worker widths, plus bounded four/sixteen point populations and ordered continuation.",
+        "assertions": "4 distinct nonzero overlays; known monotone x^3+x=(2+t)^3+(2+t) solution x=2+t, original parameter and root checks, requested Fresh/Continuation provenance, each original usable result and joined lane teardown.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "study.requested_points",
+          "study.returned_points",
+          "study.frontier",
+          "study.prepared",
+          "study.in_flight"
+        ],
+        "interpretation_limits": "Four original nonlinear overlay values remain [0.01,1,3,7]; sixteen-point cases append twelve deterministic unique nonzero values. The actual scheduler emits ready/frontier/in-flight observations; configured worker width does not establish active parallelism or speedup. Continuation ordering may serialize all points."
+      }
+    },
+    {
+      "id": "review-study-4w-4p-compact-continuation-nonlinear",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 4,
+      "threads": 4,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "workers": 4,
+      "retention": "compact",
+      "continuation": true,
+      "nonlinear": true,
+      "trim_cache": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Compare real nonlinear point work and Full/Compact retention across one/two/four worker widths, plus bounded four/sixteen point populations and ordered continuation.",
+        "assertions": "4 distinct nonzero overlays; known monotone x^3+x=(2+t)^3+(2+t) solution x=2+t, original parameter and root checks, requested Fresh/Continuation provenance, each original usable result and joined lane teardown.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "study.requested_points",
+          "study.returned_points",
+          "study.frontier",
+          "study.prepared",
+          "study.in_flight"
+        ],
+        "interpretation_limits": "Four original nonlinear overlay values remain [0.01,1,3,7]; sixteen-point cases append twelve deterministic unique nonzero values. The actual scheduler emits ready/frontier/in-flight observations; configured worker width does not establish active parallelism or speedup. Continuation ordering may serialize all points."
+      }
+    },
+    {
+      "id": "review-study-4w-16p-full-independent-nonlinear",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 16,
+      "threads": 4,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "workers": 4,
+      "retention": "full",
+      "continuation": false,
+      "nonlinear": true,
+      "trim_cache": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Compare real nonlinear point work and Full/Compact retention across one/two/four worker widths, plus bounded four/sixteen point populations and ordered continuation.",
+        "assertions": "16 distinct nonzero overlays; known monotone x^3+x=(2+t)^3+(2+t) solution x=2+t, original parameter and root checks, requested Fresh/Continuation provenance, each original usable result and joined lane teardown.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "study.requested_points",
+          "study.returned_points",
+          "study.frontier",
+          "study.prepared",
+          "study.in_flight"
+        ],
+        "interpretation_limits": "Four original nonlinear overlay values remain [0.01,1,3,7]; sixteen-point cases append twelve deterministic unique nonzero values. The actual scheduler emits ready/frontier/in-flight observations; configured worker width does not establish active parallelism or speedup. Continuation ordering may serialize all points."
+      }
+    },
+    {
+      "id": "review-study-4w-16p-compact-independent-nonlinear",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 16,
+      "threads": 4,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "workers": 4,
+      "retention": "compact",
+      "continuation": false,
+      "nonlinear": true,
+      "trim_cache": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Compare real nonlinear point work and Full/Compact retention across one/two/four worker widths, plus bounded four/sixteen point populations and ordered continuation.",
+        "assertions": "16 distinct nonzero overlays; known monotone x^3+x=(2+t)^3+(2+t) solution x=2+t, original parameter and root checks, requested Fresh/Continuation provenance, each original usable result and joined lane teardown.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "study.requested_points",
+          "study.returned_points",
+          "study.frontier",
+          "study.prepared",
+          "study.in_flight"
+        ],
+        "interpretation_limits": "Four original nonlinear overlay values remain [0.01,1,3,7]; sixteen-point cases append twelve deterministic unique nonzero values. The actual scheduler emits ready/frontier/in-flight observations; configured worker width does not establish active parallelism or speedup. Continuation ordering may serialize all points."
+      }
+    },
+    {
+      "id": "review-study-4w-16p-compact-continuation-nonlinear",
+      "operation": "compact-study",
+      "reuse": "cold",
+      "blocks": 16,
+      "threads": 4,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1"
+      ],
+      "workers": 4,
+      "retention": "compact",
+      "continuation": true,
+      "nonlinear": true,
+      "trim_cache": true,
+      "case_spec": {
+        "family": "C10",
+        "question": "Compare real nonlinear point work and Full/Compact retention across one/two/four worker widths, plus bounded four/sixteen point populations and ordered continuation.",
+        "assertions": "16 distinct nonzero overlays; known monotone x^3+x=(2+t)^3+(2+t) solution x=2+t, original parameter and root checks, requested Fresh/Continuation provenance, each original usable result and joined lane teardown.",
+        "observations": [
+          "preparations",
+          "invocation",
+          "native.work",
+          "study.requested_points",
+          "study.returned_points",
+          "study.frontier",
+          "study.prepared",
+          "study.in_flight"
+        ],
+        "interpretation_limits": "Four original nonlinear overlay values remain [0.01,1,3,7]; sixteen-point cases append twelve deterministic unique nonzero values. The actual scheduler emits ready/frontier/in-flight observations; configured worker width does not establish active parallelism or speedup. Continuation ordering may serialize all points."
+      }
+    },
+    {
+      "id": "review-conic-soc",
+      "operation": "review-conic",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "shape": "soc",
+      "detail_families": [
+        "conic_iteration.v1",
+        "native_owner_return.v1"
+      ],
+      "case_spec": {
+        "family": "C05",
+        "question": "Exercise actual second-order and positive-semidefinite cone geometry through the qualified public explicit cone route.",
+        "assertions": "SOC s=(t,1,2) has unique optimum sqrt(5); PSD svec([[t,1],[1,t]]) has unique optimum1, independently checked eigenvalues t-1/t+1; actual Clarabel, original feasibility, objective, and native request/report JSON at0.001 accuracy.",
+        "observations": [
+          "native.work"
+        ],
+        "interpretation_limits": "Direct mathematical SolveHandle with real finish/cancellation/join and no workflow invocation; one SOC3 and one PSD2 block do not qualify larger conic or chordal decomposition workloads."
+      }
+    },
+    {
+      "id": "review-conic-psd",
+      "operation": "review-conic",
+      "reuse": "cold",
+      "blocks": 1,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "shape": "psd",
+      "detail_families": [
+        "conic_iteration.v1",
+        "native_owner_return.v1"
+      ],
+      "case_spec": {
+        "family": "C05",
+        "question": "Exercise actual second-order and positive-semidefinite cone geometry through the qualified public explicit cone route.",
+        "assertions": "SOC s=(t,1,2) has unique optimum sqrt(5); PSD svec([[t,1],[1,t]]) has unique optimum1, independently checked eigenvalues t-1/t+1; actual Clarabel, original feasibility, objective, and native request/report JSON at0.001 accuracy.",
+        "observations": [
+          "native.work"
+        ],
+        "interpretation_limits": "Direct mathematical SolveHandle with real finish/cancellation/join and no workflow invocation; one SOC3 and one PSD2 block do not qualify larger conic or chordal decomposition workloads."
+      }
+    },
+    {
+      "id": "review-sparse-fit-2-1",
+      "operation": "sparse-fit",
+      "reuse": "cold",
+      "blocks": 2,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "workflow.integration.v1",
+        "nonlinear_iteration.v1"
+      ],
+      "case_spec": {
+        "question": "Expose small and eight-parameter fitting, native callback work and qualified responses without a dense rank refusal.",
+        "assertions": "Original analytic identity measurements p_i=2; original native feasibility and qualified response availability; unchanged solver accuracy.",
+        "interpretation_limits": "Independent steady identity experiments complement transient/tied/skew fitting fixtures; they do not establish eight-parameter adjoint scaling."
+      }
+    },
+    {
+      "id": "review-sparse-fit-8-1",
+      "operation": "sparse-fit",
+      "reuse": "cold",
+      "blocks": 8,
+      "threads": 1,
+      "extended": true,
+      "functional_scopes": [
+        "process"
+      ],
+      "audit_supported": true,
+      "detail_families": [
+        "native_owner_return.v1",
+        "workflow.integration.v1",
+        "nonlinear_iteration.v1"
+      ],
+      "case_spec": {
+        "question": "Expose small and eight-parameter fitting, native callback work and qualified responses without a dense rank refusal.",
+        "assertions": "Original analytic identity measurements p_i=2; original native feasibility and qualified response availability; unchanged solver accuracy.",
+        "interpretation_limits": "Independent steady identity experiments complement transient/tied/skew fitting fixtures; they do not establish eight-parameter adjoint scaling."
       }
     }
   ]

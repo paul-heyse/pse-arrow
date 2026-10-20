@@ -95,6 +95,25 @@
       ],
       "type": "object"
     },
+    "DetailSourceActivation": {
+      "additionalProperties": false,
+      "description": "A bounded declaration from an actual performing source; never a synthetic event.",
+      "properties": {
+        "family": {
+          "description": "Exact installed versioned source family.",
+          "type": "string"
+        },
+        "producer": {
+          "$ref": "#/$defs/ProducerDescriptor",
+          "description": "Actual owner including its process-instance operation locator."
+        }
+      },
+      "required": [
+        "producer",
+        "family"
+      ],
+      "type": "object"
+    },
     "NonFinite": {
       "enum": [
         "Nan",
@@ -445,6 +464,13 @@
   "additionalProperties": false,
   "description": "Bounded page of original source records, independent from derived explanations.",
   "properties": {
+    "activations": {
+      "description": "Actual source declarations encountered on this page.",
+      "items": {
+        "$ref": "#/$defs/DetailSourceActivation"
+      },
+      "type": "array"
+    },
     "next_offset": {
       "description": "Exact next JSONL byte boundary, absent at terminal/end-of-file.",
       "format": "uint64",
@@ -473,8 +499,8 @@
       "type": "array"
     },
     "version": {
-      "const": 1,
-      "default": 1,
+      "const": 2,
+      "default": 2,
       "description": "Page encoding contract.",
       "type": "integer"
     }
@@ -483,6 +509,7 @@
     "version",
     "records",
     "producers",
+    "activations",
     "partial"
   ],
   "title": "DetailRecordPage",

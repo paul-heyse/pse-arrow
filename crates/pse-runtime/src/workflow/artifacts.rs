@@ -466,6 +466,41 @@ pub(super) fn solve_context(
     run_id: pse_model::generated::identities::RunId,
     step: i64,
 ) -> Result<pse_model::generated::runtime::scientific_contexts::Row, WorkflowError> {
+    let coordinates = solve_coordinates(prepared, run_id, step)?;
+    Ok(pse_model::generated::runtime::scientific_contexts::Row {
+        run_id: coordinates.run_id,
+        step: coordinates.step,
+        model_id: coordinates.model_id,
+        fit_id: coordinates.fit_id,
+        case_id: coordinates.case_id,
+        instance_id: coordinates.instance_id,
+        source_identity: coordinates.source_identity,
+        physical_identity: coordinates.physical_identity,
+        preparation_identity: prepared
+            .solve
+            .preparation_identity()
+            .map_err(crate::math::MathRuntimeError::from)?,
+        profile_identity: crate::math::solves::profile_key(&prepared.profile)
+            .map_err(crate::math::MathRuntimeError::from)?
+            .as_id(),
+        configuration: coordinates.configuration,
+        binding: coordinates.binding,
+        state: coordinates.state,
+        inputs: coordinates.inputs,
+        outputs: coordinates.outputs,
+        integrals: coordinates.integrals,
+        time: coordinates.time,
+        mode_names: coordinates.mode_names,
+        mode_identities: coordinates.mode_identities,
+    })
+}
+
+/// Shared factual gathering does not ask executable providers for configuration identities.
+pub(super) fn solve_coordinates(
+    prepared: &super::ModelingSolvePreparation,
+    run_id: pse_model::generated::identities::RunId,
+    step: i64,
+) -> Result<super::review_context::ReviewScientificCoordinates, WorkflowError> {
     let solved = prepared.model.model.solved();
     let structure = prepared.model.case.compiled().plan.structure();
     let quantities = &prepared.source.quantities;
@@ -495,7 +530,7 @@ pub(super) fn solve_context(
                 .map_err(|error| contract(error.to_string()))
         })
         .transpose()?;
-    Ok(pse_model::generated::runtime::scientific_contexts::Row {
+    Ok(super::review_context::ReviewScientificCoordinates {
         run_id,
         step,
         model_id: Some(solved.model()),
@@ -504,13 +539,8 @@ pub(super) fn solve_context(
         instance_id: Some(solved.instance()),
         source_identity: prepared.source.revision.identity().as_id(),
         physical_identity: prepared.source.physical.identity(),
-        preparation_identity: prepared
-            .solve
-            .preparation_identity()
-            .map_err(crate::math::MathRuntimeError::from)?,
-        profile_identity: crate::math::solves::profile_key(&prepared.profile)
-            .map_err(crate::math::MathRuntimeError::from)?
-            .as_id(),
+        preparation_identity: None,
+        profile_identity: None,
         configuration: configuration.into(),
         binding,
         state,

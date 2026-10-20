@@ -2141,7 +2141,7 @@ async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids()
     let stable: Vec<_> = serial.blocks().boundaries().map(|block| block.id).collect();
     assert!(stable.len() >= 3);
     let expected = serial.start().unwrap().finish().await.unwrap();
-    assert_eq!(expected.completed_stages, 1);
+    assert_eq!(expected.completed_stages, 1, "{expected:#?}");
     analysis.solver.block_workers = 2;
     analysis.solver.block_overrides.insert(
         stable[0],

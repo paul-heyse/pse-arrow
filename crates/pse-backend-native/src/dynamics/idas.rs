@@ -26,6 +26,7 @@ use std::{
 };
 use suitesparse_sys as _;
 use sundials_sys as ffi;
+mod local_error;
 
 type Jacobian = pse_math::SharedAllocation<faer::sparse::SparseColMat<usize, f64>>;
 /// A second-order adjoint result: the symmetric Hessian over the directions and its
@@ -1388,6 +1389,7 @@ type Adjoints = (Vec<Vec<f64>>, Vec<Vec<f64>>);
 type Forward = (Vec<f64>, Vec<f64>, Vec<Vec<f64>>);
 struct Session<'a> {
     replay_steps: Option<StepBudget>,
+    local_error: Option<local_error::LocalError>,
     observation_generation: u64,
     observation_counters: std::cell::RefCell<BTreeSet<&'static str>>,
     ctx: ffi::SUNContext,
@@ -1424,6 +1426,8 @@ impl Drop for Session<'_> {
             // SAFETY: the session's live IDAS memory; `IDAFree` nulls the pointer.
             unsafe { ffi::IDAFree(&raw mut self.mem) };
         }
+        // Selected diagnostic vectors and their private context end with the attempt.
+        self.local_error = None;
         if !self.linear.is_null() {
             // SAFETY: the session's linear solver, no longer attached to any memory.
             unsafe { ffi::SUNLinSolFree(self.linear) };
@@ -1570,6 +1574,7 @@ impl<'a> Session<'a> {
         let newton_values_b = vec![0.0; layout.rows_b.len()];
         let mut s = Self {
             replay_steps: None,
+            local_error: None,
             observation_generation: crate::observation::generation(),
             observation_counters: std::cell::RefCell::default(),
             ctx: std::ptr::null_mut(),
@@ -1617,6 +1622,7 @@ impl<'a> Session<'a> {
             _local: PhantomData,
         };
         native!(ffi::SUNContext_Create(0, &raw mut s.ctx), "context")?;
+        s.local_error = local_error::LocalError::prepare(n);
         let Some(initial) = s.callback.evaluate(
             Function::Initial,
             config.time,
@@ -2427,14 +2433,33 @@ impl<'a> Session<'a> {
     }
     /// One forward `IDASolve` call, or `IDASolveF` on the adjoint route, which stores
     /// checkpoints: more than `max_checkpoints` at once is a typed memory limit.
-    fn solve(&mut self, target: f64, time: &mut f64) -> Result<i32, ProblemError> {
+    fn solve(&mut self, target: f64, time: &mut f64, phase: &str) -> Result<i32, ProblemError> {
         let Some(b) = self.adjoint.as_mut() else {
             // SAFETY: the session's live IDAS memory and vectors on its owning thread;
             // `time` is caller storage, and the callbacks reach the context only through
             // their user data.
-            return Ok(crate::observation::scoped("idas.forward", || unsafe {
+            let flag = crate::observation::scoped("idas.forward", || unsafe {
                 ffi::IDASolve(self.mem, target, time, self.y, self.dy, ffi::IDA_NORMAL)
-            }));
+            });
+            if let Some(local_error) = &mut self.local_error {
+                // SAFETY: actual owner-thread return, with live memory and selected
+                // buffers. This adapter never enables IDASetSuppressAlg (default false).
+                unsafe {
+                    local_error.returned(
+                        self.mem,
+                        &self.callback.contract,
+                        local_error::ReturnCheckpoint {
+                            generation: self.observation_generation,
+                            flag,
+                            returned_time: *time,
+                            suppress_alg: false,
+                            phase,
+                        },
+                        &self.callback.callback.execution,
+                    );
+                }
+            }
+            return Ok(flag);
         };
         let mut stored = 0;
         // SAFETY: as above; `stored` is a local out-parameter.
@@ -2449,6 +2474,24 @@ impl<'a> Session<'a> {
                 &raw mut stored,
             )
         });
+        if let Some(local_error) = &mut self.local_error {
+            // SAFETY: IDASolveF has returned on the owning thread; the session retains
+            // all state and scratch. Checkpoint accounting below cannot create validity.
+            unsafe {
+                local_error.returned(
+                    self.mem,
+                    &self.callback.contract,
+                    local_error::ReturnCheckpoint {
+                        generation: self.observation_generation,
+                        flag,
+                        returned_time: *time,
+                        suppress_alg: false,
+                        phase,
+                    },
+                    &self.callback.callback.execution,
+                );
+            }
+        }
         // Native allocation-point enforcement counts the initial checkpoint too,
         // and records the high-water mark even when a NORMAL call fails partway.
         let (mut current, mut peak, mut refused) = (0, 0, 0);
@@ -2649,7 +2692,7 @@ impl<'a> Session<'a> {
                 .filter(|t| *t < stop)
                 .unwrap_or(stop);
             let mut time = r.completed_time;
-            let result = self.solve(target, &mut time);
+            let result = self.solve(target, &mut time, "idas.forward.local_error");
             native!(ffi::IDAGetNumSteps(self.mem, &raw mut steps), "step count")?;
             if let Some(last) = r.statistics.last_mut() {
                 let flag = result.as_ref().copied().unwrap_or(ffi::IDA_MEM_FAIL);
@@ -3110,7 +3153,7 @@ impl Session<'_> {
         let mut time = start.time;
         self.observation_generation = crate::observation::generation();
         self.observation_counters.borrow_mut().clear();
-        let result = self.solve(stop, &mut time);
+        let result = self.solve(stop, &mut time, "idas.replay.local_error");
         let mut accepted: c_long = 0;
         native!(
             ffi::IDAGetAcceptedBudgetSteps(self.mem, &raw mut accepted),
@@ -4993,11 +5036,11 @@ mod initialization_tests {
 mod checkpoint_owner_tests {
     use super::*;
 
-    struct NativeForward {
-        context: ffi::SUNContext,
-        memory: *mut c_void,
-        state: ffi::N_Vector,
-        rate: ffi::N_Vector,
+    pub(super) struct NativeForward {
+        pub(super) context: ffi::SUNContext,
+        pub(super) memory: *mut c_void,
+        pub(super) state: ffi::N_Vector,
+        pub(super) rate: ffi::N_Vector,
         matrix: ffi::SUNMatrix,
         linear: ffi::SUNLinearSolver,
     }
@@ -5036,28 +5079,44 @@ mod checkpoint_owner_tests {
     }
     impl NativeForward {
         fn new(spacing: c_long) -> Self {
+            Self::new_with(spacing, &[1.], &[-1.], decay)
+        }
+        pub(super) fn new_with(
+            spacing: c_long,
+            values: &[f64],
+            rates: &[f64],
+            residual: unsafe extern "C" fn(
+                f64,
+                ffi::N_Vector,
+                ffi::N_Vector,
+                ffi::N_Vector,
+                *mut c_void,
+            ) -> i32,
+        ) -> Self {
+            let n = index(values.len()).unwrap();
+            assert_eq!(values.len(), rates.len());
             let mut context = std::ptr::null_mut();
             // SAFETY: the local output is writable and the serial fixture uses no MPI.
             let context_status =
                 unsafe { ffi::SUNContext_Create(ffi::comm_no_mpi(), &raw mut context) };
             assert_eq!(context_status, 0);
-            // SAFETY: context is live and this owner requests exactly one scalar.
-            let state = unsafe { ffi::N_VNew_Serial(1, context) };
-            // SAFETY: the same live context owns the matching one-entry rate vector.
-            let rate = unsafe { ffi::N_VNew_Serial(1, context) };
+            // SAFETY: context is live and the requested extent matches values/rates.
+            let state = unsafe { ffi::N_VNew_Serial(n, context) };
+            // SAFETY: the same live context owns the matching rate vector.
+            let rate = unsafe { ffi::N_VNew_Serial(n, context) };
             assert!(!state.is_null() && !rate.is_null());
-            // SAFETY: state is live, one-entry and exclusively owned here.
+            // SAFETY: state has values.len() entries and is exclusively owned here.
             unsafe {
-                set_scalar(state, 1.);
+                write(state, values);
             }
-            // SAFETY: rate is live, one-entry and exclusively owned here.
+            // SAFETY: rate has rates.len() entries and is exclusively owned here.
             unsafe {
-                set_scalar(rate, -1.);
+                write(rate, rates);
             }
             // SAFETY: this fixture exclusively owns the initialized context.
             let memory = unsafe { ffi::IDACreate(context) };
-            // SAFETY: a one-by-one matrix matches both owned vectors.
-            let matrix = unsafe { ffi::SUNDenseMatrix(1, 1, context) };
+            // SAFETY: an n-by-n matrix matches both owned vectors.
+            let matrix = unsafe { ffi::SUNDenseMatrix(n, n, context) };
             assert!(!memory.is_null() && !matrix.is_null());
             // SAFETY: state, matrix and context are live and dimensionally compatible.
             let linear = unsafe { ffi::SUNLinSol_Dense(state, matrix, context) };
@@ -5070,8 +5129,8 @@ mod checkpoint_owner_tests {
                 linear,
             };
             assert!(!linear.is_null());
-            // SAFETY: decay uses the matching live vectors owned through final teardown.
-            let init_status = unsafe { ffi::IDAInit(memory, Some(decay), 0., state, rate) };
+            // SAFETY: the supplied residual uses the matching vectors through final teardown.
+            let init_status = unsafe { ffi::IDAInit(memory, Some(residual), 0., state, rate) };
             assert_eq!(init_status, 0);
             // SAFETY: initialized memory receives finite positive scalar tolerances.
             assert_eq!(unsafe { ffi::IDASStolerances(memory, 0.001, 0.001) }, 0);
@@ -5101,7 +5160,7 @@ mod checkpoint_owner_tests {
             assert_eq!(usage_status, 0);
             (current, peak, refused)
         }
-        fn solve(&mut self, target: f64, task: i32) -> (i32, f64, f64) {
+        pub(super) fn solve(&mut self, target: f64, task: i32) -> (i32, f64, f64) {
             let (mut time, mut stored) = (0., 0);
             // SAFETY: live native memory, matching state/rate vectors and local output.
             let flag = unsafe {

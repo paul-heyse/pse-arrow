@@ -1210,6 +1210,22 @@ class RuntimeDiagnosticCapturesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeDiagnosticEngineObservationsRow:
+    """Declared relation row or nested value."""
+
+    member: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    observation: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    operation: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    policy: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    status: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    dropped: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    document_json: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.member), v.scalar_key(self.observation), v.optional_key(v.scalar_key)(self.operation), v.scalar_key(self.policy), v.optional_key(v.scalar_key)(self.status), v.scalar_key(self.dropped), v.scalar_key(self.document_json),))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeDiagnosticEvidenceFieldsRow:
     """Declared relation row or nested value."""
 
@@ -1258,6 +1274,23 @@ class RuntimeDiagnosticInvocationsRow:
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.run), v.optional_key(v.scalar_key)(self.attempt), v.optional_key(v.scalar_key)(self.operation), v.scalar_key(self.family), v.scalar_key(self.outcome), v.scalar_key(self.clock_scope), v.optional_key(v.scalar_key)(self.qualification_seconds), v.optional_key(v.scalar_key)(self.terminal_seconds), v.optional_key(v.scalar_key)(self.response_ready_seconds), v.scalar_key(self.partial), v.scalar_key(self.document_json),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeDiagnosticQueryResultsRow:
+    """Declared relation row or nested value."""
+
+    member: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    question: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    clock_scope: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    status: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    query_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    tool_version: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    rows: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
+    document_json: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.member), v.scalar_key(self.question), v.scalar_key(self.clock_scope), v.scalar_key(self.status), v.scalar_key(self.query_version), v.optional_key(v.scalar_key)(self.tool_version), v.optional_key(v.scalar_key)(self.rows), v.scalar_key(self.document_json),))
 
 
 @attrs.frozen(kw_only=True)

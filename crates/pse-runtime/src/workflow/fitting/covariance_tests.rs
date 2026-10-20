@@ -53,6 +53,17 @@ async fn linear_regression_covariance_analytic() {
             .unwrap();
         let frozen = prepared.problem.clone();
         let result = prepared.start().unwrap().wait().await.unwrap();
+        if hessian == HessianMode::Exact {
+            crate::workflow::review_qualification_tests::assert_review_transport(
+                &result,
+                &[
+                    ("/fit/constructor", "replay-fit-constructor.v2"),
+                    ("/fit/context", "scientific-context.v1"),
+                    ("/fit/runtime", "native-execution-snapshot.v1"),
+                ],
+            )
+            .await;
+        }
         let report = report(&result);
         let candidate = report.candidate.as_ref().unwrap();
         for k in 0..2 {
@@ -328,6 +339,11 @@ async fn covariance_withheld_without_responses() {
         .profile
         .max_cells = 7;
     let result = prepared.start().unwrap().wait().await.unwrap();
+    crate::workflow::review_qualification_tests::assert_review_transport(
+        &result,
+        &[("/fit/context", "scientific-context.v1")],
+    )
+    .await;
     let report = report(&result);
     assert!(report.candidate.is_some(), "{report:?}");
     let covariance = report.covariance.as_ref().unwrap();
@@ -810,4 +826,85 @@ async fn fit_uncertainty_admission() {
     .unwrap();
     assert_ne!(plain.profile_key, wald.profile_key);
     assert_eq!(plain.source_identity, wald.source_identity);
+}
+
+/// One original four-observation regression checks durable retention and descriptive
+/// transport without expanding the scientific covariance/accuracy campaign.
+#[cfg(all(feature = "canonical-tests", feature = "native-solvers"))]
+#[tokio::test]
+async fn review_qualification_durable_fit_preserves_original_response_and_rows() {
+    use pse_relations::generated::runtime::fit_observations;
+    let runtime = crate::workflow::durable_tests::durable_runtime();
+    let package = package_on(runtime.clone(), false, declared(), [1.; 4]).await;
+    let controls = profile(HessianMode::LimitedMemory, None);
+    assert_eq!(
+        controls.solver.numerics.engineering_relative_fraction,
+        0.001
+    );
+    let prepared = package
+        .prepare_fit(
+            id(32).into(),
+            controls,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let handle = prepared.start().unwrap();
+    let run = handle.canonical_run_key().unwrap().to_owned();
+    let attempt = handle.canonical_attempt_key().unwrap().to_owned();
+    let result = handle.wait().await.unwrap();
+    assert!(result.usable(), "{:?}", result.report());
+    let (_, expected) = analytic();
+    let fitted = report(&result);
+    for (actual, expected) in fitted.candidate.as_ref().unwrap().iter().zip(expected) {
+        assert!((actual - expected).abs() <= 0.001 * expected.abs().max(1.));
+    }
+    assert_eq!(fitted.predictions.len(), 4);
+    assert!(fitted.checks_complete);
+    assert!(fitted.responses.is_some());
+    let invocation = result.invocation_evidence().unwrap();
+    assert_eq!(invocation.run_id, result.run_id);
+    assert!(
+        invocation
+            .products
+            .iter()
+            .any(|product| product.role == "response_jacobian"
+                && product.availability == crate::invocation::ProductAvailability::Available)
+    );
+    let original =
+        fit_observations::Row::rows(&result.table("runtime.fit_observations").unwrap()).unwrap();
+    let mut reopened = runtime
+        .results(
+            &run,
+            &attempt,
+            "runtime.fit_observations",
+            0,
+            u64::MAX,
+            pse_columnar::CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    let mut rows = Vec::new();
+    while let Some(batch) = reopened.next_batch().await.unwrap() {
+        let view = fit_observations::View::try_from_batch_with_registry(
+            runtime.registry(),
+            &batch,
+            &runtime.validation_context(),
+        )
+        .unwrap();
+        rows.extend(view.rows().unwrap());
+    }
+    assert_eq!(rows, original);
+    assert_eq!(rows.len(), 4);
+    drop(reopened);
+    crate::workflow::review_qualification_tests::assert_review_transport(
+        &result,
+        &[
+            ("/fit/constructor", "replay-fit-constructor.v2"),
+            ("/fit/context", "scientific-context.v1"),
+        ],
+    )
+    .await;
 }

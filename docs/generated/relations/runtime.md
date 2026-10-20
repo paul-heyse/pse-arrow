@@ -1200,6 +1200,22 @@ Version: 2. Snapshot class: `derived`. Primary key: `subject`.
 | `status` | `Utf8` | false | `payload` | — | — |
 | `document_json` | `Utf8` | false | `payload` | — | — |
 
+## `diagnostic_engine_observations`
+
+Copied retained engine observations. Actual policy, metric unit/kind and stream completion/abandonment stay in the typed document; absent plans/metrics are unavailable rather than implicitly enabled or zero.
+
+Version: 1. Snapshot class: `derived`. Primary key: `member, observation`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `member` | `Utf8` | false | `key` | — | — |
+| `observation` | `UInt64` | false | `key` | — | — |
+| `operation` | `Utf8` | true | `payload` | — | — |
+| `policy` | `Utf8` | false | `payload` | — | — |
+| `status` | `Utf8` | true | `payload` | — | — |
+| `dropped` | `UInt64` | false | `payload` | — | — |
+| `document_json` | `Utf8` | false | `payload` | — | — |
+
 ## `diagnostic_evidence_fields`
 
 Immutable diagnostic field projection. Operation/producer/generation/event identifies one source event; field ordinal is one-based, zero preserves an empty event. Typed values, units, availability and exact monotonic time retain source meaning. Partial never implies complete history; raw source pages remain authority.
@@ -1249,6 +1265,23 @@ Version: 1. Snapshot class: `derived`. Primary key: `run`.
 | `terminal_seconds` | `Float64` | true | `payload` | — | — |
 | `response_ready_seconds` | `Float64` | true | `payload` | — | — |
 | `partial` | `Boolean` | false | `payload` | — | — |
+| `document_json` | `Utf8` | false | `payload` | — | — |
+
+## `diagnostic_query_results`
+
+Selected declared-query result and exact query/tool/window/schema context. Failed, unavailable, empty successful and partial outputs are distinct; source clock and full UInt64 authority remain with original native evidence.
+
+Version: 1. Snapshot class: `derived`. Primary key: `member`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `member` | `Utf8` | false | `key` | — | — |
+| `question` | `Utf8` | false | `payload` | — | — |
+| `clock_scope` | `Utf8` | false | `payload` | — | — |
+| `status` | `Utf8` | false | `payload` | — | — |
+| `query_version` | `UInt32` | false | `payload` | — | — |
+| `tool_version` | `Utf8` | true | `payload` | — | — |
+| `rows` | `UInt64` | true | `payload` | — | — |
 | `document_json` | `Utf8` | false | `payload` | — | — |
 
 ## `diagnostics_findings`

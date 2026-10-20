@@ -314,6 +314,11 @@ impl ReportSource for pse_runtime::observation::ObservationError {
         pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
     }
 }
+impl ReportSource for pse_runtime::review_pack::PackError {
+    fn report_boundary(&self) -> BoundaryDiagnostic {
+        pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
+    }
+}
 impl ReportSource for pse_runtime::capture::CaptureError {
     fn report_boundary(&self) -> BoundaryDiagnostic {
         pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
