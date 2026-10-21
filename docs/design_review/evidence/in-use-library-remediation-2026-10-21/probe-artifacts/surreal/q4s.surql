@@ -1,0 +1,1 @@
+FOR $i IN array::range(0, 100) { FOR $j IN array::range(0, 200) { RELATE points:hub2->deps->points:0 SET seq = $i * 200 + $j; }; }; RETURN count(SELECT id FROM points:hub2->deps);

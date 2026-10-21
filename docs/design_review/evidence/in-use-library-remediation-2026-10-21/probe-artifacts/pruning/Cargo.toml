@@ -1,0 +1,30 @@
+[package]
+name = "pruning-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Throwaway design-review probe; pins mirror /home/paul/pse-arrow/Cargo.toml.
+[dependencies]
+arrow = { version = "=59.3.0", default-features = false, features = [
+  "ipc",
+  "ffi",
+  "canonical_extension_types",
+] }
+datafusion = "=55.1.0"
+datafusion-common = "=55.1.0"
+datafusion-expr = "=55.1.0"
+datafusion-physical-expr = "=55.1.0"
+datafusion-pruning = "=55.1.0"
+tokio = { version = "=1.53.2", default-features = false, features = [
+  "rt-multi-thread",
+  "sync",
+  "macros",
+  "time",
+] }
+
+[profile.dev]
+opt-level = 1
+panic = "unwind"
+
+[workspace]

@@ -1,0 +1,1 @@
+CREATE t2:8 SET n=1, s={phase:'closed', gen:1.5}; CREATE t2:9 SET n=1, s={phase:'closed', gen:2dec}; SELECT s.gen AS g, type::of(s.gen) AS ty FROM t2:9;

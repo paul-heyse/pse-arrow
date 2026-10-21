@@ -1,0 +1,46 @@
+["An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }"]
+
+["An error occurred: pse:study_decision_generation_changed"]
+
+["An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }"]
+
+["An error occurred: pse:study_decision_generation_changed"]
+
+["An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }"]
+
+["An error occurred: pse:study_decision_generation_changed"]
+
+["An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }"]
+
+["An error occurred: pse:study_decision_generation_changed"]
+
+["An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }"]
+
+["An error occurred: pse:study_decision_generation_changed"]
+
+["An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }"]
+
+["An error occurred: pse:study_decision_generation_changed"]
+
+[null,"The query was not executed due to a failed transaction","An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }","The query was not executed due to a cancelled transaction","Cannot COMMIT: the transaction was aborted due to a prior error"]
+
+[null,"The query was not executed due to a failed transaction","An error occurred: pse:study_decision_generation_changed","The query was not executed due to a cancelled transaction","Cannot COMMIT: the transaction was aborted due to a prior error"]
+
+[null,"The query was not executed due to a failed transaction","An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }","The query was not executed due to a cancelled transaction","Cannot COMMIT: the transaction was aborted due to a prior error"]
+
+[null,"The query was not executed due to a failed transaction","An error occurred: pse:study_decision_generation_changed","Cannot COMMIT: the transaction was aborted due to a prior error"]
+
+[[]]
+
+[]
+
+["An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }"]
+
+[[]]
+
+[]
+
+["An error occurred: { arr: [1, 'a'], b: true, d: 1dec, id: side:1, n: 1.5f, nested: { y: NULL, z: NONE }, refusal: \"it's \\\"q\\\"\", t: d'2026-01-01T00:00:00Z' }"]
+
+["An error occurred: multi\nline 'quoted'"]
+

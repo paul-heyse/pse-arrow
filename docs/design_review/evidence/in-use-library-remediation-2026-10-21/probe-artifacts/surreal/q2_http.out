@@ -1,0 +1,36 @@
+[0] {"kind": "Thrown", "result": "An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }", "status": "ERR"}
+[1] {"kind": "Thrown", "result": "An error occurred: pse:study_decision_generation_changed", "status": "ERR"}
+[2] {"kind": "Thrown", "result": "An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }", "status": "ERR"}
+[3] {"kind": "Thrown", "result": "An error occurred: pse:study_decision_generation_changed", "status": "ERR"}
+[4] {"kind": "Thrown", "result": "An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }", "status": "ERR"}
+[5] {"kind": "Thrown", "result": "An error occurred: pse:study_decision_generation_changed", "status": "ERR"}
+[6] {"kind": "Thrown", "result": "An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }", "status": "ERR"}
+[7] {"kind": "Thrown", "result": "An error occurred: pse:study_decision_generation_changed", "status": "ERR"}
+[8] {"kind": "Thrown", "result": "An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }", "status": "ERR"}
+[9] {"kind": "Thrown", "result": "An error occurred: pse:study_decision_generation_changed", "status": "ERR"}
+[10] {"kind": "Thrown", "result": "An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }", "status": "ERR"}
+[11] {"kind": "Thrown", "result": "An error occurred: pse:study_decision_generation_changed", "status": "ERR"}
+[12] {"result": null, "status": "OK"}
+[13] {"details": {"kind": "NotExecuted"}, "kind": "Query", "result": "The query was not executed due to a failed transaction", "status": "ERR"}
+[14] {"kind": "Thrown", "result": "An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }", "status": "ERR"}
+[15] {"details": {"kind": "Cancelled"}, "kind": "Query", "result": "The query was not executed due to a cancelled transaction", "status": "ERR"}
+[16] {"details": {"kind": "NotExecuted"}, "kind": "Query", "result": "Cannot COMMIT: the transaction was aborted due to a prior error", "status": "ERR"}
+[17] {"result": null, "status": "OK"}
+[18] {"details": {"kind": "NotExecuted"}, "kind": "Query", "result": "The query was not executed due to a failed transaction", "status": "ERR"}
+[19] {"kind": "Thrown", "result": "An error occurred: pse:study_decision_generation_changed", "status": "ERR"}
+[20] {"details": {"kind": "Cancelled"}, "kind": "Query", "result": "The query was not executed due to a cancelled transaction", "status": "ERR"}
+[21] {"details": {"kind": "NotExecuted"}, "kind": "Query", "result": "Cannot COMMIT: the transaction was aborted due to a prior error", "status": "ERR"}
+[22] {"result": null, "status": "OK"}
+[23] {"details": {"kind": "NotExecuted"}, "kind": "Query", "result": "The query was not executed due to a failed transaction", "status": "ERR"}
+[24] {"kind": "Thrown", "result": "An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }", "status": "ERR"}
+[25] {"details": {"kind": "Cancelled"}, "kind": "Query", "result": "The query was not executed due to a cancelled transaction", "status": "ERR"}
+[26] {"details": {"kind": "NotExecuted"}, "kind": "Query", "result": "Cannot COMMIT: the transaction was aborted due to a prior error", "status": "ERR"}
+[27] {"result": null, "status": "OK"}
+[28] {"details": {"kind": "NotExecuted"}, "kind": "Query", "result": "The query was not executed due to a failed transaction", "status": "ERR"}
+[29] {"kind": "Thrown", "result": "An error occurred: pse:study_decision_generation_changed", "status": "ERR"}
+[30] {"details": {"kind": "NotExecuted"}, "kind": "Query", "result": "Cannot COMMIT: the transaction was aborted due to a prior error", "status": "ERR"}
+[31] {"result": [], "status": "OK"}
+[32] {"kind": "Thrown", "result": "An error occurred: { class: 'stale_premise', n: 1, refusal: 'study_decision_generation_changed' }", "status": "ERR"}
+[33] {"result": [], "status": "OK"}
+[34] {"kind": "Thrown", "result": "An error occurred: { arr: [1, 'a'], b: true, d: 1dec, id: side:1, n: 1.5f, nested: { y: NULL, z: NONE }, refusal: \"it's \\\"q\\\"\", t: d'2026-01-01T00:00:00Z' }", "status": "ERR"}
+[35] {"kind": "Thrown", "result": "An error occurred: multi\nline 'quoted'", "status": "ERR"}

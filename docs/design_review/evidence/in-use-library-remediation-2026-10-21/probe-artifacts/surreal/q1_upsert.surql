@@ -1,0 +1,12 @@
+UPSERT attempts:a1 SET opt='y';
+UPSERT attempts:a1 SET opt='z';
+UPSERT attempts:a1 MERGE {opt:'z'};
+UPSERT attempts:a1 MERGE {ident:'changed'};
+UPSERT attempts:a1 CONTENT {ident:'changed', kind:'a', state:{phase:'closed', close_generation:1, manifest:'m1'}};
+UPSERT attempts:a1 CONTENT {ident:'i1', kind:'a', state:{phase:'ingesting'}};
+UPSERT attempts:a1 CONTENT {ident:'i1', kind:'a', state:{phase:'terminal', outcome:'failed', completion:<bytes>'q'}};
+UPSERT attempts:a1 CONTENT {ident:'i1', kind:'a', state:{phase:'terminal', outcome:'failed', completion:<bytes>'q'}};
+UPSERT attempts:a1 CONTENT {ident:'i1', kind:'a', state:{phase:'ingesting'}};
+UPSERT attempts SET opt='z' WHERE id = attempts:a1;
+UPSERT attempts SET ident='zz' WHERE id = attempts:a1;
+SELECT * FROM attempts:a1;

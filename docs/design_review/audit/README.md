@@ -203,6 +203,11 @@ evidence. Architectural owners and ADRs own accepted design. Link to the relevan
 without reproducing its progress. Existing source-review finding IDs and evidence keep
 their original meanings and dates.
 
+Consuming reviews:
+- [In-use-library remediation review](../reviews/design_review_in-use-library-remediation_2026-10-21.md),
+  2026-10-21. It consumed this account at publication `0530dcaa1` and owns the proposed
+  corrections and each finding's review disposition.
+
 Refresh in place before a new review engagement, using these observations and intervening
 changes to focus current source inspection. Reconsider unchanged code when its
 dependencies or expectations change. Preserve finding identity and material lineage, and

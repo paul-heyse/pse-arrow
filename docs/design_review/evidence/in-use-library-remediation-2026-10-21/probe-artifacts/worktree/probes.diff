@@ -1,0 +1,897 @@
+diff --git a/crates/pse-backend-native/src/uno.rs b/crates/pse-backend-native/src/uno.rs
+index 14bf88299..fedbfe683 100644
+--- a/crates/pse-backend-native/src/uno.rs
++++ b/crates/pse-backend-native/src/uno.rs
+@@ -152,6 +152,17 @@ fn bridge_termination(status: i32, message: String) -> NativeTermination {
+         assurance: Assurance::None,
+     }
+ }
++/// PROBE D: the post-native latch reconciliation, extracted verbatim so a unit test
++/// exercises the production sequence.
++fn probe_latch(status: i32, state: &mut crate::callback::CallbackState) {
++    if status != ffi::OK && state.terminal.is_none() {
++        // A native subproblem deadline can precede the next Rust clock poll.
++        // Preserve its typed scope stop without replacing a callback's own cause.
++        let stop = bridge_termination(status, "foreign Uno scope stopped".into());
++        state.terminal = Some((stop.category, "foreign Uno scope stopped".into()));
++        state.last_failure = Some(boundary_error(status, "foreign Uno scope stopped".into()));
++    }
++}
+ fn string_option(handle: &Handle, key: &CStr) -> Result<String, ProblemError> {
+     let mut value: [c_char; 256] = [0; 256];
+     let mut error: [c_char; 512] = [0; 512];
+@@ -594,14 +605,7 @@ fn wake_by_ref(self: &Arc<Self>) {
+     report
+         .provenance
+         .insert("native".into(), ffi::BUILD_ID.into());
+-    if status != ffi::OK && context.state.terminal.is_none() {
+-        // A native subproblem deadline can precede the next Rust clock poll.
+-        // Preserve its typed scope stop without replacing a callback's own cause.
+-        let stop = bridge_termination(status, "foreign Uno scope stopped".into());
+-        context.state.terminal = Some((stop.category, "foreign Uno scope stopped".into()));
+-        context.state.last_failure =
+-            Some(boundary_error(status, "foreign Uno scope stopped".into()));
+-    }
++    probe_latch(status, &mut context.state);
+     context.state.finish(&mut report);
+     if status == ffi::OK && !report.evidence.callback.terminal_failure {
+         let mut lower_dual = vec![f64::NAN; n];
+@@ -1186,4 +1190,68 @@ fn fritz_john_and_small_step_are_feasible_only_without_kkt_or_global_claims() {
+             assert_eq!(termination(0, iterate).assurance, Assurance::None);
+         }
+     }
++
++    #[test]
++    fn probe_d_bridge_latch_and_native_status_mapping() {
++        // W1 / pure native mapping table.
++        let mut table = String::new();
++        for optimization in 0..=6 {
++            for iterate in 0..=8 {
++                if optimization != 0 && iterate != 1 {
++                    continue;
++                }
++                table.push_str(&format!(
++                    "native opt={optimization} iter={iterate} -> {:?}\n",
++                    termination(optimization, iterate).category
++                ));
++            }
++        }
++        // W2: native_known path (pse_uno_get_result OK) with each bridge latch status,
++        // reconciled by the production latch sequence and CallbackState::finish.
++        let controls = Controls::default();
++        let oracle = Bounded::new();
++        let statuses = [
++            ("OK", ffi::OK),
++            ("CALLBACK_TERMINAL", ffi::CALLBACK_TERMINAL),
++            ("CANCELLED", ffi::CANCELLED),
++            ("DEADLINE", ffi::DEADLINE),
++            ("ABANDONED", ffi::ABANDONED),
++            ("MEMORY", ffi::MEMORY),
++        ];
++        let natives = [(0, 1), (0, 3), (0, 5), (2, 1), (3, 1), (4, 1), (5, 1)];
++        for prior in [false, true] {
++            for (name, status) in statuses {
++                for (optimization, iterate) in natives {
++                    let exec = execution(&controls);
++                    let mut report = SolveReport::new(
++                        Backend::Uno,
++                        &oracle.contract,
++                        termination(optimization, iterate),
++                        &exec,
++                    );
++                    let mut state = crate::callback::CallbackState::new(exec);
++                    if prior {
++                        // A callback's own fatal cause latched before native return.
++                        state.terminal = Some((Termination::Evaluation, "callback fatal".into()));
++                    }
++                    probe_latch(status, &mut state);
++                    state.finish(&mut report);
++                    table.push_str(&format!(
++                        "prior_callback_terminal={prior} status={name} native=({optimization},{iterate}) native_category={:?} -> final={:?} last_failure={:?}\n",
++                        termination(optimization, iterate).category,
++                        report.termination.category,
++                        state.last_failure.as_ref().map(|e| e.to_string()),
++                    ));
++                }
++            }
++        }
++        // native_known == false path (NO_RESULT with status != OK).
++        for (name, status) in statuses {
++            table.push_str(&format!(
++                "no_native_result status={name} -> {:?}\n",
++                bridge_termination(status, String::new()).category
++            ));
++        }
++        println!("{table}");
++    }
+ }
+diff --git a/crates/pse-compiler/src/lib.rs b/crates/pse-compiler/src/lib.rs
+index 102b1d738..7954be6db 100644
+--- a/crates/pse-compiler/src/lib.rs
++++ b/crates/pse-compiler/src/lib.rs
+@@ -32,3 +32,16 @@
+ 
+ #[cfg(test)]
+ mod selection_identity_tests;
++
++/// PROBE A (throwaway): per-output body occurrences recorded during planning.
++#[doc(hidden)]
++#[derive(Clone, Debug)]
++pub struct ProbeOutput {
++    pub output: crate::workspace::ModelingOutput,
++    pub identity: pse_ids::roles::SemanticBodyHash,
++    pub inputs: Vec<pse_ids::SemanticId>,
++    pub members: Vec<String>,
++}
++/// PROBE A (throwaway).
++#[doc(hidden)]
++pub static PROBE_OUTPUTS: std::sync::Mutex<Vec<ProbeOutput>> = std::sync::Mutex::new(Vec::new());
+diff --git a/crates/pse-compiler/src/typed_math.rs b/crates/pse-compiler/src/typed_math.rs
+index 11a3a6955..717e69960 100644
+--- a/crates/pse-compiler/src/typed_math.rs
++++ b/crates/pse-compiler/src/typed_math.rs
+@@ -149,6 +149,10 @@ pub struct AdmittedBody {
+     pub(crate) math: Arc<pse_math::guarded::PreparedBody>,
+ }
+ impl AdmittedBody {
++    /// PROBE A (throwaway).
++    pub fn probe_math(&self) -> &Arc<pse_math::guarded::PreparedBody> {
++        &self.math
++    }
+     /// Compiler-issued complete dependency identity, sealed against external mutation.
+     pub fn semantic_identity(&self) -> Option<pse_ids::roles::SemanticBodyHash> {
+         self.semantic_identity
+diff --git a/crates/pse-compiler/src/workspace/modeling/executable/grouped.rs b/crates/pse-compiler/src/workspace/modeling/executable/grouped.rs
+index 2ec979a5e..478652a5b 100644
+--- a/crates/pse-compiler/src/workspace/modeling/executable/grouped.rs
++++ b/crates/pse-compiler/src/workspace/modeling/executable/grouped.rs
+@@ -944,6 +944,10 @@ pub(super) fn plan(
+             });
+             continue;
+         }
++        let probe_members = match &expression.kind {
++            ExprKind::Let { bindings, .. } => bindings.iter().map(|(n, _)| n.clone()).collect(),
++            _ => Vec::new(),
++        };
+         let (expression, formals, inputs, hints, validity, checked_members) =
+             normalize(expression, &runtime, &p.local_quantities, &p.validity)?;
+         let (functions, provider_names) = dependencies(&expression, &validity, &p.functions);
+@@ -1021,6 +1025,15 @@ pub(super) fn plan(
+                 .u64(provider.output as u64);
+         }
+         let identity = pse_ids::roles::SemanticBodyHash::from_id(h.finish_hash());
++        crate::PROBE_OUTPUTS
++            .lock()
++            .unwrap_or_else(std::sync::PoisonError::into_inner)
++            .push(crate::ProbeOutput {
++                output: output.clone(),
++                identity,
++                inputs: inputs.clone(),
++                members: probe_members,
++            });
+         let input = Arc::new(BodyInput {
+             identity,
+             expression,
+diff --git a/crates/pse-compiler/src/workspace/modeling/reuse_tests.rs b/crates/pse-compiler/src/workspace/modeling/reuse_tests.rs
+index 30e877341..1c9340438 100644
+--- a/crates/pse-compiler/src/workspace/modeling/reuse_tests.rs
++++ b/crates/pse-compiler/src/workspace/modeling/reuse_tests.rs
+@@ -1060,3 +1060,337 @@ fn bound_lookup_preserves_complete_public_view_identity_and_exact_attribution()
+         original_key
+     );
+ }
++
++// ---------------------------------------------------------------- PROBE B (throwaway)
++const PROBE_COMPOSE: &str = r#"package process_composition {
++use chemistry @"1.0.0";use chem @"1.0.0";use kinds @"1.0.0";
++use mixing @"1.0.0";use separation @"1.0.0";use reactors @"1.0.0";use saponification @"1.0.0";
++use distributed_volumes @"1.0.0";use correlations @"1.0.0";use properties @"1.0.0";use compatibility @"1.0.0";use references @"1.0.0";
++entity kinds.port_set first {} entity kinds.port_set second {}
++test ThreeUnits {
++permission solvent_use records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
++domain t:Time from 0{s} to 1{s};
++when analysis.route==analysis.steady {discretize grid on t using stationary(elements=1,order=1);}
++when analysis.route==analysis.integrated {discretize grid on t using integrated(elements=1,order=1);}
++when analysis.route==analysis.simultaneous {discretize grid on t using distributed_volumes.radau(elements=1,order=2);}
++child mixer[i in t]:mixing.Mixer=mixing.Mixer(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),inlets={first,second});
++child reactor[i in t]:reactors.CSTR=reactors.CSTR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions,holdup=true,times={i});
++child separator[i in t]:separation.Separator=separation.Separator(pkg=saponification.Saponification(defined_state=true),outlets={first,second},component_enthalpy=saponification.component_enthalpy);
++connect mixed: [i in t] mixer[i].outlet_port -> reactor[i].inlet_port;
++connect reacted: [i in t] reactor[i].outlet_port -> separator[i].inlet_port;
++when analysis.dynamic {
++eq initial_inventory[j in {chem.sodium_hydroxide,chem.ethyl_acetate,chem.sodium_acetate,chem.ethanol}]:reactor[0{s}].phase_material_holdup[chemistry.liquid,j]==1{mol};
++eq initial_energy:reactor[0{s}].phase_energy_holdup[chemistry.liquid]==1000{J};
++}
++}
++def ProbeUnreached { var y: Scalar; eq e: y == $CONST; }
++}"#;
++fn probe_text(constant: &str) -> String {
++    format!(
++        "{}\n{}\n{}",
++        crate::authored_transfer_tests::reference_sources(),
++        include_str!("../../../../../packages/reference/process/models/mixer.pse"),
++        PROBE_COMPOSE.replace("$CONST", constant)
++    )
++}
++fn probe_dir() -> std::path::PathBuf {
++    let dir = std::path::PathBuf::from(
++        "/tmp/claude-1000/-home-paul-pse-arrow/15c6fe71-a184-4329-a417-2fc2e56d8c52/scratchpad/probe_b",
++    );
++    std::fs::create_dir_all(&dir).unwrap();
++    dir
++}
++#[test]
++fn probe_b1_demand_diff_on_reference_flowsheet() {
++    let declarations = crate::authored_transfer_tests::rows(&probe_text("1"));
++    let id = crate::authored_transfer_tests::root(&declarations, "process_composition", "ThreeUnits");
++    let mut workspace =
++        CompilerWorkspace::new(crate::authored_transfer_tests::context(), WorkspaceLimits::default())
++            .unwrap();
++    workspace
++        .publish_modeling(declarations, PhysicalScope::default())
++        .unwrap();
++    let route = pse_modeling::analysis::Route::Steady;
++    let base = Bindings::default().with_analysis(route);
++    let empty = workspace
++        .specialize_modeling(id, pse_modeling::specialize::root_instance(id), base.clone(), Limits::default())
++        .unwrap();
++    let mut log = String::new();
++    let mut instances = empty.instances.values().map(|i| i.path.clone()).collect::<Vec<_>>();
++    instances.sort();
++    log.push_str(&format!("instances(first 12)={:?}\n", &instances[..instances.len().min(12)]));
++    let mut ok = Vec::new();
++    for candidate in [
++        "mixer[0{s}].in_total[first]",
++        "mixer[0{s}].inlet_pressure[first]",
++        "mixer[0{s}].out_total[first]",
++        "reactor[0{s}].outlet.T",
++        "mixer[0{s}].outlet.T",
++        "mixer[0{s}].outlet.flow",
++        "separator[0{s}].inlet.T",
++    ] {
++        let mut bindings = base.clone();
++        bindings.demand = vec![candidate.into()];
++        match workspace.specialize_modeling(id, pse_modeling::specialize::root_instance(id), bindings, Limits::default()) {
++            Ok(model) => {
++                let resolved = model.paths.get(candidate).copied();
++                let was_symbol = resolved.is_some_and(|s| empty.symbols.contains_key(&s));
++                log.push_str(&format!(
++                    "candidate {candidate}: ok resolved={resolved:?} symbol_in_empty={was_symbol} symbols {}->{} equal_model={} differing_fields={:?}\n",
++                    empty.symbols.len(), model.symbols.len(), *model == *empty, probe_differing(&empty, &model)
++                ));
++                ok.push(candidate);
++            }
++            Err(error) => log.push_str(&format!("candidate {candidate}: ERR {error}\n")),
++        }
++    }
++    // Prefer one expression member not otherwise demanded and one variable.
++    let selected = ok.iter().take(2).map(|s| (*s).to_owned()).collect::<Vec<_>>();
++    let mut bindings = base.clone();
++    bindings.demand = selected.clone();
++    let demanded = workspace
++        .specialize_modeling(id, pse_modeling::specialize::root_instance(id), bindings, Limits::default())
++        .unwrap();
++    log.push_str(&format!("selected demand={selected:?}\n"));
++    macro_rules! field {
++        ($($name:ident),* $(,)?) => {$(
++            let a = format!("{:#?}", empty.$name);
++            let b = format!("{:#?}", demanded.$name);
++            log.push_str(&format!(
++                "field {:<28} equal={} debug_len {} -> {}\n",
++                stringify!($name), empty.$name == demanded.$name, a.len(), b.len()
++            ));
++        )*};
++    }
++    field!(
++        root_selections, selection_closures, regimes, fixtures, integrated, derivatives,
++        integrals, initial_equations, expectations, paths, elastic, continuation, meshes,
++        implicit, symbols, equations, closures, exchanges, instances, groups, ports,
++        connectivity, state_specifications, material_ports, inventory_balances,
++        inventory_initial_conditions, connections, functions, annotations, engineering_rules,
++        lowerings, native, derived, unit_interval, objectives, nonnegative, requirements,
++    );
++    // symbols key diff
++    let added = demanded.symbols.keys().filter(|k| !empty.symbols.contains_key(*k)).collect::<Vec<_>>();
++    let removed = empty.symbols.keys().filter(|k| !demanded.symbols.contains_key(*k)).collect::<Vec<_>>();
++    let changed = empty
++        .symbols
++        .iter()
++        .filter(|(k, v)| demanded.symbols.get(*k).is_some_and(|w| w != *v))
++        .map(|(k, _)| k)
++        .collect::<Vec<_>>();
++    log.push_str(&format!("symbols added={} removed={} changed={}\n", added.len(), removed.len(), changed.len()));
++    for k in added.iter().take(6) {
++        let s = &demanded.symbols[*k];
++        log.push_str(&format!("  added {} role={:?} expr={} demand_chain_len={}\n", s.lineage.path, s.role, s.expression.is_some(), s.lineage.demand.len()));
++    }
++    for k in changed.iter().take(6) {
++        let (a, b) = (&empty.symbols[*k], &demanded.symbols[*k]);
++        let mut what = Vec::new();
++        if a.ty != b.ty { what.push("ty"); }
++        if a.role != b.role { what.push("role"); }
++        if a.domain != b.domain { what.push("domain"); }
++        if a.expression != b.expression { what.push("expression"); }
++        if a.initial != b.initial { what.push("initial"); }
++        if a.lineage != b.lineage { what.push("lineage"); }
++        if a.lineage.demand != b.lineage.demand { what.push("lineage.demand"); }
++        log.push_str(&format!("  changed {} fields={what:?}\n", a.lineage.path));
++    }
++    // groups: compare keys
++    let gk_a = empty.groups.keys().collect::<std::collections::BTreeSet<_>>();
++    let gk_b = demanded.groups.keys().collect::<std::collections::BTreeSet<_>>();
++    log.push_str(&format!("groups {} -> {} same_keys={}\n", gk_a.len(), gk_b.len(), gk_a == gk_b));
++    for (key, a) in &empty.instances {
++        let Some(b) = demanded.instances.get(key) else {
++            log.push_str(&format!("  instance removed {}\n", a.path));
++            continue;
++        };
++        if a != b {
++            let mut what = Vec::new();
++            if a.members != b.members { what.push(format!("members {}->{} added={:?}", a.members.len(), b.members.len(), b.members.keys().filter(|k| !a.members.contains_key(*k)).collect::<Vec<_>>())); }
++            if a.stages != b.stages { what.push("stages".into()); }
++            if a.group != b.group { what.push("group".into()); }
++            if a.coordinates != b.coordinates { what.push(format!("coordinates {}->{}", a.coordinates.len(), b.coordinates.len())); }
++            if a.rows != b.rows { what.push("rows".into()); }
++            if a.definition != b.definition { what.push("definition".into()); }
++            log.push_str(&format!("  instance changed {} : {what:?}\n", a.path));
++        }
++    }
++    for key in demanded.instances.keys().filter(|k| !empty.instances.contains_key(*k)) {
++        log.push_str(&format!("  instance added {}\n", demanded.instances[key].path));
++    }
++    for (key, a) in &empty.groups {
++        if !demanded.groups.contains_key(key) {
++            let path = a.instances.first().map(|i| empty.instances[i].path.clone());
++            log.push_str(&format!("  group key removed {key:?} definition={:?} instances={} first={path:?}\n", a.definition, a.instances.len()));
++        }
++    }
++    for (key, b) in &demanded.groups {
++        if let Some(a) = empty.groups.get(key) {
++            if a != b {
++                log.push_str(&format!("  group same key changed content {key:?}\n"));
++            }
++        } else {
++            let old = empty.groups.values().find(|a| a.definition == b.definition && a.instances == b.instances);
++            let detail = old.map(|a| {
++                let (ab, bb) = (&a.body, &b.body);
++                format!(
++                    "body_coordinates {}->{} body_expressions {}->{} body_equations {}->{}",
++                    ab.coordinates.len(), bb.coordinates.len(), ab.expressions.len(), bb.expressions.len(), ab.equations.len(), bb.equations.len()
++                )
++            });
++            log.push_str(&format!("  group key added {key:?} definition={:?} instances={} matched_old={:?}\n", b.definition, b.instances.len(), detail));
++        }
++    }
++    let prefix = |m: &SpecializedModel| {
++        let d = format!("{m:#?}");
++        let end = d.find("root_selections:").unwrap_or(0);
++        d[..end].to_owned()
++    };
++    let (pa, pb) = (prefix(&empty), prefix(&demanded));
++    log.push_str(&format!(
++        "private source_occurrences debug equal={} len {} -> {} entries(approx by 'CheckedExpression {{') {} -> {}\n",
++        pa == pb, pa.len(), pb.len(), pa.matches("CheckedExpression {").count(), pb.matches("CheckedExpression {").count()
++    ));
++    let dir = probe_dir();
++    std::fs::write(dir.join("empty.debug"), format!("{:#?}", *empty)).unwrap();
++    std::fs::write(dir.join("demanded.debug"), format!("{:#?}", *demanded)).unwrap();
++    std::fs::write(dir.join("b1.log"), &log).unwrap();
++    println!("{log}");
++}
++#[test]
++fn probe_b2_unreached_edit_reexecutes_projection() {
++    let mut log = String::new();
++    for (query_values, big_retention) in [(64usize, false), (1 << 20, false), (1 << 20, true)] {
++        for separate in [false, true] {
++            log.push_str(&probe_b2_variant(query_values, big_retention, separate));
++        }
++    }
++    std::fs::write(probe_dir().join("b2.log"), &log).unwrap();
++    println!("{log}");
++}
++fn probe_b2_text(constant: &str, separate: bool) -> String {
++    if separate {
++        format!(
++            "{}\npackage probe_other {{ def ProbeUnreached {{ var y: Scalar; eq e: y == {constant}; }} }}",
++            probe_text("1")
++        )
++    } else {
++        probe_text(constant)
++    }
++}
++fn probe_b2_variant(query_values: usize, big_retention: bool, separate: bool) -> String {
++    let executed = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
++    let observed = executed.clone();
++    let event = Box::new(move |event: salsa::Event| {
++        if let salsa::EventKind::WillExecute { database_key } = &event.kind {
++            observed.lock().unwrap().push(format!("{database_key:?}"));
++        }
++    });
++    let mut workspace = CompilerWorkspace::with_events(
++        crate::authored_transfer_tests::context(),
++        if big_retention {
++            WorkspaceLimits { query_values, retained_entries: usize::MAX / 4, retained_bytes: usize::MAX / 4, ..WorkspaceLimits::default() }
++        } else {
++            WorkspaceLimits { query_values, ..WorkspaceLimits::default() }
++        },
++        Some(event),
++    )
++    .unwrap();
++    let mut log = format!("=== variant query_values={query_values} big_retention={big_retention} unreached_in_separate_package={separate}\n");
++    let summarize = |names: &[String]| {
++        let mut counts = std::collections::BTreeMap::<String, usize>::new();
++        for name in names {
++            let query = name.split('(').next().unwrap_or(name).to_owned();
++            *counts.entry(query).or_default() += 1;
++        }
++        counts
++    };
++    let first = crate::authored_transfer_tests::rows(&probe_b2_text("1", separate));
++    let id = crate::authored_transfer_tests::root(&first, "process_composition", "ThreeUnits");
++    let bindings = Bindings::default().with_analysis(pse_modeling::analysis::Route::Steady);
++    let rev0 = workspace.publish_modeling(first, PhysicalScope::default()).unwrap();
++    let publish0 = std::mem::take(&mut *executed.lock().unwrap());
++    log.push_str(&format!("  after_publish0: generation={} retention_usage={:?} limits=({},{})\n", workspace.generation, workspace.retention_usage(), workspace.limits.retained_entries, workspace.limits.retained_bytes));
++    let t0 = std::time::Instant::now();
++    let prepared = probe_prepare(&mut workspace, id, bindings.clone());
++    let prep0_elapsed = t0.elapsed();
++    let prep0 = std::mem::take(&mut *executed.lock().unwrap());
++    log.push_str(&format!("  after_prepare0: generation={} retention_usage={:?} limits=({},{})\n", workspace.generation, workspace.retention_usage(), workspace.limits.retained_entries, workspace.limits.retained_bytes));
++    log.push_str(&format!("initial publish: {:?}\n", summarize(&publish0)));
++    log.push_str(&format!("initial prepare({prep0_elapsed:?}): {:?}\n", summarize(&prep0)));
++    let second = crate::authored_transfer_tests::rows(&probe_b2_text("2", separate));
++    let t1 = std::time::Instant::now();
++    let rev1 = workspace.publish_modeling(second, PhysicalScope::default()).unwrap();
++    let publish1_elapsed = t1.elapsed();
++    let (s0, s1) = (rev0.checked.select(id).unwrap(), rev1.checked.select(id).unwrap());
++    let (d0, d1) = (format!("{s0:#?}"), format!("{s1:#?}"));
++    let first_diff = d0.lines().zip(d1.lines()).position(|(a, b)| a != b);
++    log.push_str(&format!(
++        "selected(root) equal_across_edit={} checked_equal={} select_debug_len {} -> {} first_differing_line={:?} context={:?}\n",
++        s0 == s1,
++        rev0.checked == rev1.checked,
++        d0.len(),
++        d1.len(),
++        first_diff,
++        first_diff.map(|i| d0.lines().skip(i.saturating_sub(6)).take(8).collect::<Vec<_>>().join(" | ")),
++    ));
++    let publish1 = std::mem::take(&mut *executed.lock().unwrap());
++    log.push_str(&format!("  after_edit_publish: generation={} retention_usage={:?} limits=({},{})\n", workspace.generation, workspace.retention_usage(), workspace.limits.retained_entries, workspace.limits.retained_bytes));
++    let t2 = std::time::Instant::now();
++    let again = probe_prepare(&mut workspace, id, bindings.clone());
++    let prep_elapsed = t2.elapsed();
++    let prep1 = std::mem::take(&mut *executed.lock().unwrap());
++    log.push_str(&format!("  after_reprepare: generation={} retention_usage={:?} limits=({},{})\n", workspace.generation, workspace.retention_usage(), workspace.limits.retained_entries, workspace.limits.retained_bytes));
++    log.push_str(&format!("edit publish({publish1_elapsed:?}): {:?}\n", summarize(&publish1)));
++    log.push_str(&format!("re-prepare after unreached edit({prep_elapsed:?}): {:?}\n", summarize(&prep1)));
++    let shared = prepared
++        .admitted
++        .bodies
++        .iter()
++        .filter(|(k, b)| again.admitted.bodies.get(*k).is_some_and(|c| Arc::ptr_eq(&b.math, &c.math)))
++        .count();
++    log.push_str(&format!(
++        "bodies {} same_keys={} shared_math_ptr={} model_equal={} admitted_equal={}\n",
++        prepared.admitted.bodies.len(),
++        prepared.admitted.bodies.keys().eq(again.admitted.bodies.keys()),
++        shared,
++        *prepared.model == *again.model,
++        *prepared.admitted == *again.admitted,
++    ));
++    let t3 = std::time::Instant::now();
++    let _ = probe_prepare(&mut workspace, id, bindings);
++    let prep2_elapsed = t3.elapsed();
++    let prep2 = std::mem::take(&mut *executed.lock().unwrap());
++    log.push_str(&format!("re-prepare with no edit({prep2_elapsed:?}): {:?}\n", summarize(&prep2)));
++    log
++}
++fn probe_prepare(workspace: &mut CompilerWorkspace, id: DeclarationId, bindings: Bindings) -> PreparedModeling {
++    workspace
++        .prepare_modeling_cancellable(
++            id,
++            pse_modeling::specialize::root_instance(id),
++            bindings,
++            Limits::default(),
++            Arc::new(AtomicBool::new(false)),
++        )
++        .unwrap()
++}
++fn probe_differing(a: &SpecializedModel, b: &SpecializedModel) -> Vec<&'static str> {
++    let mut out = Vec::new();
++    macro_rules! cmp {
++        ($($name:ident),* $(,)?) => {$( if a.$name != b.$name { out.push(stringify!($name)); } )*};
++    }
++    cmp!(
++        root_selections, selection_closures, regimes, fixtures, integrated, derivatives,
++        integrals, initial_equations, expectations, paths, elastic, continuation, meshes,
++        implicit, symbols, equations, closures, exchanges, instances, groups, ports,
++        connectivity, state_specifications, material_ports, inventory_balances,
++        inventory_initial_conditions, connections, functions, annotations, engineering_rules,
++        lowerings, native, derived, unit_interval, objectives, nonnegative, requirements,
++    );
++    if format!("{a:?}").len() != format!("{b:?}").len() && out.is_empty() {
++        out.push("private:source_occurrences?");
++    }
++    out
++}
+diff --git a/crates/pse-math/src/execution.rs b/crates/pse-math/src/execution.rs
+index 377e06af6..455874357 100644
+--- a/crates/pse-math/src/execution.rs
++++ b/crates/pse-math/src/execution.rs
+@@ -1073,6 +1073,24 @@ fn eq(&self, other: &Self) -> bool {
+     }
+ }
+ impl PreparedBody {
++    /// PROBE A: fully substituted output expressions over input formals (None when the
++    /// output passes a provider/branch), input count and stage kinds.
++    pub fn probe_expressions(&self) -> &[Option<symbolica::atom::Atom>] {
++        &self.expressions
++    }
++    /// PROBE A.
++    pub fn probe_inputs(&self) -> usize {
++        self.inputs
++    }
++    /// PROBE A: (top-level Block stages, other top-level stages).
++    pub fn probe_stage_kinds(&self) -> (usize, usize) {
++        let blocks = self
++            .stages
++            .iter()
++            .filter(|s| matches!(s, Stage::Block { .. }))
++            .count();
++        (blocks, self.stages.len() - blocks)
++    }
+     fn parameters(&self) -> Result<Vec<Atom>, MathError> {
+         if self.formal_slots.is_empty() {
+             (0..self.slots).map(library::formal).collect()
+diff --git a/crates/pse-math/src/library.rs b/crates/pse-math/src/library.rs
+index 120f2f02d..cfb1b60da 100644
+--- a/crates/pse-math/src/library.rs
++++ b/crates/pse-math/src/library.rs
+@@ -297,6 +297,8 @@ fn exact_evaluator(
+ }
+ 
+ mod admission;
++
++pub mod probe;
+ pub use admission::ScalarProducts;
+ pub(crate) use admission::{
+     ScalarCache, bounded_evaluator, bounded_scalar_evaluator, evaluator_construction,
+diff --git a/crates/pse-runtime/src/workflow/horizon/driver.rs b/crates/pse-runtime/src/workflow/horizon/driver.rs
+index 96082d812..8507db126 100644
+--- a/crates/pse-runtime/src/workflow/horizon/driver.rs
++++ b/crates/pse-runtime/src/workflow/horizon/driver.rs
+@@ -139,7 +139,7 @@ async fn start_horizon_owned(
+                     },
+                     Some(_) => None,
+                 };
+-                let cancel = crate::CancelSource::new();
++                let cancel = cancel.child_with_deadline(None);
+                 let checks = cancel.clone();
+                 let (sender, receiver) = tokio::sync::watch::channel(None);
+                 let runtime = self.clone();
+diff --git a/crates/pse-runtime/src/workflow/horizon_tests.rs b/crates/pse-runtime/src/workflow/horizon_tests.rs
+index a90b38958..cbec4d9c0 100644
+--- a/crates/pse-runtime/src/workflow/horizon_tests.rs
++++ b/crates/pse-runtime/src/workflow/horizon_tests.rs
+@@ -2416,3 +2416,75 @@ async fn plan38b_replay_horizon_reconstructs_stages_and_reruns_after_cancelled_p
+     assert!(rerun.report().is_ok(), "{:?}", rerun.report());
+     assert_eq!(rerun.horizon().unwrap().completed_steps, 2);
+ }
++
++/// PROBE C: caller cancellation after admission must reach the running horizon.
++#[tokio::test]
++async fn probe_c_caller_cancel_after_admission_stops_horizon() {
++    use std::time::{Duration, Instant};
++    let steps = 20;
++    let runtime = horizon_runtime();
++    let (package, [root, whole, _]) = package(runtime.clone()).await;
++    let (plant, actuator, x) = plant(&package, whole, 0., steps).await;
++    let setpoints = (0..steps)
++        .map(|k| if k < 12 { 1. } else { 0.6 })
++        .collect::<Vec<_>>();
++    let controller = controller(&package, root, x, setpoints);
++    let horizon = Horizon {
++        output: crate::workflow::StudyOutputDemand::Full {},
++        plant,
++        period: PERIOD,
++        steps,
++        inputs: vec![HorizonInput {
++            parameter: actuator,
++            initial: 0.,
++        }],
++        estimator: None,
++        controller: Some(controller),
++    };
++    let baseline = runtime.shared.math().test_admission_snapshot();
++    let caller = crate::CancelSource::new();
++    let started = Instant::now();
++    let handle = runtime.start_horizon(horizon, &caller).await.unwrap();
++    // Wait for the first progress event (admitted and stepping).
++    let deadline = Instant::now() + Duration::from_secs(120);
++    loop {
++        if !handle.progress().0.is_empty() || handle.result().is_some() {
++            break;
++        }
++        assert!(Instant::now() < deadline, "no progress");
++        tokio::time::sleep(Duration::from_millis(5)).await;
++    }
++    let progressed_at = started.elapsed();
++    let events_at_cancel = handle.progress().0.len();
++    let finished_before_cancel = handle.result().is_some();
++    let during = runtime.shared.math().test_admission_snapshot();
++    caller.cancel();
++    let cancelled_at = started.elapsed();
++    let result = tokio::time::timeout(Duration::from_secs(600), handle.wait())
++        .await
++        .unwrap()
++        .unwrap();
++    let joined_at = started.elapsed();
++    let drained = runtime.shared.math().test_admission_snapshot();
++    let completed = match result.report() {
++        Ok(RunReport::Modeling(steps)) => Some(steps.len()),
++        _ => None,
++    };
++    println!(
++        "PROBE_C steps={steps} progressed_at={progressed_at:?} events_at_cancel={events_at_cancel} finished_before_cancel={finished_before_cancel} cancelled_at={cancelled_at:?} joined_at={joined_at:?}"
++    );
++    println!(
++        "PROBE_C report_ok={} report_err={:?} completed_modeling_steps={completed:?} horizon_completed={:?} usable={}",
++        result.report().is_ok(),
++        result.report().err().map(|e| e.to_string()),
++        result.horizon().map(|h| h.completed_steps),
++        result.usable()
++    );
++    println!("PROBE_C admission baseline={baseline:?} during={during:?} drained={drained:?}");
++    assert!(!finished_before_cancel, "horizon finished before cancel; probe inconclusive");
++    assert!(
++        result.report().is_err(),
++        "caller cancellation after admission did not stop the horizon: completed {completed:?} of {steps}"
++    );
++    assert_eq!((drained.1, drained.2), (baseline.1, baseline.2));
++}
+diff --git a/crates/pse-runtime/src/workflow/modeling/pr_jacobian_tests.rs b/crates/pse-runtime/src/workflow/modeling/pr_jacobian_tests.rs
+index ff936e189..7cd00081d 100644
+--- a/crates/pse-runtime/src/workflow/modeling/pr_jacobian_tests.rs
++++ b/crates/pse-runtime/src/workflow/modeling/pr_jacobian_tests.rs
+@@ -1584,3 +1584,241 @@ fn completed_provider_values(
+         hessians: completed.hessians.to_vec(),
+     })
+ }
++
++/// PROBE A (throwaway): per-output vs per-instance-group vs merged evaluator cost.
++#[tokio::test]
++async fn probe_a_body_granularity_pr_flash() -> TestResult<()> {
++    use std::fmt::Write as _;
++    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/reference");
++    let manifest: Manifest =
++        toml::from_str(&std::fs::read_to_string(root.join("conformance.toml"))?)?;
++    let source = manifest
++        .runs
++        .iter()
++        .find(|r| r.name == "seed")
++        .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?;
++    let (package, _spill) = probe_local_package(&manifest.settings, source, &root).await?;
++    let fixture = DeclarationId::from(SemanticId::parse_hex("01a0eecf2935721c9fc3aaab14032e96")?);
++    let cancel = crate::CancelSource::new();
++    let solver = crate::math::solves::SolverProfile {
++        intent: SolveIntent::Root,
++        controls: Controls {
++            time_limit: Duration::from_secs(1800),
++            ..Default::default()
++        },
++        ..Default::default()
++    };
++    pse_compiler::PROBE_OUTPUTS.lock().unwrap().clear();
++    let t_prep = std::time::Instant::now();
++    let declared = package
++        .declared_execution(
++            fixture,
++            manifest.settings.preparation.compiler,
++            solver,
++            Default::default(),
++            manifest.settings.preparation.limits,
++            &cancel,
++        )
++        .await?;
++    let analysis = declared.analysis;
++    let resolved = package
++        .resolve_case(
++            analysis.root,
++            analysis.instance,
++            analysis.bindings,
++            analysis.limits,
++            analysis.case,
++            DerivativeOrder::Second,
++            analysis.compiler,
++            analysis.solver,
++            analysis.numerical,
++            Default::default(),
++            false,
++            &cancel,
++        )
++        .await?;
++    let prep_elapsed = t_prep.elapsed();
++    let compiled = resolved.model.model.compiled();
++    let model = &compiled.model;
++    let admitted = &compiled.admitted;
++    let bodies = admitted
++        .bodies
++        .values()
++        .filter_map(|b| b.semantic_identity().map(|id| (id, b.clone())))
++        .collect::<BTreeMap<_, _>>();
++    let mut records = pse_compiler::PROBE_OUTPUTS.lock().unwrap().clone();
++    let raw = records.len();
++    let mut seen = BTreeSet::new();
++    records.retain(|r| seen.insert((format!("{:?}", r.output), r.identity, r.inputs.clone())));
++    // Equation lineage.
++    let mut row_instance = BTreeMap::new();
++    for row in model
++        .equations
++        .iter()
++        .chain(model.regimes.values().flat_map(|r| r.alternatives.iter().flat_map(|a| &a.equations)))
++    {
++        row_instance.insert(row.id, (row.lineage.instance, row.lineage.path.clone()));
++    }
++    let instance_path = |i: &pse_modeling::InstanceId| {
++        model.instances.get(i).map_or_else(|| format!("{i:?}"), |x| x.path.clone())
++    };
++    let mut coordinate = BTreeMap::<SemanticId, usize>::new();
++    let mut groups = BTreeMap::<pse_modeling::InstanceId, Vec<&pse_compiler::ProbeOutput>>::new();
++    let (mut non_equation, mut unmatched_body) = (0usize, 0usize);
++    for r in &records {
++        let pse_compiler::workspace::ModelingOutput::Equation { id, .. } = &r.output else {
++            non_equation += 1;
++            continue;
++        };
++        if !bodies.contains_key(&r.identity) {
++            unmatched_body += 1;
++            continue;
++        }
++        let Some((instance, _)) = row_instance.get(id) else {
++            unmatched_body += 1;
++            continue;
++        };
++        for input in &r.inputs {
++            let next = coordinate.len();
++            coordinate.entry(*input).or_insert(next);
++        }
++        groups.entry(*instance).or_default().push(r);
++    }
++    let mut log = String::new();
++    let distinct_bodies = records.iter().map(|r| r.identity).collect::<BTreeSet<_>>().len();
++    writeln!(
++        log,
++        "PROBE_A fixture=bt_pr_flash_nested prep={prep_elapsed:?} raw_records={raw} dedup_records={} admitted_bodies={} distinct_record_bodies={distinct_bodies} non_equation_outputs={non_equation} unmatched={unmatched_body} instances_with_equations={} coordinates={}",
++        records.len(),
++        admitted.bodies.len(),
++        groups.len(),
++        coordinate.len()
++    )?;
++    let mut totals: [pse_math::library::probe::Measure; 6] = Default::default();
++    let mut rows = Vec::new();
++    for (instance, outputs) in &groups {
++        let mut member_uses = BTreeMap::<&str, usize>::new();
++        for r in outputs {
++            for m in r.members.iter().collect::<BTreeSet<_>>() {
++                *member_uses.entry(m.as_str()).or_default() += 1;
++            }
++        }
++        let shared = member_uses.values().filter(|&&n| n >= 2).count();
++        let entries = outputs
++            .iter()
++            .map(|r| pse_math::library::probe::Entry {
++                body: bodies[&r.identity].probe_math().as_ref(),
++                globals: r.inputs.iter().map(|i| coordinate[i]).collect(),
++            })
++            .collect::<Vec<_>>();
++        let distinct = outputs.iter().map(|r| r.identity).collect::<BTreeSet<_>>().len();
++        let label = format!(
++            "{} outputs={} distinct_bodies={distinct} members={} shared_members={shared}",
++            instance_path(instance),
++            outputs.len(),
++            member_uses.len()
++        );
++        let t0 = std::time::Instant::now();
++        let (text, measures) = pse_math::library::probe::measure_group(&label, &entries, 4096);
++        log.push_str(&text);
++        writeln!(log, "  group_wall={:?}", t0.elapsed())?;
++        for (total, m) in totals.iter_mut().zip(&measures) {
++            for k in 0..3 {
++                total.ops[k] += m.ops[k];
++                total.temps[k] += m.temps[k];
++                total.instructions[k] += m.instructions[k];
++                total.build_ms[k] += m.build_ms[k];
++                total.skipped[k] |= m.skipped[k];
++            }
++        }
++        rows.push((instance_path(instance), outputs.len(), shared, measures));
++    }
++    writeln!(log, "TOTALS over {} instance groups", groups.len())?;
++    for (name, m) in ["a_today_sub", "a_today_exc", "a_inlined", "b_group", "c_merge", "d_symbolic"].iter().zip(&totals) {
++        writeln!(
++            log,
++            "  {name:<10} ops V/1/2={:?} temps={:?} instr={:?} skipped_any={:?} build_ms={:.1?}",
++            m.ops, m.temps, m.instructions, m.skipped, m.build_ms
++        )?;
++    }
++    std::fs::write(
++        "/tmp/claude-1000/-home-paul-pse-arrow/15c6fe71-a184-4329-a417-2fc2e56d8c52/scratchpad/probe_a.log",
++        &log,
++    )?;
++    println!("{log}");
++    Ok(())
++}
++
++async fn probe_local_package(
++    settings: &Settings,
++    source: &SourceRun,
++    root: &Path,
++) -> TestResult<(ModelingPackage, tempfile::TempDir)> {
++    let spill = tempfile::tempdir()?;
++    let positive = |value| {
++        NonZeroUsize::new(value)
++            .ok_or_else(|| std::io::Error::other("positive reference execution allowance required"))
++    };
++    assert_eq!(
++        settings.preparation.compiler.optimization.cores, 1,
++        "each diagnostic native proof uses one optimizer core"
++    );
++    let shared = crate::SharedRuntime::build(crate::ResourceBudget {
++        memory_limit_bytes: positive(settings.memory_limit_bytes)?,
++        spill_dir: spill.path().to_owned(),
++        max_temp_dir_bytes: 1 << 30,
++        top_consumers: positive(16)?,
++        threads: pse_engine::ThreadBudget {
++            pool_threads: positive(settings.threads)?,
++            target_partitions: positive(settings.threads)?,
++        },
++        execution: Default::default(),
++        cache: crate::CacheBudget::for_memory(settings.memory_limit_bytes),
++        math: crate::math::MathPolicy {
++            worker_bytes: settings.math_worker_bytes,
++            jobs: settings.math_jobs,
++            ..Default::default()
++        },
++    })?;
++    let registry = pse_schema::shared_registry()?;
++    let sessions = Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
++    let runtime = Runtime::from_shared_local(shared.clone(), sessions.bind_model(registry.clone())?)?;
++    let token = pse_columnar::CancellationToken::new();
++    let pool = shared.pool();
++    let validation = runtime.validation_context();
++    let load = |name: &str| -> TestResult<_> {
++        Ok(
++            pse_admission::authoring_driver::document::load_package_documents_owned(
++                &documents(&root.join(name))?,
++                &registry,
++                Default::default(),
++                &pool,
++                &token,
++                &validation,
++            )?,
++        )
++    };
++    let physical_documents =
++        pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
++            vec![load(&source.physical)?],
++            &pool,
++            &token,
++        )?;
++    let physical = runtime
++        .physical_from_documents(&physical_documents, &token)
++        .await?;
++    let bundles = std::iter::once(&source.package)
++        .chain(&source.dependencies)
++        .map(|name| load(name))
++        .collect::<TestResult<Vec<_>>>()?;
++    let closure = pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
++        bundles, &pool, &token,
++    )?;
++    Ok((
++        runtime
++            .modeling_from_documents(&closure, physical, &crate::CancelSource::new())
++            .await?,
++        spill,
++    ))
++}
++
