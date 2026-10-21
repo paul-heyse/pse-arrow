@@ -11,7 +11,8 @@ and storage capabilities. See the [relationship to IDAES](relationship-to-idaes.
 | Find active work | [Current work](plans/README.md) |
 | Review or change a design | [Design-change workflow](authoritative_design/sections/design-change-workflow.md) |
 | Audit broad design-principle alignment | [Living diagnostic account](design_review/audit/README.md) and design-principle-audit |
-| Reassess review recommendations | [Recommendation-audit guide](design_review/reviews/audits/README.md) and design-review-audit |
+| Audit review recommendations | `design-review-audit` (source: `.codex/skills/design-review-audit/SKILL.md`) → design or functional review's companion and integrated review at its original path |
+| Explore functional enhancements | `plan-functional-extension-review` (source: `.codex/skills/plan-functional-extension-review/SKILL.md`) → `functional-extension-review` (source: `.codex/skills/functional-extension-review/SKILL.md`) → [opportunity reviews](functional_reviews/README.md), with no diagnostic audit prerequisite |
 | Audit claimed plan completion | plan-completion-audit; update the same owning plan/packet checkpoint |
 | Orient library capability research | [Library overviews and authoring guide](libraries/README.md), then Context7 and primary sources |
 
@@ -52,6 +53,7 @@ their original conditions; only named tests and measurements support Tested and 
 | docs/design_review/audit/ | One living diagnostic account | Explicit audit/new-review context, not routine implementation |
 | docs/design_review/reviews/audits/ | Recommendation net-change companions | Revised principal review remains planning input; plans own scheduled progress |
 
+| `docs/functional_reviews/` | Functional opportunity reviews and recommendation-audit companions; selected opportunities feed existing plans | Evidence, never scope approval |
 | `docs/capability-maps/` | Third-party API maps + their evidence | `just lib-outline <file>` first; they are large |
 | `docs/design_review/` | The layered design standard (`design_principles/standard.toml`: core principles, process-simulator profile, pse-arrow binding) and reviews whose findings are still open | The `design-review` and `design-review-process-simulator` skills' output contract |
 | `docs/generated/` | `pse-schema` output | Never edit |

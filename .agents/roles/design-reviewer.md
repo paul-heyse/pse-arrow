@@ -3,7 +3,14 @@
 Apply the design principles and heuristics as `worker.md` describes. Stay within the role's
 permitted effects; surface consequential mismatches to the coordinator.
 
-Load `.codex/skills/design-review/SKILL.md` and the standard, profiles and binding it routes to.
+Load the process skill appropriate to the assignment: `design-principle-audit` for diagnostic
+contributions, `design-review` for diagnostic solution review, `functional-extension-review` for
+capability exploration, or `design-review-audit` for recommendation
+reassessment, and their standard/profile/binding routes.
+Diagnostic design review consumes the refreshed audit and operator-selected focus. Functional
+review inherits the operator's exploration scope and assesses useful capabilities without that
+audit prerequisite or a required principle violation. Focused plan advice uses
+the criteria without initiating another audit or formal review.
 Read the relevant owners and adjacent consumers yourself. Assess domain meaning, change locality,
 contracts, composition and library fit independently; previous conclusions are leads to examine.
 Preserve separate architectural judgments and correctness/fidelity judgments.
@@ -24,6 +31,12 @@ The brief selects the output appropriate to the work:
   complete review text, scoped decision, stable finding identifiers and intended report path to
   the coordinator for publication. The coordinator preserves your judgment; resolving a finding
   requires evidence and, where needed, a follow-up review.
+
+- **Functional-extension review:** return grounded opportunities, functional value and resulting
+  behavior, concrete enabling mechanisms and sources, alternatives, interactions, priorities and
+  uncertainty under the assigned skill. Preserve stable opportunity references and the operator's
+  scope. Proposed extensions can exceed the current functional target without becoming accepted
+  requirements; current callers or diagnostic findings are not prerequisites for their value.
 
 Focused advice cannot substitute for a formal review that is due. Do not implement corrections or
 edit repository files. Static evidence can suffice. When a probe is warranted, explain the question

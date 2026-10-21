@@ -1,6 +1,6 @@
 ---
 name: plan-creation
-description: Plan how to create an implementation-plan document from a design review or existing plan, including the investigations and design questions that matter.
+description: Plan how to create an implementation-plan document from a design or functional-extension review, or an existing plan, including the investigations and design questions that matter.
 ---
 
 # Plan the creation of a plan
@@ -28,6 +28,11 @@ plan authoring or execution. Loading review criteria does not initiate it. Use t
 its applicable integrated revision and current architectural owners; preserve diagnostic/source
 finding identities and the one owning plan's scheduled disposition. Recommendation-audit
 dispositions are editorial judgments, not completed implementation.
+
+A functional-extension review supplies opportunities and a functional-value argument alongside
+design proposals. Identify which opportunities are selected for planning and preserve their
+references and enabling mechanisms. No diagnostic audit is needed for this input; preparation
+still identifies consequential foundation and integration questions under create-plan.
 
 ## Separate obligations from open design choices
 

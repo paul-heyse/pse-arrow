@@ -66,6 +66,11 @@ root = "design_review"
 scope = "History"
 
 [[collections]]
+title = "Functional opportunity reviews"
+root = "functional_reviews"
+scope = "Reference"
+
+[[collections]]
 title = "Development"
 root = "dev"
 scope = "Current"

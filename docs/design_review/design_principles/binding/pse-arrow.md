@@ -50,7 +50,7 @@ It diagnoses current code broadly against the functional target and the same cor
 profile principles, without an incoming library preference or principle subset. It need not choose
 remedies or render an overall acceptance verdict.
 
-Refresh the account before a new design-review engagement, including direct review invocation.
+Refresh the account before a new diagnostic design-review engagement, including direct design-review invocation.
 Use the preceding audited source state and intervening changes to focus current inspection;
 reconsider unchanged dependencies and earlier findings when their premises change. Record source
 commit, included dirty changes, date, standard versions and meaningful coverage limits honestly.
@@ -73,6 +73,15 @@ initiate a broad principle audit or formal review. Principle audits do not autom
 remediation. Process discussion and edits to this workflow do not require an audit/review artifact.
 The initial audit and detailed library overviews remain separately scoped work.
 
+## Functional capability exploration
+
+Use `functional-extension-review` (source: `.codex/skills/functional-extension-review/SKILL.md`)
+and its preparation companion for deliberate functional enhancement within the operator's chosen
+outcome, workflow, subsystem or ecosystem. The [functional collection](../../../functional_reviews/README.md)
+owns output and recommendation-audit conventions. These reviews assess useful capabilities and
+their realization without a diagnostic audit prerequisite or required principle violation.
+The diagnostic design-review cadence below remains distinct. Selected opportunities enter the
+existing planning and decision routes; a review does not itself approve scope or implementation.
 
 ## Reviews in this repository
 

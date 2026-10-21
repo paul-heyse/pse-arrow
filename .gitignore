@@ -49,6 +49,8 @@ lcov.info
 !/.codex/skills/design-review-process-simulator/
 !/.codex/skills/README.md
 !/.codex/skills/plan-design-review/
+!/.codex/skills/functional-extension-review/
+!/.codex/skills/plan-functional-extension-review/
 !/.codex/skills/plan-creation/
 !/.codex/skills/create-plan/
 !/.codex/skills/plan-execution/
@@ -62,6 +64,8 @@ lcov.info
 !/.claude/skills/design-review-process-simulator/
 !/.claude/skills/README.md
 !/.claude/skills/plan-design-review/
+!/.claude/skills/functional-extension-review/
+!/.claude/skills/plan-functional-extension-review/
 !/.claude/skills/plan-creation/
 !/.claude/skills/create-plan/
 !/.claude/skills/plan-execution/
@@ -75,6 +79,8 @@ lcov.info
 !/.agents/skills/design-review-process-simulator/
 !/.agents/skills/README.md
 !/.agents/skills/plan-design-review/
+!/.agents/skills/functional-extension-review/
+!/.agents/skills/plan-functional-extension-review/
 !/.agents/skills/plan-creation/
 !/.agents/skills/create-plan/
 !/.agents/skills/plan-execution/

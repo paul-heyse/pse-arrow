@@ -15,13 +15,15 @@ It never generates or overwrites native agent adapters.
 
 | Process skill | Use |
 |---|---|
-| [design-principle-audit](design-principle-audit/SKILL.md) | Refresh the broad persisted diagnostic account before a new review engagement |
+| [design-principle-audit](design-principle-audit/SKILL.md) | Refresh the broad persisted diagnostic account before a new diagnostic design-review engagement |
 | [design-review-audit](design-review-audit/SKILL.md) | Reassess recommendations and omissions; publish a companion and integrated review |
 | [plan-completion-audit](plan-completion-audit/SKILL.md) | Assess claimed completion and correct the same owning plan |
 | [adr](adr/SKILL.md) | Record or supersede a decision and amend its architectural owner |
 | [plan-design-review](plan-design-review/SKILL.md) | Develop an approach to a requested review |
 | [design-review](design-review/SKILL.md) | Conduct a scoped review against the declared layered standard |
 | [design-review-process-simulator](design-review-process-simulator/SKILL.md) | Add the scientific/process-simulator profile when applicable |
+| [functional-extension-review](functional-extension-review/SKILL.md) | Explore valuable product, developer, operator or research capabilities and compare their realization within the operator's scope |
+| [plan-functional-extension-review](plan-functional-extension-review/SKILL.md) | Prepare a capability inquiry without requiring a diagnostic audit or predetermined feature list |
 | [plan-creation](plan-creation/SKILL.md) | Develop the approach to authoring an implementation plan |
 | [create-plan](create-plan/SKILL.md) | Write the design and execution plan, including focused assessment of affected foundations |
 | [plan-execution](plan-execution/SKILL.md) | Develop an approach to executing an approved plan |
@@ -46,6 +48,14 @@ numerical estimates, runtime cost accounting and cost proof artifacts are not re
 Quantitative performance/capacity claims require measurements; semantic correctness obligations
 remain. The binding owns cadence. Routine implementation adds no standing domain-model
 review or exhaustive flow tracing.
+
+Functional enhancement has a separate entry point: `plan-functional-extension-review` /
+`functional-extension-review`. The operator selects the exploration scope; useful capabilities
+need no diagnostic finding or existing caller. Design principles shape their realization.
+[Opportunity reviews](../../docs/functional_reviews/README.md) can feed the same planning and
+execution workflow. Recommendation auditing preserves their value lens and publishes a
+[functional companion](../../docs/functional_reviews/audits/README.md) plus the integrated review,
+without importing the diagnostic audit prerequisite.
 
 ## Library orientation and active exception
 
@@ -75,9 +85,9 @@ rewrite those plans merely for this transition.
 | salsa | Central library-skill source, inactive here |
 | rust-graphs | Central library-skill source, inactive here |
 
-The [living diagnostic audit](../../docs/design_review/audit/README.md) precedes solution review.
+The [living diagnostic audit](../../docs/design_review/audit/README.md) precedes diagnostic solution review.
 The operator chooses holistic, library-targeted, principle-focused or combined focus. Requested
-recommendation audits write [net changes](../../docs/design_review/reviews/audits/README.md) and
+design-review recommendation audits write [net changes](../../docs/design_review/reviews/audits/README.md) and
 revise the principal review in place; completion audits correct the same owning plan. These are
 deliberate review boundaries, not automatic recurring gates. No actual audit is performed by
 installing these skills; no root STATUS or separate handoff ledger is introduced.

@@ -314,14 +314,15 @@ explicit model and effort routing. The root agent owns design, integration and a
 executors choose local implementation details within their assigned boundaries.
 
 The [local process skills](.codex/skills/README.md) pair conversational preparation with action:
-`plan-design-review` / `design-review`, `plan-creation` / `create-plan`, and
+`plan-design-review` / `design-review`, `plan-functional-extension-review` /
+`functional-extension-review`, `plan-creation` / `create-plan`, and
 `plan-execution` / `execute-plan`. Planning companions produce adaptable approaches and do not
 switch runtime modes. Read `docs/plans/README.md`, then the active plan or packet checkpoint
 for the baseline and handoff. Existing plans own status and findings.
 
 ### Design audits and solution focus
 
-Use design-principle-audit before a new design-review engagement. The
+Use design-principle-audit before a new diagnostic design-review engagement. The
 [living diagnostic account](docs/design_review/audit/README.md) records the source baseline,
 standard and coverage; it is not default context for ordinary production edits. The operator
 selects holistic/unconstrained, library-targeted, principle-focused or combined solution review;
@@ -335,6 +336,16 @@ Use plan-completion-audit for claimed scope completion and correct that same own
 including affected summaries, packages, findings and next work. Separate implementation,
 required qualification and benefit evidence. These assessments do not recur per slice and do
 not alone authorize production repairs. Existing plans keep scheduled disposition and handoff.
+
+### Functional capability exploration
+
+Use `plan-functional-extension-review` / `functional-extension-review` to explore useful product,
+developer, operator or research capabilities within the operator's chosen outcome, workflow,
+subsystem or ecosystem. Publish [opportunity reviews](docs/functional_reviews/README.md); no
+diagnostic audit, existing caller or principle violation is required. Design principles shape
+proposed realizations. Selected opportunities enter existing plan and decision routes without
+automatic scope approval. Requested recommendation audits preserve this value lens and publish
+their [functional companions](docs/functional_reviews/audits/README.md) plus an integrated review.
 
 ### Library research
 
