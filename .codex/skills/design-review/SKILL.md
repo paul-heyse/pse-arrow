@@ -142,6 +142,17 @@ new proof machinery.
   native solver skill remains active. Capability maps retain their evidence scope; old
   utilization reports are historical references, not a live catalog or required lookup.
 
+  **Preserve enabling mechanisms.** In any review focus, when a recommendation materially
+  depends on library functionality, name the concrete capabilities and recognizable API names,
+  explain how they compose to realize the intended responsibility or guarantee, and preserve why
+  that choice matters. Include material conditions and limitations, applicable version and
+  evidence strength, and precise references to the relevant overview section, primary
+  documentation or tagged source. Overviews orient discovery; qualify consequential contracts
+  through the repository's research routes. Distinguish a selected mechanism from a candidate,
+  illustrative example or unresolved feasibility question. Keep this account with the
+  recommendation so planning can carry it forward without repeating broad capability discovery.
+  Scale detail to the dependency; ordinary API usage needs no inventory or fixed format.
+
 - **Decision and follow-up:** distinguish architectural fitness from behavioral adequacy, apply
   the template's decision rules, and link findings to one disposition owner. Do not implement
   recommendations merely because a review identified them.

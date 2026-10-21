@@ -46,6 +46,13 @@ obligations as part of delivering the target. Follow the repository's library ov
 research routes (including its active native solver skill) when library behavior matters. A completed assignment does not by itself
 establish accepted integrated scope.
 
+Start library work from the plan's recorded mechanisms and precise references, preserving their
+intended composition, guarantees and advantages. Reassess details when the actual version or
+integration premises differ. A consequential substitution needs a reasoned account of how it
+preserves the target or changes it, with the owning plan and affected assignments reconciled
+through existing decision and authorization routes. Routine API adjustments remain implementation
+judgment; avoid silently replacing an enabling capability with weaker behavior or bespoke machinery.
+
 Follow the binding's
 [review cadence](../../../docs/design_review/design_principles/binding/pse-arrow.md#reviews-in-this-repository).
 Routine execution does not repeat the plan's foundation assessment or initiate recurring
@@ -72,6 +79,11 @@ Keep durable status in its existing owner without a second execution plan or par
 Clean up any remaining worktrees that are fully merged. Report the resulting behavior,
 verification and any remaining authorized work or blockers; a partial checkpoint is not
 completion of the requested scope.
+
+When next work depends on selected library mechanisms, link the owning plan or packet sections
+that retain their concrete functionality, rationale and source references. Before retiring a plan, carry
+enduring mechanism choices and material limitations into the established architectural owner.
+Keep repository-specific adoption rationale there; reusable library overviews remain repo-agnostic.
 
 At closure, follow the [document lifecycle route](../../../docs/dev/documentation.md#metadata-and-aggregate-scope):
 reconcile references and dependencies, transfer enduring meaning and retire eligible completed

@@ -86,6 +86,16 @@ native solver skill. Preserve enough rationale for an implementer to recognize
 evidence that would reopen a decision. Relate an expected benefit to its mechanism and workload
 or conditions, and consider material integration, lifecycle and maintenance obligations.
 Quantitative benefits need a baseline and measurement route; unmeasured benefits remain hypotheses.
+
+Where the target materially depends on library functionality, carry the selected concrete
+mechanisms and precise source references from the review or research into the relevant target
+design and work-package explanation. Preserve recognizable API names, their composition and
+role, the reason for the choice, applicable version, and material conditions or limits. Give the
+implementer enough local explanation to understand the intended realization; links can supply
+deeper detail. Reconcile changed choices explicitly and distinguish selected mechanisms from
+candidates, examples and unresolved feasibility. This applies across review types. Use prose or
+a compact table as useful, without a separate capability register or a catalog of routine calls.
+
 Co-design semantic contracts and physical execution for supported operations, size/skew,
 concurrency and resource premises. Explain necessary versus repeated scans/passes, native planning
 and composed capabilities, placement/crossings, live representations, reuse and invalidation,

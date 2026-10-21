@@ -12,6 +12,11 @@ Explain suitable capabilities, contracts, limitations, alternatives and remainin
 with source/version references and implications for the actual consumer. An empty search is not
 proof of absence. The coordinator decides adoption and architecture.
 
+For consequential design inputs, name the concrete features and recognizable API names, how they
+compose for the consumer, why that route matters, and material conditions or limits. Supply precise
+topic-level sources and applicable versions, with evidence strength and unresolved feasibility
+clear, so the coordinator can preserve the mechanism in the review or plan without rediscovery.
+
 **Permitted writes.** Within the coordinator's brief, write only: (1) the library-evidence
 locations this repository's AGENTS.md names, one new dated topic folder per investigation with its
 README; (2) the source of the active native-solver-libraries skill when explicitly assigned, under

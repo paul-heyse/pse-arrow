@@ -282,6 +282,13 @@ establishes a common cause. No mandatory dependency graph or additional analysis
 Relevant entries in docs/library-utilization.jsonl, where available, may offer particularly
 useful leads on established capabilities and integration patterns. Consulting them is optional.
 
+For recommendations materially enabled by a library, preserve concrete capabilities and API
+names, their composition and design role, the reason for the choice, and material conditions or
+limits. Give precise overview-section or primary-source references with version applicability and
+evidence strength. Distinguish selected mechanisms from candidates, examples and unresolved
+feasibility; carry this account into the recommendation for subsequent planning, whatever the
+review's focus. Scale the explanation to its significance without inventorying routine calls.
+
 | Capability / contract | Integration owner / exposed types | Candidate or current mechanism | Fit and limits | Coupling, lifecycle, test, upgrade/replacement cost | Bespoke code removed / recommendation |
 |---|---|---|---|---|---|
 
