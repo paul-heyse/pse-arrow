@@ -424,10 +424,13 @@ fn admit_boundary(
             "conditional unit admission: {message}; request an explicit simultaneous strategy"
         ))
     };
+    let row = |id| {
+        #[cfg(test)]
+        tests::ROW_VISITS.with(|visits| visits.set(visits.get() + 1));
+        source.row(id)
+    };
     if !inputs.is_disjoint(unknowns)
-        || rows
-            .iter()
-            .any(|id| !source.structure().rows().iter().any(|r| r.id == *id))
+        || rows.iter().any(|id| row(*id).is_none())
         || unknowns
             .iter()
             .any(|id| source.columns().binary_search(id).is_err())
@@ -438,11 +441,9 @@ fn admit_boundary(
     }
     if rows.is_empty()
         || rows.len() != unknowns.len()
-        || source
-            .structure()
-            .rows()
+        || rows
             .iter()
-            .any(|r| rows.contains(&r.id) && (!r.lower.is_finite() || r.lower != r.upper))
+            .any(|id| row(*id).is_some_and(|r| !r.lower.is_finite() || r.lower != r.upper))
     {
         return Err(refuse(
             "expected disjoint boundary inputs and a square original equality inventory",
@@ -450,7 +451,7 @@ fn admit_boundary(
     }
     // Original support, including dependencies through demanded expression members,
     // is compiler-issued. Counting rows alone cannot establish this boundary.
-    for dependency in source.dependencies(cancel)? {
+    for dependency in source.boundary_dependencies(rows, unknowns, cancel)? {
         match dependency.target {
             Target::Objective(_) => {
                 if dependency
@@ -495,6 +496,9 @@ fn admit_boundary(
 #[cfg(test)]
 mod tests {
     use super::*;
+    thread_local! {
+        pub(super) static ROW_VISITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    }
     fn id(v: u8) -> SemanticId {
         SemanticId::from_bytes([v; 16])
     }
@@ -866,6 +870,119 @@ mod tests {
             &Arc::new(AtomicBool::new(false)),
         )
         .unwrap();
+    }
+    #[test]
+    fn conditional_boundary_row_visits_ignore_unrelated_parent_growth() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        for unrelated in [1, 16, 64] {
+            let extra: String = (0..unrelated)
+                .map(|n| format!("eq unrelated_{n}:{}*p=={};", n + 2, n + 2))
+                .collect();
+            for coupled in [false, true] {
+                let external = if coupled { "eq external:x==2;" } else { "" };
+                let (source, [x, p, local, external_row]) = source_text(
+                    &format!(
+                        "package p {{ def Root {{var x:Scalar;var p:Scalar;eq local:x*p==1;{extra}{external}}} }}"
+                    ),
+                    DerivativeOrder::First,
+                );
+                assert_eq!(
+                    source.plan.structure().rows().len(),
+                    unrelated + 1 + usize::from(coupled)
+                );
+                ROW_VISITS.with(|visits| visits.set(0));
+                let result = admit_boundary(
+                    &source.plan,
+                    &BTreeSet::from([p]),
+                    &BTreeSet::from([x]),
+                    &BTreeSet::from([local]),
+                    &BTreeSet::from([x]),
+                    &BTreeSet::new(),
+                    &cancel,
+                );
+                assert_eq!(ROW_VISITS.with(std::cell::Cell::get), 2);
+                if coupled {
+                    let error = result.unwrap_err();
+                    assert!(matches!(error, CompileError::ConditionalUnavailable(_)));
+                    assert!(
+                        error
+                            .to_string()
+                            .contains(&format!("external row {external_row}"))
+                    );
+                    admit_boundary(
+                        &source.plan,
+                        &BTreeSet::from([p]),
+                        &BTreeSet::from([x]),
+                        &BTreeSet::from([local]),
+                        &BTreeSet::from([x]),
+                        &BTreeSet::from([external_row]),
+                        &cancel,
+                    )
+                    .unwrap();
+                } else {
+                    result.unwrap();
+                }
+                ROW_VISITS.with(|visits| visits.set(0));
+                let missing = admit_boundary(
+                    &source.plan,
+                    &BTreeSet::from([p]),
+                    &BTreeSet::from([x]),
+                    &BTreeSet::from([SemanticId::NIL]),
+                    &BTreeSet::from([x]),
+                    &BTreeSet::new(),
+                    &cancel,
+                )
+                .unwrap_err();
+                assert!(matches!(missing, CompileError::Missing(_)));
+                assert_eq!(ROW_VISITS.with(std::cell::Cell::get), 1);
+            }
+        }
+    }
+    #[test]
+    fn conditional_boundary_keeps_fixed_and_free_guard_obligations() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        for fixed in [false, true] {
+            let parameter = if fixed {
+                "param p:Scalar=1;"
+            } else {
+                "var p:Scalar;"
+            };
+            let (source, [x, p, local, _]) = source_text(
+                &format!(
+                    "package p {{def Root {{var x:Scalar;{parameter}eq local:x==if p>0 then 1 else 2;}}}}"
+                ),
+                DerivativeOrder::First,
+            );
+            let result = admit_boundary(
+                &source.plan,
+                &BTreeSet::new(),
+                &BTreeSet::from([x]),
+                &BTreeSet::from([local]),
+                &BTreeSet::from([x]),
+                &BTreeSet::new(),
+                &cancel,
+            );
+            if fixed {
+                result.unwrap();
+            } else {
+                let error = result.unwrap_err();
+                assert!(
+                    error
+                        .to_string()
+                        .contains(&format!("undeclared external free dependency {p}"))
+                );
+                admit_boundary(
+                    &source.plan,
+                    &BTreeSet::from([p]),
+                    &BTreeSet::from([x]),
+                    &BTreeSet::from([local]),
+                    &BTreeSet::from([x]),
+                    &BTreeSet::new(),
+                    &cancel,
+                )
+                .unwrap();
+            }
+        }
     }
     #[test]
     fn conditional_unit_recycle_reference_declares_material_connections_and_stages() {

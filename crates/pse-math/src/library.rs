@@ -169,7 +169,7 @@ impl Evaluator {
         match self {
             Self::Interpreted => "interpreted-f64-v1",
             Self::CompiledScalar { .. } => {
-                "symbolica-3.0.1-cpp-scalar-value-v2;g++;/usr/bin/g++;O2;c++17;pipe;two-phase;page-4096;noasm;no-fast-math;no-unsafe-math;fp-contract-off;x86-64-generic"
+                "symbolica-3.0.1-cpp-scalar-value-v3;named-modules-8;g++;/usr/bin/g++;O2;c++17;pipe;two-phase;page-4096;noasm;no-fast-math;no-unsafe-math;fp-contract-off;x86-64-generic"
             }
         }
     }

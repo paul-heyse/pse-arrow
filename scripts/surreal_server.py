@@ -3283,6 +3283,14 @@ def primary_drain_pid(
     state: Path, config: dict[str, object], observation: dict[str, str]
 ) -> int | None:
     """Identify the admitted live receiver even after its disk files are replaced."""
+    if "primary_receiver" in config and config["primary_receiver"] is None:
+        # Functional observer contexts explicitly admit no primary receiver.
+        # Its absence does not excuse a surviving process at that context's unit.
+        if worker_busy(observation):
+            raise SupervisorError(
+                "Unconfigured primary receiver remains active; drain refused"
+            )
+        return None
     return _primary_process(state, config, observation, recorded_primary(config))
 
 

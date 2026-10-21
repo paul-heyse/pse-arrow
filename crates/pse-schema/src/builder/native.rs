@@ -41,14 +41,20 @@ static BOOTSTRAP: LazyLock<Result<Registry, SchemaError>> = LazyLock::new(|| {
 });
 
 pub(super) fn materialize(reg: &Registry) -> Result<SchemaBatches, SchemaError> {
-    let bootstrap = BOOTSTRAP.as_ref().map_err(Clone::clone)?;
+    materialize_using(reg, || BOOTSTRAP.as_ref().map_err(Clone::clone))
+}
+
+fn materialize_using<'a>(
+    reg: &'a Registry,
+    fallback: impl Fn() -> Result<&'a Registry, SchemaError>,
+) -> Result<SchemaBatches, SchemaError> {
     SELF_DESCRIBING_RELATIONS
         .iter()
         .map(|name| {
             let owner = if reg.relation(name).is_some() {
                 reg
             } else {
-                bootstrap
+                fallback()?
             };
             let spec = owner
                 .relation(name)
@@ -575,5 +581,29 @@ mod consolidation_unit {
         let clone = columns.clone();
         assert!(Arc::ptr_eq(clone.column(0), columns.column(0)));
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod immutable_reuse_unit {
+    use super::*;
+    #[test]
+    fn complete_catalog_never_requests_bootstrap_and_partial_registry_keeps_fallback() {
+        let complete = crate::catalog::assemble().unwrap();
+        let tables =
+            materialize_using(&complete, || panic!("complete catalog forced fallback")).unwrap();
+        assert_eq!(
+            crate::fingerprint::registry(&tables).unwrap(),
+            complete.fingerprint()
+        );
+        let partial = RegistryBuilder::new().build().unwrap();
+        let calls = std::cell::Cell::new(0);
+        let tables = materialize_using(&partial, || {
+            calls.set(calls.get() + 1);
+            Ok(&complete)
+        })
+        .unwrap();
+        assert_eq!(calls.get(), SELF_DESCRIBING_RELATIONS.len());
+        assert_eq!(tables.as_slice(), partial.schema_batches());
     }
 }

@@ -272,6 +272,7 @@ pub(crate) async fn heat_fit(
     (
         FitId::from(SemanticId::parse_hex(id).unwrap()),
         pse_runtime::workflow::FitProfile {
+            optimizer: pse_runtime::workflow::FitOptimizer::NativeNlp,
             solver,
             simulations,
             experiment_workers: pse_model::scalars::PositiveCount::try_new(1).unwrap(),

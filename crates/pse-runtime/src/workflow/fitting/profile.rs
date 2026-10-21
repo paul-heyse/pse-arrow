@@ -25,10 +25,12 @@
 //! fit whose objective falls below the estimate's (`stopped`).
 use super::*;
 use super::{covariance::IntervalBound, oracle::FitOracle};
+#[cfg(test)]
+use native::solve::Backend;
 use native::{
     ProblemError,
     kkt::Withheld,
-    solve::{Backend, Compatibility, Execution, Qualification, Termination},
+    solve::{Compatibility, Execution, Qualification, Termination},
 };
 use pse_model::diagnostic::{BoundaryDiagnostic, DiagnosticProjection};
 use pse_relations::generated::enums::{IntervalEnd, IntervalOutcome};
@@ -42,6 +44,8 @@ use std::sync::{
 #[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProfilePoint {
+    /// Actual residual-native evidence for this pin; absent for a native NLP pin.
+    pub residual: Option<FitResidualReport>,
     /// The pinned parameter value, in the parameter's unit.
     pub value: f64,
     /// The chain point whose solution seeded this fit; `None` for the fit estimate (PS-11).
@@ -73,6 +77,12 @@ impl From<ProblemError> for ProfileFailure {
     }
 }
 impl ProfileFailure {
+    pub(super) fn shared(cause: Arc<ProblemError>) -> Self {
+        Self(cause)
+    }
+    pub(super) fn shared_cause(&self) -> Arc<ProblemError> {
+        self.0.clone()
+    }
     /// Original native, mathematical or provider failure.
     pub fn cause(&self) -> &ProblemError {
         self.0.as_ref()
@@ -153,7 +163,7 @@ fn dispatch<T: Send>(
     count: usize,
     workers: usize,
     stack: usize,
-    run: impl Fn(usize) -> T + Sync,
+    run: impl Fn(usize, usize) -> T + Sync,
     failed: impl Fn(usize, ProfileWorkerFailure) -> T + Sync,
     environment: impl Fn(&(dyn Fn() + Sync)) -> Result<(), ProfileWorkerFailure> + Sync,
     spawn: impl Fn(usize) -> Result<(), String>,
@@ -168,7 +178,7 @@ fn dispatch<T: Send>(
         }
         return (
             (0..count)
-                .map(|i| chain_worker(|| run(i)).unwrap_or_else(|e| failed(i, e)))
+                .map(|i| chain_worker(|| run(0, i)).unwrap_or_else(|e| failed(i, e)))
                 .collect(),
             usize::from(count != 0),
             Vec::new(),
@@ -177,33 +187,34 @@ fn dispatch<T: Send>(
     let next = AtomicUsize::new(0);
     let results: Mutex<Vec<Option<T>>> = Mutex::new((0..count).map(|_| None).collect());
     let mut scheduling = Vec::new();
-    let started = std::thread::scope(|scope| {
-        let work = || {
-            let _entered = observation.as_ref().map(|context| context.enter());
-            if let Some(context) = &observation {
-                context.count("profile.workers_started", "count", 1);
+    let work = |worker| {
+        let _entered = observation.as_ref().map(|context| context.enter());
+        if let Some(context) = &observation {
+            context.count("profile.workers_started", "count", 1);
+        }
+        environment(&|| loop {
+            let index = next.fetch_add(1, Ordering::Relaxed);
+            if index >= count {
+                break;
             }
-            environment(&|| loop {
-                let index = next.fetch_add(1, Ordering::Relaxed);
-                if index >= count {
-                    break;
-                }
-                let value = chain_worker(|| run(index)).unwrap_or_else(|e| failed(index, e));
-                results
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)[index] = Some(value);
-            })
-        };
+            let value = chain_worker(|| run(worker, index)).unwrap_or_else(|e| failed(index, e));
+            results
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)[index] = Some(value);
+        })
+    };
+    let started = std::thread::scope(|scope| {
         let mut handles = Vec::new();
         for index in 0..workers {
             if let Err(error) = spawn(index) {
                 scheduling.push(ProfileWorkerFailure::Scheduling(error));
                 continue;
             }
+            let work = &work;
             match std::thread::Builder::new()
                 .name("pse-profile".into())
                 .stack_size(stack)
-                .spawn_scoped(scope, work)
+                .spawn_scoped(scope, move || work(index))
             {
                 Ok(handle) => handles.push(handle),
                 Err(error) => scheduling.push(ProfileWorkerFailure::Scheduling(error.to_string())),
@@ -305,6 +316,7 @@ struct Task {
 }
 /// An accepted pinned fit.
 struct Solution {
+    residual: Option<FitResidualReport>,
     objective: f64,
     primal: Vec<f64>,
     qualification: Qualification,
@@ -312,6 +324,7 @@ struct Solution {
 }
 /// A failed pinned solve retains report state independently from its original causes.
 struct PinFailure {
+    residual: Option<FitResidualReport>,
     qualification: Option<Qualification>,
     termination: Option<Termination>,
     failures: Vec<ProfileFailure>,
@@ -320,6 +333,7 @@ struct PinFailure {
 impl From<ProblemError> for PinFailure {
     fn from(error: ProblemError) -> Self {
         Self {
+            residual: None,
             qualification: None,
             termination: None,
             failures: vec![ProfileFailure(Arc::new(error))],
@@ -345,6 +359,7 @@ impl PinFailure {
         let qualification = report.qualification;
         let termination = report.termination.category;
         let mut failure = Self {
+            residual: None,
             qualification: Some(qualification),
             termination: Some(termination),
             failures: [
@@ -404,6 +419,7 @@ impl PinFailure {
             .filter(|f| f.is_finite());
         match (report.candidate, objective) {
             (Some(candidate), Some(objective)) => Ok(Solution {
+                residual: None,
                 objective,
                 primal: candidate.primal,
                 qualification,
@@ -421,9 +437,10 @@ impl PinFailure {
     }
 }
 /// What every chain of one fit shares.
+#[derive(Clone, Copy)]
 struct Chains<'a> {
     problem: &'a Arc<FitProblem>,
-    backend: Backend,
+    route: FitRoute,
     execution: &'a Execution,
     estimate: &'a [f64],
     /// The estimate's objective `f*`.
@@ -441,25 +458,107 @@ impl Chains<'_> {
         column: OriginalCol,
         value: f64,
         seed: &[f64],
+        scratch: Option<Arc<oracle::neutral::FitScratch>>,
     ) -> Result<Solution, PinFailure> {
         if let Some(stop) = self.execution.stopped() {
             return Err(ProblemError::stopped(stop, "the fit stopped").into());
         }
         let p = self.problem;
+        if self.route == FitRoute::ResidualLm {
+            let (mut evidence, candidate) = oracle::residual::solve(
+                p,
+                self.execution.clone(),
+                seed,
+                Some((column.get(), value)),
+                scratch.clone(),
+            )
+            .map_err(PinFailure::from)?;
+            // A latched callback stop is terminal for this native attempt. Retain
+            // its literal report before attempting any independent source evaluation.
+            if evidence.failure.is_some() || !evidence.termination.successful() {
+                let category = evidence.termination_category();
+                let terminal = evidence.failure.is_some();
+                let failure = evidence.failure.clone().unwrap_or_else(|| {
+                    ProfileFailure::from(match category {
+                        Termination::IterationLimit => ProblemError::Limit {
+                            kind: native::LimitKind::Work,
+                            detail: "residual LM evaluation allowance".into(),
+                        },
+                        _ => ProblemError::numerical(format!(
+                            "residual LM pin {:?} did not converge",
+                            evidence.termination
+                        )),
+                    })
+                });
+                return Err(PinFailure {
+                    qualification: Some(Qualification::Unqualified),
+                    termination: Some(category),
+                    residual: Some(evidence),
+                    failures: vec![failure],
+                    callback_terminal_failure: terminal,
+                });
+            }
+            let (objective, gradient, feasible) = match oracle::residual::assess_pin(
+                p,
+                self.execution.clone(),
+                &candidate,
+                column.get(),
+                scratch.clone(),
+            ) {
+                Ok(assessment) => assessment,
+                Err(cause) => {
+                    return Err(PinFailure {
+                        qualification: Some(Qualification::Unqualified),
+                        termination: Some(evidence.termination_category()),
+                        residual: Some(evidence),
+                        failures: vec![cause.into()],
+                        callback_terminal_failure: false,
+                    });
+                }
+            };
+            if !feasible || gradient > p.accuracy.stationarity || !gradient.is_finite() {
+                let failure = ProfileFailure::from(ProblemError::numerical(format!(
+                    "residual LM pin {:?} did not qualify its original gradient/quality",
+                    evidence.termination
+                )));
+                return Err(PinFailure {
+                    qualification: Some(Qualification::Unqualified),
+                    termination: Some(evidence.termination_category()),
+                    residual: Some(evidence),
+                    failures: vec![failure],
+                    callback_terminal_failure: false,
+                });
+            }
+            evidence.stationarity = Some(gradient);
+            evidence.qualification = Qualification::Stationary;
+            return Ok(Solution {
+                objective,
+                primal: candidate,
+                qualification: Qualification::Stationary,
+                termination: evidence.termination_category(),
+                residual: Some(evidence),
+            });
+        }
+        let FitRoute::Native(backend) = self.route else {
+            return Err(
+                ProblemError::internal("nonconstant profile chain has no optimizer").into(),
+            );
+        };
         let mut controls = p.profile.solver.controls.clone();
         controls.time_limit = self
             .execution
             .time_limit
             .saturating_sub(self.execution.started.elapsed());
         let failed = PinFailure::from;
-        let oracle = FitOracle::new(p.clone(), self.execution.clone()).map_err(failed)?;
+        let oracle =
+            FitOracle::with_scratch(p.clone(), self.execution.clone(), scratch).map_err(failed)?;
         let pinned = native::transform::Pinned::new(Box::new(oracle), &[(column.get(), value)])
             .map_err(failed)?;
         let mut initial = seed.to_vec();
         initial[column.get()] = value;
         let report = native::execution::nlp(
             native::execution::Step {
-                adapter: native::execution::adapter(self.backend),
+                adapter: native::execution::adapter(backend),
                 snapshot: &p.snapshot,
                 structure: p.structural_assessment.as_ref(),
                 settings: &p.profile.solver.backend,
@@ -472,7 +571,7 @@ impl Chains<'_> {
                     layout: p.key,
                     profile: p.profile_key.as_id(),
                     data: p.source_identity,
-                    backend: self.backend,
+                    backend,
                 },
                 warm: None,
             },
@@ -527,6 +626,9 @@ impl Chains<'_> {
         // The adapter checks current pin bounds, layout and profile on every step.
         let mut retained = native::execution::Retained::default();
         let p = self.problem;
+        // Construct/drop this neutral population on the actual chain owner, including
+        // width-one inline dispatch. No provider or numerical point crosses pins.
+        let scratch = oracle::neutral::FitScratch::new(p);
         let column = task.column.get();
         let variable = &p.contract.variables[column];
         ChainPolicy {
@@ -548,7 +650,15 @@ impl Chains<'_> {
             points: self.points,
             execution: self.execution,
         }
-        .run(|value, seed| self.solve(&mut retained, task.column, value, seed))
+        .run(|value, seed| {
+            let result = self.solve(&mut retained, task.column, value, seed, scratch.clone());
+            if result.is_err()
+                && let Some(scratch) = &scratch
+            {
+                scratch.discard();
+            }
+            result
+        })
     }
 }
 /// Statistical target and bracketing policy, independent of problem/native startup.
@@ -691,6 +801,7 @@ impl ChainPolicy<'_> {
                     }
                     let detail = failure.detail();
                     chain.points.push(ProfilePoint {
+                        residual: failure.residual,
                         value,
                         seed,
                         qualification: failure.qualification,
@@ -721,6 +832,7 @@ impl ChainPolicy<'_> {
                         context.boolean("profile.point_accepted", !below);
                     }
                     chain.points.push(ProfilePoint {
+                        residual: solution.residual.clone(),
                         value,
                         seed,
                         qualification: Some(solution.qualification),
@@ -777,7 +889,7 @@ impl FitProblem {
         report: &FitReport,
         level: f64,
         controls: &ProfileControls,
-        (route, workers): (native::routing::Route, usize),
+        (route, workers): (FitRoute, usize),
         execution: &Execution,
     ) -> Result<Vec<ProfileChain>, FitWithheld> {
         crate::workflow::dynamics::analysis("fit.profile_likelihood_analysis", || {
@@ -786,8 +898,10 @@ impl FitProblem {
             else {
                 return Err(FitWithheld::Local(Withheld::NoCandidate));
             };
-            let native::routing::Route::Native(backend) = route else {
-                return Err(FitWithheld::Local(Withheld::NoCandidate));
+            let adapters: Vec<&dyn native::execution::BackendExecution> = match route {
+                FitRoute::Native(backend) => vec![native::execution::adapter(backend)],
+                FitRoute::ResidualLm => vec![],
+                FitRoute::Evaluation => return Err(FitWithheld::Local(Withheld::NoCandidate)),
             };
             let threshold = ChiSquared::new(1.0)
                 .map(|c| c.inverse_cdf(level).sqrt())
@@ -834,7 +948,7 @@ impl FitProblem {
                 .max(1);
             let chains = Chains {
                 problem: self,
-                backend,
+                route,
                 execution,
                 estimate,
                 optimum,
@@ -843,35 +957,37 @@ impl FitProblem {
                 points: controls.points.into_inner(),
             };
             let stack = self.runtime.native().stack_bytes();
-            let cores = chain_cores.checked_mul(workers).ok_or_else(|| {
-                FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
-                    ProblemError::memory("profile team cores"),
-                )))
-            })?;
+            let core_extent = |workers: usize| {
+                chain_cores.checked_mul(workers).ok_or_else(|| {
+                    FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
+                        ProblemError::memory("profile team cores"),
+                    )))
+                })
+            };
             // Parent estimation storage stays resident. Guard each chain's additional
             // scratch and native thread/team stacks before the team is created.
-            let adapter_stacks = native::execution::scope_stack_bytes(
-                &[native::execution::adapter(backend)],
-                threads,
-                stack,
-            )
-            .map_err(|error| {
-                FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(error)))
-            })?;
-            let bytes = self
-                .bytes
-                .checked_mul(workers.saturating_sub(1))
-                .and_then(|bytes| {
-                    stack
-                        .checked_add(adapter_stacks)
-                        .and_then(|per_worker| workers.checked_mul(per_worker))
-                        .and_then(|stacks| bytes.checked_add(stacks))
-                })
-                .ok_or_else(|| {
-                    FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
-                        ProblemError::memory("profile team extent"),
-                    )))
+            let adapter_stacks = native::execution::scope_stack_bytes(&adapters, threads, stack)
+                .map_err(|error| {
+                    FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(error)))
                 })?;
+            let byte_extent = |workers: usize| {
+                self.bytes
+                    .checked_mul(workers.saturating_sub(1))
+                    .and_then(|bytes| {
+                        stack
+                            .checked_add(adapter_stacks)
+                            .and_then(|per_worker| workers.checked_mul(per_worker))
+                            .and_then(|stacks| bytes.checked_add(stacks))
+                    })
+                    .and_then(|bytes| {
+                        bytes.checked_add(workers.checked_mul(foreign::chain_metadata_bytes()?)?)
+                    })
+                    .ok_or_else(|| {
+                        FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
+                            ProblemError::memory("profile team extent"),
+                        )))
+                    })
+            };
             let constructor = pse_math::construction::current();
             // Profile chains run on owner-affine standard threads. Nested experiment
             // teams must inherit this actual executor, just as they inherit the native
@@ -881,46 +997,85 @@ impl FitProblem {
                     ProblemError::internal(format!("fit profile runtime: {error}")),
                 )))
             })?;
-            let (mut result, started, scheduling) = self
-                .runtime
-                .native()
-                .quiescent_phase(cores, bytes, execution, || {
-                    dispatch(
-                        tasks.len(),
-                        workers,
-                        stack,
-                        |index| chains.run(tasks[index]),
-                        |index, failure| chains.failed(tasks[index], failure),
-                        |work| {
-                            let _runtime = runtime.enter();
-                            native::execution::scoped(
-                                &[native::execution::adapter(backend)],
-                                threads,
-                                stack,
-                                || -> Result<(), ProblemError> {
-                                    experiments::borrowed_capacity(chain_cores, || {
-                                        match &constructor {
-                                            Some(owner) => {
-                                                pse_math::construction::scoped(owner.clone(), work)
-                                            }
-                                            None => work(),
-                                        }
-                                    });
-                                    Ok(())
-                                },
-                            )
-                            .map_err(|error| {
-                                ProfileWorkerFailure::Environment(ProfileFailure(Arc::new(error)))
-                            })
-                        },
-                        |_| Ok(()),
-                    )
-                })
-                .map_err(|error| {
-                    FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
-                        error.into_problem(),
-                    )))
+            let mut actual = workers;
+            let (mut result, started, scheduling) = loop {
+                execution.check().map_err(|error| {
+                    FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(error)))
                 })?;
+                let attempted = self.runtime.native().quiescent_phase(
+                    core_extent(actual)?,
+                    byte_extent(actual)?,
+                    execution,
+                    || {
+                        let Some(chain_executions) = foreign::chains(self, execution, actual)?
+                        else {
+                            return Ok(None);
+                        };
+                        Ok::<_, ProblemError>(Some(dispatch(
+                            tasks.len(),
+                            actual,
+                            stack,
+                            |worker, index| {
+                                let current = Chains {
+                                    execution: &chain_executions[worker],
+                                    ..chains
+                                };
+                                current.run(tasks[index])
+                            },
+                            |index, failure| chains.failed(tasks[index], failure),
+                            |work| {
+                                let _runtime = runtime.enter();
+                                native::execution::scoped(
+                                    &adapters,
+                                    threads,
+                                    stack,
+                                    || -> Result<(), ProblemError> {
+                                        experiments::borrowed_capacity(chain_cores, || {
+                                            match &constructor {
+                                                Some(owner) => pse_math::construction::scoped(
+                                                    owner.clone(),
+                                                    work,
+                                                ),
+                                                None => work(),
+                                            }
+                                        });
+                                        Ok(())
+                                    },
+                                )
+                                .map_err(|error| {
+                                    ProfileWorkerFailure::Environment(ProfileFailure(Arc::new(
+                                        error,
+                                    )))
+                                })
+                            },
+                            |_| Ok(()),
+                        )))
+                    },
+                );
+                match attempted {
+                    Ok(Ok(Some(result))) => break result,
+                    Ok(Ok(None)) => {}
+                    Ok(Err(error)) => {
+                        return Err(FitWithheld::Local(Withheld::Analysis(
+                            native::kkt::Unavailable::from(error),
+                        )));
+                    }
+                    Err(error) if actual > 1 && foreign::capacity(&error) => {}
+                    Err(error) => {
+                        return Err(FitWithheld::Local(Withheld::Analysis(
+                            native::kkt::Unavailable::from(error.into_problem()),
+                        )));
+                    }
+                }
+                if actual == 1 {
+                    return Err(FitWithheld::Local(Withheld::Analysis(
+                        native::kkt::Unavailable::from(ProblemError::memory(
+                            "serial profile foreign coverage unavailable",
+                        )),
+                    )));
+                }
+                actual -= 1;
+            };
             for chain in &mut result {
                 chain.actual_parallelism = started;
                 chain.scheduling_failures = scheduling.clone();
@@ -958,6 +1113,7 @@ mod worker_tests {
     }
     fn solution(value: f64) -> Solution {
         Solution {
+            residual: None,
             objective: value * value / 2.0,
             primal: vec![value],
             qualification: Qualification::Stationary,
@@ -1091,6 +1247,7 @@ mod worker_tests {
         let chain = policy(&execution).run(|value, _| {
             pins.push(value);
             Err(PinFailure {
+                residual: None,
                 qualification: Some(Qualification::Unqualified),
                 termination: Some(Termination::Evaluation),
                 failures: vec![trial().into()],
@@ -1171,7 +1328,7 @@ mod worker_tests {
             4,
             2,
             2 * 1024 * 1024,
-            |_| {
+            |_, _| {
                 attempts.fetch_add(1, Ordering::Relaxed);
                 Ok(())
             },
@@ -1203,7 +1360,7 @@ mod worker_tests {
                 8,
                 workers,
                 2 * 1024 * 1024,
-                |index| {
+                |_, index| {
                     attempts[index].fetch_add(1, Ordering::Relaxed);
                     if index == 2 {
                         panic!("injected chain panic");
@@ -1273,7 +1430,7 @@ mod worker_tests {
             4,
             2,
             2 * 1024 * 1024,
-            |_| {
+            |_, _| {
                 attempts.fetch_add(1, Ordering::Relaxed);
                 Ok(())
             },
@@ -1298,7 +1455,7 @@ mod worker_tests {
             4,
             2,
             2 * 1024 * 1024,
-            |index| {
+            |_, index| {
                 assert_eq!(
                     pse_diagnostics::observation::current().unwrap().id(),
                     context.id()
@@ -1373,4 +1530,48 @@ mod worker_tests {
             Value::Boolean(false)
         );
     }
+}
+
+#[cfg(all(test, feature = "solver-ipopt"))]
+#[tokio::test]
+async fn residual_profile_pin_preserves_literal_callback_failure_before_independent_assessment() {
+    let seed = oracle::lm_inquiry::fixture("domain", [1., 2.])
+        .await
+        .unwrap();
+    let mut profile = seed.problem.profile.clone();
+    profile.optimizer = FitOptimizer::ResidualLm;
+    profile.solver.selection = native::solve::SolverSelection::Auto;
+    profile.solver.controls.hessian = HessianMode::GaussNewton;
+    let prepared = seed
+        .source
+        .prepare_fit(
+            seed.declaration().fit_id,
+            profile,
+            crate::workflow::tests::compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let problem = prepared.problem.clone();
+    let service = problem.runtime.native().clone();
+    service.job_scoped(1,problem.bytes+(1<<20),Default::default(),None,move |flag| {
+        let mut execution=Execution::new(flag,&problem.profile.solver.controls);
+        execution.memory=Some(1<<20);
+        let estimate=problem.initial.clone();
+        let chains=Chains { problem:&problem,route:FitRoute::ResidualLm,execution:&execution,
+            estimate:&estimate,optimum:0.,threshold:1.,tolerance:0.001,points:4 };
+        let Err(failed)=chains.solve(&mut native::execution::Retained::default(),OriginalCol::new(0),-1.,
+            &estimate,oracle::neutral::FitScratch::new(&problem)) else {panic!("invalid current pin unexpectedly succeeded");};
+        assert!(failed.callback_terminal_failure);
+        assert!(!failed.subdivides(),"a latched callback owner cannot masquerade as an unlatched numerical trial");
+        let literal=failed.residual.as_ref().unwrap();
+        assert!(matches!(literal.termination,FitResidualTermination::User {..}));
+        let source=literal.failure.as_ref().unwrap();
+        assert!(failed.failures.iter().any(|failure|Arc::ptr_eq(&failure.0,&source.0)),
+            "the original typed source cause survives instead of a second assessment failure");
+        assert_eq!(literal.stationarity,None);
+        assert_eq!(literal.jacobian_evaluations,0,"the invalid current Value never reaches derivative/final assessment");
+        Ok(())
+    }).await.unwrap();
 }

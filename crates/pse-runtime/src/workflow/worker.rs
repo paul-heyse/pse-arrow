@@ -5,7 +5,7 @@ use super::{
     Durability, Operations, RunDurability, Runtime, WorkflowError, contract,
     durable::{DurableAttempt, DurableRecord},
 };
-use futures_util::{FutureExt, StreamExt, stream::FuturesUnordered};
+use futures_util::{StreamExt, stream::FuturesUnordered};
 use pse_admission::authoring_driver::document::{
     OwnedDocumentSet, load_package_documents_owned, package_checksum,
 };
@@ -20,6 +20,12 @@ use std::{
     time::Duration,
 };
 use tokio::io::{AsyncRead, AsyncReadExt};
+mod publication;
+pub(in crate::workflow) use publication::Handoff as PublicationHandoff;
+#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+pub(in crate::workflow) use publication::observed as observed_scientific_publication;
+#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+pub(in crate::workflow) use publication::observed_idle;
 
 // Keep construction temporaries out of the frame that polls the phase, and
 // prevent nested phase polling from being inlined into one large stack frame.
@@ -34,7 +40,7 @@ where
 }
 
 #[inline(never)]
-pub(super) fn poll_worker_action<F: Future>(
+pub(super) fn poll_worker_action<F: Future + ?Sized>(
     work: std::pin::Pin<&mut F>,
     context: &mut std::task::Context<'_>,
 ) -> std::task::Poll<F::Output> {
@@ -330,8 +336,9 @@ where
     serve_owned_lanes(
         settings,
         vec![(); width],
+        width,
         stop,
-        move |(), recovery, drain| {
+        move |(), recovery, drain, _publication| {
             let future = work(recovery, drain);
             async move { ((), future.await) }
         },
@@ -342,109 +349,190 @@ where
 /// The actual lane state is returned after every drained action, including errors.
 async fn serve_owned_lanes<S, F, Fut>(
     settings: WorkerSettings,
-    mut available: Vec<S>,
+    available: Vec<S>,
+    width: usize,
     stop: &crate::CancelSource,
     mut work: F,
 ) -> (Result<usize, WorkflowError>, Vec<S>)
 where
-    F: FnMut(S, bool, crate::CancelSource) -> Fut,
+    F: FnMut(S, bool, crate::CancelSource, PublicationHandoff) -> Fut,
     Fut: Future<Output = (S, Result<Processed, WorkflowError>)>,
 {
-    let width = available.len();
-    let mut count = 0_usize;
+    async fn tagged<S, Fut: Future<Output = (S, Result<Processed, WorkflowError>)>>(
+        lane: usize,
+        future: Fut,
+    ) -> (usize, S, Result<Processed, WorkflowError>) {
+        let (owner, result) = future.await;
+        (lane, owner, result)
+    }
+    let mut available = available.into_iter().enumerate().collect::<Vec<_>>();
+    let total = available.len();
+    let mut states = (0..total)
+        .map(|_| publication::State::Idle)
+        .collect::<Vec<_>>();
+    let mut waiting = std::collections::VecDeque::with_capacity(total);
+    let (ready, mut readiness) = tokio::sync::mpsc::channel::<publication::Ready>(total.max(1));
+    let mut count = 0usize;
     let mut last_recovery = None;
     let drain = crate::CancelSource::new();
     while !stop.token().is_cancelled() && settings.maximum_actions.is_none_or(|limit| count < limit)
     {
         let mut pending = FuturesUnordered::new();
-        let initial = settings
-            .maximum_actions
-            .map_or(width, |limit| width.min(limit - count));
         let mut failure = None;
-        for lane in 0..initial {
-            let Some(owner) = available.pop() else {
-                failure = Some(contract("worker lane owner absent before issuance"));
-                drain.cancel();
-                break;
-            };
-            let recovery = lane == 0
-                && take_recovery(
-                    &mut last_recovery,
-                    tokio::time::Instant::now(),
-                    settings.recovery,
-                );
-            pending.push(work(owner, recovery, drain.clone()));
-        }
+        let mut running = 0usize;
+        let mut publishing = 0usize;
         let mut progressed = false;
-        while !pending.is_empty() {
-            let result = tokio::select! {
-                result = pending.next() => result,
-                () = stop.cancelled(), if !drain.token().is_cancelled() => { drain.cancel(); continue; }
-            };
-            let Some((owner, result)) = result else {
-                break;
-            };
-            available.push(owner);
-            let refill = matches!(&result, Ok(value) if !matches!(value, Processed::Idle));
-            match result {
-                Ok(Processed::Idle) => {}
-                Ok(Processed::Maintenance { .. }) => {
-                    progressed = true;
-                }
-                Ok(_) => {
-                    progressed = true;
-                    match count.checked_add(1) {
-                        Some(next) => count = next,
-                        None => {
-                            failure
-                                .get_or_insert_with(|| contract("worker processed count overflow"));
-                            drain.cancel();
-                        }
+        let mut refill = true;
+        loop {
+            // Only acknowledgement of a joined scientific owner releases a
+            // Running slot. A full publication stage keeps its source owner in
+            // Waiting and applies finite backpressure without another claim.
+            while publishing < width && !drain.token().is_cancelled() {
+                let Some(lane) = waiting.pop_front() else {
+                    break;
+                };
+                if let publication::State::Waiting(ack) =
+                    std::mem::replace(&mut states[lane], publication::State::Publishing)
+                {
+                    if ack.is_closed() {
+                        // The cancelled owner still occupies its Running slot
+                        // until its existing terminal cleanup actually returns.
+                        states[lane] = publication::State::Running;
+                    } else {
+                        running -= 1;
+                        publishing += 1;
+                        let _ = ack.send(());
                     }
-                }
-                Err(error) => {
-                    if failure.is_none() {
-                        failure = Some(error);
-                    }
-                    drain.cancel();
                 }
             }
             while refill
-                && pending.len() < width
+                && running < width
                 && !drain.token().is_cancelled()
-                && settings.maximum_actions.is_none_or(|limit| {
-                    count
-                        .checked_add(pending.len())
-                        .is_some_and(|issued| issued < limit)
-                })
+                && settings
+                    .maximum_actions
+                    .is_none_or(|limit| count.checked_add(pending.len()).is_some_and(|n| n < limit))
             {
-                let Some(owner) = available.pop() else {
-                    failure.get_or_insert_with(|| {
-                        contract("worker lane owner absent after completion")
-                    });
-                    drain.cancel();
+                let Some((lane, owner)) = available.pop() else {
                     break;
                 };
+                states[lane] = publication::State::Running;
+                running += 1;
                 let recovery = take_recovery(
                     &mut last_recovery,
                     tokio::time::Instant::now(),
                     settings.recovery,
                 );
-                pending.push(work(owner, recovery, drain.clone()));
+                let handoff = PublicationHandoff::new(lane, ready.clone(), drain.clone());
+                pending.push(tagged(lane, work(owner, recovery, drain.clone(), handoff)));
+            }
+            if pending.is_empty() {
+                break;
+            }
+            enum Event<S> {
+                Ready(publication::Ready),
+                Done(usize, S, Result<Processed, WorkflowError>),
+                Poll,
+                Stop,
+            }
+            let event = tokio::select! {
+                biased;
+                ()=stop.cancelled(),if !drain.token().is_cancelled()=>Event::Stop,
+                Some(ready)=readiness.recv()=>Event::Ready(ready),
+                Some((lane,owner,result))=pending.next()=>Event::Done(lane,owner,result),
+                ()=tokio::time::sleep(settings.poll),if !refill && running<width
+                    && !available.is_empty() && !drain.token().is_cancelled()=>Event::Poll,
+            };
+            match event {
+                Event::Stop => {
+                    drain.cancel();
+                    refill = false;
+                }
+                Event::Poll => refill = true,
+                Event::Ready(ready) => {
+                    if let Some(state) = states.get_mut(ready.lane) {
+                        if matches!(state, publication::State::Running) {
+                            *state = publication::State::Waiting(ready.acknowledged);
+                            waiting.push_back(ready.lane);
+                            // Running work has completed. A distinct idle lane
+                            // may refill once this handoff obtains publication.
+                            refill = true;
+                        } else {
+                            failure.get_or_insert_with(|| {
+                                contract("worker duplicate publication handoff")
+                            });
+                            drain.cancel();
+                        }
+                    } else {
+                        failure.get_or_insert_with(|| contract("worker publication lane absent"));
+                        drain.cancel();
+                    }
+                }
+                Event::Done(lane, owner, result) => {
+                    match std::mem::replace(&mut states[lane], publication::State::Idle) {
+                        publication::State::Publishing => publishing -= 1,
+                        publication::State::Running => running -= 1,
+                        publication::State::Waiting(_) => {
+                            running -= 1;
+                            waiting.retain(|waiting_lane| *waiting_lane != lane);
+                        }
+                        publication::State::Idle => {
+                            failure.get_or_insert_with(|| contract("worker idle lane completed"));
+                            drain.cancel();
+                        }
+                    }
+                    available.push((lane, owner));
+                    refill = matches!(&result,Ok(value) if !matches!(value,Processed::Idle));
+                    match result {
+                        Ok(Processed::Idle) => {
+                            #[cfg(all(
+                                test,
+                                feature = "canonical-tests",
+                                feature = "solver-ipopt"
+                            ))]
+                            publication::idle();
+                        }
+                        Ok(Processed::Maintenance { .. }) => progressed = true,
+                        Ok(_) => {
+                            progressed = true;
+                            match count.checked_add(1) {
+                                Some(next) => count = next,
+                                None => {
+                                    failure.get_or_insert_with(|| {
+                                        contract("worker processed count overflow")
+                                    });
+                                    drain.cancel();
+                                }
+                            }
+                        }
+                        Err(error) => {
+                            if failure.is_none() {
+                                failure = Some(error);
+                            }
+                            drain.cancel();
+                        }
+                    }
+                }
             }
         }
         if let Some(error) = failure {
-            return (Err(error), available);
+            return (
+                Err(error),
+                available.into_iter().map(|(_, owner)| owner).collect(),
+            );
         }
         if !progressed {
             if settings.until_idle {
                 break;
             }
-            tokio::select! { _ = tokio::time::sleep(settings.poll) => {}, () = stop.cancelled() => {} }
+            tokio::select! {_=tokio::time::sleep(settings.poll)=>{},()=stop.cancelled()=>{}}
         }
     }
-    (Ok(count), available)
+    (
+        Ok(count),
+        available.into_iter().map(|(_, owner)| owner).collect(),
+    )
 }
+
 fn take_recovery(
     last: &mut Option<tokio::time::Instant>,
     now: tokio::time::Instant,
@@ -544,13 +632,272 @@ mod lane_tests {
         assert_eq!((count, issued), (1, 4));
     }
     #[tokio::test]
+    async fn publication_backpressure_keeps_two_owned_lanes_and_drains_cancelled_handoff() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let stop = crate::CancelSource::new();
+        let started = Arc::new(AtomicUsize::new(0));
+        let changed = Arc::new(tokio::sync::Notify::new());
+        let gate = Arc::new(tokio::sync::Notify::new());
+        let publishing = Arc::new(AtomicUsize::new(0));
+        let cancelled = Arc::new(AtomicUsize::new(0));
+        let cancelled_changed = Arc::new(tokio::sync::Notify::new());
+        let serving = serve_owned_lanes(WorkerSettings::default(), vec![7_u64, 11], 1, &stop, {
+            let started = started.clone();
+            let changed = changed.clone();
+            let gate = gate.clone();
+            let publishing = publishing.clone();
+            let cancelled = cancelled.clone();
+            let cancelled_changed = cancelled_changed.clone();
+            move |owner, _, _, handoff| {
+                let started = started.clone();
+                let changed = changed.clone();
+                let gate = gate.clone();
+                let publishing = publishing.clone();
+                let cancelled = cancelled.clone();
+                let cancelled_changed = cancelled_changed.clone();
+                async move {
+                    let ordinal = started.fetch_add(1, Ordering::AcqRel);
+                    changed.notify_one();
+                    if !handoff.ready().await.unwrap() {
+                        cancelled.fetch_add(1, Ordering::AcqRel);
+                        cancelled_changed.notify_one();
+                        return (
+                            owner,
+                            Ok(Processed::Settled {
+                                point: format!("cancelled-{owner}"),
+                            }),
+                        );
+                    }
+                    assert_eq!(
+                        publishing.fetch_add(1, Ordering::AcqRel),
+                        0,
+                        "publication width stays one"
+                    );
+                    if ordinal == 0 {
+                        gate.notified().await;
+                    }
+                    publishing.fetch_sub(1, Ordering::AcqRel);
+                    (
+                        owner,
+                        Ok(Processed::Settled {
+                            point: format!("owned-{owner}"),
+                        }),
+                    )
+                }
+            }
+        });
+        let control = async {
+            let reached = tokio::time::timeout(Duration::from_secs(2), async {
+                loop {
+                    let notified = changed.notified();
+                    if started.load(Ordering::Acquire) == 2 {
+                        break;
+                    }
+                    notified.await;
+                }
+            })
+            .await
+            .is_ok();
+            stop.cancel();
+            let cancelled_while_full = tokio::time::timeout(Duration::from_secs(2), async {
+                loop {
+                    let notified = cancelled_changed.notified();
+                    if cancelled.load(Ordering::Acquire) == 1 {
+                        break;
+                    }
+                    notified.await;
+                }
+            })
+            .await
+            .is_ok();
+            let retained = publishing.load(Ordering::Acquire);
+            gate.notify_one();
+            (reached, cancelled_while_full, retained)
+        };
+        let ((result, mut owners), (reached, cancelled_while_full, retained)) =
+            tokio::join!(serving, control);
+        assert!(
+            reached,
+            "second science proceeds while first publication owns its gate"
+        );
+        assert!(
+            cancelled_while_full,
+            "the unadmitted owner settles cancellation before the held publisher releases"
+        );
+        assert_eq!(
+            retained, 1,
+            "cancellation neither bypasses capacity nor drops the original publisher"
+        );
+        assert_eq!(
+            started.load(Ordering::Acquire),
+            2,
+            "no third owner escapes backpressure"
+        );
+        assert_eq!(result.unwrap(), 2);
+        owners.sort();
+        assert_eq!(owners, vec![7, 11]);
+        assert_eq!(publishing.load(Ordering::Acquire), 0);
+    }
+
+    #[tokio::test]
+    async fn worker_polls_new_arrivals_while_an_older_publication_remains_held() {
+        use std::sync::atomic::AtomicBool;
+        let stop = crate::CancelSource::new();
+        let arrived = Arc::new(AtomicBool::new(false));
+        let issued = Arc::new(AtomicUsize::new(0));
+        let scientific = Arc::new(AtomicUsize::new(0));
+        let changed = Arc::new(tokio::sync::Notify::new());
+        let gate = Arc::new(tokio::sync::Notify::new());
+        let serving = serve_owned_lanes(
+            WorkerSettings {
+                poll: Duration::from_millis(1),
+                ..Default::default()
+            },
+            vec![7_u64, 11],
+            1,
+            &stop,
+            {
+                let arrived = arrived.clone();
+                let issued = issued.clone();
+                let scientific = scientific.clone();
+                let changed = changed.clone();
+                let gate = gate.clone();
+                move |owner, _, _, handoff| {
+                    let ordinal = issued.fetch_add(1, Ordering::AcqRel);
+                    let has_work = ordinal == 0 || arrived.swap(false, Ordering::AcqRel);
+                    let scientific = scientific.clone();
+                    let changed = changed.clone();
+                    let gate = gate.clone();
+                    async move {
+                        if !has_work {
+                            changed.notify_one();
+                            return (owner, Ok(Processed::Idle));
+                        }
+                        scientific.fetch_add(1, Ordering::AcqRel);
+                        changed.notify_one();
+                        if handoff.ready().await.unwrap() && ordinal == 0 {
+                            gate.notified().await;
+                        }
+                        (
+                            owner,
+                            Ok(Processed::Settled {
+                                point: format!("owned-{owner}"),
+                            }),
+                        )
+                    }
+                }
+            },
+        );
+        let control = async {
+            let idle = tokio::time::timeout(Duration::from_secs(2), async {
+                loop {
+                    let notified = changed.notified();
+                    if issued.load(Ordering::Acquire) >= 2 {
+                        break;
+                    }
+                    notified.await;
+                }
+            })
+            .await
+            .is_ok();
+            arrived.store(true, Ordering::Release);
+            let new_science = tokio::time::timeout(Duration::from_secs(2), async {
+                loop {
+                    let notified = changed.notified();
+                    if scientific.load(Ordering::Acquire) >= 2 {
+                        break;
+                    }
+                    notified.await;
+                }
+            })
+            .await
+            .is_ok();
+            stop.cancel();
+            gate.notify_one();
+            (idle, new_science)
+        };
+        let ((result, mut owners), (idle, new_science)) = tokio::join!(serving, control);
+        assert!(
+            idle && new_science,
+            "late independent work is discovered without waiting for the first publication"
+        );
+        assert_eq!(result.unwrap(), 2);
+        owners.sort();
+        assert_eq!(owners, vec![7, 11]);
+    }
+
+    #[cfg(feature = "canonical-tests")]
+    #[tokio::test]
+    async fn lost_publication_ack_keeps_original_failure_and_separate_durable_uncertainty() {
+        use crate::workflow::{RunReport, RunRequest, RunResult};
+        let runtime = super::super::durable_tests::durable_runtime();
+        for report_failed in [false, true] {
+            let prior = Arc::new(contract("original scientific or completion failure"));
+            let mut result = RunResult::joined(
+                RunId::from_id(SemanticId::NIL),
+                runtime.clone(),
+                RunRequest::Modeling(vec![]),
+                None,
+                if report_failed {
+                    Err(prior.clone())
+                } else {
+                    Ok(RunReport::Modeling(vec![]))
+                },
+            );
+            result.original_completion_captured = true;
+            result.completion = Err(prior.clone());
+            let mut attempt = DurableAttempt::new(operations(&runtime).unwrap()).unwrap();
+            let (sender, mut receiver) = tokio::sync::mpsc::channel(1);
+            attempt.set_worker_publication(Some(PublicationHandoff::new(
+                0,
+                sender,
+                crate::CancelSource::new(),
+            )));
+            let (result, ()) = tokio::join!(result.finished(Some(attempt), false), async {
+                let ready = receiver.recv().await.unwrap();
+                drop(ready.acknowledged);
+            });
+            assert!(
+                !result.invocation_cancelled,
+                "a lost ACK is not cancellation evidence"
+            );
+            assert!(Arc::ptr_eq(result.completion.as_ref().unwrap_err(), &prior));
+            if report_failed {
+                assert!(Arc::ptr_eq(result.report.as_ref().unwrap_err(), &prior));
+            } else {
+                assert!(result.report.is_ok());
+            }
+            let RunDurability::Durable(record) = result.durability else {
+                panic!("durable failure absent")
+            };
+            let cleanup = record.attempt.as_ref().unwrap_err();
+            assert!(
+                !Arc::ptr_eq(cleanup, &prior),
+                "cleanup failure remains independently observable"
+            );
+            assert!(
+                cleanup
+                    .to_string()
+                    .contains("capacity acknowledgement unavailable")
+            );
+            assert!(
+                record.manifest.is_none()
+                    && record.completion.is_none()
+                    && record.solutions.is_empty()
+            );
+        }
+        runtime.shared.math().shutdown_native_lanes().await;
+    }
+
+    #[tokio::test]
     async fn worker_returns_actual_lane_owner_after_failure_and_drain() {
         let stop = crate::CancelSource::new();
         let (result, owners) = serve_owned_lanes(
             WorkerSettings::default(),
             vec![7_u64, 11],
+            2,
             &stop,
-            |owner, _, drain| async move {
+            |owner, _, drain, _publication| async move {
                 if owner == 11 {
                     (owner, Err(contract("owned lane failure")))
                 } else {
@@ -1395,6 +1742,7 @@ impl Runtime {
                         None,
                         &mut lane,
                         &crate::CancelSource::new(),
+                        &mut None,
                     )
                     .await;
                 lane.close().await?;
@@ -1409,8 +1757,9 @@ impl Runtime {
         group: Option<&CandidateGroup>,
         lane: &mut super::study::StudyCandidateLane,
         cancel: &crate::CancelSource,
+        publication: &mut Option<PublicationHandoff>,
     ) -> Result<(Processed, Option<Arc<super::RunResult>>), WorkflowError> {
-        let _observation = pse_diagnostics::observation::phase("managed.worker.claim");
+        let _observation = pse_diagnostics::observation::phase("managed.worker.work_once");
         let operations = operations(self)?;
         match operations.store().check_write_admission() {
             Ok(()) => {}
@@ -1474,6 +1823,7 @@ impl Runtime {
                             None => None,
                         };
                         let action_lane = &mut *lane;
+                        let action_publication = &mut *publication;
                         if let Some(result) = self
                             .worker_action(move || {
                                 self.observe_study_candidate(
@@ -1481,6 +1831,7 @@ impl Runtime {
                                     candidate,
                                     action_lane,
                                     cancel,
+                                    action_publication,
                                 )
                             })
                             .await?
@@ -1523,6 +1874,7 @@ impl Runtime {
         candidate: pse_operations::canonical_studies::ScopedStudyPoint,
         lane: &mut super::study::StudyCandidateLane,
         cancel: &crate::CancelSource,
+        publication: &mut Option<PublicationHandoff>,
     ) -> Result<Option<(Processed, Option<Arc<super::RunResult>>)>, WorkflowError> {
         use pse_diagnostics::observation::{Outcome, Relationship, current, scope};
         let operation = current()
@@ -1530,7 +1882,9 @@ impl Runtime {
         let context = operation.as_ref().map(|operation| operation.context());
         let result = scope(
             context,
-            self.work_study_candidate(operations, candidate, lane, cancel),
+            self.worker_action(|| {
+                self.work_study_candidate(operations, candidate, lane, cancel, publication)
+            }),
         )
         .await;
         if let Some(operation) = operation {
@@ -1551,6 +1905,7 @@ impl Runtime {
         candidate: pse_operations::canonical_studies::ScopedStudyPoint,
         lane: &mut super::study::StudyCandidateLane,
         cancel: &crate::CancelSource,
+        publication: &mut Option<PublicationHandoff>,
     ) -> Result<Option<(Processed, Option<Arc<super::RunResult>>)>, WorkflowError> {
         use pse_model::study::{ActionKind, SeedAvailability, SeedFact, StartPolicy, WaitReason};
         if let Some(context) = pse_diagnostics::observation::current() {
@@ -1631,32 +1986,146 @@ impl Runtime {
             scope.point().revision,
             operations.worker()
         );
-        fn launch_bytes<F, Fut>(_: &F) -> usize
+        fn phase_bytes<F, Fut>(_: &F) -> usize
         where
-            F: FnOnce(DurableAttempt) -> Fut,
+            F: FnOnce(pse_operations::canonical_studies::StudyClaim) -> Fut,
             Fut: Future,
         {
             size_of::<Fut>()
         }
-        // Prepay the launch frame before claiming an attempt. A later heap
-        // allocation must not introduce a new refusal after that durable effect.
-        let launch_extent =
-            launch_bytes(&|attempt| prepared.operation.start_attempt(self, cancel, attempt));
-        let _launch_owner = self
-            .shared
-            .math()
-            .reserve("study:worker-launch", launch_extent)?;
-        let claim = match operations
-            .store()
-            .claim_study_point(
-                &scope,
-                prepared.seed.clone(),
-                &claim_operation,
-                operations.worker(),
-                operations.policy().lease,
-            )
-            .await
-        {
+        let launch_extent = prepared
+            .operation
+            .start_attempt_extent(self, cancel)
+            .ok_or_else(|| contract("worker launch storage extent"))?;
+        let diagnostics = prepared.diagnostics.take();
+        let seed = prepared.seed.clone();
+        let execute = move |claim: pse_operations::canonical_studies::StudyClaim| async move {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.source_ref("canonical.run", claim.fence.run().as_bytes());
+                context.source_ref("canonical.attempt", claim.fence.attempt().as_bytes());
+                context.source_ref("study.occurrence", claim.point.key.as_bytes());
+                context.count("study.claimed", "occurrences", 1);
+            }
+            let run_key = claim
+                .fence
+                .run()
+                .strip_prefix("run:")
+                .ok_or_else(|| contract("scientific run lineage key absent"))?;
+            let run = RunId::from_id(
+                SemanticId::parse_hex(run_key).map_err(|e| contract(e.to_string()))?,
+            );
+            let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+            hash.str("scientific.attempt.lineage.v1")
+                .str(claim.fence.attempt());
+            let attempt_id = AttemptId::from_id(hash.finish_id());
+            let mut attempt =
+                DurableAttempt::claimed(operations, claim.fence.clone(), run, attempt_id)?;
+            attempt.set_worker_publication(publication.take());
+            attempt.set_output(prepared.output.clone());
+            let stop = cancel.clone();
+            if let Err(error) = attempt.start(Arc::new(move || stop.cancel())).await {
+                let record = attempt.abandon(&Arc::new(error)).await;
+                return Ok(Some((
+                    Processed::Ran {
+                        point: claim.point.key,
+                        record: Arc::new(record),
+                    },
+                    None,
+                )));
+            }
+            let point = match operations.store().mark_study_started(&claim).await {
+                Ok(point) => point,
+                Err(error) => {
+                    return Ok(Some((
+                        Processed::Ran {
+                            point: claim.point.key,
+                            record: Arc::new(attempt.abandon(&Arc::new(error.into())).await),
+                        },
+                        None,
+                    )));
+                }
+            };
+            if let Err(error) = self.apply_study_prediction(&mut prepared, cancel).await {
+                let record = attempt.abandon(&Arc::new(error)).await;
+                self.recover_study_point(&point.key).await?;
+                return Ok(Some((
+                    Processed::Ran {
+                        point: point.key,
+                        record: Arc::new(record),
+                    },
+                    None,
+                )));
+            }
+            if let Err(error) = operations
+                .store()
+                .renew_attempt(&claim.fence, operations.policy().lease)
+                .await
+            {
+                let error = Arc::new(WorkflowError::Canonical(error));
+                let cancelled = attempt.cancelled_refusal(&error);
+                let record = attempt.abandon(&error).await;
+                // Drain the owner on every refusal. Only an acknowledged
+                // exact cancellation can settle without native entry.
+                if !cancelled {
+                    return Err(WorkflowError::Shared(error));
+                }
+                record
+                    .attempt
+                    .as_ref()
+                    .map_err(|error| WorkflowError::Shared(error.clone()))?;
+                self.recover_study_point(&point.key).await?;
+                return Ok(Some((
+                    Processed::Ran {
+                        point: point.key,
+                        record: Arc::new(record),
+                    },
+                    None,
+                )));
+            }
+            let held = lane
+                .scope()
+                .ok_or_else(|| contract("worker native lane source permission absent"))?;
+            let result = held.during(cancel, async {
+            let mut launch: futures_util::future::BoxFuture<'_, _> = boxed_worker_action(|| prepared.operation.start_attempt(self, cancel, attempt));
+            let handle = futures_util::future::poll_fn(|context| poll_worker_action(launch.as_mut(), context)).await?;
+            tokio::select! {result=handle.wait()=>result,()=cancel.cancelled()=>{handle.cancel();handle.wait().await}}
+        }).await?;
+            let record = match result.durability() {
+                RunDurability::Durable(record) => record.clone(),
+                RunDurability::Ephemeral => {
+                    return Err(contract("claimed native study attempt was not retained"));
+                }
+            };
+            self.record_study_attempt(&point, &claim.start, &record)
+                .await?;
+            Ok(Some((
+                Processed::Ran {
+                    point: point.key,
+                    record,
+                },
+                Some(result),
+            )))
+        };
+        let extent = phase_bytes(&execute)
+            .checked_add(launch_extent)
+            .and_then(|bytes| bytes.checked_add(128))
+            .ok_or_else(|| contract("worker claimed phase storage extent"))?;
+        // Both claimed phase and selected launch branch are prepaid before the claim.
+        let _launch_owner = self.shared.math().reserve("study:worker-launch", extent)?;
+        let claim = {
+            let _claim = pse_diagnostics::observation::phase("managed.worker.claim_acquire");
+            operations
+                .store()
+                .claim_study_point(
+                    &scope,
+                    seed,
+                    &claim_operation,
+                    operations.worker(),
+                    operations.policy().lease,
+                )
+                .await
+        };
+        let claim = match claim {
             Ok(claim) => claim,
             Err(error) => {
                 let current = operations.store().study_scope(&candidate.key).await?;
@@ -1673,7 +2142,7 @@ impl Runtime {
                 return Err(error.into());
             }
         };
-        let detail = prepared.diagnostics.as_ref().and_then(|selection| {
+        let detail = diagnostics.as_ref().and_then(|selection| {
             super::study_diagnostics::begin_child(
                 selection,
                 &claim.point.study,
@@ -1683,111 +2152,15 @@ impl Runtime {
         });
         let detail_context = detail.as_ref().map(crate::capture::DetailSession::context);
         let original_context = pse_diagnostics::observation::current();
-        let outcome = pse_diagnostics::observation::scope(detail_context.or_else(|| original_context.clone()), async {
-        if let Some(context) = pse_diagnostics::observation::current() {
-            context.source_ref("canonical.run", claim.fence.run().as_bytes());
-            context.source_ref("canonical.attempt", claim.fence.attempt().as_bytes());
-            context.source_ref("study.occurrence", claim.point.key.as_bytes());
-            context.count("study.claimed", "occurrences", 1);
-        }
-        let run_key = claim
-            .fence
-            .run()
-            .strip_prefix("run:")
-            .ok_or_else(|| contract("scientific run lineage key absent"))?;
-        let run =
-            RunId::from_id(SemanticId::parse_hex(run_key).map_err(|e| contract(e.to_string()))?);
-        let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
-        hash.str("scientific.attempt.lineage.v1")
-            .str(claim.fence.attempt());
-        let attempt_id = AttemptId::from_id(hash.finish_id());
-        let mut attempt =
-            DurableAttempt::claimed(operations, claim.fence.clone(), run, attempt_id)?;
-        attempt.set_output(prepared.output.clone());
-        let stop = cancel.clone();
-        if let Err(error) = attempt.start(Arc::new(move || stop.cancel())).await {
-            let record = attempt.abandon(&Arc::new(error)).await;
-            return Ok(Some((
-                Processed::Ran {
-                    point: claim.point.key,
-                    record: Arc::new(record),
-                },
-                None,
-            )));
-        }
-        let point = match operations.store().mark_study_started(&claim).await {
-            Ok(point) => point,
-            Err(error) => {
-                return Ok(Some((
-                    Processed::Ran {
-                        point: claim.point.key,
-                        record: Arc::new(attempt.abandon(&Arc::new(error.into())).await),
-                    },
-                    None,
-                )));
-            }
-        };
-        if let Err(error) = self.apply_study_prediction(&mut prepared, cancel).await {
-            let record = attempt.abandon(&Arc::new(error)).await;
-            self.recover_study_point(&point.key).await?;
-            return Ok(Some((
-                Processed::Ran {
-                    point: point.key,
-                    record: Arc::new(record),
-                },
-                None,
-            )));
-        }
-        if let Err(error) = operations
-            .store()
-            .renew_attempt(&claim.fence, operations.policy().lease)
-            .await
-        {
-            let error = Arc::new(WorkflowError::Canonical(error));
-            let cancelled = attempt.cancelled_refusal(&error);
-            let record = attempt.abandon(&error).await;
-            // Drain the owner on every refusal. Only an acknowledged
-            // exact cancellation can settle without native entry.
-            if !cancelled {
-                return Err(WorkflowError::Shared(error));
-            }
-            record
-                .attempt
-                .as_ref()
-                .map_err(|error| WorkflowError::Shared(error.clone()))?;
-            self.recover_study_point(&point.key).await?;
-            return Ok(Some((
-                Processed::Ran {
-                    point: point.key,
-                    record: Arc::new(record),
-                },
-                None,
-            )));
-        }
-        let held = lane
-            .scope()
-            .ok_or_else(|| contract("worker native lane source permission absent"))?;
-        let result = held.during(cancel, async {
-            let mut launch = boxed_worker_action(|| prepared.operation.start_attempt(self, cancel, attempt));
-            let handle = futures_util::future::poll_fn(|context| poll_worker_action(launch.as_mut(), context)).await?;
-            tokio::select! {result=handle.wait()=>result,()=cancel.cancelled()=>{handle.cancel();handle.wait().await}}
-        }).await?;
-        let record = match result.durability() {
-            RunDurability::Durable(record) => record.clone(),
-            RunDurability::Ephemeral => {
-                return Err(contract("claimed native study attempt was not retained"));
-            }
-        };
-        self.record_study_attempt(&point, &claim.start, &record)
-            .await?;
-        Ok(Some((
-            Processed::Ran {
-                point: point.key,
-                record,
-            },
-            Some(result),
-        )))
-        }).await;
+        let mut execution: futures_util::future::BoxFuture<'_, _> =
+            boxed_worker_action(|| execute(claim));
+        let outcome = pse_diagnostics::observation::scope(
+            detail_context.or_else(|| original_context.clone()),
+            futures_util::future::poll_fn(|context| {
+                poll_worker_action(execution.as_mut(), context)
+            }),
+        )
+        .await;
         // Prediction, native execution, publication and their owned drains finish first.
         // Optional collection failures never replace the scientific outcome.
         super::study_diagnostics::finish_child(detail, original_context);
@@ -1847,7 +2220,7 @@ impl Runtime {
     async fn worker_action<T, F, Fut>(&self, action: F) -> Result<T, WorkflowError>
     where
         F: FnOnce() -> Fut,
-        Fut: Future<Output = Result<T, WorkflowError>>,
+        Fut: Future<Output = Result<T, WorkflowError>> + Send,
     {
         fn action_bytes<F, Fut>(_: &F) -> usize
         where
@@ -1860,7 +2233,7 @@ impl Runtime {
             .shared
             .math()
             .reserve("study:worker-action", action_bytes(&action))?;
-        let mut work = boxed_worker_action(action);
+        let mut work: futures_util::future::BoxFuture<'_, _> = boxed_worker_action(action);
         futures_util::future::poll_fn(|context| poll_worker_action(work.as_mut(), context)).await
     }
     async fn group_lane(
@@ -1870,10 +2243,11 @@ impl Runtime {
         group: &CandidateGroup,
         lane: &mut super::study::StudyCandidateLane,
         stop: &crate::CancelSource,
+        mut publication: Option<PublicationHandoff>,
     ) -> Result<Processed, WorkflowError> {
         let cancel = crate::CancelSource::new();
         let operation_cancel = &cancel;
-        let action = move || {
+        let action = move || async move {
             let lane = lane;
             self.work_once_scoped(
                 recovery,
@@ -1881,7 +2255,9 @@ impl Runtime {
                 Some(group),
                 lane,
                 operation_cancel,
+                &mut publication,
             )
+            .await
         };
         let work = self.worker_action(action);
         tokio::pin!(work);
@@ -1924,9 +2300,19 @@ impl Runtime {
                 let group = &group;
                 let recovery_position = tokio::sync::Mutex::new(None);
                 let recovery_position = &recovery_position;
-                let work = move |mut lane: super::study::StudyCandidateLane, recovery, drain| async move {
+                let work = move |mut lane: super::study::StudyCandidateLane,
+                                 recovery,
+                                 drain,
+                                 publication| async move {
                     let result = self
-                        .group_lane(recovery, recovery_position, group, &mut lane, &drain)
+                        .group_lane(
+                            recovery,
+                            recovery_position,
+                            group,
+                            &mut lane,
+                            &drain,
+                            Some(publication),
+                        )
                         .await;
                     (lane, result)
                 };
@@ -1937,28 +2323,43 @@ impl Runtime {
                 // queue/stub fits in 256.
                 fn future_bytes<S, F, Fut>(_: &F) -> usize
                 where
-                    F: Fn(S, bool, crate::CancelSource) -> Fut,
+                    F: Fn(S, bool, crate::CancelSource, PublicationHandoff) -> Fut,
                     Fut: Future,
                 {
                     size_of::<Fut>()
                 }
                 let future_bytes = future_bytes(&work);
-                let _owner = self.shared.math().reserve(
-                    "study:worker-input-lanes",
-                    width * (size_of::<super::study::StudyCandidateLane>() + future_bytes + 128) + 256,
-                )?;
-                let owners = (0..width)
+                let lanes = width
+                    .checked_mul(2)
+                    .ok_or_else(|| contract("worker publication lane extent"))?;
+                let lane_bytes = lanes
+                    .checked_mul(size_of::<super::study::StudyCandidateLane>() + future_bytes + 128)
+                    .and_then(|bytes| bytes.checked_add(256))
+                    .and_then(|bytes| {
+                        publication::coordination_bytes(lanes)
+                            .ok()
+                            .and_then(|coord| bytes.checked_add(coord))
+                    })
+                    .ok_or_else(|| contract("worker lane and publication coordination extent"))?;
+                let _owner = self
+                    .shared
+                    .math()
+                    .reserve("study:worker-input-lanes", lane_bytes)?;
+                let owners = (0..lanes)
                     .map(|_| super::study::StudyCandidateLane::new())
                     .collect();
                 let (result, mut owners) = serve_owned_lanes(
                     settings,
                     owners,
+                    width,
                     stop,
-                    move |lane, recovery, drain| {
+                    move |lane, recovery, drain, publication| {
                         // A lane's nested preparation/execution future is large.
                         // The scheduler transfers and polls this heap handle,
                         // retaining the exact owner until its awaited drain ends.
-                        work(lane, recovery, drain).boxed()
+                        let future: futures_util::future::BoxFuture<'_, _> =
+                            boxed_worker_action(|| work(lane, recovery, drain, publication));
+                        future
                     },
                 )
                 .await;

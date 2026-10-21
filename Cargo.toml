@@ -280,6 +280,7 @@ egobox-moe = { version = "=0.35.5", default-features = false }
 egobox-gp = { version = "=0.36.4", default-features = false }
 egobox-doe = { version = "=0.35.1", default-features = false }
 argmin = { version = "=0.11.0", default-features = false }
+levenberg-marquardt = { git = "https://github.com/rust-cv/levenberg-marquardt.git", rev = "e67066cf1351e91e054c30fcb2ff49d005db1e50", version = "=0.15.0", default-features = false }
 ndarray = "=0.16.1"
 # Direct FERAL for conditioning and certified inertia (Plan 22 N4); the version pounce-feral resolves.
 feral = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.18.0" }
@@ -577,6 +578,7 @@ pyo3 = { version = "0.29", match = "minor", crates = [
 # each with its reason (ADR-0165). Every dependency is exact anyway; one with no entry here
 # may be bumped when the work calls for it. Remove the entry when the reason lapses.
 [workspace.metadata.pse.pins]
+levenberg-marquardt = "Exact nalgebra 0.35 compatibility commit; release 0.15 algorithm/API unchanged; revisit when a release carries this family update."
 pounce-presolve = "POUNCE fork at one immutable revision; the whole POUNCE family resolves to one coherent source (Plan 25n)"
 pounce-nlp = "POUNCE fork at one immutable revision; the whole POUNCE family resolves to one coherent source (Plan 25n)"
 pounce-common = "POUNCE fork at one immutable revision; the whole POUNCE family resolves to one coherent source (Plan 25n)"

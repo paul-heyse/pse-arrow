@@ -1,6 +1,6 @@
 ---
 title: Diagnostics and review publication
-status: draft
+status: done
 date: 2026-10-20
 adrs: []
 doc_role: plan
@@ -25,8 +25,9 @@ implemented observation cadence or choose an allocator or ring design.
 
 The [audit's observation and representation conclusions](../design_review/reviews/design_review_execution-performance-recommendations-audit_2026-10-20.md#observation-representation-and-additional-improvements)
 and [recommendation register](../design_review/evidence/execution-performance-recommendations-audit-2026-10-20/recommendation-register.md#r2-orchestration-resources-and-diagnostics)
-supply AF16 and N02–N04. I34 and I35 remain bounded selection work at the coordinator.
-All new behavior here is **Proposed**. The foundation assessment follows the selected
+supply AF16 and N02–N04. I34 and I35 have bounded selection outcomes at the coordinator.
+The target descriptions retain the accepted authoring specification; package states and the
+Outcome record delivered behavior and its actual evidence. The foundation assessment follows the selected
 Core 3.4, Efficient Architecture 1.0 and applicable Process Simulator 1.5 criteria,
 particularly AP-05/AP-07, DP-10/DP-19/DP-21 and PS-10/PS-12. It reuses the audit rather
 than initiating another whole-system review.
@@ -234,12 +235,12 @@ inquiry selections and RC03 acceptance stay at the coordinator.
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| G01 — Reliable phase retirement | Existing phase admission/guard and terminal operation owner | Separate reliable admitted current-phase retirement from optional history (N02). Verify held-lock contention, overflow/refusal, guard unwind, thread exit, operation termination and phase-capacity reuse without false active state. Remove the lossy update route as the retirement authority and replace tests/fixtures that encode its incidental loss. | open |
-| G02 — Coherent ordinary aggregates | G01 lifecycle contract; accepted RC03 and explicit freshness/final-flush rule | Coalesce ordinary callback and selected compiler/Salsa shared updates, retaining exact control and optional query attribution. Test cadence/zero/nesting/late stop/panic/loss/final flush plus unchanged compiler execution/cancellation and database replacement; delete redundant publication/formatting after consumers migrate. | open |
-| G03 — Prepared compact native progress | Current/history/durable/detail consumer inventory; G02 publication meanings where shared | Prepare stable KINSOL IDs/slots and invariant unavailable status once; update compact scalar/ordinal values and project rich events at consumers (N03). Check history-zero current, durable taps, selected detail, prefix omissions, nonfinite values, evaluation roles and reused-session identity. Delete repeated stable String formatting and superseded event construction, preserving required projections. | open |
-| G04 — Missing stages and finite buffers | G01 reliable retirement; G02/G03 volume/consumer contracts; I34 outcome; actual stage owners in 48a–48e | Add useful missing lowering/specialization/materialization boundaries; adopt finite rings only if ownership and overload/drain evidence justify them. Test stalled consumer, migration, overflow, thread exit, terminal drain and exact loss/freshness meanings. Delete replaced buffering/update paths after complete migration; do not claim lossless optional history. | open |
-| G05 — Streaming aggregate publication | Existing raw scalar identity/output contract and chosen coherent local commit boundary | Stream temporary CSV with running count and publish coherent output/index/report (N04). Verify exact rows/pointers/nulls/counts, distinct samples and labeled duplicate projections, JSONL errors, write failure and interrupted finalization. Delete aggregate row-list accumulation and tests depending on that implementation; preserve raw format consumers. | open |
-| G06 — Matched allocator inquiry | G02/G03/G05 and applicable 48a–48f materialization fixes on the measured path; I35 outcome | Compare current and technically eligible allocator behavior only for an observed remaining question. Record matched conditions, actual native/scientific work, memory/cleanup and descriptive variation. Adopt only a justified scoped change, or record no adoption and its observable trigger at the coordinator. No allocator dependency or platform expansion is assumed. | open |
+| G01 — Reliable phase retirement | Existing phase admission/guard and terminal operation owner | Separate reliable admitted current-phase retirement from optional history (N02). Verify held-lock contention, overflow/refusal, guard unwind, thread exit, operation termination and phase-capacity reuse without false active state. Remove the lossy update route as the retirement authority and replace tests/fixtures that encode its incidental loss. | done: implemented; focused observation tests passed; selected assembled acceptance recorded in48h |
+| G02 — Coherent ordinary aggregates | G01 lifecycle contract; accepted RC03 and explicit freshness/final-flush rule | Coalesce ordinary callback and selected compiler/Salsa shared updates, retaining exact control and optional query attribution. Test cadence/zero/nesting/late stop/panic/loss/final flush plus unchanged compiler execution/cancellation and database replacement; delete redundant publication/formatting after consumers migrate. | done: implemented; focused observation/compiler/callback controls passed; selected assembled acceptance recorded in48h |
+| G03 — Prepared compact native progress | Current/history/durable/detail consumer inventory; G02 publication meanings where shared | Prepare stable KINSOL IDs/slots and invariant unavailable status once; update compact scalar/ordinal values and project rich events at consumers (N03). Check history-zero current, durable taps, selected detail, prefix omissions, nonfinite values, evaluation roles and reused-session identity. Delete repeated stable String formatting and superseded event construction, preserving required projections. | done: implemented; compact/current/coherent/durable/reused-session controls passed in focused combined native run; selected assembled acceptance recorded in48h |
+| G04 — Missing stages and finite buffers | G01 reliable retirement; G02/G03 volume/consumer contracts; I34 outcome; actual stage owners in 48a–48e | Add useful missing lowering/specialization/materialization boundaries; adopt finite rings only if ownership and overload/drain evidence justify them. Test stalled consumer, migration, overflow, thread exit, terminal drain and exact loss/freshness meanings. Delete replaced buffering/update paths after complete migration; do not claim lossless optional history. | done: implemented; actual owner success/cancel control passed; I34 retains direct prepared/coalesced transport; selected assembled acceptance recorded in48h |
+| G05 — Streaming aggregate publication | Existing raw scalar identity/output contract and chosen coherent local commit boundary | Stream temporary CSV with running count and publish coherent output/index/report (N04). Verify exact rows/pointers/nulls/counts, distinct samples and labeled duplicate projections, JSONL errors, write failure and interrupted finalization. Delete aggregate row-list accumulation and tests depending on that implementation; preserve raw format consumers. | done: implemented; focused script tests passed; selected assembled acceptance recorded in48h |
+| G06 — Matched allocator inquiry | G02/G03/G05 and applicable 48a–48f materialization fixes on the measured path; I35 outcome | Compare current and technically eligible allocator behavior only for an observed remaining question. Record matched conditions, actual native/scientific work, memory/cleanup and descriptive variation. Adopt only a justified scoped change, or record no adoption and its observable trigger at the coordinator. No allocator dependency or platform expansion is assumed. | done: bounded inquiry tested; current allocator retained for this path; coordinator owns I35; selected assembled acceptance recorded in48h |
 
 G01 should land before increased span volume. G03 may prepare identities while G02
 defines publication, but migration must consume the settled shared meanings. G05 is
@@ -248,11 +249,223 @@ G06 waits only for fixes on its actual measured operation, rather than requiring
 unrelated packets to finish. Adoption involving native placement consumes F07/F08
 resource/context boundaries; a diagnostic buffer never owns native teardown.
 
+### G01 implementation checkpoint
+
+Admitted phases now share a bounded, individually charged lifecycle entry between
+the current-state owner and guard. Guard drop retires its atomic current flag before
+attempting optional elapsed/detail publication; a held or poisoned history lock
+cannot prevent retirement. Admission prunes retired entries before checking phase
+capacity, and entry reservations follow the actual retained owners. Terminal operation
+state suppresses all current phases even when a guard remains live. The former
+mutex-dependent removal and retained high-water phase-slot counter were removed as
+lifecycle authorities. Public phase/detail representations and scientific ownership
+are unchanged.
+
+Optional loss still uses the existing dropped-update, dropped-detail and refusal
+coverage. An absent end event or duration is never reconstructed by a reader.
+Successful exit publication preserves the guard's actual operation-clock timestamp,
+token, elapsed duration and producer attribution. A delayed older exit cannot move
+current freshness backwards; actual detail endpoints remain independently timestamped.
+Older exits retain their exact cumulative contribution without rotating newer seconds
+out of the bounded recent-duration ring.
+Source-reference copies remain
+independent of optional phase loss. No additional transport, dependency or blocking
+callback path was introduced.
+
+The focused observation suite exercises held-lock retirement with repeated finite
+slot reuse, optional-history zero/overflow, phase/metric/budget refusal, unwinding,
+thread exit, poisoned optional state and terminal operation with a still-live guard.
+The delayed-exit control also forces a newer exit to publish first, both within one
+bucket and across a complete recent-ring rotation. Lifecycle/freshness controls and
+existing observation tests passed. Assembled consumer/native
+qualification remains with 48h. G02 cadence and G04 buffer selection remain separate
+work.
+
+### G02 implementation checkpoint
+
+Prepared ordinary facts accept a bounded borrowed tuple under one shared lock and
+one operation-clock endpoint. Context/population, admission and fact kinds are checked
+before any current member changes; a missing/stale/wrong-owner handle refuses the
+whole tuple. Contention loses one whole tuple explicitly. Existing single-fact APIs
+remain in use by independent producers; no second callback publication path remains.
+
+Native callbacks publish attempted/completed count, actual elapsed duration, accepted
+seconds and optional CPU time/sample count together at every safe return. In-flight
+phases remain independent under G01; in-flight counters retain the prior safe-return
+checkpoint. The seconds gauge advances only for accepted tuples, matching its optional
+count/time population even after a lost callback tuple. Exact local scientific counts,
+elapsed time and CPU facts remain the final native report's authority. Lost history
+does not reconstruct them. Unavailable CPU status is retained once per actual status
+transition and retried if publication was refused. Pre-work and post-success stop
+checks, charging, panic reconciliation and selected callback detail remain in place.
+
+Compiler events prepare ordinary count/absence slots for the actual current operation
+and producer population. A finite one-population event-owner cache uses nonblocking
+access and explicit loss; rebuilds and context changes do not capture invocation
+permission. Ordinary execute/validate/wait/discard events avoid query-key formatting.
+Explicitly selected `compiler_query.v1` attribution retains the opaque source reference
+and actual coherent source record. External Salsa callbacks still receive original
+events. No time cadence, semantic dependency or cancellation behavior was changed.
+
+New controls cover all-or-nothing mixed-handle refusal, matched count/time loss,
+same-endpoint current fields, in-flight callback freshness, invariant CPU absence,
+forced callback tuple loss with exact final report, all ordinary compiler event kinds,
+selected attribution/context switches and actual database rebuild/external callbacks.
+Focused diagnostics/compiler observation and callback controls passed. The enclosing
+native selection also found a KINSOL maximum-step policy contract failure in
+`explicit_maximum_step_remains_a_distinct_native_effort_limit`, owned by 48d; this
+does not establish an enclosing native pass. Assembled consumer/native qualification
+remains with 48h.
+
+### G03 implementation checkpoint
+
+The consumed source path is KINSOL residual evaluation through `Progress`: ordinary
+coherent producer records, an independent durable `ProgressTap`, retained current and
+history, final native report events, runtime progress documents and exported review
+views. History capacity zero still retains current progress and offers every event to
+the durable tap. Selected-detail gating alone cannot migrate this path.
+
+The selected narrow target keeps public rich `Event`, tap and snapshot/current APIs
+unchanged. A private KINSOL root-evaluation entry shares immutable prepared identity
+and stores only dynamic ordinal, two scalar slots, elapsed time and source stamps.
+Exact row/variable identity, keys, units and output role are prepared at session
+construction and refreshed with callback-state reset for each actual solve request. Current/history retain compact entries;
+ordinary coherent records project directly from prepared fields, durable taps obtain
+their required rich events, and passive readers/final reports project rich views when
+requested. The old repeated callback BTreeMap and stable identity formatting were removed,
+with one shared retention/loss route.
+
+Prepared layouts contain at most two coordinate pairs/four stable IDs. Each compact
+entry conservatively includes its whole shared layout in the existing 4096-byte
+entry check, and the session's retained extent includes its currently held layout.
+No new owner budget or public resource configuration is selected. Optional hub
+reservation cannot become a prerequisite for independent current or durable progress.
+The compact source implementation and focused controls passed in the coordinator’s
+combined native KINSOL-capability run (26 selected tests, zero failures). Controls cover exact prefix/role/nonfinite/ordinal
+projection, rolling compact storage and shared layout charging, history-zero current
+and durable projection with the optional hub disabled, forced optional producer and
+current/history lock refusal, selected/current/durable source-stamp agreement, and
+actual reused-session request-role/producer refresh. The run reported three unnecessary type qualifications introduced in KINSOL’s
+layout references; these were removed after execution. A clean rerun and aggregate
+qualification remain with the coordinator; no allocation/runtime measurement is
+claimed.
+
+### G04 implementation checkpoint
+
+The actual specialization owner now publishes `modeling.specialization`; typed body
+admission publishes `compiler.typed_body_lowering`; grouped materialization publishes
+`compiler.body_materialization`. These are inclusive nested intervals and are not
+independent additive work. Existing semantic-body and executable boundaries remain.
+A focused control checks actual completed intervals and reliable retirement on success
+and cancellation, without fabricating a grouped owner for direct typed admission.
+The compiler control passed in the focused native runtime/compiler selection: the
+selection ran 16 tests, 11 passed and 5 failed outside this stage control, against a
+zero-failure baseline. This does not establish an enclosing selection pass.
+
+I34 retains direct prepared/coalesced publication. Actual lifecycle contention,
+optional-history overflow, thread exit and terminal controls, together with G02/G03's
+compact/coalesced reductions and these actual stage owners, do not establish a
+scientific observer bottleneck that needs another transport. No SPSC/ring is adopted
+and no comparative ring throughput result is claimed. Reopen on observed contention
+or optional loss that harms required live freshness, or a changed producer topology.
+
+### G05 implementation checkpoint
+
+The offline publication owner streams each scalar directly into a private CSV writer
+and maintains a running row count. The aggregate scalar-row list and final list-based
+CSV write were removed. JSON inputs still have their existing decoded-document bound;
+the compact case/artifact index remains retained. This change makes no measured peak
+memory or native-runtime claim.
+
+Every call creates a fresh `output/review-<unique>` publication directory. All four
+files close in a private sibling before one directory rename makes that generation
+visible. Raw case directories and prior complete publications remain independently
+owned. The helper returns the final directory with its index, both CLI routes consume
+that result, and the command prints the final `index.html` path. Tests read the actual
+published directory; no root-level aliases or partially replaced output set remain.
+Relative source/report links use the final publication directory as their base.
+
+Input parse/read failures are retained as publication gaps with the exact successfully
+written prefix/count. Output-write errors propagate instead of being reclassified as
+input errors. Failed or interrupted finalization removes private staging and preserves
+previous complete generations and source bytes. Repeated publication creates another
+fresh directory. Scope text explicitly labels retained source projections and does not
+promote repeated values to independent samples.
+
+The focused script suite passed with independently specified source/line/pointer/value
+tuples and counts, escaped pointers/nulls/repeated samples, JSONL parse gaps, a 20,000-row
+write-before-next-record control, every output writer failing, interrupted finalization,
+closed-writer checks, repeated publication and both CLI routes. Native/scientific
+qualification and performance measurement remain outside this offline control.
+
+### G06 implementation checkpoint
+
+The private `ordinary_diagnostic_allocation_and_complete_cleanup_probe` consumes the current
+ordinary diagnostic owners after G02/G03: prepared additive/duration/gauge facts, coherent
+publication, reliable phase entry/retirement, bounded histories, snapshots, terminal summary
+and final owner drop. A publication-only control distinguishes the tuple from its phase.
+The deterministic fixture clock crosses actual history buckets; reported wall time uses an
+independent process monotonic clock. There is no native/FFI scientific work in this probe.
+
+Five samples in one current optimized test-profile process each created a fresh hub after
+priming the counter TLS. They used the same default policy and current `System` allocator
+wrapped by the already pinned allocation-counter 0.8.1, inherited only as a diagnostic dev
+dependency. No allocator preload/configuration override was selected; host admission did not
+physically isolate the machine.
+Each complete operation accepted 128 warm-up plus 10000 phase/publication events, then
+snapshotted, finished and dropped. Separately measured stages use no nested allocation
+measurement, because the library sums nested maxima rather than reconstructing their
+simultaneous live extent.
+
+| Observation, current dev binary | Five-sample wall range / median | Calling-thread Rust allocation observation |
+| --- | --- | --- |
+| Complete operation, 10128 events plus setup/snapshot/terminal/drop | 2.920–3.197 ms / 2.956 ms | 61495 allocations, 2203429 total bytes, 112192 maximum live counted bytes; net zero allocations/bytes after cleanup |
+| Warm 10000 phase-plus-tuple publications | 2.812–3.462 ms / 2.993 ms | 60000 allocations, 1880000 total bytes; 141 maximum incremental live bytes; net zero |
+| Warm 10000 tuple-only publications | 1.009–1.193 ms / 1.025 ms | zero allocations |
+
+Both complete and separately staged operations retained 362512 reserved diagnostic bytes
+before terminal/drop. Whole-process RSS was available: 3751936 bytes before the first
+sample, 3977216 afterward, then 3985408 bytes through the later cleanups. This is process
+residency, including allocator retention; it is not live Rust bytes, a reservation, child
+memory or a peak attributable only to this operation. Every sample verified accepted exact
+populations, no refused/lost tuple updates, no active phases at snapshot, completed terminal
+state, no escaped hub and complete calling-thread allocation cleanup. Wall time includes
+counter/TLS and diagnostic work; it is not allocator-only cost or scientific runtime.
+
+The coordinator selected retention of the current allocator for this bounded inquiry.
+Prepared tuple publication is allocation-free; reliable phase allocations have low live
+extent, and no representative scientific allocator bottleneck or retained pressure was
+established. An installed jemalloc alternative was identified but not measured, because
+these observations supplied no decision-relevant whole-operation allocator question.
+No production allocator/default/dependency or phase-lifecycle guarantee changed. Reopen on
+a representative post-fix scientific operation showing substantial residual allocation
+dominance or retained pressure. This does not rule out allocator benefit on other workloads.
+
 ## Finite inquiries
 
 The following descriptions explain the coordinator's inquiries. A no-adopt decision
 is a valid result, with the reason and observable trigger recorded at that single
 owner. Neither inquiry creates a new independent rule/status ledger.
+
+### G06 scoped completeness — H01
+
+The single recommendation-coverage row owned by G06 is **P18 faster global allocator**.
+Its actual producer is the current prepared tuple/phase lifecycle in `observation.rs`;
+its consuming operation is the private `observation/allocator_probe.rs` setup, warm
+publication, snapshot, terminal summary and final-drop probe. The one selected test passed
+and the five current-System samples are recorded above. Warm tuple publication allocated
+nothing; reliable phase plus publication had bounded incremental live allocations and no
+counted allocations left after complete drop. This is **Tested and Measured** for that
+ordinary diagnostic fixture, with zero native/scientific work, not allocator-only cost or
+scientific throughput evidence.
+
+No production allocator/default changed. Installed jemalloc was identified but unmeasured:
+this operation exposed no remaining decision-relevant bottleneck warranting an alternative
+comparison. Retaining the current allocator is the bounded I35 outcome, with reopening on
+representative post-fix scientific allocation dominance or retained pressure. There is no
+remaining G06-local implementation/test gap; broader workload and H02/H03 qualification
+remain with their owners. G01–G05 and I34 are separate ownership and are not closed by this
+G06 handoff; the coordinator alone records inquiry/finding disposition.
 
 ### I34 — Which stage evidence needs which buffer?
 
@@ -335,16 +548,37 @@ performance benefit outside their measured operation.
 
 ### What was built
 
-**Proposed; not implemented.** Product execution and qualification remain unstarted.
-Record the delivered behavior and its evidence here after implementation.
+**Implemented and Tested, completed adopted scope (2026-10-20):** the package table records
+all delivery/inquiry outcomes. [Plan48h](48h-qualification-and-design-publication.md#final-qualification-accounting)
+records completed selected assembled acceptance and scope-end checks. The individual
+observations below retain their original conditions and partial-run boundaries; they do
+not assert a universal speedup or extend unsupported capabilities. There is no outstanding
+authorized package work in this companion.
+
+**Tested and Measured (G06 partial scope):**
+`just unit-package pse-diagnostics ordinary_diagnostic_allocation_and_complete_cleanup_probe --execution-effects native-local --success-output immediate`
+passed 1/1 selected diagnostic test, 87 unselected, zero failures against the zero target;
+test-profile execution took 0.040 s, with zero compiler errors/warnings reported. The actual
+selected closure is pure Rust diagnostics, without Arrow/native/store effects; the invocation's
+`native-local` selector explicitly avoids canonical effects. Five default-System fixture samples
+and their limitations are recorded above. The current allocator was retained; no alternative
+allocator speed comparison or assembled scientific/performance qualification is claimed.
+Other packages retain their own partial checkpoints and coordinator acceptance boundaries.
 
 ### A mistake made and corrected
 
-**Proposed; not implemented.** Record an actual implementation mistake and its
-correction when execution supplies that evidence.
+**Implemented and Tested, named lifecycle controls:** the replaced phase retirement path
+used the optional observation try-lock, so contention could leave a finished phase active
+and consume capacity. Current atomic retirement is independent of optional publication;
+`phase_retirement_survives_held_history_lock_and_reuses_finite_capacity` and the unwind,
+thread-exit, poison and terminal controls exercise the correction. The completion audit
+also removed obsolete unimplemented Outcome placeholders; it found no additional G production
+gap within the accepted scope.
 
 ### Deviations from the plan, deliberate
 
-**Proposed; not implemented.** Record deliberate implementation deviations and their
-reasons after execution. Finding, inquiry and rule state remains owned by the
-coordinator.
+**Implemented, bounded inquiry outcomes:** direct prepared/coalesced observation and the
+current allocator are retained under I34/I35. No ring or allocator replacement was selected;
+no scientific-throughput or allocator-only benefit is inferred from the ordinary diagnostic
+probe. Safe-return tuple publication preserves the selected freshness contract. Finding,
+inquiry and rule state stays with the coordinator.

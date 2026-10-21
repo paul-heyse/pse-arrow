@@ -20,11 +20,14 @@ pub trait CausalUnit: std::fmt::Debug {
     fn outputs(&self) -> &[SemanticId];
     /// Compute one causal unit, respecting the inherited execution budget. This is
     /// a single unit calculation, never a caller-owned fixed-point update loop.
+    /// Inputs and writable outputs follow the exact declared port order. Every
+    /// output must be set on success; an unwritten slot remains an explicit failure.
     fn evaluate(
         &mut self,
-        inputs: &BTreeMap<SemanticId, f64>,
+        inputs: &[f64],
+        outputs: &mut [f64],
         execution: &Execution,
-    ) -> Result<BTreeMap<SemanticId, f64>, ProblemError>;
+    ) -> Result<(), ProblemError>;
     /// Complete solved original local state after a successful unit evaluation,
     /// including non-port unknowns. Opaque explicit maps may have no local state.
     fn original_values(&self) -> pse_math::binding::CaseValues {
@@ -41,13 +44,24 @@ pub struct CausalMap {
     contract: OracleContract,
     original: faer::sparse::SymbolicSparseColMat<usize>,
     units: Vec<Box<dyn CausalUnit>>,
-    propagate: BTreeMap<SemanticId, Vec<Binding>>,
-    tears: Vec<Binding>,
-    fixed: BTreeMap<SemanticId, f64>,
+    exchange: Vec<UnitExchange>,
+    tears: Vec<(usize, usize, pse_quantity::UnitConvertSpec)>,
+    fixed: Vec<(usize, f64)>,
+    values: Vec<f64>,
+    predicted: Vec<f64>,
     execution: Execution,
     _graph: Arc<FlowGraph>,
     original_observer: Option<OriginalObserverWrapper>,
     inner_context: crate::solve::RawMapInnerContext,
+}
+/// Prepared ordinals preserve each unit's declared input/output order.
+#[derive(Debug)]
+struct UnitExchange {
+    inputs: Vec<usize>,
+    outputs: Vec<usize>,
+    propagate: Vec<(usize, usize, pse_quantity::UnitConvertSpec)>,
+    input_values: Vec<f64>,
+    output_values: Vec<f64>,
 }
 impl std::fmt::Debug for OriginalObserverWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -100,7 +114,9 @@ impl CausalMap {
             ),
             (
                 coordinates,
-                11 * size_of::<(SemanticId, BTreeSet<usize>)>() + 16 * size_of::<usize>(),
+                11 * size_of::<(SemanticId, BTreeSet<usize>)>()
+                    + 19 * size_of::<usize>()
+                    + 3 * size_of::<f64>(),
             ),
             // Concurrent support sets plus candidate union; one full BTree node
             // per source/column pair covers sparsely occupied leaves and splits.
@@ -113,6 +129,7 @@ impl CausalMap {
                 n.checked_add(1).ok_or_else(overflow)?,
                 4 * size_of::<usize>(),
             ),
+            (n, size_of::<f64>()),
         ] {
             bytes = count
                 .checked_mul(2)
@@ -296,49 +313,88 @@ impl CausalMap {
         let (original, _) =
             faer::sparse::SymbolicSparseColMat::try_new_from_indices(n, n, &indices)
                 .map_err(|e| ProblemError::Internal(e.to_string()))?;
+        // Semantic port lookup ends at construction. Every sweep uses these exact
+        // ordered gather/scatter and conversion slots, with no map rebuilt per unit.
+        let slots: BTreeMap<_, _> = available
+            .iter()
+            .enumerate()
+            .map(|(slot, &id)| (id, slot))
+            .collect();
+        let exchange = ordered
+            .iter()
+            .map(|unit| UnitExchange {
+                inputs: unit.inputs().iter().map(|id| slots[id]).collect(),
+                outputs: unit.outputs().iter().map(|id| slots[id]).collect(),
+                propagate: propagate
+                    .get(&unit.id())
+                    .into_iter()
+                    .flatten()
+                    .map(|b| (slots[&b.source], slots[&b.target], b.conversion))
+                    .collect(),
+                input_values: vec![f64::NAN; unit.inputs().len()],
+                output_values: vec![f64::NAN; unit.outputs().len()],
+            })
+            .collect();
+        let tears = tears
+            .iter()
+            .map(|b| (slots[&b.source], slots[&b.target], b.conversion))
+            .collect();
+        let fixed = fixed
+            .into_iter()
+            .map(|(id, value)| (slots[&id], value))
+            .collect();
         Ok(Self {
             contract,
             original,
             units: ordered,
-            propagate,
+            exchange,
             tears,
             fixed,
+            values: vec![f64::NAN; slots.len()],
+            predicted: vec![f64::NAN; n],
             execution,
             _graph: graph,
             original_observer: None,
             inner_context: crate::solve::RawMapInnerContext::default(),
         })
     }
-    fn sweep(
-        &mut self,
-        x: &[f64],
-    ) -> Result<(Vec<f64>, pse_math::binding::CaseValues), ProblemError> {
+    fn sweep(&mut self, x: &[f64]) -> Result<pse_math::binding::CaseValues, ProblemError> {
         if x.len() != self.tears.len() || x.iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::numerical("invalid causal trial"));
         }
-        let mut values = self.fixed.clone();
+        self.values.fill(f64::NAN);
+        for &(slot, value) in &self.fixed {
+            self.values[slot] = value;
+        }
+        let values = &mut self.values;
         let mut original = pse_math::binding::CaseValues {
             scalars: BTreeMap::new(),
         };
-        values.extend(self.tears.iter().zip(x).map(|(b, v)| (b.target, *v)));
-        for unit in &mut self.units {
+        for (&(_, target, _), &value) in self.tears.iter().zip(x) {
+            values[target] = value;
+        }
+        for (unit, exchange) in self.units.iter_mut().zip(&mut self.exchange) {
             if self.execution.stopped().is_some() {
                 return Err(pse_math::MathError::Cancelled.into());
             }
-            let inputs = unit.inputs().iter().map(|id| (*id, values[id])).collect();
-            let outputs = unit.evaluate(&inputs, &self.execution)?;
-            if outputs.len() != unit.outputs().len()
-                || unit
-                    .outputs()
-                    .iter()
-                    .any(|id| outputs.get(id).is_none_or(|v| !v.is_finite()))
-            {
+            for (input, &slot) in exchange.input_values.iter_mut().zip(&exchange.inputs) {
+                *input = values[slot];
+            }
+            exchange.output_values.fill(f64::NAN);
+            unit.evaluate(
+                &exchange.input_values,
+                &mut exchange.output_values,
+                &self.execution,
+            )?;
+            if exchange.output_values.iter().any(|v| !v.is_finite()) {
                 return Err(ProblemError::numerical(format!(
                     "causal unit {} returned incomplete or nonfinite outputs",
                     unit.id()
                 )));
             }
-            values.extend(outputs);
+            for (&output, &slot) in exchange.output_values.iter().zip(&exchange.outputs) {
+                values[slot] = output;
+            }
             for (id, value) in unit.original_values().scalars {
                 if !value.is_finite()
                     || original
@@ -351,27 +407,22 @@ impl CausalMap {
                     ));
                 }
             }
-            for b in self.propagate.get(&unit.id()).into_iter().flatten() {
-                let v = values[&b.source] * b.conversion.scale + b.conversion.offset;
+            for &(source, target, conversion) in &exchange.propagate {
+                let v = values[source] * conversion.scale + conversion.offset;
                 if !v.is_finite() {
                     return Err(ProblemError::numerical("nonfinite flow conversion"));
                 }
-                values.insert(b.target, v);
+                values[target] = v;
             }
         }
-        let predicted = self
-            .tears
-            .iter()
-            .map(|b| {
-                let v = values[&b.source] * b.conversion.scale + b.conversion.offset;
-                if v.is_finite() {
-                    Ok(v)
-                } else {
-                    Err(ProblemError::numerical("nonfinite tear conversion"))
-                }
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok((predicted, original))
+        for (predicted, &(source, _, conversion)) in self.predicted.iter_mut().zip(&self.tears) {
+            let v = values[source] * conversion.scale + conversion.offset;
+            if !v.is_finite() {
+                return Err(ProblemError::numerical("nonfinite tear conversion"));
+            }
+            *predicted = v;
+        }
+        Ok(original)
     }
 }
 impl FixedPointOracle for CausalMap {
@@ -391,8 +442,8 @@ impl FixedPointOracle for CausalMap {
         if out.len() != x.len() {
             return Err(ProblemError::Internal("causal output dimensions".into()));
         }
-        let (values, _) = self.sweep(x)?;
-        out.copy_from_slice(&values);
+        self.sweep(x)?;
+        out.copy_from_slice(&self.predicted);
         Ok(())
     }
     fn original_residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
@@ -404,11 +455,11 @@ impl FixedPointOracle for CausalMap {
         if let Some(observer) = &mut self.original_observer {
             (observer.0)(None, &self.execution)?;
         }
-        let (predicted, original) = self.sweep(x)?;
+        let original = self.sweep(x)?;
         if let Some(observer) = &mut self.original_observer {
             (observer.0)(Some(&original), &self.execution)?;
         }
-        for ((out, p), x) in out.iter_mut().zip(predicted).zip(x) {
+        for ((out, p), x) in out.iter_mut().zip(&self.predicted).zip(x) {
             *out = p - x;
         }
         Ok(())
@@ -437,11 +488,15 @@ mod tests {
         }
         fn evaluate(
             &mut self,
-            v: &BTreeMap<SemanticId, f64>,
+            v: &[f64],
+            outputs: &mut [f64],
             _: &Execution,
-        ) -> Result<BTreeMap<SemanticId, f64>, ProblemError> {
-            self.hidden = v[&id(1)] * 3.0;
-            Ok(BTreeMap::from([(id(2), 0.5 * v[&id(1)] + 1.0)]))
+        ) -> Result<(), ProblemError> {
+            self.hidden = v[0] * 3.0;
+            if v[0] >= 0.0 {
+                outputs[0] = 0.5 * v[0] + 1.0;
+            }
+            Ok(())
         }
         fn original_values(&self) -> pse_math::binding::CaseValues {
             pse_math::binding::CaseValues {
@@ -449,6 +504,95 @@ mod tests {
             }
         }
     }
+    #[derive(Debug)]
+    struct PermutedUnit {
+        inputs: [SemanticId; 2],
+        outputs: [SemanticId; 2],
+    }
+    impl CausalUnit for PermutedUnit {
+        fn id(&self) -> SemanticId {
+            id(10)
+        }
+        fn inputs(&self) -> &[SemanticId] {
+            &self.inputs
+        }
+        fn outputs(&self) -> &[SemanticId] {
+            &self.outputs
+        }
+        fn evaluate(
+            &mut self,
+            inputs: &[f64],
+            outputs: &mut [f64],
+            _: &Execution,
+        ) -> Result<(), ProblemError> {
+            outputs[0] = 10. * inputs[0] + inputs[1];
+            outputs[1] = inputs[0] - inputs[1];
+            Ok(())
+        }
+    }
+    #[test]
+    fn indexed_exchange_preserves_declared_port_order_fixed_inputs_and_tear_conversion() {
+        use pse_structural::flowsheet::*;
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let quantity = pse_quantity::standard::ids::quantity("neutral");
+        let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+        let graph = Arc::new(
+            FlowGraph::admit(
+                Declaration {
+                    nodes: vec![Node {
+                        id: id(10),
+                        ports: [1, 2, 3, 4]
+                            .map(|n| pse_kernels::Port {
+                                id: id(n),
+                                quantity,
+                                unit,
+                            })
+                            .to_vec(),
+                    }],
+                    connections: vec![Connection {
+                        id: id(20),
+                        from: id(10),
+                        to: id(10),
+                        decision: id(30),
+                        bindings: vec![(id(4), id(1))],
+                    }],
+                    decisions: vec![Decision {
+                        id: id(30),
+                        cost: 1.,
+                        policy: Policy::Mandatory,
+                    }],
+                },
+                &registry,
+                pse_structural::projection::GraphLimits { nodes: 5, edges: 5 },
+            )
+            .unwrap(),
+        );
+        let mut contract = crate::solver_tests::contract();
+        contract.rows = vec![id(20)];
+        let unit: Box<dyn CausalUnit> = Box::new(PermutedUnit {
+            inputs: [id(3), id(1)],
+            outputs: [id(4), id(2)],
+        });
+        let mut map = CausalMap::new(
+            graph,
+            BTreeSet::from([id(30)]),
+            contract,
+            BTreeMap::from([(id(10), unit)]),
+            BTreeMap::from([(id(3), 2.)]),
+            execution(),
+        )
+        .unwrap();
+        let mut out = [f64::NAN];
+        map.map(&[5.], &mut out).unwrap();
+        assert_eq!(out, [25.]);
+        assert_eq!(map.values, [5., -3., 2., 25.]);
+        map.tears[0].2.scale = 0.5;
+        map.tears[0].2.offset = 3.;
+        map.map(&[1.], &mut out).unwrap();
+        assert_eq!(out, [13.5]);
+        assert_eq!(map.values, [1., 1., 2., 21.]);
+    }
+
     #[test]
     fn causal_map_uses_declared_tears_and_recomputes_original_connection_residual() {
         use pse_structural::flowsheet::*;
@@ -518,7 +662,33 @@ mod tests {
         map.map(&[0.0], &mut out).unwrap();
         assert!(map.physical_tear_coordinates());
         assert_eq!(out, [1.0]);
+        assert_eq!(map.exchange[0].inputs, [0]);
+        assert_eq!(map.exchange[0].outputs, [1]);
+        let capacity = (
+            map.values.capacity(),
+            map.exchange[0].input_values.capacity(),
+            map.exchange[0].output_values.capacity(),
+            map.predicted.capacity(),
+        );
+        let predicted_storage = map.predicted.as_ptr();
         assert!(observed.borrow().is_none());
+        assert!(
+            map.map(&[-1.0], &mut out).is_err(),
+            "unwritten outputs cannot reuse preceding scratch"
+        );
+        assert_eq!(out, [1.0], "failed sweep cannot publish a partial map");
+        map.map(&[0.0], &mut out).unwrap();
+        assert_eq!(out, [1.0]);
+        assert_eq!(
+            capacity,
+            (
+                map.values.capacity(),
+                map.exchange[0].input_values.capacity(),
+                map.exchange[0].output_values.capacity(),
+                map.predicted.capacity()
+            )
+        );
+        assert_eq!(predicted_storage, map.predicted.as_ptr());
         map.original_residual(&[2.0], &mut out).unwrap();
         assert_eq!(out, [0.0]);
         assert_eq!(observed.borrow().as_ref().unwrap().scalars[&id(99)], 6.0);

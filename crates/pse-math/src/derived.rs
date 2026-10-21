@@ -828,6 +828,8 @@ enum FamilyKind {
         pairing: Vec<GlobalCol>,
         sign: f64,
         mass: MassStructure,
+        jacobian: Arc<AssemblyMatrix>,
+        columns: Arc<Vec<Vec<usize>>>,
     },
     Parameter {
         parameter: GlobalCol,
@@ -939,12 +941,19 @@ impl DerivedFamily {
                 frame_edges(&mut h, derivative_incidence);
             }
         }
+        let jacobian = Arc::new(AssemblyMatrix::new(n, n, &incidence, isize::MAX as usize)?);
+        let mut columns = vec![Vec::new(); n];
+        for (ordinal, entry) in incidence.iter().enumerate() {
+            columns[entry.col.get()].push(ordinal);
+        }
         Ok(Self {
             original,
             kind: FamilyKind::PseudoTime {
                 pairing,
                 sign,
                 mass,
+                jacobian,
+                columns: Arc::new(columns),
             },
             incidence,
             key: h.finish_hash(),
@@ -1128,8 +1137,21 @@ impl DerivedFamily {
             FamilyKind::Feasibility
             | FamilyKind::AnchoredHomotopy
             | FamilyKind::AffineHomotopy { .. } => 0,
-            FamilyKind::PseudoTime { pairing, mass, .. } => {
-                pairing.capacity() * size_of::<GlobalCol>()
+            FamilyKind::PseudoTime {
+                pairing,
+                mass,
+                jacobian,
+                columns,
+                ..
+            } => {
+                jacobian.retained_bytes()
+                    + 4 * size_of::<usize>()
+                    + columns.capacity() * size_of::<Vec<usize>>()
+                    + columns
+                        .iter()
+                        .map(|column| column.capacity() * size_of::<usize>())
+                        .sum::<usize>()
+                    + pairing.capacity() * size_of::<GlobalCol>()
                     + match mass {
                         MassStructure::Frozen { incidence } => {
                             incidence.capacity() * size_of::<Entry<GlobalRow, GlobalCol>>()
@@ -2472,7 +2494,21 @@ impl<O: Oracle> BoundPseudoTime<O> {
     pub fn jacobian(&mut self, x: &[f64], native_index: usize) -> Result<AssemblyMatrix, O::Error> {
         let n = self.anchor.len();
         trial(x, n)?;
-        let mut matrix = AssemblyMatrix::new(n, n, &self.family.incidence, native_index)?;
+        let FamilyKind::PseudoTime {
+            jacobian, columns, ..
+        } = &self.family.kind
+        else {
+            return Err(MathError::Contract("not a pseudo-time family".into()).into());
+        };
+        if n > native_index
+            || self.family.incidence.len() > native_index
+            || native_index > isize::MAX as usize
+        {
+            return Err(MathError::Limit("sparse dimensions, indices or contributions").into());
+        }
+        let columns = Arc::clone(columns);
+        let mut matrix = jacobian.as_ref().clone();
+        matrix.clear();
         let mut direction = vec![0.0; n];
         let mut product = vec![0.0; n];
         for col in 0..n {
@@ -2493,14 +2529,9 @@ impl<O: Oracle> BoundPseudoTime<O> {
                     .into());
                 }
             }
-            for (k, edge) in self
-                .family
-                .incidence
-                .iter()
-                .enumerate()
-                .filter(|(_, edge)| edge.col.get() == col)
-            {
-                matrix.add(Addend::new(k), product[edge.row.get()])?;
+            for &ordinal in &columns[col] {
+                let edge = self.family.incidence[ordinal];
+                matrix.add(Addend::new(ordinal), product[edge.row.get()])?;
             }
         }
         Ok(matrix)
@@ -4395,5 +4426,134 @@ mod tests {
         );
         assert_eq!(out, [99.0]);
         assert_eq!(bound.oracle.jvp_calls, 0);
+    }
+}
+
+#[cfg(test)]
+mod canonical_product_tests {
+    use super::*;
+    #[derive(Debug)]
+    struct Coupled {
+        original: Arc<OriginalContract>,
+        leak: bool,
+    }
+    impl Oracle for Coupled {
+        type Error = MathError;
+        fn contract(&self) -> &OriginalContract {
+            &self.original
+        }
+        fn values(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), MathError> {
+            out.copy_from_slice(&[x[0] * x[0] + 2. * x[2], x[0] * x[1], 3. * x[2]]);
+            Ok(())
+        }
+        fn jacobian_product(
+            &mut self,
+            x: &[f64],
+            v: &[f64],
+            out: &mut [f64],
+        ) -> Result<(), MathError> {
+            out.copy_from_slice(&[
+                2. * x[0] * v[0] + 2. * v[2],
+                x[1] * v[0] + x[0] * v[1],
+                3. * v[2] + if self.leak { v[1] } else { 0. },
+            ]);
+            Ok(())
+        }
+    }
+    #[test]
+    fn pseudo_time_reuses_canonical_layout_and_keeps_structural_zero_and_support_refusal() {
+        let id = |n| SemanticId::from_bytes([n; 16]);
+        let hash = |n| ContentHash::from_bytes([n; 32]);
+        let edge = |r, c| Entry::new(GlobalRow::new(r), GlobalCol::new(c));
+        let original = Arc::new(
+            OriginalContract::new(
+                hash(1),
+                hash(2),
+                [3, 1, 2]
+                    .into_iter()
+                    .map(|n| Coordinate {
+                        id: id(n),
+                        lower: -10.,
+                        upper: 10.,
+                    })
+                    .collect(),
+                [6, 4, 5]
+                    .into_iter()
+                    .map(|n| Constraint {
+                        id: id(n),
+                        lower: 0.,
+                        upper: 0.,
+                    })
+                    .collect(),
+                vec![
+                    edge(2, 2),
+                    edge(1, 1),
+                    edge(0, 2),
+                    edge(1, 0),
+                    edge(0, 0),
+                    edge(1, 0),
+                ],
+                DerivativeSupport {
+                    order: DerivativeOrder::First,
+                    jacobian_product: true,
+                    source: hash(3),
+                },
+                OriginalObligations {
+                    guards: hash(4),
+                    selection: hash(5),
+                    objective: None,
+                },
+            )
+            .unwrap(),
+        );
+        let diagonal = vec![edge(2, 2), edge(0, 0), edge(1, 1)];
+        let family = Arc::new(
+            DerivedFamily::shifted_pseudo_time(
+                original.clone(),
+                vec![2.into(), 0.into(), 1.into()],
+                1.,
+                MassStructure::Frozen {
+                    incidence: diagonal.clone(),
+                },
+            )
+            .unwrap(),
+        );
+        let mut mass = AssemblyMatrix::new(3, 3, &diagonal, 100).unwrap();
+        for (i, value) in [3., 1., 2.].into_iter().enumerate() {
+            mass.add(Addend::new(i), value).unwrap();
+        }
+        let mut bound = family
+            .bind_pseudo_time(
+                Coupled {
+                    original,
+                    leak: false,
+                },
+                vec![0.; 3],
+                0.5,
+                MassBinding::Frozen(mass),
+            )
+            .unwrap();
+        let FamilyKind::PseudoTime {
+            jacobian, columns, ..
+        } = &family.kind
+        else {
+            panic!("family")
+        };
+        assert_eq!(jacobian.matrix().symbolic().col_ptr(), &[0, 2, 3, 5]);
+        assert_eq!(columns.iter().map(Vec::len).collect::<Vec<_>>(), [2, 1, 2]);
+        let first = bound.jacobian(&[0., 2., 1.], 100).unwrap();
+        assert_eq!(first.matrix().val(), [2., 2., 4., 2., 9.]);
+        let second = bound.jacobian(&[1., 0., 2.], 100).unwrap();
+        assert_eq!(second.matrix().val(), [4., 0., 5., 2., 9.]);
+        assert_eq!(first.matrix().val(), [2., 2., 4., 2., 9.]);
+        assert_eq!(jacobian.matrix().val(), [0.; 5]);
+        assert!(bound.jacobian(&[1., 0., 2.], 4).is_err());
+        bound.oracle.leak = true;
+        assert!(bound.jacobian(&[1., 0., 2.], 100).is_err());
+        bound.oracle.leak = false;
+        assert_eq!(
+            bound.jacobian(&[1., 0., 2.], 100).unwrap().matrix().val(),
+            second.matrix().val()
+        );
     }
 }

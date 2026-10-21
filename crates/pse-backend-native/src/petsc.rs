@@ -906,7 +906,8 @@ pub fn solve(
     let native_terminal =
         finish_native_error(&mut report, &mut context.state, code, "nonlinear solve");
     report.evidence.work.iterations = u64::try_from(iterations).ok();
-    report.evidence.start_submitted = warm.is_some();
+    // SNESSolve received the vector populated from initial or admitted warm values.
+    report.evidence.start_submitted = true;
     report.metrics.insert(
         "SNESGetNumberFunctionEvals".into(),
         Metric::Integer(evaluations.into()),
@@ -1482,6 +1483,10 @@ mod tests {
         let mut oracle = LogOracle::new();
         let report = run(&mut oracle, 1.0, &controls, None).unwrap();
         assert_eq!(report.termination.category, Termination::Success);
+        assert!(
+            report.evidence.start_submitted,
+            "the cold initial vector reached PETSc"
+        );
         assert!(report.quality.as_ref().unwrap().feasible());
         assert!(
             oracle.rejected > 0,

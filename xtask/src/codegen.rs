@@ -47,7 +47,8 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         Some(Target::Schemas | Target::Physical) => Vec::new(),
         None => Language::ALL.to_vec(),
     };
-    let registry = pse_schema::registry()?;
+    let source_registry = pse_schema::catalog::assemble()?;
+    let registry = &source_registry;
     let mut trees = Vec::new();
     for language in languages {
         let mut tree = pse_codegen::codegen::generate(registry, language)?;
@@ -125,7 +126,8 @@ fn check_python_candidate(root: &Path, tree: &GeneratedTree, mode: Option<&str>)
     if mode == Some("--documents") {
         // Document enums must come from the same registry generation, even before
         // publication or when only document schemas are being regenerated.
-        let contracts = pse_codegen::codegen::generate(pse_schema::registry()?, Language::Python)?;
+        let source_registry = pse_schema::catalog::assemble()?;
+        let contracts = pse_codegen::codegen::generate(&source_registry, Language::Python)?;
         write_tree(candidate.path(), &contracts)?;
     }
     write_tree(candidate.path(), tree)?;

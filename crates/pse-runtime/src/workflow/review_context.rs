@@ -355,7 +355,7 @@ impl ReviewContextDocument {
                     "replay-case-constructor.v2"
                         | "replay-case-inputs.v2"
                         | "replay-simulation-constructor.v2"
-                        | "replay-fit-constructor.v2"
+                        | "replay-fit-constructor.v3"
                         | "replay-horizon-constructor.v2"
                         | "replay-shooting-constructor.v2"
                         | "native-execution-snapshot.v1"
@@ -731,7 +731,7 @@ impl RunResult {
                 out.settings(&fit.problem.profile.solver)?;
                 out.fact(
                     "/fit/constructor".into(),
-                    "replay-fit-constructor.v2",
+                    "replay-fit-constructor.v3",
                     &fit.original_inputs.document(0),
                 )?;
                 out.fact(

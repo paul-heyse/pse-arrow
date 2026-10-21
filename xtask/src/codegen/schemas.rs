@@ -306,6 +306,7 @@ pub(super) fn documents() -> Vec<Document> {
         document::<pse_runtime::math::solves::SolverAdviceInputs>("solver-advice-inputs"),
         document::<pse_model::strategy::advice::FrozenAdvice>("frozen-advice"),
         document::<pse_runtime::workflow::FitPreparationDocument>("fit-preparation"),
+        document::<pse_runtime::workflow::FitExecutionDocument>("fit-execution"),
         document::<pse_runtime::workflow::FitProfileDocument>("fit-profiles"),
         document::<pse_runtime::workflow::FitDeclarations>("fit-declarations"),
         document::<pse_runtime::workflow::RunControls>("run-controls"),

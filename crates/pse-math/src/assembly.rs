@@ -12,9 +12,11 @@ use crate::{
     library::Optimization,
     sparse::AssemblyMatrix,
 };
+#[path = "assembly_entries.rs"]
+mod entries;
 #[path = "assembly_projection.rs"]
 mod projection;
-use projection::{ProjectionRelationship, project_compatible};
+use projection::{InstanceReuse, ProjectionRelationship, project_compatible};
 #[path = "assembly_completion.rs"]
 mod completion;
 #[path = "assembly_observation.rs"]
@@ -151,6 +153,7 @@ pub struct CasePlan {
     rows: Arc<BTreeMap<SemanticId, GlobalRow>>,
     row_contributions: Arc<BTreeMap<SemanticId, Vec<(usize, usize)>>>,
     instances: Arc<Vec<Instance>>,
+    ownership: Arc<PlanOwnership>,
     product_weights: Arc<Vec<EnumMap<EvaluationDemand, Vec<ProductWeight>>>>,
     jacobian: Arc<AssemblyMatrix>,
     hessian: Arc<AssemblyMatrix>,
@@ -159,10 +162,101 @@ pub struct CasePlan {
     order: DerivativeOrder,
     requests: Arc<Vec<LocalDemand>>,
     supports: Arc<Vec<Arc<PreparedSupport>>>,
+    numerical_supports: Option<Arc<Vec<Arc<PreparedSupport>>>>,
+    entries: Option<Arc<entries::EntryPlan>>,
     available: DerivativeOrder,
     actions: PreparedActions,
     limits: AssemblyLimits,
     owner: Option<Arc<dyn crate::AllocationOwner>>,
+}
+/// Derived access paths over the exact immutable binding and demand population.
+#[derive(Clone, Debug)]
+struct PlanOwnership {
+    consumers: Vec<Vec<(usize, EvaluationDemand)>>,
+    slot_sources: Vec<SemanticId>,
+    source_bindings: BTreeMap<SemanticId, Vec<usize>>,
+    slots: usize,
+    contributions: usize,
+}
+impl PlanOwnership {
+    fn new(
+        structure: &CaseStructure,
+        instances: &[Instance],
+        requests: usize,
+    ) -> Result<Self, MathError> {
+        let overflow = || MathError::Limit("case ownership index extent");
+        let slots = structure
+            .instances()
+            .iter()
+            .try_fold(0usize, |n, binding| n.checked_add(binding.slots.len()))
+            .ok_or_else(overflow)?;
+        let groups = instances
+            .iter()
+            .try_fold(0usize, |n, instance| {
+                n.checked_add(instance.groups.values().flatten().count())
+            })
+            .ok_or_else(overflow)?;
+        let bytes = requests
+            .checked_mul(size_of::<Vec<(usize, EvaluationDemand)>>())
+            .and_then(|bytes| {
+                bytes.checked_add(groups.checked_mul(2 * size_of::<(usize, EvaluationDemand)>())?)
+            })
+            .and_then(|bytes| {
+                bytes.checked_add(slots.checked_mul(192 + 2 * size_of::<SemanticId>())?)
+            })
+            .and_then(|bytes| bytes.checked_add(size_of::<Self>()))
+            .ok_or_else(overflow)?;
+        crate::construction::additional(bytes)?;
+        let mut consumers = vec![Vec::new(); requests];
+        for (index, instance) in instances.iter().enumerate() {
+            for (demand, group) in instance.groups.iter() {
+                if let Some(group) = group {
+                    consumers[group.request].push((index, demand));
+                }
+            }
+        }
+        let mut source_bindings = BTreeMap::<_, Vec<_>>::new();
+        for (index, binding) in structure.instances().iter().enumerate() {
+            for source in binding
+                .slots
+                .iter()
+                .map(|slot| slot.source())
+                .collect::<BTreeSet<_>>()
+            {
+                source_bindings.entry(source).or_default().push(index);
+            }
+        }
+        Ok(Self {
+            consumers,
+            slot_sources: source_bindings.keys().copied().collect(),
+            source_bindings,
+            slots,
+            contributions: structure
+                .instances()
+                .iter()
+                .map(|binding| binding.contributions.len())
+                .sum(),
+        })
+    }
+    fn bytes(&self) -> usize {
+        size_of::<Self>()
+            + self.consumers.capacity() * size_of::<Vec<(usize, EvaluationDemand)>>()
+            + self
+                .consumers
+                .iter()
+                .map(|consumers| consumers.capacity() * size_of::<(usize, EvaluationDemand)>())
+                .sum::<usize>()
+            + self.slot_sources.capacity() * size_of::<SemanticId>()
+            + self
+                .source_bindings
+                .values()
+                .map(|bindings| {
+                    96 + size_of::<SemanticId>()
+                        + size_of::<Vec<usize>>()
+                        + bindings.capacity() * size_of::<usize>()
+                })
+                .sum::<usize>()
+    }
 }
 // Preparation permission survives an empty/constant projection, where there is
 // no local program to carry it. Requests below still own actual compiled work.
@@ -338,14 +432,8 @@ impl CasePlan {
     ) -> Result<Option<usize>, MathError> {
         let overflow = || MathError::Limit("conditional capability extent");
         let mut bytes = 0usize;
-        for binding in self.structure.instances() {
-            if !binding
-                .contributions
-                .iter()
-                .any(|c| matches!(c.target, Target::Row(row) if rows.contains(&row)))
-            {
-                continue;
-            }
+        for index in self.selected_contributions(rows.iter().copied()).keys() {
+            let binding = &self.structure.instances()[*index];
             let Some(scratch) =
                 self.bodies[&binding.body].arithmetic_analysis_allocation_bound(None)?
             else {
@@ -370,9 +458,63 @@ impl CasePlan {
     pub fn visit_dependencies<B>(
         &self,
         cancel: &Arc<AtomicBool>,
+        visit: impl FnMut(ContributionDependencies) -> std::ops::ControlFlow<B>,
+    ) -> Result<std::ops::ControlFlow<B>, MathError> {
+        self.visit_binding_dependencies(0..self.structure.instances().len(), cancel, visit)
+    }
+    /// Complete obligations of bindings relevant to a selected conditional boundary.
+    /// Candidate slots are conservative: fixed/inactive inputs and every original
+    /// objective or outside row in a selected binding remain visible to admission.
+    pub fn boundary_dependencies(
+        &self,
+        rows: &BTreeSet<SemanticId>,
+        unknowns: &BTreeSet<SemanticId>,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Vec<ContributionDependencies>, MathError> {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
+        let bindings = self.boundary_bindings(rows, unknowns);
+        let mut result = Vec::new();
+        let _ = self.visit_binding_dependencies(bindings.into_iter(), cancel, |dependency| {
+            result.push(dependency);
+            std::ops::ControlFlow::<std::convert::Infallible>::Continue(())
+        })?;
+        Ok(result)
+    }
+    fn boundary_bindings(
+        &self,
+        rows: &BTreeSet<SemanticId>,
+        unknowns: &BTreeSet<SemanticId>,
+    ) -> BTreeSet<usize> {
+        rows.iter()
+            .flat_map(|row| {
+                self.row_contributions(*row)
+                    .iter()
+                    .map(|&(binding, _)| binding)
+            })
+            .chain(
+                unknowns
+                    .iter()
+                    .filter_map(|id| self.ownership.source_bindings.get(id))
+                    .flatten()
+                    .copied(),
+            )
+            .collect()
+    }
+    fn visit_binding_dependencies<B>(
+        &self,
+        bindings: impl Iterator<Item = usize>,
+        cancel: &Arc<AtomicBool>,
         mut visit: impl FnMut(ContributionDependencies) -> std::ops::ControlFlow<B>,
     ) -> Result<std::ops::ControlFlow<B>, MathError> {
-        for binding in self.structure.instances() {
+        for index in bindings {
+            #[cfg(test)]
+            ownership_tests::DEPENDENCY_VISITS.with(|visits| {
+                let (bindings, supports) = visits.get();
+                visits.set((bindings + 1, supports));
+            });
+            let binding = &self.structure.instances()[index];
             if cancel.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);
             }
@@ -388,16 +530,26 @@ impl CasePlan {
             }
             let body = &self.bodies[&binding.body];
             let coordinates = (0..binding.slots.len()).collect::<Vec<_>>();
-            let established = self.supports.iter().find(|support| {
-                support.matches_body(body.as_ref())
-                    && support.order() >= DerivativeOrder::First
-                    && outputs
-                        .iter()
-                        .all(|output| support.outputs().contains(output))
-                    && coordinates
-                        .iter()
-                        .all(|coordinate| support.coordinates().contains(coordinate))
-            });
+            let established = self.instances[index]
+                .groups
+                .values()
+                .flatten()
+                .map(|group| &self.supports[group.request])
+                .find(|support| {
+                    #[cfg(test)]
+                    ownership_tests::DEPENDENCY_VISITS.with(|visits| {
+                        let (bindings, supports) = visits.get();
+                        visits.set((bindings, supports + 1));
+                    });
+                    support.matches_body(body.as_ref())
+                        && support.order() >= DerivativeOrder::First
+                        && outputs
+                            .iter()
+                            .all(|output| support.outputs().contains(output))
+                        && coordinates
+                            .iter()
+                            .all(|coordinate| support.coordinates().contains(coordinate))
+                });
             let support = if let Some(established) = established {
                 established.conditional_support(
                     &outputs,
@@ -558,6 +710,22 @@ impl CasePlan {
             ),
         ];
         components.push((
+            "plan-ownership",
+            Arc::as_ptr(&self.ownership) as usize,
+            self.ownership.bytes(),
+        ));
+        if let Some(entries) = &self.entries {
+            components.push(("entry-plan", Arc::as_ptr(entries) as usize, entries.bytes()));
+        }
+        if let Some(supports) = &self.numerical_supports {
+            components.push((
+                "numerical-supports",
+                Arc::as_ptr(supports) as usize,
+                size_of_val(supports.as_ref())
+                    + supports.capacity() * size_of::<Arc<PreparedSupport>>(),
+            ));
+        }
+        components.push((
             "row-contributions",
             Arc::as_ptr(&self.row_contributions) as usize,
             size_of_val(self.row_contributions.as_ref())
@@ -592,7 +760,7 @@ impl CasePlan {
     }
     /// Process-local shared storage identities, independent of owner wrappers and body data.
     pub fn allocation_identity(&self) -> Vec<usize> {
-        vec![
+        let mut identities = vec![
             Arc::as_ptr(&self.structure) as usize,
             Arc::as_ptr(&self.columns) as usize,
             Arc::as_ptr(&self.projection) as usize,
@@ -604,7 +772,18 @@ impl CasePlan {
             Arc::as_ptr(&self.hessian_terms) as usize,
             Arc::as_ptr(&self.requests) as usize,
             Arc::as_ptr(&self.supports) as usize,
-        ]
+        ];
+        identities.extend(
+            self.entries
+                .iter()
+                .map(|entries| Arc::as_ptr(entries) as usize),
+        );
+        identities.extend(
+            self.numerical_supports
+                .iter()
+                .map(|supports| Arc::as_ptr(supports) as usize),
+        );
+        identities
     }
     /// Plan storage without immutable body data, which has its own unique lease.
     pub fn allocation_bytes(&self) -> usize {
@@ -637,7 +816,11 @@ impl CasePlan {
                     bytes = bytes.checked_add(body.retained_bytes())?;
                 }
             }
-            for support in plan.supports.iter() {
+            for support in plan
+                .supports
+                .iter()
+                .chain(plan.numerical_supports.iter().flat_map(|s| s.iter()))
+            {
                 if seen.insert(("support", support.allocation_identity())) {
                     bytes = bytes.checked_add(support.retained_bytes())?;
                 }
@@ -652,6 +835,11 @@ impl CasePlan {
         }
         for support in Arc::make_mut(&mut self.supports) {
             *support = Arc::new(support.as_ref().clone().with_owner(owner.clone()));
+        }
+        if let Some(supports) = &mut self.numerical_supports {
+            for support in Arc::make_mut(supports) {
+                *support = Arc::new(support.as_ref().clone().with_owner(owner.clone()));
+            }
         }
         self.owner = Some(crate::retain_allocation_owner(self.owner.take(), owner));
         self
@@ -951,6 +1139,7 @@ impl CasePlan {
             );
         }
         let product_weights = Arc::new(prepare_product_weights(&instances, &structure, &rows));
+        let ownership = Arc::new(PlanOwnership::new(&structure, &instances, requests.len())?);
         Ok(Self {
             projection: Arc::new(crate::factorable::ProjectionTopology::new(
                 &structure, &columns,
@@ -961,6 +1150,7 @@ impl CasePlan {
             columns: Arc::new(columns),
             rows: Arc::new(rows),
             instances: Arc::new(instances),
+            ownership,
             product_weights,
             jacobian: Arc::new(patterns.jacobian),
             hessian: Arc::new(patterns.hessian),
@@ -969,6 +1159,8 @@ impl CasePlan {
             order,
             requests: Arc::new(requests),
             supports: Arc::new(supports),
+            numerical_supports: None,
+            entries: None,
             actions: PreparedActions::default(),
             available,
             limits,
@@ -1177,17 +1369,14 @@ impl CasePlan {
             ));
         }
         let mut available = DerivativeOrder::Second;
-        for binding in self.structure.instances() {
+        for (index, ordinals) in self.selected_contributions(rows.iter().copied()) {
             if cancel.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);
             }
-            let outputs: Vec<_> = binding
-                .contributions
+            let binding = &self.structure.instances()[index];
+            let outputs: Vec<_> = ordinals
                 .iter()
-                .filter_map(|contribution| {
-                    matches!(contribution.target, Target::Row(row) if rows.contains(&row))
-                        .then_some(contribution.output)
-                })
+                .map(|&ordinal| binding.contributions[ordinal].output)
                 .collect::<BTreeSet<_>>()
                 .into_iter()
                 .collect();
@@ -1228,33 +1417,23 @@ impl CasePlan {
         {
             return Err(MathError::Contract("conditional block inventory".into()));
         }
-        let rows = self
-            .structure
-            .rows()
+        let rows = selected_rows
             .iter()
-            .filter(|r| selected_rows.contains(&r.id))
-            .cloned()
+            .map(|row| self.structure.rows()[self.rows[row].get()].clone())
             .collect();
-        let binding_indices: BTreeSet<_> = selected_rows
-            .iter()
-            .filter_map(|row| self.row_contributions.get(row))
-            .flatten()
-            .map(|&(binding, _)| binding)
-            .collect();
+        let binding_indices = self.selected_contributions(selected_rows.iter().copied());
         let instances: Vec<_> = binding_indices
             .into_iter()
-            .map(|index| {
+            .map(|(index, ordinals)| {
                 let binding = &self.structure.instances()[index];
                 crate::binding::InstanceBinding {
                     instance: binding.instance,
                     body: binding.body,
                     slots: binding.slots.clone(),
                     checked_members: binding.checked_members.clone(),
-                    contributions: binding
-                        .contributions
-                        .iter()
-                        .filter(|c| matches!(c.target,Target::Row(r)if selected_rows.contains(&r)))
-                        .cloned()
+                    contributions: ordinals
+                        .into_iter()
+                        .map(|ordinal| binding.contributions[ordinal].clone())
                         .collect(),
                 }
             })
@@ -1372,9 +1551,15 @@ impl CasePlan {
             &self.structure,
             &self.rows,
         ));
+        result.ownership = Arc::new(PlanOwnership::new(
+            &self.structure,
+            &instances,
+            requests.len(),
+        )?);
         result.instances = Arc::new(instances);
         result.requests = Arc::new(requests);
         result.supports = Arc::new(supports);
+        result.refresh_numerical_supports()?;
         Ok(result)
     }
     /// Admit actual Hessian actions only for consumers that request them.
@@ -1418,9 +1603,15 @@ impl CasePlan {
             &self.structure,
             &self.rows,
         ));
+        result.ownership = Arc::new(PlanOwnership::new(
+            &self.structure,
+            &instances,
+            requests.len(),
+        )?);
         result.instances = Arc::new(instances);
         result.requests = Arc::new(requests);
         result.supports = Arc::new(supports);
+        result.refresh_numerical_supports()?;
         Ok(result)
     }
     /// Whether a direct weighted action program was explicitly admitted.
@@ -1496,14 +1687,21 @@ impl CasePlan {
             )?;
         }
         let count = add(self.requests.len(), self.instances.len())?;
+        let ownership_bytes = add(
+            self.ownership.bytes(),
+            mul(self.ownership.slots, 192 + 2 * size_of::<SemanticId>())?,
+        )?;
         let descriptors = add(
-            mul(
-                add(mul(count, 2)?, 4)?,
-                size_of::<LocalDemand>() + size_of::<Arc<PreparedSupport>>(),
-            )?,
+            ownership_bytes,
             add(
-                mul(self.instances.len(), size_of::<Instance>())?,
-                add(copies, mul(dimensions, 4 * size_of::<usize>())?)?,
+                mul(
+                    add(mul(count, 2)?, 4)?,
+                    size_of::<LocalDemand>() + size_of::<Arc<PreparedSupport>>(),
+                )?,
+                add(
+                    mul(self.instances.len(), size_of::<Instance>())?,
+                    add(copies, mul(dimensions, 4 * size_of::<usize>())?)?,
+                )?,
             )?,
         )?;
         let maps = mul(
@@ -1550,19 +1748,19 @@ impl CasePlan {
         if cancel.load(Ordering::Relaxed) {
             return Err(MathError::Cancelled);
         }
-        if order <= self.order {
+        if order <= self.order() {
             return Ok(self.clone());
         }
-        let mut stronger = BTreeMap::new();
-        for instance in self.instances.iter() {
-            if let Some(group) = &instance.groups[EvaluationDemand::All]
-                && !stronger.contains_key(&group.request)
+        if self.numerical_supports.is_some() {
+            let mut restored = self.clone();
+            restored.numerical_supports = None;
+            for (request, support) in Arc::make_mut(&mut restored.requests)
+                .iter_mut()
+                .zip(restored.supports.iter())
             {
-                stronger.insert(
-                    group.request,
-                    Arc::new(self.supports[group.request].upgrade(order, cancel)?),
-                );
+                request.order = support.order();
             }
+            return restored.prepare_order(order, cancel);
         }
         let mut supports = Vec::with_capacity(self.supports.len());
         for (request, previous) in self.supports.iter().enumerate() {
@@ -1573,34 +1771,19 @@ impl CasePlan {
                 supports.push(previous.clone());
                 continue;
             }
-            if let Some(support) = stronger.get(&request) {
-                supports.push(Arc::clone(support));
-                continue;
-            }
-            let parent = self
-                .instances
+            let requested = if self
+                .request_consumers(request)
                 .iter()
-                .find_map(|instance| {
-                    instance
-                        .groups
-                        .values()
-                        .flatten()
-                        .any(|group| group.request == request)
-                        .then(|| {
-                            instance.groups[EvaluationDemand::All]
-                                .as_ref()
-                                .map(|all| all.request)
-                        })
-                        .flatten()
-                })
-                .ok_or_else(|| {
-                    MathError::Contract("support demand has no instance owner".into())
-                })?;
-            supports.push(Arc::new(
-                stronger[&parent]
-                    .select_outputs(previous.outputs(), cancel)?
-                    .at_order(order.min(DerivativeOrder::First))?,
-            ));
+                .any(|&(_, demand)| demand == EvaluationDemand::All)
+            {
+                order
+            } else {
+                order.min(DerivativeOrder::First)
+            };
+            // The exact shared request owns its current support and finite allowance.
+            // Different All consumers may retain different conservative controls;
+            // none supplies permission or a replacement premise for another request.
+            supports.push(Arc::new(previous.upgrade(requested, cancel)?));
         }
         let mut requests = self.requests.as_ref().clone();
         let mut instances = self.instances.as_ref().clone();
@@ -1661,6 +1844,11 @@ impl CasePlan {
             &self.structure,
             &self.rows,
         ));
+        result.ownership = Arc::new(PlanOwnership::new(
+            &self.structure,
+            &instances,
+            requests.len(),
+        )?);
         result.instances = Arc::new(instances);
         result.requests = Arc::new(requests);
         result.supports = Arc::new(supports);
@@ -1745,6 +1933,12 @@ impl CasePlan {
     pub fn columns(&self) -> &[SemanticId] {
         &self.columns
     }
+    /// Original selected row declaration, addressed through the prepared row index.
+    pub fn row(&self, id: SemanticId) -> Option<&crate::binding::Row> {
+        self.rows
+            .get(&id)
+            .map(|row| &self.structure.rows()[row.get()])
+    }
     pub(crate) fn projection_topology(&self) -> &crate::factorable::ProjectionTopology {
         &self.projection
     }
@@ -1752,13 +1946,52 @@ impl CasePlan {
     pub(crate) fn row_contributions(&self, row: SemanticId) -> &[(usize, usize)] {
         self.row_contributions.get(&row).map_or(&[], Vec::as_slice)
     }
+    /// Every original local slot source, including fixed and inactive execution inputs.
+    pub fn binding_sources(&self) -> &[SemanticId] {
+        &self.ownership.slot_sources
+    }
+    /// Original slot population, retaining repeated bindings for allocation bounds.
+    pub fn binding_slot_count(&self) -> usize {
+        self.ownership.slots
+    }
+    /// Original contribution population, retaining duplicates and objective levels.
+    pub fn contribution_count(&self) -> usize {
+        self.ownership.contributions
+    }
+    /// Every original instance/demand consumer in source and demand order.
+    pub fn request_consumers(&self, request: usize) -> &[(usize, EvaluationDemand)] {
+        self.ownership
+            .consumers
+            .get(request)
+            .map_or(&[], Vec::as_slice)
+    }
+    fn selected_contributions(
+        &self,
+        rows: impl IntoIterator<Item = SemanticId>,
+    ) -> BTreeMap<usize, Vec<usize>> {
+        let mut selected = BTreeMap::<_, Vec<_>>::new();
+        for row in rows {
+            for &(instance, ordinal) in self.row_contributions(row) {
+                selected.entry(instance).or_default().push(ordinal);
+            }
+        }
+        for ordinals in selected.values_mut() {
+            ordinals.sort_unstable();
+            ordinals.dedup();
+        }
+        selected
+    }
     /// Compiled derivative ceiling.
     pub fn available_order(&self) -> DerivativeOrder {
         self.available
     }
-    /// Derivative order requested in the prepared artifact demands.
+    /// Complete numerical derivative ceiling; selected entries/actions do not promote it.
     pub fn order(&self) -> DerivativeOrder {
-        self.order
+        if self.numerical_supports.is_some() {
+            DerivativeOrder::Value
+        } else {
+            self.order
+        }
     }
     /// Canonical all-branch constraint support.
     pub fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
@@ -1775,6 +2008,10 @@ impl CasePlan {
     /// Immutable support products aligned with the exact local demand order.
     pub fn supports(&self) -> &[Arc<PreparedSupport>] {
         &self.supports
+    }
+    /// Exact numerical artifact supports; complete structural support remains independent.
+    pub fn numerical_supports(&self) -> &[Arc<PreparedSupport>] {
+        self.numerical_supports.as_deref().unwrap_or(&self.supports)
     }
     /// Explicit structural First admission, aligned with original instances.
     /// Each product retains its selected output map and original free-variable formal
@@ -1902,6 +2139,29 @@ impl CasePlan {
                     .ok_or_else(overflow)?;
             }
         }
+        for group in self
+            .entries
+            .iter()
+            .flat_map(|entries| entries.groups.iter())
+        {
+            bytes = bytes
+                .checked_add(
+                    EvalBindings::allocation_bound(
+                        self.structure.instances()[group.instance].slots.len(),
+                    )
+                    .ok_or_else(overflow)?,
+                )
+                .ok_or_else(overflow)?;
+        }
+        bytes = bytes
+            .checked_add(
+                self.entries
+                    .as_ref()
+                    .map_or(0, |entries| entries.provider_visits)
+                    .checked_mul(512)
+                    .ok_or_else(overflow)?,
+            )
+            .ok_or_else(overflow)?;
         Ok(bytes)
     }
     /// Bind completed artifacts in the exact compiler demand order.
@@ -1925,7 +2185,7 @@ impl CasePlan {
                 // Cached compact programs can outlive their weak original body.
                 // Compare the complete selected mathematics admitted by this plan;
                 // its original bodies remain authoritative for independent checks.
-                || support != self.supports[index].as_ref()
+                || support != self.numerical_supports()[index].as_ref()
             {
                 return Err(MathError::Contract(
                     "artifact does not match selected admitted demand".into(),
@@ -1942,7 +2202,7 @@ impl CasePlan {
         // Only actual compiled formal reads occupy the fixed frame. The complete source
         // universe remains immutable authority for independent original assessment.
         let bound_programs = &programs;
-        let fixed: Vec<_> = self
+        let mut fixed: Vec<_> = self
             .instances
             .iter()
             .zip(self.structure.instances())
@@ -1958,6 +2218,22 @@ impl CasePlan {
             .collect::<BTreeSet<_>>()
             .into_iter()
             .collect();
+        for group in self
+            .entries
+            .iter()
+            .flat_map(|entries| entries.groups.iter())
+        {
+            let binding = &self.structure.instances()[group.instance];
+            fixed.extend(
+                programs[group.request]
+                    .input_formals()
+                    .iter()
+                    .map(|formal| binding.slots[*formal].source())
+                    .filter(|id| !coordinates.contains_key(id)),
+            );
+        }
+        fixed.sort_unstable();
+        fixed.dedup();
         let fixed_offsets = fixed
             .iter()
             .copied()
@@ -1983,6 +2259,49 @@ impl CasePlan {
                 Ok(groups)
             })
             .collect::<Result<Vec<EnumMap<EvaluationDemand, Option<EvalBindings>>>, MathError>>()?;
+        let entry_bindings = self
+            .entries
+            .iter()
+            .flat_map(|entries| entries.groups.iter())
+            .map(|group| {
+                EvalBindings::new(
+                    &self.structure.instances()[group.instance],
+                    programs[group.request].input_formals(),
+                    &coordinates,
+                    &fixed_offsets,
+                )
+            })
+            .collect::<Result<Vec<_>, MathError>>()?;
+        let repeated_entry_providers = CaseAssembly::repeated_entry_providers(self, &programs);
+        let entry_bytes = self
+            .entries
+            .iter()
+            .flat_map(|entries| entries.groups.iter())
+            .zip(&entry_bindings)
+            .try_fold(
+                size_of::<entries::EntryScratch>(),
+                |bytes, (group, bindings)| {
+                    bytes
+                        .checked_add(programs[group.request].evaluation_cache_bytes())?
+                        .checked_add(bindings.len().checked_mul(size_of::<f64>())?)?
+                        .checked_add(size_of::<TrialEvaluation>() + size_of::<Vec<f64>>())
+                },
+            )
+            .and_then(|n| {
+                n.checked_add(
+                    self.jacobian_entries()
+                        .len()
+                        .checked_mul(size_of::<f64>())?,
+                )
+            })
+            .and_then(|n| {
+                n.checked_add(
+                    repeated_entry_providers
+                        .len()
+                        .checked_mul(size_of::<Option<pse_kernels::ProviderLinearizationToken>>())?,
+                )
+            })
+            .ok_or(MathError::Limit("selected entry worker extent"))?;
         let input_bytes = bindings
             .iter()
             .flat_map(|groups| groups.values().flatten())
@@ -2021,6 +2340,7 @@ impl CasePlan {
             .try_fold(
                 scratch
                     .checked_add(input_bytes)
+                    .and_then(|n| n.checked_add(entry_bytes))
                     .and_then(|n| n.checked_add(projection_bytes))
                     .ok_or(MathError::Limit("case worker bytes"))?,
                 |n, g| n.checked_add(programs[g.request].evaluation_cache_bytes()),
@@ -2064,6 +2384,8 @@ impl CasePlan {
             numeric_worker_bytes: bytes,
             bindings,
             fixed,
+            entry_bindings,
+            repeated_entry_providers,
         })
     }
     /// Compile a standalone plan. Runtime consumers use compiler-issued artifact requests.
@@ -2074,7 +2396,7 @@ impl CasePlan {
         scope: &pse_kernels::ExecutionScope,
     ) -> Result<CaseAssembly, MathError> {
         let programs = self
-            .supports
+            .numerical_supports()
             .iter()
             .zip(self.requests.iter())
             .map(|(support, request)| {
@@ -2264,6 +2586,8 @@ pub struct CaseAssembly {
     numeric_worker_bytes: usize,
     bindings: Vec<EnumMap<EvaluationDemand, Option<EvalBindings>>>,
     fixed: Vec<SemanticId>,
+    entry_bindings: Vec<EvalBindings>,
+    repeated_entry_providers: Vec<entries::RepeatedProvider>,
 }
 
 /// Frozen numeric inputs, rebound independently of an immutable operation layout.
@@ -2608,6 +2932,8 @@ impl CaseAssembly {
             })
             .collect();
         CaseWorker {
+            entries: entries::EntryScratch::new(self),
+            instance_reuse: InstanceReuse::new(self.requests.len()),
             assembly: Arc::clone(self),
             groups,
             projections: Vec::new(),
@@ -2619,7 +2945,8 @@ impl CaseAssembly {
             providers,
             cancel: scope.cancellation().clone(),
             scope,
-            jacobian: Some(self.jacobian.as_ref().clone()),
+            jacobian: (self.order() >= DerivativeOrder::First)
+                .then(|| self.jacobian.as_ref().clone()),
             hessian: Some(self.hessian.as_ref().clone()),
             constraint_values: vec![f64::NAN; self.rows.len()],
             gradient_values: vec![f64::NAN; self.columns.len()],
@@ -2657,6 +2984,7 @@ impl CaseAssembly {
             constraint_values,
             gradient_values,
             action_values,
+            entries,
             ..
         } = scratch;
         for worker in &mut workers {
@@ -2664,6 +2992,8 @@ impl CaseAssembly {
             worker.prepare_providers(&mut providers)?;
         }
         Ok(CaseWorker {
+            entries,
+            instance_reuse: InstanceReuse::new(self.requests.len()),
             scope: scope.clone(),
             assembly,
             groups,
@@ -2815,6 +3145,7 @@ pub struct CaseWorker {
     // Evaluation is serial under &mut self; scratch is shared only inside this attempt.
     workers: Vec<Worker>,
     projections: Vec<ProjectionRelationship>,
+    instance_reuse: InstanceReuse,
     providers: pse_kernels::ProviderBindings,
     cancel: Arc<AtomicBool>,
     jacobian: Option<AssemblyMatrix>,
@@ -2822,6 +3153,7 @@ pub struct CaseWorker {
     constraint_values: Vec<f64>,
     gradient_values: Vec<f64>,
     action_values: Vec<f64>,
+    entries: entries::EntryScratch,
     recycler: Option<ScratchRecycler>,
     observation: Option<Box<CaseObservation>>,
     observation_operation: Option<pse_diagnostics::observation::OperationId>,
@@ -2845,6 +3177,7 @@ pub struct CaseScratch {
     constraint_values: Vec<f64>,
     gradient_values: Vec<f64>,
     action_values: Vec<f64>,
+    entries: entries::EntryScratch,
     reset: bool,
 }
 impl CaseScratch {
@@ -2885,6 +3218,7 @@ impl CaseScratch {
         self.constraint_values.fill(f64::NAN);
         self.gradient_values.fill(f64::NAN);
         self.action_values.fill(f64::NAN);
+        self.entries.clear();
         self.reset = true;
         Ok(self)
     }
@@ -2911,6 +3245,7 @@ impl Drop for CaseWorker {
             constraint_values: std::mem::take(&mut self.constraint_values),
             gradient_values: std::mem::take(&mut self.gradient_values),
             action_values: std::mem::take(&mut self.action_values),
+            entries: std::mem::take(&mut self.entries),
             reset: false,
         });
     }
@@ -2929,6 +3264,7 @@ impl CaseWorker {
     /// Prepare the actual bound request set before native callbacks are attached.
     pub fn prepare_providers(&mut self) -> Result<(), MathError> {
         self.scope.check().map_err(crate::error::scope_error)?;
+        self.check_entry_providers()?;
         for worker in &mut self.workers {
             worker.prepare_providers(&mut self.providers)?;
         }
@@ -3039,6 +3375,7 @@ impl CaseWorker {
     }
     /// Clear numerical results and observation witnesses after a refused trial.
     pub fn invalidate_trial(&mut self) {
+        self.entries.clear();
         self.completion.invalidate();
         if let Some(observation) = &mut self.observation {
             observation.invalidate();
@@ -3100,6 +3437,17 @@ impl CaseWorker {
     ) -> Result<(), MathError> {
         self.scope.check().map_err(crate::error::scope_error)?;
         values.check(&self.assembly)?;
+        if order > self.assembly.order()
+            && matches!(
+                demand,
+                EvaluationDemand::Objective | EvaluationDemand::Constraints | EvaluationDemand::All
+            )
+        {
+            return Err(MathError::Contract(
+                "full numerical derivative demand was not prepared".into(),
+            ));
+        }
+        self.instance_reuse.begin();
         for (i, binding) in self.assembly.structure.instances().iter().enumerate() {
             self.scope.check().map_err(crate::error::scope_error)?;
             let Some(worker) = &mut self.groups[i][demand] else {
@@ -3144,6 +3492,26 @@ impl CaseWorker {
                 if let Some(observation) = &mut self.observation {
                     observation.hit(i, demand, order, achieved);
                 }
+                self.instance_reuse.record(group.request, i);
+                continue;
+            }
+            if let Some(achieved) = self
+                .instance_reuse
+                .project(
+                    &mut self.groups,
+                    i,
+                    group.request,
+                    demand,
+                    order,
+                    &self.assembly.programs[group.request],
+                )
+                .map_err(context)?
+            {
+                self.completion.replaced(demand)?;
+                self.instance_reuse.record(group.request, i);
+                if let Some(observation) = &mut self.observation {
+                    observation.projected(i, demand, order, achieved);
+                }
                 continue;
             }
             match project_compatible(
@@ -3156,6 +3524,7 @@ impl CaseWorker {
             ) {
                 Ok(Some(achieved)) => {
                     self.completion.replaced(demand)?;
+                    self.instance_reuse.record(group.request, i);
                     if let Some(observation) = &mut self.observation {
                         observation.projected(i, demand, order, achieved);
                     }
@@ -3213,6 +3582,7 @@ impl CaseWorker {
             worker.cache = Some(order);
             self.completion.replaced(demand)?;
             worker.visible = true;
+            self.instance_reuse.record(group.request, i);
         }
         self.scope.check().map_err(crate::error::scope_error)?;
         Ok(())
@@ -3247,6 +3617,27 @@ impl CaseWorker {
                         if !observations.contains(&observation) {
                             observations.push(observation);
                         }
+                    }
+                }
+            }
+        }
+        if self.entries.visible {
+            for (group, evaluation) in self
+                .assembly
+                .entries
+                .iter()
+                .flat_map(|entries| &entries.groups)
+                .zip(&self.entries.trials)
+            {
+                for mut observation in evaluation
+                    .applicability
+                    .iter()
+                    .flat_map(crate::execution::ApplicabilityWitness::hydrate)
+                {
+                    observation.instance =
+                        Some(self.assembly.structure.instances()[group.instance].instance);
+                    if !observations.contains(&observation) {
+                        observations.push(observation);
                     }
                 }
             }
@@ -3400,6 +3791,11 @@ impl CaseWorker {
         &mut self,
         values: impl Into<EvalInputs<'a>>,
     ) -> Result<&faer::sparse::SparseColMat<usize, f64>, MathError> {
+        if self.assembly.order() < DerivativeOrder::First {
+            return Err(MathError::Contract(
+                "full numerical Jacobian was not prepared".into(),
+            ));
+        }
         let values = values.into();
         let point = self.trial_point(values)?;
         self.evaluate(
@@ -4387,5 +4783,527 @@ mod empty_action_tests {
             .jacobian_transpose_product(&values, &[], &mut output)
             .unwrap();
         assert!(output.iter().all(|v| *v == 0.));
+    }
+}
+
+#[cfg(test)]
+mod ownership_tests {
+    use super::*;
+    thread_local! {
+        pub(super) static DEPENDENCY_VISITS: std::cell::Cell<(usize, usize)> =
+            const { std::cell::Cell::new((0, 0)) };
+    }
+    #[test]
+    fn late_boundary_visits_only_relevant_supports_with_unrelated_parent_growth() {
+        use crate::binding::{
+            CaseLimits, Contribution, InstanceBinding, Row, SlotBinding, Variable,
+        };
+        use crate::typed::{Binary, BodyBuilder, BodyLimits};
+        use pse_quantity::standard::{StandardInvariantChecker, ids, standard_registry};
+
+        let id = |n| SemanticId::from_bytes([n; 16]);
+        let registry = standard_registry().unwrap();
+        let quantity = ids::quantity("neutral");
+        let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+        let port = |n| pse_kernels::Port {
+            id: id(n),
+            quantity,
+            unit,
+        };
+        let cancel = Arc::new(AtomicBool::new(false));
+        let (base, _) = crate::assembly_tests::fixture(false, false);
+        for unrelated in [1u8, 16, 64] {
+            let mut bodies = base.bodies().clone();
+            let mut variables = base.structure().variables().to_vec();
+            let mut bindings = base.structure().instances().to_vec();
+            bindings[0].instance = id(250);
+            for contribution in &mut bindings[0].contributions {
+                if matches!(contribution.target, Target::Row(_)) {
+                    contribution.target = Target::Row(id(249));
+                }
+            }
+            bindings[0].contributions.push(Contribution {
+                output: 0,
+                target: Target::Row(id(250)),
+                scale: 1.,
+            });
+            let mut rows = vec![
+                Row {
+                    id: id(249),
+                    quantity,
+                    lower: 0.,
+                    upper: 0.,
+                },
+                Row {
+                    id: id(250),
+                    quantity,
+                    lower: 0.,
+                    upper: 0.,
+                },
+            ];
+            for n in 0..unrelated {
+                let mut builder = BodyBuilder::new(
+                    crate::initialize().unwrap(),
+                    &registry,
+                    &StandardInvariantChecker,
+                    1,
+                    BodyLimits::default(),
+                )
+                .unwrap();
+                let input = builder
+                    .input(0, quantity, Default::default(), id(230))
+                    .unwrap();
+                let constant = builder
+                    .literal(
+                        f64::from(n + 1),
+                        registry.unit(unit).unwrap(),
+                        pse_quantity::literal::LiteralContext::Explicit {
+                            quantity_type: quantity,
+                        },
+                        id(231),
+                    )
+                    .unwrap();
+                let output = builder
+                    .binary(Binary::Add, input, constant, None, id(232))
+                    .unwrap();
+                let key = ContentHash::from_bytes([n + 10; 32]);
+                bodies.insert(key, Arc::new(builder.prepare(&[output]).unwrap()));
+                variables.push(Variable {
+                    port: port(n + 30),
+                    fixed: false,
+                    domain: pse_model::generated::enums::ModelingVariableDomain::Continuous,
+                    lower: None,
+                    upper: None,
+                });
+                rows.push(Row {
+                    id: id(n + 100),
+                    quantity,
+                    lower: 0.,
+                    upper: 0.,
+                });
+                bindings.push(InstanceBinding {
+                    instance: id(n + 10),
+                    body: key,
+                    checked_members: Default::default(),
+                    slots: vec![SlotBinding::new(&port(n + 30), &port(230), &registry).unwrap()]
+                        .into(),
+                    contributions: vec![Contribution {
+                        output: 0,
+                        target: Target::Row(id(n + 100)),
+                        scale: 1.,
+                    }],
+                });
+            }
+            for fixed in [false, true] {
+                variables
+                    .iter_mut()
+                    .find(|v| v.port.id == id(2))
+                    .unwrap()
+                    .fixed = fixed;
+                let structure = Arc::new(
+                    CaseStructure::new(
+                        variables.clone(),
+                        vec![],
+                        bindings.clone(),
+                        rows.clone(),
+                        base.structure().objective().cloned(),
+                        CaseLimits::default(),
+                    )
+                    .unwrap(),
+                );
+                for order in [DerivativeOrder::Value, DerivativeOrder::First] {
+                    let plan = CasePlan::prepare(
+                        structure.clone(),
+                        bodies.clone(),
+                        &registry,
+                        order,
+                        base.limits(),
+                        &cancel,
+                    )
+                    .unwrap();
+                    assert_eq!(
+                        plan.structure().instances().last().unwrap().instance,
+                        id(250)
+                    );
+                    assert!(plan.supports().len() > usize::from(unrelated));
+                    DEPENDENCY_VISITS.with(|visits| visits.set((0, 0)));
+                    let dependencies = plan
+                        .boundary_dependencies(
+                            &BTreeSet::from([id(249)]),
+                            &BTreeSet::from([id(1)]),
+                            &cancel,
+                        )
+                        .unwrap();
+                    let (binding_visits, support_visits) =
+                        DEPENDENCY_VISITS.with(std::cell::Cell::get);
+                    assert_eq!(binding_visits, 1);
+                    assert!(support_visits > 0);
+                    assert!(
+                        support_visits
+                            <= plan
+                                .instances
+                                .last()
+                                .unwrap()
+                                .groups
+                                .values()
+                                .flatten()
+                                .count()
+                    );
+                    assert_eq!(
+                        dependencies,
+                        [
+                            Target::PRIMARY,
+                            Target::Row(id(249)),
+                            Target::Row(id(249)),
+                            Target::Row(id(250))
+                        ]
+                        .into_iter()
+                        .map(|target| ContributionDependencies {
+                            target,
+                            numerical: BTreeSet::from([id(1), id(2)]),
+                            execution: BTreeSet::from([id(1), id(2)]),
+                        })
+                        .collect::<Vec<_>>()
+                    );
+                    assert_eq!(plan.row(id(249)).unwrap().id, id(249));
+                    assert!(plan.row(SemanticId::NIL).is_none());
+                }
+            }
+        }
+    }
+    #[test]
+    fn indexed_contributors_and_all_shared_request_consumers_survive_demand_changes() {
+        let (source, _) = crate::assembly_tests::fixture(false, false);
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut bindings = source.structure().instances().to_vec();
+        let first_row = source.structure().rows()[0].id;
+        let second_row = source.structure().rows()[1].id;
+        let mut second = bindings[0].clone();
+        second.instance = SemanticId::from_bytes([99; 16]);
+        second
+            .contributions
+            .retain(|c| matches!(c.target, Target::Row(_)));
+        for contribution in &mut second.contributions {
+            contribution.target = Target::Row(second_row);
+        }
+        bindings.push(second);
+        let structure = Arc::new(
+            CaseStructure::new(
+                source.structure().variables().to_vec(),
+                source.structure().parameters().to_vec(),
+                bindings,
+                source.structure().rows().to_vec(),
+                source.structure().objectives().first().cloned(),
+                crate::binding::CaseLimits::default(),
+            )
+            .unwrap(),
+        );
+        let value = CasePlan::prepare(
+            structure,
+            source.bodies().clone(),
+            &registry,
+            DerivativeOrder::Value,
+            source.limits(),
+            &cancel,
+        )
+        .unwrap();
+        assert_eq!(
+            value.selected_contributions([second_row, first_row, first_row]),
+            BTreeMap::from([(0, vec![1, 2]), (1, vec![0, 1])])
+        );
+        assert!(value.selected_contributions([SemanticId::NIL]).is_empty());
+        assert_eq!(value.binding_slot_count(), 4);
+        assert_eq!(value.contribution_count(), 5);
+        let boundary = value
+            .boundary_dependencies(
+                &BTreeSet::from([first_row]),
+                &BTreeSet::from([source.columns()[0]]),
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(
+            boundary,
+            value.dependencies(&cancel).unwrap(),
+            "shared slots keep the outside row and objective in the candidate closure"
+        );
+        assert_eq!(value.binding_sources(), source.binding_sources());
+        let shared = value
+            .requests
+            .iter()
+            .enumerate()
+            .find_map(|(index, _)| {
+                (value
+                    .request_consumers(index)
+                    .iter()
+                    .filter(|(_, demand)| *demand == EvaluationDemand::Constraints)
+                    .count()
+                    == 2)
+                    .then_some(index)
+            })
+            .unwrap();
+        assert_eq!(
+            value
+                .request_consumers(shared)
+                .iter()
+                .filter(|(_, demand)| *demand == EvaluationDemand::Constraints)
+                .map(|(instance, _)| *instance)
+                .collect::<Vec<_>>(),
+            [0, 1]
+        );
+        let first = value
+            .with_directional_actions(&cancel)
+            .unwrap()
+            .with_transpose_actions(&cancel)
+            .unwrap();
+        let second = first
+            .prepare_order(DerivativeOrder::Second, &cancel)
+            .unwrap()
+            .with_hessian_actions(&cancel)
+            .unwrap();
+        for plan in [&value, &first, &second] {
+            for request in 0..plan.demands().len() {
+                let exhaustive = plan
+                    .instances
+                    .iter()
+                    .enumerate()
+                    .flat_map(|(instance, local)| {
+                        local.groups.iter().filter_map(move |(demand, group)| {
+                            group
+                                .as_ref()
+                                .filter(|g| g.request == request)
+                                .map(|_| (instance, demand))
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                assert_eq!(plan.request_consumers(request), exhaustive);
+            }
+        }
+        assert_eq!(value.order(), DerivativeOrder::Value);
+        cancel.store(true, Ordering::Release);
+        assert!(matches!(
+            value.prepare_order(DerivativeOrder::Second, &cancel),
+            Err(MathError::Cancelled)
+        ));
+        assert_eq!(value.request_consumers(shared).len(), 3);
+    }
+}
+
+#[cfg(test)]
+mod instance_reuse_tests {
+    use super::*;
+    use crate::binding::{CaseLimits, Contribution, InstanceBinding, Row, SlotBinding, Variable};
+    use pse_quantity::standard::{StandardInvariantChecker, ids, standard_registry};
+    fn id(n: u8) -> SemanticId {
+        SemanticId::from_bytes([n; 16])
+    }
+    pub(super) fn fixture(
+        sqrt: bool,
+    ) -> (Arc<CaseAssembly>, CaseValues, pse_diagnostics::Cancellation) {
+        let standard = standard_registry().unwrap();
+        let quantity = ids::quantity("neutral");
+        let canonical = standard.quantity_type(quantity).unwrap().canonical_unit;
+        let mut registry = standard.to_builder();
+        let mut triple = standard.unit(canonical).unwrap().clone();
+        triple.id = pse_quantity::UnitId::from_id(id(220));
+        triple.symbol = "triple-neutral-reuse".into();
+        triple.scale_to_canonical = 3.;
+        triple.definition = None;
+        let scaled = triple.id;
+        registry.unit(triple);
+        let registry = registry.build().unwrap();
+        let port = |n, unit| pse_kernels::Port {
+            id: id(n),
+            quantity,
+            unit,
+        };
+        let mut builder = crate::typed::BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &StandardInvariantChecker,
+            1,
+            crate::typed::BodyLimits::default(),
+        )
+        .unwrap();
+        let input = builder
+            .input(0, quantity, pse_quantity::IndexSet::new(), id(30))
+            .unwrap();
+        let output = if sqrt {
+            builder.unary(crate::Function::Sqrt, input, id(31)).unwrap()
+        } else {
+            builder
+                .binary(
+                    crate::typed::Binary::Mul,
+                    input.clone(),
+                    input,
+                    None,
+                    id(31),
+                )
+                .unwrap()
+        };
+        let body = Arc::new(builder.prepare(&[output]).unwrap());
+        let key = ContentHash::from_bytes([30; 32]);
+        let structure = Arc::new(
+            CaseStructure::new(
+                vec![(1, scaled), (2, canonical)]
+                    .into_iter()
+                    .map(|(n, unit)| Variable {
+                        port: port(n, unit),
+                        fixed: false,
+                        domain: pse_model::generated::enums::ModelingVariableDomain::Continuous,
+                        lower: None,
+                        upper: None,
+                    })
+                    .collect(),
+                vec![],
+                (0..2)
+                    .map(|i| InstanceBinding {
+                        instance: id(i + 10),
+                        body: key,
+                        checked_members: Default::default(),
+                        slots: vec![
+                            SlotBinding::new(
+                                &port(i + 1, if i == 0 { scaled } else { canonical }),
+                                &port(3, canonical),
+                                &registry,
+                            )
+                            .unwrap(),
+                        ]
+                        .into(),
+                        contributions: vec![Contribution {
+                            output: 0,
+                            target: Target::Row(id(i + 20)),
+                            scale: 1.,
+                        }],
+                    })
+                    .collect(),
+                (20..22)
+                    .map(|n| Row {
+                        id: id(n),
+                        quantity,
+                        lower: 0.,
+                        upper: 0.,
+                    })
+                    .collect(),
+                None,
+                CaseLimits::default(),
+            )
+            .unwrap(),
+        );
+        let control = pse_diagnostics::Cancellation::default();
+        let plan = CasePlan::prepare(
+            structure,
+            BTreeMap::from([(key, body)]),
+            &registry,
+            DerivativeOrder::First,
+            AssemblyLimits::default(),
+            &control.flag(),
+        )
+        .unwrap();
+        let assembly = Arc::new(
+            Arc::new(plan)
+                .compile(
+                    Optimization::default(),
+                    EvaluationLimits::default(),
+                    &pse_kernels::ExecutionScope::new(control.clone(), None),
+                )
+                .unwrap(),
+        );
+        (
+            assembly,
+            CaseValues {
+                scalars: BTreeMap::from([(id(1), 1.), (id(2), 3.)]),
+            },
+            control,
+        )
+    }
+    #[test]
+    fn equal_normalized_gathers_reuse_arithmetic_but_keep_each_instance_scatter_and_bits() {
+        let (assembly, mut values, control) = fixture(false);
+        let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
+        assert_eq!(worker.constraints(&values).unwrap(), [9., 9.]);
+        assert_eq!(
+            worker.completion.evaluations[EvaluationDemand::Constraints],
+            1
+        );
+        assert_eq!(worker.jacobian(&values).unwrap().val(), [18., 6.]);
+        assert_eq!(
+            worker.completion.evaluations[EvaluationDemand::Constraints],
+            2
+        );
+        assert_eq!(worker.constraints(&values).unwrap(), [9., 9.]);
+        assert_eq!(
+            worker.completion.evaluations[EvaluationDemand::Constraints],
+            2
+        );
+        values.scalars.insert(id(2), 4.);
+        assert_eq!(worker.constraints(&values).unwrap(), [9., 16.]);
+        assert_eq!(
+            worker.completion.evaluations[EvaluationDemand::Constraints],
+            3
+        );
+        let mut signed = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
+        values.scalars.insert(id(1), -0.);
+        values.scalars.insert(id(2), 0.);
+        assert_eq!(signed.constraints(&values).unwrap(), [0., 0.]);
+        // Existing affine gathers add their canonical zero offset. Donation uses
+        // those actual normalized bits, rather than unnormalized source encodings.
+        assert_eq!(
+            signed.groups[0][EvaluationDemand::Constraints]
+                .as_ref()
+                .unwrap()
+                .inputs[0]
+                .to_bits(),
+            signed.groups[1][EvaluationDemand::Constraints]
+                .as_ref()
+                .unwrap()
+                .inputs[0]
+                .to_bits()
+        );
+        assert_eq!(
+            signed.completion.evaluations[EvaluationDemand::Constraints],
+            1
+        );
+        let mut opposite = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
+        values.scalars.insert(id(1), -1.);
+        values.scalars.insert(id(2), 3.);
+        assert_eq!(opposite.constraints(&values).unwrap(), [9., 9.]);
+        assert_eq!(
+            opposite.completion.evaluations[EvaluationDemand::Constraints],
+            2,
+            "equal outputs cannot replace the complete gathered input identity"
+        );
+        assert_eq!(opposite.jacobian(&values).unwrap().val(), [-18., 6.]);
+        let mut failing = assembly.worker(pse_kernels::ProviderBindings::new(), control.clone());
+        values.scalars.insert(id(1), 1e200);
+        assert!(
+            matches!(failing.constraints(&values), Err(MathError::Instance { instance, .. }) if instance == id(10))
+        );
+        assert_eq!(
+            failing.completion.evaluations[EvaluationDemand::Constraints],
+            1
+        );
+        control.cancel();
+        assert!(worker.constraints(&values).is_err());
+    }
+    #[test]
+    fn receiver_context_guards_are_excluded_from_instance_donation_and_value_does_not_grant_first()
+    {
+        let (assembly, mut values, control) = fixture(true);
+        values.scalars.insert(id(1), 0.);
+        values.scalars.insert(id(2), 0.);
+        let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), control);
+        assert_eq!(worker.constraints(&values).unwrap(), [0., 0.]);
+        assert_eq!(
+            worker.completion.evaluations[EvaluationDemand::Constraints],
+            2
+        );
+        assert!(
+            matches!(worker.jacobian(&values), Err(MathError::Instance { instance, .. }) if instance == id(10))
+        );
+        assert_eq!(
+            worker.completion.evaluations[EvaluationDemand::Constraints],
+            3
+        );
     }
 }

@@ -70,6 +70,7 @@ struct Shared<'o> {
     seed_sens: RefCell<Option<Vec<V>>>,
     failure: RefCell<Option<(Termination, ProblemError)>>,
     cancel: Cancellation,
+    current: Option<crate::solve::Execution>,
     deadline: Instant,
     started: Instant,
     progress: Arc<crate::solve::Progress>,
@@ -81,6 +82,16 @@ impl Shared<'_> {
         resume_unwind(Box::new(Abort))
     }
     fn check(&self) {
+        if let Some(current) = &self.current
+            && let Err(error) = current.check()
+        {
+            let status = match current.stopped() {
+                Some(crate::solve::Termination::Cancelled) => Termination::Cancelled,
+                Some(crate::solve::Termination::TimeLimit) => Termination::TimeLimit,
+                _ => Termination::Failed,
+            };
+            self.abort(status, error);
+        }
         if self.cancel.is_cancelled() {
             self.abort(
                 Termination::Cancelled,
@@ -913,6 +924,28 @@ impl<'o> Shared<'o> {
         cancel: Cancellation,
         progress: Arc<crate::solve::Progress>,
     ) -> Result<Rc<Self>, ProblemError> {
+        Self::new_current(oracle, profile, parameters, cancel, progress, None)
+    }
+    fn new_current(
+        oracle: &'o mut dyn Oracle,
+        profile: &Profile,
+        parameters: &[f64],
+        cancel: Cancellation,
+        progress: Arc<crate::solve::Progress>,
+        current: Option<crate::solve::Execution>,
+    ) -> Result<Rc<Self>, ProblemError> {
+        if let Some(current) = &current {
+            current.check()?;
+        }
+        let started = Instant::now();
+        let mut deadline = started
+            .checked_add(profile.time_limit)
+            .ok_or_else(|| ProblemError::unsupported("dynamic deadline overflow"))?;
+        if let Some(current) = &current
+            && let Some(original) = current.scope()?.deadline()
+        {
+            deadline = deadline.min(original);
+        }
         let contract_value = oracle.contract().clone();
         let axes = if profile.sensitivity == DynamicSensitivity::Forward {
             profile.forward_axes(contract_value.parameters.len())
@@ -936,10 +969,9 @@ impl<'o> Shared<'o> {
             seed_sens: RefCell::new(None),
             failure: RefCell::new(None),
             cancel,
-            deadline: Instant::now()
-                .checked_add(profile.time_limit)
-                .ok_or_else(|| ProblemError::unsupported("dynamic deadline overflow"))?,
-            started: Instant::now(),
+            current,
+            deadline,
+            started,
             progress,
             context: FaerContext {
                 par: faer::Par::Seq,

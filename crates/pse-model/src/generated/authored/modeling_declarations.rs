@@ -12929,3 +12929,6516 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
     }
 }
+impl AuthoredModelingDeclarationsFieldValue {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "temporal" => {
+                let value = &mut self.r#temporal;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "relaxation" => {
+                let value = &mut self.r#relaxation;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "continuation" => {
+                let value = &mut self.r#continuation;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "scope" => {
+                let value = &mut self.r#scope;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "binding" => {
+                let value = &mut self.r#binding;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "function" => {
+                let value = &mut self.r#function;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "coordinate_map" => {
+                let value = &mut self.r#coordinate_map;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "coordinate_slot" => {
+                let value = &mut self.r#coordinate_slot;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "reconstruction" => {
+                let value = &mut self.r#reconstruction;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "response" => {
+                let value = &mut self.r#response;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "reference_translation" => {
+                let value = &mut self.r#reference_translation;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "boundary" => {
+                let value = &mut self.r#boundary;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "exchange" => {
+                let value = &mut self.r#exchange;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "equation" => {
+                let value = &mut self.r#equation;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "ordered_set" => {
+                let value = &mut self.r#ordered_set;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "cardinality" => {
+                let value = &mut self.r#cardinality;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "piecewise" => {
+                let value = &mut self.r#piecewise;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "logic" => {
+                let value = &mut self.r#logic;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "complementarity" => {
+                let value = &mut self.r#complementarity;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "table" => {
+                let value = &mut self.r#table;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "applicability" => {
+                let value = &mut self.r#applicability;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "permission" => {
+                let value = &mut self.r#permission;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "envelope" => {
+                let value = &mut self.r#envelope;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "attribute" => {
+                let value = &mut self.r#attribute;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "dataset" => {
+                let value = &mut self.r#dataset;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "entity" => {
+                let value = &mut self.r#entity;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "enumeration" => {
+                let value = &mut self.r#enumeration;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "import" => {
+                let value = &mut self.r#import;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "guard" => {
+                let value = &mut self.r#guard;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "accumulator" => {
+                let value = &mut self.r#accumulator;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "contribution" => {
+                let value = &mut self.r#contribution;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "state_specification" => {
+                let value = &mut self.r#state_specification;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "state_port" => {
+                let value = &mut self.r#state_port;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "inventory_balance" => {
+                let value = &mut self.r#inventory_balance;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "connection" => {
+                let value = &mut self.r#connection;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "annotation" => {
+                let value = &mut self.r#annotation;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "requirement" => {
+                let value = &mut self.r#requirement;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "expectation" => {
+                let value = &mut self.r#expectation;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "continuous" => {
+                let value = &mut self.r#continuous;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "discretization" => {
+                let value = &mut self.r#discretization;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "realization" => {
+                let value = &mut self.r#realization;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueAccumulator {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "boundary" => {
+                let value = &mut self.r#boundary;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "tolerance" => {
+                let source = &mut self.r#tolerance;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueAnnotation {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "target" => {
+                let source = &mut self.r#target;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "arguments" => {
+                let values = &mut self.r#arguments;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            "objective" => {
+                let value = &mut self.r#objective;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "accuracy_goal" => {
+                let value = &mut self.r#accuracy_goal;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "engineering_scale" => {
+                let value = &mut self.r#engineering_scale;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "engineering_default" => {
+                let value = &mut self.r#engineering_default;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "time" => {
+                let value = &mut self.r#time;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "resolution" => {
+                let value = &mut self.r#resolution;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "criterion_lower" => {
+                let value = &mut self.r#criterion_lower;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "criterion_upper" => {
+                let value = &mut self.r#criterion_upper;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "rule" => {
+                let source = &mut self.r#rule;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "value" => {
+                let source = &mut self.r#value;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueAnnotationObjective {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "weight" => {
+                let value = &mut self.r#weight;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "normalization" => {
+                let value = &mut self.r#normalization;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "absolute_tolerance" => {
+                let value = &mut self.r#absolute_tolerance;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "relative_tolerance" => {
+                let value = &mut self.r#relative_tolerance;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueApplicability {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "arguments" => {
+                let values = &mut self.r#arguments;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "owner" => {
+                let source = &mut self.r#owner;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "evidence" => {
+                let source = &mut self.r#evidence;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "predicate" => {
+                let value = &mut self.r#predicate;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "reason" => {
+                let value = &mut self.r#reason;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "axis" => {
+                let value = &mut self.r#axis;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "lower" => {
+                let value = &mut self.r#lower;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "upper" => {
+                let value = &mut self.r#upper;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "alternatives" => {
+                let values = &mut self.r#alternatives;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            "dependencies" => {
+                let values = &mut self.r#dependencies;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "default_value" => {
+                let value = &mut self.r#default_value;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueAttribute {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "derived" => {
+                let value = &mut self.r#derived;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueBinding {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "expression" => {
+                let value = &mut self.r#expression;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "defined_by" => {
+                let value = &mut self.r#defined_by;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueBindingIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueBoundary {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueCardinality {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "count" => {
+                let source = &mut self.r#count;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "member" => {
+                let source = &mut self.r#member;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueComplementarity {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "first" => {
+                let source = &mut self.r#first;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "second" => {
+                let source = &mut self.r#second;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueConnection {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "from" => {
+                let source = &mut self.r#from;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "to" => {
+                let source = &mut self.r#to;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueConnectionIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueContinuation {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "target" => {
+                let source = &mut self.r#target;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "start" => {
+                let source = &mut self.r#start;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "end" => {
+                let source = &mut self.r#end;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueContinuous {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "lower" => {
+                let source = &mut self.r#lower;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "upper" => {
+                let source = &mut self.r#upper;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueContribution {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "target" => {
+                let source = &mut self.r#target;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "expression" => {
+                let source = &mut self.r#expression;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueContributionIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueCoordinateMap {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "arguments" => {
+                let values = &mut self.r#arguments;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "validity" => {
+                let value = &mut self.r#validity;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "default_value" => {
+                let value = &mut self.r#default_value;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueCoordinateSlot {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "expression" => {
+                let source = &mut self.r#expression;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueDataset {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "target" => {
+                let source = &mut self.r#target;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "bindings" => {
+                let values = &mut self.r#bindings;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "document" => {
+                let value = &mut self.r#document;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueDatasetBindingsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueDiscretization {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "target" => {
+                let source = &mut self.r#target;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "scheme" => {
+                let source = &mut self.r#scheme;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "elements" => {
+                let source = &mut self.r#elements;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "order" => {
+                let source = &mut self.r#order;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueEntity {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "kind_name" => {
+                let source = &mut self.r#kind_name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "attributes" => {
+                let values = &mut self.r#attributes;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueEnumeration {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "members" => {
+                let values = &mut self.r#members;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueEnumerationMembersItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueEnvelope {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "lower" => {
+                let source = &mut self.r#lower;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "upper" => {
+                let source = &mut self.r#upper;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueEquation {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "expression" => {
+                let source = &mut self.r#expression;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "condition" => {
+                let value = &mut self.r#condition;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueEquationCondition {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "variable" => {
+                let source = &mut self.r#variable;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueEquationIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueExchange {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "from" => {
+                let source = &mut self.r#from;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "to" => {
+                let source = &mut self.r#to;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueExchangeIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueExpectation {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "actual" => {
+                let source = &mut self.r#actual;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "expected" => {
+                let source = &mut self.r#expected;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "tolerance" => {
+                let source = &mut self.r#tolerance;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "relative_tolerance" => {
+                let value = &mut self.r#relative_tolerance;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueFunction {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "type_parameters" => {
+                let values = &mut self.r#type_parameters;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            "arguments" => {
+                let values = &mut self.r#arguments;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "body" => {
+                let value = &mut self.r#body;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "validity" => {
+                let value = &mut self.r#validity;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "applicability" => {
+                let values = &mut self.r#applicability;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            "external" => {
+                let value = &mut self.r#external;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "default_value" => {
+                let value = &mut self.r#default_value;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueFunctionExternal {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "implementation" => {
+                let source = &mut self.r#implementation;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "revision" => {
+                let source = &mut self.r#revision;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "data" => {
+                let source = &mut self.r#data;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "output" => {
+                let source = &mut self.r#output;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueGuard {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "predicate" => {
+                let source = &mut self.r#predicate;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueImport {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "alias" => {
+                let value = &mut self.r#alias;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueInventoryBalance {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "axis" => {
+                let source = &mut self.r#axis;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "inventory" => {
+                let source = &mut self.r#inventory;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "flux" => {
+                let source = &mut self.r#flux;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "tolerance" => {
+                let source = &mut self.r#tolerance;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "transfers" => {
+                let values = &mut self.r#transfers;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "event" => {
+                let source = &mut self.r#event;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "expression" => {
+                let source = &mut self.r#expression;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueLogic {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "proposition" => {
+                let source = &mut self.r#proposition;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueLogicIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueOrderedSet {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "member" => {
+                let source = &mut self.r#member;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "weight" => {
+                let source = &mut self.r#weight;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValuePermission {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "targets" => {
+                let values = &mut self.r#targets;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValuePiecewise {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "output" => {
+                let source = &mut self.r#output;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "input" => {
+                let source = &mut self.r#input;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "abscissa" => {
+                let source = &mut self.r#abscissa;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "ordinate" => {
+                let source = &mut self.r#ordinate;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueRealization {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "target" => {
+                let source = &mut self.r#target;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "accelerator" => {
+                let value = &mut self.r#accelerator;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "argument" => {
+                let value = &mut self.r#argument;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "function" => {
+                let value = &mut self.r#function;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueReconstruction {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "map" => {
+                let source = &mut self.r#map;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "arguments" => {
+                let values = &mut self.r#arguments;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "reference" => {
+                let source = &mut self.r#reference;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "normalization" => {
+                let source = &mut self.r#normalization;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "default_value" => {
+                let value = &mut self.r#default_value;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueReferenceTranslation {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "arguments" => {
+                let values = &mut self.r#arguments;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "source_anchor" => {
+                let source = &mut self.r#source_anchor;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "target_anchor" => {
+                let source = &mut self.r#target_anchor;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "temperature" => {
+                let source = &mut self.r#temperature;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "pressure" => {
+                let source = &mut self.r#pressure;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "default_value" => {
+                let value = &mut self.r#default_value;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueRelaxation {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "target" => {
+                let source = &mut self.r#target;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "nominal" => {
+                let source = &mut self.r#nominal;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueRequirement {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "predicate" => {
+                let source = &mut self.r#predicate;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "message" => {
+                let source = &mut self.r#message;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueResponse {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "witness" => {
+                let source = &mut self.r#witness;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "arguments" => {
+                let values = &mut self.r#arguments;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "body" => {
+                let source = &mut self.r#body;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueResponseArgumentsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "default_value" => {
+                let value = &mut self.r#default_value;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScope {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "parameters" => {
+                let values = &mut self.r#parameters;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "bases" => {
+                let values = &mut self.r#bases;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            "type_parameters" => {
+                let values = &mut self.r#type_parameters;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            "selection" => {
+                let value = &mut self.r#selection;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "branch" => {
+                let value = &mut self.r#branch;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "operational" => {
+                let value = &mut self.r#operational;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "eligibility" => {
+                let value = &mut self.r#eligibility;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "oracle" => {
+                let value = &mut self.r#oracle;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let values = next;
+                            if let Some(index) = path
+                                .first()
+                                .and_then(|part| part.parse::<usize>().ok())
+                            {
+                                let path = &path[1..];
+                                values
+                                    .get_mut(index)
+                                    .is_some_and(|next| {
+                                        {
+                                            let source = next;
+                                            if path.is_empty() && source == expected {
+                                                source.clear();
+                                                true
+                                            } else {
+                                                false
+                                            }
+                                        }
+                                    })
+                            } else if !indexed {
+                                let indexed = true;
+                                let _ = indexed;
+                                values
+                                    .get_mut(position)
+                                    .is_some_and(|next| {
+                                        {
+                                            let source = next;
+                                            if path.is_empty() && source == expected {
+                                                source.clear();
+                                                true
+                                            } else {
+                                                false
+                                            }
+                                        }
+                                    })
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "fixture" => {
+                let value = &mut self.r#fixture;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixture {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "endpoint" => {
+                let value = &mut self.r#endpoint;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "policy" => {
+                let value = &mut self.r#policy;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "stages" => {
+                let values = &mut self.r#stages;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            "integration" => {
+                let value = &mut self.r#integration;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "modes" => {
+                let values = &mut self.r#modes;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "shooting" => {
+                let value = &mut self.r#shooting;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "expected_failure" => {
+                let value = &mut self.r#expected_failure;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "diagnostics" => {
+                let values = &mut self.r#diagnostics;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "specifications" => {
+                let values = &mut self.r#specifications;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "members" => {
+                let values = &mut self.r#members;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "event" => {
+                let value = &mut self.r#event;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "validity" => {
+                let value = &mut self.r#validity;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "applicability" => {
+                let value = &mut self.r#applicability;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "members" => {
+                let values = &mut self.r#members;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "claim" => {
+                let source = &mut self.r#claim;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "form" => {
+                let source = &mut self.r#form;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "sets" => {
+                let values = &mut self.r#sets;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            "variables" => {
+                let values = &mut self.r#variables;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "form" => {
+                let value = &mut self.r#form;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "sets" => {
+                let values = &mut self.r#sets;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            "variables" => {
+                let values = &mut self.r#variables;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "samples" => {
+                let values = &mut self.r#samples;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            "initial_step" => {
+                let source = &mut self.r#initial_step;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "quadratures" => {
+                let values = &mut self.r#quadratures;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "schedules" => {
+                let values = &mut self.r#schedules;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "target" => {
+                let source = &mut self.r#target;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "absolute_tolerance" => {
+                let source = &mut self.r#absolute_tolerance;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "target" => {
+                let source = &mut self.r#target;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "times" => {
+                let values = &mut self.r#times;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            "values" => {
+                let values = &mut self.r#values;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            "lower" => {
+                let value = &mut self.r#lower;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "upper" => {
+                let value = &mut self.r#upper;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "facts" => {
+                let values = &mut self.r#facts;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "events" => {
+                let values = &mut self.r#events;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "guard" => {
+                let source = &mut self.r#guard;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "tolerance" => {
+                let source = &mut self.r#tolerance;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "reset" => {
+                let values = &mut self.r#reset;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "next" => {
+                let value = &mut self.r#next;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "target" => {
+                let source = &mut self.r#target;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "expression" => {
+                let source = &mut self.r#expression;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "native_options" => {
+                let values = &mut self.r#native_options;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "nodes" => {
+                let values = &mut self.r#nodes;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "target" => {
+                let source = &mut self.r#target;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "expression" => {
+                let value = &mut self.r#expression;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeOperational {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "anchors" => {
+                let values = &mut self.r#anchors;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "settings" => {
+                let source = &mut self.r#settings;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "neighborhood" => {
+                let value = &mut self.r#neighborhood;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "target" => {
+                let source = &mut self.r#target;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "expression" => {
+                let source = &mut self.r#expression;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeParametersItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "default_value" => {
+                let value = &mut self.r#default_value;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueScopeSelection {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "criterion" => {
+                let source = &mut self.r#criterion;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "tolerance" => {
+                let source = &mut self.r#tolerance;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueStatePort {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "specification" => {
+                let source = &mut self.r#specification;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueStatePortIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueStateSpecification {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "extends" => {
+                let value = &mut self.r#extends;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            "supplied" => {
+                let source = &mut self.r#supplied;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "coordinates" => {
+                let values = &mut self.r#coordinates;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "reconstructions" => {
+                let values = &mut self.r#reconstructions;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "transports" => {
+                let values = &mut self.r#transports;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "target" => {
+                let source = &mut self.r#target;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "equation" => {
+                let source = &mut self.r#equation;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "tolerance" => {
+                let source = &mut self.r#tolerance;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "indices" => {
+                let values = &mut self.r#indices;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "expression" => {
+                let source = &mut self.r#expression;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "tolerance" => {
+                let source = &mut self.r#tolerance;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "domain" => {
+                let source = &mut self.r#domain;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueTable {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "keys" => {
+                let values = &mut self.r#keys;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "columns" => {
+                let values = &mut self.r#columns;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "symmetry" => {
+                let value = &mut self.r#symmetry;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        (next).mask_expression_path(path, position, expected, indexed)
+                    })
+            }
+            "unique" => {
+                let values = &mut self.r#unique;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            (next)
+                                .mask_expression_path(path, position, expected, indexed)
+                        })
+                } else {
+                    false
+                }
+            }
+            "requirements" => {
+                let values = &mut self.r#requirements;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueTableColumnsItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "derived" => {
+                let value = &mut self.r#derived;
+                value
+                    .as_mut()
+                    .is_some_and(|next| {
+                        {
+                            let source = next;
+                            if path.is_empty() && source == expected {
+                                source.clear();
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    })
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueTableKeysItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "name" => {
+                let source = &mut self.r#name;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueTableSymmetry {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "first" => {
+                let source = &mut self.r#first;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "second" => {
+                let source = &mut self.r#second;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueTableUniqueItem {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "names" => {
+                let values = &mut self.r#names;
+                if let Some(index) = path
+                    .first()
+                    .and_then(|part| part.parse::<usize>().ok())
+                {
+                    let path = &path[1..];
+                    values
+                        .get_mut(index)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else if !indexed {
+                    let indexed = true;
+                    let _ = indexed;
+                    values
+                        .get_mut(position)
+                        .is_some_and(|next| {
+                            {
+                                let source = next;
+                                if path.is_empty() && source == expected {
+                                    source.clear();
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        })
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValueTemporal {
+    fn mask_expression_path(
+        &mut self,
+        path: &[&str],
+        position: usize,
+        expected: &str,
+        indexed: bool,
+    ) -> bool {
+        let _ = (position, expected, indexed);
+        let Some((field, path)) = path.split_first() else {
+            return false;
+        };
+        let _ = path;
+        match *field {
+            "target" => {
+                let source = &mut self.r#target;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "axis" => {
+                let source = &mut self.r#axis;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            "argument" => {
+                let source = &mut self.r#argument;
+                if path.is_empty() && source == expected {
+                    source.clear();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValue {
+    /// Clear one exact expression string selected by its parser-owned role and ordinal.
+    /// Unknown paths and ambiguous nested array ordinals leave the payload unchanged.
+    pub fn mask_expression(
+        &mut self,
+        role: &str,
+        position: usize,
+        expected: &str,
+    ) -> bool {
+        let path = role.split('.').collect::<Vec<_>>();
+        self.mask_expression_path(&path, position, expected, false)
+    }
+}

@@ -1032,7 +1032,8 @@ pub fn solve_blocks(
             ));
         }
     }
-    report.evidence.start_submitted = warm.is_some();
+    // The parent SNESSolve received the populated initial vector independently of warm data.
+    report.evidence.start_submitted = true;
     report.evidence.work.iterations = u64::try_from(iterations).ok();
     report.metrics.extend(std::collections::BTreeMap::from([
         (

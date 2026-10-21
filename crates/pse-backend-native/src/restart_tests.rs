@@ -211,6 +211,118 @@ fn solved(report: &SolveReport) -> bool {
 
 #[cfg(feature = "ipopt")]
 #[test]
+fn restart_policy_probe_keeps_good_bad_and_primal_only_seed_meanings() {
+    let settings = BackendSettings::Ipopt(Default::default());
+    let cold = run(
+        Backend::Ipopt,
+        &settings,
+        Simplex::new(&TARGET, 1., 1.),
+        None,
+        &Policy::Off,
+    );
+    assert!(solved(&cold));
+    let good = cold.warm_start.unwrap();
+    let mut poor = good.clone();
+    let WarmPayload::Nlp {
+        primal,
+        bounds,
+        rows,
+        barrier,
+        ..
+    } = &mut poor.payload
+    else {
+        panic!("NLP seed")
+    };
+    primal.fill(0.99);
+    if let Some((lower, upper)) = bounds {
+        lower.fill(1e3);
+        upper.fill(1e3);
+    }
+    if let Some(rows) = rows {
+        rows.fill(-1e3);
+    }
+    *barrier = Some(1.);
+    let WarmPayload::Nlp {
+        primal: good_primal,
+        ..
+    } = &good.payload
+    else {
+        panic!("NLP seed")
+    };
+    let primal = WarmStart {
+        payload: WarmPayload::primal(good_primal.clone()),
+        ..good.clone()
+    };
+    for upper in [1., 0.75] {
+        for (kind, seed) in [
+            ("cold", None),
+            ("good", Some(&good)),
+            ("poor", Some(&poor)),
+            ("primal", Some(&primal)),
+        ] {
+            for stated in [false, true] {
+                let selected = if stated {
+                    BackendSettings::Ipopt(crate::ipopt::Settings {
+                        restart: WarmRestart {
+                            barrier: RestartBarrier::Value {
+                                value: pse_model::scalars::Tolerance::try_new(0.001).unwrap(),
+                            },
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    })
+                } else {
+                    settings.clone()
+                };
+                let report = run(
+                    Backend::Ipopt,
+                    &selected,
+                    Simplex::new(&PERTURBED, upper, 1.),
+                    seed,
+                    &Policy::Off,
+                );
+                assert!(report.evidence.start_submitted);
+                assert_eq!(
+                    report.evidence.restart.is_some(),
+                    matches!(kind, "good" | "poor")
+                );
+                if let Some(candidate) = &report.candidate {
+                    let row_error = (candidate.primal.iter().sum::<f64>() - 1.).abs();
+                    let bound_error = candidate
+                        .primal
+                        .iter()
+                        .map(|x| (-x).max(x - upper).max(0.))
+                        .fold(0., f64::max);
+                    let tolerance = pse_model::numerics::NumericalPolicy::default()
+                        .engineering_relative_fraction;
+                    assert_eq!(
+                        report.quality.as_ref().unwrap().feasible(),
+                        row_error <= tolerance && bound_error <= tolerance
+                    );
+                    let independent_objective = candidate
+                        .primal
+                        .iter()
+                        .zip(PERTURBED)
+                        .map(|(x, t)| (x - t) * (x - t))
+                        .sum::<f64>();
+                    assert_eq!(
+                        report.observation.as_ref().unwrap().objective,
+                        Some(independent_objective)
+                    );
+                }
+                println!(
+                    "Ipopt-restart upper={upper} seed={kind} stated_barrier={stated} native={} iterations={:?} feasible={:?}",
+                    report.termination.name,
+                    report.evidence.work.iterations,
+                    report.quality.as_ref().map(|q| q.feasible())
+                );
+            }
+        }
+    }
+}
+
+#[cfg(feature = "ipopt")]
+#[test]
 fn interior_point_warm_profile_recorded() {
     let settings = BackendSettings::Ipopt(Default::default());
     // An objective scale of 4 exercises the barrier's transport through normalization.

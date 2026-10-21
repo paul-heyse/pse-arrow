@@ -115,6 +115,9 @@ impl<'a> ObligationTemplates<'a> {
         if let Some(quantities) = quantities {
             quantities.require_selection(inputs)?;
         }
+        // All children of this binding call use the same supplied native planner.
+        // Separate calls retain independent invocation identities.
+        let mut local_context = None;
         let mut all = Vec::new();
         for (id, input) in inputs {
             let mut checks = Vec::new();
@@ -129,7 +132,14 @@ impl<'a> ObligationTemplates<'a> {
                 all.push(BoundObligation {
                     relation: *id,
                     kind: ObligationKind::LocalValues,
-                    plan: local_values(self.registry, spec, input.clone(), state)?,
+                    plan: local_values(
+                        self.registry,
+                        spec,
+                        input.clone(),
+                        local_context.get_or_insert_with(|| {
+                            super::ValidationContext::new(self.registry, state.snapshot())
+                        }),
+                    )?,
                 });
             }
             if !required(*id, ObligationKind::Relational) {
@@ -201,9 +211,8 @@ fn local_values(
     registry: &Registry,
     spec: &RelationSpec,
     input: LogicalPlan,
-    state: &dyn super::planner::ValidationPlanner,
+    context: &super::ValidationContext,
 ) -> Result<LogicalPlan> {
-    let context = super::ValidationContext::new(registry, state.snapshot());
     let prepared = context
         .relation(registry, spec)
         .map_err(pse_columnar::external)?;

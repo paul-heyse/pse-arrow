@@ -11,8 +11,10 @@ mod enums;
 mod field_facets;
 pub(crate) mod identities;
 pub mod physical;
+mod registry;
 mod relation;
 mod semantic;
+mod typed_local;
 pub(crate) mod types;
 
 use std::collections::BTreeMap;
@@ -51,6 +53,7 @@ fn emit(
 
 pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     let mut tree = GeneratedTree::empty(Language::Rust.roots());
+    registry::generate(reg, &mut tree)?;
     emit(
         &mut tree,
         "crates/pse-columnar/src/generated/field_facets.rs",
@@ -80,7 +83,11 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         emit(
             &mut tree,
             format!("{ROOT}/{namespace}/{}.rs", spec.key.name),
-            relation::render(reg, spec)?,
+            {
+                let relation = relation::render(reg, spec)?;
+                let typed = typed_local::render(reg, spec)?;
+                quote!(#relation #typed)
+            },
         )?;
     }
     let mut modules = Vec::new();

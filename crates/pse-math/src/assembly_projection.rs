@@ -19,13 +19,126 @@ struct ProjectionMap {
     first: Arc<crate::execution::FirstLayout>,
     first_sources: Vec<Option<usize>>,
 }
+/// Current-pass donors are private to one attempt; maps belong to its immutable
+/// program association. No applicability or effectful result crosses instances.
+#[derive(Debug)]
+pub(super) struct InstanceReuse {
+    donors: Vec<Option<usize>>,
+    maps: Vec<Option<ProjectionMap>>,
+}
+impl InstanceReuse {
+    pub(super) fn new(requests: usize) -> Self {
+        Self {
+            donors: vec![None; requests],
+            maps: (0..requests).map(|_| None).collect(),
+        }
+    }
+    pub(super) fn begin(&mut self) {
+        self.donors.fill(None);
+    }
+    pub(super) fn record(&mut self, request: usize, instance: usize) {
+        self.donors[request] = Some(instance);
+    }
+    pub(super) fn project(
+        &mut self,
+        groups: &mut [EnumMap<EvaluationDemand, Option<GroupCache>>],
+        target: usize,
+        request: usize,
+        demand: EvaluationDemand,
+        requested: DerivativeOrder,
+        program: &CompiledBody,
+    ) -> Result<Option<DerivativeOrder>, MathError> {
+        if program.product_kind() != ProductKind::SelectedPartials
+            || program
+                .census()
+                .any(|order| order.provider_stages > 0 || order.control_stages > 0)
+        {
+            return Ok(None);
+        }
+        let Some(donor) = self.donors[request].filter(|&donor| donor < target) else {
+            return Ok(None);
+        };
+        let (before, after) = groups.split_at_mut(target);
+        let Some(donor) = before[donor][demand].as_ref() else {
+            return Ok(None);
+        };
+        let Some(target) = after[0][demand].as_mut() else {
+            return Ok(None);
+        };
+        let Some(achieved) = donor.cache.filter(|order| *order >= requested) else {
+            return Ok(None);
+        };
+        if !donor.result.applicability.is_empty()
+            || !donor.result.provider_visits().is_empty()
+            || target.inputs.len() != donor.bits.len()
+            || !target
+                .inputs
+                .iter()
+                .zip(&donor.bits)
+                .all(|(value, bits)| value.to_bits() == *bits)
+        {
+            return Ok(None);
+        }
+        if self.maps[request].is_none() {
+            self.maps[request] = prepare(program, program);
+        }
+        let Some(mapping) = &self.maps[request] else {
+            return Ok(None);
+        };
+        // A strict arithmetic-only association cannot issue recipient-bound evidence.
+        if !mapping.witnesses.is_empty() {
+            return Ok(None);
+        }
+        donor.result.project_into(
+            &mapping.rows,
+            &mapping.axes,
+            achieved,
+            &mapping.witnesses,
+            &mapping.second,
+            &mapping.first,
+            &mapping.first_sources,
+            &mut target.spare,
+        )?;
+        std::mem::swap(&mut target.result, &mut target.spare);
+        target.spare.clear();
+        for (bits, value) in target.bits.iter_mut().zip(&target.inputs) {
+            *bits = value.to_bits();
+        }
+        target.cache = Some(achieved);
+        target.visible = true;
+        Ok(Some(achieved))
+    }
+}
 pub(super) fn allocation_bound(
     plan: &CasePlan,
     programs: &[Arc<CompiledBody>],
 ) -> Result<usize, MathError> {
+    let identity = programs
+        .iter()
+        .try_fold(
+            size_of::<InstanceReuse>()
+                + programs.len()
+                    * (size_of::<Option<usize>>() + size_of::<Option<ProjectionMap>>()),
+            |bytes, program| {
+                let maps = program
+                    .prepared_support()
+                    .outputs()
+                    .len()
+                    .checked_add(program.coordinates().len())?
+                    .checked_add(program.input_formals().len())?
+                    .checked_mul(2 * size_of::<usize>())?
+                    .checked_add(
+                        program
+                            .first_result_entries()
+                            .checked_mul(2 * size_of::<Option<usize>>())?,
+                    )?;
+                bytes.checked_add(maps)
+            },
+        )
+        .ok_or(MathError::Limit("instance projection relationships"))?;
     plan.instances
         .iter()
-        .try_fold(0usize, |bytes, instance| {
+        .try_fold(identity, |bytes, instance| {
             let donors = instance.groups.values().flatten().count();
             instance
                 .groups

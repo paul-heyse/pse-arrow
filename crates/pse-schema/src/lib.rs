@@ -49,6 +49,8 @@ pub mod builder;
 pub mod catalog;
 mod checks;
 pub mod compatibility;
+#[rustfmt::skip]
+mod generated;
 /// Registry-owned selected-product support closure.
 pub mod product;
 
@@ -71,7 +73,7 @@ pub use crate::builder::{REGISTRY_PACKAGE_ID, REGISTRY_PACKAGE_NAME, Registry, R
 pub use crate::error::SchemaError;
 pub use crate::literal::NativeLiteral;
 
-/// The assembled registry, built once per process.
+/// The standard registry, hydrated from declaration-derived products once per process.
 ///
 /// The `Result` is memoized rather than the `Registry`: a failed assembly is a
 /// deterministic property of the declarations, so re-running it would produce the same
@@ -82,9 +84,9 @@ static REGISTRY: OnceLock<Result<Arc<Registry>, SchemaError>> = OnceLock::new();
 ///
 /// # Errors
 ///
-/// The errors of [`catalog::assemble`]: a duplicate declaration, a dangling reference, a
-/// derived relation without a granularity, an invalid algorithm contract or a rule that keys on a
-/// float.
+/// Invalid generated native data or failure to hydrate the declaration-derived products.
+/// Independent source assembly and custom registries use [`catalog::assemble`] and
+/// [`RegistryBuilder`].
 ///
 /// ```
 /// use pse_schema::registry;
@@ -94,7 +96,7 @@ static REGISTRY: OnceLock<Result<Arc<Registry>, SchemaError>> = OnceLock::new();
 /// # Ok::<(), pse_schema::SchemaError>(())
 /// ```
 pub fn registry() -> Result<&'static Registry, SchemaError> {
-    match REGISTRY.get_or_init(|| catalog::assemble().map(Arc::new)) {
+    match REGISTRY.get_or_init(|| generated::standard_registry::hydrate().map(Arc::new)) {
         Ok(registry) => Ok(registry),
         Err(error) => Err(error.clone()),
     }
@@ -102,9 +104,9 @@ pub fn registry() -> Result<&'static Registry, SchemaError> {
 
 /// Shared ownership of the same declaration registry for native execution bindings.
 /// # Errors
-/// The errors of [`catalog::assemble`].
+/// The errors of [`registry`].
 pub fn shared_registry() -> Result<Arc<Registry>, SchemaError> {
     REGISTRY
-        .get_or_init(|| catalog::assemble().map(Arc::new))
+        .get_or_init(|| generated::standard_registry::hydrate().map(Arc::new))
         .clone()
 }

@@ -107,6 +107,8 @@ frames! {
         NumericalStrategyV2 => "pse:numerical-strategy:v2",
         /// Current operation-specific production and consumption contracts; earlier bytes remain frozen.
         NumericalStrategyV3 => "pse:numerical-strategy:v3",
+        /// Actual backend or residual-method profile references (ADR-0209).
+        NumericalStrategyV4 => "pse:numerical-strategy:v4",
         /// One resolved next operation and its consumed products/constraints.
         NumericalDecisionV1 => "pse:numerical-decision:v1",
         /// Current operation-specific production and consumption contracts; earlier bytes remain frozen.
@@ -574,6 +576,8 @@ frames! {
         DynamicProfileV10 => "pse.dynamic.profile.v10",
         /// Dynamic profile including distinct consumed adjoint parameter coordinates.
         DynamicProfileV11 => "pse.dynamic.profile.v11",
+        /// Current dynamic profile with native automatic first-step defaults.
+        DynamicProfileV12 => "pse.dynamic.profile.v12",
         /// Historical profile framing with speculative Auto resolution.
         DynamicProfileV8 => "pse.dynamic.profile.v8",
         /// An explicit conic request; its quadratic is certified exactly, so it carries no
@@ -590,6 +594,8 @@ frames! {
         FitProfileV3 => "pse.fit.profile.v3",
         /// Fit profile using canonical numeric and uncertainty document framing.
         FitProfileV4 => "pse.fit.profile.v4",
+        /// Complete fitting-owned optimizer selection and numerical settings (ADR-0209).
+        FitProfileV5 => "pse.fit.profile.v5",
         /// A fit source.
         FitSourceV1 => "pse.fit.source.v1",
         /// Compiled simulation modes.

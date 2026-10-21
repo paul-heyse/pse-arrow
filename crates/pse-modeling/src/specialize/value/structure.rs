@@ -84,13 +84,7 @@ impl Evaluator<'_, '_> {
             .filter(|(n, _)| crate::analysis::Fact::namespace_of(n).is_some())
             .map(|(n, v)| (n.clone(), v.clone()))
             .collect::<Environment>();
-        let names = self
-            .lexical_bases
-            .filter(|_| !matches!(self.reader, crate::provenance::Reader::Admission(_)))
-            .map_or_else(
-                || std::sync::Arc::new(self.package.named_types(definition)),
-                |bases| bases.evaluation(self.package, definition),
-            );
+        let names = self.lexical_types(definition);
         let vars = BTreeSet::new();
         let declared = contract
             .parameters
@@ -116,9 +110,9 @@ impl Evaluator<'_, '_> {
             let mut next = Vec::new();
             let mut failure = None;
             for (position, parameter) in pending {
-                let ty =
-                    self.physical
-                        .resolve(&parameter.r#type, &vars, names.as_ref(), definition)?;
+                let ty = self
+                    .physical
+                    .resolve(&parameter.r#type, &vars, &names, definition)?;
                 let _source = parameter.default_value.as_deref().ok_or_else(|| {
                     invalid(definition, format!("missing argument {}", parameter.name))
                 })?;
@@ -148,7 +142,7 @@ impl Evaluator<'_, '_> {
         for parameter in &contract.parameters {
             let ty = self
                 .physical
-                .resolve(&parameter.r#type, &vars, names.as_ref(), definition)?;
+                .resolve(&parameter.r#type, &vars, &names, definition)?;
             if !conforms(&env[&parameter.name], &ty, self.package) {
                 return Err(invalid(definition, "binding complete type differs"));
             }

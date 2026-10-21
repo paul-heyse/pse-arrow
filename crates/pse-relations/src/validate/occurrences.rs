@@ -20,7 +20,7 @@ use crate::native::{
     logical_expr::Expr,
     physical_expr::PhysicalExpr,
 };
-use pse_schema::{Registry, model::TaggedAlternative};
+use pse_schema::model::TaggedAlternative;
 use std::sync::Arc;
 
 pub(super) const CHUNK: usize = 4096;
@@ -202,7 +202,7 @@ impl Selection {
 
 impl Node {
     pub(super) fn prepare(
-        registry: &Registry,
+        domains: &super::predicates::DomainEnvironment,
         state: &dyn super::planner::ValidationPlanner,
         field: FieldRef,
     ) -> Result<Self, RelationError> {
@@ -227,7 +227,7 @@ impl Node {
             _ => vec![],
         }
         .into_iter()
-        .map(|child| Self::prepare(registry, state, child))
+        .map(|child| Self::prepare(domains, state, child))
         .collect::<Result<_, _>>()?;
         let predicate = if matches!(
             field.data_type(),
@@ -240,8 +240,8 @@ impl Node {
         } else {
             let schema =
                 DFSchema::try_from(Schema::new(vec![Arc::clone(&field)])).map_err(engine)?;
-            let expression = super::predicates::field_local(
-                registry,
+            let expression = super::predicates::field_local_in(
+                domains,
                 &field,
                 Expr::Column(Column::from_name(field.name())),
             )

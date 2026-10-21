@@ -1205,12 +1205,12 @@ impl Trace {
                     backend: if let Some(provider) = product.and_then(|p| p.provider) {
                         match provider {
                             ProviderEvidence::Library(_) | ProviderEvidence::NonNative => None,
-                            ProviderEvidence::Native(profile) => Some(profile.backend),
+                            ProviderEvidence::Native(profile) => profile.method.backend(),
                         }
                     } else if actual {
-                        mechanism.profile.map(|p| p.backend).or(self.backend)
+                        mechanism.profile.map_or(self.backend, |p| p.method.backend())
                     } else {
-                        mechanism.profile.map(|p| p.backend)
+                        mechanism.profile.and_then(|p| p.method.backend())
                     },
                     start_origin: actual.then_some(
                         self.starts

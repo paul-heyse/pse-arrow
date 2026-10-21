@@ -996,7 +996,10 @@ impl<D: Dispatch> StepDriver<'_, D> {
                     .backend()
                     .map(|backend| {
                         rung.strategy_profile()
-                            .map(|key| pse_model::strategy::ProfileRef { backend, key })
+                            .map(|key| pse_model::strategy::ProfileRef {
+                                method: pse_model::strategy::NumericalMethod::Backend(backend),
+                                key,
+                            })
                     })
                     .transpose()?;
             }
@@ -1185,7 +1188,7 @@ impl<D: Dispatch> StepDriver<'_, D> {
                                 }
                             }
                             if let Some(backend)=step.backend() {
-                                actual_products.borrow_mut()[index].provider=Some(math::strategy::ProviderEvidence::Native(pse_model::strategy::ProfileRef {backend,key:step.strategy_profile().map_err(Arc::new)?}));
+                                actual_products.borrow_mut()[index].provider=Some(math::strategy::ProviderEvidence::Native(pse_model::strategy::ProfileRef {method: pse_model::strategy::NumericalMethod::Backend(backend),key:step.strategy_profile().map_err(Arc::new)?}));
                             }
                             let target=step.clone();
                             let mut value = service.execute(step, previous.take(), attempt, retained, flag, &progress, budget, &owner, &enclosing)

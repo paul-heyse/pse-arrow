@@ -241,36 +241,26 @@ impl PreparedSupport {
             weighted += weight * expression;
         }
         let n = coordinates.len();
-        let axes = self
-            .coordinates()
-            .iter()
-            .enumerate()
-            .map(|(axis, &formal)| (formal, axis))
-            .collect::<BTreeMap<_, _>>();
-        let pairs = self
-            .support()
-            .second
-            .iter()
-            .flatten()
-            .filter_map(|&(i, j)| Some((*axes.get(&i)?, *axes.get(&j)?)))
-            .map(|(i, j)| (i.min(j), i.max(j)))
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>();
-        // The bounded I02 controls qualify the directional-gradient construction for
-        // complete pair support. Sparse support retains pair construction with shared
-        // firsts; no unmeasured density crossover or latency estimator is introduced.
-        let directional_gradient = kind == ProductKind::WeightedHessianAction
-            && pairs.len()
-                == n.checked_mul(n.saturating_add(1))
-                    .ok_or(MathError::Limit("weighted pair population"))?
-                    / 2;
-        let directions = if kind == ProductKind::WeightedHessianAction && !directional_gradient {
-            let directions = (0..n)
-                .map(|i| library::formal(next_formal + body.outputs.len() + i))
-                .collect::<Result<Vec<_>, _>>()?;
-            parameters.extend(directions.iter().cloned());
-            directions
+        let directional_gradient = kind == ProductKind::WeightedHessianAction;
+        // Exact-entry consumers retain canonical pairs. An action consumes a
+        // directional weighted gradient, independent of support density, and
+        // does not construct an action-only population of second entries.
+        let pairs = if kind == ProductKind::WeightedHessian {
+            let axes = self
+                .coordinates()
+                .iter()
+                .enumerate()
+                .map(|(axis, &formal)| (formal, axis))
+                .collect::<BTreeMap<_, _>>();
+            self.support()
+                .second
+                .iter()
+                .flatten()
+                .filter_map(|&(i, j)| Some((*axes.get(&i)?, *axes.get(&j)?)))
+                .map(|(i, j)| (i.min(j), i.max(j)))
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect::<Vec<_>>()
         } else {
             Vec::new()
         };
@@ -317,11 +307,7 @@ impl PreparedSupport {
             if directional_gradient || kind == ProductKind::TransposeJacobianAction {
                 firsts.into_values().collect::<Vec<_>>()
             } else {
-                let mut expressions = if kind == ProductKind::WeightedHessianAction {
-                    vec![Atom::num(0); n]
-                } else {
-                    Vec::with_capacity(pairs.len())
-                };
+                let mut expressions = Vec::with_capacity(pairs.len());
                 for &(i, j) in &pairs {
                     scope.check().map_err(crate::error::scope_error)?;
                     let first = firsts.get(&i).ok_or_else(|| {
@@ -338,14 +324,7 @@ impl PreparedSupport {
                         Indeterminate::try_from(parameters[coordinates[j]].clone())
                             .map_err(MathError::Library)?,
                     );
-                    if kind == ProductKind::WeightedHessianAction {
-                        expressions[i] += &partial * &directions[j];
-                        if i != j {
-                            expressions[j] += &partial * &directions[i];
-                        }
-                    } else {
-                        expressions.push(partial);
-                    }
+                    expressions.push(partial);
                 }
                 expressions
             };
@@ -1118,15 +1097,13 @@ mod tests {
                 )
                 .unwrap();
             let action_prepare = start.elapsed();
-            assert_eq!(
-                action.direct_product.as_ref().unwrap().directional_gradient,
-                name != "sparse"
-            );
+            assert!(action.direct_product.as_ref().unwrap().directional_gradient);
+            assert!(action.product_pairs().is_empty());
             assert_eq!(
                 action.census[DerivativeOrder::Second]
                     .unwrap()
                     .derivative_components,
-                if name == "sparse" { 1 } else { 2 }
+                2
             );
             let mut matrix_values = vec![f64::NAN; matrix.product_len()];
             matrix
@@ -1566,3 +1543,6 @@ mod tests {
 #[cfg(test)]
 #[path = "product_contract_tests.rs"]
 mod contract_tests;
+#[cfg(all(test, feature = "compiled-evaluator"))]
+#[path = "product_realization_probe.rs"]
+mod realization_probe;

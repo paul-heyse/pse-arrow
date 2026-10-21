@@ -1125,6 +1125,76 @@ impl MathService {
         }
     }
 }
+impl super::solves::PreparedSolve {
+    /// Conservative numerical-owner eligibility. It supplies no native admission
+    /// or start evidence; dispatch still admits each member under its actual owner.
+    pub(crate) fn direct_batch_candidate(
+        &self,
+        cancel: &crate::CancelSource,
+    ) -> Option<super::solves::DirectBatchCandidate> {
+        let request = self.composition_request();
+        if request.policy != pse_model::strategy::CompositionPolicy::Auto
+            || request.limits.is_some()
+            || request.branch.connected.is_some()
+            || self.task_scope().is_some()
+            || self.composition_is_declared()
+        {
+            return None;
+        }
+        let key = super::solves::DirectBatchKey {
+            backend: self.batch_backend()?,
+            profile: self.strategy_profile().ok()?,
+            threads: self.threads(),
+        };
+        let operations = self
+            .automatic_operations(
+                None,
+                &Arc::new(AtomicBool::new(cancel.token().is_cancelled())),
+            )
+            .ok()?;
+        if operations.len() != 1
+            || operations[0].candidate.kind != pse_model::strategy::MechanismKind::Direct
+            || !operations[0].candidate.prepared
+        {
+            return None;
+        }
+        let candidates = operations
+            .iter()
+            .map(|operation| operation.candidate.clone())
+            .collect::<Vec<_>>();
+        let declaration = self.numerical_strategy();
+        let work = pse_model::strategy::WorkObservation {
+            attempts: 0,
+            evaluations: Some(0),
+            iterations: Some(0),
+            factorizations: Some(0),
+            proof_steps: Some(0),
+        };
+        let decision = super::strategy::next_automatic(
+            request,
+            &declaration.start,
+            &candidates,
+            super::strategy::AutoProgress {
+                attempted: &Default::default(),
+                last: None,
+                work,
+            },
+            false,
+            None,
+        );
+        if !matches!(
+            decision,
+            super::strategy::AutoDecision::Dispatch { candidate: 0 }
+        ) {
+            return None;
+        }
+        let decision =
+            super::strategy::automatic_decision_key(request, &candidates, &decision, None, work)
+                .ok()?;
+        Some(super::solves::DirectBatchCandidate { key, decision })
+    }
+}
+
 impl NativeSession {
     /// Lend this idle lane's ticket to directly awaited preparation. Independent spawned
     /// tasks cannot inherit it; an exclusive loan survives through actual child join.
@@ -1639,81 +1709,17 @@ impl NativeSession {
         // Batch only a composition the common resolver has admitted as one ready
         // direct operation. Other members retain the exact individual task semantics,
         // including hard caps, optional preparations and observation-dependent profiles.
-        let batch_profile = first.step.strategy_profile().ok();
-        let batch_threads = first.step.threads();
-        let mut direct_batch = batch_profile.is_some();
-        let mut decisions = Vec::with_capacity(members.len());
-        for member in &members {
-            let request = member.step.composition_request();
-            if request.policy != pse_model::strategy::CompositionPolicy::Auto
-                || request.limits.is_some()
-                || request.branch.connected.is_some()
-                || member.step.task_scope().is_some()
-                || member.step.composition_is_declared()
-            {
-                direct_batch = false;
-                continue;
-            }
-            let operations = match member.step.automatic_operations(
-                None,
-                &Arc::new(AtomicBool::new(cancel.token().is_cancelled())),
-            ) {
-                Ok(operations) => operations,
-                Err(_) => {
-                    direct_batch = false;
-                    continue;
-                }
-            };
-            direct_batch &= member.step.strategy_profile().ok() == batch_profile
-                && member.step.threads() == batch_threads
-                && member.step.task_scope().is_none()
-                && !member.step.composition_is_declared()
-                && request.policy == pse_model::strategy::CompositionPolicy::Auto
-                && request.limits.is_none()
-                && request.branch.connected.is_none()
-                && member.step.backend() != Some(Backend::Pounce)
-                && operations.len() == 1
-                && operations[0].candidate.kind == pse_model::strategy::MechanismKind::Direct
-                && operations[0].candidate.prepared;
-            let candidates = operations
-                .iter()
-                .map(|operation| operation.candidate.clone())
-                .collect::<Vec<_>>();
-            let declaration = member.step.numerical_strategy();
-            let work = pse_model::strategy::WorkObservation {
-                attempts: 0,
-                evaluations: Some(0),
-                iterations: Some(0),
-                factorizations: Some(0),
-                proof_steps: Some(0),
-            };
-            let decision = super::strategy::next_automatic(
-                request,
-                &declaration.start,
-                &candidates,
-                super::strategy::AutoProgress {
-                    attempted: &Default::default(),
-                    last: None,
-                    work,
-                },
-                false,
-                None,
-            );
-            direct_batch &= matches!(
-                decision,
-                super::strategy::AutoDecision::Dispatch { candidate: 0 }
-            );
-            match super::strategy::automatic_decision_key(
-                request,
-                &candidates,
-                &decision,
-                None,
-                work,
-            ) {
-                Ok(key) => decisions.push(key),
-                Err(_) => direct_batch = false,
-            };
-        }
+        let candidates = members
+            .iter()
+            .map(|member| member.step.direct_batch_candidate(cancel))
+            .collect::<Option<Vec<_>>>();
+        let direct_batch = candidates.as_ref().is_some_and(|candidates| {
+            candidates.first().is_some_and(|first| {
+                candidates
+                    .iter()
+                    .all(|candidate| candidate.key == first.key)
+            })
+        });
         if !direct_batch {
             let assessor = Arc::new(std::sync::Mutex::new(assess));
             let mut outcomes = Vec::with_capacity(members.len());
@@ -1739,6 +1745,11 @@ impl NativeSession {
             }
             return Ok(outcomes);
         }
+        let decisions = candidates
+            .into_iter()
+            .flatten()
+            .map(|candidate| candidate.decision)
+            .collect::<Vec<_>>();
         let service = self.service.clone();
         let deadline = std::time::Instant::now()
             .checked_add(first.step.time_limit())

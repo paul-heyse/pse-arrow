@@ -830,7 +830,8 @@ pub fn solve_flow(
     );
     let native_terminal =
         finish_native_error(&mut report, &mut context.state, code, "artificial solve");
-    report.evidence.start_submitted = warm.is_some();
+    // TSSolve received the explicit initial vector; a warm payload is optional.
+    report.evidence.start_submitted = true;
     report.evidence.work.iterations = u64::try_from(iterations).ok();
     report.metrics.extend(std::collections::BTreeMap::from([
         ("TSGetStepNumber".into(), Metric::Integer(steps.into())),

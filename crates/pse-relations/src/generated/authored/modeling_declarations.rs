@@ -20359,3 +20359,1125 @@ impl crate::columnar::RelationView for AuthoredModelingDeclarationsView<'_> {
         self.checked
     }
 }
+/// Admit immutable generated modeling values without constructing an Arrow
+/// batch. None retains native evaluation under an unqualified planner.
+/// Keys/references and subsequent raw-array admission remain independent.
+/// # Errors
+/// Foreign declaration/context, invalid typed values or cancellation.
+#[allow(
+    clippy::too_many_lines,
+    reason = "one declaration-derived recursive modeling validator"
+)]
+pub fn admit_typed_rows(
+    registry: &pse_schema::Registry,
+    rows: &[Row],
+    validation: &crate::validate::ValidationContext,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<Option<crate::columnar::LocalFieldAdmission>, crate::RelationError> {
+    cancel.checkpoint()?;
+    let spec = spec(registry)?;
+    if !validation.typed_modeling_local_eligible() {
+        return Ok(None);
+    }
+    let prepared = validation.relation(registry, spec)?;
+    for row in rows {
+        cancel.checkpoint()?;
+        {
+            let value = &row.r#ordinal;
+            if !(0i64..=9223372036854775807i64).contains(value) {
+                return Err(
+                    crate::columnar::mismatch(
+                        "typed modeling integer outside declared domain at ordinal",
+                    ),
+                );
+            }
+        }
+        {
+            let value = &row.r#source_start;
+            if !(0i64..=4294967295i64).contains(value) {
+                return Err(
+                    crate::columnar::mismatch(
+                        "typed modeling integer outside declared domain at source_start",
+                    ),
+                );
+            }
+        }
+        {
+            let value = &row.r#source_end;
+            if !(0i64..=4294967295i64).contains(value) {
+                return Err(
+                    crate::columnar::mismatch(
+                        "typed modeling integer outside declared domain at source_end",
+                    ),
+                );
+            }
+        }
+        {
+            let value = &row.r#value;
+            value.selected()?;
+            if let Some(value) = &value.r#scope && let Some(value) = &value.r#fixture {
+                if let Some(value) = &value.r#policy {
+                    {
+                        let value = &value.r#native_options;
+                        for item in value {
+                            cancel.checkpoint()?;
+                            {
+                                let value = item;
+                                {
+                                    let value = &value.r#value;
+                                    {
+                                        let value = &value.r#value;
+                                        value.selected()?;
+                                        if let Some(value) = &value.r#quantity {
+                                            {
+                                                let value = &value.r#magnitude;
+                                                if !value.is_finite() {
+                                                    return Err(
+                                                        crate::columnar::mismatch(
+                                                            "typed modeling nonfinite number at value/scope/fixture/policy/native_options/*/value/value/quantity/magnitude",
+                                                        ),
+                                                    );
+                                                }
+                                            }
+                                        }
+                                        if let Some(value) = &value.r#references {
+                                            {
+                                                let value = &value.r#paths;
+                                                for item in value {
+                                                    cancel.checkpoint()?;
+                                                    {
+                                                        let value = item;
+                                                        if let Some(value) = &value.r#keys {
+                                                            for item in value {
+                                                                cancel.checkpoint()?;
+                                                                {
+                                                                    let value = item;
+                                                                    value.selected()?;
+                                                                    if let Some(value) = &value.r#quantity {
+                                                                        {
+                                                                            let value = &value.r#magnitude;
+                                                                            if !value.is_finite() {
+                                                                                return Err(
+                                                                                    crate::columnar::mismatch(
+                                                                                        "typed modeling nonfinite number at value/scope/fixture/policy/native_options/*/value/value/references/paths/*/keys/*/quantity/magnitude",
+                                                                                    ),
+                                                                                );
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if let Some(value) = &value.r#row {
+                                            {
+                                                let value = &value.r#keys;
+                                                for item in value {
+                                                    cancel.checkpoint()?;
+                                                    {
+                                                        let value = item;
+                                                        value.selected()?;
+                                                        if let Some(value) = &value.r#quantity {
+                                                            {
+                                                                let value = &value.r#magnitude;
+                                                                if !value.is_finite() {
+                                                                    return Err(
+                                                                        crate::columnar::mismatch(
+                                                                            "typed modeling nonfinite number at value/scope/fixture/policy/native_options/*/value/value/row/keys/*/quantity/magnitude",
+                                                                        ),
+                                                                    );
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if let Some(value) = &value.r#uncertainty {
+                                        {
+                                            let value = &value.r#magnitude;
+                                            if !value.is_finite() {
+                                                return Err(
+                                                    crate::columnar::mismatch(
+                                                        "typed modeling nonfinite number at value/scope/fixture/policy/native_options/*/value/uncertainty/magnitude",
+                                                    ),
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if let Some(value) = &value.r#derivative_step && !value.is_finite() {
+                        return Err(
+                            crate::columnar::mismatch(
+                                "typed modeling nonfinite number at value/scope/fixture/policy/derivative_step",
+                            ),
+                        );
+                    }
+                    if let Some(value) = &value.r#derivative_tolerance
+                        && !value.is_finite()
+                    {
+                        return Err(
+                            crate::columnar::mismatch(
+                                "typed modeling nonfinite number at value/scope/fixture/policy/derivative_tolerance",
+                            ),
+                        );
+                    }
+                    if let Some(value) = &value.r#derivative_cells
+                        && !(0i64..=9223372036854775807i64).contains(value)
+                    {
+                        return Err(
+                            crate::columnar::mismatch(
+                                "typed modeling integer outside declared domain at value/scope/fixture/policy/derivative_cells",
+                            ),
+                        );
+                    }
+                    if let Some(value) = &value.r#items
+                        && !(0i64..=9223372036854775807i64).contains(value)
+                    {
+                        return Err(
+                            crate::columnar::mismatch(
+                                "typed modeling integer outside declared domain at value/scope/fixture/policy/items",
+                            ),
+                        );
+                    }
+                    if let Some(value) = &value.r#body_occurrences
+                        && !(0i64..=9223372036854775807i64).contains(value)
+                    {
+                        return Err(
+                            crate::columnar::mismatch(
+                                "typed modeling integer outside declared domain at value/scope/fixture/policy/body_occurrences",
+                            ),
+                        );
+                    }
+                    if let Some(value) = &value.r#body_slots
+                        && !(0i64..=9223372036854775807i64).contains(value)
+                    {
+                        return Err(
+                            crate::columnar::mismatch(
+                                "typed modeling integer outside declared domain at value/scope/fixture/policy/body_slots",
+                            ),
+                        );
+                    }
+                    if let Some(value) = &value.r#foreign_bytes
+                        && !(0i64..=9223372036854775807i64).contains(value)
+                    {
+                        return Err(
+                            crate::columnar::mismatch(
+                                "typed modeling integer outside declared domain at value/scope/fixture/policy/foreign_bytes",
+                            ),
+                        );
+                    }
+                }
+                if let Some(value) = &value.r#initialization {
+                    {
+                        let value = &value.r#initial_step;
+                        if !value.is_finite() {
+                            return Err(
+                                crate::columnar::mismatch(
+                                    "typed modeling nonfinite number at value/scope/fixture/initialization/initial_step",
+                                ),
+                            );
+                        }
+                    }
+                    {
+                        let value = &value.r#minimum_step;
+                        if !value.is_finite() {
+                            return Err(
+                                crate::columnar::mismatch(
+                                    "typed modeling nonfinite number at value/scope/fixture/initialization/minimum_step",
+                                ),
+                            );
+                        }
+                    }
+                    {
+                        let value = &value.r#growth;
+                        if !value.is_finite() {
+                            return Err(
+                                crate::columnar::mismatch(
+                                    "typed modeling nonfinite number at value/scope/fixture/initialization/growth",
+                                ),
+                            );
+                        }
+                    }
+                    {
+                        let value = &value.r#maximum_attempts;
+                        if !(0i64..=100000i64).contains(value) {
+                            return Err(
+                                crate::columnar::mismatch(
+                                    "typed modeling integer outside declared domain at value/scope/fixture/initialization/maximum_attempts",
+                                ),
+                            );
+                        }
+                    }
+                    {
+                        let value = &value.r#time_limit_seconds;
+                        if !value.is_finite() {
+                            return Err(
+                                crate::columnar::mismatch(
+                                    "typed modeling nonfinite number at value/scope/fixture/initialization/time_limit_seconds",
+                                ),
+                            );
+                        }
+                    }
+                }
+                if let Some(value) = &value.r#integration {
+                    {
+                        let value = &value.r#relative_tolerance;
+                        if !value.is_finite() {
+                            return Err(
+                                crate::columnar::mismatch(
+                                    "typed modeling nonfinite number at value/scope/fixture/integration/relative_tolerance",
+                                ),
+                            );
+                        }
+                    }
+                    {
+                        let value = &value.r#normalized_absolute_tolerance;
+                        if !value.is_finite() {
+                            return Err(
+                                crate::columnar::mismatch(
+                                    "typed modeling nonfinite number at value/scope/fixture/integration/normalized_absolute_tolerance",
+                                ),
+                            );
+                        }
+                    }
+                    if let Some(value) = &value.r#quadrature_relative_tolerance
+                        && !value.is_finite()
+                    {
+                        return Err(
+                            crate::columnar::mismatch(
+                                "typed modeling nonfinite number at value/scope/fixture/integration/quadrature_relative_tolerance",
+                            ),
+                        );
+                    }
+                }
+            }
+            if let Some(value) = &value.r#function {
+                if let Some(value) = &value.r#continuity
+                    && !(0i64..=2i64).contains(value)
+                {
+                    return Err(
+                        crate::columnar::mismatch(
+                            "typed modeling integer outside declared domain at value/function/continuity",
+                        ),
+                    );
+                }
+                if let Some(value) = &value.r#external {
+                    {
+                        let value = &value.r#derivatives;
+                        if !(0i64..=2i64).contains(value) {
+                            return Err(
+                                crate::columnar::mismatch(
+                                    "typed modeling integer outside declared domain at value/function/external/derivatives",
+                                ),
+                            );
+                        }
+                    }
+                    {
+                        let value = &value.r#smoothness;
+                        if !(0i64..=2i64).contains(value) {
+                            return Err(
+                                crate::columnar::mismatch(
+                                    "typed modeling integer outside declared domain at value/function/external/smoothness",
+                                ),
+                            );
+                        }
+                    }
+                }
+            }
+            if let Some(value) = &value.r#table
+                && let Some(value) = &value.r#default_value
+            {
+                {
+                    let value = &value.r#value;
+                    value.selected()?;
+                    if let Some(value) = &value.r#quantity {
+                        {
+                            let value = &value.r#magnitude;
+                            if !value.is_finite() {
+                                return Err(
+                                    crate::columnar::mismatch(
+                                        "typed modeling nonfinite number at value/table/default_value/value/quantity/magnitude",
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                    if let Some(value) = &value.r#references {
+                        {
+                            let value = &value.r#paths;
+                            for item in value {
+                                cancel.checkpoint()?;
+                                {
+                                    let value = item;
+                                    if let Some(value) = &value.r#keys {
+                                        for item in value {
+                                            cancel.checkpoint()?;
+                                            {
+                                                let value = item;
+                                                value.selected()?;
+                                                if let Some(value) = &value.r#quantity {
+                                                    {
+                                                        let value = &value.r#magnitude;
+                                                        if !value.is_finite() {
+                                                            return Err(
+                                                                crate::columnar::mismatch(
+                                                                    "typed modeling nonfinite number at value/table/default_value/value/references/paths/*/keys/*/quantity/magnitude",
+                                                                ),
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if let Some(value) = &value.r#row {
+                        {
+                            let value = &value.r#keys;
+                            for item in value {
+                                cancel.checkpoint()?;
+                                {
+                                    let value = item;
+                                    value.selected()?;
+                                    if let Some(value) = &value.r#quantity {
+                                        {
+                                            let value = &value.r#magnitude;
+                                            if !value.is_finite() {
+                                                return Err(
+                                                    crate::columnar::mismatch(
+                                                        "typed modeling nonfinite number at value/table/default_value/value/row/keys/*/quantity/magnitude",
+                                                    ),
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if let Some(value) = &value.r#uncertainty {
+                    {
+                        let value = &value.r#magnitude;
+                        if !value.is_finite() {
+                            return Err(
+                                crate::columnar::mismatch(
+                                    "typed modeling nonfinite number at value/table/default_value/uncertainty/magnitude",
+                                ),
+                            );
+                        }
+                    }
+                }
+            }
+            if let Some(value) = &value.r#attribute && let Some(value) = &value.r#value {
+                {
+                    let value = &value.r#value;
+                    value.selected()?;
+                    if let Some(value) = &value.r#quantity {
+                        {
+                            let value = &value.r#magnitude;
+                            if !value.is_finite() {
+                                return Err(
+                                    crate::columnar::mismatch(
+                                        "typed modeling nonfinite number at value/attribute/value/value/quantity/magnitude",
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                    if let Some(value) = &value.r#references {
+                        {
+                            let value = &value.r#paths;
+                            for item in value {
+                                cancel.checkpoint()?;
+                                {
+                                    let value = item;
+                                    if let Some(value) = &value.r#keys {
+                                        for item in value {
+                                            cancel.checkpoint()?;
+                                            {
+                                                let value = item;
+                                                value.selected()?;
+                                                if let Some(value) = &value.r#quantity {
+                                                    {
+                                                        let value = &value.r#magnitude;
+                                                        if !value.is_finite() {
+                                                            return Err(
+                                                                crate::columnar::mismatch(
+                                                                    "typed modeling nonfinite number at value/attribute/value/value/references/paths/*/keys/*/quantity/magnitude",
+                                                                ),
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if let Some(value) = &value.r#row {
+                        {
+                            let value = &value.r#keys;
+                            for item in value {
+                                cancel.checkpoint()?;
+                                {
+                                    let value = item;
+                                    value.selected()?;
+                                    if let Some(value) = &value.r#quantity {
+                                        {
+                                            let value = &value.r#magnitude;
+                                            if !value.is_finite() {
+                                                return Err(
+                                                    crate::columnar::mismatch(
+                                                        "typed modeling nonfinite number at value/attribute/value/value/row/keys/*/quantity/magnitude",
+                                                    ),
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if let Some(value) = &value.r#uncertainty {
+                    {
+                        let value = &value.r#magnitude;
+                        if !value.is_finite() {
+                            return Err(
+                                crate::columnar::mismatch(
+                                    "typed modeling nonfinite number at value/attribute/value/uncertainty/magnitude",
+                                ),
+                            );
+                        }
+                    }
+                }
+            }
+            if let Some(value) = &value.r#dataset {
+                {
+                    let value = &value.r#bindings;
+                    for item in value {
+                        cancel.checkpoint()?;
+                        {
+                            let value = item;
+                            {
+                                let value = &value.r#value;
+                                {
+                                    let value = &value.r#value;
+                                    value.selected()?;
+                                    if let Some(value) = &value.r#quantity {
+                                        {
+                                            let value = &value.r#magnitude;
+                                            if !value.is_finite() {
+                                                return Err(
+                                                    crate::columnar::mismatch(
+                                                        "typed modeling nonfinite number at value/dataset/bindings/*/value/value/quantity/magnitude",
+                                                    ),
+                                                );
+                                            }
+                                        }
+                                    }
+                                    if let Some(value) = &value.r#references {
+                                        {
+                                            let value = &value.r#paths;
+                                            for item in value {
+                                                cancel.checkpoint()?;
+                                                {
+                                                    let value = item;
+                                                    if let Some(value) = &value.r#keys {
+                                                        for item in value {
+                                                            cancel.checkpoint()?;
+                                                            {
+                                                                let value = item;
+                                                                value.selected()?;
+                                                                if let Some(value) = &value.r#quantity {
+                                                                    {
+                                                                        let value = &value.r#magnitude;
+                                                                        if !value.is_finite() {
+                                                                            return Err(
+                                                                                crate::columnar::mismatch(
+                                                                                    "typed modeling nonfinite number at value/dataset/bindings/*/value/value/references/paths/*/keys/*/quantity/magnitude",
+                                                                                ),
+                                                                            );
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if let Some(value) = &value.r#row {
+                                        {
+                                            let value = &value.r#keys;
+                                            for item in value {
+                                                cancel.checkpoint()?;
+                                                {
+                                                    let value = item;
+                                                    value.selected()?;
+                                                    if let Some(value) = &value.r#quantity {
+                                                        {
+                                                            let value = &value.r#magnitude;
+                                                            if !value.is_finite() {
+                                                                return Err(
+                                                                    crate::columnar::mismatch(
+                                                                        "typed modeling nonfinite number at value/dataset/bindings/*/value/value/row/keys/*/quantity/magnitude",
+                                                                    ),
+                                                                );
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if let Some(value) = &value.r#uncertainty {
+                                    {
+                                        let value = &value.r#magnitude;
+                                        if !value.is_finite() {
+                                            return Err(
+                                                crate::columnar::mismatch(
+                                                    "typed modeling nonfinite number at value/dataset/bindings/*/value/uncertainty/magnitude",
+                                                ),
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                {
+                    let value = &value.r#rows;
+                    for item in value {
+                        cancel.checkpoint()?;
+                        {
+                            let value = item;
+                            {
+                                let value = &value.r#keys;
+                                for item in value {
+                                    cancel.checkpoint()?;
+                                    {
+                                        let value = item;
+                                        {
+                                            let value = &value.r#value;
+                                            value.selected()?;
+                                            if let Some(value) = &value.r#quantity {
+                                                {
+                                                    let value = &value.r#magnitude;
+                                                    if !value.is_finite() {
+                                                        return Err(
+                                                            crate::columnar::mismatch(
+                                                                "typed modeling nonfinite number at value/dataset/rows/*/keys/*/value/quantity/magnitude",
+                                                            ),
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                            if let Some(value) = &value.r#references {
+                                                {
+                                                    let value = &value.r#paths;
+                                                    for item in value {
+                                                        cancel.checkpoint()?;
+                                                        {
+                                                            let value = item;
+                                                            if let Some(value) = &value.r#keys {
+                                                                for item in value {
+                                                                    cancel.checkpoint()?;
+                                                                    {
+                                                                        let value = item;
+                                                                        value.selected()?;
+                                                                        if let Some(value) = &value.r#quantity {
+                                                                            {
+                                                                                let value = &value.r#magnitude;
+                                                                                if !value.is_finite() {
+                                                                                    return Err(
+                                                                                        crate::columnar::mismatch(
+                                                                                            "typed modeling nonfinite number at value/dataset/rows/*/keys/*/value/references/paths/*/keys/*/quantity/magnitude",
+                                                                                        ),
+                                                                                    );
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            if let Some(value) = &value.r#row {
+                                                {
+                                                    let value = &value.r#keys;
+                                                    for item in value {
+                                                        cancel.checkpoint()?;
+                                                        {
+                                                            let value = item;
+                                                            value.selected()?;
+                                                            if let Some(value) = &value.r#quantity {
+                                                                {
+                                                                    let value = &value.r#magnitude;
+                                                                    if !value.is_finite() {
+                                                                        return Err(
+                                                                            crate::columnar::mismatch(
+                                                                                "typed modeling nonfinite number at value/dataset/rows/*/keys/*/value/row/keys/*/quantity/magnitude",
+                                                                            ),
+                                                                        );
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if let Some(value) = &value.r#uncertainty {
+                                            {
+                                                let value = &value.r#magnitude;
+                                                if !value.is_finite() {
+                                                    return Err(
+                                                        crate::columnar::mismatch(
+                                                            "typed modeling nonfinite number at value/dataset/rows/*/keys/*/uncertainty/magnitude",
+                                                        ),
+                                                    );
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            {
+                                let value = &value.r#values;
+                                for item in value {
+                                    cancel.checkpoint()?;
+                                    {
+                                        let value = item;
+                                        {
+                                            let value = &value.r#value;
+                                            value.selected()?;
+                                            if let Some(value) = &value.r#quantity {
+                                                {
+                                                    let value = &value.r#magnitude;
+                                                    if !value.is_finite() {
+                                                        return Err(
+                                                            crate::columnar::mismatch(
+                                                                "typed modeling nonfinite number at value/dataset/rows/*/values/*/value/quantity/magnitude",
+                                                            ),
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                            if let Some(value) = &value.r#references {
+                                                {
+                                                    let value = &value.r#paths;
+                                                    for item in value {
+                                                        cancel.checkpoint()?;
+                                                        {
+                                                            let value = item;
+                                                            if let Some(value) = &value.r#keys {
+                                                                for item in value {
+                                                                    cancel.checkpoint()?;
+                                                                    {
+                                                                        let value = item;
+                                                                        value.selected()?;
+                                                                        if let Some(value) = &value.r#quantity {
+                                                                            {
+                                                                                let value = &value.r#magnitude;
+                                                                                if !value.is_finite() {
+                                                                                    return Err(
+                                                                                        crate::columnar::mismatch(
+                                                                                            "typed modeling nonfinite number at value/dataset/rows/*/values/*/value/references/paths/*/keys/*/quantity/magnitude",
+                                                                                        ),
+                                                                                    );
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            if let Some(value) = &value.r#row {
+                                                {
+                                                    let value = &value.r#keys;
+                                                    for item in value {
+                                                        cancel.checkpoint()?;
+                                                        {
+                                                            let value = item;
+                                                            value.selected()?;
+                                                            if let Some(value) = &value.r#quantity {
+                                                                {
+                                                                    let value = &value.r#magnitude;
+                                                                    if !value.is_finite() {
+                                                                        return Err(
+                                                                            crate::columnar::mismatch(
+                                                                                "typed modeling nonfinite number at value/dataset/rows/*/values/*/value/row/keys/*/quantity/magnitude",
+                                                                            ),
+                                                                        );
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if let Some(value) = &value.r#uncertainty {
+                                            {
+                                                let value = &value.r#magnitude;
+                                                if !value.is_finite() {
+                                                    return Err(
+                                                        crate::columnar::mismatch(
+                                                            "typed modeling nonfinite number at value/dataset/rows/*/values/*/uncertainty/magnitude",
+                                                        ),
+                                                    );
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(value) = &value.r#entity {
+                {
+                    let value = &value.r#attributes;
+                    for item in value {
+                        cancel.checkpoint()?;
+                        {
+                            let value = item;
+                            {
+                                let value = &value.r#value;
+                                {
+                                    let value = &value.r#value;
+                                    value.selected()?;
+                                    if let Some(value) = &value.r#quantity {
+                                        {
+                                            let value = &value.r#magnitude;
+                                            if !value.is_finite() {
+                                                return Err(
+                                                    crate::columnar::mismatch(
+                                                        "typed modeling nonfinite number at value/entity/attributes/*/value/value/quantity/magnitude",
+                                                    ),
+                                                );
+                                            }
+                                        }
+                                    }
+                                    if let Some(value) = &value.r#references {
+                                        {
+                                            let value = &value.r#paths;
+                                            for item in value {
+                                                cancel.checkpoint()?;
+                                                {
+                                                    let value = item;
+                                                    if let Some(value) = &value.r#keys {
+                                                        for item in value {
+                                                            cancel.checkpoint()?;
+                                                            {
+                                                                let value = item;
+                                                                value.selected()?;
+                                                                if let Some(value) = &value.r#quantity {
+                                                                    {
+                                                                        let value = &value.r#magnitude;
+                                                                        if !value.is_finite() {
+                                                                            return Err(
+                                                                                crate::columnar::mismatch(
+                                                                                    "typed modeling nonfinite number at value/entity/attributes/*/value/value/references/paths/*/keys/*/quantity/magnitude",
+                                                                                ),
+                                                                            );
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if let Some(value) = &value.r#row {
+                                        {
+                                            let value = &value.r#keys;
+                                            for item in value {
+                                                cancel.checkpoint()?;
+                                                {
+                                                    let value = item;
+                                                    value.selected()?;
+                                                    if let Some(value) = &value.r#quantity {
+                                                        {
+                                                            let value = &value.r#magnitude;
+                                                            if !value.is_finite() {
+                                                                return Err(
+                                                                    crate::columnar::mismatch(
+                                                                        "typed modeling nonfinite number at value/entity/attributes/*/value/value/row/keys/*/quantity/magnitude",
+                                                                    ),
+                                                                );
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if let Some(value) = &value.r#uncertainty {
+                                    {
+                                        let value = &value.r#magnitude;
+                                        if !value.is_finite() {
+                                            return Err(
+                                                crate::columnar::mismatch(
+                                                    "typed modeling nonfinite number at value/entity/attributes/*/value/uncertainty/magnitude",
+                                                ),
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(value) = &value.r#constant {
+                {
+                    let value = &value.r#value;
+                    {
+                        let value = &value.r#value;
+                        value.selected()?;
+                        if let Some(value) = &value.r#quantity {
+                            {
+                                let value = &value.r#magnitude;
+                                if !value.is_finite() {
+                                    return Err(
+                                        crate::columnar::mismatch(
+                                            "typed modeling nonfinite number at value/constant/value/value/quantity/magnitude",
+                                        ),
+                                    );
+                                }
+                            }
+                        }
+                        if let Some(value) = &value.r#references {
+                            {
+                                let value = &value.r#paths;
+                                for item in value {
+                                    cancel.checkpoint()?;
+                                    {
+                                        let value = item;
+                                        if let Some(value) = &value.r#keys {
+                                            for item in value {
+                                                cancel.checkpoint()?;
+                                                {
+                                                    let value = item;
+                                                    value.selected()?;
+                                                    if let Some(value) = &value.r#quantity {
+                                                        {
+                                                            let value = &value.r#magnitude;
+                                                            if !value.is_finite() {
+                                                                return Err(
+                                                                    crate::columnar::mismatch(
+                                                                        "typed modeling nonfinite number at value/constant/value/value/references/paths/*/keys/*/quantity/magnitude",
+                                                                    ),
+                                                                );
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if let Some(value) = &value.r#row {
+                            {
+                                let value = &value.r#keys;
+                                for item in value {
+                                    cancel.checkpoint()?;
+                                    {
+                                        let value = item;
+                                        value.selected()?;
+                                        if let Some(value) = &value.r#quantity {
+                                            {
+                                                let value = &value.r#magnitude;
+                                                if !value.is_finite() {
+                                                    return Err(
+                                                        crate::columnar::mismatch(
+                                                            "typed modeling nonfinite number at value/constant/value/value/row/keys/*/quantity/magnitude",
+                                                        ),
+                                                    );
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if let Some(value) = &value.r#uncertainty {
+                        {
+                            let value = &value.r#magnitude;
+                            if !value.is_finite() {
+                                return Err(
+                                    crate::columnar::mismatch(
+                                        "typed modeling nonfinite number at value/constant/value/uncertainty/magnitude",
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(value) = &value.r#import {
+                {
+                    let value = &value.r#version;
+                    {
+                        let value = &value.r#major;
+                        if !(0i64..=9223372036854775807i64).contains(value) {
+                            return Err(
+                                crate::columnar::mismatch(
+                                    "typed modeling integer outside declared domain at value/import/version/major",
+                                ),
+                            );
+                        }
+                    }
+                    {
+                        let value = &value.r#minor;
+                        if !(0i64..=9223372036854775807i64).contains(value) {
+                            return Err(
+                                crate::columnar::mismatch(
+                                    "typed modeling integer outside declared domain at value/import/version/minor",
+                                ),
+                            );
+                        }
+                    }
+                    {
+                        let value = &value.r#patch;
+                        if !(0i64..=9223372036854775807i64).contains(value) {
+                            return Err(
+                                crate::columnar::mismatch(
+                                    "typed modeling integer outside declared domain at value/import/version/patch",
+                                ),
+                            );
+                        }
+                    }
+                }
+            }
+            if let Some(value) = &value.r#annotation
+                && let Some(value) = &value.r#connectivity
+            {
+                if let Some(value) = &value.r#incoming
+                    && !(0i64..=4294967295i64).contains(value)
+                {
+                    return Err(
+                        crate::columnar::mismatch(
+                            "typed modeling integer outside declared domain at value/annotation/connectivity/incoming",
+                        ),
+                    );
+                }
+                if let Some(value) = &value.r#outgoing
+                    && !(0i64..=4294967295i64).contains(value)
+                {
+                    return Err(
+                        crate::columnar::mismatch(
+                            "typed modeling integer outside declared domain at value/annotation/connectivity/outgoing",
+                        ),
+                    );
+                }
+            }
+            if let Some(value) = &value.r#difference_scheme {
+                {
+                    let value = &value.r#order;
+                    if !(0i64..=64i64).contains(value) {
+                        return Err(
+                            crate::columnar::mismatch(
+                                "typed modeling integer outside declared domain at value/difference_scheme/order",
+                            ),
+                        );
+                    }
+                }
+                {
+                    let value = &value.r#weights;
+                    for item in value {
+                        cancel.checkpoint()?;
+                        {
+                            let value = item;
+                            if !value.is_finite() {
+                                return Err(
+                                    crate::columnar::mismatch(
+                                        "typed modeling nonfinite number at value/difference_scheme/weights/*",
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                }
+                {
+                    let value = &value.r#quadrature;
+                    for item in value {
+                        cancel.checkpoint()?;
+                        {
+                            let value = item;
+                            if !value.is_finite() {
+                                return Err(
+                                    crate::columnar::mismatch(
+                                        "typed modeling nonfinite number at value/difference_scheme/quadrature/*",
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(value) = &value.r#collocation_scheme {
+                {
+                    let value = &value.r#alpha;
+                    if !value.is_finite() {
+                        return Err(
+                            crate::columnar::mismatch(
+                                "typed modeling nonfinite number at value/collocation_scheme/alpha",
+                            ),
+                        );
+                    }
+                }
+                {
+                    let value = &value.r#beta;
+                    if !value.is_finite() {
+                        return Err(
+                            crate::columnar::mismatch(
+                                "typed modeling nonfinite number at value/collocation_scheme/beta",
+                            ),
+                        );
+                    }
+                }
+            }
+        }
+    }
+    cancel.checkpoint()?;
+    Ok(
+        Some(
+            crate::columnar::LocalFieldAdmission::from_generated_typed_values(
+                registry.contract(spec)?,
+                prepared,
+            )?,
+        ),
+    )
+}

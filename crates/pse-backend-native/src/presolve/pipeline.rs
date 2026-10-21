@@ -231,6 +231,7 @@ impl Pipeline {
             jac,
             hess,
             initial: start,
+            start_submitted: false,
             duals,
             solution: None,
             normalize_affine: report.effective.enabled,

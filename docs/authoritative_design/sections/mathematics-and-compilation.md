@@ -461,6 +461,9 @@ bodies instead of flattened exponentially.
 and compiler `workspace::modeling`. Generic declaration shape belongs to
 [§6.15](schema-and-relations.md#section-6-15), not a parallel grammar catalogue here.
 
+
+
+
 ## 14. Compilation and preparation
 
 > Decision: [ADR-0082](../../adr/0082-library-owned-process-mathematics.md),
@@ -568,6 +571,28 @@ applicability remain barriers. Optional compiled derivative arithmetic uses the 
 compiler-child/module/scratch owners and conservative execution profile. Plan43b owns
 implementation and acceptance; this target statement does not assert their completion.
 
+> Decision: [ADR-0203](../../adr/0203-selected-mathematical-entries-and-dynamic-diagonals.md)
+> specifies the Plan48 selected-entry target; implementation and qualification remain with
+> Plan48c/48e.
+> Repeated provider occurrences across selected groups require complete current matching
+> linearization tokens and exact worker demand support. Static descriptors do not prove
+> arbitrary selected-column capability. Built-in dynamics choose ordinary full preparation
+> before compilation/native effects when those premises are unknown; explicit low-level
+> selected calls refuse missing/changed current context. No equal-number inference or
+> after-effect full retry is allowed; single-group sources are unchanged.
+> The concrete provider-free single-root reconstruction factory may qualify First selected
+> columns before compilation when its admitted orders and provider-free residual/selection/
+> hint/term programs establish that capability. This owner-specific check does not omit
+> current effects or matching completion tokens. Dependent, regime and unknown owners
+> retain their pre-effect full fallback; no generic registration capability is inferred.
+
+Exact semantic row/column entry demand extends the existing prepared-product owner. It
+selects all actual contributors through source support, with canonical scatter, duplicate
+accumulation and original normalization; structural absence is zero. Selected entries retain
+current guards, provider/effect/context obligations and derivative sufficiency, and do not
+claim full Jacobian coverage. Existing complete products remain available to their genuine
+consumers. Full fallback, when required by a provider/oracle, is explicit.
+
 Implicit residual preparation separates unknown-only Newton/Jacobian actions from final
 parameter IFT products while binding all consumed parameter, domain and provider inputs.
 IFT columns have canonical `[unknowns, parameters]` order. Original residual and derivative
@@ -581,6 +606,16 @@ storage and publish only after current effect, envelope, finite-result and scope
 Identical numerical keys do not bypass required provider effects. Separately invoked derivative
 actions compose only under an owner-issued complete numerical linearization premise, including
 actually visited child premises; unchanged values or state matrices alone are insufficient.
+Plan48 RC04 / proposed ADR-0193 additionally permit demanded state coefficient/factor
+elision after a complete current all-residual/all-coordinate First probe re-establishes
+original validity and every actual child's seed-independent derivative context. The saved
+association also binds the immutable problem/layout, exact current parameter/policy/point,
+state-First sufficiency and canonical coefficients. Numerical action vectors may then rebind
+without rebuilding those coefficients. Missing, changed or unknown premises require fresh
+construction; guard failure, cancellation, reset and affine use invalidate the association.
+This target does not infer higher child orders from a First state factor; implementation and
+qualification remain Plan48c/48h.
+
 Every action reruns current effects and refuses changed or unavailable premises. Fresh attempt
 binding prepares the finite demanded programs before native callbacks, which cannot introduce
 symbolic optimization or an unrequested complete-jet fallback. Additional demands retain the
@@ -978,6 +1013,17 @@ immutable historical products retain their actual leases; cloned Salsa handles a
 **Exact local access and receiving validity (Plan39 implementation within ADR-0183).**
 An immutable admitted revision owns ordered Scope, scoped/global Kind, Name and reverse-References buckets derived from its logical objects. Absence and ambiguity remain exact. Edits update affected bucket owners, including payload-only replacements; unchanged buckets and their allocation leases survive. Cold selection and warm premise comparison use these access paths rather than scanning unrelated objects per query. Local admission under accepted Plan45 RC01 carries internally issued typed payloads and parsed fields alongside unchanged canonical identity bytes into local construction; actual byte imports retain decoding and receiving validation. Typed ownership never transfers another receiver's eligibility. Persistent ordered object and inventory indexes copy changed paths rather than whole maps. Each live root conservatively covers its reachable node extent and changed buckets retain their own leases; no unbounded ancestral lease chain substitutes for actual ownership.
 
+Plan48 RC11 / proposed ADR-0202 select a conditional generated typed local-admission
+route for modeling declarations. Exact generated compatibility and actual current native
+predicate preparation precede eligibility. Generated traversal must establish every local
+facet not already guaranteed by the concrete value types; unsupported facets or native
+function/configuration semantics retain their actual checks or refuse specialization.
+Planner preparation alone cannot establish equivalent predicate semantics. A qualified
+helper mints the existing row-bound `LocalFieldAdmission`; it grants no keys/references,
+raw-Arrow structural trust or historical/current-invocation permission. Explicit Arrow
+materialization remains available for its actual export consumers. Plan48b owns the bounded
+eligibility inquiry, implementation and qualification.
+
 The checked-selection handoff retains the exact source, actual physical/provider/binding owners and current invocation. Physical source evidence is renewed through the existing native admission owner; invocation-sensitive selected declaration checks run under that same scope. Preparation consumes an unchanged carried relation without repeating premise comparison. Different sources or invocations establish current eligibility, and warm basis use still checks the original cancellation/deadline. This source validity never replaces fresh numerical-state assessment.
 
 Complete preparation retention uses the exact selected source/dependency versions (including
@@ -1154,7 +1200,22 @@ their owners. There is no persistent Salsa store; a new process rebuilds from th
 revision, and durable reuse applies only to published data
 ([§20](identity-and-publication.md#section-20)).
 
+The fitting residual alternative uses the actual method-bearing numerical strategy/profile
+contract (ADR-0209, [§5.3](identity-and-publication.md#section-5-3)) before dispatch. A missing
+native-backend lookup for a residual method never establishes a constant/all-fixed operation;
+its consumed method, source and profile remain explicit through execution and completion.
+
 ### 14.5 Admission closure and refusal
+
+> Decision: [ADR-0212](../../adr/0212-disposable-scalar-module-cache.md) (proposed; Plan48 C07 target).
+
+Explicit scalar compilation may reuse a bounded disposable image keyed by complete generated
+C++ source, named exports/dimensions and the supported conservative compiler/FP/ABI profile.
+Current private receiving verifies extent/integrity and exports, then retains its own loaded
+code and mutable scratch. Scientific results, source checks and provider/execution permissions
+are never restored. Missing/busy/corrupt cache state uses ordinary fresh compilation; atomic
+optional publication and finite eviction cannot remove a live owner's private copy. No exact
+environment or compiler-binary provenance attestation is required. Interpreted remains default.
 
 > Supplement: [ADR-0191](../../adr/0191-explicit-scalar-compiled-evaluation.md) (proposed; maintainer-authorized Plan 41e implementation).
 

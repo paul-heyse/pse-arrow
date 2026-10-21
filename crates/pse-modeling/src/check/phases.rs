@@ -147,8 +147,13 @@ impl Documents for ParsedDocuments<'_> {
 
 /// Shared exact lexical/member population, including every absent lookup candidate.
 /// Arithmetic source and byte offsets are owned separately by parsed occurrences.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Namespace(Arc<CheckedPackage>);
+impl PartialEq for Namespace {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0) || self.0 == other.0
+    }
+}
 impl Namespace {
     /// Freeze namespace metadata once per phase boundary, rather than cloning each prefix.
     pub fn new(package: &CheckedPackage) -> Self {
@@ -198,10 +203,16 @@ impl Namespace {
         }
         Self(Arc::new(p))
     }
+    /// Reuse an exactly equal immutable namespace once at a phase boundary.
+    pub fn reuse(&mut self, previous: &Self) {
+        if self == previous {
+            self.0 = previous.0.clone();
+        }
+    }
     /// Include this actual shared namespace allocation in a live input census.
     pub fn collect_retained_inputs<'a>(&'a self, census: &mut RetainedInputs<'a>) {
         if census.include_shared(&self.0) {
-            census.add(self.0.retained_bytes());
+            self.0.collect_retained_inputs(census);
         }
     }
     /// Bind one occurrence using the existing lexical and physical-name owners.
@@ -238,7 +249,14 @@ impl ResolutionEnvironment {
     ) -> Result<ResolvedSignature> {
         let p = &self.namespace.0;
         let lookup = |id| self.types.get(&id);
-        let mut names = p.named_types_with(row.declaration_id, &lookup);
+        let mut names = NamedTypes {
+            package: p,
+            owner: row.declaration_id,
+            types: Some(&self.types),
+            bindings: BTreeMap::new(),
+            extents: false,
+            only_extents: false,
+        };
         let mut variables = BTreeSet::new();
         let mut owner = Some(row.declaration_id);
         while let Some(at) = owner {
@@ -256,8 +274,23 @@ impl ResolutionEnvironment {
             .entity
             .as_ref()
             .and_then(|v| p.resolve_with_types(row.declaration_id, &v.kind_name, &lookup));
+        // Retain only type spellings actually consumed by this declaration. The
+        // enclosing namespace input still represents absent names and ordered imports;
+        // equal projections backdate unrelated type and body edits.
+        let mut consumed = names.bindings.clone();
+        for path in crate::selected_source::type_paths(row) {
+            let name = path
+                .segments
+                .iter()
+                .map(|segment| segment.name.as_str())
+                .collect::<Vec<_>>()
+                .join(".");
+            if let Some(ty) = crate::TypeLookup::get(&names, &name) {
+                consumed.insert(name, ty.clone());
+            }
+        }
         Ok(ResolvedSignature {
-            names,
+            names: consumed,
             variables,
             existing_type: lookup(row.declaration_id).cloned(),
             attribute_owner: row
@@ -282,6 +315,15 @@ pub struct Signature {
     pub function: Option<Function>,
 }
 impl Signature {
+    /// Whether reduced-law admission consumes a coordinate declaration population.
+    pub fn requires_reduced_law_admission(&self) -> bool {
+        self.function.as_ref().is_some_and(|function| {
+            matches!(
+                function.result.physical_refinement(),
+                Some(crate::PhysicalRefinement::ReducedLaw { .. })
+            )
+        })
+    }
     /// Retain the existing reduced-law admission under this declaration's tracked
     /// signature owner; it consumes only its arguments and the exact slot population.
     /// # Errors

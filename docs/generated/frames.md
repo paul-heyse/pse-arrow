@@ -16,6 +16,7 @@ Derived in: pse-ids, pse-schema, pse-columnar, pse-model.
 | `NumericalStrategyV1` | `pse:numerical-strategy:v1` | Declared numerical mechanisms, permissions, finite work and consumed accuracy. |
 | `NumericalStrategyV2` | `pse:numerical-strategy:v2` | Current operation-bound composition declaration; historical V1 remains frozen. |
 | `NumericalStrategyV3` | `pse:numerical-strategy:v3` | Current operation-specific production and consumption contracts; earlier bytes remain frozen. |
+| `NumericalStrategyV4` | `pse:numerical-strategy:v4` | Actual backend or residual-method profile references (ADR-0209). |
 | `NumericalDecisionV1` | `pse:numerical-decision:v1` | One resolved next operation and its consumed products/constraints. |
 | `NumericalDecisionV2` | `pse:numerical-decision:v2` | Current operation-specific production and consumption contracts; earlier bytes remain frozen. |
 | `NumericalWorkV1` | `pse:numerical-work:v1` | One actual numerical charging operation within a task's attempt/mechanism. |
@@ -275,6 +276,7 @@ Derived in: pse-runtime.
 | `DynamicProfileV9` | `pse.dynamic.profile.v9` | Typed integration profile and resolved method in canonical document framing. |
 | `DynamicProfileV10` | `pse.dynamic.profile.v10` | Complete dynamic values with an explicitly selected physical sensitivity layout. |
 | `DynamicProfileV11` | `pse.dynamic.profile.v11` | Dynamic profile including distinct consumed adjoint parameter coordinates. |
+| `DynamicProfileV12` | `pse.dynamic.profile.v12` | Current dynamic profile with native automatic first-step defaults. |
 | `DynamicProfileV8` | `pse.dynamic.profile.v8` | Historical profile framing with speculative Auto resolution. |
 | `ExplicitConicV4` | `pse.explicit-conic.v4` | An explicit conic request; its quadratic is certified exactly, so it carries no Gram witness. |
 | `ExplicitConicV5` | `pse.explicit-conic.v5` | Explicit cone request under canonical document floating point framing. |
@@ -282,6 +284,7 @@ Derived in: pse-runtime.
 | `FitPreparedV1` | `pse.fit.prepared.v1` | A prepared fit. |
 | `FitProfileV3` | `pse.fit.profile.v3` | A fit profile: its solver profile, rank tolerance, cell budget, derivative source, simulation profiles and requested intervals. |
 | `FitProfileV4` | `pse.fit.profile.v4` | Fit profile using canonical numeric and uncertainty document framing. |
+| `FitProfileV5` | `pse.fit.profile.v5` | Complete fitting-owned optimizer selection and numerical settings (ADR-0209). |
 | `FitSourceV1` | `pse.fit.source.v1` | A fit source. |
 | `ModelingDynamicModesV1` | `pse.modeling.dynamic-modes.v1` | Compiled simulation modes. |
 | `ModelingDynamicV3` | `pse.modeling.dynamic.v3` | A modeling dynamic simulation, with the derivative order of its functions, its integration parameter values, event directions and state signs. |

@@ -174,7 +174,7 @@ async fn actual_auto_pounce_stationary_failure_runs_generated_second_opinion() {
         std::iter::once((0, &trace.declaration.mechanisms[0])).chain(generated.iter().copied())
     {
         let profile = mechanism.profile.unwrap();
-        assert_eq!(profile.backend, Backend::Pounce);
+        assert_eq!(profile.method.backend(), Some(Backend::Pounce));
         assert!(
             profiles.insert(profile.key),
             "each actually attempted profile has a distinct identity"

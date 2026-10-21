@@ -3386,6 +3386,87 @@ fn assembly_policy_admits_exact_worker_cap_and_survives_projections() {
         ));
     }
 }
+
+#[test]
+fn selected_entry_artifacts_keep_static_first_support_and_exact_numerical_axes() {
+    let (mut workspace, _, _, root) =
+        setup("package p { def Root { var x:Scalar; var y:Scalar; eq e:x*x+y==5; } }");
+    let control = Cancellation::default();
+    let model = workspace
+        .prepare_modeling_cancellable(
+            root,
+            root_instance(root),
+            Bindings {
+                demand: vec!["x".into(), "y".into()],
+                ..Bindings::default()
+            },
+            Limits::default(),
+            control.flag(),
+        )
+        .unwrap();
+    let rows = model
+        .admitted
+        .case
+        .rows()
+        .iter()
+        .map(|row| row.id)
+        .collect::<Vec<_>>();
+    let x = model.model.paths["x"];
+    let y = model.model.paths["y"];
+    let profile = Profile::default();
+    let full = workspace
+        .prepare_modeling_function_products(
+            &model,
+            rows.clone(),
+            vec![y, x],
+            DerivativeOrder::First,
+            &[pse_math::jets::ProductKind::JacobianAction],
+            profile,
+            &control.flag(),
+        )
+        .unwrap();
+    let selected = full
+        .prepare_jacobian_entries(&[(rows[0], x)], &control.flag())
+        .unwrap();
+    assert_eq!(selected.plan.order(), DerivativeOrder::Value);
+    assert_eq!(
+        selected.plan.jacobian_pattern().row_idx(),
+        full.plan.jacobian_pattern().row_idx()
+    );
+    assert!(
+        selected
+            .artifacts
+            .iter()
+            .any(|artifact| artifact.demand.order == DerivativeOrder::Value)
+    );
+    let entries = selected
+        .artifacts
+        .iter()
+        .filter(|artifact| {
+            artifact.demand.product == pse_math::jets::ProductKind::SelectedPartials
+                && artifact.demand.order == DerivativeOrder::First
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].demand.coordinates.len(), 1);
+    assert!(selected.retained_bytes() > selected.plan.retained_bytes());
+    let scope = pse_kernels::ExecutionScope::new(control.clone(), None);
+    let programs = selected
+        .artifacts
+        .iter()
+        .map(|artifact| artifact.build(&scope).map(Arc::new))
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap();
+    let assembly = Arc::new(selected.plan.assemble(programs).unwrap());
+    let mut worker = assembly.worker(Default::default(), control);
+    let values = CaseValues {
+        scalars: BTreeMap::from([(x, 2.), (y, 1.)]),
+    };
+    let mut entry = [987.];
+    worker.jacobian_entries(&values, &mut entry).unwrap();
+    assert_eq!(entry, [4.]);
+    assert!(worker.jacobian(&values).is_err());
+}
 #[test]
 fn value_rebind_shares_structure_and_rebuilds_only_consumed_values() {
     let (mut w, _, _, root) =

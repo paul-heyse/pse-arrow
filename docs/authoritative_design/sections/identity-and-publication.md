@@ -268,6 +268,25 @@ bytes or grant current reuse from readable historical provenance. Current decodi
 execution refuses without inventing policy or scientific facts.
 
 
+> Decision: [ADR-0209](../../adr/0209-qualified-fitting-residual-methods.md) (proposed; Plan48 E07 target).
+
+Current numerical strategy documents use version4 and `NumericalStrategyV4`: a profile names
+its real `NumericalMethod` (native backend or residual LM), rather than assigning every method
+an NLP backend. `FitProfileV5` includes the requested fitting optimizer. Replay constructors
+retain that choice under their current versioned artifact contract. Producers, decoding,
+strategy projection and published/Python documents migrate together; no old-field shim
+reinterprets historical bytes. Frozen old frame spellings remain historical and do not
+admit execution. Physical scalar-cache encoding integrity has its separate nonsemantic role.
+
+IDAS native-step default selection has its own current receiving migration (ADR-0207):
+IdasSettings and enclosing dynamic Profile documents use version3, with `DynamicProfileV12`
+identities. This includes omission of nested IDAS settings: an older enclosing profile cannot
+silently acquire the new automatic policy. Explicit configured requests keep their current
+meaning; unsupported historical concrete profile versions refuse without a compatibility shim.
+Unresolved study/fit profile requests mean current authored-default resolution on fresh admission;
+actual resolved profile identities bind preparation/result reuse, while replay retains its captured
+concrete profile. Generic outer requests do not assert a frozen historical native-step default.
+
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
 
 Demand-indexed support/assessment products frame their consumed semantic, physical, provider, ordered selection, policy and relevant build/runtime contracts. Existing role separation remains: changing current preimages versions those frames and never reinterprets historical bytes. Runtime observation does not invalidate mathematics that did not consume it.
@@ -869,6 +888,14 @@ must receive explicit current readmission or a typed refusal without invented fi
 qualification or policy. Generated contracts remain declarations, never inferred layouts.
 
 ### 20.6 Operational store and durable execution
+
+> Decision: [ADR-0211](../../adr/0211-bounded-worker-publication.md) (proposed; bounded publication ownership target).
+
+Compute/publication scheduler separation does not weaken durable completion. The bounded
+old lane retains its source scope, heartbeat, fence, result/allocation and native-close
+owner through actual ACK/error and drain. At most W Running and W Publishing owners use
+precharged metadata and actual retained-result leases. Lost/uncertain ACK remains uncertain;
+cancellation joins every issued owner, and only terminal outcomes advance processed state.
 
 > Decision: [ADR-0181](../../adr/0181-separate-caller-activity-and-physical-connection-lifetimes.md) (proposed; Plan 37 RC04 target).
 

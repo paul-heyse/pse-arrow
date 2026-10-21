@@ -658,6 +658,13 @@ fn validate_import_versions(
     Ok(())
 }
 impl ModelingPackage {
+    #[cfg(all(test, feature = "native-solvers"))]
+    pub(in crate::workflow) fn distinct_provider_owner_for_test(&self) -> Self {
+        let mut distinct = self.clone();
+        distinct.providers = Arc::new((*self.providers).clone());
+        distinct
+    }
+
     /// Select the immutable capability inventory for subsequent attempts. Existing
     /// attempts retain their admitted factories; source strings never load code.
     pub fn with_accelerators(

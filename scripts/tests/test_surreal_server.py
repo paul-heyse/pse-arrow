@@ -2723,6 +2723,82 @@ class SurrealSupervisorTests(unittest.TestCase):
         )
         self.assertFalse(server.config_for(self.state)["accepting_writes"])
 
+    def test_functional_no_primary_quiesce_keeps_worker_drain_checks(self) -> None:
+        config = self.reference_fixture()
+        config["primary_receiver"] = None
+        server.write_json(self.state / "config.json", config)
+        idle = {"LoadState": "not-found", "ActiveState": "inactive", "ControlGroup": ""}
+        args = server.parser().parse_args(["quiesce", "--state", str(self.state)])
+        with (
+            patch.object(server, "primary_observation", return_value=idle),
+            patch.object(
+                server,
+                "recorded_primary",
+                side_effect=AssertionError("no primary was configured"),
+            ),
+            patch.object(server, "settled_worker", return_value=idle) as slots,
+            patch.object(server, "active", return_value=False),
+            patch("builtins.print"),
+        ):
+            self.assertEqual(server.dispatch(args), 0)
+            closed = server.config_for(self.state)
+            self.assertFalse(closed["accepting_writes"])
+            server.workers_drained(self.state, closed)
+        allocation = server.object_mapping(config["resources"])
+        self.assertEqual(slots.call_count, server.integer(allocation["native_workers"]))
+
+    def test_functional_no_primary_refuses_surviving_primary_or_worker(self) -> None:
+        config = self.reference_fixture()
+        config["primary_receiver"] = None
+        idle = {"LoadState": "not-found", "ActiveState": "inactive", "ControlGroup": ""}
+        live = {
+            "LoadState": "loaded",
+            "ActiveState": "active",
+            "ControlGroup": "/owned/live",
+        }
+        with self.assertRaisesRegex(server.SupervisorError, "Unconfigured primary"):
+            server.primary_drain_pid(self.state, config, live)
+        with (
+            patch.object(server, "primary_observation", return_value=idle),
+            patch.object(server, "settled_worker", return_value=live),
+            self.assertRaisesRegex(
+                server.SupervisorError, "Managed native worker slots"
+            ),
+        ):
+            server.workers_drained(self.state, config)
+
+    def test_functional_no_primary_still_refuses_live_observer(self) -> None:
+        config = self.reference_fixture()
+        config["primary_receiver"] = None
+        server.write_json(self.state / "config.json", config)
+        server.write_json(
+            self.state / "primary-observer.json",
+            {
+                "pid": 999999999,
+                "start": "0",
+                "group": "/owned/observer",
+            },
+        )
+        with (
+            patch.object(server, "require_borrowers_drained") as borrowers,
+            patch.object(server, "observer_launch_busy", return_value=False),
+            patch.object(server, "group_populated", return_value=True),
+            self.assertRaisesRegex(
+                server.SupervisorError, "observer process group remains populated"
+            ),
+        ):
+            server.all_contexts_drained(self.state)
+        borrowers.assert_called_once_with(self.state)
+
+    def test_missing_primary_configuration_is_not_explicit_no_primary(self) -> None:
+        config = self.reference_fixture()
+        del config["primary_receiver"]
+        idle = {"LoadState": "not-found", "ActiveState": "inactive", "ControlGroup": ""}
+        with self.assertRaisesRegex(
+            server.SupervisorError, "configured primary receiver"
+        ):
+            server.primary_drain_pid(self.state, config, idle)
+
     def live_primary_fixture(
         self,
     ) -> tuple[dict[str, object], subprocess.Popen[bytes], dict[str, str]]:

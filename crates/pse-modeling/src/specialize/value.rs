@@ -215,7 +215,7 @@ pub(crate) struct Evaluator<'a, 'b> {
     /// reads no test-only data (ADR-0123 Outcome 5).
     pub reader: crate::provenance::Reader<'a>,
 }
-impl Evaluator<'_, '_> {
+impl<'a, 'b> Evaluator<'a, 'b> {
     pub(crate) fn field(
         &mut self,
         role: &str,
@@ -353,13 +353,7 @@ impl Evaluator<'_, '_> {
                     return Err(invalid(self.at, "definition reference required"));
                 };
                 let mut supplied = BTreeSet::new();
-                let constructor_types = self
-                    .lexical_bases
-                    .filter(|_| !matches!(self.reader, crate::provenance::Reader::Admission(_)))
-                    .map_or_else(
-                        || std::sync::Arc::new(self.package.named_types(*id)),
-                        |bases| bases.evaluation(self.package, *id),
-                    );
+                let constructor_types = self.lexical_types(*id);
                 let variables = BTreeSet::new();
                 let target = self.package.preset_definition(*id)?;
                 for (n, expression) in arguments {
@@ -375,7 +369,7 @@ impl Evaluator<'_, '_> {
                     let ty = self.physical.resolve(
                         &parameter.r#type,
                         &variables,
-                        constructor_types.as_ref(),
+                        &constructor_types,
                         *id,
                     )?;
                     let value = self.syntax(expression, Some(&ty), depth + 1)?;
@@ -391,20 +385,22 @@ impl Evaluator<'_, '_> {
     }
     /// The declarations' types visible at `at`; at admission a kind's name types its
     /// extent (Plan 23 D0).
-    fn named_types(&self) -> std::sync::Arc<BTreeMap<String, Type>> {
-        if !matches!(self.reader, crate::provenance::Reader::Admission(_))
-            && let Some(bases) = self.lexical_bases
-        {
-            return bases.evaluation(self.package, self.at);
+    fn named_types(&self) -> crate::TypeScope<'a> {
+        self.lexical_types(self.at)
+    }
+    fn lexical_types(&self, at: DeclarationId) -> crate::TypeScope<'a> {
+        let mut lexical = self.package.named_types(at);
+        let admission = matches!(self.reader, crate::provenance::Reader::Admission(_));
+        if admission {
+            lexical = lexical.with_extents(false);
         }
-        let mut types = self.package.named_types(self.at);
-        if matches!(self.reader, crate::provenance::Reader::Admission(_)) {
-            crate::entity::extents(self.package, self.at, &mut types);
+        if !admission && let Some(bases) = self.lexical_bases {
+            let local = bases.evaluation(self.package, at);
+            lexical.extend(local.iter().map(|(name, ty)| (name.clone(), ty.clone())));
+        } else if let Some(function) = self.package.functions.get(&at) {
+            lexical.extend(function.arguments.iter().cloned());
         }
-        if let Some(function) = self.package.functions.get(&self.at) {
-            types.extend(function.arguments.iter().cloned());
-        }
-        std::sync::Arc::new(types)
+        crate::TypeScope::owned(lexical)
     }
     fn reference(&mut self, name: &str, depth: usize) -> Result<Value> {
         if depth > 64 {
@@ -678,8 +674,7 @@ impl Evaluator<'_, '_> {
             let (calls, previous) = work.get();
             work.set((calls + 1, previous + nodes));
         });
-        let base = self.named_types();
-        let mut env = crate::TypeScope::shared(base);
+        let mut env = self.named_types();
         env.extend(
             self.env
                 .iter()
@@ -1090,8 +1085,7 @@ impl Evaluator<'_, '_> {
                 if !result.is_finite() {
                     return Err(invalid(self.at, "static primitive domain violation"));
                 }
-                let base = self.named_types();
-                let mut types = crate::TypeScope::shared(base);
+                let mut types = self.named_types();
                 types.extend(
                     self.env
                         .iter()
@@ -1141,8 +1135,7 @@ impl Evaluator<'_, '_> {
                 if values.len() > self.limit {
                     return Err(invalid(self.at, "static reduction extent"));
                 }
-                let base = self.named_types();
-                let mut types = crate::TypeScope::shared(base);
+                let mut types = self.named_types();
                 types.extend(
                     self.env
                         .iter()
@@ -1283,8 +1276,7 @@ impl Evaluator<'_, '_> {
                 if members.len() > self.limit {
                     return Err(invalid(self.at, "static fold extent"));
                 }
-                let base = self.named_types();
-                let mut types = crate::TypeScope::shared(base);
+                let mut types = self.named_types();
                 types.extend(
                     self.env
                         .iter()
@@ -1396,8 +1388,7 @@ impl Evaluator<'_, '_> {
                 let result = if let Some(expected) = expected {
                     expected.clone()
                 } else {
-                    let base = self.named_types();
-                    let mut types = crate::TypeScope::shared(base);
+                    let mut types = self.named_types();
                     // A present or absent row cell still has its declared optional
                     // type. Values alone cannot recover absence or an empty set's
                     // element contract, so retain the admitted row/function context.

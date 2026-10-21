@@ -64,6 +64,29 @@ impl AdmissionScope {
     }
 }
 
+/// Pointer hits retain their SchemaRef, so allocation reuse cannot select another
+/// schema. Equal independently supplied schemas still take exact structural lookup.
+#[derive(Debug, Default)]
+struct SchemaSlots {
+    values: HashMap<SchemaRef, u64>,
+    last: Option<(SchemaRef, u64)>,
+}
+impl SchemaSlots {
+    fn slot(&mut self, schema: &SchemaRef) -> Result<u64, RelationError> {
+        if let Some((previous, slot)) = &self.last
+            && Arc::ptr_eq(previous, schema)
+        {
+            return Ok(*slot);
+        }
+        let next = u64::try_from(self.values.len()).map_err(|_| {
+            super::mismatch("validation context", "preparation slot extent overflows")
+        })?;
+        let slot = *self.values.entry(schema.clone()).or_insert(next);
+        self.last = Some((schema.clone(), slot));
+        Ok(slot)
+    }
+}
+
 /// One SQL binding and immutable expression preparation per actual owner/schema.
 struct TemplateCell(Result<Arc<ContractTemplate>, Arc<RelationError>>);
 struct PreparedCell(Result<Arc<PreparedLocalContract>, Arc<RelationError>>);
@@ -77,7 +100,8 @@ struct ValidationOwner {
     owner: Arc<()>,
     native_owner: Arc<()>,
     state: Arc<dyn super::planner::ValidationPlanner>,
-    prepared: Mutex<HashMap<SchemaRef, u64>>,
+    domains: super::predicates::DomainEnvironment,
+    prepared: Mutex<SchemaSlots>,
     implementations: pse_schema::ImplementationCache,
     successful: std::sync::atomic::AtomicUsize,
 }
@@ -106,13 +130,19 @@ impl ValidationContext {
                 owner: registry.implementation_owner(),
                 native_owner: Arc::new(()),
                 state: Arc::new(state),
-                prepared: Mutex::new(HashMap::new()),
+                domains: super::predicates::DomainEnvironment::current(registry),
+                prepared: Mutex::new(SchemaSlots::default()),
                 implementations: Default::default(),
                 successful: std::sync::atomic::AtomicUsize::new(0),
             }),
             scope: AdmissionScope::new(),
             scoped: Arc::new(ScopedContracts::default()),
         }
+    }
+    /// Eligibility of this exact receiving planner for generated modeling values.
+    /// A true result establishes no facts about a row or newly constructed array.
+    pub fn typed_modeling_local_eligible(&self) -> bool {
+        self.shared.state.typed_modeling_local_eligible()
     }
     /// Compare retained actual registry and native implementation owners, independently
     /// of the admission invocation. Content equality never establishes this relation.
@@ -227,10 +257,7 @@ impl ValidationContext {
             let mut slots = self.shared.prepared.lock().map_err(|_| {
                 super::mismatch("validation context", "prepared cache lock poisoned")
             })?;
-            let next = u64::try_from(slots.len()).map_err(|_| {
-                super::mismatch("validation context", "preparation slot extent overflows")
-            })?;
-            *slots.entry(schema.clone()).or_insert(next)
+            slots.slot(&schema)?
         };
         let template = self
             .shared
@@ -271,7 +298,11 @@ impl ValidationContext {
             .fields()
             .iter()
             .map(|field| {
-                super::occurrences::Node::prepare(registry, &self.shared.state, Arc::clone(field))
+                super::occurrences::Node::prepare(
+                    &self.shared.domains,
+                    &self.shared.state,
+                    Arc::clone(field),
+                )
             })
             .collect::<Result<_, _>>()?;
         let mut predicates = Vec::new();

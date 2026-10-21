@@ -1,6 +1,6 @@
 ---
 title: "Plan48: Recommendation coverage"
-status: draft
+status: done
 date: 2026-10-20
 adrs: []
 review_sources: [docs/design_review/evidence/execution-performance-recommendations-audit-2026-10-20/recommendation-register.md]

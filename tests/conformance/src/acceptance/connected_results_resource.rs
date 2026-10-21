@@ -101,7 +101,7 @@ async fn authored_connected_results_resource() {
     let original = p.solve.clone();
     let mut direct = original.numerical_strategy();
     direct.mechanisms[0].profile = Some(pse_model::strategy::ProfileRef {
-        backend: Backend::Ipopt,
+        method: pse_model::strategy::NumericalMethod::Backend(Backend::Ipopt),
         key: original.strategy_profile().unwrap(),
     });
     p.solve = original

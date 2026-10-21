@@ -94,6 +94,16 @@ foreign meaning. Registry and relation fingerprints identify content, not admiss
 
 ### 4.2 What is generated from it
 
+> Decision: [ADR-0210](../../adr/0210-standard-registry-resolved-products.md) (proposed; Plan48 B04 target).
+
+The standard registry may hydrate complete declaration-derived resolved products generated
+by the existing source catalog authority. The generator assembles from declarations rather
+than its generated hydration output. Exact resolved models, obligations, graph/schema and
+canonical description/fingerprint products survive; mutable implementation/proof caches and
+runtime owner shells are fresh. Current array receiving remains explicitly validated.
+Custom or changed registries retain their actual declaration-owned builder. A partial image
+or a timing-only comparison does not establish complete hydration equivalence.
+
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Surreal schema/codecs replace persistence-only PostgreSQL/Cornucopia outputs at the canonical boundary. Scientific shapes are not duplicated in hand-authored database DDL. Arrow and typed Python lowerings remain at their consumed boundaries.
 
 > Decision: [ADR-0031](../../adr/0031-generated-sources-committed-and-diff-checked.md),
@@ -248,6 +258,10 @@ values. Dictionary encoding is presentation only and never carries identity. The
 `reference.schema_logical_types` relation is generated from these field contracts.
 
 ### 4.6 Construction properties and residual obligations
+
+Generated standard hydration retains the same declaration origins, references, ordinal and
+integrity obligations as source assembly (ADR-0210). It does not restore receiving proofs,
+implementation closures or prior session state, and it cannot admit newly supplied arrays.
 
 > Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).
 

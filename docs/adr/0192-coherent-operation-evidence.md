@@ -47,6 +47,21 @@ Explicit launch profiling returns separate command and capture owners. A fresh c
 
 **Implemented under accepted Plan44/RC01:** one invocation recorder is established inside the entered activity owner before synchronous native dispatch, transferring that same context to workers and supervision. Invocation evidence version 2 starts its monotonic wall clock at this establishment, excludes earlier preparation, and preserves synchronous admission/refusal, nested invocation identity and actual cancellation/drain. Version-1 supervisor-only documents are not interpreted as version-2 coverage. All actual document, comparison and export consumers migrate together; no compatibility execution path or scientific permission is added. **Tested — 2026-10-17:** targeted native invocation/transfer/comparison/failure controls and Python invocation-endpoint projections passed; the [Plan44 Outcome](../plans/44-pipeline-performance-optimization.md#outcome-specified-changes-and-test-setup) records commands and boundaries. The worker interval is inclusive and actual, not exclusive CPU attribution; assembled live/durable journeys remain with Plan44f.
 
+### Plan48 ordinary observation extension — 2026-10-20
+
+**Proposed / Interface-checked:** accepted RC03 selects batching prepared ordinary
+facts at the existing safe-return boundary, with one source time and one optional
+publication decision for the coupled count/time tuple. This removes repeated lock
+and formatting work without a new timer cadence. A refused optional batch remains
+explicitly lost: its live metrics can be stale/incomplete; the exact local owner and
+final native report retain performed counts and time. Lost intervals are never
+synthesized from cumulative elapsed time. Current phase retirement is independent
+of that optional batch. Compiler event counters bind the current operation's prepared
+population; query-key formatting is selected detail rather than ordinary work.
+Blueprint §23.1 owns the ordinary freshness contract; Plan48g owns migration and
+qualification. This amendment precedes dependent implementation and does not change
+this record's formal proposed status.
+
 ### Consequences
 
 Changed document encodings are versioned and all actual Rust/Python/CLI, durable, timeline, report and benchmark consumers migrate together. Owner-issued native facts preserve activation, phase, coordinates, units and inclusive scope. Ordinary diagnostics remain bounded and store-independent. No callback backpressure, subscriber replacement or unbounded native collector is introduced.

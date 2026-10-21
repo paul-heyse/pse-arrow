@@ -3,7 +3,7 @@
 //! Finite semi-explicit dynamics. Numerical algorithms belong to Diffsol and SUNDIALS IDAS
 //! (ADR-0084, ADR-0093, ADR-0110).
 use crate::ProblemError;
-use pse_ids::{ContentHash, SemanticId};
+use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_math::index::{OriginalCol, OriginalRow};
 use pse_model::{document::Version, scalars::PositiveCount};
 use std::{collections::BTreeSet, sync::Arc, time::Duration};
@@ -119,6 +119,18 @@ impl Default for AdjointSettings {
         }
     }
 }
+/// Explicit half-bandwidths in the original admitted state ordering.
+/// Zero retains only the diagonal on that side; no ordering is inferred.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
+pub struct IdasBand {
+    /// Number of original state columns retained above a row's diagonal.
+    pub upper: usize,
+    /// Number of original state columns retained below a row's diagonal.
+    pub lower: usize,
+}
 /// IDAS Newton linear solver.
 #[derive(
     Clone,
@@ -144,6 +156,16 @@ pub enum IdasLinear {
         #[serde(default = "unpreconditioned")]
         preconditioner: crate::solve::Preconditioner,
     },
+    /// Exact matrix-free GMRES with the native library's band approximation as
+    /// a left preconditioner. Both bands name original state coordinates.
+    SpgmrBbd {
+        /// Maximum Krylov subspace dimension.
+        dimension: PositiveCount,
+        /// Envelope used by native grouped residual differences.
+        difference: IdasBand,
+        /// Band of the approximation retained and factored by IDAS.
+        retained: IdasBand,
+    },
     /// Matrix-free flexible GMRES over analytic Jacobian-vector products.
     Spfgmr {
         /// Maximum Krylov subspace dimension.
@@ -152,6 +174,73 @@ pub enum IdasLinear {
         #[serde(default = "unpreconditioned")]
         preconditioner: crate::solve::Preconditioner,
     },
+}
+impl IdasLinear {
+    pub(crate) const fn krylov_dimension(self) -> Option<PositiveCount> {
+        match self {
+            Self::Klu => None,
+            Self::Spgmr { dimension, .. }
+            | Self::Spfgmr { dimension, .. }
+            | Self::SpgmrBbd { dimension, .. } => Some(dimension),
+        }
+    }
+    pub(crate) fn validate_for_states(self, states: usize) -> Result<(), ProblemError> {
+        if self
+            .krylov_dimension()
+            .is_some_and(|n| i32::try_from(n.into_inner()).is_err())
+        {
+            return Err(contract("invalid IDAS Krylov dimension"));
+        }
+        if let Self::SpgmrBbd {
+            difference,
+            retained,
+            ..
+        } = self
+            && (states == 0
+                || i64::try_from(states).is_err()
+                || [
+                    difference.upper,
+                    difference.lower,
+                    retained.upper,
+                    retained.lower,
+                ]
+                .iter()
+                .any(|&width| width >= states)
+                || retained.upper > difference.upper
+                || retained.lower > difference.lower)
+        {
+            return Err(contract(
+                "IDAS BBD bands must fit original states and the differencing envelope",
+            ));
+        }
+        Ok(())
+    }
+    /// Peak native BBD storage, including simultaneous old/new populations on
+    /// replacement. This is charged before IDABBDPrecInit allocates either one.
+    pub(crate) fn bbd_bytes(self, states: usize) -> Result<usize, ProblemError> {
+        self.validate_for_states(states)?;
+        let Self::SpgmrBbd { retained, .. } = self else {
+            return Ok(0);
+        };
+        // SUNDIALS7.1.1 idas_bbdpre.c owns PP, four cloned serial vectors,
+        // two empty serial views and a band solver. sunmatrix_band.c owns
+        // n*(stored_upper+lower+1) doubles and n column pointers; the band
+        // solver owns n i64 pivots. The fixed allowance covers BBD, six
+        // vector contents/operation tables, matrix and solver headers/ops.
+        // BBD Init allocates a replacement before freeing the prior owner.
+        let population = (|| {
+            let stored_upper = retained.upper.checked_add(retained.lower)?.min(states - 1);
+            let stride = stored_upper.checked_add(retained.lower)?.checked_add(1)?;
+            states
+                .checked_mul(stride)?
+                .checked_mul(size_of::<f64>())?
+                .checked_add(states.checked_mul(2 * size_of::<i64>() + 4 * size_of::<f64>())?)?
+                .checked_add(6 * 512 + 4096)
+        })();
+        population
+            .and_then(|bytes| bytes.checked_mul(2))
+            .ok_or_else(|| ProblemError::memory("IDAS BBD replacement storage extent"))
+    }
 }
 const fn unpreconditioned() -> crate::solve::Preconditioner {
     crate::solve::Preconditioner::None
@@ -170,21 +259,46 @@ pub(crate) const fn state_sign_code(sign: StateSign) -> f64 {
         StateSign::Negative => -2.0,
     }
 }
+/// Origin of the first physical IDAS step; consistent initialization retains its
+/// separate positive orientation scale in [`Profile::initial_step`].
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum IdasInitialStep {
+    /// Attempt the positive step in the shared dynamic profile.
+    Configured,
+    /// Let the native integrator estimate its first physical step (the default).
+    #[default]
+    Automatic,
+}
 /// Typed IDAS-only method controls (ADR-0110 item 1), a versioned boundary document
 /// (ADR-0116 Outcome 6): the version is required, and absent fields take these defaults.
 /// Version 2 removes the per-state sign constraints: they derive from the authored bounds
 /// ([`Contract::signs`], ADR-0119 Outcome 4).
+/// Version 3 makes native automatic first-step selection the default (ADR-0207).
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct IdasSettings {
     /// Document version.
-    pub version: Version<2>,
+    pub version: Version<3>,
     /// Newton linear solver.
     #[serde(default)]
     pub linear: IdasLinear,
     /// Forward-sensitivity corrector.
     #[serde(default = "IdasSettings::default_sensitivity")]
     pub sensitivity: SensitivityCorrector,
+    /// Native first-step policy, independent of the positive IC orientation scale.
+    #[serde(default)]
+    pub native_initial_step: IdasInitialStep,
     /// Consistent initialization at the start of the horizon; scheduled changes and resets
     /// always keep their differential states.
     #[serde(default = "IdasSettings::default_initialization")]
@@ -209,6 +323,7 @@ impl Default for IdasSettings {
             version: Version,
             linear: IdasLinear::Klu,
             sensitivity: Self::default_sensitivity(),
+            native_initial_step: IdasInitialStep::Automatic,
             initialization: Self::default_initialization(),
             initial_conditions: IdasInitialConditions::default(),
         }
@@ -407,6 +522,25 @@ pub(crate) const fn root_direction(direction: EventDirection) -> i32 {
     }
 }
 
+/// Complete identity of the consumed dynamic profile, shared by native storage and workflows.
+/// Version 12 distinguishes native automatic first-step defaults and current profile admission.
+pub fn profile_identity(p: &Profile) -> Result<pse_ids::roles::ProfileHash, ProblemError> {
+    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV12);
+    pse_ids::document::frame(&mut h, p)
+        .map_err(|error| ProblemError::Internal(error.to_string()))?;
+    h.str("forward_axes");
+    pse_ids::document::frame(&mut h, &p.forward_axes)
+        .map_err(|error| ProblemError::Internal(error.to_string()))?;
+    h.str("adjoint_parameters");
+    pse_ids::document::frame(&mut h, &p.adjoint_parameters)
+        .map_err(|error| ProblemError::Internal(error.to_string()))?;
+    h.str("resolved_method");
+    pse_ids::document::frame(&mut h, &p.resolved_method().ok())
+        .map_err(|error| ProblemError::Internal(error.to_string()))?;
+    h.hash(&p.numerics.key());
+    Ok(pse_ids::roles::ProfileHash::from_id(h.finish_hash()))
+}
+
 /// Dispatch only after checking the complete integration requirements. `parameters` is
 /// the integration vector of [`Profile::integration_width`] values: the unscheduled
 /// contract parameters, then every scheduled input's interval values.
@@ -476,6 +610,94 @@ pub fn integrate_with_samples_observed(
     retention: SampleRetention,
     observer: &mut dyn SampleObserver,
 ) -> Result<Report, ProblemError> {
+    integrate_samples_core(
+        oracle, profile, parameters, cancel, progress, snapshot, retention, observer, None,
+    )
+}
+/// Execute under the actual current caller, preserving its scope, finite storage and deadline.
+/// Sample publication and native integration use the same core as ordinary fresh requests.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub fn integrate_with_samples_current_observed(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    caller: &crate::solve::Execution,
+    snapshot: &crate::execution::Snapshot,
+    retention: SampleRetention,
+    observer: &mut dyn SampleObserver,
+) -> Result<Report, ProblemError> {
+    let mut current = current_dynamic_execution(profile, caller)?;
+    // This API explicitly carries the live sample operation's existing progress.
+    current.progress = caller.progress.clone();
+    #[cfg(feature = "idas")]
+    let storage = Some((None, current.clone()));
+    #[cfg(not(feature = "idas"))]
+    let storage = None;
+    integrate_samples_core(
+        oracle,
+        profile,
+        parameters,
+        current.cancellation_control().clone(),
+        current.progress.clone(),
+        snapshot,
+        retention,
+        observer,
+        storage,
+    )
+}
+#[cfg(feature = "idas")]
+pub use idas::IdasWorkspace;
+/// Use optional owner-affine IDAS storage under the caller's actual current admission.
+/// The independent request still binds a fresh callback context and numerical history.
+#[cfg(feature = "idas")]
+pub fn integrate_with_workspace_observed(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    caller: &crate::solve::Execution,
+    snapshot: &crate::execution::Snapshot,
+    workspace: &mut IdasWorkspace,
+) -> Result<Report, ProblemError> {
+    let result = (|| {
+        let current = current_dynamic_execution(profile, caller)?;
+        let mut observer = IgnoreSamples;
+        integrate_samples_core(
+            oracle,
+            profile,
+            parameters,
+            current.cancellation_control().clone(),
+            current.progress.clone(),
+            snapshot,
+            SampleRetention::Full,
+            &mut observer,
+            Some((Some(&mut *workspace), current)),
+        )
+    })();
+    if !result
+        .as_ref()
+        .is_ok_and(|report| report.termination == Termination::Completed)
+    {
+        workspace.clear();
+    }
+    result
+}
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the same integration core separates input, actual execution and sample ownership"
+)]
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+fn integrate_samples_core(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    cancel: Cancellation,
+    progress: Arc<crate::solve::Progress>,
+    snapshot: &crate::execution::Snapshot,
+    retention: SampleRetention,
+    observer: &mut dyn SampleObserver,
+    #[cfg(feature = "idas")] storage: Option<(Option<&mut IdasWorkspace>, crate::solve::Execution)>,
+    #[cfg(not(feature = "idas"))] _storage: Option<()>,
+) -> Result<Report, ProblemError> {
     let mut output = SampleOutput {
         retention,
         observer,
@@ -511,7 +733,25 @@ pub fn integrate_with_samples_observed(
         ),
         #[cfg(feature = "idas")]
         Method::Idas => {
-            idas::integrate_with_samples(oracle, profile, parameters, cancel, progress, &mut output)
+            if let Some((workspace, current)) = storage {
+                idas::integrate_with_storage(
+                    oracle,
+                    profile,
+                    parameters,
+                    current,
+                    workspace,
+                    &mut output,
+                )
+            } else {
+                idas::integrate_with_samples(
+                    oracle,
+                    profile,
+                    parameters,
+                    cancel,
+                    progress,
+                    &mut output,
+                )
+            }
         }
         _ => Err(ProblemError::unsupported(
             "requested dynamic backend is not linked",
@@ -547,6 +787,59 @@ pub fn forward_quadratures_observed(
     snapshot: &crate::execution::Snapshot,
     memory: usize,
 ) -> Result<ForwardQuadratures, ProblemError> {
+    forward_quadratures_core(
+        oracle, profile, parameters, cancel, progress, snapshot, memory, None,
+    )
+}
+/// Selected forward quadratures with the same neutral, owner-affine storage lifecycle.
+#[cfg(feature = "idas")]
+pub fn forward_quadratures_with_workspace_observed(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    caller: &crate::solve::Execution,
+    snapshot: &crate::execution::Snapshot,
+    workspace: &mut IdasWorkspace,
+) -> Result<ForwardQuadratures, ProblemError> {
+    let result = (|| {
+        let current = current_dynamic_execution(profile, caller)?;
+        let memory = current
+            .memory
+            .ok_or_else(|| ProblemError::memory("forward quadrature foreign allowance absent"))?;
+        forward_quadratures_core(
+            oracle,
+            profile,
+            parameters,
+            current.cancellation_control().clone(),
+            current.progress.clone(),
+            snapshot,
+            memory,
+            Some((&mut *workspace, current)),
+        )
+    })();
+    if !result
+        .as_ref()
+        .is_ok_and(|product| product.report.termination == Termination::Completed)
+    {
+        workspace.clear();
+    }
+    result
+}
+#[cfg(feature = "idas")]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the same forward quadrature core separates scientific request and optional storage ownership"
+)]
+fn forward_quadratures_core(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    cancel: Cancellation,
+    progress: Arc<crate::solve::Progress>,
+    snapshot: &crate::execution::Snapshot,
+    memory: usize,
+    storage: Option<(&mut IdasWorkspace, crate::solve::Execution)>,
+) -> Result<ForwardQuadratures, ProblemError> {
     let profile = profile.resolve_for(
         oracle.contract(),
         parameters,
@@ -571,6 +864,7 @@ pub fn forward_quadratures_observed(
         progress,
         (layout, memory),
         bytes,
+        storage,
     )
 }
 
@@ -638,6 +932,75 @@ pub fn gradient_observed(
     memory: usize,
     snapshot: &crate::execution::Snapshot,
 ) -> Result<Gradient, ProblemError> {
+    gradient_core(
+        oracle, profile, parameters, cotangent, cancel, memory, snapshot, None,
+    )
+}
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+fn current_dynamic_execution(
+    profile: &Profile,
+    caller: &crate::solve::Execution,
+) -> Result<crate::solve::Execution, ProblemError> {
+    let controls = crate::solve::Controls {
+        time_limit: profile.time_limit,
+        ..Default::default()
+    };
+    let mut current = crate::solve::Execution::within(
+        caller.cancellation_control().clone(),
+        &controls,
+        caller.scope()?,
+    )?;
+    current.memory = caller.memory;
+    current.work_admission = caller.work_admission.clone();
+    current.progress = Arc::new(crate::solve::Progress::new(256));
+    current.callback_work_owner = caller.callback_work_owner;
+    current.callback_role = caller.callback_role;
+    Ok(current)
+}
+/// Fresh adjoint execution under the actual caller's clock, work and storage owner.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub fn gradient_current_observed(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    cotangent: Cotangent<'_>,
+    caller: &crate::solve::Execution,
+    snapshot: &crate::execution::Snapshot,
+) -> Result<Gradient, ProblemError> {
+    let current = current_dynamic_execution(profile, caller)?;
+    let memory = current
+        .memory
+        .ok_or_else(|| ProblemError::memory("current adjoint foreign allowance absent"))?;
+    gradient_core(
+        oracle,
+        profile,
+        parameters,
+        cotangent,
+        current.cancellation.clone(),
+        memory,
+        snapshot,
+        Some(current),
+    )
+}
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one adjoint core accepts either a standalone or actual-current admitted execution"
+)]
+fn gradient_core(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    cotangent: Cotangent<'_>,
+    cancel: Cancellation,
+    memory: usize,
+    snapshot: &crate::execution::Snapshot,
+    current: Option<crate::solve::Execution>,
+) -> Result<Gradient, ProblemError> {
+    let _original = current.as_ref().map(crate::execution::original_scope);
+    if let Some(current) = &current {
+        current.check()?;
+    }
     let resolved = profile.resolve_for(
         oracle.contract(),
         parameters,
@@ -665,11 +1028,14 @@ pub fn gradient_observed(
             "adjoint checkpoint estimate of {reserved} bytes exceeds the {memory}-byte allowance"
         )));
     }
-    let progress = Arc::new(crate::solve::Progress::new(256));
+    let progress = current.as_ref().map_or_else(
+        || Arc::new(crate::solve::Progress::new(256)),
+        |current| current.progress.clone(),
+    );
     match profile.resolved_method()? {
         #[cfg(feature = "diffsol")]
         Method::Diffsol => integrator::gradient(
-            oracle, profile, parameters, cotangent, cancel, progress, layout,
+            oracle, profile, parameters, cotangent, cancel, progress, layout, current,
         ),
         #[cfg(feature = "idas")]
         Method::Idas => idas::gradient(
@@ -680,6 +1046,7 @@ pub fn gradient_observed(
             cancel,
             progress,
             (layout, memory),
+            current,
         ),
         _ => Err(ProblemError::unsupported(
             "requested dynamic backend is not linked",
@@ -732,6 +1099,57 @@ pub fn hessian_observed(
     memory: usize,
     snapshot: &crate::execution::Snapshot,
 ) -> Result<Gradient, ProblemError> {
+    hessian_core(
+        oracle, profile, parameters, directions, cotangent, cancel, memory, snapshot, None,
+    )
+}
+/// Fresh second-order adjoints under the actual current caller, without retained history.
+#[cfg(feature = "idas")]
+pub fn hessian_current_observed(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    directions: &[usize],
+    cotangent: Cotangent<'_>,
+    caller: &crate::solve::Execution,
+    snapshot: &crate::execution::Snapshot,
+) -> Result<Gradient, ProblemError> {
+    let current = current_dynamic_execution(profile, caller)?;
+    let memory = current
+        .memory
+        .ok_or_else(|| ProblemError::memory("current second-order foreign allowance absent"))?;
+    hessian_core(
+        oracle,
+        profile,
+        parameters,
+        directions,
+        cotangent,
+        current.cancellation.clone(),
+        memory,
+        snapshot,
+        Some(current),
+    )
+}
+#[cfg(feature = "idas")]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one second-order core binds directions/cotangent and standalone or current admitted execution"
+)]
+fn hessian_core(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    directions: &[usize],
+    cotangent: Cotangent<'_>,
+    cancel: Cancellation,
+    memory: usize,
+    snapshot: &crate::execution::Snapshot,
+    current: Option<crate::solve::Execution>,
+) -> Result<Gradient, ProblemError> {
+    let _original = current.as_ref().map(crate::execution::original_scope);
+    if let Some(current) = &current {
+        current.check()?;
+    }
     let resolved = profile.resolve_for(
         oracle.contract(),
         parameters,
@@ -750,7 +1168,10 @@ pub fn hessian_observed(
             "second-order adjoint estimate of {reserved} bytes exceeds the {memory}-byte allowance"
         )));
     }
-    let progress = Arc::new(crate::solve::Progress::new(256));
+    let progress = current.as_ref().map_or_else(
+        || Arc::new(crate::solve::Progress::new(256)),
+        |current| current.progress.clone(),
+    );
     idas::hessian(
         oracle,
         profile,
@@ -760,6 +1181,7 @@ pub fn hessian_observed(
         cancel,
         progress,
         (layout, memory),
+        current,
     )
     .map(|mut g| {
         g.reserved_bytes = reserved;
@@ -1301,7 +1723,7 @@ pub struct EndpointAssessment {
 #[serde(deny_unknown_fields)]
 pub struct Profile {
     /// Required execution interpretation version; legacy unversioned requests need readmission.
-    pub version: Version<2>,
+    pub version: Version<3>,
     /// Native method selected from the required trial semantics; automatic when absent.
     #[serde(default = "automatic")]
     pub method: Method,
@@ -1328,7 +1750,9 @@ pub struct Profile {
     pub out_atol: Vec<f64>,
     /// Positive absolute tolerances in normalized state order.
     pub atol: Vec<f64>,
-    /// Initial step in seconds.
+    /// Positive initialization orientation scale in seconds. IDAS also attempts this
+    /// physical step only under [`IdasInitialStep::Configured`]; its default uses the
+    /// native estimate. Diffsol's initial-step meaning is unchanged.
     pub initial_step: f64,
     /// Maximum accepted advancement steps in each complete trajectory: forward/recording,
     /// all forward replay of one derivative operation, and each backward direction.
@@ -2271,13 +2695,8 @@ impl Profile {
                         "IDAS block factor preconditioning is not supplied",
                     ));
                 }
-                if match self.idas.linear {
-                    IdasLinear::Klu => false,
-                    IdasLinear::Spgmr { dimension, .. } | IdasLinear::Spfgmr { dimension, .. } => {
-                        i32::try_from(dimension.into_inner()).is_err()
-                    }
-                } {
-                    causes.push(contract("invalid IDAS Krylov control"));
+                if let Err(cause) = self.idas.linear.validate_for_states(c.states.len()) {
+                    causes.push(cause);
                 }
             }
             Method::Diffsol => {
@@ -2564,6 +2983,62 @@ pub struct Evaluation {
     /// Canonical sparse raw partials, present only on derivative demand.
     pub jacobian: Option<pse_math::SharedAllocation<faer::sparse::SparseColMat<usize, f64>>>,
 }
+/// Numerical preparation that supplied a raw RHS state diagonal.
+#[derive(Clone, Debug)]
+pub enum RhsDiagonalSource {
+    /// Only the exact admitted semantic entries were evaluated.
+    SelectedEntries,
+    /// An ordinary complete raw Jacobian supplied the entries. Carry its existing
+    /// snapshot so the native owner checks admitted support before using it. An
+    /// Anchored wrapper preserves the inner state prefix and appends guarded zeros.
+    FullJacobian(Evaluation),
+}
+/// Exact full-Jacobian reference for owners without a selected-entry product.
+/// Validate the complete candidate before changing the caller's output.
+pub fn full_rhs_state_diagonal<O: Oracle + ?Sized>(
+    oracle: &mut O,
+    mode: usize,
+    time: f64,
+    state: &[f64],
+    parameters: &[f64],
+    output: &mut [f64],
+) -> Result<RhsDiagonalSource, ProblemError> {
+    let c = oracle.contract();
+    let n = c.states.len();
+    let columns = n
+        .checked_add(c.parameters.len())
+        .ok_or_else(|| ProblemError::memory("RHS diagonal extent"))?;
+    if mode >= c.events.len()
+        || state.len() != n
+        || parameters.len() != c.parameters.len()
+        || output.len() != n
+        || !time.is_finite()
+        || state.iter().chain(parameters).any(|v| !v.is_finite())
+    {
+        return Err(contract("RHS diagonal bindings"));
+    }
+    let e = oracle.evaluate(mode, Function::Rhs, time, state, parameters, true)?;
+    let j = e
+        .jacobian
+        .as_ref()
+        .ok_or_else(|| ProblemError::internal("RHS diagonal full partials absent"))?;
+    if e.values.len() != n || j.nrows() != n || j.ncols() != columns {
+        return Err(contract("RHS diagonal full dimensions"));
+    }
+    if e.values.iter().chain(j.val()).any(|v| !v.is_finite()) {
+        return Err(ProblemError::numerical(
+            "nonfinite RHS diagonal full candidate",
+        ));
+    }
+    let symbolic = j.symbolic();
+    for (col, value) in output.iter_mut().enumerate() {
+        *value = symbolic
+            .col_range(col)
+            .find(|k| symbolic.row_idx()[*k] == col)
+            .map_or(0., |k| j.val()[k]);
+    }
+    Ok(RhsDiagonalSource::FullJacobian(e))
+}
 /// One structural entry of a dynamic function's raw partials: a row of the function's
 /// values and a coordinate of the state followed by the parameters, both positions as
 /// the oracle states them. Integrator adapters convert to native indices at their edge.
@@ -2657,6 +3132,18 @@ pub trait Oracle: std::fmt::Debug {
         parameters: &[f64],
         derivatives: bool,
     ) -> Result<Evaluation, ProblemError>;
+    /// Fill `∂f_i/∂y_i` in ordered oracle state coordinates. Mass and the current
+    /// native shift are applied by the integrator. Failure leaves output unchanged.
+    fn rhs_state_diagonal(
+        &mut self,
+        mode: usize,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        output: &mut [f64],
+    ) -> Result<RhsDiagonalSource, ProblemError> {
+        full_rhs_state_diagonal(self, mode, time, state, parameters, output)
+    }
     /// Apply the exact raw Jacobian to one direction in state/parameter order.
     /// Compiled providers may supply action-shaped products; this reference uses
     /// their complete exact partials and publishes the caller buffer atomically.

@@ -14,6 +14,11 @@ use native::{
     solve::{Compatibility, Execution},
 };
 use pse_math::{assembly::CaseWorker, sparse::AssemblyMatrix};
+#[cfg(all(test, feature = "solver-ipopt"))]
+pub(in crate::workflow::fitting) mod lm_inquiry;
+pub(super) mod neutral;
+pub(super) mod residual;
+use neutral::FitScratch;
 /// One upgrade's scientific comparison witness, shared only with its joined lanes.
 /// A native/analysis failure alone does not contradict an independently complete
 /// lower product. An actual same-premise comparison failure does.
@@ -133,6 +138,7 @@ pub(super) struct FitOracle {
     #[cfg(feature = "solver-diffsol")]
     transient_workers: Vec<Option<crate::workflow::dynamics::DynamicWorker>>,
     execution: Execution,
+    transient_execution: Vec<Execution>,
     team: Option<experiments::ExperimentTeam>,
     /// The derivative source: the prepared profile's, until the final assessment reruns
     /// the forward sensitivities for rank.
@@ -140,6 +146,7 @@ pub(super) struct FitOracle {
     hessian: Option<AssemblyMatrix>,
     gram: Option<sparse::GramWorker>,
     point: Option<Point>,
+    neutral: Option<Arc<FitScratch>>,
     #[cfg(all(test, feature = "solver-diffsol"))]
     transient_passes: (usize, usize),
     #[cfg(all(test, feature = "solver-idas"))]
@@ -166,17 +173,48 @@ pub(super) fn prepare_steady_worker(
     Ok(worker)
 }
 impl FitOracle {
+    #[cfg(test)]
     pub(super) fn new(
         p: impl Into<Arc<FitProblem>>,
         execution: Execution,
     ) -> Result<Self, ProblemError> {
+        Self::with_scratch(p.into(), execution, None)
+    }
+    pub(super) fn with_scratch(
+        p: Arc<FitProblem>,
+        execution: Execution,
+        scratch: Option<Arc<FitScratch>>,
+    ) -> Result<Self, ProblemError> {
+        let result = Self::construct(p, execution, scratch.clone());
+        if result.is_err()
+            && let Some(scratch) = scratch
+        {
+            scratch.discard();
+        }
+        result
+    }
+    fn construct(
+        p: Arc<FitProblem>,
+        execution: Execution,
+        scratch: Option<Arc<FitScratch>>,
+    ) -> Result<Self, ProblemError> {
         let _phase = pse_diagnostics::observation::phase("fit.oracle_construction");
-        let p = p.into();
-        let team = experiments::ExperimentTeam::new(p.clone(), execution.clone())?;
+        let mut team = experiments::ExperimentTeam::new(p.clone(), execution.clone())?;
+        let transient_execution = match &mut team {
+            Some(team) => team.take_parent_executions(),
+            None => {
+                foreign::Population::prepare(&p, &execution, None)?
+                    .ok_or_else(|| {
+                        ProblemError::internal("serial foreign population unexpectedly unavailable")
+                    })?
+                    .parent
+            }
+        };
         let workers = p
             .experiments
             .iter()
-            .map(|e| match e {
+            .enumerate()
+            .map(|(index, e)| match e {
                 Experiment::Steady(s)
                     if team.is_some()
                         && (p.layout.hessian.is_none()
@@ -189,7 +227,17 @@ impl FitOracle {
                     if let Some(context) = pse_diagnostics::observation::current() {
                         context.count("fit.experiment_worker_constructions", "count", 1);
                     }
-                    prepare_steady_worker(s, &execution).map(Some)
+                    if let Some(slot) = scratch.as_ref().and_then(|bank| {
+                        bank.steady(
+                            p.declaration.experiments[index].experiment_id,
+                            &s.case.assembly,
+                        )
+                    }) {
+                        slot.worker(&s.case.assembly, &s.providers, execution.scope()?)
+                            .map(Some)
+                    } else {
+                        prepare_steady_worker(s, &execution).map(Some)
+                    }
                 }
                 Experiment::Transient(_) => Ok(None),
             })
@@ -198,7 +246,8 @@ impl FitOracle {
         let transient_workers = p
             .experiments
             .iter()
-            .map(|experiment| match experiment {
+            .enumerate()
+            .map(|(index, experiment)| match experiment {
                 Experiment::Steady(_) => Ok(None),
                 Experiment::Transient(_)
                     if team.is_some()
@@ -210,7 +259,19 @@ impl FitOracle {
                     if let Some(context) = pse_diagnostics::observation::current() {
                         context.count("fit.experiment_worker_constructions", "count", 1);
                     }
-                    s.worker(&execution).map(Some)
+                    if let Some(slots) = scratch.as_ref().and_then(|bank| {
+                        bank.transient(p.declaration.experiments[index].experiment_id)
+                    }) {
+                        s.program
+                            .worker_with_scratch(
+                                execution.scope()?,
+                                s.snapshots.clone(),
+                                Some(slots),
+                            )
+                            .map(Some)
+                    } else {
+                        s.worker(&execution).map(Some)
+                    }
                 }
             })
             .collect::<Result<Vec<_>, ProblemError>>()?;
@@ -236,10 +297,12 @@ impl FitOracle {
             #[cfg(feature = "solver-diffsol")]
             transient_workers,
             execution,
+            transient_execution,
             team,
             hessian,
             gram,
             point: None,
+            neutral: scratch,
             #[cfg(all(test, feature = "solver-diffsol"))]
             transient_passes: (0, 0),
             #[cfg(all(test, feature = "solver-idas"))]
@@ -257,7 +320,21 @@ impl FitOracle {
             },
         )
     }
-    fn evaluate_demand(&mut self, x: &[f64], mut demand: Demand) -> Result<&Point, ProblemError> {
+    fn evaluate_demand(&mut self, x: &[f64], demand: Demand) -> Result<&Point, ProblemError> {
+        let scratch = self.neutral.clone();
+        let result = self.evaluate_demand_inner(x, demand);
+        if result.is_err()
+            && let Some(scratch) = scratch
+        {
+            scratch.discard();
+        }
+        result
+    }
+    fn evaluate_demand_inner(
+        &mut self,
+        x: &[f64],
+        mut demand: Demand,
+    ) -> Result<&Point, ProblemError> {
         let _phase = pse_diagnostics::observation::phase("fit.trial");
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("fit.trial_demands", "count", 1);
@@ -411,7 +488,7 @@ impl FitOracle {
                         ei,
                         x,
                         demand,
-                        &self.execution,
+                        &self.transient_execution[ei],
                         ExperimentWorkers {
                             steady: &mut self.workers[ei],
                             #[cfg(feature = "solver-diffsol")]
@@ -681,7 +758,7 @@ impl FitOracle {
                     .as_mut()
                     .ok_or_else(|| ProblemError::internal("missing transient worker"))?,
                 &|k| Self::value(p, x, k),
-                &self.execution,
+                &self.transient_execution[ei],
                 free,
                 &mut cotangent,
             )
@@ -951,7 +1028,7 @@ impl FitProblem {
     pub(crate) fn execute_profile(
         self: &Arc<Self>,
         solver: &SolverProfile,
-        route: native::routing::Route,
+        route: FitRoute,
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
         workers: usize,
@@ -970,10 +1047,8 @@ impl FitProblem {
         let _entered = context.as_ref().map(|context| context.enter());
         let result = (|| {
             let adapters: Vec<&dyn native::execution::BackendExecution> = match route {
-                native::routing::Route::Native(backend) => {
-                    vec![native::execution::adapter(backend)]
-                }
-                native::routing::Route::Constant => vec![],
+                FitRoute::Native(backend) => vec![native::execution::adapter(backend)],
+                FitRoute::Evaluation | FitRoute::ResidualLm => vec![],
             };
             let _phase = pse_diagnostics::observation::phase("fit.execute");
             let observation = pse_diagnostics::observation::current();
@@ -1008,7 +1083,7 @@ impl FitProblem {
     fn execute_inner(
         self: &Arc<Self>,
         solver: &SolverProfile,
-        route: native::routing::Route,
+        route: FitRoute,
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
         admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
@@ -1028,12 +1103,26 @@ impl FitProblem {
                 .math
                 .foreign_allowance(&solver.controls),
         );
-        let mut oracle = FitOracle::new(self.clone(), execution.clone())?;
-        let (solve, candidate) = if self.initial.is_empty() {
+        // This bank is created and destroyed inside the actual adapter owner. Only
+        // callback Drop can return neutral storage to the independent final oracle.
+        let scratch = FitScratch::new(self);
+        let (solve, residual, candidate) = if self.initial.is_empty() {
+            let mut oracle =
+                FitOracle::with_scratch(self.clone(), execution.clone(), scratch.clone())?;
             oracle.objective(&[])?;
-            (None, Some(vec![]))
+            (None, None, Some(vec![]))
+        } else if route == FitRoute::ResidualLm {
+            let (report, candidate) = residual::solve(
+                self,
+                execution.clone(),
+                &self.initial,
+                None,
+                scratch.clone(),
+            )?;
+            (None, Some(report), Some(candidate))
         } else {
-            let native::routing::Route::Native(backend) = route else {
+            let oracle = FitOracle::with_scratch(self.clone(), execution.clone(), scratch.clone())?;
+            let FitRoute::Native(backend) = route else {
                 return Err(ProblemError::unsupported("nonempty fit has no native route").into());
             };
             // The one NLP runner, shared with solve sequences and initialization.
@@ -1075,7 +1164,7 @@ impl FitProblem {
                 },
             )?;
             let candidate = report.candidate.as_ref().map(|c| c.primal.clone());
-            (Some(report), candidate)
+            (Some(report), None, candidate)
         };
         let mut report = FitReport {
             completion: None,
@@ -1085,6 +1174,7 @@ impl FitProblem {
             checks_complete: false,
             validation_error: None,
             solve,
+            residual,
             hessian: solver.controls.hessian,
             derivatives: self.profile.derivatives,
             candidate,
@@ -1102,7 +1192,24 @@ impl FitProblem {
             wald: None,
             profiles: None,
         };
-        self.observe(&mut report, execution.clone())?;
+        if (report.solve.as_ref().is_some_and(|r| {
+            r.callback_failure().is_some()
+                || r.validation_failure().is_some()
+                || !matches!(
+                    r.termination.category,
+                    native::solve::Termination::Success
+                        | native::solve::Termination::Acceptable
+                        | native::solve::Termination::FeasibleOnly
+                )
+        }) || report
+            .residual
+            .as_ref()
+            .is_some_and(|r| r.failure.is_some() || !r.termination.successful()))
+            && let Some(scratch) = &scratch
+        {
+            scratch.discard();
+        }
+        self.observe(&mut report, execution.clone(), scratch)?;
         Ok((report, execution))
     }
     /// The free parameters: each one's declaration index and fit column, in fit order.
@@ -1118,6 +1225,7 @@ impl FitProblem {
         self: &Arc<Self>,
         report: &mut FitReport,
         execution: Execution,
+        scratch: Option<Arc<FitScratch>>,
     ) -> Result<(), crate::math::MathRuntimeError> {
         let Some(x) = report.candidate.clone() else {
             return Ok(());
@@ -1133,8 +1241,8 @@ impl FitProblem {
             // Known optional refusal precedes any response IVP; actual rank memory is
             // acquired only after integration so it does not inflate the IVP peak.
             let rank = rank_admission(self);
-            let responses = rank.is_ok();
-            let mut final_oracle = FitOracle::new(self.clone(), execution)?;
+            let responses = rank.is_ok() || report.residual.is_some();
+            let mut final_oracle = FitOracle::with_scratch(self.clone(), execution, scratch)?;
             let demand = Demand {
                 purpose: crate::invocation::IntegrationPurpose::OriginalAssessment,
                 ..if responses {
@@ -1248,6 +1356,22 @@ impl FitProblem {
             .zip(&self.measurements)
             .map(|(v, o)| o.included.then_some(*v))
             .collect();
+        if let Some(residual) = &mut report.residual {
+            residual.stationarity = point
+                .achieved
+                .responses
+                .then(|| residual::stationarity(self, point, None))
+                .filter(|value| value.is_finite());
+            if residual.failure.is_none()
+                && residual.termination.successful()
+                && quality.feasible()
+                && residual
+                    .stationarity
+                    .is_some_and(|value| value <= self.accuracy.stationarity)
+            {
+                residual.qualification = native::solve::Qualification::Stationary;
+            }
+        }
         report.trajectories = point.trajectories.clone();
         report.constraint_values = point.constraints.clone();
         report.objective = Some(objective);
@@ -2116,6 +2240,7 @@ mod tests {
     }
     fn profile(_fixed: bool) -> FitProfile {
         FitProfile {
+            optimizer: FitOptimizer::NativeNlp,
             solver: SolverProfile {
                 presolve: Default::default(),
                 numerics: Default::default(),
@@ -2565,7 +2690,7 @@ mod tests {
             native::solve::SolverSelection::Auto
         );
         assert!(p.problem.contract.variables.is_empty());
-        assert_eq!(p.route(), native::routing::Route::Constant);
+        assert_eq!(p.route(), FitRoute::Evaluation);
         let handle = p.start().unwrap();
         let a = handle.wait().await.unwrap();
         let b = handle.wait().await.unwrap();
@@ -2637,6 +2762,7 @@ mod tests {
                     ),
                     Arc::new(native::solve::Progress::new(16)),
                     1,
+                    None,
                 )
                 .unwrap_err();
             let trace = error.strategy_trace().unwrap();
@@ -2929,7 +3055,7 @@ mod tests {
             let problem = oracle.prepared.clone();
             let mut report = p09_tests::candidate_fit_report(&problem, vec![0.0]);
             problem
-                .observe(&mut report, oracle.execution.clone())
+                .observe(&mut report, oracle.execution.clone(), None)
                 .unwrap();
             assert_eq!(report.predictions, vec![Some(0.0)]);
             assert_eq!(report.objective, Some(4.5));

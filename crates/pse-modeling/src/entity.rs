@@ -1980,30 +1980,8 @@ fn rows(
 /// admitted entities. An admission-time expression (a derived attribute or column, a kind or
 /// row requirement) ranges over a kind by its name; a specialization root does not, so its
 /// model never depends on which entities a closure admits (Plan 23 D0).
-pub(crate) fn extent_types(p: &CheckedPackage, at: DeclarationId) -> BTreeMap<String, Type> {
-    let mut types = p.named_types(at);
-    extents(p, at, &mut types);
-    types
-        .into_iter()
-        .filter(|(_, ty)| matches!(ty, Type::Set(element) if matches!(**element, Type::Entity(_))))
-        .filter(|(name, _)| {
-            p.resolve(at, name)
-                .is_some_and(|id| p.kinds.contains_key(&id))
-        })
-        .collect()
-}
-
-/// Retype each name in `types` that denotes a kind at `at` as the set of its admitted
-/// entities (Plan 23 D0).
-pub(crate) fn extents(p: &CheckedPackage, at: DeclarationId, types: &mut BTreeMap<String, Type>) {
-    for (name, ty) in types.iter_mut() {
-        if let Type::Entity(kind) = ty
-            && p.kinds.contains_key(kind)
-            && p.resolve(at, name) == Some(*kind)
-        {
-            *ty = Type::Set(Box::new(Type::Entity(*kind)));
-        }
-    }
+pub(crate) fn extent_types(p: &CheckedPackage, at: DeclarationId) -> crate::check::NamedTypes<'_> {
+    p.named_types(at).with_extents(true)
 }
 
 /// The admitted entities of `kind` and its refinements, in identity order.
@@ -2024,7 +2002,7 @@ fn kind_types(
     p: &CheckedPackage,
     kind: DeclarationId,
     at: DeclarationId,
-) -> BTreeMap<String, Type> {
+) -> crate::check::NamedTypes<'_> {
     let mut env = extent_types(p, at);
     for (name, row) in &p.kinds[&kind].attributes {
         if let Some(ty) = p.types.get(row) {
@@ -2234,12 +2212,12 @@ fn derivation_mentions(
         p: &CheckedPackage,
         at: DeclarationId,
         path: &Path,
-        env: &BTreeMap<String, Type>,
+        env: &dyn crate::TypeLookup,
         reads: &mut BTreeSet<DeclarationId>,
         pending: &mut Vec<DeclarationId>,
     ) -> Result<()> {
         function(p, at, path, pending);
-        let mut local = env.clone();
+        let mut local = crate::TypeScope::new(env);
         let mut receiver = None;
         for (position, segment) in path.segments.iter().enumerate() {
             let owner = if position == 0 {
@@ -2286,7 +2264,7 @@ fn derivation_mentions(
         p: &CheckedPackage,
         at: DeclarationId,
         value: &Predicate,
-        env: &BTreeMap<String, Type>,
+        env: &dyn crate::TypeLookup,
         reads: &mut BTreeSet<DeclarationId>,
         pending: &mut Vec<DeclarationId>,
     ) -> Result<()> {
@@ -2313,7 +2291,7 @@ fn derivation_mentions(
         p: &CheckedPackage,
         at: DeclarationId,
         expression: &Expr,
-        env: &BTreeMap<String, Type>,
+        env: &dyn crate::TypeLookup,
         reads: &mut BTreeSet<DeclarationId>,
         pending: &mut Vec<DeclarationId>,
     ) -> Result<()> {
@@ -2343,7 +2321,7 @@ fn derivation_mentions(
                 }
             }
             ExprKind::Let { bindings, body } => {
-                let mut local = env.clone();
+                let mut local = crate::TypeScope::new(env);
                 for (name, value) in bindings {
                     collect(p, at, value, &local, reads, pending)?;
                     let ty = crate::expression::infer(value, &local, p, &p.context(), at, None)?;
@@ -2371,7 +2349,7 @@ fn derivation_mentions(
                     kind: ExprKind::Path(binder.domain.clone()),
                     span: Default::default(),
                 };
-                let mut local = env.clone();
+                let mut local = crate::TypeScope::new(env);
                 if let Type::Set(element) | Type::Continuous(_, element) =
                     crate::expression::infer(&domain, env, p, &p.context(), at, None)?
                 {
@@ -2414,8 +2392,7 @@ fn derivation_mentions(
             continue;
         }
         let f = &p.functions[&id];
-        let mut env = p.named_types(id);
-        extents(p, id, &mut env);
+        let mut env = p.named_types(id).with_extents(false);
         env.extend(f.arguments.iter().cloned());
         if let Some(body) = &f.body {
             collect(p, id, body, &env, &mut reads, &mut pending)?;

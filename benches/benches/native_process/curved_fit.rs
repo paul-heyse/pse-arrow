@@ -157,6 +157,7 @@ pub(super) async fn run(
         .prepare_fit(
             FitId::from_id(id("fit")),
             workflow::FitProfile {
+                optimizer: workflow::FitOptimizer::NativeNlp,
                 solver,
                 simulations: BTreeMap::from([(id("experiment").into(), integration)]),
                 experiment_workers: pse_model::scalars::PositiveCount::try_new(1).unwrap(),

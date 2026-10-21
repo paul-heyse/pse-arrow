@@ -82,6 +82,7 @@ pub(super) struct ExperimentTeam {
     lanes: Vec<Lane>,
     borrowed: Option<usize>,
     _owner: Arc<pse_columnar::AllocationLease>,
+    parent_executions: Vec<Execution>,
     #[cfg(all(test, feature = "solver-diffsol"))]
     wave_gate: Option<Arc<std::sync::Barrier>>,
 }
@@ -108,8 +109,13 @@ impl ExperimentTeam {
         if count <= 1 {
             return Ok(None);
         }
-        let assignments = stride_assignment(problem.experiments.len(), count);
-        Self::construct(problem, execution, assignments).map(Some)
+        for width in (2..=count).rev() {
+            let assignments = stride_assignment(problem.experiments.len(), width);
+            if let Some(team) = Self::construct(problem.clone(), execution.clone(), assignments)? {
+                return Ok(Some(team));
+            }
+        }
+        Ok(None)
     }
     #[cfg(all(test, feature = "solver-diffsol"))]
     pub(super) fn fixed_affinity_for_test(
@@ -121,13 +127,14 @@ impl ExperimentTeam {
         assert!(problem.runtime.native().cores() >= 2);
         // The real fixture alternates IVPs and steady evaluators. This comparison
         // fixes one of each on each owner; it establishes no general cost predictor.
-        Self::construct(problem, execution, vec![vec![0, 1], vec![2, 3]])
+        Self::construct(problem, execution, vec![vec![0, 1], vec![2, 3]])?
+            .ok_or_else(|| ProblemError::memory("fixed experiment team footprint refused"))
     }
     fn construct(
         problem: Arc<FitProblem>,
         execution: Execution,
         assignments: Vec<Vec<usize>>,
-    ) -> Result<Self, ProblemError> {
+    ) -> Result<Option<Self>, ProblemError> {
         let count = assignments.len();
         let service = problem.runtime.native().clone();
         let borrowed = BORROWED_CAPACITY.with(std::cell::Cell::get);
@@ -143,9 +150,22 @@ impl ExperimentTeam {
             .checked_mul(count)
             .and_then(|s| s.checked_add(problem.bytes))
             .ok_or_else(|| ProblemError::memory("fit experiment resident extent"))?;
-        let owner = service
-            .reserve("fit:experiment-lanes", bytes)
-            .map_err(|e| e.into_problem())?;
+        let owner = match service.reserve("fit:experiment-lanes", bytes) {
+            Ok(owner) => owner,
+            Err(
+                crate::math::MathRuntimeError::Pool(
+                    datafusion::common::DataFusionError::ResourcesExhausted(_),
+                )
+                | crate::math::MathRuntimeError::Limit(_),
+            ) => return Ok(None),
+            Err(error) => return Err(error.into_problem()),
+        };
+        let Some(foreign) = foreign::Population::prepare(&problem, &execution, Some(&assignments))?
+        else {
+            return Ok(None);
+        };
+        let parent_executions = foreign.parent;
+        let child_executions = foreign.child;
         let runtime = tokio::runtime::Handle::try_current()
             .map_err(|e| ProblemError::internal(format!("fit experiment runtime: {e}")))?;
         let constructor = pse_math::construction::current();
@@ -158,6 +178,10 @@ impl ExperimentTeam {
                 let (ready, preparation) = mpsc::sync_channel::<Result<(), ProblemError>>(1);
                 let problem = problem.clone();
                 let execution = execution.clone();
+                let transient_executions: Vec<_> = assigned
+                    .iter()
+                    .map(|&ei| child_executions[ei].clone())
+                    .collect();
                 let runtime = runtime.clone();
                 let constructor = constructor.clone();
                 #[cfg(all(test, feature = "solver-diffsol"))]
@@ -190,7 +214,8 @@ impl ExperimentTeam {
                                     }
                                     #[cfg(feature = "solver-diffsol")]
                                     Experiment::Transient(s) => {
-                                        transient[local] = Some(s.worker(&execution)?)
+                                        transient[local] =
+                                            Some(s.worker(&transient_executions[local])?)
                                     }
                                     #[cfg(not(feature = "solver-diffsol"))]
                                     Experiment::Transient(_) => {}
@@ -267,7 +292,7 @@ impl ExperimentTeam {
                                         ei,
                                         &request.x,
                                         request.demand,
-                                        &execution,
+                                        &transient_executions[local],
                                         ExperimentWorkers {
                                             steady: &mut steady[local],
                                             #[cfg(feature = "solver-diffsol")]
@@ -362,15 +387,19 @@ impl ExperimentTeam {
                 .quiescent_phase(count, 0, &execution, launch)
                 .map_err(|e| e.into_problem())??,
         };
-        Ok(Self {
+        Ok(Some(Self {
             problem,
             execution,
             lanes,
             borrowed,
             _owner: owner,
+            parent_executions,
             #[cfg(all(test, feature = "solver-diffsol"))]
             wave_gate: None,
-        })
+        }))
+    }
+    pub(super) fn take_parent_executions(&mut self) -> Vec<Execution> {
+        std::mem::take(&mut self.parent_executions)
     }
     #[cfg(all(test, feature = "solver-diffsol"))]
     pub(super) fn require_concurrent_test_wave(&mut self) {

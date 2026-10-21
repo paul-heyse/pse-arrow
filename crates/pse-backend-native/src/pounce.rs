@@ -705,6 +705,7 @@ impl Session {
             jac,
             hess,
             initial,
+            start_submitted: false,
             duals,
             solution: None,
         }));
@@ -971,12 +972,14 @@ impl Session {
                 .provenance
                 .insert("crossover".into(), records::crossover(c));
         }
-        report.evidence.start_submitted = warm.is_some();
+        // A successful TNLP starting-point callback copied the explicit primal,
+        // independently of optional warm data or retained algorithm history.
+        report.evidence.start_submitted = a.start_submitted;
         report.evidence.restart = restart;
         report.evidence.working_set_submitted = working_set_submitted;
         report
             .metrics
-            .insert("start.submitted".into(), Metric::Bool(warm.is_some()));
+            .insert("start.submitted".into(), Metric::Bool(a.start_submitted));
         report.provenance.insert(
             "native".into(),
             "POUNCE 0.12.0; FERAL; shared preprocessing is applied before this adapter".into(),
@@ -1152,9 +1155,60 @@ mod tests {
             oracle,
             state: CallbackState::new(crate::solver_tests::execution()),
             initial: vec![2.0],
+            start_submitted: false,
             duals: None,
             solution: None,
         }
+    }
+    #[test]
+    fn primal_submission_receipt_follows_successful_native_start_callback() {
+        use pounce_nlp::tnlp::StartingPoint;
+        let mut adapter = adapter();
+        adapter.normalization.variables[0] = 4.0;
+        assert!(!adapter.start_submitted);
+        let mut primal = [73.0];
+        assert!(adapter.get_starting_point(StartingPoint {
+            init_x: true,
+            x: &mut primal,
+            init_z: false,
+            z_l: &mut [],
+            z_u: &mut [],
+            init_lambda: false,
+            lambda: &mut [],
+        }));
+        assert_eq!(
+            primal,
+            [0.5],
+            "actual native buffer uses the current coordinate transport"
+        );
+        assert!(adapter.start_submitted);
+
+        let mut refused = self::adapter();
+        let mut malformed = [73.0, 91.0];
+        assert!(!refused.get_starting_point(StartingPoint {
+            init_x: true,
+            x: &mut malformed,
+            init_z: false,
+            z_l: &mut [],
+            z_u: &mut [],
+            init_lambda: false,
+            lambda: &mut [],
+        }));
+        assert_eq!(malformed, [73.0, 91.0]);
+        assert!(!refused.start_submitted);
+
+        let mut cancelled = self::adapter();
+        cancelled.state.execution.cancellation.cancel();
+        assert!(!cancelled.get_starting_point(StartingPoint {
+            init_x: true,
+            x: &mut primal,
+            init_z: false,
+            z_l: &mut [],
+            z_u: &mut [],
+            init_lambda: false,
+            lambda: &mut [],
+        }));
+        assert!(!cancelled.start_submitted);
     }
     #[test]
     fn native_timer_activation_is_not_reported_as_measured_zero() {
@@ -1615,6 +1669,11 @@ mod tests {
         let _entered = context.enter();
         let report = run(&mut Session::new(), Options::new(), 1).unwrap();
         assert_eq!(report.termination.category, Termination::Success);
+        assert!(
+            report.evidence.start_submitted,
+            "the cold TNLP supplied its explicit primal"
+        );
+        assert!(!report.evidence.reused_native_state);
         assert!(report.quality.unwrap().feasible());
         let records = tap.0.lock().unwrap();
         let field = |record: &CoherentRecord, name: &str| {

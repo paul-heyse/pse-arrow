@@ -1967,6 +1967,18 @@ impl NativeRunResult {
         .map(pyo3_arrow::PyRecordBatch::new)
         .map_err(|error| errors::diagnostic(py, &error))
     }
+    fn fit_execution(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
+        let report = self
+            .inner
+            .report()
+            .map_err(|error| errors::diagnostic(py, error))?;
+        match report {
+            native::RunReport::Fit(report) => {
+                documents::encode(py, &report.execution_document()).map(Some)
+            }
+            _ => Ok(None),
+        }
+    }
     fn fit_profiles(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
         let report = self
             .inner
@@ -2402,7 +2414,7 @@ impl SimulationSettings {
     }
     #[staticmethod]
     fn from_json(py: Python<'_>, source: &str) -> PyResult<Self> {
-        documents::decode_versioned::<native::SimulationProfile, 2>(
+        documents::decode_versioned::<native::SimulationProfile, 3>(
             py,
             "simulation settings",
             source.as_bytes(),
@@ -2583,13 +2595,13 @@ impl NativePreparedOperation {
                 "numerical composition requires an algebraic solve",
             ));
         };
-        let declaration =
-            documents::decode_versioned::<pse_model::strategy::NumericalStrategyDocument, 3>(
-                py,
-                "numerical strategy",
-                declaration,
-                self.owner.shared.budget().math.workspace_bytes,
-            )?;
+        let declaration = documents::decode_current(
+            py,
+            "numerical strategy",
+            declaration,
+            self.owner.shared.budget().math.workspace_bytes,
+            |document: &pse_model::strategy::NumericalStrategyDocument| &document.version,
+        )?;
         let rungs = rungs
             .iter()
             .map(|rung| {

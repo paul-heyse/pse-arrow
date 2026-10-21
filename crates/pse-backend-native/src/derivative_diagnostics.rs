@@ -159,6 +159,7 @@ pub fn analyze(
             columns: vec![],
         },
         initial,
+        start_submitted: false,
         duals: None,
         solution: None,
     };

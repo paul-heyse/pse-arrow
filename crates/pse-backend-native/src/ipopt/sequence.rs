@@ -731,7 +731,9 @@ impl Sequence {
             );
             report.options = options;
             report.evidence.reused_native_state = reused;
-            report.evidence.start_submitted = warm.is_some();
+            // The bridge received primal.as_ptr() for every admitted solve; optional
+            // dual/restart data and actual retained state are separate observations.
+            report.evidence.start_submitted = true;
             report.evidence.restart = restart;
             report
                 .metrics
@@ -1155,6 +1157,11 @@ mod tests {
             )
             .unwrap();
         assert_eq!(report.termination.category, Termination::Success);
+        assert!(
+            report.evidence.start_submitted,
+            "the cold explicit primal reached the bridge"
+        );
+        assert!(!report.evidence.reused_native_state);
         assert!(report.events.is_empty());
         assert!(
             matches!(report.metrics["timing.native.overall.wall_seconds"], Metric::Real(value) if value >= 0.0)

@@ -337,7 +337,7 @@ async fn demanded_krylov_route_prepares_actions_from_value_under_a_narrow_jet_bu
     let original = prepared.solve;
     let mut declaration = original.numerical_strategy();
     declaration.mechanisms[0].profile = Some(pse_model::strategy::ProfileRef {
-        backend: Backend::Kinsol,
+        method: pse_model::strategy::NumericalMethod::Backend(Backend::Kinsol),
         key: original.strategy_profile().unwrap(),
     });
     let solve = original

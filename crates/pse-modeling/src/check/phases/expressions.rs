@@ -55,24 +55,15 @@ impl Environment {
             let mut row = row.clone();
             row.source_start = 0;
             row.source_end = 0;
-            // Restore the generated typed row before comparison: JSON number equality
-            // is not the semantic owner for scientific cells (including signed zero).
-            // A value that cannot round trip remains completely conservative.
-            let normalized = match serde_json::to_value(&row) {
-                Ok(mut value) => {
-                    for (key, field) in package.occurrences_of(*id) {
-                        let path = key.role.split('.').collect::<Vec<_>>();
-                        if let Some(payload) = value.get_mut("value") {
-                            mask_field(payload, &path, key.position, &field.text, false);
-                        }
-                    }
-                    match serde_json::from_value(value) {
-                        Ok(row) => row,
-                        Err(_) => row.clone(),
-                    }
-                }
-                Err(_) => row.clone(),
-            };
+            // The generated typed projection follows parser-owned field roles and
+            // ordinals. Unknown/mismatching coordinates retain their complete value;
+            // scientific cells never cross a JSON number representation.
+            let mut normalized = row.clone();
+            for (key, field) in package.occurrences_of(*id) {
+                normalized
+                    .value
+                    .mask_expression(&key.role, key.position, &field.text);
+            }
             declarations.insert(*id, normalized);
             let fields = package
                 .occurrences_of(*id)
@@ -109,10 +100,10 @@ impl Environment {
     pub fn collect_retained_inputs<'a>(&'a self, census: &mut RetainedInputs<'a>) {
         use pse_model::HeapUsage;
         if census.include_shared(&self.package) {
-            census.add(self.package.retained_bytes());
+            self.package.collect_retained_inputs(census);
         }
         if census.include_shared(&self.metadata) {
-            census.add(self.metadata.retained_bytes());
+            self.metadata.collect_retained_inputs(census);
         }
         if census.include_shared(&self.declarations) {
             census.add(
@@ -149,42 +140,6 @@ impl Environment {
         }
     }
 }
-// Only an exact parser-owned role/ordinal and byte-equal source string can be masked.
-// Flattened multidimensional roles are deliberately left conservative when the parser
-// role does not name a unique JSON array coordinate. Labels, types and scientific cells
-// are never removed by text search or by a guessed expression-field name.
-fn mask_field(
-    value: &mut serde_json::Value,
-    path: &[&str],
-    position: usize,
-    text: &str,
-    indexed: bool,
-) -> bool {
-    match value {
-        serde_json::Value::String(source) if path.is_empty() && source == text => {
-            source.clear();
-            true
-        }
-        serde_json::Value::Object(fields) if !path.is_empty() => fields
-            .get_mut(path[0])
-            .is_some_and(|next| mask_field(next, &path[1..], position, text, indexed)),
-        serde_json::Value::Array(values) => {
-            if let Some(index) = path.first().and_then(|part| part.parse::<usize>().ok()) {
-                values
-                    .get_mut(index)
-                    .is_some_and(|next| mask_field(next, &path[1..], position, text, indexed))
-            } else if !indexed {
-                values
-                    .get_mut(position)
-                    .is_some_and(|next| mask_field(next, path, position, text, true))
-            } else {
-                false
-            }
-        }
-        _ => false,
-    }
-}
-
 /// Exact mathematical fields reachable from one declaration, plus the shared
 /// enclosing namespace population. Absence, ordered imports and type changes are
 /// represented by the complete metadata; source attribution remains a parse/bind input.
@@ -418,5 +373,112 @@ impl Product {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn typed_mask_obeys_exact_role_ordinal_text_and_conservative_fallback() {
+        let rows = crate::kernel_types::source(
+            "package p {def D(first:Scalar=1,second:Scalar=2) {} fn law(x:Scalar)->Scalar=x;}",
+        );
+        let mut value = rows
+            .iter()
+            .find(|row| row.name == "D")
+            .unwrap()
+            .value
+            .clone();
+        let original = value.clone();
+        assert!(!value.mask_expression("scope.parameters.default_value", 1, "1"));
+        assert!(!value.mask_expression("scope.parameters.default_value", 2, "2"));
+        assert!(!value.mask_expression("scope.parameters.unknown", 1, "2"));
+        assert!(!value.mask_expression("unknown.expression", 0, "1"));
+        assert_eq!(value, original);
+        assert!(value.mask_expression("scope.parameters.default_value", 1, "2"));
+        let scope = value.scope.as_ref().unwrap();
+        assert_eq!(scope.parameters[0].default_value.as_deref(), Some("1"));
+        assert_eq!(scope.parameters[1].default_value.as_deref(), Some(""));
+        assert_eq!(scope.parameters[1].name, "second");
+        assert_eq!(
+            scope.parameters[1].r#type,
+            original.scope.as_ref().unwrap().parameters[1].r#type
+        );
+        assert!(value.mask_expression("scope.parameters.0.default_value", 99, "1"));
+        let mut function = rows
+            .iter()
+            .find(|row| row.name == "law")
+            .unwrap()
+            .value
+            .clone();
+        function.function.as_mut().unwrap().applicability = vec!["first".into(), "second".into()];
+        assert!(function.mask_expression("function.body", 0, "x"));
+        assert!(function.mask_expression("function.applicability", 1, "second"));
+        let law = function.function.unwrap();
+        assert_eq!(law.body.as_deref(), Some(""));
+        assert_eq!(law.applicability, ["first", ""]);
+        assert_eq!(law.arguments[0].name, "x");
+    }
+
+    #[test]
+    fn typed_mask_preserves_scientific_float_bits_and_unmasked_metadata() {
+        let rows = crate::kernel_types::source(
+            "package p {constant c:Scalar=-0.0 provenance(origin, role.published); fn law(x:Scalar)->Scalar=x;}",
+        );
+        let original = rows
+            .iter()
+            .find(|row| row.name == "c")
+            .unwrap()
+            .value
+            .clone();
+        for bits in [
+            0.0_f64.to_bits(),
+            (-0.0_f64).to_bits(),
+            0x7ff8_0000_0000_0042,
+        ] {
+            let mut value = original.clone();
+            value
+                .constant
+                .as_mut()
+                .unwrap()
+                .value
+                .value
+                .quantity
+                .as_mut()
+                .unwrap()
+                .magnitude = f64::from_bits(bits);
+            let before = value.clone();
+            assert!(!value.mask_expression("constant.value.value.quantity.magnitude", 0, "-0.0"));
+            assert!(!value.mask_expression("unrecognized", 0, "-0.0"));
+            assert_eq!(
+                value
+                    .constant
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .value
+                    .quantity
+                    .as_ref()
+                    .unwrap()
+                    .magnitude
+                    .to_bits(),
+                bits
+            );
+            assert_eq!(value, before);
+        }
+        let mut first = rows
+            .iter()
+            .find(|row| row.name == "law")
+            .unwrap()
+            .value
+            .clone();
+        let mut second = first.clone();
+        second.function.as_mut().unwrap().body = Some("x*2".into());
+        assert!(first.mask_expression("function.body", 0, "x"));
+        assert!(second.mask_expression("function.body", 0, "x*2"));
+        assert_eq!(first, second);
+        second.function.as_mut().unwrap().arguments[0].name = "changed".into();
+        assert_ne!(first, second);
     }
 }

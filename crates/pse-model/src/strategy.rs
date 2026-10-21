@@ -20,14 +20,39 @@ pub use policy::*;
 mod effort;
 pub use effort::EffortPolicy;
 
-/// Effective admitted native settings, interpreted by their existing native owner.
+/// Actual numerical implementation, including residual methods outside the NLP backend family.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(
+    tag = "kind",
+    content = "backend",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
+pub enum NumericalMethod {
+    /// Existing class-specific native backend.
+    Backend(Backend),
+    /// Library-owned Levenberg-Marquardt fitting residual method.
+    ResidualLm,
+}
+impl NumericalMethod {
+    /// Native adapter identity, only when this method uses that backend family.
+    pub const fn backend(self) -> Option<Backend> {
+        match self {
+            Self::Backend(backend) => Some(backend),
+            Self::ResidualLm => None,
+        }
+    }
+}
+/// Effective admitted method settings, interpreted by their existing owner.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct ProfileRef {
     /// Explicit implementation; changing it requires another declared reference.
-    pub backend: Backend,
+    pub method: NumericalMethod,
     /// Complete effective method/settings identity, including set versus unset options.
     pub key: ContentHash,
 }
@@ -482,7 +507,7 @@ pub struct NumericalStrategy {
 #[serde(deny_unknown_fields)]
 pub struct NumericalStrategyDocument {
     /// Exact current document version, checked before decoding its body.
-    pub version: crate::document::Version<3>,
+    pub version: crate::document::Version<4>,
     /// Validated finite operation declaration.
     pub strategy: NumericalStrategy,
 }
@@ -576,7 +601,7 @@ impl NumericalStrategy {
     /// Complete declaration identity; invalid declarations never receive an admitted key.
     pub fn key(&self) -> Result<ContentHash, ModelError> {
         self.validate()?;
-        pse_ids::document::of(pse_ids::Frame::NumericalStrategyV3, self)
+        pse_ids::document::of(pse_ids::Frame::NumericalStrategyV4, self)
             .map_err(|error| ModelError::Malformed(error.to_string()))
     }
 }
@@ -824,7 +849,7 @@ mod tests {
         assert_ne!(key, explicit.key().unwrap());
         let mut profiled = strategy.clone();
         profiled.mechanisms[0].profile = Some(ProfileRef {
-            backend: Backend::Ipopt,
+            method: NumericalMethod::Backend(Backend::Ipopt),
             key: hash(1),
         });
         assert_ne!(key, profiled.key().unwrap());

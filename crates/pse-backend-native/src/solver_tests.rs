@@ -247,3 +247,48 @@ fn native_extensions_cannot_override_nested_semantics_or_unbound_history_strings
         .insert("option".into(), OptionValue::Text("x".repeat(5000)));
     assert!(controls.validate().is_err());
 }
+
+#[test]
+fn cold_primal_submission_is_distinct_from_a_selected_seed_receipt() {
+    let controls = Controls::default();
+    let execution = Execution::new(Default::default(), &controls);
+    let mut report = SolveReport::new(
+        Backend::Kinsol,
+        &contract(),
+        NativeTermination {
+            category: Termination::Success,
+            name: "fixture".into(),
+            code: 0,
+            message: None,
+            assurance: Assurance::None,
+        },
+        &execution,
+    );
+    report.evidence.start_submitted = true;
+    let mut receipt = StartReceipt {
+        previous_attempt: None,
+        seed: None,
+        sparse_seed: None,
+        transformations: vec![],
+        submitted: false,
+    };
+    receipt.record(&report, ContentHash::from_bytes([0; 32]));
+    assert!(
+        report.evidence.start_submitted,
+        "the initial primal reached the API"
+    );
+    assert!(
+        !receipt.submitted,
+        "there was no selected predecessor or sparse seed"
+    );
+    assert!(receipt.transformations.is_empty());
+    receipt.sparse_seed = Some(std::collections::BTreeMap::from([(id(1), 2.)]));
+    receipt.record(&report, ContentHash::from_bytes([0; 32]));
+    assert!(receipt.submitted);
+    report.evidence.start_submitted = false;
+    receipt.record(&report, ContentHash::from_bytes([0; 32]));
+    assert!(
+        !receipt.submitted,
+        "a selected payload alone does not establish API submission"
+    );
+}

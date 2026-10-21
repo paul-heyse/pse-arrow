@@ -913,6 +913,77 @@ mod native {
     mod tests {
         use super::psd_rows;
 
+        #[test]
+        fn independent_pounce_cone_control_magnitude_probe() {
+            use super::*;
+            for magnitude in [1.0_f64, 1e6, 1e9] {
+                for coefficient in [1e-6_f64, 1., 1e6] {
+                    for equilibrate in [false, true] {
+                        let mut contract = crate::solver_tests::contract();
+                        contract.variables[0].lower = 0.;
+                        contract.rows.push(crate::solver_tests::id(3));
+                        let problem = ConicProblem {
+                            contract,
+                            quadratic: conic::SparseMatrix::zeros(1, 1),
+                            objective: vec![coefficient],
+                            constraints: conic::SparseMatrix::new(
+                                2,
+                                1,
+                                vec![0, 1],
+                                vec![0],
+                                vec![-coefficient],
+                            ),
+                            rhs: vec![0., magnitude],
+                            cones: vec![Cone::SecondOrder { dimension: 2 }],
+                            objective_constant: 0.,
+                        };
+                        let form = form(&problem).unwrap();
+                        let options = QpOptions {
+                            tol: 0.0001,
+                            max_iter: 100,
+                            time_limit: Some(std::time::Duration::from_secs(2)),
+                            equilibrate,
+                            ..Default::default()
+                        };
+                        let linear = crate::settings::pounce::LinearSettings {
+                            parallel: Some(false),
+                            fma: false,
+                            ..Default::default()
+                        };
+                        let solution = solve_socp_ipm(
+                            &form.problem,
+                            &form.specs,
+                            &options,
+                            move || -> Box<dyn SparseSymLinearSolverInterface> {
+                                Box::new(FeralSolverInterface::with_config_and_pool_width(
+                                    linear.clone(),
+                                    NonZeroUsize::new(1).unwrap(),
+                                ))
+                            },
+                        );
+                        let distance = (magnitude - coefficient * solution.x[0]).max(0.);
+                        let tolerance = crate::quality::Tolerances {
+                            variables: vec![0.001 / coefficient],
+                            rows: vec![0.001; 2],
+                            integrality: 0.001,
+                        };
+                        if solution.x.iter().all(|v| v.is_finite()) {
+                            let quality =
+                                conic::quality(&problem, &solution.x, &tolerance).unwrap();
+                            assert_eq!(
+                                quality.feasible(),
+                                distance <= 0.001 && solution.x[0] >= -0.001 / coefficient
+                            );
+                        }
+                        println!(
+                            "POUNCE-SOC magnitude={magnitude} coefficient={coefficient} equilibrate={equilibrate} status={:?} iterations={} original_distance={distance}",
+                            solution.status, solution.iters
+                        );
+                    }
+                }
+            }
+        }
+
         /// The order-3 PSD triangle: POUNCE's lower triangle column by column is
         /// `(0,0),(1,0),(2,0),(1,1),(2,1),(2,2)`, the pse upper triangle
         /// `(0,0),(0,1),(1,1),(0,2),(1,2),(2,2)`.

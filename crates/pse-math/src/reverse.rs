@@ -151,6 +151,7 @@ fn compile_pullbacks(
     scalars: &mut library::ScalarCache,
     cost: &mut Cost,
     next_formal: usize,
+    #[cfg(feature = "compiled-evaluator")] native_modules: &mut crate::native_compiled::Batch,
 ) -> Result<Vec<Pullback>, MathError> {
     if prepared.stages.len() != forward.len() {
         return Err(MathError::Contract(
@@ -301,7 +302,7 @@ fn compile_pullbacks(
                                     .modules
                                     .checked_add(module_bytes)
                                     .ok_or(MathError::Limit("local pullback modules"))?;
-                                BlockEvaluator::Native(crate::native_compiled::compile(
+                                BlockEvaluator::Native(native_modules.push(
                                     &inspected.evaluator,
                                     &storage,
                                     &inspected.export,
@@ -409,6 +410,8 @@ fn compile_pullbacks(
                         scalars,
                         cost,
                         next_formal,
+                        #[cfg(feature = "compiled-evaluator")]
+                        native_modules,
                     )?,
                     otherwise: compile_pullbacks(
                         &prepared.children[1],
@@ -420,6 +423,8 @@ fn compile_pullbacks(
                         scalars,
                         cost,
                         next_formal,
+                        #[cfg(feature = "compiled-evaluator")]
+                        native_modules,
                     )?,
                 },
                 _ => Pullback::Control,
@@ -478,6 +483,8 @@ impl PreparedSupport {
             .unwrap_or(0)
             .checked_add(1)
             .ok_or(MathError::Limit("pullback temporary formals"))?;
+        #[cfg(feature = "compiled-evaluator")]
+        let mut native_modules = crate::native_compiled::Batch::default();
         let stages = compile_pullbacks(
             &self.program,
             compiled.programs[DerivativeOrder::First]
@@ -490,7 +497,11 @@ impl PreparedSupport {
             &mut scalars,
             &mut cost,
             next_formal,
+            #[cfg(feature = "compiled-evaluator")]
+            &mut native_modules,
         )?;
+        #[cfg(feature = "compiled-evaluator")]
+        native_modules.finish(scope)?;
         // Original Second eligibility checks retain their position in the forward program.
         fn require_order(stages: &mut [CompiledStage]) {
             for stage in stages {

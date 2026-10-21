@@ -542,7 +542,7 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
     let mut declaration = NumericalStrategy::direct(StartPolicy::NoPriorStart, limits);
     declaration.start.recovery.push(StartOrigin::Auxiliary);
     declaration.mechanisms[0].profile = Some(ProfileRef {
-        backend: Backend::Kinsol,
+        method: pse_model::strategy::NumericalMethod::Backend(Backend::Kinsol),
         key: prepared.solve.strategy_profile().unwrap(),
     });
     declaration.mechanisms[0]

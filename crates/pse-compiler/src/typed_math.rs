@@ -343,6 +343,7 @@ impl Request<'_> {
         local_quantities: &BTreeMap<String, QuantityTypeId>,
         validity: &BTreeMap<String, Validity>,
     ) -> Result<AdmittedBody, MathError> {
+        let _phase = pse_diagnostics::observation::phase("compiler.typed_body_lowering");
         let records = functions
             .iter()
             .map(|(name, value)| {

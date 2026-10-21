@@ -9,6 +9,9 @@ use pse_model::scalars::PositiveCount;
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FitPreparationDocument {
+    /// Fitting-owned method selection, resolved before scientific effects.
+    #[serde(default)]
+    pub optimizer: super::FitOptimizer,
     /// Canonical solve settings; their own owner admits cross-field rules.
     pub solver: crate::math::settings::SolveSettings,
     /// Native dynamic settings by experiment identity.
@@ -49,6 +52,7 @@ impl FitPreparationDocument {
     /// Resolve solver policy; contextual experiment admission stays in `prepare_fit`.
     pub fn profile(self) -> Result<super::FitProfile, crate::math::MathRuntimeError> {
         Ok(super::FitProfile {
+            optimizer: self.optimizer,
             solver: self.solver.profile()?,
             simulations: self.simulations,
             rank_tolerance: self.rank_tolerance,
@@ -58,6 +62,29 @@ impl FitPreparationDocument {
             uncertainty: self.uncertainty,
         })
     }
+}
+/// Actual fitting implementation and its literal stopping evidence.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(tag = "method", rename_all = "snake_case", deny_unknown_fields)]
+pub enum FitExecutionDocument {
+    /// No optimizer ran because every original coordinate was fixed.
+    Evaluation,
+    /// Class-specific native NLP, preserving its original backend report.
+    NativeNlp {
+        /// Actual backend.
+        backend: pse_backend_native::solve::Backend,
+        /// Actual shared termination category.
+        termination: pse_backend_native::solve::Termination,
+        /// Actual native status without reinterpretation.
+        status: String,
+        /// Independent original qualification.
+        qualification: pse_backend_native::solve::Qualification,
+    },
+    /// Library-owned residual LM, with original typed failure and exact observed work.
+    ResidualLm {
+        /// Literal residual-native evidence, never an invented NLP report.
+        report: super::FitResidualReport,
+    },
 }
 /// Whether profile intervals were requested, available, or withheld by native admission.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
@@ -79,6 +106,23 @@ pub enum FitProfileDocument {
     },
 }
 impl FitReport {
+    /// Project actual method evidence without another numerical evaluation.
+    pub fn execution_document(&self) -> FitExecutionDocument {
+        if let Some(report) = &self.residual {
+            FitExecutionDocument::ResidualLm {
+                report: report.clone(),
+            }
+        } else if let Some(report) = &self.solve {
+            FitExecutionDocument::NativeNlp {
+                backend: report.backend,
+                termination: report.termination.category,
+                status: report.termination.name.clone(),
+                qualification: report.qualification,
+            }
+        } else {
+            FitExecutionDocument::Evaluation
+        }
+    }
     /// Project retained evidence without starting work or revising its outcome.
     pub fn profile_document(&self) -> FitProfileDocument {
         match &self.profiles {
@@ -165,6 +209,7 @@ mod boundary_unit {
             detail: Some("stopped after terminal failure".into()),
             points: vec![
                 ProfilePoint {
+                    residual: None,
                     value: 1.,
                     seed: None,
                     qualification: None,
@@ -177,6 +222,7 @@ mod boundary_unit {
                     detail: Some("trial trajectory".into()),
                 },
                 ProfilePoint {
+                    residual: None,
                     value: 1.5,
                     seed: None,
                     qualification: None,

@@ -845,29 +845,39 @@ impl MathService {
         self: &Arc<Self>,
         prepared: Preparation,
     ) -> Result<Arc<ExecutableCase>, MathRuntimeError> {
+        let driver = self.preparation_driver(&crate::CancelSource::new())?;
+        self.assemble_for(prepared, &driver).await
+    }
+    pub(super) async fn assemble_for(
+        self: &Arc<Self>,
+        prepared: Preparation,
+        driver: &crate::CancelSource,
+    ) -> Result<Arc<ExecutableCase>, MathRuntimeError> {
+        let driver = self.preparation_driver(driver)?;
         if let Some(executable) = prepared.executable.get() {
             return Ok(executable.clone());
         }
         let memo = prepared.executable.clone();
-        let executable = self.assemble_programs(prepared).await?;
+        let executable = self.assemble_programs(prepared, &driver).await?;
         Ok(memo.get_or_init(|| executable).clone())
     }
     async fn assemble_programs(
         self: &Arc<Self>,
         prepared: Preparation,
+        driver: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, MathRuntimeError> {
-        let mut artifacts = vec![];
-        for request in prepared.prepared.artifacts.iter() {
-            artifacts.push(self.artifact(request.clone()).await?);
-        }
         let plan = prepared.prepared.plan.clone();
         let layout = self.reserve(
             "case_operation_layout",
             plan.operation_layout_allocation_bound()?,
         )?;
+        let artifacts = self
+            .prepare_artifacts(prepared.prepared.artifacts.iter(), driver)
+            .await?;
         let _span = tracing::info_span!("pse.case.program_assembly").entered();
         let assembly =
             Arc::new(plan.assemble(artifacts.iter().map(|a| a.program.clone()).collect())?);
+        let _ = self.preparation_driver(driver)?;
         Ok(Arc::new(ExecutableCase {
             assembly,
             _artifacts: artifacts,

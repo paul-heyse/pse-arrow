@@ -207,6 +207,24 @@ union before any direct or Krylov callback consumes it. Algebraic sample elimina
 retains compatible symbolic analysis at its native owner, while each changed sample
 refreshes its numerical factor and admits that live factor separately.
 
+> Decision: [ADR-0203](../../adr/0203-selected-mathematical-entries-and-dynamic-diagonals.md)
+> specifies selected RHS diagonals for the Plan48 Jacobi target; implementation and
+> qualification remain with Plan48e.
+
+A requested `rhs_state_diagonal` is raw `df_i/dy_i` for the current RHS function in ordered
+physical state coordinates. The runtime selects semantic row/state pairs with their actual
+contribution/scaling maps. IDAS alone forms `cj*M_i - diagonal_i`, retaining its existing
+finite/tiny-entry fallback. The exact full-partials fallback remains explicit for an oracle
+without selective support. Value, selected and full products have distinct transactional
+coverage; a failed upgrade does not overwrite an earlier compatible complete product.
+
+Anchored wrapper derivative evaluation consumes an admitted all-mode/function CSC/scatter
+layout prepared through the existing finite layout route, including ordinary and observed
+window wrappers. Value-only wrappers need no derivative layout; missing derivative
+preparation refuses before effects. Callback-time triplet construction/sorting and hidden
+dense allowances are not alternate execution routes (proposed ADR-0203; Plan48e owns
+implementation/qualification).
+
 The methods are typed profile fields: `Profile::diffsol` (`DiffsolSettings`: the scheme and
 the Newton linear solver) and `Profile::idas` (`IdasSettings`: the linear solver, the
 sensitivity corrector, the initialization and one sign per state). `Method::Auto` selects
@@ -749,6 +767,15 @@ obligations does not release another owner's content or require producer payload
 
 ### 19.3 Studies and reuse
 
+> Decision: [ADR-0211](../../adr/0211-bounded-worker-publication.md) (proposed; Plan48 F06 target).
+
+A durable worker may hold bounded Running and Publishing populations separately so its
+next ready independent occurrence can compute while a prior result awaits export/ACK.
+The handoff follows actual scientific/native owning join, not a callback's early completion.
+Both populations retain their own charged source/result/native lifecycle owners. Public
+wait and processed/terminal counts remain terminal through ACK/error; no old permission
+is lent to a new lane. Publication saturation supplies finite cancellation-aware backpressure.
+
 > Supplement: [ADR-0191](../../adr/0191-explicit-scalar-compiled-evaluation.md) (proposed; Plan 41e carries explicit evaluator selection through versioned study preparation).
 
 Local studies retain actual immutable model/physical owners and one shared admitted scientific payload. Public admission and local execution require no canonical store. Recording is an explicit effect over those retained sources, yielding a portable StudyDefinition with real receipts; durable startup validates it against canonical owners. Rust `ModelingPackage::admit_study` and Python `ModelingPackage.admit_study` return `LocalStudy`; `LocalStudy.execute` and package-local study execution always use ephemeral producers, including when the package has acknowledged canonical origin. `Runtime.record_study` publishes exact retained sources, then Rust `start_recorded_study` / Python `start_study` starts the recorded descriptor; `execute_study` joins durable execution. Local handles do not serialize or contain fabricated source receipts. Recording does not repeat scientific admission or expand unselected lazy variants. Exact document bytes are retained when document ingress supports later recording; unavailable recording prerequisites refuse before effects.
@@ -937,8 +964,29 @@ explicitly admits the fitted set with fit lineage; export never installs a bank 
 | Mixed | Both kinds in one simultaneous NLP |
 | All fixed | Direct evaluation with truthful physical quality; no native passes |
 
-Fitting uses the ordinary native NLP route (Ipopt or POUNCE) and library presolve
-([§18](numerical-execution.md#section-18)). Contributions are assembled with their
+> Decision: [ADR-0209](../../adr/0209-qualified-fitting-residual-methods.md) (proposed; maintainer-authorized Plan48 E07 target).
+
+Fitting owns an explicit optimizer choice: `Automatic`, `NativeNlp` or `ResidualLm`.
+Automatic selects the library-owned residual route only when current admitted coordinates,
+weights and response products qualify an unconstrained fit with no finite parameter boxes
+or general constraints. NativeNlp retains the explicit Ipopt/POUNCE portfolio and library
+presolve ([§18](numerical-execution.md#section-18)); explicit ResidualLm refuses unsupported
+meaning before effects. No constraint or residual interpretation is silently discarded.
+Both routes use the same independent original assessment, covariance/rank and profile-chain
+consumers. Actual LM method, native termination and work are represented honestly in strategy,
+completion and published results, separately from scientific permission; no synthetic NLP
+backend/status or all-fixed classification represents a residual solve. The exact source pin
+matches the current matrix family; implementation and qualification remain Plan48e/48h.
+
+Compatible neutral mathematical scratch may pass between actual callback owners only after
+Drop/reset destroys provider state and detaches controls. Its finite local slot retains storage,
+not a numerical trial, Point, result, applicability witness or active execution. Current
+providers, complete coordinate/profile maps and original controls bind before reuse; mismatch,
+failure or unavailable neutral return selects fresh scratch. Final assessment still evaluates
+fresh original values. IDAS resource storage has its separate owner-affine reset contract
+([§18.10](numerical-execution.md#section-18-10), ADR-0205).
+
+Contributions are assembled with their
 declared sparse support; duplicates accumulate before faer's sparse Gram product, and
 dense support stays dense only where declared. Prepared fit metadata and sparse layouts
 share one admitted immutable product. Seeds for fitting are refused; declared parameter

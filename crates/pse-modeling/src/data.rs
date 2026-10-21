@@ -1226,7 +1226,7 @@ fn cycle<N>(graph: &DiGraph<N, ()>) -> Vec<NodeIndex> {
 
 /// The names and types a row binds: the visible kinds' extents (Plan 23 D0), keys, columns,
 /// and `value` for a table of one value.
-fn row_types(p: &CheckedPackage, table: &Declared) -> BTreeMap<String, Type> {
+fn row_types<'a>(p: &'a CheckedPackage, table: &Declared) -> crate::check::NamedTypes<'a> {
     let mut env = crate::entity::extent_types(p, table.id);
     env.extend(
         table

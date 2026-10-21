@@ -70,7 +70,7 @@ async fn declared_native_profiles_execute_actual_rungs_under_one_original_contra
     let mut strategy = NumericalStrategy::direct(StartPolicy::NoPriorStart, limits);
     strategy.start.recovery.push(StartOrigin::Specification);
     strategy.mechanisms[0].profile = Some(ProfileRef {
-        backend: Backend::Clarabel,
+        method: pse_model::strategy::NumericalMethod::Backend(Backend::Clarabel),
         key: first.solve().strategy_profile().unwrap(),
     });
     strategy.mechanisms[0]
@@ -80,7 +80,7 @@ async fn declared_native_profiles_execute_actual_rungs_under_one_original_contra
     second.kind = MechanismKind::NativeGlobalization;
     second.position = Position::Recovery;
     second.profile = Some(ProfileRef {
-        backend: Backend::Clarabel,
+        method: pse_model::strategy::NumericalMethod::Backend(Backend::Clarabel),
         key: final_profile.solve().strategy_profile().unwrap(),
     });
     strategy.mechanisms.push(second);

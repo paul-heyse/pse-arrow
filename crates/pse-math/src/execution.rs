@@ -182,6 +182,21 @@ impl PreparedSupport {
     pub(crate) fn source_providers(&self) -> &[ProviderSpec] {
         self.body().providers()
     }
+    /// Provider occurrences in this exact selected staged source, including guards
+    /// and both control arms. This is a conservative pre-compilation projection.
+    pub(crate) fn visit_provider_sources(&self, mut visit: impl FnMut(SemanticId, ProviderKey)) {
+        fn stages(program: &PreparedStages, visit: &mut impl FnMut(SemanticId, ProviderKey)) {
+            for prepared in &program.stages {
+                if let Stage::Provider { spec, source, .. } = &prepared.stage {
+                    visit(*source, spec.key());
+                }
+                for child in &prepared.children {
+                    stages(child, visit);
+                }
+            }
+        }
+        stages(&self.program, &mut visit);
+    }
     /// Match the original admitted body without retaining its allocation or lease.
     /// A separately admitted equal body matches while the source still exists. A dropped
     /// source conservatively prevents reuse rather than inventing semantic identity.
@@ -2167,6 +2182,8 @@ impl PreparedBody {
         } else {
             FirstLayout::from_support(prepared_support)
         });
+        #[cfg(feature = "compiled-evaluator")]
+        let mut native_modules = crate::native_compiled::Batch::default();
         for requested in [
             DerivativeOrder::Value,
             DerivativeOrder::First,
@@ -2281,6 +2298,8 @@ impl PreparedBody {
                 scope,
                 &mut allowance,
                 &mut scalars,
+                #[cfg(feature = "compiled-evaluator")]
+                &mut native_modules,
             )?;
             retained_modules = retained_modules
                 .checked_add(allowance.modules)
@@ -2350,6 +2369,8 @@ impl PreparedBody {
                 context.count("math.compiled_order_constructions_completed", "count", 1);
             }
         }
+        #[cfg(feature = "compiled-evaluator")]
+        native_modules.finish(scope)?;
         let mut required_provider_keys = Vec::new();
         let mut provider_visit_capacity = 0;
         for stages in programs.values().flatten() {
@@ -2851,6 +2872,39 @@ impl CompiledBody {
     /// Exactly the provider keys selected in this compiled artifact, including control arms.
     pub(crate) fn required_provider_keys(&self) -> &[ProviderKey] {
         &self.required_provider_keys
+    }
+    /// Actual admitted provider occurrences of one numeric staged program. Visit
+    /// control arms conservatively without exporting or allocating new programs.
+    pub(crate) fn visit_provider_sources(
+        &self,
+        order: DerivativeOrder,
+        mut visit: impl FnMut(SemanticId, ProviderKey),
+    ) {
+        fn stages(program: &[CompiledStage], visit: &mut impl FnMut(SemanticId, ProviderKey)) {
+            for stage in program {
+                match stage {
+                    CompiledStage::Provider {
+                        request, source, ..
+                    } => visit(*source, request.key()),
+                    CompiledStage::Domain {
+                        stages: children, ..
+                    }
+                    | CompiledStage::Applicability {
+                        stages: children, ..
+                    } => stages(children, visit),
+                    CompiledStage::Branch {
+                        then, otherwise, ..
+                    } => {
+                        stages(then, visit);
+                        stages(otherwise, visit);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        if let Some(program) = &self.programs[order] {
+            stages(program, &mut visit);
+        }
     }
     pub(crate) fn evaluation_limits(&self) -> EvaluationLimits {
         self.limits
@@ -4857,6 +4911,7 @@ fn compile_stages(
     execution_scope: &pse_kernels::ExecutionScope,
     allowance: &mut BuildAllowance,
     scalars: &mut library::ScalarCache,
+    #[cfg(feature = "compiled-evaluator")] native_modules: &mut crate::native_compiled::Batch,
 ) -> Result<Vec<CompiledStage>, MathError> {
     execution_scope.check().map_err(crate::error::scope_error)?;
     let cancelled = execution_scope.cancellation();
@@ -4892,6 +4947,8 @@ fn compile_stages(
                         execution_scope,
                         allowance,
                         scalars,
+                        #[cfg(feature = "compiled-evaluator")]
+                        native_modules,
                     )?,
                     frame: vec![f64::NAN; scope.reads.len()],
                     reads: scope.reads.clone(),
@@ -4929,6 +4986,8 @@ fn compile_stages(
                         execution_scope,
                         allowance,
                         scalars,
+                        #[cfg(feature = "compiled-evaluator")]
+                        native_modules,
                     )?,
                     frame: vec![f64::NAN; scope.reads.len()],
                     reads: scope.reads.clone(),
@@ -5119,7 +5178,7 @@ fn compile_stages(
                                 if !allowance.native_prepaid {
                                     crate::construction::additional(module_bytes)?;
                                 }
-                                BlockEvaluator::Native(crate::native_compiled::compile(
+                                BlockEvaluator::Native(native_modules.push(
                                     &evaluator,
                                     &storage,
                                     &_export,
@@ -5252,6 +5311,8 @@ fn compile_stages(
                     execution_scope,
                     allowance,
                     scalars,
+                    #[cfg(feature = "compiled-evaluator")]
+                    native_modules,
                 )?,
                 otherwise: compile_stages(
                     &prepared.children[1],
@@ -5263,6 +5324,8 @@ fn compile_stages(
                     execution_scope,
                     allowance,
                     scalars,
+                    #[cfg(feature = "compiled-evaluator")]
+                    native_modules,
                 )?,
             },
             Stage::Provider {
@@ -9794,6 +9857,118 @@ mod compact_tests {
 
     #[cfg(feature = "compiled-evaluator")]
     #[test]
+    fn native_scalar_reverse_pullbacks_pack_without_crossing_execution_guards() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        crate::initialize().unwrap();
+        let x = library::formal(0).unwrap();
+        let intermediate = library::formal(1).unwrap();
+        let source = SemanticId::from_bytes([91; 16]);
+        let body = PreparedBody::new(
+            1,
+            3,
+            vec![2],
+            vec![
+                Stage::Block {
+                    expressions: vec![x.pow(2)],
+                    outputs: vec![1],
+                    source,
+                },
+                Stage::Require {
+                    argument: 1,
+                    condition: Condition::Positive,
+                    order: DerivativeOrder::Value,
+                    source,
+                    lineage: None,
+                },
+                Stage::Block {
+                    expressions: vec![intermediate.pow(2)],
+                    outputs: vec![2],
+                    source,
+                },
+            ],
+            DerivativeOrder::First,
+        )
+        .unwrap();
+        let cancel = pse_diagnostics::Cancellation::default();
+        let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
+        let support = body
+            .prepare_support(&[0], &[0], DerivativeOrder::First, &cancel)
+            .unwrap();
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("compiled reverse packing");
+        let context = operation.context();
+        let _entered = context.enter();
+        let program = support
+            .compile_product(
+                ProductKind::TransposeJacobianAction,
+                Optimization {
+                    evaluator: library::Evaluator::CompiledScalar {
+                        module_bytes: 1 << 20,
+                    },
+                    ..Default::default()
+                },
+                EvaluationLimits::default(),
+                &scope,
+            )
+            .unwrap();
+        let mut first = program.worker();
+        let mut second = program.worker();
+        let mut result = [f64::NAN];
+        first
+            .evaluate_product_into(
+                &[2.],
+                ProductValues::TransposeJacobianAction { weights: &[3.] },
+                &mut ProviderBindings::new(),
+                &cancel,
+                &mut result,
+            )
+            .unwrap();
+        assert_eq!(result, [96.]);
+        second
+            .evaluate_product_into(
+                &[3.],
+                ProductValues::TransposeJacobianAction { weights: &[2.] },
+                &mut ProviderBindings::new(),
+                &cancel,
+                &mut result,
+            )
+            .unwrap();
+        assert_eq!(result, [216.]);
+        assert!(
+            matches!(first.evaluate_product_into(&[0.], ProductValues::TransposeJacobianAction { weights: &[3.] }, &mut ProviderBindings::new(), &cancel, &mut result), Err(MathError::Domain { source_id, .. }) if source_id == source)
+        );
+        assert_eq!(
+            result,
+            [216.],
+            "failed guarded product cannot publish partial output"
+        );
+        let snapshot = context
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "math.native_scalar_compilations")
+                .unwrap()
+                .cumulative,
+            Value::Count(2),
+            "one forward module and one pullback module"
+        );
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == "math.native_scalar_module_functions")
+                .unwrap()
+                .cumulative,
+            Value::Count(3),
+            "only the three actually demanded exported functions are packed"
+        );
+    }
+
+    #[cfg(feature = "compiled-evaluator")]
+    #[test]
     fn native_scalar_production_blocks_preserve_coordinates_fp_and_worker_ownership() {
         use pse_diagnostics::observation::{ObservationHub, Policy, Value};
         crate::initialize().unwrap();
@@ -9945,7 +10120,7 @@ mod compact_tests {
         };
         assert_eq!(
             count("math.native_scalar_compilations"),
-            Some(Value::Count(3))
+            Some(Value::Count(1))
         );
         assert_eq!(
             count("math.native_scalar_evaluations"),

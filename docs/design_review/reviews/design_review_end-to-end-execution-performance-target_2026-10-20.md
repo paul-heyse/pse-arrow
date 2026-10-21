@@ -5,7 +5,7 @@ tier: design
 purpose: target
 decision: Revise
 doc_role: review
-doc_topics: [design, performance, preparation, numerical-execution, workflows]
+doc_topics: [design, performance, preparation, numerical-execution]
 standard:
   core: "3.4"
   efficient-architecture: "1.0"

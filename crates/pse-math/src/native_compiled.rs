@@ -3,10 +3,10 @@
 //! Explicit scalar C++ preparation; shared code and independently loaded scratch.
 use crate::{MathError, library};
 use std::{
-    io::Read,
+    io::{Read, Write},
     os::unix::process::CommandExt,
     process::{Child, Command, ExitStatus, Stdio},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
     time::Instant,
 };
 use symbolica::{
@@ -17,6 +17,9 @@ use symbolica::{
     },
 };
 
+mod cache;
+
+#[cfg(test)]
 const FUNCTION: &str = "pse_value";
 const COMPILER: &str = "/usr/bin/g++";
 const FLAGS: &[&str] = &[
@@ -43,25 +46,37 @@ pub(crate) struct Evaluator {
     worker: Option<Mutex<CompiledRealEvaluator>>,
     // Rust drops fields in declaration order: unload private native scratch
     // before the last template can remove its directory and shared ownership.
-    template: Arc<Template>,
+    template: Arc<OnceLock<Arc<Template>>>,
+    function: &'static str,
 }
 impl Clone for Evaluator {
     fn clone(&self) -> Self {
         Self {
             template: self.template.clone(),
+            function: self.function,
             worker: None,
         }
     }
 }
 impl Evaluator {
+    #[cfg(test)]
+    pub(crate) fn probe_module(&self) -> Result<(std::path::PathBuf, &'static str), MathError> {
+        let template = self
+            .template
+            .get()
+            .ok_or_else(|| MathError::Contract("compiled module not finalized".into()))?;
+        Ok((template._directory.path().join("value.so"), self.function))
+    }
     pub(crate) fn instantiate(&mut self) -> Result<(), MathError> {
         if self.worker.is_none() {
             let evaluator = self
                 .template
+                .get()
+                .ok_or_else(|| MathError::Contract("compiled module not finalized".into()))?
                 .evaluator
                 .lock()
                 .map_err(|_| MathError::Library("compiled template lock poisoned".into()))?
-                .load_new_function(FUNCTION)
+                .load_new_function(self.function)
                 .map_err(MathError::Library)?;
             self.worker = Some(Mutex::new(evaluator));
         }
@@ -476,6 +491,260 @@ pub(crate) fn compile(
 ) -> Result<Evaluator, MathError> {
     compile_prepared_with(evaluator, storage, export, module_bytes, scope, COMPILER)
 }
+/// Packing is a physical preparation bound, not an evaluation or arithmetic fusion.
+/// Every member retains its individual preflight allowance and private worker scratch.
+const FUNCTIONS: [&str; 8] = [
+    "pse_value0",
+    "pse_value1",
+    "pse_value2",
+    "pse_value3",
+    "pse_value4",
+    "pse_value5",
+    "pse_value6",
+    "pse_value7",
+];
+const FUNCTIONS_PER_MODULE: usize = FUNCTIONS.len();
+pub(crate) struct Batch {
+    pending: Vec<Pending>,
+    template: Arc<OnceLock<Arc<Template>>>,
+    cache: Option<cache::Cache>,
+}
+impl Default for Batch {
+    fn default() -> Self {
+        Self {
+            pending: Vec::new(),
+            template: Arc::default(),
+            // Unit controls explicitly choose private cache state. Production
+            // always attempts the bounded disposable cache at this same owner.
+            cache: if cfg!(test) {
+                None
+            } else {
+                Some(cache::Cache::local())
+            },
+        }
+    }
+}
+struct Pending {
+    source: String,
+    function: &'static str,
+    inputs: usize,
+    outputs: usize,
+    output_capacity: usize,
+}
+impl Batch {
+    pub(crate) fn push(
+        &mut self,
+        evaluator: &ExpressionEvaluator<f64>,
+        storage: &library::Storage,
+        export: &ExportedInstructions<f64>,
+        module_bytes: usize,
+        scope: &pse_kernels::ExecutionScope,
+    ) -> Result<Evaluator, MathError> {
+        if self.pending.len() == FUNCTIONS_PER_MODULE {
+            self.finish(scope)?;
+        }
+        if !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+            return Err(MathError::Contract(
+                "compiled scalar profile supports Linux x86-64".into(),
+            ));
+        }
+        scope.check().map_err(crate::error::scope_error)?;
+        let scratch = storage
+            .numeric_entries
+            .checked_mul(size_of::<f64>())
+            .ok_or(MathError::Limit("compiled template scratch"))?;
+        let source_bound = export_bound(export)?;
+        // export.rs builds argument String vectors, joined expressions and formatted
+        // assignments while the growing result String remains live. Eight complete
+        // source populations cover these capacities/temporaries for the admitted
+        // fixed-width channels, plus the separately counted instruction view.
+        let export_peak = source_bound
+            .checked_mul(8)
+            .and_then(|n| n.checked_add(storage.instruction_bytes))
+            .ok_or(MathError::Limit("compiled export construction extent"))?;
+        let fixed = scratch
+            .checked_add(size_of::<Template>() + size_of::<Evaluator>() + (64 << 10))
+            .and_then(|n| n.checked_add(READER_STACK + 16 * CAPTURE))
+            .ok_or(MathError::Limit("compiled module metadata extent"))?;
+        let output_capacity = module_bytes
+            .checked_sub(export_peak)
+            .and_then(|n| n.checked_sub(fixed))
+            .and_then(|n| n.checked_sub(source_bound))
+            .filter(|n| *n >= 4)
+            .ok_or(MathError::Limit(
+                "compiled source/output preflight allowance",
+            ))?;
+        let function = FUNCTIONS[self.pending.len()];
+        let source = evaluator
+            .export_cpp_str::<f64>(
+                function,
+                ExportSettings::new()
+                    .inline_asm(InlineASM::None)
+                    .include_header(self.pending.is_empty()),
+            )
+            .map_err(MathError::Library)?;
+        if source.len() > source_bound || source.capacity() > source_bound.saturating_mul(2) {
+            return Err(MathError::Contract(
+                "compiled export exceeded its source-qualified bound".into(),
+            ));
+        }
+        self.pending.push(Pending {
+            source,
+            function,
+            inputs: evaluator.get_input_len(),
+            outputs: evaluator.get_output_len(),
+            output_capacity,
+        });
+        Ok(Evaluator {
+            template: self.template.clone(),
+            function,
+            worker: None,
+        })
+    }
+    pub(crate) fn finish(&mut self, scope: &pse_kernels::ExecutionScope) -> Result<(), MathError> {
+        self.finish_with(scope, COMPILER)
+    }
+    fn finish_with(
+        &mut self,
+        scope: &pse_kernels::ExecutionScope,
+        compiler_path: &str,
+    ) -> Result<(), MathError> {
+        if self.pending.is_empty() {
+            return Ok(());
+        }
+        scope.check().map_err(crate::error::scope_error)?;
+        let _phase = pse_diagnostics::observation::phase("math.native_scalar_preparation");
+        let output_capacity = self
+            .pending
+            .iter()
+            .try_fold(0usize, |n, item| n.checked_add(item.output_capacity))
+            .ok_or(MathError::Limit("packed compiled module extent"))?;
+        // Object, shared file, loaded image and atomic cache publication may
+        // coexist. A cache hit retains the same conservative admission. Member
+        // preflights also cover sources, export and bounded cache metadata.
+        let object_limit = output_capacity / 4;
+        let code_limit = output_capacity / 4;
+        let directory = tempfile::Builder::new()
+            .prefix("pse-math-native-")
+            .tempdir()
+            .map_err(|e| MathError::Library(e.to_string()))?;
+        let source_path = directory.path().join("value.cpp");
+        let library_path = directory.path().join("value.so");
+        let object_path = directory.path().join("value.o");
+        let key = cache::key(&self.pending, compiler_path);
+        let received = self
+            .cache
+            .as_ref()
+            .is_some_and(|cache| cache.receive(&key, &library_path, code_limit, scope));
+        // Failed receiving, including a load/export mismatch, is an ordinary
+        // miss. Nothing is published until every current demanded symbol agrees.
+        let mut loaded = if received {
+            self.load_module(&library_path, scope).ok()
+        } else {
+            None
+        };
+        let hit = loaded.is_some();
+        if !hit {
+            scope.check().map_err(crate::error::scope_error)?;
+            let _compilation =
+                pse_diagnostics::observation::phase("math.native_scalar_compilation");
+            let mut source = std::fs::File::create(&source_path)
+                .map_err(|e| MathError::Library(e.to_string()))?;
+            for item in &self.pending {
+                scope.check().map_err(crate::error::scope_error)?;
+                source
+                    .write_all(item.source.as_bytes())
+                    .map_err(|e| MathError::Library(e.to_string()))?;
+            }
+            drop(source);
+            let mut compile = compiler_command(compiler_path, object_limit, directory.path());
+            compile
+                .args(FLAGS)
+                .arg("-c")
+                .arg(&source_path)
+                .arg("-o")
+                .arg(&object_path);
+            run_compiler(compile, scope)?;
+            let mut link = compiler_command(compiler_path, code_limit, directory.path());
+            link.arg("-shared")
+                .arg("-Wl,-z,max-page-size=4096")
+                .arg(&object_path)
+                .arg("-o")
+                .arg(&library_path);
+            run_compiler(link, scope)?;
+            loaded = Some(self.load_module(&library_path, scope)?);
+        }
+        let code_bytes = usize::try_from(
+            std::fs::metadata(&library_path)
+                .map_err(|e| MathError::Library(e.to_string()))?
+                .len(),
+        )
+        .map_err(|_| MathError::Limit("compiled executable extent"))?;
+        if code_bytes > code_limit {
+            return Err(MathError::Contract(
+                "compiler exceeded enforced output file limit".into(),
+            ));
+        }
+        let loaded =
+            loaded.ok_or_else(|| MathError::Contract("compiled scalar module missing".into()))?;
+        if !hit && let Some(cache) = &self.cache {
+            cache.publish(&key, &library_path, scope);
+        }
+        scope.check().map_err(crate::error::scope_error)?;
+        self.template
+            .set(Arc::new(Template {
+                evaluator: Mutex::new(loaded),
+                _directory: directory,
+            }))
+            .map_err(|_| MathError::Contract("compiled module already finalized".into()))?;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count(
+                if hit {
+                    "math.native_scalar_cache_hits"
+                } else {
+                    "math.native_scalar_compilations"
+                },
+                "count",
+                1,
+            );
+            context.count(
+                "math.native_scalar_module_functions",
+                "count",
+                self.pending.len() as u64,
+            );
+            context.gauge(
+                "math.native_scalar_executable_bytes",
+                "bytes",
+                code_bytes as f64,
+            );
+        }
+        self.pending.clear();
+        self.template = Arc::default();
+        Ok(())
+    }
+    fn load_module(
+        &self,
+        path: &std::path::Path,
+        scope: &pse_kernels::ExecutionScope,
+    ) -> Result<CompiledRealEvaluator, MathError> {
+        scope.check().map_err(crate::error::scope_error)?;
+        let loaded = CompiledRealEvaluator::load(path, self.pending[0].function)
+            .map_err(MathError::Library)?;
+        for item in &self.pending {
+            scope.check().map_err(crate::error::scope_error)?;
+            let checked = loaded
+                .load_new_function(item.function)
+                .map_err(MathError::Library)?;
+            if checked.get_input_len() != item.inputs || checked.get_output_len() != item.outputs {
+                return Err(MathError::Contract(
+                    "compiled scalar library dimensions".into(),
+                ));
+            }
+        }
+        scope.check().map_err(crate::error::scope_error)?;
+        Ok(loaded)
+    }
+}
 fn compile_prepared_with(
     evaluator: &ExpressionEvaluator<f64>,
     storage: &library::Storage,
@@ -484,113 +753,10 @@ fn compile_prepared_with(
     scope: &pse_kernels::ExecutionScope,
     compiler_path: &str,
 ) -> Result<Evaluator, MathError> {
-    if !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
-        return Err(MathError::Contract(
-            "compiled scalar profile supports Linux x86-64".into(),
-        ));
-    }
-    scope.check().map_err(crate::error::scope_error)?;
-    let _phase = pse_diagnostics::observation::phase("math.native_scalar_compilation");
-    // The caller borrows its already source-admitted instruction inspection,
-    // also used for scratch/reset eligibility. No native-module inspection clone
-    // precedes the module's own preflight or duplicates that source population.
-    let scratch = storage
-        .numeric_entries
-        .checked_mul(size_of::<f64>())
-        .ok_or(MathError::Limit("compiled template scratch"))?;
-    let source_bound = export_bound(export)?;
-    // export.rs builds argument String vectors, joined expressions and formatted
-    // assignments while the growing result String remains live. Eight complete
-    // source populations cover these capacities/temporaries for the admitted
-    // fixed-width channels, plus the separately counted instruction view.
-    let export_peak = source_bound
-        .checked_mul(8)
-        .and_then(|n| n.checked_add(storage.instruction_bytes))
-        .ok_or(MathError::Limit("compiled export construction extent"))?;
-    let fixed = scratch
-        .checked_add(size_of::<Template>() + size_of::<Evaluator>() + (64 << 10))
-        .and_then(|n| n.checked_add(READER_STACK + 16 * CAPTURE))
-        .ok_or(MathError::Limit("compiled module metadata extent"))?;
-    let output_capacity = module_bytes
-        .checked_sub(export_peak)
-        .and_then(|n| n.checked_sub(fixed))
-        .and_then(|n| n.checked_sub(source_bound))
-        .filter(|n| *n >= 3)
-        .ok_or(MathError::Limit(
-            "compiled source/output preflight allowance",
-        ))?;
-    // Object file, shared file and its loaded file-backed image coexist. The
-    // fixed allowance above separately covers page rounding/loader metadata.
-    let object_limit = output_capacity / 3;
-    let code_limit = output_capacity / 3;
-    let source = evaluator
-        .export_cpp_str::<f64>(FUNCTION, ExportSettings::new().inline_asm(InlineASM::None))
-        .map_err(MathError::Library)?;
-    if source.len() > source_bound || source.capacity() > source_bound.saturating_mul(2) {
-        return Err(MathError::Contract(
-            "compiled export exceeded its source-qualified bound".into(),
-        ));
-    }
-    let directory = tempfile::Builder::new()
-        .prefix("pse-math-native-")
-        .tempdir()
-        .map_err(|e| MathError::Library(e.to_string()))?;
-    let source_path = directory.path().join("value.cpp");
-    let library_path = directory.path().join("value.so");
-    let object_path = directory.path().join("value.o");
-    std::fs::write(&source_path, source).map_err(|e| MathError::Library(e.to_string()))?;
-    let mut compile = compiler_command(compiler_path, object_limit, directory.path());
-    compile
-        .args(FLAGS)
-        .arg("-c")
-        .arg(&source_path)
-        .arg("-o")
-        .arg(&object_path);
-    run_compiler(compile, scope)?;
-    let mut link = compiler_command(compiler_path, code_limit, directory.path());
-    link.arg("-shared")
-        .arg("-Wl,-z,max-page-size=4096")
-        .arg(&object_path)
-        .arg("-o")
-        .arg(&library_path);
-    run_compiler(link, scope)?;
-    let code_bytes = usize::try_from(
-        std::fs::metadata(&library_path)
-            .map_err(|e| MathError::Library(e.to_string()))?
-            .len(),
-    )
-    .map_err(|_| MathError::Limit("compiled executable extent"))?;
-    if code_bytes > code_limit {
-        return Err(MathError::Contract(
-            "compiler exceeded enforced output file limit".into(),
-        ));
-    }
-    scope.check().map_err(crate::error::scope_error)?;
-    let loaded =
-        CompiledRealEvaluator::load(&library_path, FUNCTION).map_err(MathError::Library)?;
-    if loaded.get_input_len() != evaluator.get_input_len()
-        || loaded.get_output_len() != evaluator.get_output_len()
-    {
-        return Err(MathError::Contract(
-            "compiled scalar library dimensions".into(),
-        ));
-    }
-    scope.check().map_err(crate::error::scope_error)?;
-    if let Some(context) = pse_diagnostics::observation::current() {
-        context.count("math.native_scalar_compilations", "count", 1);
-        context.gauge(
-            "math.native_scalar_executable_bytes",
-            "bytes",
-            code_bytes as f64,
-        );
-    }
-    Ok(Evaluator {
-        template: Arc::new(Template {
-            evaluator: Mutex::new(loaded),
-            _directory: directory,
-        }),
-        worker: None,
-    })
+    let mut batch = Batch::default();
+    let evaluator = batch.push(evaluator, storage, export, module_bytes, scope)?;
+    batch.finish_with(scope, compiler_path)?;
+    Ok(evaluator)
 }
 
 #[cfg(test)]
@@ -638,6 +804,124 @@ mod tests {
         .build()
         .unwrap()
         .map_coeff(&|coefficient| coefficient.to_real().unwrap().to_f64())
+    }
+
+    #[test]
+    fn named_modules_pack_bounded_symbols_and_keep_private_workers_and_live_files() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let evaluator = arithmetic();
+        let no_arguments: &[Atom] = &[];
+        let constant = Atom::evaluator_multiple(&[parse!("7")], no_arguments)
+            .horner_iterations(0)
+            .cpe_iterations(Some(0))
+            .build()
+            .unwrap()
+            .map_coeff(&|c| c.to_real().unwrap().to_f64());
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("named module packing");
+        let context = operation.context();
+        let _entered = context.enter();
+        let scope = pse_kernels::ExecutionScope::new(Default::default(), None);
+        let mut batch = Batch::default();
+        let mut functions = Vec::new();
+        for i in 0..=FUNCTIONS_PER_MODULE {
+            let selected = if i % 2 == 0 { &evaluator } else { &constant };
+            let export = selected.export_instructions();
+            let storage = library::EvaluatorFacts::inspect(
+                &export,
+                selected.count_operations(),
+                "test.named_inspection",
+            )
+            .unwrap()
+            .storage;
+            functions.push(
+                batch
+                    .push(selected, &storage, &export, 1 << 20, &scope)
+                    .unwrap(),
+            );
+        }
+        assert!(Arc::ptr_eq(&functions[0].template, &functions[1].template));
+        assert!(!Arc::ptr_eq(
+            &functions[0].template,
+            &functions[FUNCTIONS_PER_MODULE].template
+        ));
+        assert!(
+            functions[FUNCTIONS_PER_MODULE].instantiate().is_err(),
+            "no unfinalized function is executable"
+        );
+        batch.finish(&scope).unwrap();
+        let path = functions[0]
+            .template
+            .get()
+            .unwrap()
+            ._directory
+            .path()
+            .to_path_buf();
+        let mut private = functions[0].clone();
+        for (i, function) in functions.iter_mut().enumerate() {
+            function.instantiate().unwrap();
+            let mut result = [f64::NAN];
+            function
+                .evaluate(if i % 2 == 0 { &[3.] } else { &[] }, &mut result)
+                .unwrap();
+            assert_eq!(result[0], if i % 2 == 0 { 10. } else { 7. });
+        }
+        drop(functions);
+        drop(batch);
+        assert!(path.exists(), "live private worker keeps its exact module");
+        private.instantiate().unwrap();
+        let mut result = [f64::NAN];
+        private.evaluate(&[4.], &mut result).unwrap();
+        assert_eq!(result, [17.]);
+        drop(private);
+        assert!(!path.exists());
+        let snapshot = context.reader().snapshot(Duration::from_secs(60));
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "math.native_scalar_compilations")
+                .unwrap()
+                .cumulative,
+            Value::Count(2)
+        );
+        assert_eq!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "math.native_scalar_module_functions")
+                .unwrap()
+                .cumulative,
+            Value::Count((FUNCTIONS_PER_MODULE + 1) as u64)
+        );
+    }
+
+    #[test]
+    fn named_module_failure_or_stop_never_publishes_pending_functions() {
+        let evaluator = arithmetic();
+        let export = evaluator.export_instructions();
+        let storage = library::EvaluatorFacts::inspect(
+            &export,
+            evaluator.count_operations(),
+            "test.named_inspection",
+        )
+        .unwrap()
+        .storage;
+        let cancel = pse_diagnostics::Cancellation::default();
+        let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
+        let mut batch = Batch::default();
+        let mut first = batch
+            .push(&evaluator, &storage, &export, 1 << 20, &scope)
+            .unwrap();
+        let mut second = batch
+            .push(&evaluator, &storage, &export, 1 << 20, &scope)
+            .unwrap();
+        assert!(batch.finish_with(&scope, "/bin/false").is_err());
+        assert!(first.instantiate().is_err());
+        assert!(second.instantiate().is_err());
+        cancel.cancel();
+        assert!(matches!(batch.finish(&scope), Err(MathError::Cancelled)));
+        assert!(first.template.get().is_none());
     }
 
     #[test]

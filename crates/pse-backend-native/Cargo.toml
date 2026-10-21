@@ -64,6 +64,7 @@ pounce-common.workspace = true
 finitediff.workspace = true
 pounce-presolve.workspace = true
 pse-ids.workspace = true
+pse-quantity.workspace = true
 pse-diagnostics.workspace = true
 pse-kernels.workspace = true
 pse-math.workspace = true

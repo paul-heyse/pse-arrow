@@ -715,7 +715,7 @@ mod tests {
                 .solve
                 .backend()
                 .map(|backend| pse_model::strategy::ProfileRef {
-                    backend,
+                    method: pse_model::strategy::NumericalMethod::Backend(backend),
                     key: prepared.solve.strategy_profile().unwrap(),
                 });
         prepared.solve = prepared

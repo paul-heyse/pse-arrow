@@ -368,7 +368,7 @@ async fn shared_original_driver(permit_recovery: bool) {
         strategy.start.recovery = vec![StartOrigin::ModifiedSpecification];
     }
     strategy.mechanisms[0].profile = Some(ProfileRef {
-        backend: Backend::Kinsol,
+        method: pse_model::strategy::NumericalMethod::Backend(Backend::Kinsol),
         key: original.strategy_profile().unwrap(),
     });
     strategy.mechanisms[0].transitions = vec![

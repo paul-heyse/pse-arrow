@@ -1037,9 +1037,10 @@ fn settings_identity_is_type_name_independent() {
         r#"{"version":1,"method":"tr_bdf2","linear":"klu"}"#
     );
     let idas = json!({
-        "version": 2,
+        "version": 3,
         "linear": {"kind": "spgmr", "dimension": 5, "preconditioner": "jacobi"},
         "sensitivity": "staggered",
+        "native_initial_step": "automatic",
         "initialization": "steady_states",
         "initial_conditions": {
             "step_trials": null,
@@ -1070,23 +1071,80 @@ fn settings_identity_is_type_name_independent() {
         idas: effective,
         ..Default::default()
     };
-    let identity = pse_ids::document::of(pse_ids::Frame::DynamicProfileV9, &profile).unwrap();
+    let identity = crate::dynamics::profile_identity(&profile).unwrap();
     profile.idas.initial_conditions.newton_iterations += 1;
     assert_ne!(
         identity,
-        pse_ids::document::of(pse_ids::Frame::DynamicProfileV9, &profile).unwrap()
+        crate::dynamics::profile_identity(&profile).unwrap()
     );
-    // Version 2 has no sign constraints: they derive from the authored bounds
-    // (ADR-0119 Outcome 4), so a version 1 document or a constraint field is refused.
+    // Authored bounds own sign constraints. Current version 3 also refuses older
+    // omission/default meanings instead of silently changing their physical h0.
     let mut constrained = idas.clone();
     constrained["constraints"] = json!(["non_negative"]);
     assert!(serde_json::from_value::<crate::dynamics::IdasSettings>(constrained).is_err());
-    let mut previous = idas.clone();
-    previous["version"] = json!(1);
-    assert!(serde_json::from_value::<crate::dynamics::IdasSettings>(previous).is_err());
+    for version in [1, 2] {
+        let mut previous = idas.clone();
+        previous["version"] = json!(version);
+        assert!(serde_json::from_value::<crate::dynamics::IdasSettings>(previous).is_err());
+    }
     let mut unversioned = idas;
     unversioned.as_object_mut().unwrap().remove("version");
     assert!(serde_json::from_value::<crate::dynamics::IdasSettings>(unversioned).is_err());
+}
+
+#[test]
+fn idas_current_document_default_and_omission_select_native_automatic_step() {
+    use crate::dynamics::{IdasInitialStep, IdasSettings};
+    use serde_json::json;
+    let default = IdasSettings::default();
+    assert_eq!(IdasInitialStep::default(), IdasInitialStep::Automatic);
+    assert_eq!(default.native_initial_step, IdasInitialStep::Automatic);
+    assert_eq!(serde_json::to_value(&default).unwrap()["version"], json!(3));
+    let omitted = serde_json::from_value::<IdasSettings>(json!({"version": 3})).unwrap();
+    assert_eq!(omitted, default);
+    let configured = serde_json::from_value::<IdasSettings>(json!({
+        "version": 3, "native_initial_step": "configured"
+    }))
+    .unwrap();
+    assert_eq!(configured.native_initial_step, IdasInitialStep::Configured);
+    assert_eq!(
+        serde_json::to_value(&configured).unwrap()["native_initial_step"],
+        json!("configured")
+    );
+    for version in [1, 2, 4] {
+        assert!(serde_json::from_value::<IdasSettings>(json!({"version": version})).is_err());
+    }
+    assert!(
+        serde_json::from_value::<IdasSettings>(json!({
+            "version": 3, "native_initial_step": "guessed"
+        }))
+        .is_err()
+    );
+    let mut profile = crate::dynamics::Profile {
+        method: crate::dynamics::Method::Idas,
+        ..Default::default()
+    };
+    let automatic = crate::dynamics::profile_identity(&profile).unwrap();
+    profile.idas = configured;
+    assert_ne!(
+        automatic,
+        crate::dynamics::profile_identity(&profile).unwrap()
+    );
+    let mut wire = serde_json::to_value(&profile).unwrap();
+    wire.as_object_mut().unwrap().remove("idas");
+    let omitted: crate::dynamics::Profile = serde_json::from_value(wire.clone()).unwrap();
+    assert_eq!(omitted.idas, default);
+    assert_eq!(
+        crate::dynamics::profile_identity(&omitted).unwrap(),
+        automatic
+    );
+    for version in [1, 2] {
+        wire["version"] = json!(version);
+        assert!(
+            serde_json::from_value::<crate::dynamics::Profile>(wire.clone()).is_err(),
+            "historical outer profiles must refuse even when IDAS settings are omitted"
+        );
+    }
 }
 
 /// The backend settings document publishes a JSON Schema: one tagged alternative per

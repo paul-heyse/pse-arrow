@@ -165,10 +165,22 @@ impl FitProblem {
     /// The conditions every derived quantity of the estimate shares: a candidate qualified
     /// stationary or better, and the declared statistical model (F02).
     pub(super) fn estimate_valid(&self, report: &FitReport) -> Result<(), FitWithheld> {
-        let solve = match (&report.candidate, &report.solve) {
-            (Some(_), Some(solve)) => solve,
-            _ => return Err(FitWithheld::Local(Withheld::NoCandidate)),
-        };
+        if report.candidate.is_none() {
+            return Err(FitWithheld::Local(Withheld::NoCandidate));
+        }
+        if let Some(residual) = &report.residual {
+            if residual.qualification != Qualification::Stationary {
+                return Err(FitWithheld::Local(Withheld::Unqualified(
+                    residual.qualification,
+                )));
+            }
+        } else {
+            let solve = report
+                .solve
+                .as_ref()
+                .ok_or(FitWithheld::Local(Withheld::NoCandidate))?;
+            stationary(solve).map_err(FitWithheld::Local)?;
+        }
         // Admission refuses an included observation without a declared deviation, so the
         // model's remaining condition is unit importance.
         let weighted: Vec<_> = self
@@ -180,7 +192,6 @@ impl FitProblem {
         if !weighted.is_empty() {
             return Err(FitWithheld::NonunitImportance(weighted));
         }
-        stationary(solve).map_err(FitWithheld::Local)?;
         if report.objective.is_none() {
             return Err(FitWithheld::Responses(report.diagnostic.clone()));
         }
@@ -192,7 +203,9 @@ impl FitProblem {
         if parameters.is_empty() {
             return None;
         }
-        let approximation = if self.profile.solver.controls.hessian == HessianMode::Exact {
+        let approximation = if report.residual.is_none()
+            && self.profile.solver.controls.hessian == HessianMode::Exact
+        {
             CovarianceApproximation::Exact
         } else {
             CovarianceApproximation::GaussNewton
@@ -225,40 +238,55 @@ impl FitProblem {
                 .candidate
                 .as_ref()
                 .ok_or(FitWithheld::Local(Withheld::NoCandidate))?;
-            let (lower_dual, upper_dual) = report
-                .solve
-                .as_ref()
-                .and_then(|solve| solve.candidate.as_ref())
-                .and_then(|candidate| candidate.bound_dual.as_ref())
-                .ok_or(FitWithheld::Local(Withheld::Multipliers))?;
-            if lower_dual.len() != candidate.len() || upper_dual.len() != candidate.len() {
-                return Err(FitWithheld::Local(Withheld::Multipliers));
-            }
-            let held: Vec<_> = self
-                .free()
-                .filter(|(k, col)| {
-                    let parameter = &self.declaration.parameters[*k];
-                    let column = col.get();
-                    // The same original-coordinate activity used by native KKT
-                    // analysis includes interior-point active bounds with finite slack.
-                    native::kkt::bound_activity(
-                        candidate[column],
-                        (
-                            parameter.lower.unwrap_or(f64::NEG_INFINITY),
-                            parameter.upper.unwrap_or(f64::INFINITY),
-                        ),
-                        self.tolerances.variables[column],
-                        (lower_dual[column], upper_dual[column]),
-                        (
-                            self.normalization.variables[column],
-                            self.normalization.objective,
-                        ),
-                        self.accuracy.stationarity,
-                    )
-                    .is_active()
-                })
-                .map(|(k, _)| self.declaration.parameters[k].symbol_id)
-                .collect();
+            let held = if report.residual.is_some() {
+                // LM eligibility establishes no finite original parameter bound and
+                // no general constraint. No native bound multiplier exists or is
+                // needed to establish this empty active-bound set.
+                if self
+                    .contract
+                    .variables
+                    .iter()
+                    .any(|variable| variable.lower.is_finite() || variable.upper.is_finite())
+                    || !self.bounds.is_empty()
+                {
+                    return Err(FitWithheld::Local(Withheld::Multipliers));
+                }
+                Vec::new()
+            } else {
+                let (lower_dual, upper_dual) = report
+                    .solve
+                    .as_ref()
+                    .and_then(|solve| solve.candidate.as_ref())
+                    .and_then(|candidate| candidate.bound_dual.as_ref())
+                    .ok_or(FitWithheld::Local(Withheld::Multipliers))?;
+                if lower_dual.len() != candidate.len() || upper_dual.len() != candidate.len() {
+                    return Err(FitWithheld::Local(Withheld::Multipliers));
+                }
+                self.free()
+                    .filter(|(k, col)| {
+                        let parameter = &self.declaration.parameters[*k];
+                        let column = col.get();
+                        // The same original-coordinate activity used by native KKT
+                        // analysis includes interior-point active bounds with finite slack.
+                        native::kkt::bound_activity(
+                            candidate[column],
+                            (
+                                parameter.lower.unwrap_or(f64::NEG_INFINITY),
+                                parameter.upper.unwrap_or(f64::INFINITY),
+                            ),
+                            self.tolerances.variables[column],
+                            (lower_dual[column], upper_dual[column]),
+                            (
+                                self.normalization.variables[column],
+                                self.normalization.objective,
+                            ),
+                            self.accuracy.stationarity,
+                        )
+                        .is_active()
+                    })
+                    .map(|(k, _)| self.declaration.parameters[k].symbol_id)
+                    .collect::<Vec<_>>()
+            };
             if !held.is_empty() {
                 return Err(FitWithheld::AtBound(held));
             }
@@ -349,7 +377,7 @@ impl FitProblem {
     pub(super) fn derive(
         self: &Arc<Self>,
         report: &mut FitReport,
-        route: native::routing::Route,
+        route: FitRoute,
         execution: &native::solve::Execution,
         workers: usize,
     ) {

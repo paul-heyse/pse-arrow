@@ -51,11 +51,8 @@ pub fn support_closure(
         for reference in &spec.foreign_keys {
             add(registry, spec, reference.target, &mut pending)?;
         }
-        for invariant in registry
-            .invariants()
-            .iter()
-            .filter(|value| value.relation == spec.key.qualified_name())
-        {
+        for index in crate::fingerprint::invariant_indices_for(registry, spec)?.iter() {
+            let invariant = &registry.invariants()[*index];
             for input in &invariant.inputs {
                 add(registry, spec, input, &mut pending)?;
             }

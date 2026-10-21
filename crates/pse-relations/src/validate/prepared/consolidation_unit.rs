@@ -831,3 +831,149 @@ fn scoped_logical_contract_keeps_stable_checks_visible_and_uses_native_execution
             .value(0)
     );
 }
+
+#[test]
+fn nested_preparation_uses_one_environment_per_actual_owner_and_checks_new_arrays() {
+    use super::super::predicates::CURRENT_ENVIRONMENTS;
+    let registry = RegistryBuilder::new().build().unwrap();
+    let before = CURRENT_ENVIRONMENTS.with(std::cell::Cell::get);
+    let context = ValidationContext::new(&registry, SessionContext::new().state());
+    let leaf = Arc::new(IntegerRange::nonnegative(3).field("value"));
+    let inner = Arc::new(Field::new(
+        "inner",
+        DataType::Struct(vec![leaf.clone()].into()),
+        false,
+    ));
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "root",
+        DataType::Struct(vec![inner.clone()].into()),
+        false,
+    )]));
+    let prepared = context.prepare(&registry, schema.clone()).unwrap();
+    let equal_schema = Arc::new(schema.as_ref().clone());
+    assert!(!Arc::ptr_eq(&schema, &equal_schema));
+    assert!(Arc::ptr_eq(
+        &prepared,
+        &context.prepare(&registry, equal_schema).unwrap()
+    ));
+    assert!(Arc::ptr_eq(
+        &prepared,
+        &context
+            .new_scope()
+            .prepare(&registry, schema.clone())
+            .unwrap()
+    ));
+    assert_eq!(CURRENT_ENVIRONMENTS.with(std::cell::Cell::get) - before, 1);
+    let cancel = pse_columnar::CancellationToken::new();
+    for (value, valid) in [(2, true), (9, false)] {
+        let nested = StructArray::new(
+            vec![leaf.clone()].into(),
+            vec![Arc::new(Int64Array::from(vec![value]))],
+            None,
+        );
+        let root = StructArray::new(vec![inner.clone()].into(), vec![Arc::new(nested)], None);
+        let batch = RecordBatch::try_new(schema.clone(), vec![Arc::new(root)]).unwrap();
+        assert_eq!(
+            prepared.evaluate(&batch, 8, &cancel).unwrap().is_valid(),
+            valid
+        );
+    }
+    assert_eq!(prepared.evaluation_count(), 2);
+    assert_eq!(context.prepared_count().unwrap(), 1);
+    let changed = Arc::new(Schema::new(vec![Field::new(
+        "root",
+        DataType::Int64,
+        false,
+    )]));
+    assert!(!Arc::ptr_eq(
+        &prepared,
+        &context.prepare(&registry, changed).unwrap()
+    ));
+    let independent = ValidationContext::new(&registry, SessionContext::new().state());
+    assert!(!Arc::ptr_eq(
+        &prepared,
+        &independent.prepare(&registry, schema).unwrap()
+    ));
+    assert_eq!(CURRENT_ENVIRONMENTS.with(std::cell::Cell::get) - before, 2);
+}
+
+#[test]
+fn current_and_verified_recorded_domains_remain_distinct_during_nested_preparation() {
+    use pse_schema::model::{
+        Authority, EnumDecl, EnumMember, FieldContract, Namespace, RelationDecl, SnapshotClass,
+    };
+    let mut builder = RegistryBuilder::new();
+    builder.declare_enum(EnumDecl::platform(
+        "Choice",
+        vec![EnumMember::new("old", ""), EnumMember::new("new", "")],
+    ));
+    builder.declare_relation(
+        RelationDecl::new(
+            Namespace::Authored,
+            "choices",
+            1,
+            Authority::Authored,
+            SnapshotClass::Model,
+            "",
+        )
+        .pk(&["id"])
+        .columns(vec![
+            FieldContract::key("id", FieldContract::native(DataType::Int64), ""),
+            FieldContract::payload("choice", FieldContract::enumeration("Choice"), ""),
+        ]),
+    );
+    let registry = builder.build().unwrap();
+    let spec = registry.relation("authored.choices").unwrap();
+    let mut witness = pse_schema::fingerprint::SemanticContract::new(
+        &registry,
+        &std::collections::BTreeSet::from([spec.id]),
+    )
+    .unwrap();
+    for description in witness.relations.values_mut() {
+        if let Some(members) = description["enums"]["Choice"]["members"].as_object_mut() {
+            members.remove("new");
+        }
+    }
+    let canonical = pse_columnar::native_field::canonical_json(&witness).unwrap();
+    let recorded = pse_schema::compatibility::verify_recorded(
+        Some(pse_schema::compatibility::FORMAT),
+        Some(&canonical),
+        witness.identity().unwrap(),
+    )
+    .unwrap();
+    let current = super::super::predicates::DomainEnvironment::current(&registry);
+    let historical = super::super::predicates::DomainEnvironment::recorded(&recorded).unwrap();
+    let child = Arc::new(
+        pse_schema::arrow::relation_schema_ref(&registry, spec)
+            .unwrap()
+            .field(1)
+            .clone(),
+    );
+    let values = StructArray::new(
+        vec![child.clone()].into(),
+        vec![arrow::compute::cast(&StringArray::from(vec!["new"]), child.data_type()).unwrap()],
+        None,
+    );
+    let item = Arc::new(Field::new("item", values.data_type().clone(), false));
+    let values = ListArray::new(
+        item.clone(),
+        OffsetBuffer::new(vec![0, 1].into()),
+        Arc::new(values),
+        None,
+    );
+    let field = Arc::new(Field::new("outer", DataType::List(item), false));
+    let schema = Arc::new(Schema::new(vec![field.clone()]));
+    let batch = RecordBatch::try_new(schema, vec![Arc::new(values)]).unwrap();
+    for (domains, valid) in [(&current, true), (&historical, false)] {
+        let node = super::super::occurrences::Node::prepare(
+            domains,
+            &SessionContext::new().state(),
+            field.clone(),
+        )
+        .unwrap();
+        let cancel = pse_columnar::CancellationToken::new();
+        let mut findings = Findings::new(&batch, 8, &cancel);
+        node.root(batch.column(0), 0, &mut findings).unwrap();
+        assert_eq!(findings.finish().unwrap().is_valid(), valid);
+    }
+}

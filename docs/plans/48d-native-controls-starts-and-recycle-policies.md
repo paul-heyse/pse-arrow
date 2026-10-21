@@ -1,8 +1,8 @@
 ---
 title: "Plan48d: Native controls, starts and recycle policies"
-status: draft
+status: done
 date: 2026-10-20
-adrs: []
+adrs: [ADR-0201, ADR-0204]
 doc_role: plan
 doc_owner: docs/plans/48-execution-performance-and-numerical-efficiency.md
 doc_topics: [design, numerical-execution, performance, preparation]
@@ -264,13 +264,13 @@ neither a new global automatic winner nor new threading permission follows from 
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| D01 | Accepted RC01 target and contract amendment route; current policy/scaling | Correct control meaning; I12 decision and conditional native policy; independent shifted/large/small/stagnation cases and retirement of false step equivalence | open |
-| D02 | Current conic transport and original assessment; explicit finite work permission | I13 per-adapter policy and conditional refinement; independent SOC/PSD/magnitude/recovery checks, bounded failure and replacement deletion | open |
-| D03 | Current initial/warm producer and every receipt consumer | Truthful submitted starts through adapter/runtime evidence; captured native-input cases and deletion of conflated flags/tests | open |
-| D04 | Working D03; actual per-adapter lifecycle; selected design/reset routes under accepted RC07/RC10 | I14/I15/I16 outcomes and conditional restart/reset implementation; fresh-versus-retained and failure/option-removal controls, replaced-path retirement | open |
-| D05 | Working 48c/C01 indexed contributor slice and complete linearization mapping | I17 outcome and conditional grouping/setup implementation; independent dense/sparse/singular/changed-premise checks and old scan/group retirement | open |
-| D06 | Current causal model, port/tear contracts; D01 control meaning; selected policy/design route under accepted RC08 before a default change | Indexed exchange plus I18/I19 decisions and conditional policies; semantic-port/domain/branch/failure checks, no duplicate iteration path | open |
-| D07 | Actual backend eligibility; D05 for grouping comparisons; E05 only for coupled-preconditioned route; decision before new binding | I20 outcome and conditional portfolio; independent residual/solution and setup/fill/failure controls, replacement deletion | open |
+| D01 | Accepted RC01 target and contract amendment route; current policy/scaling | Correct control meaning; I12 decision and conditional native policy; independent shifted/large/small/stagnation cases and retirement of false step equivalence | done: implemented; focused native control tests passed; selected assembled acceptance recorded in48h |
+| D02 | Current conic transport and original assessment; explicit finite work permission | I13 per-adapter policy and conditional refinement; independent SOC/PSD/magnitude/recovery checks, bounded failure and replacement deletion | done: implemented; five refinement controls and existing conic controls passed; selected assembled acceptance recorded in48h |
+| D03 | Current initial/warm producer and every receipt consumer | Truthful submitted starts through adapter/runtime evidence; captured native-input cases and deletion of conflated flags/tests | done: implemented; focused actual native-input and receipt controls passed; selected assembled acceptance recorded in48h |
+| D04 | Working D03; actual per-adapter lifecycle; selected design/reset routes under accepted RC07/RC10 | I14/I15/I16 outcomes and conditional restart/reset implementation; fresh-versus-retained and failure/option-removal controls, replaced-path retirement | done: adapter-specific eligibility settled; fixed-profile IDAS storage and actual multi-owner acceptance pass in48e/E01; selected assembled acceptance recorded in48h |
+| D05 | Working 48c/C01 indexed contributor slice and complete linearization mapping | I17 outcome and conditional grouping/setup implementation; independent dense/sparse/singular/changed-premise checks and old scan/group retirement | done: bounded inquiry tested; retain existing explicit Direct/common-case and BTF owners, no automatic grouping policy; selected assembled acceptance recorded in48h |
+| D06 | Current causal model, port/tear contracts; D01 control meaning; selected policy/design route under accepted RC08 before a default change | Indexed exchange plus I18/I19 decisions and conditional policies; semantic-port/domain/branch/failure checks, no duplicate iteration path | done: indexed exchange and retained candidate buffer implemented; focused native and repaired original-reference runtime controls passed; explicit acceleration settings retained; selected assembled acceptance recorded in48h |
+| D07 | Actual backend eligibility; D05 for grouping comparisons; E05 only for coupled-preconditioned route; decision before new binding | I20 outcome and conditional portfolio; independent residual/solution and setup/fill/failure controls, replacement deletion | done: existing portfolio qualified in bounded24-solve inquiry; no universal linear/backend default selected; selected assembled acceptance recorded in48h |
 
 ## Integration and verification
 
@@ -290,21 +290,171 @@ start/reuse and work facts without changing scientific acceptance. Coordinate sh
 journeys, measurement and final static/manual qualification after functional scope ends.
 No universal speed ratio or iteration-count target is adopted here.
 
+## Execution checkpoint — 2026-10-20
+
+D01's native-roundoff stagnation target and actual submitted-primal producers are implemented;
+original physical budgets are unchanged. The start receipt now separately records whether its
+selected prior/sparse seed was actually submitted, rather than treating a cold initial vector as
+that receipt's warm seed. Its focused native regression passes; runtime continuation consumers
+remain in the queued native scope.
+
+The current native package selection ran57 controls against zero failures:55 passed and two
+new exploratory controls failed. The failed cone trial demonstrated that reducing the configured
+relative tolerance by the original violation ratio alone can repeat the same native trajectory;
+the actual normalized residual and normalization must inform any narrower retry. The failed
+Anderson fixture requested history3/5 for a one-coordinate map, correctly refused by the
+existing history<=dimension contract. It is being replaced with a six-coordinate independent
+map comparison, preserving that production admission rule. These failures are not hidden by the
+passing production controls.
+
+I14 retains the existing explicit restart profiles. Perturbed simplex controls cover cold,
+good/poor richer seeds, primal-only seeds, changed bounds, seed-carried versus stated barrier,
+actual native submission and independent original feasibility/objective. Good seeds took2 native
+iterations against cold5/6, primal-only3 and poor richer seeds7–8 in this small case. Stating a
+0.001 barrier did not establish a universal advantage. Existing removal/reset and persistent
+limited-memory/full-Hessian controls remain required, rather than selecting a global small-barrier
+rule from these observations.
+
+I15 retains `warm_start_same_structure=no`: the actual Ipopt3.14.20 `OrigIpoptNLP::Initialize`
+and `InitializeStructures` skip ordinary cache/space/value-dependent scaling construction when
+same-structure is true. The current structural signature alone cannot establish those numerical
+premises. Fresh-versus-retained classification/scaling and option-reset controls pass with the
+existing rebuilding policy. A complete native cache/scaling reset and a setup-dominant workload
+are the concrete reopening premises, not matching dimensions alone. Uno remains single-use in
+the current binding, with required reuse explicitly refused; the additional IDAS reset inquiry
+continues in48e.
+
+I13 treats POUNCE-convex separately: its exact pinned `hsde::relative_stop_permitted` permits a
+relative arm only above `max_scale*epsilon > native_tol`; it is not Clarabel's always-relative
+feasibility test. An actual SOC transport/native/independent-distance probe covers magnitudes1,
+1e6/1e9, coefficients1e-6/1/1e6 and equilibration on/off. All18 returned physical distances were
+within0.001 (largest approximately6.3e-5 at magnitude1), so these observations do not justify
+copying Clarabel tuning into POUNCE. Wider cone/mixed-budget qualification and the Clarabel
+working/refinement decision remain active.
+
+The corrected25-test native selection passes against zero failures, including both repaired
+inquiry fixtures. I18 retains explicit per-request native controls/current defaults. For six
+independent tear coordinates, history0/1/3/5 used10/5/5/5 map calls on the easy contraction;
+the slow near-unit map used40(limit)/21/12/10. The domain-limited expansive map failed without
+acceleration and succeeded in11/9/8 calls with history1/3/5; damping0.5 sometimes helped the
+alternating map and sometimes added work. Actual admitted history storage rose from0 to21408,
+30016 and38752 bytes. This is a bounded native capability comparison, not a global policy winner.
+The corrected fixture respects history<=dimension. Existing nonlinear/regime/truncation/domain
+controls independently preserve raw map errors and original acceptance.
+
+I19 retains native KINSOL map iteration/Anderson. `CausalUnit` supplies ordered port values and
+independent original local state; it does not expose an admitted derivative of the complete
+causal composition or permission to replace fixed-point branch selection with a different root
+method. The exact Pyomo6.10.1 Network sequential decomposition offers Wegstein, but owns a
+Python Port/Var/Arc graph with variable propagation, not a callback over this native map.
+The current PETSc/diffsol Newton routes consume admitted equation/operator contracts. These
+are integration/semantic boundaries, not claims that no other library implements Broyden or
+Wegstein. No new graph bridge, fabricated derivative or project-owned iteration is adopted.
+Reopen with a concrete whole-map native integration or complete composition derivative/root
+permission and a demonstrated limiting case. The indexed port exchange is implemented and its
+two focused controls passed independently of that no-adoption decision.
+
+The indexed recycle owner now also retains one precharged tear-output candidate buffer.
+`UnitWorker` retains its completed compact trial instead of constructing and cloning an
+intermediate semantic map. Every sweep still checks reconstructed original values for
+nonfinite/conflicting state; these checks are not merely optional final-report hydration.
+The independent original observer remains separate. The retained-buffer control passed in the
+native28-test selection. Current runtime consumers mostly passed; the full original-reference
+fixture exceeded its old256MiB constructor allowance and now declares384MiB for its actual
+overlapping preparation. Its repaired canonical rerun passes in the31-test runtime selection;
+no production guard was lowered.
+
+ADR-0204 and blueprint revision222 now specify one Clarabel-only observed-residual refinement
+before production implementation. The qualified private probe uses the observed native primal
+residual divided by8 times the failed original-quality ratio (and a stricter previous-control
+cap), not a ratio adjustment of the requested tolerance alone. Million-scale original SOC
+violation falls to approximately5.3e-8 in4+6 iterations; billion-scale native NumericalError
+remains an error in6+11 even with a physically acceptable candidate. Production adoption and
+five finite retry/failure controls now pass; POUNCE's current distinct policy is retained.
+
+Independent source review also identified a late-stop gap after original-quality/report
+publication. The public Clarabel owner now applies the original execution's stop veto on
+both its ordinary and refined return, including cancellation from a durable progress tap.
+It also cannot skip a native call and read preceding native counters/candidates through a
+second conditional stop check. Deterministic ordinary/refined publication-cancellation and
+reused-owner pre-stop controls pass in the same native selection.
+
+**Tested, 2026-10-20:** `just unit-native-capability-package pse-backend-native
+native-solvers solver,klu,isolation,uno,petsc` with the selected conic/refinement, grouping,
+portfolio, recycle, stack, PETSc/SCIP and dynamic controls ran28 tests:28 passed,0 failed,
+0 warnings (zero baseline), native-local without a canonical store. This includes five
+production refinement controls and two grouping controls. It is not assembled qualification.
+
+**Measured:** the I17 private grouping control covers64 one-core tiny/dense/banded/skewed
+separate/grouped populations, cold and replaced numeric data, KLU/dense/GMRES Jacobi/block
+factor and setup intervals1/10. Synthetic complete KLU separate→grouped observations at
+interval10 were771→133us (tiny),468→235us (dense),531→267us (banded),477→227us (skewed).
+Grouping raises resident peak; a cumulative separate allocation sum is not its peak.
+Current production already admits a whole-original Direct route and distinct BTF/block
+owners. Arbitrary frontier grouping would need complete common branch/start/profile and
+remaining-work mappings. Those permission and causal mappings, rather than marginal timing,
+bound the retained route: the existing common whole-case Direct capability already permits
+grouped execution, while distinct block owners cannot silently share root/start authority.
+
+**Measured:** I20's24 one-core existing MUMPS/SPRAL/Pardiso/POUNCE-FERAL NLP solves cover
+dense16/banded64/skewed32 and two numeric generations. Independent equality/stationarity,
+inertia and common postsolve backsolve checks pass at unchanged0.001 engineering policy.
+Cold ordering, different outer algorithms and unavailable private Ipopt factor RHS/solutions
+prevent a universal linear winner. Retain the explicit portfolio and its present defaults.
+
+### H01 scoped D05/D07 completeness handoff
+
+The final bounded register/consumer pass found no additional production gap in these two
+inquiries. D05's common original-case `Direct` and conditional `Block` mechanisms are actual
+runtime consumers; independently admitted block boundaries retain their own branch, start,
+profile and remaining-work meaning. The two `kinsol::grouping_inquiry` controls cover complete
+grouping/setup costs, unchanged original roots and singular-attempt recovery. No replaced
+production grouping path or unimplemented automatic cutoff is retained. New arbitrary-frontier
+coalescing would require a concrete common-permission mapping; the inquiry does not claim
+that faster grouped work is unavailable or reject it for small elapsed differences.
+
+D07's `measurement_tests::portfolio_inquiry::bounded_existing_linear_portfolio_preserves_original_kkt_at_standard_accuracy`
+exercises the existing MUMPS/SPRAL/Pardiso/POUNCE-FERAL integrations. Their capability/profile
+owners remain usable explicitly; the inquiry did not withhold a proposed backend because it
+was marginally slower. Complete solve and original residual/KKT checks support this bounded
+portfolio, while unavailable private Ipopt factor RHS/solution access prevents a standalone
+factor-level comparison claim. E05's newly adopted BBD route owns the dynamic coupled Krylov
+consumer separately. No new library binding or universal default follows from these samples;
+48h retains assembled qualification.
+
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-**Proposed; unimplemented.** This is a document-only plan. No implementation, product checks
-or runtime measurements are established by its creation; operator acceptance is recorded
-only by the coordinator. At closure, record what was built, a mistake made and corrected,
-deliberate deviations and exact
-qualified scope, with evidence links through the coordinator. Enduring amended meaning goes
-to its architecture/decision owner through 48h before this plan is retired.
+**Implemented and Tested, completed adopted scope (2026-10-20):** the package table records
+all delivery/inquiry outcomes. [Plan48h](48h-qualification-and-design-publication.md#final-qualification-accounting)
+records completed selected assembled acceptance and scope-end checks. The individual
+observations below retain their original conditions and partial-run boundaries; they do
+not assert a universal speedup or extend unsupported capabilities. There is no outstanding
+authorized package work in this companion.
+
+**Implemented, partial:** native stagnation semantics, truthful submitted-primal/selected-seed
+receipts and indexed causal exchange are in source with the focused boundaries above. Bounded
+Clarabel refinement is implemented under ADR-0204 and its five production controls pass.
+D05/D07 inquiries qualify the existing explicit routes, including the 24 complete
+MUMPS/SPRAL/Pardiso/POUNCE-FERAL solves described above. D04's additional IDAS reset
+implementation and focused lifecycle evidence are owned by 48e/E01; its final runtime
+population acceptance and enclosing qualification remain separate. The coordinator owns current
+inquiry dispositions; enduring amended meaning is published through48h before retirement.
 
 ### A mistake made and corrected
 
-**Proposed; unimplemented.** Record the implementation mistake and correction at closure.
+The first Anderson comparison requested history3/5 for a one-coordinate oracle; existing
+admission correctly refused it. The corrected six-coordinate fixture preserves the real
+history<=dimension rule and exercises the intended settings. A requested-tolerance-ratio cone
+retry also proved ineffective; the actual native residual is required for the selected bounded
+working heuristic. Production behavior was not weakened to force either initial fixture to pass.
 
 ### Deviations from the plan, deliberate
 
-**Proposed; unimplemented.** Record deliberate implementation deviations at closure.
+The grouping inquiry retains the existing common-case Direct owner and independently
+admitted BTF blocks rather than silently combining distinct branch/start/budget permissions.
+The 24-solve linear portfolio qualifies actual existing backend integrations without selecting
+a universal default or claiming access to private Ipopt factor RHS/solutions. These are
+settled retained routes, not unimplemented portfolio promises or rejections based on marginal
+timing. IDAS reset acceptance remains with 48e/E01 and assembled acceptance with 48h.

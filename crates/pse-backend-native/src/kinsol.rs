@@ -8,7 +8,11 @@
 //! Krylov variants, forcing terms, preconditioning, Newton-step limits and Anderson
 //! settings are typed [`Method`] fields (Plan 22 Y6); one-sided bounds are shifted to
 //! native sign constraints.
+#[cfg(test)]
+mod grouping_inquiry;
 mod linear_work;
+#[cfg(test)]
+mod policy_tests;
 #[cfg(test)]
 mod profile_tests;
 mod restarts;
@@ -287,12 +291,14 @@ pub struct Settings {
     pub variable_scales: Vec<f64>,
     /// Positive inverse characteristic residual scales.
     pub residual_scales: Vec<f64>,
-    /// Positive scaled-step stopping tolerance.
+    /// Nonnegative native scaled-step stagnation tolerance; zero selects the
+    /// SUNDIALS roundoff-scaled default, not a zero physical acceptance budget.
     pub step_tolerance: f64,
 }
 /// Native sign constraints and the coordinate shift that makes each one-sided bound a
 /// sign bound: KINSOL iterates `u = x - offset`, so `x >= l` becomes `u >= 0` and
-/// `x <= h` becomes `u <= 0`. Jacobians and step tests are unchanged by the shift.
+/// `x <= h` becomes `u <= 0`. Jacobians are unchanged; KINSOL's relative
+/// stagnation test uses the shifted iterate magnitude.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Constraints {
     /// Native codes 0, +-1, +-2 on the shifted coordinates.
@@ -327,9 +333,13 @@ impl Settings {
     /// physical acceptance budgets of the solved coordinates and rows, `normalization` the
     /// coordinate transport of the function KINSOL evaluates (identity for an original-
     /// coordinate function) and `feasibility` the normalized budget used as KINSOL's
-    /// function-norm tolerance. Each scale is `feasibility * s / t` and the scaled-step
-    /// tolerance is `feasibility`, so the native residual and step tests reduce to the
-    /// original budgets `|r| <= t` and `|dx| <= t`.
+    /// function-norm tolerance. Each scale is `feasibility * s / t`, so the native
+    /// residual test reduces to the original row budget `|r| <= t`. The scaled-step
+    /// tolerance is a separate stagnation control: its denominator includes inverse
+    /// variable scale plus the current shifted iterate magnitude. It is not an
+    /// absolute physical step budget, nor does its exit establish convergence.
+    /// The native roundoff default (zero sentinel) keeps this independent of the
+    /// resolved physical feasibility scalar.
     #[must_use]
     pub fn from_policy(
         method: Method,
@@ -348,7 +358,7 @@ impl Settings {
             method,
             variable_scales: scales(&tolerances.variables, &normalization.variables),
             residual_scales: scales(&tolerances.rows, &normalization.rows),
-            step_tolerance: feasibility,
+            step_tolerance: 0.0,
         }
     }
     /// Caller-selected method controls of these settings.
@@ -417,7 +427,7 @@ impl Settings {
                 .any(|v| !v.is_finite() || *v <= 0.0)
             || m.setup_interval == 0
             || !self.step_tolerance.is_finite()
-            || self.step_tolerance <= 0.0
+            || self.step_tolerance < 0.0
             || m.anderson > n
         {
             return Err(ProblemError::Contract(
@@ -554,9 +564,22 @@ struct SetupStamp {
     point: Vec<f64>,
     data: pse_ids::ContentHash,
 }
+fn root_progress_layout(
+    function: &Function,
+    role: pse_diagnostics::observation::ProducerRole,
+) -> Option<std::sync::Arc<RootEvaluationLayout>> {
+    (!matches!(function, Function::FixedPoint(_))).then(|| {
+        RootEvaluationLayout::new(
+            function.contract(),
+            matches!(function, Function::Picard { .. }),
+            role,
+        )
+    })
+}
 struct Context {
     function: Function,
     state: CallbackState,
+    progress_layout: Option<std::sync::Arc<RootEvaluationLayout>>,
     n: usize,
     /// Prepared private coordinates and complete numerical output. No caller
     /// buffer is touched until the entire callback succeeds.
@@ -771,55 +794,16 @@ unsafe extern "C" fn residual(x: ffi::N_Vector, out: ffi::N_Vector, data: *mut c
         }
         // SAFETY: as above.
         unsafe { publish(out, v) }?;
-        if !matches!(c.function, Function::FixedPoint(_)) {
-            // A function evaluation is not an accepted KINSOL iteration. Preserve
-            // source-associated scalars rather than a norm of unlike physical units.
-            let contract = c.function.contract();
-            let mut values = std::collections::BTreeMap::from([
-                ("evaluation_ordinal".into(), Metric::Integer(ordinal)),
-                (
-                    "output_role".into(),
-                    Metric::Text(
-                        if matches!(c.function, Function::Picard { .. }) {
-                            "picard_residual"
-                        } else {
-                            "equation_residual"
-                        }
-                        .into(),
-                    ),
-                ),
-                ("coordinate_prefix_partial".into(), Metric::Bool(n > 2)),
-                (
-                    "captured_coordinates".into(),
-                    Metric::Integer(i64::try_from(n.min(2)).unwrap_or(i64::MAX)),
-                ),
-            ]);
-            for (index, value) in v.iter().take(2).enumerate() {
-                values.insert(
-                    format!("scalar.{index}.variable"),
-                    Metric::Text(contract.variables[index].id.to_string()),
-                );
-                values.insert(
-                    format!("scalar.{index}.row"),
-                    Metric::Text(contract.rows[index].to_string()),
-                );
-                values.insert(format!("scalar.{index}.residual"), Metric::Real(*value));
-            }
-            let event = Event {
-                source: Some(
-                    EventSource::new("root_evaluation", Some("submitted_oracle"), None)
-                        .with_role(execution.callback_role),
-                ),
-                phase: "kinsol.function_evaluation".into(),
-                elapsed: execution.started.elapsed(),
-                values,
-                incumbent: None,
-            };
-            if let Some(producer) = &producer {
-                execution.progress.push_from(event, producer);
-            } else {
-                execution.progress.push(event);
-            }
+        if let Some(layout) = &c.progress_layout {
+            // Function evaluations are source-associated scalars, not accepted
+            // iterations or a norm of unlike physical units.
+            execution.progress.push_root_evaluation(
+                layout.clone(),
+                ordinal,
+                v,
+                execution.started.elapsed(),
+                producer.as_ref(),
+            );
         }
         Ok(())
     });
@@ -1175,6 +1159,12 @@ impl Session {
         );
         bytes = bytes.saturating_add(
             callback
+                .progress_layout
+                .as_ref()
+                .map_or(0, |layout| layout.retained_bytes()),
+        );
+        bytes = bytes.saturating_add(
+            callback
                 .blocks
                 .as_ref()
                 .map_or(0, block::Blocks::retained_bytes),
@@ -1378,7 +1368,9 @@ impl Session {
             }
             None => (vec![], vec![]),
         };
+        let progress_layout = root_progress_layout(&function, execution.callback_role);
         let callback = Box::new(Context {
+            progress_layout,
             function,
             state: CallbackState::new(execution),
             n,
@@ -1706,6 +1698,8 @@ impl Session {
                 self.settings.method.linear,
             )?);
         }
+        self.callback.progress_layout =
+            root_progress_layout(&self.callback.function, execution.callback_role);
         self.callback.state = CallbackState::new(execution.clone());
         self.callback.klu = if self.settings.method.linear == Linear::Klu {
             self.linear
@@ -1939,10 +1933,13 @@ impl Session {
             };
             report.metrics.insert(name.into(), observed);
         }
-        report.evidence.start_submitted = warm.is_some();
+        // KINSol received the live vector populated from either the explicit initial
+        // coordinates or the admitted optional warm payload. Submission is distinct
+        // from native convergence and from retaining a previous solver allocation.
+        report.evidence.start_submitted = true;
         report
             .metrics
-            .insert("start.submitted".into(), Metric::Bool(warm.is_some()));
+            .insert("start.submitted".into(), Metric::Bool(true));
         report
             .provenance
             .insert("native".into(), crate::sundials_version());
@@ -1950,6 +1947,19 @@ impl Session {
         if let Ok(method) = serde_json::to_string(&self.settings.method) {
             report.provenance.insert("settings".into(), method);
         }
+        report.metrics.insert(
+            "KINSetScaledStepTol.requested".into(),
+            Metric::Real(self.settings.step_tolerance),
+        );
+        report.provenance.insert(
+            "scaled_step_policy".into(),
+            if self.settings.step_tolerance == 0.0 {
+                "native_roundoff_default"
+            } else {
+                "explicit_native_relative_stagnation"
+            }
+            .into(),
+        );
         // Native-exit failure and fresh original validation are distinct
         // observations. Preserve the former before validation replaces its
         // worker-local witness; finalize inclusive counters after both phases.
@@ -3116,6 +3126,65 @@ mod tests {
             .unwrap()
     }
     #[test]
+    fn compact_root_progress_reused_session_refreshes_attempt_role_and_source() {
+        let mut session = fault_session(Strategy::Newton, FaultOracle::new(usize::MAX));
+        let original = session.callback.progress_layout.as_ref().unwrap().clone();
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let mut sources = Vec::new();
+        for role in [
+            pse_diagnostics::observation::ProducerRole::NativeCallback,
+            pse_diagnostics::observation::ProducerRole::OriginalOracle,
+        ] {
+            let operation = hub.start("root progress attempt");
+            let _entered = operation.context().enter();
+            let mut scope = execution();
+            scope.callback_role = role;
+            scope.progress = std::sync::Arc::new(Progress::new(64));
+            let report = session
+                .solve(
+                    &[1.0],
+                    &Controls::default(),
+                    &ResolvedAccuracy::verification(),
+                    scope,
+                    &Tolerances {
+                        variables: vec![1e-8],
+                        rows: vec![1e-8],
+                        integrality: 1e-8,
+                    },
+                    None,
+                )
+                .unwrap();
+            solved(&report);
+            assert!(!std::sync::Arc::ptr_eq(
+                &original,
+                session.callback.progress_layout.as_ref().unwrap()
+            ));
+            let first = report
+                .events
+                .iter()
+                .find(|event| {
+                    event
+                        .source
+                        .as_ref()
+                        .is_some_and(|source| source.family == "root_evaluation.v1")
+                })
+                .unwrap();
+            assert_eq!(first.values["evaluation_ordinal"], Metric::Integer(1));
+            assert_eq!(
+                first.values["output_role"],
+                Metric::Text("equation_residual".into())
+            );
+            let source = first.source.as_ref().unwrap();
+            assert_eq!(source.role, role);
+            assert!(source.producer.is_some());
+            sources.push(source.clone());
+        }
+        assert_ne!(sources[0].generation, sources[1].generation);
+        assert_ne!(sources[0].producer, sources[1].producer);
+        let fixed_point = fault_session(Strategy::FixedPoint, FaultOracle::new(usize::MAX));
+        assert!(fixed_point.callback.progress_layout.is_none());
+    }
+    #[test]
     fn raw_map_failed_evaluation_retains_previous_success_despite_dropped_telemetry() {
         let oracle = FaultOracle::new(2);
         let mut session = fault_session(Strategy::FixedPoint, oracle);
@@ -3999,7 +4068,7 @@ mod tests {
         );
     }
     #[test]
-    fn settings_from_policy_reduce_native_tests_to_original_budgets() {
+    fn settings_from_policy_reduce_residual_tests_to_original_budgets() {
         let tolerances = Tolerances {
             variables: vec![1e-3, 4.0],
             rows: vec![2e-6, 5e2],
@@ -4019,7 +4088,7 @@ mod tests {
         };
         let s = Settings::from_policy(method, &tolerances, &normalization, feasibility);
         assert_eq!(s.method(), method);
-        assert_eq!(s.step_tolerance, feasibility);
+        assert_eq!(s.step_tolerance, 0.0);
         for (scales, budgets, coordinates) in [
             (
                 &s.variable_scales,
@@ -4030,7 +4099,8 @@ mod tests {
         ] {
             for ((scale, t), c) in scales.iter().zip(budgets).zip(coordinates) {
                 assert_eq!(*scale, feasibility * c / t);
-                // A normalized deviation of exactly t / c meets the native tolerance.
+                // Scale arithmetic only: the residual test uses this weighted norm;
+                // the variable stagnation norm additionally divides by iterate magnitude.
                 assert!((scale * (t / c) - feasibility).abs() <= 4.0 * f64::EPSILON * feasibility);
             }
         }

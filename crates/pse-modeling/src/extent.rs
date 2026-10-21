@@ -277,10 +277,58 @@ impl Value {
     }
 }
 impl CheckedPackage {
+    /// Count this package's owned maps and each physically shared lexical/registry
+    /// allocation once across the current compiler input census. Per-owner extents
+    /// remain conservative; equal but separately allocated maps are charged separately.
+    pub fn collect_retained_inputs<'a>(
+        &'a self,
+        census: &mut crate::check::phases::RetainedInputs<'a>,
+    ) {
+        let quantities = self.quantities.allocation_extent();
+        let preconditions = self
+            .preconditions
+            .declarations()
+            .iter()
+            .map(|p| {
+                size_of::<pse_quantity::PhysicalPrecondition>()
+                    + p.operand_positions.capacity() * size_of::<u16>()
+            })
+            .sum::<usize>();
+        let scope = self.scope.package.as_ref().map_or(0, String::capacity)
+            + self.scope.documents.as_ref().map_or(0, |documents| {
+                documents.len() * (size_of::<pse_ids::SemanticId>() + 32)
+            });
+        let physical_types = map(&self.physical_types, |name, value| {
+            name.capacity() + ty(value)
+        });
+        let lexical_index = self.lexical_index.retained_bytes();
+        census.add(self.retained_bytes().saturating_sub(
+            size_of::<Self>() + quantities + preconditions + scope + physical_types + lexical_index,
+        ));
+        if census.include_shared(&self.quantities) {
+            census.add(quantities);
+        }
+        if census.include_shared(&self.preconditions) {
+            census.add(preconditions);
+        }
+        if census.include_shared(&self.scope) {
+            census.add(scope);
+        }
+        if census.include_shared(&self.physical_types) {
+            census.add(physical_types);
+        }
+        if census.include_shared(&self.lexical_index) {
+            census.add(lexical_index);
+        }
+    }
     /// Conservative owned declaration, table, type and lookup storage.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + self.selection_index.retained_bytes()
+            + self.lexical_index.retained_bytes()
+            + map(&self.physical_types, |name, value| {
+                name.capacity() + ty(value)
+            })
             + selections(&self.selection_closures)
             + crate::expression::occurrences::retained_bytes(&self.expressions)
             + self
@@ -313,6 +361,7 @@ impl CheckedPackage {
                 v.len() * (size_of::<pse_ids::SemanticId>() + 64)
             })
             + map(&self.tables, |_, v| v.retained_bytes(ty))
+            + self.kinds.extent_bytes()
             + map(&self.kinds, |_, k| {
                 k.attributes.capacity() * size_of::<(String, pse_ids::SemanticId)>()
                     + k.attributes

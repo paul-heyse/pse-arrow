@@ -241,6 +241,7 @@ fn materialize(
     physical: ContentHash,
     cancel: &Arc<AtomicBool>,
 ) -> Result<AdmittedBody> {
+    let _phase = pse_diagnostics::observation::phase("compiler.body_materialization");
     Ok(crate::typed_math::Request {
         definition: SemanticId::NIL,
         expressions: std::slice::from_ref(&input.expression),

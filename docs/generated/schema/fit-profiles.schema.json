@@ -754,6 +754,226 @@
       ],
       "type": "string"
     },
+    "FitResidualReport": {
+      "additionalProperties": false,
+      "description": "Native residual-method evidence; final original assessment sets qualification separately.",
+      "properties": {
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProfileFailure"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "First original refusal, preserved through callback None and native return."
+        },
+        "jacobian_evaluations": {
+          "description": "Actual exact response/Jacobian callback count.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "parameter_updates": {
+          "description": "Actual library parameter updates, bounded by original iteration controls.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "qualification": {
+          "$ref": "#/$defs/NativeQualification",
+          "description": "Qualification from original finite quality/gradient, never native success alone."
+        },
+        "residual_evaluations": {
+          "description": "Actual residual callback count.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "stationarity": {
+          "description": "Maximum normalized original gradient component from the independent final point.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "termination": {
+          "$ref": "#/$defs/FitResidualTermination",
+          "description": "Literal library termination category and detail."
+        }
+      },
+      "required": [
+        "termination",
+        "residual_evaluations",
+        "jacobian_evaluations",
+        "parameter_updates",
+        "qualification"
+      ],
+      "type": "object"
+    },
+    "FitResidualTermination": {
+      "description": "Actual residual-native stopping reason, independent of original scientific qualification.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Original callback refused; its typed cause is retained separately.",
+          "properties": {
+            "detail": {
+              "description": "Literal library callback refusal detail.",
+              "type": "string"
+            },
+            "kind": {
+              "const": "user",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "detail"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Nonfinite library arithmetic.",
+          "properties": {
+            "detail": {
+              "description": "Literal library nonfinite arithmetic detail.",
+              "type": "string"
+            },
+            "kind": {
+              "const": "numerical",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "detail"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A profile pin fixes every remaining coordinate; the original source is evaluated directly.",
+          "properties": {
+            "kind": {
+              "const": "fixed_evaluation",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Every requested weighted residual is zero.",
+          "properties": {
+            "kind": {
+              "const": "residuals_zero",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Library residual/Jacobian orthogonality criterion.",
+          "properties": {
+            "kind": {
+              "const": "orthogonal",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Library relative objective or step stopping tests.",
+          "properties": {
+            "ftol": {
+              "description": "Relative objective-change stopping test was satisfied.",
+              "type": "boolean"
+            },
+            "kind": {
+              "const": "converged",
+              "type": "string"
+            },
+            "xtol": {
+              "description": "Relative parameter-step stopping test was satisfied.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "ftol",
+            "xtol"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Further improvement was limited by machine precision.",
+          "properties": {
+            "detail": {
+              "description": "Literal library precision/stopping limitation.",
+              "type": "string"
+            },
+            "kind": {
+              "const": "no_improvement_possible",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "detail"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Library finite evaluation allowance exhausted.",
+          "properties": {
+            "kind": {
+              "const": "evaluation_limit",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Library shape/parameter contract refused.",
+          "properties": {
+            "detail": {
+              "description": "Literal parameter/residual dimension refusal.",
+              "type": "string"
+            },
+            "kind": {
+              "const": "invalid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "detail"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "IntervalBound": {
       "additionalProperties": false,
       "description": "One end of a confidence interval.",
@@ -1338,6 +1558,17 @@
             }
           ],
           "description": "The pinned fit's qualification, when the runner returned a report."
+        },
+        "residual": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FitResidualReport"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Actual residual-native evidence for this pin; absent for a native NLP pin."
         },
         "seed": {
           "description": "The chain point whose solution seeded this fit; `None` for the fit estimate (PS-11).",

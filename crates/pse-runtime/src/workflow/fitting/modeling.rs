@@ -106,6 +106,15 @@ impl ModelingPackage {
                 let (mut problem, assessments) = self
                     .prepare_fit_problem(id, profile, compiler, limits, cancel)
                     .await?;
+                if !problem.initial.is_empty() && problem.profile.optimizer != FitOptimizer::NativeNlp {
+                    if oracle::residual::eligible(&problem) {
+                        return Ok(PreparedFit { original_inputs, source: self.clone(),
+                            problem: Arc::new(problem), route: FitRoute::ResidualLm, assessments });
+                    }
+                    if problem.profile.optimizer == FitOptimizer::ResidualLm {
+                        return Err(contract("residual LM requires unboxed unconstrained exact response fitting with supported settings and finite matrix extent"));
+                    }
+                }
                 let facts = native::routing::oracle_facts(
                     &problem.contract,
                     true,
@@ -181,7 +190,8 @@ impl ModelingPackage {
                     original_inputs,
                     source: self.clone(),
                     problem: Arc::new(problem),
-                    route,
+                    route: match route { native::routing::Route::Native(backend) => FitRoute::Native(backend),
+                        native::routing::Route::Constant => FitRoute::Evaluation },
                     assessments,
                 })
             })
@@ -243,6 +253,34 @@ impl ModelingPackage {
                 {
                     return Err(contract("fit intent, rank policy or inventories"));
                 }
+                if profile.optimizer == FitOptimizer::ResidualLm
+                    && d.parameters.iter().any(|parameter| !parameter.fixed)
+                    && !oracle::residual::request_eligible(&profile)
+                {
+                    return Err(contract(
+                        "residual LM cannot implement the requested native-only controls or products",
+                    ));
+                }
+                let free_parameters = d.parameters.iter().filter(|p| !p.fixed).count();
+                let residual_rows = d.observations.iter().filter(|o| o.included).count();
+                let residual_workspace = oracle::residual::workspace_eligible(
+                    residual_rows,
+                    free_parameters,
+                    profile.max_cells,
+                    self.runtime
+                        .shared
+                        .budget()
+                        .math
+                        .foreign_allowance(&profile.solver.controls),
+                );
+                if profile.optimizer == FitOptimizer::ResidualLm
+                    && free_parameters > 0
+                    && !residual_workspace
+                {
+                    return Err(contract(
+                        "residual LM dense workspace exceeds its known foreign allowance or matrix extent",
+                    ));
+                }
                 if d.parameters
                     .iter()
                     .map(|p| p.symbol_id)
@@ -302,7 +340,8 @@ impl ModelingPackage {
                         "gradient-only fitting cannot supply exact or Gauss-Newton curvature",
                     ));
                 }
-                let order = if !matches!(hessian, HessianMode::Exact | HessianMode::GaussNewton) {
+                let mut order = if !matches!(hessian, HessianMode::Exact | HessianMode::GaussNewton)
+                {
                     DerivativeOrder::First
                 } else {
                     DerivativeOrder::Second
@@ -356,6 +395,32 @@ impl ModelingPackage {
                             .insert(binding.path.clone(), d.parameters[parameter].value);
                     }
                     sources.push((bindings, case, model, local));
+                }
+                // The actual admitted steady inventories prove this residual-only shape before
+                // numerical artifact allocation. Transient equations remain internal IVP rows.
+                if profile.optimizer != FitOptimizer::NativeNlp
+                    && oracle::residual::request_eligible(&profile)
+                    && free_parameters > 0
+                    && residual_rows >= free_parameters
+                    && residual_workspace
+                    && d.parameters
+                        .iter()
+                        .all(|p| p.fixed || p.lower.is_none() && p.upper.is_none())
+                    && sources
+                        .iter()
+                        .zip(&d.experiments)
+                        .all(|((_, _, model, _), experiment)| {
+                            experiment.route == Route::Integrated || {
+                                let structure = model.compiled().admitted.case();
+                                structure.variables().iter().all(|v| v.fixed)
+                                    && structure
+                                        .rows()
+                                        .iter()
+                                        .all(|r| !r.lower.is_finite() && !r.upper.is_finite())
+                            }
+                        })
+                {
+                    order = DerivativeOrder::First;
                 }
                 let parameter_ports = parameter_ports
                     .into_iter()
@@ -1050,12 +1115,16 @@ impl PreparedFit {
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
         workers: usize,
+        storage: Option<Arc<pse_columnar::AllocationLease>>,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
         let problem = &self.problem;
         let (mut report, trace) = crate::math::strategy::target::callable(
-            problem.runtime.shared.math(),
+            crate::math::strategy::target::CallContext {
+                service: problem.runtime.shared.math(),
+                scope: &scope,
+                storage,
+            },
             self.callable_source(),
-            &scope,
             |solver, admission| {
                 self.execute_original(
                     run_id,
@@ -1068,9 +1137,14 @@ impl PreparedFit {
             },
             |report| report.solve.as_ref(),
             |report| {
-                report.solve.as_ref().map_or(
-                    pse_model::generated::enums::NumericalAttemptObservation::Converged,
-                    crate::math::strategy::observe_native,
+                report.residual.as_ref().map_or_else(
+                    || {
+                        report.solve.as_ref().map_or(
+                            pse_model::generated::enums::NumericalAttemptObservation::Converged,
+                            crate::math::strategy::observe_native,
+                        )
+                    },
+                    FitResidualReport::observation,
                 )
             },
             |report, observed| {
@@ -1106,7 +1180,14 @@ impl PreparedFit {
                     report
                         .solve
                         .as_ref()
-                        .and_then(crate::math::strategy::cause_native),
+                        .and_then(crate::math::strategy::cause_native)
+                        .or_else(|| {
+                            report
+                                .residual
+                                .as_ref()
+                                .and_then(|r| r.failure.as_ref())
+                                .map(ProfileFailure::shared_cause)
+                        }),
                     observed,
                 );
                 assessment.retention.candidate = report.completion.as_ref().map_or_else(

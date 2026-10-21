@@ -48,9 +48,13 @@ EvaluationDemand = Literal["objective", "constraints", "all", "directional", "tr
 
 FiniteBound = float
 
+FitOptimizer = Literal["automatic", "native_nlp", "residual_lm"]
+
 Fraction = Annotated[float, msgspec.Meta(le=1.0, gt=0.0)]
 
 HistoryPurpose = Literal["audit", "unsettled"]
+
+IdasInitialStep = Literal["configured", "automatic"]
 
 InvocationOutcome = Literal["completed", "failed", "cancelled"]
 
@@ -4477,6 +4481,39 @@ class FitDeclarations(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
         return (type(self), (v.sequence_key(v.record_key)(self.fits),))
 
 
+class FitExecutionDocumentEvaluation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="method", tag="evaluation"):
+    """No optimizer ran because every original coordinate was fixed."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class FitExecutionDocumentNativeNlp(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="method", tag="native_nlp"):
+    """Class-specific native NLP, preserving its original backend report."""
+
+    #: Actual backend.
+    backend: enums.NativeBackend
+    #: Independent original qualification.
+    qualification: enums.NativeQualification
+    #: Actual native status without reinterpretation.
+    status: str
+    #: Actual shared termination category.
+    termination: enums.NativeTermination
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.backend), v.scalar_key(self.qualification), v.scalar_key(self.status), v.scalar_key(self.termination),))
+
+
+class FitExecutionDocumentResidualLm(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="method", tag="residual_lm"):
+    """Library-owned residual LM, with original typed failure and exact observed work."""
+
+    #: Literal residual-native evidence, never an invented NLP report.
+    report: FitResidualReport
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.report),))
+
+
 class FitOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One authored fit selection; experiment data stays in the pinned source revision."""
 
@@ -4498,6 +4535,8 @@ class FitOperationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     experiment_workers: PositiveCount = 1
     #: Existing derivative/rank allocation bound.
     max_cells: Annotated[int, msgspec.Meta(ge=0)]
+    #: Fitting-owned residual/native selection.
+    optimizer: FitOptimizer = "automatic"
     #: Existing local response rank cutoff.
     rank_tolerance: float
     #: Explicit profiles for transient fit experiments.
@@ -4508,7 +4547,7 @@ class FitOperationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     uncertainty: FitUncertainty | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.experiment_workers), v.scalar_key(self.max_cells), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.optional_key(v.record_key)(self.uncertainty),))
+        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.experiment_workers), v.scalar_key(self.max_cells), v.scalar_key(self.optimizer), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.optional_key(v.record_key)(self.uncertainty),))
 
 
 class FitPreparationDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4520,6 +4559,8 @@ class FitPreparationDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=
     experiment_workers: PositiveCount = 1
     #: Maximum native fit workspace cells.
     max_cells: Annotated[int, msgspec.Meta(ge=0)] = 1000000
+    #: Fitting-owned method selection, resolved before scientific effects.
+    optimizer: FitOptimizer = "automatic"
     #: Rank tolerance for fit admission.
     rank_tolerance: float = 1e-8
     #: Native dynamic settings by experiment identity.
@@ -4530,7 +4571,7 @@ class FitPreparationDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=
     uncertainty: FitUncertainty | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.experiment_workers), v.scalar_key(self.max_cells), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.optional_key(v.record_key)(self.uncertainty),))
+        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.experiment_workers), v.scalar_key(self.max_cells), v.scalar_key(self.optimizer), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.optional_key(v.record_key)(self.uncertainty),))
 
 
 class FitProfileDocumentAvailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="available"):
@@ -4560,6 +4601,108 @@ class FitProfileDocumentWithheld(msgspec.Struct, frozen=True, forbid_unknown_fie
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.detail), v.scalar_key(self.reason),))
+
+
+class FitResidualReport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Native residual-method evidence; final original assessment sets qualification separately."""
+
+    #: First original refusal, preserved through callback None and native return.
+    failure: ProfileFailure | None = None
+    #: Actual exact response/Jacobian callback count.
+    jacobian_evaluations: Annotated[int, msgspec.Meta(ge=0)]
+    #: Actual library parameter updates, bounded by original iteration controls.
+    parameter_updates: Annotated[int, msgspec.Meta(ge=0)]
+    #: Qualification from original finite quality/gradient, never native success alone.
+    qualification: enums.NativeQualification
+    #: Actual residual callback count.
+    residual_evaluations: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum normalized original gradient component from the independent final point.
+    stationarity: float | None = None
+    #: Literal library termination category and detail.
+    termination: FitResidualTermination
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.failure), v.scalar_key(self.jacobian_evaluations), v.scalar_key(self.parameter_updates), v.scalar_key(self.qualification), v.scalar_key(self.residual_evaluations), v.optional_key(v.scalar_key)(self.stationarity), v.record_key(self.termination),))
+
+
+class FitResidualTerminationConverged(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="converged"):
+    """Library relative objective or step stopping tests."""
+
+    #: Relative objective-change stopping test was satisfied.
+    ftol: bool
+    #: Relative parameter-step stopping test was satisfied.
+    xtol: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.ftol), v.scalar_key(self.xtol),))
+
+
+class FitResidualTerminationEvaluationLimit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="evaluation_limit"):
+    """Library finite evaluation allowance exhausted."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class FitResidualTerminationFixedEvaluation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fixed_evaluation"):
+    """A profile pin fixes every remaining coordinate; the original source is evaluated directly."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class FitResidualTerminationInvalid(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="invalid"):
+    """Library shape/parameter contract refused."""
+
+    #: Literal parameter/residual dimension refusal.
+    detail: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.detail),))
+
+
+class FitResidualTerminationNoImprovementPossible(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="no_improvement_possible"):
+    """Further improvement was limited by machine precision."""
+
+    #: Literal library precision/stopping limitation.
+    detail: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.detail),))
+
+
+class FitResidualTerminationNumerical(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="numerical"):
+    """Nonfinite library arithmetic."""
+
+    #: Literal library nonfinite arithmetic detail.
+    detail: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.detail),))
+
+
+class FitResidualTerminationOrthogonal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="orthogonal"):
+    """Library residual/Jacobian orthogonality criterion."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class FitResidualTerminationResidualsZero(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="residuals_zero"):
+    """Every requested weighted residual is zero."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class FitResidualTerminationUser(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="user"):
+    """Original callback refused; its typed cause is retained separately."""
+
+    #: Literal library callback refusal detail.
+    detail: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.detail),))
 
 
 class FitUncertainty(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4965,6 +5108,20 @@ class HorizonSignalDocumentTrajectory(msgspec.Struct, frozen=True, forbid_unknow
         return (type(self), (v.sequence_key(v.record_key)(self.value),))
 
 
+class IdasBand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit half-bandwidths in the original admitted state ordering.
+    Zero retains only the diagonal on that side; no ordering is inferred.
+    """
+
+    #: Number of original state columns retained below a row's diagonal.
+    lower: Annotated[int, msgspec.Meta(ge=0)]
+    #: Number of original state columns retained above a row's diagonal.
+    upper: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.lower), v.scalar_key(self.upper),))
+
+
 class IdasInitialConditions(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Exact IDAS consistent-initialization controls; no physical time stepping is requested."""
 
@@ -5018,17 +5175,34 @@ class IdasLinearSpgmr(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
         return (type(self), (v.scalar_key(self.dimension), v.scalar_key(self.preconditioner),))
 
 
+class IdasLinearSpgmrBbd(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="spgmr_bbd"):
+    """Exact matrix-free GMRES with the native library's band approximation as
+    a left preconditioner. Both bands name original state coordinates.
+    """
+
+    #: Envelope used by native grouped residual differences.
+    difference: IdasBand
+    #: Maximum Krylov subspace dimension.
+    dimension: PositiveCount
+    #: Band of the approximation retained and factored by IDAS.
+    retained: IdasBand
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.difference), v.scalar_key(self.dimension), v.record_key(self.retained),))
+
+
 class IdasSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Typed IDAS-only method controls (ADR-0110 item 1), a versioned boundary document
     (ADR-0116 Outcome 6): the version is required, and absent fields take these defaults.
     Version 2 removes the per-state sign constraints: they derive from the authored bounds
     ([`Contract::signs`], ADR-0119 Outcome 4).
+    Version 3 makes native automatic first-step selection the default (ADR-0207).
     """
 
-    _pse_required_version: ClassVar[int] = 2
+    _pse_required_version: ClassVar[int] = 3
 
     #: Document version.
-    version: Literal[2] = 2
+    version: Literal[3] = 3
     #: Public IDACalcIC phase controls, also applied to scheduled consistent restarts.
     initial_conditions: IdasInitialConditions = msgspec.field(default_factory=lambda: msgspec.convert({"backtracks": None, "convergence_coefficient": 0.0033, "jacobian_attempts": 4, "line_search": True, "newton_iterations": 10, "step_tolerance": None, "step_trials": None}, type=IdasInitialConditions))
     #: Consistent initialization at the start of the horizon; scheduled changes and resets
@@ -5036,11 +5210,13 @@ class IdasSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     initialization: enums.IdasInitialization = enums.IdasInitialization.ALGEBRAIC_AND_RATES
     #: Newton linear solver.
     linear: IdasLinear = msgspec.field(default_factory=lambda: msgspec.convert({"kind": "klu"}, type=IdasLinear))
+    #: Native first-step policy, independent of the positive IC orientation scale.
+    native_initial_step: IdasInitialStep = "automatic"
     #: Forward-sensitivity corrector.
     sensitivity: enums.SensitivityCorrector = enums.SensitivityCorrector.SIMULTANEOUS
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.record_key(self.initial_conditions), v.scalar_key(self.initialization), v.record_key(self.linear), v.scalar_key(self.sensitivity),))
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.initial_conditions), v.scalar_key(self.initialization), v.record_key(self.linear), v.scalar_key(self.native_initial_step), v.scalar_key(self.sensitivity),))
 
 
 class IncumbentDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6617,6 +6793,22 @@ class NumericalHistoryPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=
         return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.barrier_progress_minimum), v.optional_key(v.scalar_key)(self.inertia_fraction_minimum), v.scalar_key(self.minimum_events), v.optional_key(v.scalar_key)(self.primal_progress_maximum), v.optional_key(v.scalar_key)(self.raw_recycle_ratio_minimum), v.scalar_key(self.repeated_worst_row), v.optional_key(v.scalar_key)(self.tiny_step_maximum),))
 
 
+class NumericalMethodBackend(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="backend"):
+    """Existing class-specific native backend."""
+
+    backend: enums.NativeBackend
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.backend),))
+
+
+class NumericalMethodResidualLm(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="residual_lm"):
+    """Library-owned Levenberg-Marquardt fitting residual method."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
 class NumericalPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Shared semantic controls resolved before invoking any native adapter."""
 
@@ -6689,10 +6881,10 @@ class NumericalStrategy(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 class NumericalStrategyDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Current strategy wire document. Historical bodies are not silently reinterpreted."""
 
-    _pse_required_version: ClassVar[int] = 3
+    _pse_required_version: ClassVar[int] = 4
 
     #: Exact current document version, checked before decoding its body.
-    version: Literal[3] = 3
+    version: Literal[4] = 4
     #: Validated finite operation declaration.
     strategy: NumericalStrategy
 
@@ -7678,10 +7870,10 @@ class ProductionDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 class Profile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Finite integration policy. Tolerances apply to the normalized state coordinates."""
 
-    _pse_required_version: ClassVar[int] = 2
+    _pse_required_version: ClassVar[int] = 3
 
     #: Required execution interpretation version; legacy unversioned requests need readmission.
-    version: Literal[2] = 2
+    version: Literal[3] = 3
     #: Checkpointing of the adjoint backward pass; used only by adjoint gradients.
     adjoint: AdjointSettings = msgspec.field(default_factory=lambda: msgspec.convert({"max_checkpoints": 400, "steps_between_checkpoints": 250, "version": 1}, type=AdjointSettings))
     #: Positive absolute tolerances in normalized state order.
@@ -7693,8 +7885,10 @@ class Profile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=T
     #: Declared completion event; omitted means the full fixed horizon.
     endpoint: EndpointRequirement = msgspec.field(default_factory=lambda: msgspec.convert({"event": None, "kind": "fixed_horizon"}, type=EndpointRequirement))
     #: Typed IDAS linear solver, sensitivity corrector and start.
-    idas: IdasSettings = msgspec.field(default_factory=lambda: msgspec.convert({"initial_conditions": {"backtracks": None, "convergence_coefficient": 0.0033, "jacobian_attempts": 4, "line_search": True, "newton_iterations": 10, "step_tolerance": None, "step_trials": None}, "initialization": "algebraic_and_rates", "linear": {"kind": "klu"}, "sensitivity": "simultaneous", "version": 2}, type=IdasSettings))
-    #: Initial step in seconds.
+    idas: IdasSettings = msgspec.field(default_factory=lambda: msgspec.convert({"initial_conditions": {"backtracks": None, "convergence_coefficient": 0.0033, "jacobian_attempts": 4, "line_search": True, "newton_iterations": 10, "step_tolerance": None, "step_trials": None}, "initialization": "algebraic_and_rates", "linear": {"kind": "klu"}, "native_initial_step": "automatic", "sensitivity": "simultaneous", "version": 3}, type=IdasSettings))
+    #: Positive initialization orientation scale in seconds. IDAS also attempts this
+    #: physical step only under [`IdasInitialStep::Configured`]; its default uses the
+    #: native estimate. Diffsol's initial-step meaning is unchanged.
     initial_step: float
     #: Library-owned initialization controls, transported in every profile.
     initialization: DiffsolInitialConditionOptions
@@ -7828,6 +8022,8 @@ class ProfilePoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     objective: float | None = None
     #: The pinned fit's qualification, when the runner returned a report.
     qualification: enums.NativeQualification | None = None
+    #: Actual residual-native evidence for this pin; absent for a native NLP pin.
+    residual: FitResidualReport | None = None
     #: The chain point whose solution seeded this fit; `None` for the fit estimate (PS-11).
     seed: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: `√(2·max(f - f*, 0))`.
@@ -7838,19 +8034,19 @@ class ProfilePoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     value: float
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.accepted), v.scalar_key(self.callback_terminal_failure), v.optional_key(v.scalar_key)(self.detail), v.sequence_key(v.record_key)(self.failures), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.qualification), v.optional_key(v.scalar_key)(self.seed), v.optional_key(v.scalar_key)(self.statistic), v.optional_key(v.scalar_key)(self.termination), v.scalar_key(self.value),))
+        return (type(self), (v.scalar_key(self.accepted), v.scalar_key(self.callback_terminal_failure), v.optional_key(v.scalar_key)(self.detail), v.sequence_key(v.record_key)(self.failures), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.qualification), v.optional_key(v.record_key)(self.residual), v.optional_key(v.scalar_key)(self.seed), v.optional_key(v.scalar_key)(self.statistic), v.optional_key(v.scalar_key)(self.termination), v.scalar_key(self.value),))
 
 
 class ProfileRef(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Effective admitted native settings, interpreted by their existing native owner."""
+    """Effective admitted method settings, interpreted by their existing owner."""
 
-    #: Explicit implementation; changing it requires another declared reference.
-    backend: enums.NativeBackend
     #: Complete effective method/settings identity, including set versus unset options.
     key: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Explicit implementation; changing it requires another declared reference.
+    method: NumericalMethod
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.backend), v.scalar_key(self.key),))
+        return (type(self), (v.scalar_key(self.key), v.record_key(self.method),))
 
 
 class ProfileWorkerFailureEnvironment(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="environment"):
@@ -8593,6 +8789,8 @@ class ReplayFitConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
     #: Original finite derivative/rank allowance.
     max_cells: Annotated[int, msgspec.Meta(ge=0)]
+    #: Requested fitting method, preserved before contextual resolution.
+    optimizer: FitOptimizer
     #: Original compiler and expansion controls.
     preparation: PreparationSettings
     #: Original response rank cutoff.
@@ -8607,7 +8805,7 @@ class ReplayFitConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     uncertainty: FitUncertainty | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.experiment_workers), v.scalar_key(self.id), v.scalar_key(self.max_cells), v.record_key(self.preparation), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.scalar_key(self.source), v.optional_key(v.record_key)(self.uncertainty),))
+        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.experiment_workers), v.scalar_key(self.id), v.scalar_key(self.max_cells), v.scalar_key(self.optimizer), v.record_key(self.preparation), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.scalar_key(self.source), v.optional_key(v.record_key)(self.uncertainty),))
 
 
 class ReplayForwardSelectionPhysicalAxes(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="physical_axes"):
@@ -11823,13 +12021,17 @@ DiscreteInitialization = DiscreteInitializationRefuse | DiscreteInitializationFi
 
 Evaluator = EvaluatorInterpreted | EvaluatorCompiledScalar
 
+FitExecutionDocument = FitExecutionDocumentEvaluation | FitExecutionDocumentNativeNlp | FitExecutionDocumentResidualLm
+
 FitProfileDocument = FitProfileDocumentNotRequested | FitProfileDocumentAvailable | FitProfileDocumentWithheld
+
+FitResidualTermination = FitResidualTerminationUser | FitResidualTerminationNumerical | FitResidualTerminationFixedEvaluation | FitResidualTerminationResidualsZero | FitResidualTerminationOrthogonal | FitResidualTerminationConverged | FitResidualTerminationNoImprovementPossible | FitResidualTerminationEvaluationLimit | FitResidualTerminationInvalid
 
 HistoryOwner = HistoryOwnerRun | HistoryOwnerStudy
 
 HorizonSignalDocument = HorizonSignalDocumentMeasured | HorizonSignalDocumentEstimated | HorizonSignalDocumentApplied | HorizonSignalDocumentTrajectory
 
-IdasLinear = IdasLinearKlu | IdasLinearSpgmr | IdasLinearSpfgmr
+IdasLinear = IdasLinearKlu | IdasLinearSpgmr | IdasLinearSpgmrBbd | IdasLinearSpfgmr
 
 IpoptLinear = IpoptLinearMumps | IpoptLinearSpral | IpoptLinearPardisomkl
 
@@ -11840,6 +12042,8 @@ KinsolLinear = KinsolLinearKlu | KinsolLinearDense | KinsolLinearSpgmr | KinsolL
 NativeCounters = NativeCountersIpopt | NativeCountersUno | NativeCountersKinsol
 
 NumericObservation = NumericObservationReal | NumericObservationNonfinite
+
+NumericalMethod = NumericalMethodBackend | NumericalMethodResidualLm
 
 Observation = ObservationMissing | ObservationReal | ObservationNonfinite | ObservationPhysical | ObservationInteger | ObservationBoolean | ObservationText | ObservationContracts
 
@@ -12169,13 +12373,29 @@ __all__ = [
     "FiniteBound",
     "FiniteDifferenceSettings",
     "FitDeclarations",
+    "FitExecutionDocument",
+    "FitExecutionDocumentEvaluation",
+    "FitExecutionDocumentNativeNlp",
+    "FitExecutionDocumentResidualLm",
     "FitOperation",
     "FitOperationSettings",
+    "FitOptimizer",
     "FitPreparationDocument",
     "FitProfileDocument",
     "FitProfileDocumentAvailable",
     "FitProfileDocumentNotRequested",
     "FitProfileDocumentWithheld",
+    "FitResidualReport",
+    "FitResidualTermination",
+    "FitResidualTerminationConverged",
+    "FitResidualTerminationEvaluationLimit",
+    "FitResidualTerminationFixedEvaluation",
+    "FitResidualTerminationInvalid",
+    "FitResidualTerminationNoImprovementPossible",
+    "FitResidualTerminationNumerical",
+    "FitResidualTerminationOrthogonal",
+    "FitResidualTerminationResidualsZero",
+    "FitResidualTerminationUser",
     "FitUncertainty",
     "FlowConnectionDocument",
     "FlowDecisionDocument",
@@ -12206,11 +12426,14 @@ __all__ = [
     "HorizonSignalDocumentEstimated",
     "HorizonSignalDocumentMeasured",
     "HorizonSignalDocumentTrajectory",
+    "IdasBand",
     "IdasInitialConditions",
+    "IdasInitialStep",
     "IdasLinear",
     "IdasLinearKlu",
     "IdasLinearSpfgmr",
     "IdasLinearSpgmr",
+    "IdasLinearSpgmrBbd",
     "IdasSettings",
     "IncumbentDocument",
     "IneligibleDocument",
@@ -12312,6 +12535,9 @@ __all__ = [
     "NumericObservationNonfinite",
     "NumericObservationReal",
     "NumericalHistoryPolicy",
+    "NumericalMethod",
+    "NumericalMethodBackend",
+    "NumericalMethodResidualLm",
     "NumericalPolicy",
     "NumericalStrategy",
     "NumericalStrategyDocument",

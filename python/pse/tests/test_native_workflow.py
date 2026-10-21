@@ -478,14 +478,15 @@ def test_declared_numerical_strategy_uses_original_permission_and_stops_unused_r
         ),
     )
     direct = prepared.numerical_strategy
-    assert direct.version == 3
+    assert direct.version == 4
     assert prepared.composition_request.policy == NumericalCompositionPolicy.AUTO
     assert not prepared.composition_request.recovery
     limits = msgspec.structs.replace(direct.strategy.limits, attempts=2)
     first = msgspec.structs.replace(
         direct.strategy.mechanisms[0],
         profile=documents.ProfileRef(
-            backend=NativeBackend.KINSOL, key=prepared.strategy_profile.to_prefixed()
+            method=documents.NumericalMethodBackend(backend=NativeBackend.KINSOL),
+            key=prepared.strategy_profile.to_prefixed(),
         ),
         transitions=(
             NumericalTransition.FINISH,
@@ -787,7 +788,7 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
         ),
     )
     direct = prepared.numerical_strategy
-    assert direct.version == 3
+    assert direct.version == 4
     assert prepared.composition_request.policy == NumericalCompositionPolicy.AUTO
     assert codec.decode_json(codec.encode_json(direct), type(direct)) == direct
     assert len(direct.strategy.mechanisms) == 1
@@ -806,6 +807,7 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
     )
     assert rows[0]["prediction"] == 2.0
     assert rows[0]["objective_contribution"] == 0.0
+    assert isinstance(result.fit_execution, documents.FitExecutionDocumentEvaluation)
     assert job.wait().run_id == result.run_id
     assert not result.diagnostics()
     assert result.usable

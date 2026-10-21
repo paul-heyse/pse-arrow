@@ -251,6 +251,39 @@ pub trait RecordTap: std::any::Any + Send + Sync + std::fmt::Debug {
     }
 }
 impl ObservationContext {
+    /// Record an optional producer update lost before shared publication.
+    /// This bounded loss counter grants no scientific permission and never blocks.
+    pub fn record_update_loss(&self) {
+        if let Some(node) = &self.node {
+            bump(&node.lost);
+        }
+    }
+    /// Publish one bounded tuple of prepared facts at a single visible endpoint.
+    /// Optional loss is explicit; a failed tuple never partially changes current values.
+    pub fn publish_facts(&self, updates: &[FactUpdate<'_>]) -> bool {
+        let Some(node) = &self.node else {
+            return false;
+        };
+        let mut accepted = false;
+        node.update(|state, at| {
+            let valid = updates.len() <= node.policy.max_metrics
+                && updates.iter().all(|update| {
+                    let fact = update.fact();
+                    fact.belongs_to(self)
+                        && fact.index.is_some_and(|index| index < state.metrics.len())
+                        && update.valid(&node.policy)
+                });
+            if !valid {
+                state.refused = state.refused.saturating_add(1);
+                return;
+            }
+            for update in updates {
+                update.apply(state, &node.policy, at);
+            }
+            accepted = true;
+        });
+        accepted
+    }
     /// Report source-registration loss before optional producer mapping can fail.
     pub fn record_source_unavailable(&self, family: &str) {
         if let Some(tap) = &self.record_tap {
@@ -275,6 +308,58 @@ impl ObservationContext {
         context
     }
 
+    /// Prepare a population and unit once; updates use its admitted slot directly.
+    #[must_use]
+    pub fn fact(&self, name: &str, unit: &str, kind: FactKind) -> PreparedFact {
+        let mut index = None;
+        if let Some(node) = &self.node {
+            node.update(|state, at| {
+                index = state.producer_metric_index(&node.policy, self.producer, name, unit, at);
+                if let Some(i) = index {
+                    let metric = &state.metrics[i];
+                    let incompatible = (kind == FactKind::Duration && unit != "nanoseconds")
+                        || (metric.counter
+                            && metric.absolute.is_none()
+                            && !metric.duration
+                            && kind != FactKind::Counter)
+                        || (metric.duration && kind != FactKind::Duration)
+                        || (metric.absolute.is_some() && kind != FactKind::AbsoluteCounter)
+                        || (!metric.counter
+                            && !matches!(metric.latest, Value::Unavailable(_))
+                            && kind != FactKind::Gauge);
+                    if incompatible {
+                        state.refused = state.refused.saturating_add(1);
+                        index = None;
+                        return;
+                    }
+                    if state.metrics[i]
+                        .prepared_kind
+                        .is_some_and(|prior| prior != kind)
+                    {
+                        state.refused = state.refused.saturating_add(1);
+                        index = None;
+                        return;
+                    }
+                    state.metrics[i].prepared_kind = Some(kind);
+                }
+                if let Some(i) = index
+                    && kind != FactKind::Gauge
+                    && state.metrics[i].buckets.is_empty()
+                {
+                    if state.reserve(node.policy.aggregate_bytes()) {
+                        state.metrics[i].buckets = vec![Bucket::default(); BUCKETS];
+                    } else {
+                        index = None;
+                    }
+                }
+            });
+        }
+        PreparedFact {
+            context: self.clone(),
+            index,
+            kind,
+        }
+    }
     /// Register a performing instance once at its actual owner boundary.
     #[must_use]
     pub fn producer(&self, role: ProducerRole, name: &str) -> Producer {
@@ -405,56 +490,20 @@ impl Producer {
     /// Prepare a population and unit once; updates use its admitted slot directly.
     #[must_use]
     pub fn fact(&self, name: &str, unit: &str, kind: FactKind) -> PreparedFact {
-        let mut index = None;
-        if self.index.is_some()
-            && let Some(node) = &self.context.node
-        {
-            node.update(|state, at| {
-                index = state.producer_metric_index(&node.policy, Some(self.id), name, unit, at);
-                if let Some(i) = index {
-                    let metric = &state.metrics[i];
-                    let incompatible = (kind == FactKind::Duration && unit != "nanoseconds")
-                        || (metric.counter
-                            && metric.absolute.is_none()
-                            && !metric.duration
-                            && kind != FactKind::Counter)
-                        || (metric.duration && kind != FactKind::Duration)
-                        || (metric.absolute.is_some() && kind != FactKind::AbsoluteCounter)
-                        || (!metric.counter
-                            && !matches!(metric.latest, Value::Unavailable(_))
-                            && kind != FactKind::Gauge);
-                    if incompatible {
-                        state.refused = state.refused.saturating_add(1);
-                        index = None;
-                        return;
-                    }
-                    if state.metrics[i]
-                        .prepared_kind
-                        .is_some_and(|prior| prior != kind)
-                    {
-                        state.refused = state.refused.saturating_add(1);
-                        index = None;
-                        return;
-                    }
-                    state.metrics[i].prepared_kind = Some(kind);
-                }
-                if let Some(i) = index
-                    && kind != FactKind::Gauge
-                    && state.metrics[i].buckets.is_empty()
-                {
-                    if state.reserve(node.policy.aggregate_bytes()) {
-                        state.metrics[i].buckets = vec![Bucket::default(); BUCKETS];
-                    } else {
-                        index = None;
-                    }
-                }
-            });
+        if self.index.is_some() {
+            self.context.fact(name, unit, kind)
+        } else {
+            PreparedFact {
+                context: self.context.clone(),
+                index: None,
+                kind,
+            }
         }
-        PreparedFact {
-            context: self.context.clone(),
-            index,
-            kind,
-        }
+    }
+    /// Publish all admitted current facts together at one operation-clock endpoint.
+    /// Refusal or contention drops the whole tuple; final scientific reports remain independent.
+    pub fn publish_facts(&self, updates: &[FactUpdate<'_>]) -> bool {
+        self.index.is_some() && self.context.publish_facts(updates)
     }
     /// Issue a source event before any queue, hub or transport loss.
     #[must_use]
@@ -632,7 +681,104 @@ pub struct PreparedFact {
     index: Option<usize>,
     kind: FactKind,
 }
+/// One borrowed member of an atomic ordinary publication; no row allocation is required.
+#[derive(Clone, Copy, Debug)]
+pub enum FactUpdate<'a> {
+    /// Actual work performed at this boundary.
+    Count {
+        /// Prepared additive population.
+        fact: &'a PreparedFact,
+        /// Exact work performed at this boundary.
+        delta: u64,
+    },
+    /// One actual complete inclusive interval, paired with its completion count.
+    Duration {
+        /// Prepared inclusive-duration population.
+        fact: &'a PreparedFact,
+        /// Actual duration of this completed interval.
+        elapsed: Duration,
+    },
+    /// A current numerical checkpoint from the same boundary.
+    Gauge {
+        /// Prepared checkpoint population.
+        fact: &'a PreparedFact,
+        /// Current finite or explicitly nonfinite value.
+        value: f64,
+    },
+    /// Explicit absence, preserving the prepared population and unit.
+    Unavailable {
+        /// Prepared population whose value is unavailable.
+        fact: &'a PreparedFact,
+        /// Bounded explanation, independent of a numeric zero.
+        reason: &'a str,
+    },
+}
+impl FactUpdate<'_> {
+    fn fact(&self) -> &PreparedFact {
+        match self {
+            Self::Count { fact, .. }
+            | Self::Duration { fact, .. }
+            | Self::Gauge { fact, .. }
+            | Self::Unavailable { fact, .. } => fact,
+        }
+    }
+    fn valid(&self, policy: &Policy) -> bool {
+        match self {
+            Self::Count { fact, .. } => fact.kind == FactKind::Counter,
+            Self::Duration { fact, .. } => fact.kind == FactKind::Duration,
+            Self::Gauge { fact, .. } => fact.kind == FactKind::Gauge,
+            Self::Unavailable { reason, .. } => reason.len() <= policy.max_text_bytes,
+        }
+    }
+    fn apply(&self, state: &mut State, policy: &Policy, at: Duration) {
+        // Every handle is validated before any member is applied. No metric is removed
+        // or inserted by an update, so admitted indices remain stable for the tuple.
+        let Some(index) = self.fact().index else {
+            return;
+        };
+        let Some(metric) = state.metrics.get_mut(index) else {
+            return;
+        };
+        match self {
+            Self::Count { delta, .. } => {
+                metric.delta(at, *delta, at);
+                metric.latest = metric.cumulative.clone();
+                metric.observed_at = at;
+            }
+            Self::Duration { elapsed, .. } => {
+                metric.elapsed(at, *elapsed);
+                metric
+                    .duration_summary
+                    .get_or_insert_default()
+                    .observe(*elapsed);
+            }
+            Self::Gauge { value, .. } => {
+                metric.latest = Value::number(*value);
+                metric.observed_at = at;
+            }
+            Self::Unavailable { reason, .. } => {
+                metric.latest = Value::Unavailable(bounded(reason, policy.max_text_bytes));
+                metric.observed_at = at;
+            }
+        }
+        state.overflow |= matches!(metric.cumulative, Value::Overflow);
+        if matches!(self, Self::Gauge { .. } | Self::Unavailable { .. }) {
+            state.point(policy, index, at, false);
+        }
+    }
+}
 impl PreparedFact {
+    /// Whether this handle belongs to the exact current operation and producer population.
+    #[must_use]
+    pub fn belongs_to(&self, context: &ObservationContext) -> bool {
+        self.context.producer == context.producer
+            && self
+                .context
+                .node
+                .as_ref()
+                .zip(context.node.as_ref())
+                .is_some_and(|(owner, current)| Arc::ptr_eq(owner, current))
+    }
     fn update(&self, kind: FactKind, f: impl FnOnce(&mut Metric, Duration)) {
         let (Some(index), Some(node)) = (self.index, &self.context.node) else {
             return;
@@ -770,6 +916,109 @@ mod tests {
                 },
             ],
         )
+    }
+    #[test]
+    fn prepared_tuple_shares_endpoint_and_drops_count_duration_together_under_contention() {
+        let clock = Arc::new(TestClock::default());
+        let hub = ObservationHub::with_clock(
+            Policy {
+                detail_capacity: 0,
+                record_capacity: 0,
+                ..Policy::default()
+            },
+            clock.clone(),
+        );
+        let operation = hub.start("batch");
+        let producer = operation
+            .context()
+            .producer(ProducerRole::NativeCallback, "owner");
+        let count = producer.fact("completed", "count", FactKind::Counter);
+        let elapsed = producer.fact("elapsed", "nanoseconds", FactKind::Duration);
+        let seconds = producer.fact("seconds", "seconds", FactKind::Gauge);
+        let update = |value| {
+            [
+                FactUpdate::Count {
+                    fact: &count,
+                    delta: 1,
+                },
+                FactUpdate::Duration {
+                    fact: &elapsed,
+                    elapsed: Duration::from_millis(5),
+                },
+                FactUpdate::Gauge {
+                    fact: &seconds,
+                    value,
+                },
+            ]
+        };
+        clock.0.store(10, Ordering::Relaxed);
+        assert!(producer.publish_facts(&update(0.005)));
+        let node = producer.context.node.as_ref().unwrap();
+        let held = node.state.lock().unwrap();
+        clock.0.store(20, Ordering::Relaxed);
+        assert!(!producer.publish_facts(&update(0.010)));
+        drop(held);
+        clock.0.store(30, Ordering::Relaxed);
+        assert!(producer.publish_facts(&update(0.010)));
+        let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+        assert_eq!(snapshot.coverage.dropped_updates, 1);
+        assert!(snapshot.coverage.curtailed);
+        for metric in &snapshot.metrics {
+            assert_eq!(metric.observed_at, Duration::from_millis(30));
+        }
+        let metric = |name| snapshot.metrics.iter().find(|m| m.name == name).unwrap();
+        assert_eq!(metric("completed").cumulative, Value::Count(2));
+        assert_eq!(metric("elapsed").cumulative, Value::Count(10_000_000));
+        assert_eq!(metric("seconds").latest, Value::Number(0.010));
+        assert_eq!(
+            metric("elapsed").duration_summary.as_ref().unwrap().samples,
+            2
+        );
+    }
+    #[test]
+    fn prepared_tuple_refuses_wrong_owner_kind_missing_and_stale_handles_before_mutation() {
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("batch");
+        let context = operation.context();
+        let count = context.fact("count", "count", FactKind::Counter);
+        let other = hub
+            .start("other")
+            .context()
+            .fact("other", "count", FactKind::Counter);
+        let producer = context.producer(ProducerRole::Workflow, "different population");
+        let sibling = producer.fact("sibling", "count", FactKind::Counter);
+        let missing = PreparedFact {
+            context: context.clone(),
+            index: None,
+            kind: FactKind::Counter,
+        };
+        let stale = PreparedFact {
+            context: context.clone(),
+            index: Some(usize::MAX),
+            kind: FactKind::Counter,
+        };
+        let wrong_kind = context.fact("gauge", "seconds", FactKind::Gauge);
+        for fact in [&other, &sibling, &missing, &stale, &wrong_kind] {
+            assert!(!context.publish_facts(&[
+                FactUpdate::Count {
+                    fact: &count,
+                    delta: 1
+                },
+                FactUpdate::Count { fact, delta: 1 },
+            ]));
+        }
+        let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+        assert_eq!(snapshot.coverage.refused_items, 5);
+        assert!(matches!(
+            snapshot
+                .metrics
+                .iter()
+                .find(|m| m.name == "count")
+                .unwrap()
+                .cumulative,
+            Value::Unavailable(_)
+        ));
+        assert!(snapshot.coverage.curtailed);
     }
     #[test]
     fn same_demand_has_distinct_performing_instances_and_fixed_population() {

@@ -7,12 +7,14 @@
 //! coverage and bounded interval facts without depending on a subscriber or async runtime.
 
 pub use crate::{NonFinite, OperationOutcome as Outcome, Relationship};
+#[cfg(test)]
+mod allocator_probe;
 mod producer;
 mod thread_cpu;
 pub use producer::{
-    CoherentRecord, DurationSummary, FactKind, OwnerBudget, OwnerReservation, PreparedFact,
-    Producer, ProducerDescriptor, ProducerId, ProducerRole, ProducerSnapshot, RecordAvailability,
-    RecordCoverage, RecordField, RecordTap,
+    CoherentRecord, DurationSummary, FactKind, FactUpdate, OwnerBudget, OwnerReservation,
+    PreparedFact, Producer, ProducerDescriptor, ProducerId, ProducerRole, ProducerSnapshot,
+    RecordAvailability, RecordCoverage, RecordField, RecordTap,
 };
 pub use thread_cpu::ThreadCpuSample;
 
@@ -20,7 +22,7 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicU8, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -129,7 +131,7 @@ impl Policy {
         3 * size_of::<SourceRef>() + 4 * self.max_text_bytes + 128 + Self::reservation_bytes()
     }
     fn phase_bytes(&self) -> usize {
-        3 * size_of::<Phase>() + 2 * self.max_text_bytes + 128 + Self::reservation_bytes()
+        3 * size_of::<AdmittedPhase>() + 2 * self.max_text_bytes + 128 + Self::reservation_bytes()
     }
     const fn reservation_bytes() -> usize {
         2 * size_of::<Reservation>() + 64
@@ -1065,14 +1067,18 @@ impl Node {
         }
     }
     fn update(&self, f: impl FnOnce(&mut State, Duration)) {
+        self.update_at(None, f);
+    }
+    fn update_at(&self, observed_at: Option<Duration>, f: impl FnOnce(&mut State, Duration)) {
         if self.terminal.load(Ordering::Acquire) != 0 {
             bump(&self.lost);
             return;
         }
         match self.state.try_lock() {
             Ok(mut state) => {
-                let at = self.clock.now();
-                state.last_observed = Some(at);
+                let at = observed_at.unwrap_or_else(|| self.clock.now());
+                state.last_observed =
+                    Some(state.last_observed.map_or(at, |previous| previous.max(at)));
                 f(&mut state, at);
             }
             Err(_) => bump(&self.lost),
@@ -1091,7 +1097,7 @@ struct State {
     last_observed: Option<Duration>,
     metrics: Vec<Metric>,
     producers: Vec<producer::ProducerState>,
-    phases: Vec<Phase>,
+    phases: Vec<Arc<AdmittedPhase>>,
     links: Vec<LinkedNode>,
     sources: Vec<SourceRef>,
     detail: VecDeque<DetailEvent>,
@@ -1101,7 +1107,6 @@ struct State {
     budget: Arc<Budget>,
     hub: Weak<ObservationHub>,
     reservations: Vec<Reservation>,
-    phase_slots: usize,
 }
 impl State {
     fn new(budget: Arc<Budget>, hub: Weak<ObservationHub>) -> Self {
@@ -1119,23 +1124,27 @@ impl State {
             budget,
             hub,
             reservations: Vec::new(),
-            phase_slots: 0,
         }
     }
     fn reserve(&mut self, bytes: usize) -> bool {
+        if let Some(reservation) = self.reservation(bytes) {
+            self.reservations.push(reservation);
+            true
+        } else {
+            false
+        }
+    }
+    fn reservation(&mut self, bytes: usize) -> Option<Reservation> {
         let reservation = self.budget.reserve(bytes).or_else(|| {
             if let Some(hub) = self.hub.upgrade() {
                 hub.trim_completed(bytes);
             }
             self.budget.reserve(bytes)
         });
-        if let Some(reservation) = reservation {
-            self.reservations.push(reservation);
-            true
-        } else {
+        if reservation.is_none() {
             self.refused = self.refused.saturating_add(1);
-            false
         }
+        reservation
     }
     fn detail(&mut self, policy: &Policy, at: Duration, name: &str, value: Value) {
         if policy.detail_capacity == 0 {
@@ -1463,7 +1472,12 @@ impl Metric {
             (_, Some(total)) => Value::Count(total),
         };
         // Only retained seconds are materialized. Full cumulative duration remains separate.
-        let mut cursor = from.max(at.saturating_sub(Duration::from_secs(BUCKETS as u64 - 1)));
+        // A preempted phase drop may publish its actual older endpoint after a
+        // newer interval. It still contributes to the exact cumulative total,
+        // but must not rotate a retained newer second out of the finite ring.
+        let retained_end = self.observed_at.max(at);
+        let mut cursor =
+            from.max(retained_end.saturating_sub(Duration::from_secs(BUCKETS as u64 - 1)));
         while cursor < at {
             let second = cursor.as_secs();
             let boundary = Duration::from_secs(second.saturating_add(1));
@@ -1491,7 +1505,7 @@ impl Metric {
             cursor = end;
         }
         self.latest = self.cumulative.clone();
-        self.observed_at = at;
+        self.observed_at = self.observed_at.max(at);
     }
     fn recent(
         &self,
@@ -1915,20 +1929,22 @@ impl ObservationContext {
     #[must_use]
     /// Enter an independently owned elapsed phase scope; scope exit does not imply success.
     pub fn phase(&self, kind: impl AsRef<str>) -> PhaseGuard {
-        let mut token = None;
+        let mut admitted = None;
         if let Some(node) = &self.node {
             let next = node.phase_sequence.fetch_add(1, Ordering::Relaxed);
             node.update(|state, at| {
+                // Retirement is independent of this mutex. Reclaim its population before
+                // admitting another scope, even when the optional exit update was lost.
+                state
+                    .phases
+                    .retain(|phase| phase.active.load(Ordering::Acquire));
                 if state.phases.len() >= node.policy.max_metrics {
                     state.refused = state.refused.saturating_add(1);
                     return;
                 }
-                if state.phases.len() == state.phase_slots {
-                    if !state.reserve(node.policy.phase_bytes()) {
-                        return;
-                    }
-                    state.phase_slots += 1;
-                }
+                let Some(reservation) = state.reservation(node.policy.phase_bytes()) else {
+                    return;
+                };
                 if kind.as_ref().len() > node.policy.max_text_bytes {
                     state.refused = state.refused.saturating_add(1);
                 }
@@ -1950,17 +1966,22 @@ impl ObservationContext {
                         finished_at: None,
                     });
                 }
-                state.phases.push(Phase {
-                    token: next,
-                    kind,
-                    started_at: at,
+                let phase = Arc::new(AdmittedPhase {
+                    phase: Phase {
+                        token: next,
+                        kind,
+                        started_at: at,
+                    },
+                    active: AtomicBool::new(true),
+                    _reservation: reservation,
                 });
-                token = Some(next);
+                state.phases.push(Arc::clone(&phase));
+                admitted = Some(phase);
             });
         }
         PhaseGuard {
             context: self.clone(),
-            token,
+            admitted,
         }
     }
     /// Synchronous thread-local scope. Async code must install context on each poll.
@@ -2011,37 +2032,49 @@ impl Drop for OperationGuard {
 #[derive(Debug)]
 pub struct PhaseGuard {
     context: ObservationContext,
-    token: Option<u64>,
+    admitted: Option<Arc<AdmittedPhase>>,
+}
+#[derive(Debug)]
+struct AdmittedPhase {
+    phase: Phase,
+    active: AtomicBool,
+    // Shared current/guard storage remains charged until both owners release it.
+    _reservation: Reservation,
 }
 impl Drop for PhaseGuard {
     fn drop(&mut self) {
-        let (Some(node), Some(token)) = (&self.context.node, self.token) else {
+        let (Some(node), Some(admitted)) = (&self.context.node, self.admitted.take()) else {
             return;
         };
-        node.update(|state, at| {
-            if let Some(index) = state.phases.iter().position(|phase| phase.token == token) {
-                let phase = state.phases.remove(index);
-                let elapsed = at.saturating_sub(phase.started_at);
-                state.detail(
-                    &node.policy,
-                    at,
-                    &phase.kind,
-                    Value::number(elapsed.as_secs_f64()),
-                );
-                if let Some(event) = state
-                    .detail
-                    .back_mut()
-                    .filter(|event| event.at == at && event.name == phase.kind)
-                {
-                    event.phase = Some(PhaseTransition {
-                        token,
-                        started_at: phase.started_at,
-                        finished_at: Some(at),
-                    });
-                }
-                let name = format!("phase.{}.nanoseconds", phase.kind);
-                state.producer_elapsed(&node.policy, self.context.producer, &name, at, elapsed);
+        // An admitted scope has one owner. Neither a busy/poisoned optional lock nor
+        // terminal publication may retain it as current work or consume its slot.
+        let at = node.clock.now();
+        admitted.active.store(false, Ordering::Release);
+        node.update_at(Some(at), |state, at| {
+            state
+                .phases
+                .retain(|phase| phase.active.load(Ordering::Acquire));
+            let phase = &admitted.phase;
+            let elapsed = at.saturating_sub(phase.started_at);
+            state.detail(
+                &node.policy,
+                at,
+                &phase.kind,
+                Value::number(elapsed.as_secs_f64()),
+            );
+            if let Some(event) = state
+                .detail
+                .back_mut()
+                .filter(|event| event.at == at && event.name == phase.kind)
+            {
+                event.phase = Some(PhaseTransition {
+                    token: phase.token,
+                    started_at: phase.started_at,
+                    finished_at: Some(at),
+                });
             }
+            let name = format!("phase.{}.nanoseconds", phase.kind);
+            state.producer_elapsed(&node.policy, self.context.producer, &name, at, elapsed);
         });
     }
 }
@@ -2358,7 +2391,16 @@ impl OperationReader {
                 )
             })
             .collect();
-        result.phases = state.phases.clone();
+        // Terminal operation state retires all current scopes, including guards that
+        // outlive the operation. Optional end records are never synthesized here.
+        if node.terminal.load(Ordering::Acquire) == 0 {
+            result.phases = state
+                .phases
+                .iter()
+                .filter(|phase| phase.active.load(Ordering::Acquire))
+                .map(|phase| phase.phase.clone())
+                .collect();
+        }
         result.sources = state.sources.clone();
         result.children = state
             .links
@@ -2821,6 +2863,288 @@ mod tests {
         drop(another);
         drop(entered);
         assert!(current().is_none());
+    }
+
+    #[test]
+    fn phase_retirement_survives_held_history_lock_and_reuses_finite_capacity() {
+        let (hub, clock) = setup(Policy {
+            max_metrics: 1,
+            ..Policy::default()
+        });
+        let operation = hub.start("contended phase");
+        let context = operation.context();
+        context.source_ref("source", b"actual source");
+        let node = context.node.as_ref().unwrap();
+        for index in 0..100 {
+            let phase = context.phase("work");
+            let admitted = Arc::clone(phase.admitted.as_ref().unwrap());
+            let token = admitted.phase.token;
+            let held = node.state.lock().unwrap();
+            clock.set(index + 1);
+            drop(phase);
+            assert!(!admitted.active.load(Ordering::Acquire));
+            drop(held);
+            drop(admitted);
+            let snapshot = operation.reader().snapshot(WINDOW);
+            assert!(snapshot.phases.is_empty());
+            assert_eq!(snapshot.coverage.dropped_updates, index + 1);
+            assert!(snapshot.coverage.curtailed && snapshot.detail_partial);
+            assert!(
+                !snapshot
+                    .detail
+                    .iter()
+                    .any(|event| event
+                        .phase
+                        .as_ref()
+                        .is_some_and(|transition| transition.token == token
+                            && transition.finished_at.is_some()))
+            );
+            assert!(snapshot.metrics.is_empty());
+            assert_eq!(snapshot.sources[0].bytes, b"actual source");
+        }
+        assert_eq!(
+            operation.reader().snapshot(WINDOW).coverage.refused_items,
+            0
+        );
+        assert!(hub.retained_bytes() <= hub.policy().budget_bytes);
+    }
+
+    #[test]
+    fn phase_retirement_reuses_capacity_despite_detail_overflow_and_metric_refusal() {
+        for detail_capacity in [0, 1] {
+            let (hub, clock) = setup(Policy {
+                max_metrics: 1,
+                detail_capacity,
+                ..Policy::default()
+            });
+            let operation = hub.start("optional bounds");
+            let context = operation.context();
+            context.count("occupied", "calls", 1);
+            let first = context.phase("work");
+            let refused = context.phase("cannot admit");
+            assert!(refused.admitted.is_none());
+            drop(refused);
+            clock.set(5);
+            drop(first);
+            let second = context.phase("work");
+            assert!(second.admitted.is_some());
+            clock.set(9);
+            drop(second);
+            let snapshot = operation.reader().snapshot(WINDOW);
+            assert!(snapshot.phases.is_empty());
+            assert_eq!(snapshot.coverage.refused_items, 3);
+            assert_eq!(snapshot.coverage.dropped_updates, 0);
+            assert_eq!(
+                snapshot.coverage.dropped_detail,
+                if detail_capacity == 0 { 4 } else { 3 }
+            );
+            assert_eq!(snapshot.metrics.len(), 1);
+            if detail_capacity != 0 {
+                let transition = snapshot.detail[0].phase.as_ref().unwrap();
+                assert_eq!(transition.started_at, Duration::from_millis(5));
+                assert_eq!(transition.finished_at, Some(Duration::from_millis(9)));
+                assert_eq!(snapshot.detail[0].value, Value::Number(0.004));
+            }
+        }
+    }
+
+    #[test]
+    fn phase_retirement_on_unwind_and_thread_exit_does_not_wait_for_history() {
+        let (hub, _) = setup(Policy {
+            max_metrics: 1,
+            ..Policy::default()
+        });
+        let operation = hub.start("scope exits");
+        let context = operation.context();
+        let node = context.node.as_ref().unwrap();
+        let phase = context.phase("unwind");
+        let held = node.state.lock().unwrap();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+            let _phase = phase;
+            panic!("scope interrupted");
+        }));
+        assert!(result.is_err());
+        drop(held);
+        let phase = context.phase("thread exit");
+        assert!(phase.admitted.is_some());
+        let held = node.state.lock().unwrap();
+        std::thread::spawn(move || {
+            let _phase = phase;
+        })
+        .join()
+        .unwrap();
+        drop(held);
+        assert!(operation.reader().snapshot(WINDOW).phases.is_empty());
+        let next = context.phase("reused");
+        assert!(next.admitted.is_some());
+        drop(next);
+        assert_eq!(
+            operation.reader().snapshot(WINDOW).coverage.dropped_updates,
+            2
+        );
+    }
+
+    #[test]
+    fn phase_retirement_survives_poisoned_optional_state() {
+        let (hub, _) = setup(Policy::default());
+        let operation = hub.start("poisoned history");
+        let context = operation.context();
+        let phase = context.phase("work");
+        let admitted = Arc::clone(phase.admitted.as_ref().unwrap());
+        let node = context.node.as_ref().unwrap();
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _held = node.state.lock().unwrap();
+            panic!("optional state poisoned");
+        }));
+        drop(phase);
+        assert!(!admitted.active.load(Ordering::Acquire));
+        assert_eq!(node.lost.load(Ordering::Relaxed), 1);
+        let snapshot = operation.reader().snapshot(WINDOW);
+        assert!(!snapshot.coverage.available);
+        assert!(snapshot.coverage.curtailed);
+        assert!(snapshot.phases.is_empty());
+    }
+
+    #[test]
+    fn phase_retirement_releases_budget_for_next_admission_after_lost_exit() {
+        let policy = Policy {
+            max_metrics: 2,
+            detail_capacity: 0,
+            ..Policy::default()
+        };
+        let limit = policy.node_bytes() + policy.phase_bytes();
+        let (hub, _) = setup(Policy {
+            budget_bytes: limit,
+            ..policy
+        });
+        let operation = hub.start("one reservation");
+        let context = operation.context();
+        let node = context.node.as_ref().unwrap();
+        for _ in 0..20 {
+            let phase = context.phase("admitted");
+            assert!(phase.admitted.is_some());
+            assert!(context.phase("budget refused").admitted.is_none());
+            let held = node.state.lock().unwrap();
+            drop(phase);
+            drop(held);
+            assert!(operation.reader().snapshot(WINDOW).phases.is_empty());
+            assert!(hub.retained_bytes() <= limit);
+        }
+        let snapshot = operation.reader().snapshot(WINDOW);
+        assert_eq!(snapshot.coverage.refused_items, 20);
+        assert_eq!(snapshot.coverage.dropped_updates, 20);
+    }
+
+    #[test]
+    fn delayed_phase_exit_keeps_actual_time_without_regressing_current_freshness() {
+        use std::sync::Barrier;
+        #[derive(Default)]
+        struct DelayedClock {
+            at: AtomicU64,
+            pause: Mutex<Option<(Arc<Barrier>, Arc<Barrier>)>>,
+        }
+        impl Clock for DelayedClock {
+            fn now(&self) -> Duration {
+                let at = Duration::from_millis(self.at.load(Ordering::Relaxed));
+                let pause = self.pause.lock().unwrap().take();
+                if let Some((sampled, resume)) = pause {
+                    sampled.wait();
+                    resume.wait();
+                }
+                at
+            }
+        }
+        for (older, newer, recent) in [(1, 2, 3_000_000), (1_000, 63_000, 60_000_000_000)] {
+            let clock = Arc::new(DelayedClock::default());
+            let hub = ObservationHub::with_clock(Policy::default(), clock.clone());
+            let operation = hub.start("delayed exit");
+            let slow = operation.context().phase("work");
+            let fast = operation.context().phase("work");
+            let sampled = Arc::new(Barrier::new(2));
+            let resume = Arc::new(Barrier::new(2));
+            clock.at.store(older, Ordering::Relaxed);
+            *clock.pause.lock().unwrap() = Some((sampled.clone(), resume.clone()));
+            let dropping = std::thread::spawn(move || drop(slow));
+            sampled.wait();
+            clock.at.store(newer, Ordering::Relaxed);
+            drop(fast);
+            resume.wait();
+            dropping.join().unwrap();
+            let snapshot = operation.reader().snapshot(WINDOW);
+            assert!(snapshot.phases.is_empty());
+            assert_eq!(snapshot.observed_at, Some(Duration::from_millis(newer)));
+            let elapsed = metric(&snapshot, "phase.work.nanoseconds");
+            assert_eq!(elapsed.observed_at, Duration::from_millis(newer));
+            assert_eq!(
+                elapsed.cumulative,
+                Value::Count((older + newer) * 1_000_000)
+            );
+            assert_eq!(elapsed.recent, Value::Count(recent));
+            let exits: Vec<_> = snapshot
+                .detail
+                .iter()
+                .filter_map(|event| event.phase.as_ref()?.finished_at)
+                .collect();
+            let expected: Vec<_> = [newer, older]
+                .into_iter()
+                .filter(|at| *at >= newer.saturating_sub(60_000))
+                .map(Duration::from_millis)
+                .collect();
+            assert_eq!(exits, expected);
+            // The snapshot excludes actual endpoints outside its requested window;
+            // storage still carries their original times, rather than a read-time repair.
+            let context = operation.context();
+            let state = context.node.as_ref().unwrap().state.lock().unwrap();
+            let stored: Vec<_> = state
+                .detail
+                .iter()
+                .filter_map(|event| event.phase.as_ref()?.finished_at)
+                .collect();
+            assert_eq!(
+                stored,
+                vec![Duration::from_millis(newer), Duration::from_millis(older)]
+            );
+        }
+    }
+
+    #[test]
+    fn terminal_operation_retires_live_phase_without_fabricating_exit() {
+        for outcome in [
+            Outcome::Completed,
+            Outcome::Failed,
+            Outcome::Cancelled,
+            Outcome::Interrupted,
+        ] {
+            let (hub, clock) = setup(Policy::default());
+            let operation = hub.start("terminal phase");
+            let context = operation.context();
+            let phase = context.phase("still owned");
+            let reader = operation.reader();
+            let node = context.node.as_ref().unwrap();
+            let held = node.state.lock().unwrap();
+            clock.set(7);
+            operation.finish(outcome);
+            drop(held);
+            let snapshot = reader.snapshot(WINDOW);
+            assert_eq!(snapshot.outcome, Some(outcome));
+            assert_eq!(snapshot.finished_at, Some(Duration::from_millis(7)));
+            assert!(snapshot.phases.is_empty());
+            assert_eq!(snapshot.detail.len(), 1);
+            assert!(
+                snapshot.detail[0]
+                    .phase
+                    .as_ref()
+                    .unwrap()
+                    .finished_at
+                    .is_none()
+            );
+            clock.set(10);
+            drop(phase);
+            let snapshot = reader.snapshot(WINDOW);
+            assert!(snapshot.phases.is_empty());
+            assert_eq!(snapshot.coverage.dropped_updates, 1);
+            assert_eq!(snapshot.detail.len(), 1);
+        }
     }
     #[test]
     fn shared_producer_is_linked_twice_without_parent_counter_duplication() {

@@ -10,6 +10,7 @@ import html
 import json
 import math
 import os
+import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import quote
@@ -232,7 +233,11 @@ def _read_json_lines(path: Path) -> Iterator[tuple[int, object]]:
                     f"line {line} exceeds allowance or has an incomplete tail; original retained"
                 )
             if encoded.strip():
-                yield line, json.loads(encoded)
+                try:
+                    document = json.loads(encoded)
+                except ValueError as error:
+                    raise ValueError(f"line {line}: {error}") from error
+                yield line, document
 
 
 def _read_case_record(directory: Path) -> tuple[dict, str, dict]:
@@ -263,110 +268,57 @@ def publish(
     runs: list[Path] | None = None,
     supplements: list[Path] | None = None,
     label: str = "",
-) -> dict:
-    """Publish references and exact source scalar values, preserving original samples."""
+) -> tuple[Path, dict]:
+    """Return one complete fresh publication directory and its exact index."""
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    rows = []
+    # Raw case directories and prior publications stay independently owned. The
+    # fresh directory name is the commit point; readers keep this returned path.
+    with tempfile.TemporaryDirectory(prefix=".review-", dir=output) as private:
+        staging = Path(private)
+        published = output / staging.name.removeprefix(".")
+        index = _publish(
+            staging,
+            published,
+            runs=[output] if runs is None else runs,
+            supplements=supplements or [],
+            label=label,
+        )
+        staging.rename(published)
+    return published, index
+
+
+def _publish(
+    output: Path,
+    published: Path,
+    *,
+    runs: list[Path],
+    supplements: list[Path],
+    label: str,
+) -> dict:
+    """Stream private files; the caller publishes only after every writer closes."""
+    scalar_rows = 0
     index: dict = {
         "schema": "pipeline-review-v1",
         "label": label,
         "cases": [],
         "supplements": [],
         "errors": [],
-        "scope": "Once-only diagnostic executions; no statistical performance qualification. Inclusive owners are not summed. Missing facts remain unavailable.",
+        "scope": "Once-only diagnostic executions; no statistical performance qualification. Inclusive owners are not summed. Missing facts remain unavailable. Each source/record-line/pointer is a retained projection; repeated projections are not independent observations.",
     }
 
     def relative(path: Path) -> str:
-        return os.path.relpath(path, output)
+        return os.path.relpath(path, published)
 
-    def source_values(identity: str, path: Path) -> None:
-        def append(document: object, line: int | None = None) -> None:
-            for pointer, value in _scalars(document):
-                rows.append(
-                    {
-                        "case": identity,
-                        "source": relative(path),
-                        "record_line": line,
-                        "pointer": pointer,
-                        "value_json": json.dumps(value, allow_nan=False),
-                    }
-                )
-
+    def documents(path: Path) -> Iterator[tuple[int | None, object]]:
+        # Catch input errors while advancing the source, never output-write errors.
         try:
             if path.suffix == ".jsonl":
-                for line, document in _read_json_lines(path):
-                    append(document, line)
+                yield from _read_json_lines(path)
             else:
-                append(_read_json(path))
+                yield None, _read_json(path)
         except (OSError, ValueError) as error:
             index["errors"].append(f"{relative(path)}: {error}")
-
-    for directory in _case_directories([output] if runs is None else runs):
-        try:
-            record, identity, result = _read_case_record(directory)
-            artifacts = [
-                relative(path)
-                for path in sorted(directory.rglob("*"))
-                if path.is_file()
-            ]
-            index["cases"].append(
-                {
-                    **record,
-                    "directory": relative(directory),
-                    "status": _status(record),
-                    "artifacts": artifacts,
-                    "coverage": {
-                        "diagnostic_failures": result.get("diagnostic_failures", []),
-                        "diagnostic_errors": result.get("diagnostic_errors", []),
-                        "review": result.get("review_artifacts"),
-                        "inspection_windows": result.get("inspection_windows"),
-                        "cleanup_scope": result.get("cleanup_scope", "unavailable"),
-                    },
-                }
-            )
-            sources = [
-                path
-                for path in sorted(directory.glob("*.json"))
-                if path.name != "case-run.json"
-            ]
-            sources.extend(sorted(directory.glob("*-observations.jsonl")))
-            sources.extend(
-                directory / name
-                for name in (
-                    "diagnostics/audit-outcome.json",
-                    "diagnostics/detail.json",
-                )
-                if (directory / name).is_file()
-            )
-            for source in sources:
-                source_values(identity, source)
-            for source in sorted(
-                (directory / "diagnostics/math-originals").glob("*.json")
-            ):
-                source_values(identity, source)
-        except (OSError, ValueError, KeyError, TypeError) as error:
-            index["errors"].append(f"{relative(directory)}: {error}")
-
-    for supplement_source in supplements or []:
-        supplied = supplement_source.resolve()
-        if not supplied.exists():
-            index["errors"].append(f"supplement unavailable: {supplied}")
-            continue
-        artifacts = (
-            sorted(path for path in supplied.rglob("*") if path.is_file())
-            if supplied.is_dir()
-            else [supplied]
-        )
-        index["supplements"].append(
-            {
-                "path": relative(supplied),
-                "artifacts": [relative(path) for path in artifacts],
-            }
-        )
-        for source in artifacts:
-            if source.suffix in {".json", ".jsonl"}:
-                source_values(f"supplement:{supplied.name}", source)
 
     with (output / "observations.csv").open("w", newline="") as destination:
         writer = csv.DictWriter(
@@ -374,8 +326,96 @@ def publish(
             fieldnames=("case", "source", "record_line", "pointer", "value_json"),
         )
         writer.writeheader()
-        writer.writerows(rows)
-    index["scalar_rows"] = len(rows)
+
+        def source_values(identity: str, path: Path) -> None:
+            nonlocal scalar_rows
+            for line, document in documents(path):
+                for pointer, value in _scalars(document):
+                    try:
+                        encoded = json.dumps(value, allow_nan=False)
+                    except ValueError as error:
+                        index["errors"].append(f"{relative(path)}: {error}")
+                        return
+                    writer.writerow(
+                        {
+                            "case": identity,
+                            "source": relative(path),
+                            "record_line": line,
+                            "pointer": pointer,
+                            "value_json": encoded,
+                        }
+                    )
+                    scalar_rows += 1
+
+        for directory in _case_directories(runs):
+            try:
+                record, identity, result = _read_case_record(directory)
+                artifacts = [
+                    relative(path)
+                    for path in sorted(directory.rglob("*"))
+                    if path.is_file()
+                ]
+                index["cases"].append(
+                    {
+                        **record,
+                        "directory": relative(directory),
+                        "status": _status(record),
+                        "artifacts": artifacts,
+                        "coverage": {
+                            "diagnostic_failures": result.get(
+                                "diagnostic_failures", []
+                            ),
+                            "diagnostic_errors": result.get("diagnostic_errors", []),
+                            "review": result.get("review_artifacts"),
+                            "inspection_windows": result.get("inspection_windows"),
+                            "cleanup_scope": result.get("cleanup_scope", "unavailable"),
+                        },
+                    }
+                )
+                sources = [
+                    path
+                    for path in sorted(directory.glob("*.json"))
+                    if path.name != "case-run.json"
+                ]
+                sources.extend(sorted(directory.glob("*-observations.jsonl")))
+                sources.extend(
+                    directory / name
+                    for name in (
+                        "diagnostics/audit-outcome.json",
+                        "diagnostics/detail.json",
+                    )
+                    if (directory / name).is_file()
+                )
+                sources.extend(
+                    sorted((directory / "diagnostics/math-originals").glob("*.json"))
+                )
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                index["errors"].append(f"{relative(directory)}: {error}")
+                continue
+            for source in sources:
+                source_values(identity, source)
+
+        for supplement_source in supplements:
+            supplied = supplement_source.resolve()
+            if not supplied.exists():
+                index["errors"].append(f"supplement unavailable: {supplied}")
+                continue
+            artifacts = (
+                sorted(path for path in supplied.rglob("*") if path.is_file())
+                if supplied.is_dir()
+                else [supplied]
+            )
+            index["supplements"].append(
+                {
+                    "path": relative(supplied),
+                    "artifacts": [relative(path) for path in artifacts],
+                }
+            )
+            for source in artifacts:
+                if source.suffix in {".json", ".jsonl"}:
+                    source_values(f"supplement:{supplied.name}", source)
+
+    index["scalar_rows"] = scalar_rows
     _write_json(output / "index.json", index)
     markdown = [
         f"# {label or 'Numerical pipeline review'}",
@@ -495,7 +535,7 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(
                 "publish-only accepts existing --input and --supplement artifacts"
             )
-        result = publish(
+        published, result = publish(
             args.output,
             runs=args.input or None,
             supplements=args.supplement,
@@ -520,7 +560,10 @@ def main(argv: list[str] | None = None) -> int:
                     label=args.label,
                 )
         finally:
-            result = publish(args.output, supplements=args.supplement, label=args.label)
+            published, result = publish(
+                args.output, supplements=args.supplement, label=args.label
+            )
+    print(published / "index.html")
     return int(
         bool(result["errors"])
         or any(case["status"] != "completed" for case in result["cases"])

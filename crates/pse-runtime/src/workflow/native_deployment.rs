@@ -511,10 +511,13 @@ mod native_selection_unit {
     #[test]
     fn execution_rejects_missing_malformed_or_nonfinite_policy_and_missing_primary() {
         let root = private_scope();
+        let mut multiple_primaries = policy();
+        multiple_primaries["native_workers"] = 2.into();
         for resources in [
             Value::Null,
             json!("malformed"),
             json!({"native_workers": 0, "native_worker_memory_bytes": 1024}),
+            multiple_primaries,
         ] {
             document(
                 &root.path().join("config.json"),

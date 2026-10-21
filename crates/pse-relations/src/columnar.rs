@@ -62,6 +62,21 @@ pub struct LocalFieldAdmission {
     prepared: Arc<crate::validate::PreparedLocalContract>,
 }
 impl LocalFieldAdmission {
+    /// Called only by the generated specialization after its complete typed
+    /// checks and current native-owner eligibility. This admits no Arrow storage.
+    pub(crate) fn from_generated_typed_values(
+        contract: pse_schema::resolved_contract::RelationContractHandle,
+        prepared: Arc<crate::validate::PreparedLocalContract>,
+    ) -> Result<Self, RelationError> {
+        if !Arc::ptr_eq(contract.schema(), prepared.schema())
+            || !pse_schema::arrow::native_checks(prepared.schema())?.is_empty()
+        {
+            return Err(mismatch(
+                "typed local admission requires exact schema and no residual row SQL",
+            ));
+        }
+        Ok(Self { contract, prepared })
+    }
     /// Compare the complete declaration and actual native implementation owner.
     /// # Errors
     /// A changed declaration or foreign context is refused.

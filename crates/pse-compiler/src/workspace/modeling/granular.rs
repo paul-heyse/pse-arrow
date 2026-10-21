@@ -20,7 +20,8 @@ struct Source {
 #[salsa::input]
 struct TypeInput {
     source: Source,
-    environment: ResolutionEnvironment,
+    resolution: ResolvedSignature,
+    namespace: phases::Namespace,
     scope: Arc<PhysicalScope>,
 }
 #[salsa::input]
@@ -63,24 +64,12 @@ fn signature_syntax(db: &dyn CompilerDb, source: Source) -> Result<Arc<ParsedFie
     Ok(Arc::new(value))
 }
 #[salsa::tracked(returns(clone), lru=64, heap_size=resolved_heap)]
-fn resolved(
-    db: &dyn CompilerDb,
-    inventory: Inventory,
-    input: TypeInput,
-) -> Result<Arc<ResolvedSignature>> {
+fn resolved(db: &dyn CompilerDb, input: TypeInput) -> Result<Arc<ResolvedSignature>> {
     let _phase = pse_diagnostics::observation::phase("compiler.query.resolved");
     checkpoint(db);
-    let source = input.source(db);
-    let context = TypeContext {
-        admissions: None,
-        formula_authority: None,
-        quantities: inventory.quantities(db),
-        preconditions: inventory.preconditions(db),
-        scope: input.scope(db),
-    };
-    let value = input
-        .environment(db)
-        .resolve(source.signature(db), &context)?;
+    // Current source-order lookup was staged through the phase's borrowed view.
+    // Only its exact consumed projection is retained, not every preceding type root.
+    let value = input.resolution(db).clone();
     checkpoint(db);
     Ok(Arc::new(value))
 }
@@ -91,7 +80,7 @@ fn resolved_heap(v: &Result<Arc<ResolvedSignature>>) -> usize {
 fn typed(db: &dyn CompilerDb, inventory: Inventory, input: TypeInput) -> Result<Arc<Signature>> {
     let _phase = pse_diagnostics::observation::phase("compiler.query.typed");
     checkpoint(db);
-    let resolution = resolved(db, inventory, input)?;
+    let resolution = resolved(db, input)?;
     let source = *input.source(db);
     let syntax = signature_syntax(db, source)?;
     let context = TypeContext {
@@ -102,7 +91,9 @@ fn typed(db: &dyn CompilerDb, inventory: Inventory, input: TypeInput) -> Result<
         scope: input.scope(db),
     };
     let mut value = phases::signature(source.signature(db), &syntax, &resolution, &context)?;
-    value.admit_reduced(&input.environment(db).namespace)?;
+    if value.requires_reduced_law_admission() {
+        value.admit_reduced(input.namespace(db))?;
+    }
     checkpoint(db);
     Ok(Arc::new(value))
 }
@@ -219,7 +210,8 @@ impl State {
             }
         }
         for input in self.types.values() {
-            input.environment(db).collect_retained_inputs(&mut census);
+            input.namespace(db).collect_retained_inputs(&mut census);
+            census.add(input.resolution(db).retained_bytes());
             if census.include_shared(input.scope(db)) {
                 census.add(scope_bytes(input.scope(db)));
             }
@@ -249,7 +241,7 @@ impl State {
         }
         if let Some(input) = self.complete {
             if census.include_shared(input.package(db)) {
-                census.add(input.package(db).retained_bytes());
+                input.package(db).collect_retained_inputs(&mut census);
             }
             if census.include_shared(input.documents(db)) {
                 census.add(input.documents(db).retained_bytes());
@@ -333,6 +325,7 @@ struct Driver<'a> {
     bytes: Cell<usize>,
     limit: usize,
     memo_limit: usize,
+    signature_namespace: RefCell<Option<phases::Namespace>>,
 }
 impl Documents for Driver<'_> {
     fn field_spans(
@@ -501,21 +494,36 @@ impl Phases for Driver<'_> {
         row: &Declaration,
         _: &Arc<ParsedFields>,
         environment: &ResolutionEnvironment,
-        _: &TypeContext<'_>,
+        context: &TypeContext<'_>,
     ) -> PhaseResult<Signature> {
+        let resolution = environment.resolve(row, context)?;
         let mut db = self.db.borrow_mut();
         let mut state = self.state.borrow_mut();
+        let namespace = self
+            .signature_namespace
+            .borrow_mut()
+            .get_or_insert_with(|| {
+                let mut namespace = environment.namespace.clone();
+                if let Some(previous) = state.types.values().next() {
+                    namespace.reuse(previous.namespace(&**db));
+                }
+                namespace
+            })
+            .clone();
         let source = state.sources[&row.declaration_id];
         let input = if let Some(input) = state.types.get(&row.declaration_id).copied() {
-            if input.environment(&**db) != environment {
-                input.set_environment(&mut **db).to(environment.clone());
+            if input.resolution(&**db) != &resolution {
+                input.set_resolution(&mut **db).to(resolution);
+            }
+            if input.namespace(&**db) != &namespace {
+                input.set_namespace(&mut **db).to(namespace.clone());
             }
             if input.scope(&**db) != self.scope {
                 input.set_scope(&mut **db).to(self.scope.clone());
             }
             input
         } else {
-            let input = TypeInput::new(&**db, source, environment.clone(), self.scope.clone());
+            let input = TypeInput::new(&**db, source, resolution, namespace, self.scope.clone());
             state.types.insert(row.declaration_id, input);
             input
         };
@@ -590,7 +598,14 @@ impl Phases for Driver<'_> {
             DeclarationId::from_id(SemanticId::NIL),
             package.retained_bytes(),
         )?;
-        let namespace = phases::Namespace::new(package);
+        let mut namespace = phases::Namespace::new(package);
+        {
+            let db = self.db.borrow();
+            let state = self.state.borrow();
+            if let Some(previous) = state.occurrences.values().next() {
+                namespace.reuse(previous.namespace(&**db));
+            }
+        }
         let expressions = package.take_unbound_occurrences();
         let mut output = BTreeMap::new();
         for (key, expression) in expressions {
@@ -695,6 +710,7 @@ pub(super) fn check(
         bytes: Cell::new(0),
         limit: workspace.limits.input_bytes,
         memo_limit: workspace.limits.retained_bytes,
+        signature_namespace: RefCell::new(None),
     };
     pse_modeling::check::check_with_phases(rows, &context, &driver, &driver)
         .map_err(CompileError::from)
@@ -815,3 +831,6 @@ fn enclosing_inventory(
 fn inventory_heap(v: &Result<Arc<phases::InventoryProduct>>) -> usize {
     v.as_ref().map_or(0, |p| p.retained_bytes())
 }
+
+#[cfg(test)]
+mod parallel_probe_tests;

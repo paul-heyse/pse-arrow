@@ -9,7 +9,7 @@ use arrow_schema::DataType;
 use std::collections::BTreeMap;
 
 /// One visible occurrence, preserving collection correlation and ordered key mappings.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReferenceObligation {
     /// Structural path shared with native occurrence lowering; [] denotes one collection.
     pub path: Vec<String>,
@@ -19,7 +19,7 @@ pub struct ReferenceObligation {
     pub input: String,
 }
 /// An ordinal occurrence bound to one explicitly selected relation's cardinality.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OrdinalObligation {
     /// Structural occurrence path.
     pub path: Vec<String>,
@@ -29,7 +29,7 @@ pub struct OrdinalObligation {
     pub input: String,
 }
 /// Compiled declaration product shared by publication and invariant generation.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RelationObligations {
     /// Private occurrence column chosen outside the authored field namespace.
     pub value_column: String,

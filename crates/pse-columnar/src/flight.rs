@@ -58,12 +58,26 @@ struct Flight<V, E> {
     cancel: Cancellation,
     waiters: AtomicUsize,
 }
-struct Waiter<V, E>(Arc<Flight<V, E>>);
+struct Waiter<V, E> {
+    flight: Arc<Flight<V, E>>,
+    registered: bool,
+}
+impl<V, E> Waiter<V, E> {
+    fn release(&mut self) -> bool {
+        if !self.registered {
+            return false;
+        }
+        self.registered = false;
+        let last = self.flight.waiters.fetch_sub(1, Ordering::AcqRel) == 1;
+        if last {
+            self.flight.cancel.cancel();
+        }
+        last
+    }
+}
 impl<V, E> Drop for Waiter<V, E> {
     fn drop(&mut self) {
-        if self.0.waiters.fetch_sub(1, Ordering::AcqRel) == 1 {
-            self.0.cancel.cancel();
-        }
+        self.release();
     }
 }
 /// One entry per live key, retained by completion independently of caller futures.
@@ -102,11 +116,28 @@ where
     where
         F: Future<Output = Result<Arc<V>, E>> + Send + 'static,
     {
+        self.load_owned_until(key, create, std::future::pending())
+            .await?
+            .ok_or(FlightError::Panicked)
+    }
+    /// Wait until completion or the caller's stop. A stopped last waiter requests
+    /// cancellation and joins the actual producer return before it can release its
+    /// caller-owned resources. Other consumers keep their independent producer.
+    /// Abandoning this future still leaves completion-owned admission intact.
+    pub async fn load_owned_until<F>(
+        &self,
+        key: K,
+        create: impl FnOnce(Cancellation) -> F + Send + 'static,
+        stop: impl Future<Output = ()>,
+    ) -> Result<Option<Arc<V>>, FlightError<E>>
+    where
+        F: Future<Output = Result<Arc<V>, E>> + Send + 'static,
+    {
         let observer = pse_diagnostics::observation::current();
         let _wait = observer
             .as_ref()
             .map(|context| context.phase("preparation.wait"));
-        let waiter = {
+        let mut waiter = {
             let mut entries = self
                 .entries
                 .lock()
@@ -131,7 +162,10 @@ where
                     );
                     observer.count("preparation.joined", "requests", 1);
                 }
-                Waiter(f.clone())
+                Waiter {
+                    flight: f.clone(),
+                    registered: true,
+                }
             } else {
                 if entries.len() >= self.limit {
                     return Err(FlightError::Capacity);
@@ -185,12 +219,24 @@ where
                     }
                     let _ = tx.send(result);
                 }));
-                Waiter(f)
+                Waiter {
+                    flight: f,
+                    registered: true,
+                }
             }
         };
-        let result = waiter.0.result.clone().await;
-        drop(waiter);
-        result
+        let result = waiter.flight.result.clone();
+        tokio::select! {
+            biased;
+            () = stop => {
+                if waiter.release() { let _ = result.await; }
+                Ok(None)
+            }
+            value = result.clone() => {
+                waiter.release();
+                value.map(Some)
+            }
+        }
     }
 }
 impl<K, V, E> std::fmt::Debug for Flights<K, V, E> {
@@ -333,6 +379,63 @@ mod tests {
             9
         );
     }
+    #[tokio::test]
+    async fn stopped_last_waiter_joins_actual_exit_and_keeps_the_slot_charged() {
+        let flights = Flights::<u8, usize, &'static str>::new(1);
+        let stop = Cancellation::default();
+        let exit = Arc::new(tokio::sync::Notify::new());
+        let cancelled = Arc::new(tokio::sync::Notify::new());
+        let (gate, observed) = (exit.clone(), cancelled.clone());
+        let mut waiter = Box::pin(flights.load_owned_until(
+            1,
+            move |cancel| async move {
+                cancel.cancelled().await;
+                observed.notify_one();
+                gate.notified().await;
+                Err("cancelled")
+            },
+            stop.cancelled(),
+        ));
+        assert!(futures_util::poll!(waiter.as_mut()).is_pending());
+        stop.cancel();
+        assert!(futures_util::poll!(waiter.as_mut()).is_pending());
+        cancelled.notified().await;
+        assert_eq!(flights.active(), 1);
+        assert!(matches!(
+            flights.load_owned(2, |_| async { Ok(Arc::new(0)) }).await,
+            Err(FlightError::Capacity)
+        ));
+        assert!(futures_util::poll!(waiter.as_mut()).is_pending());
+        exit.notify_one();
+        assert!(waiter.await.unwrap().is_none());
+        assert_eq!(flights.active(), 0);
+    }
+    #[tokio::test]
+    async fn stopped_shared_waiter_does_not_cancel_or_wait_for_other_consumers() {
+        let flights = Flights::<u8, usize, &'static str>::new(2);
+        let stop = Cancellation::default();
+        let exit = Arc::new(tokio::sync::Notify::new());
+        let gate = exit.clone();
+        let mut first = Box::pin(flights.load_owned_until(
+            1,
+            move |cancel| async move {
+                gate.notified().await;
+                assert!(!cancel.is_cancelled());
+                Ok(Arc::new(42))
+            },
+            stop.cancelled(),
+        ));
+        assert!(futures_util::poll!(first.as_mut()).is_pending());
+        let mut second = Box::pin(flights.load_owned(1, |_| async { Err("duplicate") }));
+        assert!(futures_util::poll!(second.as_mut()).is_pending());
+        stop.cancel();
+        assert!(first.await.unwrap().is_none());
+        assert_eq!(flights.active(), 1);
+        exit.notify_one();
+        assert_eq!(*second.await.unwrap(), 42);
+        assert_eq!(flights.active(), 0);
+    }
+
     #[tokio::test]
     async fn failure_and_panic_are_retryable() {
         let f = Flights::<u8, usize, &'static str>::new(1);

@@ -491,6 +491,8 @@ async fn capture_detail(
             .relation(name)
             .ok_or_else(|| contract("study detail relation disappeared"))?
             .id;
+        #[cfg(test)]
+        let cursor = controlled_capture_cursor(cursor, id)?;
         let mut cursor = demand.select_cursor(name, id, cursor, result.runtime.shared.pool())?;
         let mut relation = CompactRelation {
             schema: cursor.schema(),
@@ -515,6 +517,66 @@ async fn capture_detail(
         selected.insert(name.to_owned(), relation);
     }
     Ok(selected)
+}
+
+#[cfg(test)]
+#[derive(Default)]
+pub(super) struct CaptureControl {
+    pub(super) pause_first: bool,
+    pub(super) fail_after_last: bool,
+    pub(super) claimed: std::sync::atomic::AtomicBool,
+    pub(super) chunks: std::sync::atomic::AtomicUsize,
+    pub(super) completed_siblings: std::sync::atomic::AtomicUsize,
+    pub(super) entered: tokio::sync::Notify,
+    pub(super) release: tokio::sync::Notify,
+    pub(super) sibling_complete: tokio::sync::Notify,
+}
+#[cfg(test)]
+tokio::task_local! { pub(super) static CAPTURE_CONTROL: std::sync::Arc<CaptureControl>; }
+#[cfg(test)]
+fn controlled_capture_cursor<'a>(
+    mut cursor: super::ResultCursor<'a>,
+    id: pse_ids::SemanticId,
+) -> Result<super::ResultCursor<'a>, WorkflowError> {
+    use std::sync::{Arc, atomic::Ordering};
+    let Some(control) = CAPTURE_CONTROL.try_with(Arc::clone).ok() else {
+        return Ok(cursor);
+    };
+    let first = !control.claimed.swap(true, Ordering::AcqRel);
+    super::ResultCursor::new(
+        cursor.schema(),
+        id,
+        1024,
+        super::ResultOrder::Public,
+        move |request| async move {
+            let mut sent = false;
+            while let Some(batch) = cursor.next_batch().await? {
+                let nonempty = batch.batch().num_rows() != 0;
+                request.send_checked(batch).await?;
+                if nonempty {
+                    control.chunks.fetch_add(1, Ordering::AcqRel);
+                    if first && !sent && control.pause_first {
+                        control.entered.notify_one();
+                        control.release.notified().await;
+                    }
+                    sent = true;
+                }
+            }
+            if !cursor.complete() {
+                return Err(Arc::new(contract("controlled source did not complete")));
+            }
+            if control.fail_after_last {
+                return Err(Arc::new(contract(
+                    "controlled selected producer failed after last chunk",
+                )));
+            }
+            if !first {
+                control.completed_siblings.fetch_add(1, Ordering::AcqRel);
+                control.sibling_complete.notify_one();
+            }
+            Ok(())
+        },
+    )
 }
 
 pub(super) struct DetailAllowance {

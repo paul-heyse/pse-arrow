@@ -435,7 +435,7 @@ impl ModelingPackage {
                 dependents.entry(*predecessor).or_default().insert(index);
             }
         }
-        let mut frontier = (0..graph.points.len()).collect::<BTreeSet<_>>();
+        let mut frontier = LocalFrontier::new(graph.points.len());
         let run_id = pse_operations::mint_id();
         let mut facts: Vec<_> = graph
             .points
@@ -537,7 +537,11 @@ impl ModelingPackage {
                 while !completed.is_empty() {
                     let completion = completed.remove(0);
                     match completion {
-                        LaneCompletion::Prepared { index, operation, mut staged, lane } => {
+                        LaneCompletion::Prepared { index, operation, staged, lane } => {
+                            if operation.is_err() && staged.is_some() {
+                                pending.push(close_point_owner(self, LaneCompletion::Prepared { index, operation, staged, lane }));
+                                continue;
+                            }
                             inflight.remove(&index);
                             match operation {
                                 Ok((operation, requested, source)) => {
@@ -553,7 +557,6 @@ impl ModelingPackage {
                                 }
                                 Err(error) => {
                                     available.push(lane);
-                                    if let Some(staged) = staged.take() { staged.close().await; }
                                     record_preparation_failure(index, &error, definition,
                                         &mut facts, &mut outcomes);
                                     continuation.terminal(index, &graph.points[index], &facts[index],
@@ -563,58 +566,80 @@ impl ModelingPackage {
                                         return Err(error);
                                     }
                                     if let Some(children) = dependents.get(&graph.points[index].key) {
-                                        frontier.extend(children);
+                                        frontier.extend(children.iter().copied());
                                     }
                                 }
                             }
                         }
                         LaneCompletion::Executed { points, mut staged, lanes } => {
-                            available.extend(lanes);
                             let only = (points.len() == 1).then(|| points[0].index);
+                            let reusable = only.and_then(|index| successors.get(&index)
+                                .filter(|children| children.len() == 1).map(|children| (index, children[0])));
+                            let retain = if staged.is_some() {
+                                if let Some((index, child)) = reusable {
+                                    let mut parent = facts[index].clone();
+                                    let (scientific, _, lifecycle) = point_observation(&points[0], &work_cancel);
+                                    parent.lifecycle = lifecycle; parent.scientific = scientific;
+                                    parent.retry_failure = Some(RetryFailure::Deterministic);
+                                    let action = match scoped_action_in(&admitted, graph.points[child].key,
+                                        &facts, &positions, work_cancel.token().is_cancelled(), Some((index, &parent))) {
+                                        Ok(action) => action,
+                                        Err(error) => { if let Some(staged) = staged.take() { staged.close().await; } return Err(error); }
+                                    };
+                                    matches!(action.kind, ActionKind::Start(_)
+                                        | ActionKind::Wait(WaitReason::SeedResolution { .. })).then_some(index)
+                                } else { None }
+                            } else { None };
+                            if retain.is_none() && let Some(staged) = staged.take() {
+                                // The original occurrences stay in flight, with their
+                                // preparation lanes held, until native close/parking joins.
+                                pending.push(close_lane(self, points, staged, lanes, &work_cancel));
+                                continue;
+                            }
+                            available.extend(lanes);
                             for point in points {
                                 let index = point.index;
                                 inflight.remove(&index);
-                                let requested = resolved.get(&index).or_else(|| definition.points.get(index)).ok_or_else(|| super::contract("executed occurrence admission absent"))?;
-                                if let Some(error) = record_execution(point, requested,
-                                    &work_cancel, &mut facts, &mut outcomes, &mut results, &mut continuation, &owner).await {
+                                if let Some(error) = record_execution(point, &graph.points[index], &work_cancel,
+                                    &mut facts, &mut outcomes, &mut results, &mut continuation) {
                                     if let Some(staged) = staged.take() { staged.close().await; }
                                     return Err(error);
                                 }
                                 if let Some(children) = dependents.get(&graph.points[index].key) {
-                                    frontier.extend(children);
+                                    frontier.extend(children.iter().copied());
                                 }
                                 if pse_model::study_policy::may_retry(&graph.points[index],
                                     &facts[index], work_cancel.token().is_cancelled()) {
                                     frontier.insert(index);
                                 }
                             }
-                            if let Some(staged) = staged {
-                                let reusable = only.and_then(|index| {
-                                    successors.get(&index).filter(|children| children.len() == 1)
-                                        .map(|children| (index, children[0]))
-                                });
-                                if let Some((index, child)) = reusable {
-                                    let action = match scoped_action(&admitted, graph.points[child].key,
-                                        &facts, &positions, work_cancel.token().is_cancelled()) {
-                                        Ok(action) => action,
-                                        Err(error) => { staged.close().await; return Err(error); }
-                                    };
-                                    if matches!(action.kind, ActionKind::Start(_)
-                                        | ActionKind::Wait(WaitReason::SeedResolution { .. })) {
-                                        retained.insert(index, staged);
-                                    } else { staged.finish_independent(&work_cancel).await?; }
-                                } else { staged.finish_independent(&work_cancel).await?; }
+                            if let Some(staged) = staged
+                                && let Some(index) = retain {
+                                retained.insert(index, staged);
                             }
+                        }
+                        LaneCompletion::Closed { lanes, points, result } => {
+                            if let Err(error) = result { available.extend(lanes); return Err(error); }
+                            completed.push(LaneCompletion::Executed { lanes, points, staged: None });
+                        }
+                        LaneCompletion::Released { index, lane, result, .. } => {
+                            available.push(lane);
+                            inflight.remove(&index);
+                            result?;
+                            // Re-evaluate the current terminal policy only after
+                            // actual native close, without replaying a stale action.
+                            frontier.insert(index);
                         }
                     }
                 }
                 // Continuations with an available private owner get first opportunity
                 // to replace that same lane rather than add idle native population.
-                let mut candidates = retained.keys().filter_map(|index| successors.get(index))
-                    .flatten().filter(|index| frontier.contains(index)).copied().collect::<Vec<_>>();
-                let remaining = frontier.iter().filter(|index| !candidates.contains(index))
-                    .copied().collect::<Vec<_>>();
-                candidates.extend(remaining);
+                let preferred = retained.keys().filter_map(|index| successors.get(index))
+                    .flatten().copied().collect::<Vec<_>>();
+                let free = width.saturating_sub(inflight.len() + ready.len() + retained.len())
+                    .min(available.len());
+                frontier.wake_capacity(free, if available.is_empty() { &[] } else { &preferred });
+                let candidates = frontier.candidates(&preferred);
                 let mut starts = Vec::new();
                 for index in candidates {
                     if inflight.contains(&index) { frontier.remove(&index); continue; }
@@ -632,6 +657,9 @@ impl ModelingPackage {
                             StartPolicy::Fresh => None,
                         };
                     }
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.count("study.frontier.policy_visits", "occurrences", 1);
+                    }
                     let action = scoped_action(&admitted, point.key, &facts, &positions,
                         work_cancel.token().is_cancelled())?;
                     match action.kind {
@@ -646,9 +674,13 @@ impl ModelingPackage {
                             };
                             let replaces = parent.is_some_and(|parent| retained.contains_key(&parent));
                             if !replaces && inflight.len() + ready.len() + retained.len() >= width {
+                                frontier.defer_capacity(index);
                                 continue;
                             }
-                            let Some(mut lane) = available.pop() else { continue; };
+                            let Some(mut lane) = available.pop() else {
+                                frontier.defer_capacity(index);
+                                continue;
+                            };
                             let mut staged = parent.and_then(|parent| retained.remove(&parent));
                             let explicit = definition.points.get(index).cloned();
                             let child_cancel = &work_cancel;
@@ -682,8 +714,14 @@ impl ModelingPackage {
                         kind @ (ActionKind::Cancel | ActionKind::Refuse(_)) => {
                             frontier.remove(&index);
                             if let Some(mut preparation) = ready.remove(&index) {
+                                if let Some(staged) = preparation.staged.take() {
+                                    inflight.insert(index);
+                                    pending.push(close_point_owner(self, LaneCompletion::Released {
+                                        index, lane: preparation.lane, staged: Some(staged), result: Ok(()),
+                                    }));
+                                    continue;
+                                }
                                 available.push(preparation.lane);
-                                if let Some(staged) = preparation.staged.take() { staged.close().await; }
                             }
                             facts[index].revision += 1;
                             if let ActionKind::Refuse(refusal) = kind {
@@ -701,24 +739,24 @@ impl ModelingPackage {
                                     crate::math::MathRuntimeError::Cancelled).boundary_diagnostic());
                             }
                             continuation.terminal(index, point, &facts[index], work_cancel.token().is_cancelled());
-                            if let Some(children) = dependents.get(&point.key) { frontier.extend(children); }
+                            if let Some(children) = dependents.get(&point.key) { frontier.extend(children.iter().copied()); }
                         }
                     }
                 }
                 // Group only already-ready fresh steps whose owning adapter supports
                 // batching. All other cases execute in independent sequence futures.
-                let mut groups = Vec::<(Option<pse_backend_native::solve::Backend>, Vec<(usize, StartProvenance)>)>::new();
+                let mut groups = Vec::<(Option<crate::math::solves::DirectBatchKey>, Vec<(usize, StartProvenance)>)>::new();
                 for (index, start) in starts {
                     let batching = if matches!(start, StartProvenance::Fresh
                         | StartProvenance::FreshFallback { .. }) && !successors.contains_key(&index) {
                         match ready.get(&index) {
                             Some(ReadyOperation { operation: PreparedStudyOperation::DeclaredCase(case),
-                                staged: None, .. }) => case.solve.batch_backend(),
+                                staged: None, .. }) => case.solve.direct_batch_candidate(&work_cancel).map(|candidate| candidate.key),
                             _ => None,
                         }
                     } else { None };
-                    if let Some(backend) = batching
-                        && let Some((_, group)) = groups.iter_mut().find(|(owner, _)| *owner == Some(backend)) {
+                    if let Some(key) = batching
+                        && let Some((_, group)) = groups.iter_mut().find(|(owner, _)| *owner == Some(key)) {
                         group.push((index, start)); continue;
                     }
                     groups.push((batching, vec![(index, start)]));
@@ -743,8 +781,14 @@ impl ModelingPackage {
                             }
                             _ => (None, None),
                         };
+                        let requested = resolved.get(&index).or_else(|| definition.points.get(index))
+                            .ok_or_else(|| super::contract("dispatched occurrence admission absent"))?;
                         members.push(LaneMember { index, start,
-                            attempt: facts[index].attempt_count - 1, preparation, previous, older });
+                            attempt: facts[index].attempt_count - 1, preparation, previous, older,
+                            output: requested.operation.output.clone(), revision: requested.operation.source.revision.as_id(),
+                            continuation_owner: (continuation.consumers[index] != 0).then(|| owner.clone()),
+                            may_retain_native: successors.get(&index).is_some_and(|children| children.len() == 1),
+                        });
                     }
                     let child_cancel = &work_cancel;
                     pending.push(crate::observation::child("study.execution.lane", execute_lane(self, members, child_cancel)).boxed());
@@ -831,6 +875,126 @@ struct ReadyOperation {
     operation: PreparedStudyOperation,
     staged: Option<Staged>,
 }
+/// Access paths over existing pure policy facts. Capacity-blocked work is not
+/// policy-dirty again until capacity or a relevant occurrence event changes.
+struct LocalFrontier {
+    dirty: BTreeSet<usize>,
+    capacity: BTreeSet<usize>,
+}
+impl LocalFrontier {
+    fn new(count: usize) -> Self {
+        Self {
+            dirty: (0..count).collect(),
+            capacity: BTreeSet::new(),
+        }
+    }
+    fn len(&self) -> usize {
+        self.dirty.len() + self.capacity.len()
+    }
+    fn is_empty(&self) -> bool {
+        self.dirty.is_empty() && self.capacity.is_empty()
+    }
+    fn insert(&mut self, index: usize) {
+        self.capacity.remove(&index);
+        self.dirty.insert(index);
+    }
+    fn extend(&mut self, indices: impl IntoIterator<Item = usize>) {
+        for index in indices {
+            self.insert(index);
+        }
+    }
+    fn remove(&mut self, index: &usize) {
+        self.dirty.remove(index);
+        self.capacity.remove(index);
+    }
+    fn defer_capacity(&mut self, index: usize) {
+        self.dirty.remove(&index);
+        self.capacity.insert(index);
+    }
+    fn wake_capacity(&mut self, free: usize, preferred: &[usize]) {
+        // A unique successor may replace its retained parent's native owner.
+        for index in preferred {
+            if self.capacity.remove(index) {
+                self.dirty.insert(*index);
+            }
+        }
+        for _ in 0..free {
+            let Some(index) = self.capacity.pop_first() else {
+                break;
+            };
+            self.dirty.insert(index);
+        }
+    }
+    fn candidates(&self, preferred: &[usize]) -> Vec<usize> {
+        let mut seen = BTreeSet::new();
+        let mut candidates = preferred
+            .iter()
+            .filter(|index| self.dirty.contains(*index) && seen.insert(**index))
+            .copied()
+            .collect::<Vec<_>>();
+        candidates.extend(
+            self.dirty
+                .iter()
+                .filter(|index| !seen.contains(*index))
+                .copied(),
+        );
+        candidates
+    }
+}
+
+#[cfg(test)]
+mod frontier_tests {
+    use super::LocalFrontier;
+    #[test]
+    fn capacity_waiting_visits_follow_releases_and_relevant_revisions() {
+        let mut frontier = LocalFrontier::new(256);
+        let initial = frontier.candidates(&[]);
+        assert_eq!(initial, (0..256).collect::<Vec<_>>());
+        let mut visits = initial.len();
+        for index in initial {
+            frontier.defer_capacity(index);
+        }
+        for _ in 0..100 {
+            frontier.wake_capacity(0, &[]);
+            assert!(frontier.candidates(&[]).is_empty());
+        }
+        frontier.wake_capacity(1, &[200]);
+        let released = frontier.candidates(&[200]);
+        assert_eq!(released, [200, 0]);
+        visits += released.len();
+        for index in released {
+            frontier.remove(&index);
+        }
+        // A changed predecessor/retry fact invalidates only its real consumers.
+        frontier.extend([50, 50]);
+        assert_eq!(frontier.candidates(&[]), [50]);
+        visits += 1;
+        frontier.defer_capacity(50);
+        frontier.wake_capacity(1, &[]);
+        assert_eq!(frontier.candidates(&[]), [1]);
+        visits += 1;
+        assert_eq!(visits, 260);
+        assert_eq!(frontier.len(), 254);
+    }
+    #[test]
+    fn cancellation_and_fanout_notifications_preserve_order_and_unique_membership() {
+        let mut frontier = LocalFrontier::new(0);
+        frontier.extend([7, 4, 7]);
+        assert_eq!(frontier.candidates(&[]), [4, 7]);
+        frontier.defer_capacity(4);
+        frontier.defer_capacity(7);
+        frontier.extend([7, 4, 2]);
+        assert_eq!(frontier.candidates(&[7]), [7, 2, 4]);
+        assert_eq!(frontier.len(), 3);
+        frontier.extend(0..8);
+        assert_eq!(frontier.candidates(&[]), (0..8).collect::<Vec<_>>());
+        for index in 0..8 {
+            frontier.remove(&index);
+        }
+        assert!(frontier.is_empty());
+    }
+}
+
 struct LaneMember {
     index: usize,
     start: StartProvenance,
@@ -838,11 +1002,24 @@ struct LaneMember {
     preparation: ReadyOperation,
     previous: Option<Arc<MinimalContinuation>>,
     older: Option<Arc<MinimalContinuation>>,
+    output: super::StudyOutputDemand,
+    revision: pse_ids::ContentHash,
+    continuation_owner: Option<Arc<pse_columnar::AllocationLease>>,
+    may_retain_native: bool,
 }
 struct ExecutedPoint {
     index: usize,
+    revision: pse_ids::ContentHash,
     start: StartProvenance,
-    result: Result<Arc<RunResult>, WorkflowError>,
+    result: Result<SettledOccurrence, WorkflowError>,
+}
+struct SettledOccurrence {
+    occurrence: StudyOccurrenceResult,
+    scientific: ScientificFacts,
+    diagnostic: Option<BoundaryDiagnostic>,
+    completed: bool,
+    fatal: Option<WorkflowError>,
+    continuation: Option<Arc<MinimalContinuation>>,
 }
 #[allow(
     clippy::large_enum_variant,
@@ -867,23 +1044,42 @@ enum LaneCompletion {
         points: Vec<ExecutedPoint>,
         staged: Option<Staged>,
     },
+    Closed {
+        lanes: Vec<super::study_operations::StudyPreparationLane>,
+        points: Vec<ExecutedPoint>,
+        result: Result<(), WorkflowError>,
+    },
+    Released {
+        index: usize,
+        lane: super::study_operations::StudyPreparationLane,
+        staged: Option<Staged>,
+        result: Result<(), WorkflowError>,
+    },
 }
 impl LaneCompletion {
     async fn close(mut self) -> Result<(), WorkflowError> {
         let staged = match &mut self {
-            Self::Prepared { staged, .. } | Self::Executed { staged, .. } => staged.take(),
+            Self::Prepared { staged, .. }
+            | Self::Executed { staged, .. }
+            | Self::Released { staged, .. } => staged.take(),
+            Self::Closed { .. } => None,
         };
         if let Some(staged) = staged {
             staged.close().await;
         }
-        let mut failure = None;
+        let mut failure = match &mut self {
+            Self::Closed { result, .. } | Self::Released { result, .. } => {
+                std::mem::replace(result, Ok(())).err()
+            }
+            _ => None,
+        };
         match &mut self {
-            Self::Prepared { lane, .. } => {
+            Self::Prepared { lane, .. } | Self::Released { lane, .. } => {
                 if let Err(error) = lane.close().await {
                     failure = Some(error);
                 }
             }
-            Self::Executed { lanes, .. } => {
+            Self::Executed { lanes, .. } | Self::Closed { lanes, .. } => {
                 for lane in lanes {
                     if let Err(error) = lane.close().await
                         && failure.is_none()
@@ -906,6 +1102,7 @@ async fn execute_lane(
     mut members: Vec<LaneMember>,
     cancel: &crate::CancelSource,
 ) -> LaneCompletion {
+    let may_retain_native = members.len() == 1 && members[0].may_retain_native;
     if let Some(context) = pse_diagnostics::observation::current() {
         context.integer("study.batch.members", "occurrences", members.len() as i64);
         let indices = members
@@ -918,7 +1115,7 @@ async fn execute_lane(
     }
     let positions = members
         .iter()
-        .map(|member| (member.index, member.start.clone()))
+        .map(|member| (member.index, member.start.clone(), member.revision))
         .collect::<Vec<_>>();
     let lanes = members
         .iter_mut()
@@ -954,13 +1151,19 @@ async fn execute_lane(
                 return Err(error);
             }
         };
-        if cancel.token().is_cancelled() {
+        if cancel.token().is_cancelled() || !may_retain_native {
             let staged = match &mut completion {
                 LaneCompletion::Prepared { staged, .. }
-                | LaneCompletion::Executed { staged, .. } => staged.take(),
+                | LaneCompletion::Executed { staged, .. }
+                | LaneCompletion::Released { staged, .. } => staged.take(),
+                LaneCompletion::Closed { .. } => None,
             };
             if let Some(staged) = staged {
-                staged.close().await;
+                if cancel.token().is_cancelled() {
+                    staged.close().await;
+                } else {
+                    staged.finish_independent(cancel).await?;
+                }
             }
         }
         Ok(completion)
@@ -976,8 +1179,9 @@ async fn execute_lane(
             LaneCompletion::Executed {
                 points: positions
                     .into_iter()
-                    .map(|(index, start)| ExecutedPoint {
+                    .map(|(index, start, revision)| ExecutedPoint {
                         index,
+                        revision,
                         start,
                         result: Err(WorkflowError::Shared(error.clone())),
                     })
@@ -994,6 +1198,80 @@ async fn execute_lane(
         *returned = lanes;
     }
     completion
+}
+
+fn close_lane<'a>(
+    package: &'a ModelingPackage,
+    points: Vec<ExecutedPoint>,
+    staged: Staged,
+    lanes: Vec<super::study_operations::StudyPreparationLane>,
+    cancel: &'a crate::CancelSource,
+) -> futures_util::future::BoxFuture<'a, LaneCompletion> {
+    async move {
+        // Lanes retain their original scopes until actual native join/parking.
+        // Closing is mandatory even after the request clock/cancellation stops.
+        let mut staged = Some(staged);
+        let closing = async {
+            let staged = staged
+                .take()
+                .ok_or_else(|| super::contract("closing native owner absent"))?;
+            staged.finish_independent(cancel).await
+        };
+        let allocation = package.runtime.shared.math().reserve(
+            "study:closing-lane",
+            size_of_val(&closing) + size_of::<ExecutedPoint>() + 128,
+        );
+        let result = match allocation {
+            Ok(_owner) => closing.await,
+            Err(error) => {
+                drop(closing);
+                if let Some(staged) = staged.take() {
+                    staged.close().await;
+                }
+                Err(error.into())
+            }
+        };
+        LaneCompletion::Closed {
+            points,
+            lanes,
+            result,
+        }
+    }
+    .boxed()
+}
+
+fn close_point_owner(
+    package: &ModelingPackage,
+    mut completion: LaneCompletion,
+) -> futures_util::future::BoxFuture<'_, LaneCompletion> {
+    async move {
+        let staged = match &mut completion {
+            LaneCompletion::Prepared { staged, .. } | LaneCompletion::Released { staged, .. } => {
+                staged.take()
+            }
+            _ => None,
+        };
+        if let Some(staged) = staged {
+            let closing = staged.close();
+            let allocation = package
+                .runtime
+                .shared
+                .math()
+                .reserve("study:terminal-lane-close", size_of_val(&closing));
+            // A refused extra grant cannot abandon an already-owned native
+            // thread. It still joins before the refusal becomes observable.
+            closing.await;
+            if let Err(error) = allocation {
+                match &mut completion {
+                    LaneCompletion::Prepared { operation, .. } => *operation = Err(error.into()),
+                    LaneCompletion::Released { result, .. } => *result = Err(error.into()),
+                    _ => {}
+                }
+            }
+        }
+        completion
+    }
+    .boxed()
 }
 
 // Field order keeps the exact state grant alive until the boxed child itself
@@ -1094,10 +1372,23 @@ async fn execute_lane_inner(
             }
         }
         .await;
+        let result = match result {
+            Ok(result) => {
+                settle_occurrence(
+                    result,
+                    &member.output,
+                    member.revision,
+                    member.continuation_owner,
+                )
+                .await
+            }
+            Err(error) => Err(error),
+        };
         return LaneCompletion::Executed {
             lanes: Vec::new(),
             points: vec![ExecutedPoint {
                 index: member.index,
+                revision: member.revision,
                 start: member.start,
                 result,
             }],
@@ -1142,8 +1433,15 @@ async fn execute_lane_inner(
                 .await;
                 points.push(ExecutedPoint {
                     index: member.index,
+                    revision: member.revision,
                     start: member.start,
-                    result: Ok(Arc::new(result)),
+                    result: settle_occurrence(
+                        Arc::new(result),
+                        &member.output,
+                        member.revision,
+                        member.continuation_owner,
+                    )
+                    .await,
                 });
             }
             return LaneCompletion::Executed {
@@ -1157,6 +1455,7 @@ async fn execute_lane_inner(
             for member in members.drain(..) {
                 points.push(ExecutedPoint {
                     index: member.index,
+                    revision: member.revision,
                     start: member.start,
                     result: Err(WorkflowError::Shared(error.clone())),
                 });
@@ -1213,64 +1512,64 @@ fn record_preparation_failure(
     }
 }
 
+fn point_observation(
+    point: &ExecutedPoint,
+    cancel: &crate::CancelSource,
+) -> (ScientificFacts, Option<BoundaryDiagnostic>, StudyPointState) {
+    let (scientific, diagnostic) = match &point.result {
+        Ok(result) => (result.scientific.clone(), result.diagnostic.clone()),
+        Err(error) => (
+            ScientificFacts::default(),
+            Some(error.boundary_diagnostic().with_revision(point.revision)),
+        ),
+    };
+    let lifecycle = if cancel.token().is_cancelled()
+        || diagnostic
+            .as_ref()
+            .is_some_and(|diagnostic| diagnostic.class == BoundaryClass::Cancelled)
+    {
+        StudyPointState::Cancelled
+    } else if point.result.as_ref().is_ok_and(|result| result.completed) {
+        StudyPointState::Completed
+    } else {
+        StudyPointState::Failed
+    };
+    (scientific, diagnostic, lifecycle)
+}
+
 #[allow(
     clippy::too_many_arguments,
     reason = "recording one point updates separate scientific facts, outcomes, result ownership and continuation retention under the original cancellation authority"
 )]
-async fn record_execution(
+fn record_execution(
     point: ExecutedPoint,
-    requested: &super::StudyPointDefinition,
+    policy: &PointPolicy,
     cancel: &crate::CancelSource,
     facts: &mut [PointFacts],
     outcomes: &mut [PointOutcome],
     results: &mut [Option<StudyOccurrenceResult>],
     continuation: &mut ContinuationRetention,
-    owner: &Arc<pse_columnar::AllocationLease>,
 ) -> Option<WorkflowError> {
+    let (scientific, diagnostic, lifecycle) = point_observation(&point, cancel);
     let ExecutedPoint {
         index,
         start,
         result,
+        ..
     } = point;
     if let Some(context) = pse_diagnostics::observation::current() {
         context.count("study.settled", "occurrences", 1);
         context.integer("study.occurrence.index", "occurrence_index", index as i64);
         context.boolean("study.occurrence.execution_failed", result.is_err());
     }
-    let (scientific, diagnostic) = match &result {
-        Ok(result) => (
-            super::study_operations::scientific_facts(result),
-            result_diagnostic(result).map(|diagnostic| {
-                diagnostic.with_revision(requested.operation.source.revision.as_id())
-            }),
-        ),
-        Err(error) => (
-            ScientificFacts::default(),
-            Some(
-                error
-                    .boundary_diagnostic()
-                    .with_revision(requested.operation.source.revision.as_id()),
-            ),
-        ),
-    };
     if let Some(context) = pse_diagnostics::observation::current() {
         context.boolean("study.occurrence.scientifically_usable", scientific.usable);
         if diagnostic.is_some() {
             context.count("study.diagnostic_occurrences", "occurrences", 1);
         }
     }
-    let cancelled = cancel.token().is_cancelled()
-        || diagnostic
-            .as_ref()
-            .is_some_and(|diagnostic| diagnostic.class == BoundaryClass::Cancelled);
-    let completed = result.as_ref().is_ok_and(|result| result.report().is_ok());
-    let lifecycle = if cancelled {
-        StudyPointState::Cancelled
-    } else if completed {
-        StudyPointState::Completed
-    } else {
-        StudyPointState::Failed
-    };
+    let cancelled = lifecycle == StudyPointState::Cancelled;
+    let completed = lifecycle == StudyPointState::Completed;
     facts[index].lifecycle = lifecycle;
     facts[index].scientific = scientific.clone();
     facts[index].retry_failure = Some(RetryFailure::Deterministic);
@@ -1298,32 +1597,11 @@ async fn record_execution(
     });
     let fatal = match result {
         Ok(result) => {
-            let fatal = result
-                .report
-                .as_ref()
-                .err()
-                .or_else(|| result.completion.as_ref().err())
-                .filter(|error| {
-                    matches!(
-                        error.boundary_diagnostic().class,
-                        BoundaryClass::Infrastructure | BoundaryClass::Internal
-                    )
-                })
-                .map(|error| WorkflowError::Shared(error.clone()));
             if continuation.consumers[index] != 0 {
-                continuation.values[index] = minimal_continuation(&result, owner.clone());
+                continuation.values[index] = result.continuation;
             }
-            results[index] = match retain_occurrence(
-                result,
-                &requested.operation.output,
-                facts[index].scientific.usable,
-            )
-            .await
-            {
-                Ok(retained) => Some(retained),
-                Err(error) => return Some(error),
-            };
-            fatal
+            results[index] = Some(result.occurrence);
+            result.fatal
         }
         Err(error)
             if matches!(
@@ -1335,13 +1613,42 @@ async fn record_execution(
         }
         Err(_) => None,
     };
-    continuation.terminal(
-        index,
-        &requested.policy,
-        &facts[index],
-        cancel.token().is_cancelled(),
-    );
+    continuation.terminal(index, policy, &facts[index], cancel.token().is_cancelled());
     fatal
+}
+
+async fn settle_occurrence(
+    result: Arc<RunResult>,
+    output: &super::StudyOutputDemand,
+    revision: pse_ids::ContentHash,
+    continuation_owner: Option<Arc<pse_columnar::AllocationLease>>,
+) -> Result<SettledOccurrence, WorkflowError> {
+    let scientific = super::study_operations::scientific_facts(&result);
+    let diagnostic =
+        result_diagnostic(&result).map(|diagnostic| diagnostic.with_revision(revision));
+    let completed = result.report().is_ok();
+    let fatal = result
+        .report
+        .as_ref()
+        .err()
+        .or_else(|| result.completion.as_ref().err())
+        .filter(|error| {
+            matches!(
+                error.boundary_diagnostic().class,
+                BoundaryClass::Infrastructure | BoundaryClass::Internal
+            )
+        })
+        .map(|error| WorkflowError::Shared(error.clone()));
+    let continuation = continuation_owner.and_then(|owner| minimal_continuation(&result, owner));
+    let occurrence = retain_occurrence(result, output, scientific.usable).await?;
+    Ok(SettledOccurrence {
+        occurrence,
+        scientific,
+        diagnostic,
+        completed,
+        fatal,
+        continuation,
+    })
 }
 
 async fn retain_occurrence(
@@ -1515,10 +1822,27 @@ fn scoped_action(
     positions: &BTreeMap<OccurrenceKey, usize>,
     cancelled: bool,
 ) -> Result<PointAction, WorkflowError> {
+    scoped_action_in(admitted, key, facts, positions, cancelled, None)
+}
+fn scoped_action_in(
+    admitted: &pse_model::study_policy::AdmittedStudy,
+    key: OccurrenceKey,
+    facts: &[PointFacts],
+    positions: &BTreeMap<OccurrenceKey, usize>,
+    cancelled: bool,
+    changed: Option<(usize, &PointFacts)>,
+) -> Result<PointAction, WorkflowError> {
+    let current = |key| {
+        let index = positions[&key];
+        changed
+            .filter(|(changed, _)| *changed == index)
+            .map_or(&facts[index], |(_, fact)| fact)
+            .clone()
+    };
     let mut scope = Vec::with_capacity(admitted.predecessors(key).map_err(policy_error)?.len() + 1);
-    scope.push(facts[positions[&key]].clone());
+    scope.push(current(key));
     for predecessor in admitted.predecessors(key).map_err(policy_error)? {
-        scope.push(facts[positions[predecessor]].clone());
+        scope.push(current(*predecessor));
     }
     admitted
         .action(key, &scope, cancelled)
@@ -2045,6 +2369,10 @@ mod occurrence_execution_tests {
             },
             previous: None,
             older: None,
+            output: point.operation.output.clone(),
+            revision: point.operation.source.revision.as_id(),
+            continuation_owner: None,
+            may_retain_native: false,
         }];
         let PreparedStudyOperation::DeclaredCase(case) = &members[0].preparation.operation else {
             panic!("declared fixture expected");
@@ -2060,16 +2388,14 @@ mod occurrence_execution_tests {
         assert_eq!(pool.reserved(), baseline);
         assert_eq!(members.len(), 1, "unpolled child cannot consume its member");
 
+        // Drain optional service-owned residency before saturating the pool;
+        // refusal must not depend on how many idle cache owners can yield.
+        package.runtime.shared.math().clear_program_cache();
+        package.runtime.shared.math().shutdown_native_lanes().await;
         // Reservations account capacity without allocating this many bytes.
-        // Allow the math owner's ordinary idle-cache trim once, then consume
-        // that released capacity as well so refusal is deterministic.
         let pressure =
             pse_columnar::MemoryConsumer::new("test:study-child-refusal").register(&pool);
         let limit = package.runtime.shared.budget().memory_limit_bytes.get();
-        pressure.try_grow(limit - pool.reserved()).unwrap();
-        if let Ok(future) = prepaid_lane_future(&package, &mut members, &cancel) {
-            drop(future);
-        }
         pressure.try_grow(limit - pool.reserved()).unwrap();
         assert!(prepaid_lane_future(&package, &mut members, &cancel).is_err());
         assert_eq!(members.len(), 1, "refused child cannot consume its member");
@@ -2084,6 +2410,49 @@ mod occurrence_execution_tests {
         assert_eq!(std::ptr::from_ref(case.as_ref()), prepared);
         assert!(!cancel.token().is_cancelled());
         drop(pressure);
+    }
+
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    async fn terminal_close_refused_extra_grant_still_joins_owned_native_thread() {
+        let (package, _) = fixture(&[1.0]).await;
+        let staged = Staged::open(&package.runtime, None).unwrap();
+        package.runtime.shared.math().clear_program_cache();
+        let pool = package.runtime.shared.pool();
+        let pressure =
+            pse_columnar::MemoryConsumer::new("test:terminal-close-refusal").register(&pool);
+        let limit = package.runtime.shared.budget().memory_limit_bytes.get();
+        pressure.try_grow(limit - pool.reserved()).unwrap();
+        let _ = package
+            .runtime
+            .shared
+            .math()
+            .reserve("test:trim-before-terminal-close", 1);
+        pressure.try_grow(limit - pool.reserved()).unwrap();
+        let completion = close_point_owner(
+            &package,
+            LaneCompletion::Released {
+                index: 0,
+                lane: super::super::study_operations::StudyPreparationLane::new(),
+                staged: Some(staged),
+                result: Ok(()),
+            },
+        )
+        .await;
+        assert!(matches!(
+            &completion,
+            LaneCompletion::Released {
+                result: Err(_),
+                staged: None,
+                ..
+            }
+        ));
+        assert_eq!(
+            package.runtime.shared.math().test_admission_snapshot().2,
+            package.runtime.shared.budget().math.jobs
+        );
+        drop(pressure);
+        assert!(completion.close().await.is_err());
     }
 
     #[test]
@@ -2315,6 +2684,229 @@ mod occurrence_execution_tests {
         );
         // Exact semantic source remains available after original control departure.
         assert!(copied.semantic_point_key(&primal).is_ok());
+    }
+
+    #[tokio::test]
+    async fn lane_capture_allows_sibling_completion_while_real_selected_chunk_waits() {
+        const POINTS: usize = 32;
+        let values = (1..=32).map(f64::from).collect::<Vec<_>>();
+        let (package, mut definition) = fixture(&values).await;
+        let detail = super::super::StudyDetailDemand {
+            relations: vec!["runtime.solve_variables".into()],
+            maximum_rows: 16,
+            maximum_bytes: 1 << 20,
+            ..Default::default()
+        };
+        for point in &mut definition.points {
+            point.operation.output = super::super::StudyOutputDemand::Compact {
+                detail: detail.clone(),
+                failed_detail: Default::default(),
+            };
+        }
+        let control = Arc::new(super::super::study_demand::CaptureControl {
+            pause_first: true,
+            ..Default::default()
+        });
+        let cancel = crate::CancelSource::new();
+        let observed = package
+            .runtime
+            .observations()
+            .hub()
+            .start("qualification.wide-skew-frontier");
+        let reader = observed.reader();
+        let study = pse_diagnostics::observation::scope(
+            Some(observed.context()),
+            super::super::study_demand::CAPTURE_CONTROL
+                .scope(control.clone(), package.study(&definition, POINTS, &cancel)),
+        );
+        let controls = async {
+            let entered = tokio::time::timeout(
+                std::time::Duration::from_secs(10),
+                control.entered.notified(),
+            )
+            .await
+            .is_ok();
+            let progressed = entered
+                && tokio::time::timeout(std::time::Duration::from_secs(20), async {
+                    while control
+                        .completed_siblings
+                        .load(std::sync::atomic::Ordering::Acquire)
+                        < POINTS - 1
+                    {
+                        control.sibling_complete.notified().await;
+                    }
+                })
+                .await
+                .is_ok();
+            control.release.notify_one();
+            (entered, progressed)
+        };
+        let (report, (entered, progressed)) = tokio::join!(study, controls);
+        observed.finish(pse_diagnostics::observation::Outcome::Completed);
+        let report = report.unwrap();
+        assert!(
+            entered && progressed,
+            "all other selected producers must finish before the stalled lane releases"
+        );
+        assert_eq!(
+            control
+                .completed_siblings
+                .load(std::sync::atomic::Ordering::Acquire),
+            POINTS - 1
+        );
+        assert!(control.chunks.load(std::sync::atomic::Ordering::Acquire) >= POINTS);
+        assert!(
+            report
+                .outcomes
+                .iter()
+                .all(|outcome| outcome.scientific.usable)
+        );
+        for (index, outcome) in report.outcomes.iter().enumerate() {
+            assert_eq!(outcome.key, OccurrenceKey(u32::try_from(index).unwrap()));
+            let StudyOccurrenceResult::Compact(result) = report.results[index].as_ref().unwrap()
+            else {
+                panic!("compact result expected");
+            };
+            assert!(result.completion().is_ok());
+            let mut cursor = result.table_cursor("runtime.solve_variables").unwrap();
+            let mut solved = Vec::new();
+            while let Some(batch) = cursor.next_batch().await.unwrap() {
+                let view =
+                    pse_relations::generated::runtime::solve_variables::View::from_checked(&batch)
+                        .unwrap();
+                solved.extend(
+                    view.rows()
+                        .unwrap()
+                        .into_iter()
+                        .filter(|row| !row.parameter)
+                        .map(|row| row.value.unwrap()),
+                );
+            }
+            assert!(cursor.complete());
+            assert_eq!(solved.len(), 1);
+            assert!((solved[0] - (values[index] + 2.0)).abs() < 1e-8);
+        }
+        let counts = crate::workflow::tests::observation_counts(
+            package.runtime.observations().hub(),
+            reader,
+        );
+        let visits = counts["study.frontier.policy_visits"];
+        // One initial inspection, preparation/start and terminal capacity events
+        // per point; no dependency, retry, revision or cancellation notifications.
+        // Allow two visits per event class, independently of elapsed solve time.
+        assert!(
+            visits <= 6 * u64::try_from(POINTS).unwrap(),
+            "wide/skew policy visits: {visits}"
+        );
+        assert_eq!(
+            package.runtime.shared.math().test_admission_snapshot().1,
+            package.runtime.shared.math().cores()
+        );
+        package.runtime.shared.math().shutdown_native_lanes().await;
+        assert_eq!(
+            package.runtime.shared.math().test_admission_snapshot().2,
+            package.runtime.shared.budget().math.jobs
+        );
+    }
+
+    #[tokio::test]
+    async fn lane_capture_late_producer_failure_keeps_scientific_completion_separate() {
+        let (package, definition) = fixture(&[1.0]).await;
+        let cancel = crate::CancelSource::new();
+        let mut report = package.study(&definition, 1, &cancel).await.unwrap();
+        let StudyOccurrenceResult::Ephemeral(run) = report.results[0].take().unwrap() else {
+            panic!("full result expected");
+        };
+        let completion = serde_json::to_value(run.completion().unwrap()).unwrap();
+        let departure = Arc::downgrade(&run);
+        drop(report);
+        let output = super::super::StudyOutputDemand::Compact {
+            detail: super::super::StudyDetailDemand {
+                relations: vec!["runtime.solve_variables".into()],
+                maximum_rows: 16,
+                maximum_bytes: 1 << 20,
+                ..Default::default()
+            },
+            failed_detail: Default::default(),
+        };
+        let control = Arc::new(super::super::study_demand::CaptureControl {
+            fail_after_last: true,
+            ..Default::default()
+        });
+        let settled = super::super::study_demand::CAPTURE_CONTROL
+            .scope(
+                control.clone(),
+                settle_occurrence(
+                    run,
+                    &output,
+                    definition.points[0].operation.source.revision.as_id(),
+                    None,
+                ),
+            )
+            .await
+            .unwrap();
+        assert!(settled.scientific.usable && settled.completed);
+        assert!(
+            departure.upgrade().is_none(),
+            "compact capture releases the full original report"
+        );
+        assert!(control.chunks.load(std::sync::atomic::Ordering::Acquire) > 0);
+        let StudyOccurrenceResult::Compact(compact) = settled.occurrence else {
+            panic!("compact result expected");
+        };
+        assert_eq!(
+            serde_json::to_value(compact.completion().unwrap()).unwrap(),
+            completion
+        );
+        assert!(
+            compact
+                .table_names()
+                .unwrap_err()
+                .to_string()
+                .contains("failed after last chunk")
+        );
+        assert!(compact.table_cursor("runtime.solve_variables").is_err());
+    }
+
+    #[tokio::test]
+    async fn lane_capture_cancellation_drains_actual_native_and_preparation_owners() {
+        let (package, mut definition) = fixture(&[1.0]).await;
+        definition.points[0].operation.output = super::super::StudyOutputDemand::Compact {
+            detail: super::super::StudyDetailDemand {
+                relations: vec!["runtime.solve_variables".into()],
+                maximum_rows: 16,
+                maximum_bytes: 1 << 20,
+                ..Default::default()
+            },
+            failed_detail: Default::default(),
+        };
+        let control = Arc::new(super::super::study_demand::CaptureControl {
+            pause_first: true,
+            ..Default::default()
+        });
+        let cancel = crate::CancelSource::new();
+        let study = super::super::study_demand::CAPTURE_CONTROL
+            .scope(control.clone(), package.study(&definition, 1, &cancel));
+        let controls = async {
+            let entered = tokio::time::timeout(
+                std::time::Duration::from_secs(10),
+                control.entered.notified(),
+            )
+            .await
+            .is_ok();
+            cancel.cancel();
+            tokio::task::yield_now().await;
+            control.release.notify_one();
+            entered
+        };
+        let (report, entered) = tokio::join!(study, controls);
+        let report = report.unwrap();
+        assert!(entered);
+        assert_eq!(report.outcomes[0].lifecycle, StudyPointState::Cancelled);
+        assert_eq!(
+            package.runtime.shared.math().test_admission_snapshot().2,
+            package.runtime.shared.budget().math.jobs
+        );
     }
 
     #[tokio::test]
@@ -3070,6 +3662,84 @@ mod occurrence_execution_tests {
 
     #[cfg(feature = "solver-pounce")]
     #[tokio::test]
+    async fn direct_batch_compatibility_uses_actual_complete_native_owner() {
+        let (package, definition) = fixture_source(
+            &[0.25, 0.5],
+            POUNCE_OCCURRENCE_SOURCE,
+            Backend::PounceConvex,
+            2,
+        )
+        .await;
+        let cancel = crate::CancelSource::new();
+        let mut solves = Vec::new();
+        for point in &definition.points {
+            let PreparedStudyOperation::DeclaredCase(case) = package
+                .prepare_bound_operation(&point.operation, &point.binding, &cancel)
+                .await
+                .unwrap()
+            else {
+                panic!("declared case expected");
+            };
+            solves.push(case.solve);
+        }
+        let key = solves[0].direct_batch_candidate(&cancel).unwrap().key;
+        assert_eq!(solves[1].direct_batch_candidate(&cancel).unwrap().key, key);
+        for change in 0..3 {
+            let mut point = definition.points[0].clone();
+            let OperationRequest::DeclaredCase(case) = &mut point.operation.operation else {
+                panic!("declared case expected");
+            };
+            match change {
+                0 => case.settings.controls.threads = 1,
+                1 => case.settings.controls.time_limit += std::time::Duration::from_secs(1),
+                _ => {
+                    case.settings.controls.start = pse_backend_native::solve::StartPolicy::Explicit
+                }
+            }
+            let PreparedStudyOperation::DeclaredCase(case) = package
+                .prepare_bound_operation(&point.operation, &point.binding, &cancel)
+                .await
+                .unwrap()
+            else {
+                panic!("declared case expected");
+            };
+            assert_ne!(
+                case.solve
+                    .direct_batch_candidate(&cancel)
+                    .map(|candidate| candidate.key),
+                Some(key),
+                "changed native control {change} shared a partition"
+            );
+        }
+        let original = solves.remove(0);
+        let scope = pse_kernels::ExecutionScope::new(
+            pse_diagnostics::Cancellation::default(),
+            Some(std::time::Instant::now() + std::time::Duration::from_secs(30)),
+        );
+        assert!(
+            original
+                .clone()
+                .within_task(scope)
+                .unwrap()
+                .direct_batch_candidate(&cancel)
+                .is_none()
+        );
+        let mut declaration = original.numerical_strategy();
+        declaration.mechanisms[0].profile = Some(pse_model::strategy::ProfileRef {
+            method: pse_model::strategy::NumericalMethod::Backend(Backend::PounceConvex),
+            key: original.strategy_profile().unwrap(),
+        });
+        let composed = original
+            .clone()
+            .with_strategy(declaration, vec![original.clone().into()])
+            .unwrap();
+        assert!(composed.direct_batch_candidate(&cancel).is_none());
+        cancel.cancel();
+        assert!(original.direct_batch_candidate(&cancel).is_none());
+    }
+
+    #[cfg(feature = "solver-pounce")]
+    #[tokio::test]
     async fn occurrence_adapter_reaches_existing_pounce_batch_owner() {
         let (package, definition) = fixture_source(
             &[0.25, 0.5, 0.75, 1.],
@@ -3135,6 +3805,10 @@ mod occurrence_execution_tests {
                 },
                 previous: None,
                 older: None,
+                output: point.operation.output.clone(),
+                revision: point.operation.source.revision.as_id(),
+                continuation_owner: None,
+                may_retain_native: false,
             });
         }
         // Supply one fully prepared cohort to the same runtime adapter used by the
@@ -3144,21 +3818,29 @@ mod occurrence_execution_tests {
             panic!("expected completed occurrences");
         };
         assert!(
-            staged.is_some(),
-            "the adapter returns the actual reusable native owner"
+            staged.is_none(),
+            "independent batch completes native close/parking before returning"
         );
         assert_eq!(points.len(), 4);
         for (index, point) in points.iter().enumerate() {
             assert_eq!(point.index, index);
             assert!(matches!(point.start, StartProvenance::Fresh));
-            let run = point.result.as_ref().unwrap();
+            let StudyOccurrenceResult::Ephemeral(run) = &point.result.as_ref().unwrap().occurrence
+            else {
+                panic!("full output expected");
+            };
             assert_eq!(assert_pounce_occurrence(&definition, index, run), 4);
         }
         completed.close().await.unwrap();
         assert_eq!(
+            package.runtime.shared.math().test_admission_snapshot().1,
+            package.runtime.shared.math().cores()
+        );
+        package.runtime.shared.math().shutdown_native_lanes().await;
+        assert_eq!(
             package.runtime.shared.math().test_admission_snapshot().2,
             package.runtime.shared.budget().math.jobs,
-            "explicit completion close joins the returned native lane and releases its population"
+            "completion settles the request; explicit service shutdown joins neutral pooled lanes and releases their populations"
         );
     }
 

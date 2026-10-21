@@ -23,7 +23,7 @@ impl EffortObservation {
         };
         Some(Self {
             profile: ProfileRef {
-                backend: observed.backend,
+                method: pse_model::strategy::NumericalMethod::Backend(observed.backend),
                 key: observed.profile,
             },
             iterations,
@@ -215,7 +215,7 @@ mod tests {
                 "unavailable iterations must not be fabricated from callbacks or status"
             );
             if let Some(observed) = observed {
-                assert_eq!(observed.profile.backend, Backend::Uno);
+                assert_eq!(observed.profile.method.backend(), Some(Backend::Uno));
                 assert_eq!(observed.profile.key, ContentHash::from_bytes([72; 32]));
             }
         }
@@ -266,7 +266,7 @@ mod tests {
     fn effort_is_opt_in_profile_scoped_and_preserves_finite_allowance() {
         use pse_model::strategy::Backend;
         let profile = ProfileRef {
-            backend: Backend::Ipopt,
+            method: pse_model::strategy::NumericalMethod::Backend(Backend::Ipopt),
             key: pse_ids::ContentHash::from_bytes([1; 32]),
         };
         let observation = |iterations| {

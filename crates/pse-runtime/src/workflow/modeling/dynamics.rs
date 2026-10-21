@@ -983,32 +983,29 @@ impl ModelingSimulation {
         profile: &native::Profile,
         attempt: u64,
         scope: &pse_kernels::ExecutionScope,
-        progress: Arc<pse_backend_native::solve::Progress>,
+        execution: &pse_backend_native::solve::Execution,
         capture: SampleCapture<'_>,
     ) -> Result<(native::Report, checks::SampleChecks), ProblemError> {
         let SampleCapture {
             retention,
             observer,
         } = capture;
-        let controls = pse_backend_native::solve::Controls {
-            time_limit: profile.time_limit,
-            ..Default::default()
-        };
-        let mut execution = pse_backend_native::solve::Execution::within(
-            scope.cancellation_control().clone(),
-            &controls,
-            scope.clone(),
-        )?;
-        execution.progress = progress.clone();
         let mut worker = self.worker(scope.clone())?;
         let Some(observer) = observer.as_deref_mut() else {
-            let report = native::integrate_with_progress_observed(
+            struct IgnoreNativeSamples;
+            impl native::SampleObserver for IgnoreNativeSamples {
+                fn sample(&mut self, _: usize, _: &native::Sample) -> Result<(), ProblemError> {
+                    Ok(())
+                }
+            }
+            let report = native::integrate_with_samples_current_observed(
                 &mut worker,
                 profile,
                 &self.parameters,
-                scope.cancellation_control().clone(),
-                progress,
+                execution,
                 &self.snapshot,
+                native::SampleRetention::Full,
+                &mut IgnoreNativeSamples,
             )?;
             drop(worker);
             let checks = self.check_samples(run_id, &report, &self.parameters, scope);
@@ -1026,7 +1023,7 @@ impl ModelingSimulation {
         let mut adapter = LiveSampleAdapter {
             attempt,
             observer,
-            execution: &execution,
+            execution,
             original,
             checks: checks::SampleChecks {
                 rows: Vec::new(),
@@ -1048,12 +1045,11 @@ impl ModelingSimulation {
             diagnostics: Vec::with_capacity(self.accuracy_sample_count()),
             last_original_point: None,
         };
-        let mut report = native::integrate_with_samples_observed(
+        let mut report = native::integrate_with_samples_current_observed(
             &mut worker,
             profile,
             &self.parameters,
-            scope.cancellation_control().clone(),
-            progress,
+            execution,
             &self.snapshot,
             retention,
             &mut adapter,
@@ -1094,7 +1090,7 @@ impl ModelingSimulation {
             original_checks: checks.rows.len(),
         };
         let delivered = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            adapter.observer.attempt_finished(&summary, &execution)
+            adapter.observer.attempt_finished(&summary, execution)
         }))
         .unwrap_or_else(|_| {
             Err(ProblemError::internal(
@@ -1152,121 +1148,130 @@ impl ModelingSimulation {
             .map_err(crate::math::MathRuntimeError::from)?;
         #[cfg(test)]
         let entry = crate::workflow::run::family_worker_entry();
-        let handle = service.submit_with(1, bytes, submission, move |flag, progress| {
-            #[cfg(test)]
-            if let Some(entry) = entry {
-                entry(&flag);
-            }
-            #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
-            {
-                let mut observer = observer;
-                let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
-                let accuracy_admission = (!prepared.numerics().policy.goals.is_empty())
-                    .then(|| accuracy::task_admission(scope.clone()));
-                if let Some(admission) = &accuracy_admission {
-                    admission.reserve_attempt()?;
+        let handle =
+            service.submit_with_storage(1, bytes, submission, move |flag, progress, storage| {
+                #[cfg(test)]
+                if let Some(entry) = entry {
+                    entry(&flag);
                 }
-                let controls = pse_backend_native::solve::Controls {
-                    time_limit: prepared.profile.time_limit,
-                    ..Default::default()
-                };
-                let sample_execution = pse_backend_native::solve::Execution::within(
-                    flag.clone(),
-                    &controls,
-                    scope.clone(),
-                )?;
-                let native_result = prepared.integrate_sample_attempt(
-                    run_id,
-                    &prepared.profile,
-                    0,
-                    &scope,
-                    progress.clone(),
-                    SampleCapture {
-                        retention,
-                        observer: &mut observer,
-                    },
-                );
-                let mut accuracy_charges = Vec::new();
-                if let Some(admission) = &accuracy_admission {
-                    accuracy_charges.push(accuracy::complete_dynamic_attempt(
-                        admission,
-                        prepared.key,
-                        0,
-                    )?);
-                }
-                let (report, checks) = native_result?;
-                let mut selected_attempt = 0;
-                let (mut report, mut checks, accuracy) = prepared.assess_dynamic_accuracy(
-                    report,
-                    checks,
-                    accuracy::DynamicAttemptContext {
-                        run_id,
-                        scope: &scope,
-                        progress: progress.clone(),
-                        admission: accuracy_admission,
-                        charges: &mut accuracy_charges,
-                        retention,
-                        observer: &mut observer,
-                        selected_attempt: &mut selected_attempt,
-                    },
-                )?;
-                if let Some(observer) = observer.as_deref_mut() {
-                    let delivered = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        observer.finished(selected_attempt, &sample_execution)
-                    }))
-                    .unwrap_or_else(|_| {
-                        Err(ProblemError::internal(
-                            "live sample selection observer panicked",
-                        ))
-                    });
-                    if let Err(error) = delivered {
-                        if report.error.is_none() {
-                            report.error = Some(error);
-                        }
-                        checks.complete = false;
+                #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+                {
+                    let mut observer = observer;
+                    let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
+                    let accuracy_admission = (!prepared.numerics().policy.goals.is_empty())
+                        .then(|| accuracy::task_admission(scope.clone()));
+                    if let Some(admission) = &accuracy_admission {
+                        admission.reserve_attempt()?;
                     }
+                    let controls = pse_backend_native::solve::Controls {
+                        time_limit: prepared.profile.time_limit,
+                        ..Default::default()
+                    };
+                    let mut sample_execution = pse_backend_native::solve::Execution::within(
+                        flag.clone(),
+                        &controls,
+                        scope.clone(),
+                    )?;
+                    // This is the actual detached lease admitted by submit_with_storage,
+                    // held through every native/accuracy attempt and final observer join.
+                    sample_execution.memory = Some(storage.size());
+                    sample_execution.progress = progress.clone();
+                    let native_result = prepared.integrate_sample_attempt(
+                        run_id,
+                        &prepared.profile,
+                        0,
+                        &scope,
+                        &sample_execution,
+                        SampleCapture {
+                            retention,
+                            observer: &mut observer,
+                        },
+                    );
+                    let mut accuracy_charges = Vec::new();
+                    if let Some(admission) = &accuracy_admission {
+                        accuracy_charges.push(accuracy::complete_dynamic_attempt(
+                            admission,
+                            prepared.key,
+                            0,
+                        )?);
+                    }
+                    let (report, checks) = native_result?;
+                    let mut selected_attempt = 0;
+                    let (mut report, mut checks, accuracy) = prepared.assess_dynamic_accuracy(
+                        report,
+                        checks,
+                        accuracy::DynamicAttemptContext {
+                            run_id,
+                            scope: &scope,
+                            progress: progress.clone(),
+                            execution: &sample_execution,
+                            admission: accuracy_admission,
+                            charges: &mut accuracy_charges,
+                            retention,
+                            observer: &mut observer,
+                            selected_attempt: &mut selected_attempt,
+                        },
+                    )?;
+                    if let Some(observer) = observer.as_deref_mut() {
+                        let delivered =
+                            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                observer.finished(selected_attempt, &sample_execution)
+                            }))
+                            .unwrap_or_else(|_| {
+                                Err(ProblemError::internal(
+                                    "live sample selection observer panicked",
+                                ))
+                            });
+                        if let Err(error) = delivered {
+                            if report.error.is_none() {
+                                report.error = Some(error);
+                            }
+                            checks.complete = false;
+                        }
+                    }
+                    if !prepared.numerics().policy.goals.is_empty() {
+                        (report.progress, report.dropped_progress) = progress.snapshot();
+                    }
+                    let bytes = report
+                        .numeric_bytes()
+                        .checked_add(checks.rows.capacity() * size_of::<ModelingCheck>())
+                        .and_then(|n| {
+                            n.checked_add(
+                                checks
+                                    .reports
+                                    .iter()
+                                    .map(HeapUsage::owned_bytes)
+                                    .sum::<usize>(),
+                            )
+                        })
+                        .and_then(|n| n.checked_add(4 << 20))
+                        .and_then(|n| n.checked_add(accuracy::retained_bytes(&accuracy)))
+                        .and_then(|n| {
+                            n.checked_add(
+                                report
+                                    .statistics
+                                    .iter()
+                                    .map(|entry| {
+                                        serde_json::to_vec(entry).map_or(0, |bytes| bytes.len())
+                                    })
+                                    .sum::<usize>(),
+                            )
+                        })
+                        .ok_or(crate::math::MathRuntimeError::Limit(
+                            "modeling trajectory extent",
+                        ))?;
+                    Ok(((report, checks, accuracy), bytes))
                 }
-                if !prepared.numerics().policy.goals.is_empty() {
-                    (report.progress, report.dropped_progress) = progress.snapshot();
+                #[cfg(not(any(feature = "solver-diffsol", feature = "solver-idas")))]
+                {
+                    let _ = (
+                        prepared, flag, progress, storage, run_id, retention, observer,
+                    );
+                    Err(crate::math::MathRuntimeError::Solve(
+                        ProblemError::unsupported("dynamic backend is not linked"),
+                    ))
                 }
-                let bytes = report
-                    .numeric_bytes()
-                    .checked_add(checks.rows.capacity() * size_of::<ModelingCheck>())
-                    .and_then(|n| {
-                        n.checked_add(
-                            checks
-                                .reports
-                                .iter()
-                                .map(HeapUsage::owned_bytes)
-                                .sum::<usize>(),
-                        )
-                    })
-                    .and_then(|n| n.checked_add(4 << 20))
-                    .and_then(|n| n.checked_add(accuracy::retained_bytes(&accuracy)))
-                    .and_then(|n| {
-                        n.checked_add(
-                            report
-                                .statistics
-                                .iter()
-                                .map(|entry| {
-                                    serde_json::to_vec(entry).map_or(0, |bytes| bytes.len())
-                                })
-                                .sum::<usize>(),
-                        )
-                    })
-                    .ok_or(crate::math::MathRuntimeError::Limit(
-                        "modeling trajectory extent",
-                    ))?;
-                Ok(((report, checks, accuracy), bytes))
-            }
-            #[cfg(not(any(feature = "solver-diffsol", feature = "solver-idas")))]
-            {
-                let _ = (prepared, flag, progress, run_id, retention, observer);
-                Err(crate::math::MathRuntimeError::Solve(
-                    ProblemError::unsupported("dynamic backend is not linked"),
-                ))
-            }
-        })?;
+            })?;
         Ok(handle)
     }
     pub(in crate::workflow) fn finish(
@@ -2560,6 +2565,26 @@ impl ModelingPackage {
             .map(|q| ModelingOutput::Member(q.integrand).row_id())
             .collect::<Vec<_>>();
         let window_cotangents = !quadrature_rows.is_empty();
+        // Value/exact-action populations for Krylov approximations. Full sensitivities,
+        // cotangents, shooting and stronger transient products retain full demand.
+        let selected_krylov = profile.method == native::Method::Idas
+            && matches!(
+                profile.idas.linear,
+                native::IdasLinear::Spgmr {
+                    preconditioner: pse_backend_native::solve::Preconditioner::Jacobi,
+                    ..
+                } | native::IdasLinear::Spfgmr {
+                    preconditioner: pse_backend_native::solve::Preconditioner::Jacobi,
+                    ..
+                } | native::IdasLinear::SpgmrBbd { .. }
+            )
+            && !profile.forward()
+            && profile.sensitivity != native::DynamicSensitivity::Adjoint
+            && directions.is_empty()
+            && derivatives == DerivativeOrder::First
+            && !shooting
+            && !window_cotangents;
+
         let mut roles = vec![
             (Function::Rhs, rhs.clone(), BTreeMap::new()),
             (Function::Initial, initial, constants),
@@ -2624,21 +2649,49 @@ impl ModelingPackage {
                     actions.push(pse_math::jets::ProductKind::TransposeJacobianAction);
                 }
             }
-            let compiled = self
-                .runtime
-                .shared
-                .math()
-                .prepare_modeling_function_products(
-                    self.numerical_workspace()?,
-                    model.clone(),
-                    selected,
-                    derivative_coordinates.clone(),
-                    derivatives,
-                    actions,
-                    compiler,
-                    cancel,
-                )
-                .await?;
+            let compiled = if selected_krylov {
+                let entries = if function == Function::Rhs
+                    && !matches!(profile.idas.linear, native::IdasLinear::SpgmrBbd { .. })
+                {
+                    if rows.len() != states.len() {
+                        return Err(contract("RHS diagonal row/state extent"));
+                    }
+                    rows.iter().copied().zip(states.iter().copied()).collect()
+                } else {
+                    Vec::new()
+                };
+                self.runtime
+                    .shared
+                    .math()
+                    .prepare_modeling_function_entries(
+                        self.numerical_workspace()?,
+                        model.clone(),
+                        selected,
+                        derivative_coordinates.clone(),
+                        derivatives,
+                        actions,
+                        entries,
+                        &providers,
+                        compiler,
+                        cancel,
+                    )
+                    .await?
+            } else {
+                self.runtime
+                    .shared
+                    .math()
+                    .prepare_modeling_function_products(
+                        self.numerical_workspace()?,
+                        model.clone(),
+                        selected,
+                        derivative_coordinates.clone(),
+                        derivatives,
+                        actions,
+                        compiler,
+                        cancel,
+                    )
+                    .await?
+            };
             // No derivative-coordinate feedback may leak into an explicit RHS; an
             // implicit DAE would need a residual adapter rather than a guessed rate.
             for i in compiled.assembly.structure().instances() {
@@ -7546,5 +7599,152 @@ mod diagnostic_admission_tests {
             trajectory_diagnostic_report_allocation_bound(policy, 1, [1, usize::MAX, 0, 0], 1)
                 .is_err()
         );
+    }
+    #[cfg(feature = "solver-idas")]
+    #[tokio::test]
+    async fn kernel_bbd_prepares_value_and_exact_jvp_without_full_numeric_jacobian() {
+        use native::Oracle;
+        use pse_model::scalars::PositiveCount;
+        let runtime = super::super::super::tests::runtime();
+        let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); var x[i in t]:Scalar; var y[i in t]:Scalar; eq rx[i in t]:d(x[i])/di == -x[i]/1{s}; eq ry[i in t]:d(y[i])/di == (x[i]-2*y[i])/1{s}; eq ix:x[0{s}]==1; eq iy:y[0{s}]==0; annotation start x(1); annotation start y(0); } }";
+        let rows = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(rows, super::super::super::tests::physical())
+            .await
+            .unwrap();
+        let cancel = crate::CancelSource::new();
+        let prepared = package
+            .prepare_simulation(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Default::default(),
+                Default::default(),
+                super::super::super::tests::compiler_profile(),
+                native::Profile {
+                    method: native::Method::Idas,
+                    end: 0.2,
+                    samples: vec![0., 0.1, 0.2],
+                    sensitivity: native::DynamicSensitivity::None,
+                    rtol: 0.001,
+                    atol: vec![0.001; 2],
+                    idas: native::IdasSettings {
+                        linear: native::IdasLinear::SpgmrBbd {
+                            dimension: pse_model::scalar!(PositiveCount(8)),
+                            difference: native::IdasBand { upper: 1, lower: 1 },
+                            retained: native::IdasBand { upper: 1, lower: 1 },
+                        },
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                DerivativeOrder::First,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let program = prepared.program();
+        for role in program.programs.iter() {
+            assert_eq!(role.case.assembly.order(), DerivativeOrder::Value);
+            assert!(
+                role.case.assembly.jacobian_entries().is_empty(),
+                "BBD consumes values, not selected diagonal products"
+            );
+        }
+        let rhs = program
+            .programs
+            .iter()
+            .find(|role| role.function == Function::Rhs)
+            .unwrap();
+        assert!(rhs.case.assembly.has_directional_actions());
+        let x = prepared
+            .model()
+            .compiled()
+            .model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path.ends_with(".x"))
+            .unwrap()
+            .id;
+        let xi = program
+            .coordinates
+            .state
+            .iter()
+            .position(|coordinate| coordinate.id == x)
+            .unwrap();
+        let yi = 1 - xi;
+        let mut worker = prepared
+            .worker(pse_kernels::ExecutionScope::new(
+                pse_diagnostics::Cancellation::default(),
+                None,
+            ))
+            .unwrap();
+        let point = [0.1; 2];
+        let direction = [0.3, 0.7];
+        let mut actual = [42.; 2];
+        worker
+            .jacobian_action(
+                0,
+                Function::Rhs,
+                0.,
+                &point,
+                prepared.parameters(),
+                &direction,
+                &mut actual,
+            )
+            .unwrap();
+        assert!((actual[xi] + direction[xi]).abs() < 0.001);
+        assert!((actual[yi] - direction[xi] + 2. * direction[yi]).abs() < 0.001);
+        assert!(
+            worker
+                .evaluate(0, Function::Rhs, 0., &point, prepared.parameters(), true)
+                .is_err(),
+            "exact action coverage must not be promoted to a full numeric matrix"
+        );
+        let mut unprepared_diagonal = [42.; 2];
+        assert!(
+            worker
+                .rhs_state_diagonal(
+                    0,
+                    0.,
+                    &point,
+                    prepared.parameters(),
+                    &mut unprepared_diagonal
+                )
+                .is_err(),
+            "an empty exact-entry plan does not claim selected diagonal coverage"
+        );
+        assert_eq!(
+            unprepared_diagonal, [42.; 2],
+            "unprepared derivatives refuse before output publication"
+        );
+        drop(worker);
+        let result = prepared.run(&cancel).await.unwrap();
+        assert!(result.accepted(), "{:?}", result.diagnostic());
+        assert!(
+            result
+                .report()
+                .statistics
+                .iter()
+                .any(|value| value["idas"]["linear"]["kind"] == "spgmr_bbd")
+        );
+        for sample in &result.report().samples {
+            assert!((sample.state[xi] - (-sample.time).exp()).abs() <= 0.01);
+            assert!(
+                (sample.state[yi] - ((-sample.time).exp() - (-2. * sample.time).exp())).abs()
+                    <= 0.01
+            );
+        }
     }
 }

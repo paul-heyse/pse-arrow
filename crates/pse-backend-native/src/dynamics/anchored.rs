@@ -8,6 +8,8 @@
 //! form the adjoint route takes. Both are exact reformulations of the same compiled
 //! functions; nothing is integrated or differentiated here.
 use super::*;
+use std::collections::BTreeMap;
+mod layout;
 
 /// A dynamic oracle whose parameters are the inner parameters followed by one anchor per
 /// differential state, in state order: the anchors are the differential start values, and
@@ -61,6 +63,16 @@ pub struct Anchored<O> {
     /// Declared quadratures are integrated as states and observed as outputs.
     observed: bool,
     prepared: Option<Arc<AnchoredLayout>>,
+    snapshots: BTreeMap<
+        (usize, Function),
+        pse_math::SharedAllocation<faer::sparse::SparseColMat<usize, f64>>,
+    >,
+    diagonal: Option<DiagonalScratch>,
+}
+#[derive(Debug)]
+struct DiagonalScratch {
+    values: Vec<f64>,
+    _owner: Arc<dyn pse_math::AllocationOwner>,
 }
 /// Source-issued immutable support for one anchored formulation. The source identity
 /// and observed-quadrature choice prevent reuse for a different compiled problem.
@@ -70,7 +82,14 @@ pub struct AnchoredLayout {
     identity: ContentHash,
     observed: bool,
     layout: Arc<PreparedLayout>,
+    functions: BTreeMap<(usize, Function), layout::FunctionLayout>,
     _owner: Arc<dyn pse_math::AllocationOwner>,
+}
+struct Derivative {
+    prepared: Arc<AnchoredLayout>,
+    matrix: pse_math::SharedAllocation<faer::sparse::SparseColMat<usize, f64>>,
+    mode: usize,
+    function: Function,
 }
 impl<O: Oracle> Anchored<O> {
     /// Wrap `inner`; `observe_quadratures` integrates its quadratures as observed states,
@@ -87,7 +106,7 @@ impl<O: Oracle> Anchored<O> {
             .filter(|i| c.differential[*i])
             .collect::<Vec<_>>();
         let observed = observe_quadratures && !c.quadratures.is_empty();
-        let mut identity = pse_ids::FramedHasher::new(pse_ids::Frame::ShootingWindowV1);
+        let mut identity = FramedHasher::new(pse_ids::Frame::ShootingWindowV1);
         identity.hash(&c.identity).bool(observed);
         let mut contract = Contract {
             identity: identity.finish_hash(),
@@ -131,6 +150,8 @@ impl<O: Oracle> Anchored<O> {
             anchors,
             observed,
             prepared: None,
+            snapshots: BTreeMap::new(),
+            diagonal: None,
         })
     }
     /// Prepare the transformed all-mode state layout once, after reserving its
@@ -139,14 +160,92 @@ impl<O: Oracle> Anchored<O> {
     /// # Errors
     /// Missing allocation authority, insufficient allowance or invalid support.
     pub fn prepare_layout(&self, allowance: usize) -> Result<Arc<AnchoredLayout>, ProblemError> {
+        if allowance < size_of::<AnchoredLayout>() {
+            return Err(ProblemError::memory("anchored prepared allowance"));
+        }
         let owner = self.snapshot_owner(allowance)?;
-        let layout = self.prepared_layout(allowance)?;
+        let functions = layout::functions(self, allowance)?;
+        let function_bytes = functions
+            .values()
+            .try_fold(size_of::<AnchoredLayout>(), |n, f| n.checked_add(f.bytes()))
+            .ok_or_else(|| ProblemError::memory("anchored prepared extent"))?;
+        let remaining = allowance
+            .checked_sub(function_bytes)
+            .ok_or_else(|| ProblemError::memory("anchored prepared allowance"))?;
+        let layout = self.prepared_layout(remaining)?;
+        if layout.retained_bytes() > remaining {
+            return Err(ProblemError::memory("anchored native layout allowance"));
+        }
         Ok(Arc::new(AnchoredLayout {
             identity: self.contract.identity,
             observed: self.observed,
             layout,
+            functions,
             _owner: owner,
         }))
+    }
+    /// Conservative finite construction extent from the source's complete total
+    /// inner support-entry count across all modes and functions. A smaller declared
+    /// count cannot authorize larger construction: preparation checks its real extent.
+    ///
+    /// # Errors
+    /// Arithmetic overflow or an unsupported state/index extent.
+    pub fn layout_allocation_bound(&self, inner_entries: usize) -> Result<usize, ProblemError> {
+        let modes = self.contract.events.len();
+        let events = self
+            .contract
+            .events
+            .iter()
+            .try_fold(0usize, |n, e| n.checked_add(e.len()))
+            .ok_or_else(|| ProblemError::memory("anchored event extent"))?;
+        let roles = modes
+            .checked_mul(
+                3 + usize::from(self.nq > 0) + usize::from(!self.contract.balances.is_empty()),
+            )
+            .and_then(|n| {
+                n.checked_add(
+                    self.contract
+                        .events
+                        .iter()
+                        .filter(|e| !e.is_empty())
+                        .count(),
+                )
+            })
+            .and_then(|n| {
+                n.checked_add(
+                    events.checked_mul(1 + usize::from(!self.contract.balances.is_empty()))?,
+                )
+            })
+            .ok_or_else(|| ProblemError::memory("anchored function extent"))?;
+        let entries = inner_entries
+            .checked_mul(if self.observed { 2 } else { 1 })
+            .and_then(|n| n.checked_add(self.anchors.len().checked_mul(modes)?))
+            .and_then(|n| n.checked_add(self.states().checked_mul(modes.checked_add(events)?)?))
+            .ok_or_else(|| ProblemError::memory("anchored support extent"))?;
+        PreparedLayout::construction_bound(self.contract.states.len(), entries)
+            .and_then(|n| n.checked_add(entries.checked_mul(256)?))
+            .and_then(|n| {
+                n.checked_add(
+                    self.width()
+                        .checked_add(1)?
+                        .checked_mul(roles)?
+                        .checked_mul(32)?,
+                )
+            })
+            .and_then(|n| {
+                n.checked_add(roles.checked_mul(512 + size_of::<layout::FunctionLayout>())?)
+            })
+            .and_then(|n| n.checked_add(size_of::<AnchoredLayout>() + 512))
+            .and_then(|n| {
+                n.checked_add(if self.observed {
+                    self.n
+                        .checked_mul(size_of::<f64>())?
+                        .checked_add(size_of::<DiagonalScratch>() + 2 * size_of::<usize>())?
+                } else {
+                    0
+                })
+            })
+            .ok_or_else(|| ProblemError::memory("anchored construction extent"))
     }
     /// Bind support prepared by this exact anchored source. The native IVP is still
     /// initialized freshly; this retains only immutable structural destinations.
@@ -165,6 +264,7 @@ impl<O: Oracle> Anchored<O> {
                 "anchored layout source differs".into(),
             ));
         }
+        self.snapshots.clear();
         self.prepared = Some(prepared);
         Ok(())
     }
@@ -289,24 +389,92 @@ impl<O: Oracle> Anchored<O> {
             derivatives,
         )
     }
-    /// Append an inner Jacobian's entries, rows offset by `row` and columns mapped.
+    fn derivative(&mut self, mode: usize, function: Function) -> Result<Derivative, ProblemError> {
+        let prepared = self.prepared.clone().ok_or_else(|| {
+            ProblemError::Contract("anchored derivative layout was not prepared".into())
+        })?;
+        let layout = prepared
+            .functions
+            .get(&(mode, function))
+            .ok_or_else(|| ProblemError::Contract("anchored function was not prepared".into()))?;
+        let mut matrix = self.snapshots.remove(&(mode, function));
+        if matrix.as_mut().and_then(|m| m.get_mut()).is_none() {
+            let bytes = layout
+                .matrix
+                .retained_bytes()
+                .checked_add(2 * size_of::<usize>())
+                .ok_or_else(|| ProblemError::memory("anchored snapshot extent"))?;
+            let owner = self.inner.snapshot_owner(bytes)?;
+            matrix = Some(
+                pse_math::SharedAllocation::from(Arc::new(layout.matrix.matrix().clone()))
+                    .with_owner(owner),
+            );
+        }
+        let mut matrix =
+            matrix.ok_or_else(|| ProblemError::internal("anchored snapshot absent"))?;
+        layout.initialize(
+            matrix
+                .get_mut()
+                .ok_or_else(|| ProblemError::internal("anchored snapshot still borrowed"))?,
+        );
+        Ok(Derivative {
+            prepared,
+            matrix,
+            mode,
+            function,
+        })
+    }
+    /// Refill the canonical prepared wrapper destinations; a source may emit a
+    /// subset in another order, but cannot add support after admission.
     fn append(
         &self,
-        triplets: &mut Vec<faer::sparse::Triplet<usize, usize, f64>>,
+        candidate: &mut Option<Derivative>,
         jacobian: Option<&faer::sparse::SparseColMat<usize, f64>>,
         row: usize,
         keep: impl Fn(usize) -> bool,
     ) -> Result<(), ProblemError> {
-        let j = jacobian.ok_or_else(|| ProblemError::internal("anchored inner partials"))?;
-        for col in 0..j.ncols() {
-            for k in j.col_range(col) {
-                let r = j.row_idx()[k];
-                if keep(r) {
-                    triplets.push(faer::sparse::Triplet::new(
-                        r + row,
-                        self.column(col),
-                        j.val()[k],
-                    ));
+        let Some(candidate) = candidate else {
+            return Ok(());
+        };
+        let source = jacobian.ok_or_else(|| ProblemError::internal("anchored inner partials"))?;
+        let expected_rows = match candidate.function {
+            Function::Rhs if row == self.n => self.nq,
+            Function::Rhs | Function::Initial | Function::Reset(_) => self.n,
+            Function::Output => self.m,
+            Function::QuadratureFlux => self.nq,
+            Function::Roots => self.contract.events[candidate.mode].len(),
+            Function::Inventory | Function::Transfer(_) => self.contract.balances.len(),
+        };
+        if source.ncols() != self.n + self.np || source.nrows() != expected_rows {
+            return Err(ProblemError::Contract(
+                "anchored inner partial dimensions".into(),
+            ));
+        }
+        let layout = candidate
+            .prepared
+            .functions
+            .get(&(candidate.mode, candidate.function))
+            .ok_or_else(|| ProblemError::internal("anchored prepared function absent"))?;
+        let matrix = candidate
+            .matrix
+            .get_mut()
+            .ok_or_else(|| ProblemError::internal("anchored snapshot still borrowed"))?;
+        for column in 0..source.ncols() {
+            for k in source.col_range(column) {
+                let source_row = source.row_idx()[k];
+                if keep(source_row) {
+                    let slot = layout
+                        .slot(source_row + row, self.column(column))
+                        .ok_or_else(|| {
+                            ProblemError::Contract(
+                                "anchored partial outside prepared support".into(),
+                            )
+                        })?;
+                    let value = matrix.val()[slot] + source.val()[k];
+                    if !value.is_finite() {
+                        return Err(ProblemError::numerical("nonfinite anchored partial"));
+                    }
+                    matrix.val_mut()[slot] = value;
                 }
             }
         }
@@ -327,14 +495,6 @@ impl<O: Oracle> Anchored<O> {
                 ));
             }
         }
-    }
-    fn matrix(
-        &self,
-        rows: usize,
-        triplets: &[faer::sparse::Triplet<usize, usize, f64>],
-    ) -> Result<faer::sparse::SparseColMat<usize, f64>, ProblemError> {
-        faer::sparse::SparseColMat::try_new_from_triplets(rows, self.width(), triplets)
-            .map_err(|e| ProblemError::memory(format!("anchored partials: {e:?}")))
     }
 }
 impl<O: Oracle> Oracle for Anchored<O> {
@@ -431,6 +591,80 @@ impl<O: Oracle> Oracle for Anchored<O> {
             | Function::Transfer(_) => self.inner_support(mode, function, 0),
         }
     }
+    fn rhs_state_diagonal(
+        &mut self,
+        mode: usize,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        output: &mut [f64],
+    ) -> Result<RhsDiagonalSource, ProblemError> {
+        if mode >= self.contract.events.len()
+            || state.len() != self.contract.states.len()
+            || output.len() != state.len()
+            || parameters.len() != self.contract.parameters.len()
+            || !time.is_finite()
+            || state.iter().chain(parameters).any(|v| !v.is_finite())
+        {
+            return Err(contract("anchored RHS diagonal bindings"));
+        }
+        if !self.observed {
+            return self.inner.rhs_state_diagonal(
+                mode,
+                time,
+                state,
+                &parameters[..self.np],
+                output,
+            );
+        }
+        if self.diagonal.is_none() {
+            let bytes = self
+                .n
+                .checked_mul(size_of::<f64>())
+                .and_then(|n| n.checked_add(size_of::<DiagonalScratch>() + 2 * size_of::<usize>()))
+                .ok_or_else(|| ProblemError::memory("anchored diagonal scratch extent"))?;
+            let owner = self.inner.snapshot_owner(bytes)?;
+            self.diagonal = Some(DiagonalScratch {
+                values: vec![f64::NAN; self.n],
+                _owner: owner,
+            });
+        }
+        let candidate = self
+            .diagonal
+            .as_mut()
+            .ok_or_else(|| ProblemError::internal("anchored diagonal scratch absent"))?;
+        candidate.values.fill(f64::NAN);
+        let source = self.inner.rhs_state_diagonal(
+            mode,
+            time,
+            &state[..self.n],
+            &parameters[..self.np],
+            &mut candidate.values,
+        )?;
+        if candidate.values.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("nonfinite anchored raw diagonal"));
+        }
+        // A structural-zero self derivative does not remove the flux's current
+        // Value/domain/provider checks. Preserve RHS -> flux order and publish
+        // only after both sources complete; no flux First product is requested.
+        let flux = self.inner.evaluate(
+            mode,
+            Function::QuadratureFlux,
+            time,
+            &state[..self.n],
+            &parameters[..self.np],
+            false,
+        )?;
+        if flux.values.len() != self.nq {
+            return Err(contract("anchored diagonal flux dimensions"));
+        }
+        if flux.values.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("nonfinite anchored diagonal flux"));
+        }
+        output[..self.n].copy_from_slice(&candidate.values);
+        output[self.n..].fill(0.);
+        Ok(source)
+    }
     fn evaluate(
         &mut self,
         mode: usize,
@@ -444,14 +678,17 @@ impl<O: Oracle> Oracle for Anchored<O> {
         if state.len() != n + quadratures || parameters.len() != self.np + self.anchors.len() {
             return Err(contract("anchored binding dimensions"));
         }
-        let mut triplets = Vec::new();
+        // Missing preparation and snapshot admission refuse before inner effects.
+        let mut candidate = derivatives
+            .then(|| self.derivative(mode, function))
+            .transpose()?;
         let (values, rows) = match function {
             Function::Rhs => {
                 let f =
                     self.evaluate_inner(mode, Function::Rhs, time, state, parameters, derivatives)?;
                 let mut values = f.values;
                 if derivatives {
-                    self.append(&mut triplets, f.jacobian.as_deref(), 0, |_| true)?;
+                    self.append(&mut candidate, f.jacobian.as_deref(), 0, |_| true)?;
                 }
                 if self.observed {
                     let g = self.evaluate_inner(
@@ -464,7 +701,7 @@ impl<O: Oracle> Oracle for Anchored<O> {
                     )?;
                     values.extend(g.values);
                     if derivatives {
-                        self.append(&mut triplets, g.jacobian.as_deref(), n, |_| true)?;
+                        self.append(&mut candidate, g.jacobian.as_deref(), n, |_| true)?;
                     }
                 }
                 let rows = values.len();
@@ -486,12 +723,9 @@ impl<O: Oracle> Oracle for Anchored<O> {
                 values.extend(std::iter::repeat_n(0.0, quadratures));
                 if derivatives {
                     let differential = self.contract.differential.clone();
-                    self.append(&mut triplets, guess.jacobian.as_deref(), 0, |r| {
+                    self.append(&mut candidate, guess.jacobian.as_deref(), 0, |r| {
                         !differential[r]
                     })?;
-                    for (k, i) in self.anchors.iter().enumerate() {
-                        triplets.push(faer::sparse::Triplet::new(*i, self.anchor(k), 1.0));
-                    }
                 }
                 (values, n + quadratures)
             }
@@ -507,10 +741,7 @@ impl<O: Oracle> Oracle for Anchored<O> {
                 let mut values = y.values;
                 values.extend_from_slice(&state[n..]);
                 if derivatives {
-                    self.append(&mut triplets, y.jacobian.as_deref(), 0, |_| true)?;
-                    for q in 0..quadratures {
-                        triplets.push(faer::sparse::Triplet::new(self.m + q, n + q, 1.0));
-                    }
+                    self.append(&mut candidate, y.jacobian.as_deref(), 0, |_| true)?;
                 }
                 (values, self.m + quadratures)
             }
@@ -526,10 +757,7 @@ impl<O: Oracle> Oracle for Anchored<O> {
                 let mut values = r.values;
                 values.extend_from_slice(&state[n..]);
                 if derivatives {
-                    self.append(&mut triplets, r.jacobian.as_deref(), 0, |_| true)?;
-                    for q in 0..quadratures {
-                        triplets.push(faer::sparse::Triplet::new(n + q, n + q, 1.0));
-                    }
+                    self.append(&mut candidate, r.jacobian.as_deref(), 0, |_| true)?;
                 }
                 (values, n + quadratures)
             }
@@ -540,34 +768,21 @@ impl<O: Oracle> Oracle for Anchored<O> {
                 let v =
                     self.evaluate_inner(mode, function, time, state, parameters, derivatives)?;
                 if derivatives {
-                    self.append(&mut triplets, v.jacobian.as_deref(), 0, |_| true)?;
+                    self.append(&mut candidate, v.jacobian.as_deref(), 0, |_| true)?;
                 }
                 let rows = v.values.len();
                 (v.values, rows)
             }
         };
-        let jacobian = if derivatives {
-            let columns = state
-                .len()
-                .checked_add(parameters.len())
-                .and_then(|n| n.checked_add(1))
-                .ok_or_else(|| ProblemError::memory("anchored snapshot columns"))?;
-            let bytes = triplets
-                .len()
-                .checked_mul(size_of::<usize>() + size_of::<f64>())
-                .and_then(|n| n.checked_add(columns.checked_mul(size_of::<usize>())?))
-                .and_then(|n| {
-                    n.checked_add(
-                        size_of::<faer::sparse::SparseColMat<usize, f64>>()
-                            + 2 * size_of::<usize>(),
-                    )
-                })
-                .ok_or_else(|| ProblemError::memory("anchored snapshot extent"))?;
-            let owner = self.inner.snapshot_owner(bytes)?;
-            Some(
-                pse_math::SharedAllocation::from(Arc::new(self.matrix(rows, &triplets)?))
-                    .with_owner(owner),
-            )
+        let jacobian = if let Some(candidate) = candidate {
+            if candidate.matrix.nrows() != rows {
+                return Err(ProblemError::Contract(
+                    "anchored function row dimensions".into(),
+                ));
+            }
+            self.snapshots
+                .insert((mode, function), candidate.matrix.clone());
+            Some(candidate.matrix)
         } else {
             None
         };

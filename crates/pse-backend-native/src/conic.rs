@@ -22,6 +22,7 @@ use std::collections::BTreeMap;
 
 pub(crate) mod lowering;
 pub(crate) mod recognized;
+mod refinement;
 pub use lowering::{Lowered, LoweredRow, RowSide};
 pub use recognized::{Recognized, lower};
 
@@ -640,8 +641,8 @@ impl Session {
         self.compatibility = compatibility;
         Ok(crate::execution::SessionUpdate::Compatible)
     }
-    /// Solve using native preprocessing/postprocessing. No external iterate warm start is claimed.
-    pub fn solve(
+    // One actual library solve. The bounded adapter refinement owns the public entry.
+    fn solve_once(
         &mut self,
         p: &ConicProblem,
         controls: &Controls,
@@ -681,15 +682,19 @@ impl Session {
                 &execution,
             );
             report.termination.category = stop;
+            report.evidence.work.iterations = Some(0);
             return Ok(report);
         }
-        if execution.stopped().is_none() {
-            crate::observation::unavailable(
-                "clarabel.nested_timers",
-                "public timers move out during solve; no typed per-key live getter",
-            );
-            crate::observation::scoped("clarabel.solve", || self.solver.solve());
-        }
+        // The pre-work check above either returned an explicit unissued result,
+        // or this invocation actually enters the native algorithm. A second
+        // conditional skip could otherwise expose a prior solve's solution and
+        // counters when cancellation arrives between the checks. The native
+        // callback and post-return check retain cooperative stop semantics.
+        crate::observation::unavailable(
+            "clarabel.nested_timers",
+            "public timers move out during solve; no typed per-key live getter",
+        );
+        crate::observation::scoped("clarabel.solve", || self.solver.solve());
         let solution = &self.solver.solution;
         let mut report = SolveReport::new(
             Backend::Clarabel,
@@ -1107,6 +1112,8 @@ pub(crate) fn quality(
         .collect();
     Quality::new(rows, bounds, vec![])
 }
+#[cfg(test)]
+mod control_tests;
 #[cfg(test)]
 mod tests {
     use super::*;

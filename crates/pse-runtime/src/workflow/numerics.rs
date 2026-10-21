@@ -615,7 +615,7 @@ impl RunResult {
                             (
                                 r.solve.as_ref(),
                                 r.quality.as_ref().map(|q| q.feasible()),
-                                r.solve.is_none() && r.candidate.is_some(),
+                                r.solve.is_none() && r.residual.is_none() && r.candidate.is_some(),
                                 policy,
                                 r.completion.clone().unwrap_or_else(unavailable),
                             )
@@ -663,14 +663,30 @@ impl RunResult {
                         ),
                         _ => (None, None, false, &default, unavailable()),
                     };
-                completed.assessment_row(
+                let mut row = completed.assessment_row(
                     self.run_id,
                     self.modeling_step(step) as i64,
                     policy,
                     report,
                     numerical,
                     constant,
-                )
+                );
+                if let Ok(RunReport::Fit(report)) = &self.report
+                    && let Some(residual) = &report.residual
+                {
+                    row.native_termination = Some(residual.termination_category());
+                    row.qualification = Some(residual.qualification);
+                    row.candidate_kind = report
+                        .candidate
+                        .as_ref()
+                        .map(|_| pse_model::generated::enums::NativeCandidateKind::FinalIterate);
+                    row.validated = Some(
+                        report.quality.is_some()
+                            && report.validation_error.is_none()
+                            && residual.failure.is_none(),
+                    );
+                }
+                row
             })
             .collect()
     }

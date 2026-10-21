@@ -478,15 +478,7 @@ impl MathService {
                 cancel,
             )
             .await?;
-        let source_terms = executable
-            .assembly
-            .structure()
-            .instances()
-            .iter()
-            .try_fold(0usize, |total, instance| {
-                total.checked_add(instance.contributions.len())
-            })
-            .ok_or(MathRuntimeError::Limit("block assessment source terms"))?;
+        let source_terms = executable.assembly.contribution_count();
         let assessment_bytes = executable
             .assembly
             .numeric_worker_bytes()

@@ -138,6 +138,9 @@ pub struct SimulationOperation {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FitOperationSettings {
+    /// Fitting-owned residual/native selection.
+    #[serde(default)]
+    pub optimizer: super::fitting::FitOptimizer,
     /// Existing native solve controls.
     pub solver: SolveSettings,
     /// Explicit profiles for transient fit experiments.
@@ -163,6 +166,7 @@ impl FitOperationSettings {
     /// Invalid solve settings retain their original typed cause.
     pub fn profile(&self) -> Result<FitProfile, WorkflowError> {
         Ok(FitProfile {
+            optimizer: self.optimizer,
             solver: self.solver.clone().profile()?,
             simulations: self.simulations.clone(),
             rank_tolerance: self.rank_tolerance,
@@ -394,7 +398,8 @@ pub(in crate::workflow) async fn cancel_after_declared_admission<T>(
 }
 
 /// One operation's structural admission retained only while adjacent study points
-/// use exactly the same descriptor and path demand. Point values are never retained.
+/// use the same preparation descriptor and path demand. Point values and output
+/// presentation are never retained as preparation authority.
 pub(in crate::workflow) struct DeclaredStudyAdmission {
     operation: ContentHash,
     paths: Vec<String>,
@@ -409,8 +414,29 @@ impl DeclaredStudyAdmission {
         operation: &StudyOperation,
         overlay: &super::PointOverlay,
     ) -> Result<(ContentHash, Vec<String>), WorkflowError> {
-        let descriptor = pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, operation)
-            .map_err(|error| super::contract(error.to_string()))?;
+        // This is a private reuse key, not the canonical stored study identity.
+        // Exhaustive destructuring requires every added field's consumption to
+        // be reviewed. Output selects later capture and does not prepare science.
+        let StudyOperation {
+            version,
+            output: _,
+            source,
+            preparation,
+            operation: request,
+            admitted_horizon,
+        } = operation;
+        let descriptor = pse_ids::document::of(
+            pse_ids::Frame::DurableStudyRequestV5,
+            &(
+                "preparation",
+                version,
+                source,
+                preparation,
+                request,
+                admitted_horizon,
+            ),
+        )
+        .map_err(|error| super::contract(error.to_string()))?;
         let mut paths = overlay
             .assignments
             .iter()
@@ -1022,6 +1048,44 @@ impl PreparedStudyOperation {
             }
         }
     }
+    /// Exact dispatch and selected branch storage, admitted before a worker claim.
+    pub(in crate::workflow) fn start_attempt_extent(
+        &self,
+        runtime: &Runtime,
+        cancel: &CancelSource,
+    ) -> Option<usize> {
+        fn extent<F, Fut>(_: F) -> usize
+        where
+            F: FnOnce(super::durable::DurableAttempt) -> Fut,
+            Fut: Future,
+        {
+            size_of::<Fut>()
+        }
+        let dispatch = extent(|attempt| self.start_attempt(runtime, cancel, attempt));
+        let branch = match self {
+            Self::DeclaredCase(case) => {
+                extent(|attempt| runtime.start_attempt(vec![case.as_ref().clone()], attempt))
+            }
+            Self::Simulation(simulation) => extent(|attempt| simulation.start_attempt(attempt)),
+            Self::Fit(fit) => extent(|attempt| fit.start_attempt(attempt)),
+            Self::Horizon(horizon) => {
+                #[cfg(feature = "solver-diffsol")]
+                {
+                    extent(|attempt| {
+                        runtime.start_horizon_attempt(horizon.as_ref().clone(), cancel, attempt)
+                    })
+                }
+                #[cfg(not(feature = "solver-diffsol"))]
+                {
+                    let _ = horizon;
+                    dispatch
+                }
+            }
+        };
+        dispatch
+            .checked_add(branch)
+            .and_then(|bytes| bytes.checked_add(128))
+    }
     /// Reuse the worker's claimed attempt and its one run identity through the same owner.
     pub(crate) async fn start_attempt(
         &self,
@@ -1036,35 +1100,42 @@ impl PreparedStudyOperation {
             let _ = attempt.abandon(&error).await;
             return Err(WorkflowError::Shared(error));
         }
-        match self {
-            Self::DeclaredCase(case) => {
-                runtime
-                    .start_attempt(vec![case.as_ref().clone()], attempt)
-                    .await
-            }
-            Self::Simulation(simulation) => simulation.start_attempt(attempt).await,
-            Self::Fit(fit) => fit.start_attempt(attempt).await,
-            Self::Horizon(horizon) => {
-                #[cfg(feature = "solver-diffsol")]
-                {
-                    runtime
-                        .start_horizon_attempt(horizon.as_ref().clone(), cancel, attempt)
-                        .await
+        let mut work: futures_util::future::BoxFuture<'_, Result<RunHandle, WorkflowError>> =
+            match self {
+                Self::DeclaredCase(case) => super::worker::boxed_worker_action(|| {
+                    runtime.start_attempt(vec![case.as_ref().clone()], attempt)
+                }),
+                Self::Simulation(simulation) => {
+                    super::worker::boxed_worker_action(|| simulation.start_attempt(attempt))
                 }
-                #[cfg(not(feature = "solver-diffsol"))]
-                {
-                    let _ = horizon;
-                    let error = Arc::new(refusal(
-                        DiagnosticRule::StudyOperationUnsupported,
-                        BoundaryClass::Unsupported,
-                        [],
-                        "horizon owner is unavailable",
-                    ));
-                    let _ = attempt.abandon(&error).await;
-                    Err(WorkflowError::Shared(error))
+                Self::Fit(fit) => super::worker::boxed_worker_action(|| fit.start_attempt(attempt)),
+                Self::Horizon(horizon) => {
+                    #[cfg(feature = "solver-diffsol")]
+                    {
+                        super::worker::boxed_worker_action(|| {
+                            runtime.start_horizon_attempt(horizon.as_ref().clone(), cancel, attempt)
+                        })
+                    }
+                    #[cfg(not(feature = "solver-diffsol"))]
+                    {
+                        super::worker::boxed_worker_action(|| async move {
+                            let _ = horizon;
+                            let error = Arc::new(refusal(
+                                DiagnosticRule::StudyOperationUnsupported,
+                                BoundaryClass::Unsupported,
+                                [],
+                                "horizon owner is unavailable",
+                            ));
+                            let _ = attempt.abandon(&error).await;
+                            Err(WorkflowError::Shared(error))
+                        })
+                    }
                 }
-            }
-        }
+            };
+        futures_util::future::poll_fn(|context| {
+            super::worker::poll_worker_action(work.as_mut(), context)
+        })
+        .await
     }
     /// Dispatch through the existing joined operation supervisor.
     /// # Errors
@@ -1377,6 +1448,64 @@ mod study_operation_unit {
     }
 
     #[test]
+    fn preparation_key_excludes_only_output_presentation() {
+        let baseline = operation(OperationRequest::DeclaredCase(case()));
+        let overlay = super::super::PointOverlay::default();
+        let key = DeclaredStudyAdmission::key(&baseline, &overlay).unwrap();
+        let canonical =
+            pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &baseline).unwrap();
+        let mut presented = baseline.clone();
+        presented.output = super::super::StudyOutputDemand::Compact {
+            detail: super::super::StudyDetailDemand {
+                relations: vec!["runtime.solve_variables".into()],
+                maximum_rows: 7,
+                maximum_bytes: 2048,
+                ..Default::default()
+            },
+            failed_detail: Default::default(),
+        };
+        assert_eq!(
+            DeclaredStudyAdmission::key(&presented, &overlay).unwrap(),
+            key
+        );
+        assert_ne!(
+            pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &presented).unwrap(),
+            canonical
+        );
+        for change in 0..6 {
+            let mut changed = baseline.clone();
+            match change {
+                0 => {
+                    changed
+                        .preparation
+                        .compiler
+                        .evaluation
+                        .derivative_components += 1
+                }
+                1 => changed.preparation.limits.items += 1,
+                2 => changed.source.physical_context = ContentHash::from_bytes([9; 32]),
+                3 => changed.source.revision = ContentHash::from_bytes([8; 32]).into(),
+                _ => {
+                    let OperationRequest::DeclaredCase(case) = &mut changed.operation else {
+                        panic!("declared case expected");
+                    };
+                    if change == 4 {
+                        case.settings.controls.hessian =
+                            pse_backend_native::solve::HessianMode::Exact;
+                    } else {
+                        case.settings.numerics.supplier_action_accuracy *= 0.5;
+                    }
+                }
+            }
+            assert_ne!(
+                DeclaredStudyAdmission::key(&changed, &overlay).unwrap(),
+                key,
+                "consumed premise {change} was omitted"
+            );
+        }
+    }
+
+    #[test]
     fn preparation_document_preserves_all_existing_controls() {
         let settings = PreparationSettings {
             compiler: Profile {
@@ -1433,6 +1562,7 @@ mod study_operation_unit {
             OperationRequest::Fit(FitOperation {
                 fit: FitId::from_bytes([7; 16]),
                 settings: FitOperationSettings {
+                    optimizer: crate::workflow::FitOptimizer::NativeNlp,
                     solver: SolveSettings::default(),
                     simulations: BTreeMap::new(),
                     rank_tolerance: 1e-6,

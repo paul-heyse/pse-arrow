@@ -167,7 +167,8 @@ mod shooting;
 pub use dynamics::SimulationProfile;
 pub use fitting::{
     Covariance, FitDeclaration, FitDeclarations, FitDerivatives, FitDiagnostic,
-    FitPreparationDocument, FitProfile, FitProfileDocument, FitReport, FitRule, FitUncertainty,
+    FitExecutionDocument, FitOptimizer, FitPreparationDocument, FitProfile, FitProfileDocument,
+    FitReport, FitResidualReport, FitResidualTermination, FitRoute, FitRule, FitUncertainty,
     FitWithheld, Interval, IntervalBound, PreparedFit, ProfileChain, ProfileControls,
     ProfileFailure, ProfilePoint, ProfileWorkerFailure,
 };

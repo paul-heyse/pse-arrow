@@ -221,7 +221,9 @@ impl Engine<'_, '_> {
         env: &Environment,
     ) -> Result<crate::TypeScope<'_>> {
         let base = self.lexical_bases.source(self.p, self.c, at)?;
-        let mut types = crate::TypeScope::shared(base).with_upper(&self.function_types);
+        let mut lexical = self.p.named_types(at);
+        lexical.extend(base.iter().map(|(name, ty)| (name.clone(), ty.clone())));
+        let mut types = crate::TypeScope::owned(lexical).with_upper(&self.function_types);
         types.extend(
             env.iter()
                 .filter_map(|(name, value)| value_type(value).map(|ty| (name.clone(), ty))),

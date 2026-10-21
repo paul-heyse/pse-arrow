@@ -95,6 +95,14 @@ operation is retroactively complete, no omitted metric becomes zero, and no envi
 provenance proof or statistical timing campaign is revived. Current checkpoints and historical
 Outcomes below keep their original scope; this handoff adds prerequisites, not a second ledger.
 
+Subsequent Plan43–Plan48 deliveries are additional affected prerequisites, not acceptance of
+this packet. In particular, [Plan48's qualification owner](48h-qualification-and-design-publication.md)
+links selected source, native, result-publication and diagnostic controls that E0 can reuse
+within their actual scope; its selected assembled qualification remains pending. E0–E6
+retain their independent profiling, locality, placement and closeout obligations. Neither
+these corrections nor their focused passes revive the historical 32-block timing campaign
+or source/environment provenance proof targets.
+
 ## Work packages
 
 | Packet | Prerequisite | Delivery and acceptance | State |
@@ -129,6 +137,11 @@ incomplete science. These are usable foundations for this packet's selection, no
 of E0–E6. In particular, E3's useful deeper-profile/export obligation and this plan's assembled
 qualification remain independently owned here; no old 32-block case is retroactively passed.
 
+Later Plan43–Plan48 implementation and selected controls can now inform E0 through the
+[corrective-prerequisite handoff](#post-plan41-corrective-prerequisites). Plan48's selected
+assembled qualification remains pending. This does not execute this packet or change the
+operator's exclusion of its broader assembled campaign from the implementation scope.
+
 All E packages remain Planned and unexecuted. The focused 40a–40d deliveries and selected
 decisions now exist; E0 can select assembled journeys from their native Outcomes and the
 coordinator checkpoint. Current 40c/40d evidence includes generated Python consumers,
@@ -140,7 +153,8 @@ pass closes this packet, F01–F06, hygiene/manual checks or document retirement
 operator excluded this assembled qualification/closeout from the latest implementation
 authorization.
 
-The closing `just turn-end` formatting bundle completed, but its safe Ruff pass emitted
-70 diagnostics before formatting (recorded by 40c's Outcome); `--exit-zero` does not
-establish strict lint acceptance. E5 owns current strict counts and repair, along with
-type/clippy/codegen and the selected manual checks. The zero target remains unchanged.
+The historical closing `just turn-end` formatting bundle completed, but its safe Ruff pass
+emitted 70 diagnostics before formatting (recorded by 40c's Outcome); `--exit-zero` does not
+establish strict lint acceptance or a current quality baseline. E5 owns current strict counts
+and repair, along with type/clippy/codegen and the selected manual checks. The zero target
+remains unchanged.

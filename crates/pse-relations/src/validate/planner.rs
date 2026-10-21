@@ -11,6 +11,14 @@ use std::sync::Arc;
 pub trait ValidationPlanner: std::fmt::Debug + Send + Sync {
     /// Retain this exact implementation and its configuration.
     fn snapshot(&self) -> Arc<dyn ValidationPlanner>;
+    /// Whether this exact immutable planner preserves the pinned builtin local
+    /// semantics used by the generated modeling-row specialization. This is
+    /// representation eligibility, never successful validation evidence. Unknown
+    /// implementations retain native evaluation; preparing an expression is not
+    /// sufficient to opt in. Row SQL and unsupported facets remain ineligible.
+    fn typed_modeling_local_eligible(&self) -> bool {
+        false
+    }
     /// Bind a declared SQL CHECK in an explicitly captured native engine.
     /// # Errors
     /// SQL is unavailable, malformed or not supported by the actual engine.
@@ -37,6 +45,9 @@ pub trait ValidationPlanner: std::fmt::Debug + Send + Sync {
 impl ValidationPlanner for Arc<dyn ValidationPlanner> {
     fn snapshot(&self) -> Arc<dyn ValidationPlanner> {
         self.clone()
+    }
+    fn typed_modeling_local_eligible(&self) -> bool {
+        self.as_ref().typed_modeling_local_eligible()
     }
     fn create_logical_expr(&self, sql: &str, schema: &DFSchema) -> Result<Expr> {
         self.as_ref().create_logical_expr(sql, schema)

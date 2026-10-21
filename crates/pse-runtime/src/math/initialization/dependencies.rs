@@ -28,11 +28,7 @@ impl Dependencies {
         for block in blocks {
             let (block, plan, inputs) = block?;
             total = (|| {
-                let slots = plan
-                    .structure()
-                    .instances()
-                    .iter()
-                    .try_fold(0usize, |n, instance| n.checked_add(instance.slots.len()))?;
+                let slots = plan.binding_slot_count();
                 let ids = slots
                     .checked_add(inputs.len())?
                     .checked_add(plan.columns().len())?
@@ -357,12 +353,7 @@ pub(in crate::math) fn consumed_inputs(
         .iter()
         .copied()
         .chain(plan.columns().iter().copied())
-        .chain(
-            plan.structure()
-                .instances()
-                .iter()
-                .flat_map(|instance| instance.slots.iter().map(|slot| slot.source())),
-        )
+        .chain(plan.binding_sources().iter().copied())
         .chain(plan.structure().source_frozen_ids())
         .collect::<BTreeSet<_>>()
         .into_iter()

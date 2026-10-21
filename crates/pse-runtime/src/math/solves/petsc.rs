@@ -257,7 +257,7 @@ impl PreparedPetsc {
     /// Frozen mechanism profile carried by the shared strategy.
     pub fn profile_ref(&self) -> Result<pse_model::strategy::ProfileRef, ProblemError> {
         Ok(pse_model::strategy::ProfileRef {
-            backend: Backend::Petsc,
+            method: pse_model::strategy::NumericalMethod::Backend(Backend::Petsc),
             key: self.strategy_profile()?,
         })
     }

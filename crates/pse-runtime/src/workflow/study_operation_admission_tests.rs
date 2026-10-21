@@ -132,6 +132,173 @@ fn prior_overlay(package: &ModelingPackage, magnitude: f64, unit: &str) -> Point
 }
 
 #[tokio::test]
+async fn presentation_only_successive_admission_reuses_basis_with_current_receiving() {
+    let (package, operation) = control_operation().await;
+    let cancel = CancelSource::new();
+    let overlay = prior_overlay(&package, 300.0, "K");
+    let mut admission = None;
+    let (binding, _) = package
+        .admit_operation_overlay(&operation, &overlay, &mut admission, &cancel)
+        .await
+        .unwrap();
+    let model = admission
+        .as_ref()
+        .unwrap()
+        .execution
+        .model
+        .compiled()
+        .model
+        .clone();
+    let mut presented = operation.clone();
+    presented.output = crate::workflow::StudyOutputDemand::Compact {
+        detail: Default::default(),
+        failed_detail: Default::default(),
+    };
+    let (again, _) = package
+        .admit_operation_overlay(&presented, &overlay, &mut admission, &cancel)
+        .await
+        .unwrap();
+    assert_eq!(binding.identity(), again.identity());
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        &model,
+        &admission.as_ref().unwrap().execution.model.compiled().model
+    ));
+    assert_eq!(
+        DeclaredStudyAdmission::binding_key(&operation, &binding).unwrap(),
+        DeclaredStudyAdmission::binding_key(&presented, &again).unwrap()
+    );
+    let foreign = package.distinct_provider_owner_for_test();
+    assert!(
+        admission
+            .as_ref()
+            .unwrap()
+            .execution
+            .prepared_model(&foreign)
+            .is_err()
+    );
+    assert!(
+        admission
+            .as_ref()
+            .unwrap()
+            .execution
+            .prepared_model(&package)
+            .is_ok()
+    );
+    let mut changed = presented;
+    let OperationRequest::DeclaredCase(case) = &mut changed.operation else {
+        panic!("declared case expected");
+    };
+    case.settings.numerics.supplier_action_accuracy *= 0.5;
+    assert_ne!(
+        DeclaredStudyAdmission::binding_key(&changed, &binding).unwrap(),
+        DeclaredStudyAdmission::binding_key(&operation, &binding).unwrap()
+    );
+}
+
+#[cfg(feature = "solver-kinsol")]
+#[tokio::test]
+#[allow(
+    clippy::print_stderr,
+    reason = "bounded I28 probe reports actual immutable allocations and independent lane preparation counts"
+)]
+async fn independent_study_lane_immutable_basis_and_changed_premises_probe() {
+    let (package, operation) = control_operation().await;
+    let cancel = CancelSource::new();
+    let mut admission = None;
+    let (binding, _) = package
+        .admit_operation_overlay(
+            &operation,
+            &prior_overlay(&package, 300.0, "K"),
+            &mut admission,
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let mut left = StudyPreparationLane::new();
+    let mut right = StudyPreparationLane::new();
+    let ((first, second), counts) = crate::math::counted(async {
+        tokio::join!(
+            left.prepare(&package, &operation, &binding, &cancel),
+            right.prepare(&package, &operation, &binding, &cancel)
+        )
+    })
+    .await;
+    let first = first.unwrap();
+    let second = second.unwrap();
+    let left_scope = left.scope().unwrap();
+    let right_scope = right.scope().unwrap();
+    assert!(
+        !Arc::ptr_eq(&left_scope, &right_scope),
+        "independent lanes never share admission authority"
+    );
+    let basis = |lane: &StudyPreparationLane| {
+        lane.current
+            .as_ref()
+            .unwrap()
+            .admission
+            .as_ref()
+            .unwrap()
+            .execution
+            .model
+            .compiled()
+            .model
+            .allocation_identity()
+    };
+    let (left_basis, right_basis) = (basis(&left), basis(&right));
+    eprintln!(
+        "I28 equal-basis independent lanes: left={left_basis} right={right_basis} shared={} preparation_counts={counts:?}",
+        left_basis == right_basis
+    );
+    // Sharing is the inquiry's observation, not an admission precondition or
+    // a conclusion imposed on the two independent receiving owners.
+    drop(first);
+    drop(second);
+    let mut changed = operation.clone();
+    changed
+        .preparation
+        .compiler
+        .evaluation
+        .derivative_components += 1;
+    let prepared = left
+        .prepare(&package, &changed, &binding, &cancel)
+        .await
+        .unwrap();
+    drop(prepared);
+    assert!(!left_scope.is_open());
+    assert!(right_scope.is_open());
+    let compiler_scope = left.scope().unwrap();
+    let OperationRequest::DeclaredCase(case) = &mut changed.operation else {
+        panic!("declared case expected");
+    };
+    case.settings.numerics.supplier_action_accuracy *= 0.5;
+    let prepared = left
+        .prepare(&package, &changed, &binding, &cancel)
+        .await
+        .unwrap();
+    drop(prepared);
+    assert!(!compiler_scope.is_open());
+    let policy_scope = left.scope().unwrap();
+    let foreign = package.distinct_provider_owner_for_test();
+    let prepared = left
+        .prepare(&foreign, &changed, &binding, &cancel)
+        .await
+        .unwrap();
+    drop(prepared);
+    assert!(!policy_scope.is_open());
+    assert!(right_scope.is_open());
+    let mut wrong_source = changed;
+    wrong_source.source.physical_context = ContentHash::from_bytes([91; 32]);
+    assert!(
+        left.prepare(&foreign, &wrong_source, &binding, &cancel)
+            .await
+            .is_err()
+    );
+    assert!(left.current.is_none());
+    assert!(right.scope().unwrap().is_open());
+    right.close().await.unwrap();
+}
+
+#[tokio::test]
 async fn declared_admission_reuses_one_basis_for_thousand_physical_points() {
     let (package, operation) = control_operation().await;
     let cancel = CancelSource::new();
@@ -585,6 +752,7 @@ async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
     let request = OperationRequest::Fit(FitOperation {
         fit: super::super::tests::id(32).into(),
         settings: FitOperationSettings {
+            optimizer: crate::workflow::FitOptimizer::NativeNlp,
             solver: SolveSettings {
                 intent: SolveIntent::Optimize,
                 backend: Some(Backend::Ipopt),
@@ -1007,6 +1175,7 @@ async fn durable_origin_local_fit_keeps_original_regression_without_recording() 
     let request = OperationRequest::Fit(FitOperation {
         fit: super::super::tests::id(32).into(),
         settings: FitOperationSettings {
+            optimizer: crate::workflow::FitOptimizer::NativeNlp,
             solver: SolveSettings {
                 intent: SolveIntent::Optimize,
                 backend: Some(Backend::Ipopt),

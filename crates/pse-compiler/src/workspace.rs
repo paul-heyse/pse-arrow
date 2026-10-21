@@ -503,7 +503,7 @@ fn artifact_requests(
             .map(|(index, demand)| {
                 artifact_request(
                     demand,
-                    p.supports()[index].clone(),
+                    p.numerical_supports()[index].clone(),
                     profile,
                     environment,
                     false,
@@ -596,6 +596,74 @@ pub struct PreparedFunctions {
     pub plan: Arc<CasePlan>,
     /// Compiler-owned artifact identities, identical to ordinary algebraic compilation.
     pub artifacts: Arc<Vec<ArtifactRequest>>,
+}
+impl PreparedFunctions {
+    /// Prepare exact semantic Jacobian entries while retaining complete static
+    /// First support and existing action demands. Numeric artifacts use the same owner.
+    pub fn prepare_jacobian_entries(
+        &self,
+        pairs: &[(SemanticId, SemanticId)],
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Self> {
+        let plan = Arc::new(self.plan.with_jacobian_entries(pairs, cancel)?);
+        let profile = self.artifacts.first().map_or(
+            Profile {
+                assembly: self.plan.limits(),
+                ..Profile::default()
+            },
+            |request| Profile {
+                optimization: request.optimization,
+                evaluation: request.evaluation,
+                assembly: self.plan.limits(),
+                ..Profile::default()
+            },
+        );
+        let environment = self
+            .artifacts
+            .first()
+            .map_or(ContentHash::from_bytes([0; 32]), |request| {
+                request.environment
+            });
+        let descriptors = plan
+            .demands()
+            .iter()
+            .try_fold(
+                size_of::<Self>() + size_of::<Vec<ArtifactRequest>>() + 2 * size_of::<usize>(),
+                |bytes, demand| {
+                    bytes
+                        .checked_add(size_of::<ArtifactRequest>() + 64)?
+                        .checked_add(
+                            demand
+                                .outputs
+                                .len()
+                                .checked_add(demand.coordinates.len())?
+                                .checked_mul(size_of::<usize>())?,
+                        )
+                },
+            )
+            .ok_or(MathError::Limit("selected entry artifact descriptors"))?;
+        if let Some(owner) = pse_math::construction::current() {
+            owner.try_grow(descriptors)?;
+        }
+        Ok(Self {
+            artifacts: artifact_requests(&plan, profile, &environment),
+            plan,
+        })
+    }
+    /// Known escaping structural and artifact-descriptor payload, excluding shared
+    /// mathematical bodies already counted by the plan.
+    pub fn retained_bytes(&self) -> usize {
+        self.plan
+            .retained_bytes()
+            .saturating_add(size_of::<Self>())
+            .saturating_add(size_of::<Vec<ArtifactRequest>>() + 2 * size_of::<usize>())
+            .saturating_add(
+                (self.artifacts.capacity() - self.artifacts.len()) * size_of::<ArtifactRequest>(),
+            )
+            .saturating_add(self.artifacts.iter().fold(0usize, |bytes, artifact| {
+                bytes.saturating_add(artifact.descriptor_bytes())
+            }))
+    }
 }
 /// Owned result: neither Salsa handles nor native mutable state escape.
 #[derive(Clone, Debug)]
@@ -1410,40 +1478,113 @@ fn conditional_blocks(
 
 type CompilerEvents = Arc<dyn Fn(salsa::Event) + Send + Sync>;
 
-// The callback reads the active operation at emission time. A workspace can outlive
-// many operations, and a rebuilt Salsa database must not retain the first caller.
-fn observe_query_event(event: &salsa::Event) {
+struct QueryFacts {
+    counts: [pse_diagnostics::observation::PreparedFact; 4],
+    miss_reason: pse_diagnostics::observation::PreparedFact,
+    wait_duration: pse_diagnostics::observation::PreparedFact,
+    miss_published: bool,
+    wait_published: bool,
+    detail: Option<pse_diagnostics::observation::Producer>,
+}
+impl QueryFacts {
+    fn new(context: &pse_diagnostics::observation::ObservationContext) -> Self {
+        use pse_diagnostics::observation::FactKind;
+        Self {
+            counts: [
+                "compiler.query_executions",
+                "compiler.query_memo_validations",
+                "compiler.query_shared_waits",
+                "compiler.query_discards",
+            ]
+            .map(|name| context.fact(name, "count", FactKind::Counter)),
+            miss_reason: context.fact("compiler.query_miss_reason", "", FactKind::Gauge),
+            wait_duration: context.fact("compiler.query_shared_wait_duration", "", FactKind::Gauge),
+            miss_published: false,
+            wait_published: false,
+            detail: None,
+        }
+    }
+}
+
+// The callback reads the active operation at emission time. Only diagnostic handles
+// are retained; database rebuild and operation switches cannot capture invocation permission.
+fn observe_query_event(event: &salsa::Event, cache: &std::sync::Mutex<Option<QueryFacts>>) {
+    use pse_diagnostics::observation::FactUpdate;
     let Some(context) = pse_diagnostics::observation::current() else {
         return;
     };
-    let (metric, key) = match &event.kind {
-        salsa::EventKind::WillExecute { database_key } => {
-            context.unavailable(
-                "compiler.query_miss_reason",
-                "Salsa does not report the execution cause",
-            );
-            ("compiler.query_executions", database_key)
-        }
-        salsa::EventKind::DidValidateMemoizedValue { database_key } => {
-            ("compiler.query_memo_validations", database_key)
-        }
-        salsa::EventKind::WillBlockOn { database_key, .. } => {
-            context.unavailable(
-                "compiler.query_shared_wait_duration",
-                "Salsa reports wait entry without a matching exit event",
-            );
-            ("compiler.query_shared_waits", database_key)
-        }
-        salsa::EventKind::DidDiscard { key } => ("compiler.query_discards", key),
+    let (index, key) = match &event.kind {
+        salsa::EventKind::WillExecute { database_key } => (0, database_key),
+        salsa::EventKind::DidValidateMemoizedValue { database_key } => (1, database_key),
+        salsa::EventKind::WillBlockOn { database_key, .. } => (2, database_key),
+        salsa::EventKind::DidDiscard { key } => (3, key),
         _ => return,
     };
-    context.count(metric, "count", 1);
-    // Local numeric handles are opaque attribution, never semantic/cache identity.
-    // Avoid DatabaseKeyIndex Debug: an attached database can format authored inputs.
-    context.source_ref(
-        "salsa_query",
-        format!("{:?}:{:?}", key.ingredient_index(), key.key_index()),
-    );
+    let Ok(mut cache) = cache.try_lock() else {
+        context.record_update_loss();
+        return;
+    };
+    if cache
+        .as_ref()
+        .is_none_or(|facts| !facts.counts[0].belongs_to(&context))
+    {
+        *cache = Some(QueryFacts::new(&context));
+    }
+    let Some(facts) = cache.as_mut() else {
+        return;
+    };
+    let mut updates = [FactUpdate::Count {
+        fact: &facts.counts[index],
+        delta: 1,
+    }; 2];
+    let mut length = 1;
+    if index == 0 && !facts.miss_published {
+        updates[1] = FactUpdate::Unavailable {
+            fact: &facts.miss_reason,
+            reason: "Salsa does not report the execution cause",
+        };
+        length = 2;
+    } else if index == 2 && !facts.wait_published {
+        updates[1] = FactUpdate::Unavailable {
+            fact: &facts.wait_duration,
+            reason: "Salsa reports wait entry without a matching exit event",
+        };
+        length = 2;
+    }
+    if context.publish_facts(&updates[..length]) {
+        facts.miss_published |= index == 0;
+        facts.wait_published |= index == 2;
+    }
+    // Optional source attribution formats only when a selected detail consumer asks.
+    // Never Debug the attached DatabaseKeyIndex: it may format authored inputs.
+    if context.record_tap().is_some_and(|tap| {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            tap.selected("compiler_query.v1")
+        }))
+        .unwrap_or(false)
+    }) {
+        use pse_diagnostics::observation::{ProducerRole, RecordField, Value};
+        let identity = format!("{:?}:{:?}", key.ingredient_index(), key.key_index());
+        context.source_ref("salsa_query", &identity);
+        let producer = facts.detail.get_or_insert_with(|| {
+            let producer = context.producer(ProducerRole::Workflow, "compiler.query");
+            producer.activate_record_family("compiler_query.v1");
+            producer
+        });
+        let record = producer.record(
+            "compiler_query.v1",
+            ["execute", "validate", "wait", "discard"][index],
+            None,
+            None,
+            vec![RecordField {
+                name: "salsa_query".into(),
+                unit: "opaque_query_locator".into(),
+                value: Value::Text(identity),
+                availability: None,
+            }],
+        );
+        producer.publish(&record);
+    }
 }
 
 /// Single-writer workspace. Callers serialize access; no database clones or partial batches escape.
@@ -1504,9 +1645,10 @@ impl CompilerWorkspace {
         pse_math::initialize()?;
         validate(&inputs, limits)?;
         let callback = events.clone();
+        let observations = std::sync::Mutex::new(None);
         let mut db = CompilerDatabase {
             storage: salsa::Storage::new(Some(Box::new(move |event| {
-                observe_query_event(&event);
+                observe_query_event(&event, &observations);
                 if let Some(callback) = &callback {
                     callback(event);
                 }
@@ -1779,6 +1921,9 @@ impl CompileError {
         })
     }
 }
+
+#[cfg(test)]
+mod observation_tests;
 
 #[cfg(test)]
 mod directional_identity_tests {

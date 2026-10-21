@@ -224,7 +224,8 @@ struct CallbackFacts {
     cpu_samples: u64,
     cpu_missing: bool,
     cpu_requested: bool,
-    completed_seconds: f64,
+    published_seconds: f64,
+    published_cpu_status: Option<&'static str>,
 }
 impl CallbackFacts {
     fn new(producer: &pse_diagnostics::observation::Producer, key: ObservationKey) -> Self {
@@ -265,7 +266,8 @@ impl CallbackFacts {
             cpu_missing: false,
             cpu_requested: producer.thread_cpu_requested(),
             phase: name,
-            completed_seconds: 0.0,
+            published_seconds: 0.0,
+            published_cpu_status: None,
         }
     }
 }
@@ -407,7 +409,6 @@ impl CallbackState {
                 .observation_facts
                 .entry(observation_key)
                 .or_insert_with(|| CallbackFacts::new(producer, observation_key));
-            facts.calls.count(1);
             producer.context().phase(&facts.phase)
         });
         let start = std::time::Instant::now();
@@ -451,37 +452,90 @@ impl CallbackState {
         let count = self.counts.entry(demand).or_default();
         *count = count.saturating_add(1);
         *self.seconds.entry(demand).or_default() += elapsed.as_secs_f64();
-        // Publish already-produced cumulative owner facts at every safe return. Nested
-        // callbacks remain inclusive; the work-owner flag states which boundary charges.
+        // Ordinary attempted/completed progress advances at each safe return. The
+        // independent phase remains visible while work is in flight. One lost tuple
+        // omits its entire optional population; exact local report facts stay separate.
         if let Some(producer) = &self.observation_producer {
+            use pse_diagnostics::observation::FactUpdate;
+            let failure = match &result {
+                Ok(Err(error)) => Some(match classify(error) {
+                    Failure::Trial => "callback.failed_trial.calls",
+                    Failure::Fatal => "callback.fatal.calls",
+                    Failure::Stopped(_) => "callback.stopped.calls",
+                }),
+                Err(_) => Some("callback.panicked.calls"),
+                Ok(Ok(_)) => None,
+            };
+            let failure_fact = failure.map(|name| {
+                self.failure_facts.entry(name).or_insert_with(|| {
+                    producer.fact(
+                        name,
+                        "count",
+                        pse_diagnostics::observation::FactKind::Counter,
+                    )
+                })
+            });
             if let Some(facts) = self.observation_facts.get_mut(&observation_key) {
-                facts.completed_seconds += elapsed.as_secs_f64();
-                facts.completed.count(1);
-                facts.elapsed.duration(elapsed);
-                facts.seconds.gauge(facts.completed_seconds);
+                let next_seconds = facts.published_seconds + elapsed.as_secs_f64();
+                let mut updates = [FactUpdate::Count {
+                    fact: &facts.calls,
+                    delta: 1,
+                }; 7];
+                updates[1] = FactUpdate::Count {
+                    fact: &facts.completed,
+                    delta: 1,
+                };
+                updates[2] = FactUpdate::Duration {
+                    fact: &facts.elapsed,
+                    elapsed,
+                };
+                updates[3] = FactUpdate::Gauge {
+                    fact: &facts.seconds,
+                    value: next_seconds,
+                };
+                let mut length = 4;
+                let mut cpu_status = None;
                 if !cpu_requested {
-                    facts
-                        .thread_cpu
-                        .unavailable("not_requested: synchronous boundary thread CPU");
-                } else if let Some(elapsed) = thread_cpu {
-                    if let Ok(nanoseconds) = u64::try_from(elapsed.as_nanos()) {
-                        // CPU is additive performed work observed at callback completion.
-                        // It is not a wall interval of CPU-sized length ending here.
-                        facts.thread_cpu.count(nanoseconds);
-                        facts.thread_cpu_samples.count(1);
-                        facts.cpu_seconds += elapsed.as_secs_f64();
+                    cpu_status = Some("not_requested: synchronous boundary thread CPU");
+                } else if let Some(cpu_elapsed) = thread_cpu {
+                    if let Ok(nanoseconds) = u64::try_from(cpu_elapsed.as_nanos()) {
+                        updates[length] = FactUpdate::Count {
+                            fact: &facts.thread_cpu,
+                            delta: nanoseconds,
+                        };
+                        updates[length + 1] = FactUpdate::Count {
+                            fact: &facts.thread_cpu_samples,
+                            delta: 1,
+                        };
+                        length += 2;
+                        facts.cpu_seconds += cpu_elapsed.as_secs_f64();
                         facts.cpu_samples = facts.cpu_samples.saturating_add(1);
                     } else {
-                        facts
-                            .thread_cpu
-                            .unavailable("overflow: selected owning-thread CPU nanoseconds");
+                        cpu_status = Some("overflow: selected owning-thread CPU nanoseconds");
                         facts.cpu_missing = true;
                     }
                 } else {
-                    facts
-                        .thread_cpu
-                        .unavailable("unsupported: owning-thread CPU clock sample unavailable");
+                    cpu_status = Some("unsupported: owning-thread CPU clock sample unavailable");
                     facts.cpu_missing = true;
+                }
+                if let Some(reason) =
+                    cpu_status.filter(|reason| Some(*reason) != facts.published_cpu_status)
+                {
+                    updates[length] = FactUpdate::Unavailable {
+                        fact: &facts.thread_cpu,
+                        reason,
+                    };
+                    length += 1;
+                }
+                if let Some(fact) = failure_fact {
+                    updates[length] = FactUpdate::Count { fact, delta: 1 };
+                    length += 1;
+                }
+                if producer.publish_facts(&updates[..length]) {
+                    // This gauge has the same accepted population as completed_calls
+                    // and elapsed_nanoseconds, including after a refused prior tuple.
+                    facts.published_seconds = next_seconds;
+                    facts.published_cpu_status = cpu_status;
                 }
             }
             if producer.detail_selected("callback_boundary.v1") {
@@ -548,27 +602,6 @@ impl CallbackState {
                     ],
                 );
                 producer.publish(&record);
-            }
-            let failure = match &result {
-                Ok(Err(error)) => Some(match classify(error) {
-                    Failure::Trial => "callback.failed_trial.calls",
-                    Failure::Fatal => "callback.fatal.calls",
-                    Failure::Stopped(_) => "callback.stopped.calls",
-                }),
-                Err(_) => Some("callback.panicked.calls"),
-                Ok(Ok(_)) => None,
-            };
-            if let Some(name) = failure {
-                self.failure_facts
-                    .entry(name)
-                    .or_insert_with(|| {
-                        producer.fact(
-                            name,
-                            "count",
-                            pse_diagnostics::observation::FactKind::Counter,
-                        )
-                    })
-                    .count(1);
             }
         }
         // Paired completion count and elapsed facts settle while this boundary is
@@ -799,6 +832,166 @@ pub fn retryable_evaluation(report: &crate::solve::SolveReport) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn callback_safe_return_tuple_keeps_inflight_phase_and_initial_cpu_absence() {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        use std::time::Duration;
+        let hub = ObservationHub::new(Policy {
+            detail_capacity: 0,
+            record_capacity: 0,
+            ..Policy::default()
+        });
+        let operation = hub.start("safe returns");
+        let _entered = operation.context().enter();
+        let mut state = CallbackState::new(Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Default::default(),
+        ));
+        assert_eq!(state.evaluate("residual", || Ok(1)), Some(1));
+        let first = operation.reader().snapshot(Duration::from_secs(60));
+        let cpu_name = "callback.residual.selected_thread_cpu_nanoseconds";
+        let initial_cpu_time = first
+            .metrics
+            .iter()
+            .find(|metric| metric.name == cpu_name)
+            .unwrap()
+            .observed_at;
+        assert_eq!(
+            state.evaluate("residual", || {
+                let running = operation.reader().snapshot(Duration::from_secs(60));
+                assert!(
+                    running
+                        .phases
+                        .iter()
+                        .any(|phase| phase.kind == "callback.residual")
+                );
+                for name in [
+                    "callback.residual.calls",
+                    "callback.residual.completed_calls",
+                ] {
+                    assert_eq!(
+                        running
+                            .metrics
+                            .iter()
+                            .find(|metric| metric.name == name)
+                            .unwrap()
+                            .cumulative,
+                        Value::Count(1)
+                    );
+                }
+                Ok(2)
+            }),
+            Some(2)
+        );
+        let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+        let metric = |name| {
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == name)
+                .unwrap()
+        };
+        let completed = metric("callback.residual.completed_calls");
+        let elapsed = metric("callback.residual.elapsed_nanoseconds");
+        let seconds = metric("callback.residual.seconds");
+        assert_eq!(completed.cumulative, Value::Count(2));
+        assert_eq!(elapsed.duration_summary.as_ref().unwrap().samples, 2);
+        assert_eq!(completed.observed_at, elapsed.observed_at);
+        assert_eq!(completed.observed_at, seconds.observed_at);
+        assert_eq!(metric(cpu_name).observed_at, initial_cpu_time);
+        assert!(matches!(metric(cpu_name).latest, Value::Unavailable(_)));
+        assert!(snapshot.phases.is_empty());
+    }
+    #[test]
+    fn callback_lost_tuple_keeps_optional_mean_matched_and_final_report_exact() {
+        use pse_diagnostics::observation::{Clock, ObservationHub, Policy, Value};
+        use std::sync::{Arc, Barrier, Mutex};
+        use std::time::{Duration, Instant};
+        struct GateClock {
+            start: Instant,
+            gate: Mutex<Option<(Arc<Barrier>, Arc<Barrier>)>>,
+        }
+        impl Clock for GateClock {
+            fn now(&self) -> Duration {
+                let now = self.start.elapsed();
+                let gate = self.gate.lock().unwrap().take();
+                if let Some((entered, resume)) = gate {
+                    entered.wait();
+                    resume.wait();
+                }
+                now
+            }
+        }
+        let clock = Arc::new(GateClock {
+            start: Instant::now(),
+            gate: Mutex::new(None),
+        });
+        let hub = ObservationHub::with_clock(Policy::default(), clock.clone());
+        let operation = hub.start("lost callback tuple");
+        let context = operation.context();
+        let _entered = context.enter();
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &Default::default(),
+        );
+        let mut state = CallbackState::new(execution.clone());
+        assert_eq!(state.evaluate("residual", || Ok(1)), Some(1));
+        let entered = Arc::new(Barrier::new(2));
+        let resume = Arc::new(Barrier::new(2));
+        *clock.gate.lock().unwrap() = Some((entered.clone(), resume.clone()));
+        let holder = std::thread::spawn(move || context.count("test.lock_owner", "count", 1));
+        entered.wait();
+        assert_eq!(
+            state.evaluate("residual", || {
+                std::thread::sleep(Duration::from_millis(2));
+                Ok(2)
+            }),
+            Some(2)
+        );
+        resume.wait();
+        holder.join().unwrap();
+        assert_eq!(state.evaluate("residual", || Ok(3)), Some(3));
+        let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+        let metric = |name| {
+            snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == name)
+                .unwrap()
+        };
+        assert_eq!(
+            metric("callback.residual.calls").cumulative,
+            Value::Count(2)
+        );
+        assert_eq!(
+            metric("callback.residual.completed_calls").cumulative,
+            Value::Count(2)
+        );
+        let elapsed = metric("callback.residual.elapsed_nanoseconds");
+        assert_eq!(elapsed.duration_summary.as_ref().unwrap().samples, 2);
+        let Value::Count(nanoseconds) = elapsed.cumulative else {
+            panic!("missing actual duration");
+        };
+        let Value::Number(seconds) = metric("callback.residual.seconds").latest else {
+            panic!("missing paired seconds");
+        };
+        assert!((seconds - nanoseconds as f64 / 1e9).abs() < 1e-9);
+        assert!(snapshot.coverage.dropped_updates > 0 && snapshot.coverage.curtailed);
+        let exact_seconds = state.seconds[&CallbackKey::Named("residual")];
+        assert!(exact_seconds > seconds + 0.001);
+        let mut final_report = report(&execution);
+        state.finish(&mut final_report);
+        assert_eq!(final_report.evidence.work.evaluations, Some(3));
+        assert!(matches!(
+            final_report
+                .metrics
+                .get("callback.native_callback.residual.calls"),
+            Some(Metric::Integer(3))
+        ));
+        assert!(
+            matches!(final_report.metrics.get("callback.native_callback.residual.seconds"), Some(Metric::Real(value)) if *value == exact_seconds)
+        );
+    }
     #[test]
     fn live_callback_checkpoint_counts_failed_trial_before_finish_and_closes_scope() {
         use pse_diagnostics::observation::{ObservationHub, Policy, Value};

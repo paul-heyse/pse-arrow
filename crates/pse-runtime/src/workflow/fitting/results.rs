@@ -322,6 +322,25 @@ impl RunResult {
             .await?;
             metric(
                 "profile",
+                "optimizer_requested",
+                Metric::Text(p.profile.optimizer.as_str().into()),
+            )
+            .await?;
+            metric(
+                "native",
+                "method",
+                Metric::Text(
+                    match prepared.route {
+                        FitRoute::Evaluation => "evaluation",
+                        FitRoute::Native(_) => "native_nlp",
+                        FitRoute::ResidualLm => "residual_lm",
+                    }
+                    .into(),
+                ),
+            )
+            .await?;
+            metric(
+                "profile",
                 "rank_tolerance",
                 Metric::Real(p.profile.rank_tolerance),
             )
@@ -364,7 +383,11 @@ impl RunResult {
                 metric(
                     "derivatives",
                     "hessian",
-                    Metric::Text(r.hessian.as_str().into()),
+                    Metric::Text(if r.residual.is_some() {
+                        "residual_qr".into()
+                    } else {
+                        r.hessian.as_str().into()
+                    }),
                 )
                 .await?;
                 metric(
@@ -375,7 +398,8 @@ impl RunResult {
                 .await?;
                 // An exact Hessian's transient curvature comes from IDAS forward-over-adjoint
                 // second-order sensitivities (ADR-0110 item 4).
-                if r.hessian == HessianMode::Exact
+                if r.residual.is_none()
+                    && r.hessian == HessianMode::Exact
                     && p.experiments
                         .iter()
                         .any(|e| matches!(e, Experiment::Transient(_)))
@@ -409,6 +433,57 @@ impl RunResult {
                         Metric::Text(d.rule.as_str().into()),
                     )
                     .await?;
+                }
+                if let Some(residual) = &r.residual {
+                    metric(
+                        "residual_lm",
+                        "termination",
+                        Metric::Text(
+                            serde_json::to_string(&residual.termination)
+                                .map_err(|error| contract(error.to_string()))?,
+                        ),
+                    )
+                    .await?;
+                    metric(
+                        "residual_lm",
+                        "residual_evaluations",
+                        Metric::Integer(residual.residual_evaluations as i64),
+                    )
+                    .await?;
+                    metric(
+                        "residual_lm",
+                        "jacobian_evaluations",
+                        Metric::Integer(residual.jacobian_evaluations as i64),
+                    )
+                    .await?;
+                    metric(
+                        "residual_lm",
+                        "parameter_updates",
+                        Metric::Integer(residual.parameter_updates as i64),
+                    )
+                    .await?;
+                    metric(
+                        "residual_lm",
+                        "qualification",
+                        Metric::Text(residual.qualification.as_str().into()),
+                    )
+                    .await?;
+                    if let Some(stationarity) = residual.stationarity {
+                        metric(
+                            "residual_lm",
+                            "original_stationarity",
+                            Metric::Real(stationarity),
+                        )
+                        .await?;
+                    }
+                    if let Some(failure) = &residual.failure {
+                        metric(
+                            "residual_lm",
+                            "original_failure",
+                            Metric::Text(failure.cause().to_string()),
+                        )
+                        .await?;
+                    }
                 }
                 if let Some(s) = &r.solve {
                     metric("native", "status", Metric::Text(s.termination.name.clone())).await?;

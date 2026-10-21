@@ -60,6 +60,16 @@ pub(crate) fn decode_versioned<T: serde::de::DeserializeOwned, const N: u32>(
     pse_model::document::decode_versioned::<T, N>(bytes)
         .map_err(|error| crate::workflow::invalid(py, format!("{operation}: {error}")))
 }
+/// Infer current interpretation from the document's declared version field.
+pub(crate) fn decode_current<T: serde::de::DeserializeOwned, const N: u32>(
+    py: Python<'_>,
+    operation: &str,
+    bytes: &[u8],
+    allowance: usize,
+    _version: fn(&T) -> &pse_model::document::Version<N>,
+) -> PyResult<T> {
+    decode_versioned::<T, N>(py, operation, bytes, allowance)
+}
 /// Read the immutable study contract through its owning version-first admission.
 pub(crate) fn study_definition(
     py: Python<'_>,

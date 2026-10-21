@@ -107,7 +107,7 @@ struct UnitWorker {
     budget: Arc<crate::math::WorkerBudget>,
     trial: Vec<(SemanticId, f64)>,
     output_updates: Vec<(SemanticId, f64)>,
-    last_values: Option<CaseValues>,
+    last_complete: bool,
 }
 impl UnitWorker {
     fn new(
@@ -169,7 +169,7 @@ impl UnitWorker {
             bound,
             conditional,
             budget,
-            last_values: None,
+            last_complete: false,
         })
     }
 }
@@ -185,17 +185,21 @@ impl CausalUnit for UnitWorker {
     }
     fn evaluate(
         &mut self,
-        inputs: &BTreeMap<SemanticId, f64>,
+        inputs: &[f64],
+        outputs: &mut [f64],
         execution: &Execution,
-    ) -> Result<BTreeMap<SemanticId, f64>, native::ProblemError> {
-        self.last_values = None;
+    ) -> Result<(), native::ProblemError> {
+        self.last_complete = false;
         self.trial.clear();
         self.output_updates.clear();
         execution.check()?;
-        for (port, symbol, conversion) in &self.program.inputs {
-            let value = inputs
-                .get(port)
-                .ok_or_else(|| native::ProblemError::Contract("missing causal input".into()))?;
+        if inputs.len() != self.program.inputs.len() || outputs.len() != self.program.outputs.len()
+        {
+            return Err(native::ProblemError::Contract(
+                "causal boundary dimensions".into(),
+            ));
+        }
+        for ((_, symbol, conversion), value) in self.program.inputs.iter().zip(inputs) {
             let value = value * conversion.scale + conversion.offset;
             if !value.is_finite() {
                 return Err(native::ProblemError::numerical(
@@ -228,32 +232,30 @@ impl CausalUnit for UnitWorker {
                     .map_err(MathRuntimeError::from)
             })
             .map_err(MathRuntimeError::into_problem)?;
-        let outputs: BTreeMap<_, _> = self
-            .program
-            .outputs
-            .iter()
-            .map(|(port, row, c)| (*port, values[*row] * c.scale + c.offset))
-            .collect();
-        if outputs.values().any(|value| !value.is_finite()) {
+        for (output, (_, row, conversion)) in outputs.iter_mut().zip(&self.program.outputs) {
+            *output = values[*row] * conversion.scale + conversion.offset;
+        }
+        if outputs.iter().any(|value| !value.is_finite()) {
             return Err(native::ProblemError::numerical("nonfinite causal output"));
         }
         execution.check()?;
-        // Only the compact changed original-coordinate overlay leaves this unit.
-        // Full semantic hydration belongs to CausalMap's independent original observer.
-        self.last_values = Some(CaseValues {
+        // Keep the completed compact trial in its existing buffer. The caller
+        // reconstructs semantic state when checking cross-unit consistency or
+        // assessing the original model; no intermediate map needs retaining.
+        self.last_complete = true;
+        Ok(())
+    }
+    fn original_values(&self) -> CaseValues {
+        CaseValues {
             scalars: self
                 .trial
                 .iter()
-                .filter(|(id, _)| self.program.values.scalars.contains_key(id))
+                .filter(|(id, _)| {
+                    self.last_complete && self.program.values.scalars.contains_key(id)
+                })
                 .copied()
                 .collect(),
-        });
-        Ok(outputs)
-    }
-    fn original_values(&self) -> CaseValues {
-        self.last_values.clone().unwrap_or_else(|| CaseValues {
-            scalars: BTreeMap::new(),
-        })
+        }
     }
 }
 #[derive(Clone, Debug)]

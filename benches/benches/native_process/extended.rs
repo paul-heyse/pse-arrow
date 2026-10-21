@@ -310,6 +310,7 @@ async fn sparse_fit(
         .prepare_fit(
             FitId::from_id(id(73)),
             workflow::FitProfile {
+                optimizer: workflow::FitOptimizer::NativeNlp,
                 solver,
                 simulations: BTreeMap::new(),
                 experiment_workers: pse_model::scalars::PositiveCount::try_new(1).unwrap(),

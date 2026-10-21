@@ -74,7 +74,7 @@ pub enum PhysicalOperation {
 fn arguments<'a>(
     values: impl Iterator<Item = (&'a str, &'a [TypeNode], Option<&'a str>)>,
     context: &TypeContext<'_>,
-    names: &BTreeMap<String, Type>,
+    names: &dyn crate::TypeLookup,
     at: DeclarationId,
 ) -> Result<Vec<(String, Type)>> {
     let mut seen = BTreeSet::new();

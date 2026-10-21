@@ -57,7 +57,7 @@ async fn linear_regression_covariance_analytic() {
             crate::workflow::review_qualification_tests::assert_review_transport(
                 &result,
                 &[
-                    ("/fit/constructor", "replay-fit-constructor.v2"),
+                    ("/fit/constructor", "replay-fit-constructor.v3"),
                     ("/fit/context", "scientific-context.v1"),
                     ("/fit/runtime", "native-execution-snapshot.v1"),
                 ],
@@ -902,7 +902,7 @@ async fn review_qualification_durable_fit_preserves_original_response_and_rows()
     crate::workflow::review_qualification_tests::assert_review_transport(
         &result,
         &[
-            ("/fit/constructor", "replay-fit-constructor.v2"),
+            ("/fit/constructor", "replay-fit-constructor.v3"),
             ("/fit/context", "scientific-context.v1"),
         ],
     )

@@ -2404,6 +2404,40 @@ fn conditional_blocks_share_original_coordinates_and_binding_inputs() {
                     .unwrap()
             })
             .collect();
+        let complete_dependencies = original.dependencies(&cancel).unwrap();
+        for n in 1..=count {
+            let selected = BTreeSet::from([id(n + 150)]);
+            let unknowns = BTreeSet::from([id(n)]);
+            let indexed = original
+                .boundary_dependencies(&selected, &unknowns, &cancel)
+                .unwrap();
+            let oracle = complete_dependencies
+                .iter()
+                .filter(|dependency| {
+                    matches!(dependency.target, Target::Row(row) if selected.contains(&row))
+                        || dependency.execution.iter().any(|id| unknowns.contains(id))
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            assert_eq!(indexed, oracle);
+            assert_eq!(
+                indexed.len(),
+                2,
+                "unrelated parent bindings are not visited"
+            );
+            assert_eq!(
+                original
+                    .conditional_available_order(&selected, &unknowns, &cancel)
+                    .unwrap(),
+                DerivativeOrder::Second
+            );
+            assert!(
+                original
+                    .conditional_capability_allocation_bound(&[id(n + 150)])
+                    .unwrap()
+                    .is_some()
+            );
+        }
         let universe = original.structure().coordinate_allocation();
         let mut coordinate_ids = BTreeSet::new();
         let mut selected_bytes = 0;

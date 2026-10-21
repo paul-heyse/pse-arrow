@@ -233,6 +233,43 @@
       ],
       "type": "string"
     },
+    "NumericalMethod": {
+      "description": "Actual numerical implementation, including residual methods outside the NLP backend family.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Existing class-specific native backend.",
+          "properties": {
+            "backend": {
+              "$ref": "#/$defs/NativeBackend"
+            },
+            "kind": {
+              "const": "backend",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "backend"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Library-owned Levenberg-Marquardt fitting residual method.",
+          "properties": {
+            "kind": {
+              "const": "residual_lm",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "NumericalPosition": {
       "enum": [
         "preparation",
@@ -393,20 +430,20 @@
     },
     "ProfileRef": {
       "additionalProperties": false,
-      "description": "Effective admitted native settings, interpreted by their existing native owner.",
+      "description": "Effective admitted method settings, interpreted by their existing owner.",
       "properties": {
-        "backend": {
-          "$ref": "#/$defs/NativeBackend",
-          "description": "Explicit implementation; changing it requires another declared reference."
-        },
         "key": {
           "description": "Complete effective method/settings identity, including set versus unset options.",
           "pattern": "^blake3:[0-9a-fA-F]{64}$",
           "type": "string"
+        },
+        "method": {
+          "$ref": "#/$defs/NumericalMethod",
+          "description": "Explicit implementation; changing it requires another declared reference."
         }
       },
       "required": [
-        "backend",
+        "method",
         "key"
       ],
       "type": "object"
@@ -572,8 +609,8 @@
       "description": "Validated finite operation declaration."
     },
     "version": {
-      "const": 3,
-      "default": 3,
+      "const": 4,
+      "default": 4,
       "description": "Exact current document version, checked before decoding its body.",
       "type": "integer"
     }

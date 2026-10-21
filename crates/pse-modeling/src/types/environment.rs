@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Borrowed lexical lookup and occurrence-owned bindings.
 use super::Type;
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 /// Read-only access to the current complete lexical type environment.
 pub trait TypeLookup {
@@ -16,7 +16,7 @@ impl TypeLookup for BTreeMap<String, Type> {
 }
 enum Parent<'a> {
     Borrowed(&'a dyn TypeLookup),
-    Shared(Arc<BTreeMap<String, Type>>),
+    Owned(crate::check::NamedTypes<'a>),
 }
 /// A lexical frame owns only bindings introduced or refined at this occurrence.
 pub struct TypeScope<'a> {
@@ -33,13 +33,13 @@ impl<'a> TypeScope<'a> {
             bindings: BTreeMap::new(),
         }
     }
-    /// Retain an immutable operation-owned lexical base.
-    pub(crate) fn shared(parent: Arc<BTreeMap<String, Type>>) -> Self {
+    /// Own a lazy lexical view while borrowing its current phase inventories.
+    pub(crate) fn owned(parent: crate::check::NamedTypes<'a>) -> Self {
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("modeling.type_overlays", "frames", 1);
         }
         Self {
-            parent: Parent::Shared(parent),
+            parent: Parent::Owned(parent),
             upper: None,
             bindings: BTreeMap::new(),
         }
@@ -71,7 +71,7 @@ impl TypeLookup for TypeScope<'_> {
             .or_else(|| self.bindings.get(name))
             .or_else(|| match &self.parent {
                 Parent::Borrowed(parent) => parent.get(name),
-                Parent::Shared(parent) => parent.get(name),
+                Parent::Owned(parent) => parent.get(name),
             })
     }
 }

@@ -46,7 +46,12 @@ pub(in crate::workflow) async fn actual_reference_recycle_fixture(
         4 << 30,
         crate::math::MathPolicy {
             workspace_bytes: 1 << 30,
-            worker_bytes: 256 << 20,
+            // Complete preparation includes concurrently retained artifact
+            // descriptors/layouts before publication. This original-source
+            // fixture exercises semantic inventory, not a tiny-worker refusal.
+            // Its imported closure uses the same 1GiB constructor envelope
+            // as the explicitly admitted full workspace.
+            worker_bytes: 1 << 30,
             foreign_bytes: 8 << 20,
             ..Default::default()
         },

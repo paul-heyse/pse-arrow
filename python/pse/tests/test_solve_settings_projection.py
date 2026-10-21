@@ -210,6 +210,46 @@ def test_solve_settings_enum_types() -> None:
         msgspec.json.decode(b'{"version": 2}', type=pse.SolveSettings)
 
 
+@pytest.mark.unit
+def test_idas_current_version_default_omission_and_explicit_step() -> None:
+    settings = pse.IdasSettings()
+    assert settings.version == 3
+    assert settings.native_initial_step == "automatic"
+    assert msgspec.json.decode(b'{"version": 3}', type=pse.IdasSettings) == settings
+    configured = msgspec.json.decode(
+        b'{"version": 3, "native_initial_step": "configured"}', type=pse.IdasSettings
+    )
+    assert configured.native_initial_step == "configured"
+    assert (
+        msgspec.json.decode(msgspec.json.encode(configured), type=pse.IdasSettings)
+        == configured
+    )
+    for version in (1, 2, 4):
+        with pytest.raises(msgspec.ValidationError):
+            msgspec.json.decode(
+                codec.encode_json({"version": version}), type=pse.IdasSettings
+            )
+    simulation = pse.SimulationSettings(
+        start=0.0,
+        end=1.0,
+        samples=[0.0, 1.0],
+        atol=[0.001],
+        parameter_scales=[],
+        method="idas",
+    )
+    document = json.loads(simulation.to_json())
+    assert document["version"] == 3
+    document.pop("idas")
+    admitted = pse.SimulationSettings.from_json(json.dumps(document))
+    assert msgspec.json.decode(admitted.idas, type=pse.IdasSettings) == settings
+    for version in (1, 2):
+        document["version"] = version
+        with pytest.raises(
+            pse.InspectionError, match=f"document version {version} is unsupported"
+        ):
+            pse.SimulationSettings.from_json(json.dumps(document))
+
+
 @pytest.mark.integration
 def test_solve_settings_backend_projection(
     runtime: pse.Runtime,
@@ -262,14 +302,14 @@ def test_solve_settings_backend_projection(
             parameter_scales=[],
             diffsol=b'{"version": 1, "scheme": "bdf"}',
         )
-    with pytest.raises(pse.InspectionError, match="unknown document version"):
+    with pytest.raises(pse.InspectionError, match="unknown document version 2"):
         pse.SimulationSettings(
             start=0.0,
             end=1.0,
             samples=[0.0],
             atol=[1e-8],
             parameter_scales=[],
-            idas=b'{"version": 3}',
+            idas=b'{"version": 2}',
         )
 
     # Each variant reaches its backend: the report records the effective settings.
@@ -347,10 +387,18 @@ def test_solve_settings_backend_projection(
     options = ipopt.options()
     assert options["linear_solver"] == "mumps"
     assert options["mumps_pivot_order"] == 0
+    assert options["mumps_pivtol"] == 1e-6
+    assert options["mumps_pivtolmax"] == 0.1
+    assert options["mumps_mem_percent"] == 1000
+    assert options["mumps_permuting_scaling"] == 7
     assert options["mu_strategy"] == "adaptive"
     assert json.loads(ipopt.provenance()["linear"]) == {
         "kind": "mumps",
         "ordering": "amd",
+        "pivot_tolerance": 1e-6,
+        "maximum_pivot_tolerance": 0.1,
+        "memory_percent": 1000,
+        "permuting_scaling": 7,
     }
     # A document the native decoder refuses is refused at the entry point.
     with pytest.raises(pse.InspectionError, match=r"bound_push|Tolerance"):

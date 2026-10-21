@@ -1333,16 +1333,31 @@ async fn conditional_retention_control(ambiguous: bool) {
         budget,
     )
     .unwrap();
+    let inlet_slot = unit.inputs().iter().position(|id| *id == inlet).unwrap();
+    let auxiliary_slot = unit
+        .inputs()
+        .iter()
+        .position(|id| *id == auxiliary)
+        .unwrap();
+    let outlet_slot = unit.outputs().iter().position(|id| *id == outlet).unwrap();
+    let auxiliary_outlet_slot = unit
+        .outputs()
+        .iter()
+        .position(|id| *id == auxiliary_outlet)
+        .unwrap();
+    let input_values = |value, auxiliary_value| {
+        let mut values = [f64::NAN; 2];
+        values[inlet_slot] = value;
+        values[auxiliary_slot] = auxiliary_value;
+        values
+    };
     let mut charged = unit.budget.used();
     for (attempt, (input, expected)) in [(4.0_f64, 6.0), (8.0, 10.0), (4.0, 6.0)]
         .into_iter()
         .enumerate()
     {
-        let outputs = unit
-            .evaluate(
-                &BTreeMap::from([(inlet, input), (auxiliary, 2.0)]),
-                &execution,
-            )
+        let mut outputs = [f64::NAN; 2];
+        unit.evaluate(&input_values(input, 2.0), &mut outputs, &execution)
             .unwrap();
         let expected = if ambiguous {
             -2.0 * input.sqrt()
@@ -1350,11 +1365,11 @@ async fn conditional_retention_control(ambiguous: bool) {
             expected
         };
         assert!(
-            (outputs[&outlet] - expected).abs() < 1e-7,
+            (outputs[outlet_slot] - expected).abs() < 1e-7,
             "conditional output for input {input}, ambiguous={ambiguous}: actual {}, expected {expected}",
-            outputs[&outlet]
+            outputs[outlet_slot]
         );
-        assert!((outputs[&auxiliary_outlet] - 5.0).abs() < 1e-7);
+        assert!((outputs[auxiliary_outlet_slot] - 5.0).abs() < 1e-7);
         let retained = unit.conditional.as_ref().unwrap();
         assert_eq!(retained.calls, attempt + 1);
         assert_eq!(retained.last_reused, attempt > 0);
@@ -1380,21 +1395,29 @@ async fn conditional_retention_control(ambiguous: bool) {
         independent_budget.clone(),
     )
     .unwrap();
-    let independent_output = independent
+    assert_eq!(independent.inputs(), unit.inputs());
+    assert_eq!(independent.outputs(), unit.outputs());
+    let mut independent_output = [f64::NAN; 2];
+    independent
         .evaluate(
-            &BTreeMap::from([(inlet, 16.0), (auxiliary, 2.0)]),
+            &input_values(16.0, 2.0),
+            &mut independent_output,
             &execution,
         )
         .unwrap();
-    assert!((independent_output[&outlet] - if ambiguous { -8.0 } else { 18.0 }).abs() < 1e-7);
+    assert!((independent_output[outlet_slot] - if ambiguous { -8.0 } else { 18.0 }).abs() < 1e-7);
     assert!(!independent.conditional.as_ref().unwrap().last_reused);
     // A different lane history must not turn an authored branch into continuation.
-    let same_input = BTreeMap::from([(inlet, 4.0), (auxiliary, 2.0)]);
-    let first = unit.evaluate(&same_input, &execution).unwrap();
-    let second = independent.evaluate(&same_input, &execution).unwrap();
-    let lane_noise = [outlet, auxiliary_outlet]
+    let same_input = input_values(4.0, 2.0);
+    let mut first = [f64::NAN; 2];
+    unit.evaluate(&same_input, &mut first, &execution).unwrap();
+    let mut second = [f64::NAN; 2];
+    independent
+        .evaluate(&same_input, &mut second, &execution)
+        .unwrap();
+    let lane_noise = [outlet_slot, auxiliary_outlet_slot]
         .into_iter()
-        .map(|port| (first[&port] - second[&port]).abs())
+        .map(|port| (first[port] - second[port]).abs())
         .fold(0.0_f64, f64::max);
     assert!(
         lane_noise < 1e-7,
@@ -1402,11 +1425,15 @@ async fn conditional_retention_control(ambiguous: bool) {
     );
     // The named smooth branch remains stable under a small boundary perturbation.
     // This local window is not a claim about other branches or opaque providers.
-    let perturbed_input = BTreeMap::from([(inlet, 4.0 + 1e-5), (auxiliary, 2.0)]);
-    let perturbed = unit.evaluate(&perturbed_input, &execution).unwrap();
-    assert!((perturbed[&outlet] - first[&outlet]).abs() < 2e-5);
-    let repeated = unit.evaluate(&same_input, &execution).unwrap();
-    assert!((repeated[&outlet] - first[&outlet]).abs() < 1e-7);
+    let perturbed_input = input_values(4.0 + 1e-5, 2.0);
+    let mut perturbed = [f64::NAN; 2];
+    unit.evaluate(&perturbed_input, &mut perturbed, &execution)
+        .unwrap();
+    assert!((perturbed[outlet_slot] - first[outlet_slot]).abs() < 2e-5);
+    let mut repeated = [f64::NAN; 2];
+    unit.evaluate(&same_input, &mut repeated, &execution)
+        .unwrap();
+    assert!((repeated[outlet_slot] - first[outlet_slot]).abs() < 1e-7);
     let after = prepared.inner_context().unwrap();
     assert_eq!(context.start, after.start);
     assert_eq!(context.branch, after.branch);
@@ -1414,18 +1441,15 @@ async fn conditional_retention_control(ambiguous: bool) {
     assert_eq!(unit.conditional.as_ref().unwrap().calls, 6);
     drop(independent);
     assert_eq!(independent_budget.used(), 0);
-    assert!(unit.evaluate(&BTreeMap::new(), &execution).is_err());
+    assert!(unit.evaluate(&[], &mut [f64::NAN; 2], &execution).is_err());
     assert!(
-        unit.evaluate(
-            &BTreeMap::from([(inlet, f64::NAN), (auxiliary, 2.0)]),
-            &execution
-        )
-        .is_err()
+        unit.evaluate(&input_values(f64::NAN, 2.0), &mut [f64::NAN; 2], &execution)
+            .is_err()
     );
     let mut expired = execution.clone();
     expired.time_limit = std::time::Duration::ZERO;
     let error = unit
-        .evaluate(&BTreeMap::from([(inlet, 4.0), (auxiliary, 2.0)]), &expired)
+        .evaluate(&input_values(4.0, 2.0), &mut [f64::NAN; 2], &expired)
         .unwrap_err();
     assert_eq!(
         native::callback::classify(&error),
@@ -1436,13 +1460,13 @@ async fn conditional_retention_control(ambiguous: bool) {
         .cancel
         .store(true, std::sync::atomic::Ordering::Release);
     assert!(
-        unit.evaluate(&BTreeMap::from([(inlet, 4.0)]), &execution)
+        unit.evaluate(&input_values(4.0, 2.0), &mut [f64::NAN; 2], &execution)
             .is_err()
     );
     assert_eq!(unit.program.values.identity(), original);
     assert_eq!(unit.budget.used(), charged);
 
-    assert!(unit.last_values.is_none());
+    assert!(unit.original_values().scalars.is_empty());
     drop(unit);
     assert_eq!(
         live_budget.used(),
@@ -1654,17 +1678,32 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
         budget,
     )
     .unwrap();
+    let inlet_slot = unit.inputs().iter().position(|id| *id == inlet).unwrap();
+    let auxiliary_slot = unit
+        .inputs()
+        .iter()
+        .position(|id| *id == auxiliary)
+        .unwrap();
+    let outlet_slot = unit.outputs().iter().position(|id| *id == outlet).unwrap();
+    let auxiliary_outlet_slot = unit
+        .outputs()
+        .iter()
+        .position(|id| *id == auxiliary_outlet)
+        .unwrap();
+    let input_values = |value, auxiliary_value| {
+        let mut values = [f64::NAN; 2];
+        values[inlet_slot] = value;
+        values[auxiliary_slot] = auxiliary_value;
+        values
+    };
     let mut charged = unit.budget.used();
     for (attempt, (input, expected)) in [(4.0, 4.0), (8.0, 6.0), (4.0, 4.0)].into_iter().enumerate()
     {
-        let outputs = unit
-            .evaluate(
-                &BTreeMap::from([(inlet, input), (auxiliary, 2.0)]),
-                &execution,
-            )
+        let mut outputs = [f64::NAN; 2];
+        unit.evaluate(&input_values(input, 2.0), &mut outputs, &execution)
             .unwrap();
-        assert!((outputs[&outlet] - expected).abs() < 1e-7);
-        assert!((outputs[&auxiliary_outlet] - 5.0).abs() < 1e-7);
+        assert!((outputs[outlet_slot] - expected).abs() < 1e-7);
+        assert!((outputs[auxiliary_outlet_slot] - 5.0).abs() < 1e-7);
         assert_eq!(unit.program.values.identity(), original);
         // First execution installs the charged native callback/proof owner.
         // Later overlays replace that owner; retained residency must plateau.
@@ -1674,19 +1713,16 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
         }
         assert_eq!(unit.budget.used(), charged);
     }
-    assert!(unit.evaluate(&BTreeMap::new(), &execution).is_err());
+    assert!(unit.evaluate(&[], &mut [f64::NAN; 2], &execution).is_err());
     assert!(
-        unit.evaluate(
-            &BTreeMap::from([(inlet, f64::NAN), (auxiliary, 2.0)]),
-            &execution
-        )
-        .is_err()
+        unit.evaluate(&input_values(f64::NAN, 2.0), &mut [f64::NAN; 2], &execution)
+            .is_err()
     );
     execution
         .cancel
         .store(true, std::sync::atomic::Ordering::Release);
     assert!(
-        unit.evaluate(&BTreeMap::from([(inlet, 4.0)]), &execution)
+        unit.evaluate(&input_values(4.0, 2.0), &mut [f64::NAN; 2], &execution)
             .is_err()
     );
     assert_eq!(unit.program.values.identity(), original);
@@ -2072,12 +2108,13 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
         budget,
     )
     .unwrap();
+    assert_eq!(unit.inputs(), &[inlet]);
+    assert_eq!(unit.outputs(), &[outlet]);
     let mut charged = unit.budget.used();
     for (attempt, target) in [310.0, 320.0, 310.0].into_iter().enumerate() {
-        let outputs = unit
-            .evaluate(&BTreeMap::from([(inlet, target)]), &execution)
-            .unwrap();
-        assert!((outputs[&outlet] - target).abs() < 1e-7);
+        let mut outputs = [f64::NAN];
+        unit.evaluate(&[target], &mut outputs, &execution).unwrap();
+        assert!((outputs[0] - target).abs() < 1e-7);
         assert_eq!(unit.program.values.identity(), original);
         // First execution installs the charged native callback/proof owner.
         // Later overlays replace that owner; retained residency must plateau.
@@ -2088,15 +2125,15 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
         assert_eq!(unit.budget.used(), charged);
     }
     assert!(
-        unit.evaluate(&BTreeMap::from([(inlet, f64::NAN)]), &execution)
+        unit.evaluate(&[f64::NAN], &mut [f64::NAN], &execution)
             .is_err()
     );
-    assert!(unit.evaluate(&BTreeMap::new(), &execution).is_err());
+    assert!(unit.evaluate(&[], &mut [f64::NAN], &execution).is_err());
     execution
         .cancel
         .store(true, std::sync::atomic::Ordering::Release);
     assert!(
-        unit.evaluate(&BTreeMap::from([(inlet, 310.0)]), &execution)
+        unit.evaluate(&[310.0], &mut [f64::NAN], &execution)
             .is_err()
     );
     assert_eq!(unit.program.values.identity(), original);

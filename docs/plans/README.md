@@ -5,13 +5,15 @@ progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
 [Plan48: Execution performance and numerical efficiency](48-execution-performance-and-numerical-efficiency.md)
-owns the new standalone execution-performance target derived from the independent audit
-of both external reviews. Its [coordinator](48-execution-performance-and-numerical-efficiency.md#current-checkpoint)
-owns finding/investigation dispositions, the twelve operator-accepted rule boundaries and
-the next execution route. Companions 48a–48h develop preparation, mathematical/native
-execution, dynamics/fitting, scheduling/resources, diagnostics and selected qualification;
-the [coverage appendix](48-recommendation-coverage.md) maps every atomized source recommendation.
-Product implementation is unstarted; existing plans retain their separate scope and status.
+is complete after the independent completion audit and its CA01/C01 boundary-lookup and
+CA02/E05 pre-effect admission repairs. Its
+[coordinator](48-execution-performance-and-numerical-efficiency.md#completion-audit) owns
+the findings/inquiries and accepted rule boundaries.
+[48h's repair qualification](48h-qualification-and-design-publication.md#completion-audit-repair-qualification)
+records the 27 current-source math/compiler/native/runtime controls, all three full Clippy
+modes and supported limits. Earlier selected acceptance retains its original conditions.
+The highest coordinator and consumed companions remain retained; other plans keep their
+independent scope/status.
 
 [Plan47: Pipeline diagnostics and review artifacts](47-pipeline-diagnostics-and-review-artifacts.md)
 is complete for all 31 packages, including the production-completeness repairs and selected

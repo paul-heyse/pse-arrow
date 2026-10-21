@@ -93,6 +93,136 @@ impl Oracle for Tank {
         })
     }
 }
+fn admitted<O: Oracle>(mut window: Anchored<O>) -> Anchored<O> {
+    let prepared = window.prepare_layout(64 << 10).unwrap();
+    window.use_prepared_layout(prepared).unwrap();
+    window
+}
+fn tank_window(observed: bool) -> Anchored<Tank> {
+    admitted(Anchored::new(Tank::new(), observed).unwrap())
+}
+#[test]
+fn anchored_raw_diagonal_forwards_without_full_wrapper_matrix_and_checks_current_flux() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    #[derive(Debug)]
+    struct Selected {
+        tank: Tank,
+        charges: Arc<AtomicUsize>,
+        order: Arc<std::sync::Mutex<Vec<&'static str>>>,
+    }
+    impl Oracle for Selected {
+        fn contract(&self) -> &Contract {
+            self.tank.contract()
+        }
+        fn support(&self, mode: usize, f: Function) -> Vec<SupportEntry> {
+            self.tank.support(mode, f)
+        }
+        fn snapshot_owner(
+            &self,
+            bytes: usize,
+        ) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
+            self.charges.fetch_add(1, Ordering::Relaxed);
+            self.tank.snapshot_owner(bytes)
+        }
+        fn evaluate(
+            &mut self,
+            mode: usize,
+            f: Function,
+            time: f64,
+            state: &[f64],
+            parameters: &[f64],
+            derivatives: bool,
+        ) -> Result<Evaluation, ProblemError> {
+            assert_eq!(f, Function::QuadratureFlux);
+            assert!(!derivatives);
+            self.order.lock().unwrap().push("flux Value");
+            if state[0] < 0. {
+                return Err(pse_math::MathError::Domain {
+                    source_id: SemanticId::from_bytes([91; 16]),
+                    requirement: "current flux applicability",
+                }
+                .into());
+            }
+            self.tank.evaluate(mode, f, time, state, parameters, false)
+        }
+        fn rhs_state_diagonal(
+            &mut self,
+            _: usize,
+            _: f64,
+            _: &[f64],
+            parameters: &[f64],
+            output: &mut [f64],
+        ) -> Result<RhsDiagonalSource, ProblemError> {
+            assert_eq!(parameters, [4., 5.]);
+            self.order.lock().unwrap().push("RHS diagonal");
+            output.copy_from_slice(&[0., -1.]);
+            Ok(RhsDiagonalSource::SelectedEntries)
+        }
+    }
+    let charges = Arc::new(AtomicUsize::new(0));
+    let order = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mut window = Anchored::new(
+        Selected {
+            tank: Tank::new(),
+            charges: charges.clone(),
+            order: order.clone(),
+        },
+        true,
+    )
+    .unwrap();
+    let mut diagonal = [42.; 3];
+    let mut pointer = std::ptr::null::<f64>();
+    for _ in 0..3 {
+        assert!(matches!(
+            window
+                .rhs_state_diagonal(0, 0., &[2., 3., 7.], &[4., 5., 6.], &mut diagonal)
+                .unwrap(),
+            RhsDiagonalSource::SelectedEntries
+        ));
+        assert_eq!(diagonal, [0., -1., 0.]);
+        let current = window.diagonal.as_ref().unwrap().values.as_ptr();
+        if pointer.is_null() {
+            pointer = current;
+        } else {
+            assert_eq!(pointer, current);
+        }
+        assert_eq!(
+            charges.load(Ordering::Relaxed),
+            1,
+            "one retained candidate charge/one stable allocation"
+        );
+    }
+    assert!(
+        window.prepared.is_none(),
+        "independently prepared selected products need no full wrapper CSC"
+    );
+    diagonal = [42.; 3];
+    let error = window
+        .rhs_state_diagonal(0, 0., &[-2., 3., 7.], &[4., 5., 6.], &mut diagonal)
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        ProblemError::Math(pse_math::MathError::Domain {
+            requirement: "current flux applicability",
+            ..
+        })
+    ));
+    assert_eq!(
+        diagonal, [42.; 3],
+        "zero flux self derivative cannot publish past an invalid current flux"
+    );
+    assert_eq!(charges.load(Ordering::Relaxed), 1);
+    assert_eq!(
+        *order.lock().unwrap(),
+        ["RHS diagonal", "flux Value"].repeat(4)
+    );
+    assert!(
+        window
+            .rhs_state_diagonal(0, 0., &[2., 3., 7.], &[4., f64::NAN, 6.], &mut diagonal)
+            .is_err()
+    );
+    assert_eq!(diagonal, [42.; 3]);
+}
 fn methods() -> Vec<Method> {
     let mut methods = vec![Method::Diffsol];
     if cfg!(feature = "idas") {
@@ -136,7 +266,7 @@ fn anchored_window_continues_the_horizon() {
             plain.error
         );
         let middle = &plain.samples[1];
-        let mut window = Anchored::new(Tank::new(), false).unwrap();
+        let mut window = tank_window(false);
         assert_eq!(window.anchors(), &[0]);
         let mut profile = window.profile(&horizon(method).window(1.0, 2.0, vec![1.0, 2.0]));
         profile.sensitivity = DynamicSensitivity::Forward;
@@ -169,13 +299,7 @@ fn anchored_window_continues_the_horizon() {
             q[2] += delta;
             let mut p = profile.clone();
             p.sensitivity = DynamicSensitivity::None;
-            let r = integrate(
-                &mut Anchored::new(Tank::new(), false).unwrap(),
-                &p,
-                &q,
-                Cancellation::default(),
-            )
-            .unwrap();
+            let r = integrate(&mut tank_window(false), &p, &q, Cancellation::default()).unwrap();
             r.samples.last().unwrap().outputs.clone()
         };
         let (plus, minus) = (shifted(step), shifted(-step));
@@ -203,7 +327,7 @@ fn observed_quadrature_adjoint_matches_differences() {
             Cancellation::default(),
         )
         .unwrap();
-        let mut window = Anchored::new(Tank::new(), true).unwrap();
+        let mut window = tank_window(true);
         assert!(window.contract().quadratures.is_empty());
         assert_eq!(window.contract().states.len(), 3);
         let mut profile = window.profile(&horizon(method));
@@ -243,7 +367,7 @@ fn observed_quadrature_adjoint_matches_differences() {
                 let mut q = parameters;
                 q[j] += delta;
                 let r = integrate(
-                    &mut Anchored::new(Tank::new(), true).unwrap(),
+                    &mut tank_window(true),
                     &profile,
                     &q,
                     Cancellation::default(),
@@ -276,7 +400,7 @@ fn anchored_contract_limits() {
         Anchored::new(balanced, true),
         Err(ProblemError::Contract(_))
     ));
-    let mut window = Anchored::new(Tank::new(), false).unwrap();
+    let mut window = tank_window(false);
     assert!(matches!(
         window.evaluate(0, Function::Rhs, 0.0, &[1.0, 1.0], &[0.8, 1.2], false),
         Err(ProblemError::Contract(_))
@@ -339,6 +463,8 @@ fn anchored_snapshots_retain_distinct_owners_and_refuse_missing_admission() {
         false,
     )
     .unwrap();
+    let prepared = worker.prepare_layout(64 << 10).unwrap();
+    worker.use_prepared_layout(prepared).unwrap();
     let first = worker
         .evaluate(0, Function::Rhs, 0., &[1., 1.], &[0.8, 1.2, 1.], true)
         .unwrap();
@@ -346,7 +472,11 @@ fn anchored_snapshots_retain_distinct_owners_and_refuse_missing_admission() {
     let second = worker
         .evaluate(0, Function::Rhs, 0., &[2., 1.], &[0.8, 1.2, 1.], true)
         .unwrap();
-    assert_eq!(live.load(Ordering::Acquire), 2);
+    assert_eq!(
+        live.load(Ordering::Acquire),
+        3,
+        "prepared layout plus two immutable snapshots"
+    );
     assert!(pse_math::SharedAllocation::ptr_eq(
         first.jacobian.as_ref().unwrap(),
         alias.jacobian.as_ref().unwrap()
@@ -456,8 +586,12 @@ fn anchored_layout_is_source_bound_and_retains_its_allocation_without_support_re
     assert!(Arc::ptr_eq(&plain.prepared_layout(4096).unwrap(), &base));
     assert_eq!(queries.load(Ordering::Acquire), 0);
     let observed = Anchored::new(worker(Tank::new()), true).unwrap();
-    let prepared = observed.prepare_layout(4096).unwrap();
-    assert_eq!(queries.load(Ordering::Acquire), 2);
+    let prepared = observed.prepare_layout(64 << 10).unwrap();
+    assert_eq!(
+        queries.load(Ordering::Acquire),
+        7,
+        "all wrapper function support is prepared once"
+    );
     assert_eq!(live.load(Ordering::Acquire), 1);
     let mut reused = Anchored::new(worker(Tank::new()), true).unwrap();
     reused.use_prepared_layout(prepared.clone()).unwrap();
@@ -465,7 +599,11 @@ fn anchored_layout_is_source_bound_and_retains_its_allocation_without_support_re
     let second = reused.prepared_layout(4096).unwrap();
     assert!(Arc::ptr_eq(&first, &second));
     assert_eq!(first.states(), 3);
-    assert_eq!(queries.load(Ordering::Acquire), 2);
+    assert_eq!(
+        queries.load(Ordering::Acquire),
+        7,
+        "all wrapper function support is prepared once"
+    );
     assert!(reused.prepared_layout(0).is_err());
     let mut different = Tank::new();
     different.0.identity = ContentHash::from_bytes([7; 32]);
@@ -492,7 +630,7 @@ fn anchored_layout_is_source_bound_and_retains_its_allocation_without_support_re
 #[test]
 fn anchored_actions_match_exact_partials_without_materializing_wrapper_matrices() {
     for observed in [false, true] {
-        let mut oracle = Anchored::new(Tank::new(), observed).unwrap();
+        let mut oracle = tank_window(observed);
         let state = if observed {
             vec![1.2, 0.8, 0.3]
         } else {
@@ -566,4 +704,177 @@ fn anchored_actions_match_exact_partials_without_materializing_wrapper_matrices(
             assert_eq!(actual, old, "failed action publishes no partial product");
         }
     }
+}
+
+#[test]
+fn anchored_prepared_functions_refuse_before_effects_and_refill_actual_mode_support() {
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    #[derive(Debug)]
+    struct Modes {
+        tank: Tank,
+        calls: Arc<AtomicUsize>,
+        supports: Arc<AtomicUsize>,
+        outside: Arc<AtomicBool>,
+    }
+    impl Oracle for Modes {
+        fn contract(&self) -> &Contract {
+            self.tank.contract()
+        }
+        fn snapshot_owner(
+            &self,
+            bytes: usize,
+        ) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
+            self.tank.snapshot_owner(bytes)
+        }
+        fn support(&self, mode: usize, function: Function) -> Vec<SupportEntry> {
+            self.supports.fetch_add(1, Ordering::Relaxed);
+            let mut support = self.tank.support(mode, function);
+            if function == Function::Rhs {
+                // Repeated declared contributions still have one canonical slot.
+                support.extend(entries([(0, 1)]));
+                if mode == 1 {
+                    support.extend(entries([(0, 0)]));
+                }
+            }
+            support
+        }
+        fn evaluate(
+            &mut self,
+            mode: usize,
+            function: Function,
+            time: f64,
+            state: &[f64],
+            parameters: &[f64],
+            derivatives: bool,
+        ) -> Result<Evaluation, ProblemError> {
+            self.calls.fetch_add(1, Ordering::Relaxed);
+            let mut evaluation =
+                self.tank
+                    .evaluate(mode, function, time, state, parameters, derivatives)?;
+            if function == Function::Rhs {
+                let extra = mode == 1 || self.outside.load(Ordering::Relaxed);
+                if extra {
+                    evaluation.values[0] += 11.0 * state[0];
+                }
+                if let Some(source) = evaluation.jacobian.take() {
+                    let mut terms = Vec::new();
+                    for col in 0..source.ncols() {
+                        for slot in source.col_range(col) {
+                            let row = source.row_idx()[slot];
+                            let value = source.val()[slot];
+                            if (row, col) == (0, 1) {
+                                terms.push(faer::sparse::Triplet::new(row, col, value * 0.25));
+                                terms.push(faer::sparse::Triplet::new(row, col, value * 0.75));
+                            } else {
+                                terms.push(faer::sparse::Triplet::new(row, col, value));
+                            }
+                        }
+                    }
+                    if extra {
+                        terms.push(faer::sparse::Triplet::new(0, 0, 11.0));
+                    }
+                    evaluation.jacobian = Some(
+                        Arc::new(
+                            faer::sparse::SparseColMat::try_new_from_triplets(
+                                source.nrows(),
+                                source.ncols(),
+                                &terms,
+                            )
+                            .unwrap(),
+                        )
+                        .into(),
+                    );
+                }
+            }
+            Ok(evaluation)
+        }
+    }
+    let mut tank = Tank::new();
+    tank.0.events.push(vec![]);
+    let calls = Arc::new(AtomicUsize::new(0));
+    let supports = Arc::new(AtomicUsize::new(0));
+    let outside = Arc::new(AtomicBool::new(false));
+    let mut window = Anchored::new(
+        Modes {
+            tank,
+            calls: calls.clone(),
+            supports: supports.clone(),
+            outside: outside.clone(),
+        },
+        false,
+    )
+    .unwrap();
+    let parameters = [0.7, 1.1, 0.9];
+    assert!(matches!(
+        window.evaluate(0, Function::Rhs, 0.0, &[1.2, 0.8], &parameters, true),
+        Err(ProblemError::Contract(_))
+    ));
+    assert_eq!(
+        calls.load(Ordering::Relaxed),
+        0,
+        "missing preparation refuses before inner effects"
+    );
+    assert!(
+        window
+            .evaluate(0, Function::Rhs, 0.0, &[1.2, 0.8], &parameters, false)
+            .is_ok()
+    );
+    assert!(window.prepare_layout(1).is_err());
+    assert_eq!(calls.load(Ordering::Relaxed), 1);
+    let prepared = window.prepare_layout(64 << 10).unwrap();
+    window.use_prepared_layout(prepared).unwrap();
+    let prepared_queries = supports.load(Ordering::Relaxed);
+    let first = window
+        .evaluate(0, Function::Rhs, 0.0, &[1.2, 0.8], &parameters, true)
+        .unwrap();
+    let original = first.jacobian.as_ref().unwrap();
+    let expected = [
+        [0.0, -1.0, 0.0, 1.0, 0.0],
+        [2.0 * 0.7 * 1.2, -1.0, 1.2 * 1.2, 0.0, 0.0],
+    ];
+    for (row, entries) in expected.iter().enumerate() {
+        for (col, expected) in entries.iter().enumerate() {
+            let actual = original
+                .col_range(col)
+                .find(|slot| original.row_idx()[*slot] == row)
+                .map_or(0.0, |slot| original.val()[slot]);
+            assert_eq!(actual, *expected);
+        }
+    }
+    let saved = original.val().to_vec();
+    let next = window
+        .evaluate(1, Function::Rhs, 0.5, &[2.0, 0.8], &parameters, true)
+        .unwrap();
+    let next = next.jacobian.unwrap();
+    let slot = next
+        .col_range(0)
+        .find(|slot| next.row_idx()[*slot] == 0)
+        .unwrap();
+    assert_eq!(next.val()[slot], 11.0);
+    let retained_values = next.val().as_ptr();
+    drop(next);
+    let again = window
+        .evaluate(1, Function::Rhs, 0.75, &[2.2, 0.8], &parameters, true)
+        .unwrap();
+    assert_eq!(
+        again.jacobian.as_ref().unwrap().val().as_ptr(),
+        retained_values,
+        "drained numeric snapshots reuse their admitted canonical storage"
+    );
+    assert_eq!(original.val(), saved);
+    assert_eq!(
+        supports.load(Ordering::Relaxed),
+        prepared_queries,
+        "no support/sort replay in evaluation"
+    );
+    outside.store(true, Ordering::Relaxed);
+    assert!(matches!(
+        window.evaluate(0, Function::Rhs, 1.0, &[2.0, 0.8], &parameters, true),
+        Err(ProblemError::Contract(_))
+    ));
+    assert_eq!(
+        original.val(),
+        saved,
+        "failed refill cannot mutate an escaped snapshot"
+    );
 }

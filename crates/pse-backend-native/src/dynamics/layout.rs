@@ -168,17 +168,22 @@ impl PreparedLayout {
     /// fill allowance. Krylov methods pay for basis/Hessenberg arrays, not KLU.
     pub fn linear_bytes(&self, linear: IdasLinear) -> Result<usize, ProblemError> {
         let n = self.states();
+        linear.validate_for_states(n)?;
         let bytes = match linear {
             IdasLinear::Klu => Self::direct_bytes(n, self.nonzeros()),
-            IdasLinear::Spgmr {
-                dimension,
-                preconditioner,
-            }
-            | IdasLinear::Spfgmr {
-                dimension,
-                preconditioner,
-            } => {
-                if preconditioner == Preconditioner::BlockFactor {
+            IdasLinear::Spgmr { dimension, .. }
+            | IdasLinear::Spfgmr { dimension, .. }
+            | IdasLinear::SpgmrBbd { dimension, .. } => {
+                if matches!(
+                    linear,
+                    IdasLinear::Spgmr {
+                        preconditioner: Preconditioner::BlockFactor,
+                        ..
+                    } | IdasLinear::Spfgmr {
+                        preconditioner: Preconditioner::BlockFactor,
+                        ..
+                    }
+                ) {
                     return Err(ProblemError::unsupported(
                         "IDAS block factor preconditioning is not supplied",
                     ));
@@ -186,7 +191,10 @@ impl PreparedLayout {
                 let m = dimension.into_inner();
                 // Exact native SPGMR/SPFGMR real workspace formulas (SUNDIALS
                 // 7.1.1 SUNLinSolSpace), plus the session's state vectors.
-                let solver_vectors = if matches!(linear, IdasLinear::Spgmr { .. }) {
+                let solver_vectors = if matches!(
+                    linear,
+                    IdasLinear::Spgmr { .. } | IdasLinear::SpgmrBbd { .. }
+                ) {
                     m.checked_add(5)
                 } else {
                     m.checked_mul(2).and_then(|v| v.checked_add(4))
@@ -199,6 +207,7 @@ impl PreparedLayout {
                     .and_then(|v| v.checked_mul(size_of::<f64>()))
                     .and_then(|v| v.checked_add(vectors?.checked_mul(512)?))
                     .and_then(|v| v.checked_add(4096))
+                    .and_then(|v| v.checked_add(linear.bbd_bytes(n).ok()?))
             }
         };
         bytes.ok_or_else(|| ProblemError::memory("IDAS selected linear workspace extent"))
@@ -402,5 +411,65 @@ mod tests {
                     .unwrap()
                 > PreparedLayout::direct_bytes(small.states(), small.nonzeros()).unwrap()
         );
+    }
+    #[test]
+    fn bbd_explicit_band_profile_and_replacement_extent_are_admitted_before_effects() {
+        use crate::dynamics::IdasBand;
+        let selected = IdasLinear::SpgmrBbd {
+            dimension: PositiveCount::try_new(8).unwrap(),
+            difference: IdasBand { upper: 3, lower: 2 },
+            retained: IdasBand { upper: 1, lower: 1 },
+        };
+        let wire = serde_json::to_vec(&selected).unwrap();
+        assert_eq!(
+            serde_json::from_slice::<IdasLinear>(&wire).unwrap(),
+            selected
+        );
+        let layout = diagonal(4);
+        let plain = IdasLinear::Spgmr {
+            dimension: selected.krylov_dimension().unwrap(),
+            preconditioner: Preconditioner::None,
+        };
+        let bytes = selected.bbd_bytes(4).unwrap();
+        // Native band PP = n*(min(n-1,upper+lower)+lower+1) cells;
+        // four cloned vectors, column pointers, pivots and bounded headers.
+        assert_eq!(bytes, 2 * (4 * 4 * 8 + 4 * (16 + 32) + 6 * 512 + 4096));
+        assert_eq!(
+            layout.linear_bytes(selected).unwrap() - layout.linear_bytes(plain).unwrap(),
+            bytes
+        );
+        assert!(selected.validate_for_states(3).is_err());
+        let escaping = IdasLinear::SpgmrBbd {
+            dimension: selected.krylov_dimension().unwrap(),
+            difference: IdasBand { upper: 0, lower: 1 },
+            retained: IdasBand { upper: 1, lower: 1 },
+        };
+        assert!(layout.linear_bytes(escaping).is_err());
+        let huge = IdasLinear::SpgmrBbd {
+            dimension: selected.krylov_dimension().unwrap(),
+            difference: IdasBand {
+                upper: usize::MAX - 1,
+                lower: 0,
+            },
+            retained: IdasBand {
+                upper: usize::MAX - 1,
+                lower: 0,
+            },
+        };
+        assert!(huge.bbd_bytes(usize::MAX).is_err());
+        let overflow = IdasLinear::SpgmrBbd {
+            dimension: selected.krylov_dimension().unwrap(),
+            difference: IdasBand {
+                upper: 1_999_999_999,
+                lower: 1_999_999_999,
+            },
+            retained: IdasBand {
+                upper: 1_999_999_999,
+                lower: 1_999_999_999,
+            },
+        };
+        assert!(overflow.validate_for_states(2_000_000_000).is_ok());
+        assert!(overflow.bbd_bytes(2_000_000_000).is_err());
+        assert!(selected.bbd_bytes(0).is_err());
     }
 }

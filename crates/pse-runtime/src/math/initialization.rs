@@ -1213,20 +1213,25 @@ impl MathService {
                         let request = pse_model::strategy::CompositionRequest::default();
                         let mut factory = Some(factory);
                         let (result, trace) = super::strategy::target::callable(
-                            &worker_service,
+                            super::strategy::target::CallContext {
+                                service: &worker_service,
+                                scope: &scope,
+                                storage: None,
+                            },
                             super::strategy::target::Source {
                                 original,
                                 preparation: original,
                                 profile,
                                 profile_projection: None,
-                                backend: Some(Backend::Kinsol),
+                                method: Some(pse_model::strategy::NumericalMethod::Backend(
+                                    Backend::Kinsol,
+                                )),
                                 solver: None,
                                 controls: &controls,
                                 request: &request,
                                 start: pse_model::strategy::StartOrigin::Specification,
                                 start_identity: Some(start_identity),
                             },
-                            &scope,
                             |_, admission| {
                                 let mut execution =
                                     Execution::within(flag.clone(), &controls, scope.clone())?;
@@ -1337,7 +1342,7 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<PreparedInitialization, MathRuntimeError> {
         let driver = self.preparation_driver(driver)?;
-        let original = Self::preparation_wait(&driver, self.assemble(case.clone())).await?;
+        let original = self.assemble_for(case.clone(), &driver).await?;
         let quantities = case.compiled().quantities.clone();
         let preconditions = case.compiled().preconditions.clone();
         let mut targets = case
@@ -1406,13 +1411,41 @@ impl MathService {
             lease,
             Vec::new(),
         )?;
+        let request_count = products
+            .iter()
+            .try_fold(0usize, |count, block| {
+                count.checked_add(block.artifacts.len())
+            })
+            .ok_or(MathRuntimeError::Limit(
+                "initialization artifact request count",
+            ))?;
+        // All independent immutable compilation requests may overlap; scientific
+        // block execution still follows its admitted causal dependency graph.
+        let staging_bytes = request_count
+            .checked_mul(
+                4 * (size_of::<&pse_compiler::workspace::ArtifactRequest>()
+                    + size_of::<Arc<super::artifacts::Artifact>>()),
+            )
+            .and_then(|bytes| bytes.checked_add(1024))
+            .ok_or(MathRuntimeError::Limit(
+                "initialization artifact request staging",
+            ))?;
+        let staging = self.reserve("math:initialization-artifact-staging", staging_bytes)?;
+        let mut requests = Vec::with_capacity(request_count);
+        requests.extend(products.iter().flat_map(|block| block.artifacts.iter()));
+        // Transfer the prepaid descriptor-reference vector into the batch. An
+        // additional borrowed/copying iterator needlessly ties the async batch's
+        // Send proof to a second, higher-ranked reference lifetime.
+        let mut ready = self
+            .prepare_artifacts(requests.into_iter(), &driver)
+            .await?
+            .into_iter();
         let mut blocks = Vec::with_capacity(products.len());
         for block in products.iter() {
-            let mut artifacts = vec![];
-            for request in block.artifacts.iter() {
-                artifacts
-                    .push(Self::preparation_wait(&driver, self.artifact(request.clone())).await?);
-            }
+            let artifacts = ready
+                .by_ref()
+                .take(block.artifacts.len())
+                .collect::<Vec<_>>();
             let plan = Arc::new(block.plan.as_ref().clone().with_owner(owner.clone()));
             let layout = self.reserve(
                 "case_operation_layout",
@@ -1434,6 +1467,8 @@ impl MathService {
                 }),
             });
         }
+        drop(ready);
+        drop(staging);
         let descriptor_bytes = Dependencies::allocation_bound(blocks.iter().map(|block| {
             Ok((
                 &block.boundary,

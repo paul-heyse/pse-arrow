@@ -401,9 +401,49 @@ impl RunResult {
             context.boolean("run.original_completion.failed", result.completion.is_err());
             context.source_ref("run.identity", result.run_id.as_id().to_string().as_bytes());
         }
-        if let Some(attempt) = durable {
+        if let Some(mut attempt) = durable {
+            // Every callsite has completed its scientific handle's owning join,
+            // reset/teardown and original assessment before this handoff. The
+            // attempt and caller's private source lane remain retained through ACK.
+            let admission = attempt.begin_worker_publication().await;
+            let publish = matches!(&admission, Ok(true));
+            let preserve_scientific_failure =
+                !publish && (result.report.is_err() || result.completion.is_err());
             let publication = crate::invocation::stage("required_durable_publication");
-            let record = attempt.finish(&result, cancelled).await;
+            let record = if publish {
+                attempt.finish(&result, cancelled).await
+            } else {
+                // Keep the original failure when science already failed. An
+                // unadmitted cancelled owner only settles its existing attempt;
+                // it must not start a second payload publisher past capacity.
+                let prior = result
+                    .report
+                    .as_ref()
+                    .err()
+                    .or_else(|| result.completion.as_ref().err())
+                    .cloned();
+                let interrupted = match admission {
+                    Err(error) => Some(Arc::new(error)),
+                    Ok(_) => None,
+                };
+                let error = prior
+                    .clone()
+                    .or_else(|| interrupted.clone())
+                    .unwrap_or_else(|| Arc::new(MathRuntimeError::Cancelled.into()));
+                if prior.is_none() {
+                    result.report = Err(error.clone());
+                    result.reset_result_projection();
+                }
+                if let Some(interrupted) = interrupted {
+                    attempt.reject_worker_publication(interrupted).await
+                } else {
+                    result.invocation_cancelled = true;
+                    if let Some(context) = pse_diagnostics::observation::current() {
+                        context.boolean("run.cancel_requested", true);
+                    }
+                    attempt.abandon_cancelled(&error).await
+                }
+            };
             publication.finish(if record.attempt.is_ok() {
                 crate::invocation::InvocationOutcome::Completed
             } else {
@@ -412,7 +452,9 @@ impl RunResult {
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.boolean("run.publication.failed", record.attempt.is_err());
             }
-            if let Err(error) = &record.attempt {
+            if let Err(error) = &record.attempt
+                && !preserve_scientific_failure
+            {
                 result.report = Err(error.clone());
                 result.reset_result_projection();
             }
@@ -797,14 +839,24 @@ async fn admitted(signal: Option<tokio::sync::oneshot::Receiver<()>>) -> Result<
     }
 }
 /// The existing supervisor keeps ownership through cancellation and native drain.
-fn supervised_with_cancel(
-    work: impl Future<Output = ()>,
+#[inline(never)]
+fn supervised_with_cancel<F, Fut>(
+    work: F,
     stop: impl FnOnce(),
     parent: Option<crate::CancelSource>,
-) -> impl Future<Output = ()> {
-    // Box before constructing the supervisor future. Keeping the full scientific
-    // future inline makes task-local polling/drop exceed ordinary executor stacks.
-    let mut work = Box::pin(work);
+) -> impl Future<Output = ()>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = ()> + Send + 'static,
+{
+    // Construct behind the phase boundary, then erase the concrete future before
+    // activity wrappers and the supervisor move or poll it. Boxing an already
+    // constructed future leaves its large construction slots on the caller stack.
+    let mut inner: futures_util::future::BoxFuture<'static, ()> =
+        super::worker::boxed_worker_action(work);
+    let mut work = futures_util::future::poll_fn(move |context| {
+        super::worker::poll_worker_action(inner.as_mut(), context)
+    });
     crate::invocation::TransferredContext::capture().scope(async move {
         if let Some(parent) = parent {
             tokio::select! {
@@ -952,7 +1004,7 @@ impl super::ModelingSimulation {
             let prepared = self.clone();
             tokio::spawn(crate::workflow::inherit_runtime_activity(
                 supervised_with_cancel(
-                    async move {
+                    move || async move {
                         let request = RunRequest::Simulation(Box::new(prepared.clone()));
                         let stop = cancel.clone();
                         let registered = async {
@@ -1184,17 +1236,18 @@ impl super::ShootingProblem {
             let native = runtime.native().clone();
             let job_bytes = self.job_bytes()?;
             let mut dispatch = Some(move || {
-                native.submit_with(
+                native.submit_with_storage(
                     declared_profile.controls.threads,
                     job_bytes,
                     submission,
-                    move |flag, progress| {
+                    move |flag, progress, storage| {
                         let report = prepared.solve(
                             run_id,
                             pse_kernels::ExecutionScope::new(flag, Some(deadline)),
                             progress,
                             start.as_deref(),
                             &declared_profile,
+                            Some(storage),
                         )?;
                         let retained = report
                             .numeric_bytes()
@@ -1228,7 +1281,7 @@ impl super::ShootingProblem {
             };
             tokio::spawn(crate::workflow::inherit_runtime_activity(
                 supervised_with_cancel(
-                    async move {
+                    move || async move {
                         let stop = cancel.clone();
                         let registered = async {
                             if let Some(attempt) = durable.as_mut() {
@@ -1417,29 +1470,35 @@ impl super::PreparedFit {
             #[cfg(test)]
             let entry = family_worker_entry();
             let mut dispatch = Some(move || {
-                native.submit_with(cores, bytes, submission, move |flag, progress| {
-                    #[cfg(test)]
-                    if let Some(entry) = entry {
-                        entry(&flag);
-                    }
-                    let allowance = prepared
-                        .problem
-                        .profile
-                        .solver
-                        .controls
-                        .report_allowance()?;
-                    let report = prepared.execute(
-                        run_id,
-                        pse_kernels::ExecutionScope::new(flag, Some(deadline)),
-                        progress,
-                        workers,
-                    )?;
-                    let retained = report
-                        .numeric_bytes()
-                        .checked_add(allowance)
-                        .ok_or(MathRuntimeError::Limit("fit result extent"))?;
-                    Ok((RunReport::Fit(Box::new(report)), retained))
-                })
+                native.submit_with_storage(
+                    cores,
+                    bytes,
+                    submission,
+                    move |flag, progress, storage| {
+                        #[cfg(test)]
+                        if let Some(entry) = entry {
+                            entry(&flag);
+                        }
+                        let allowance = prepared
+                            .problem
+                            .profile
+                            .solver
+                            .controls
+                            .report_allowance()?;
+                        let report = prepared.execute(
+                            run_id,
+                            pse_kernels::ExecutionScope::new(flag, Some(deadline)),
+                            progress,
+                            workers,
+                            Some(storage),
+                        )?;
+                        let retained = report
+                            .numeric_bytes()
+                            .checked_add(allowance)
+                            .ok_or(MathRuntimeError::Limit("fit result extent"))?;
+                        Ok((RunReport::Fit(Box::new(report)), retained))
+                    },
+                )
             });
             let handle = if durable.is_none() {
                 Some(dispatch
@@ -1462,7 +1521,7 @@ impl super::PreparedFit {
             let request = RunRequest::Fit(Box::new(self.clone()));
             tokio::spawn(crate::workflow::inherit_runtime_activity(
                 supervised_with_cancel(
-                    async move {
+                    move || async move {
                         let stop = cancel.clone();
                         let registered = async {
                             if let Some(attempt) = durable.as_mut() {
@@ -1776,7 +1835,7 @@ impl Runtime {
             .as_ref()
             .map(|attempt| attempt.canonical_keys(run_id));
         let shared = progress.clone();
-        tokio::spawn(crate::workflow::inherit_runtime_activity(supervised_with_cancel(async move {
+        tokio::spawn(crate::workflow::inherit_runtime_activity(supervised_with_cancel(move || async move {
             let request = RunRequest::Modeling(steps.clone());
             let stop = cancel.clone();
             let session = async {
@@ -2089,7 +2148,7 @@ mod cancellation_tests {
         let (observed, cancellation) = tokio::sync::oneshot::channel();
         let (release, drain) = tokio::sync::oneshot::channel();
         let task = tokio::spawn(super::supervised_with_cancel(
-            async move {
+            move || async move {
                 flight.cancelled().await;
                 observed.send(()).unwrap();
                 drain.await.unwrap();

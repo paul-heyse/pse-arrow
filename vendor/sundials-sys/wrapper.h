@@ -30,6 +30,7 @@
 
 #if USE_IDAS
 #include <idas/idas.h>
+#include <idas/idas_bbdpre.h>
 #endif
 
 #if USE_KINSOL

@@ -14,6 +14,125 @@ use crate::codegen::GeneratedTree;
 const NATIVE: &str = "crates/pse-relations/src/generated";
 const MODEL: &str = "crates/pse-model/src/generated";
 
+/// Project expression masking from the actual generated field inventory. Scientific
+/// cells never pass through a JSON number representation, and unknown role paths
+/// remain conservative. Only the modeling declaration payload needs this operation.
+fn expression_mask(model: &[syn::Item]) -> TokenStream {
+    let structures = model
+        .iter()
+        .filter_map(|item| match item {
+            syn::Item::Struct(value) => Some((value.ident.to_string(), value)),
+            _ => None,
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let implementations = structures.values().filter(|value| value.ident != "AuthoredModelingDeclarationsRow" && value.fields.iter().any(|field| maskable(&field.ty, &structures))).map(|value| {
+        let name = &value.ident;
+        let arms = value.fields.iter().filter_map(|field| {
+            let name = field.ident.as_ref()?;
+            if !maskable(&field.ty, &structures) { return None; }
+            let key = name.to_string().trim_start_matches("r#").to_owned();
+            let body = mask_value(&field.ty, quote!(&mut self.#name), &structures);
+            Some(quote!(#key => { #body }))
+        });
+        quote! {
+            impl #name {
+                fn mask_expression_path(&mut self, path: &[&str], position: usize, expected: &str, indexed: bool) -> bool {
+                    // Leaf-only payloads need no ordinal; retain the uniform recursive signature.
+                    let _ = (position, expected, indexed);
+                    let Some((field, path)) = path.split_first() else { return false; };
+                    let _ = path;
+                    match *field { #(#arms,)* _ => false }
+                }
+            }
+        }
+    });
+    quote! {
+        #(#implementations)*
+        impl AuthoredModelingDeclarationsFieldValue {
+            /// Clear one exact expression string selected by its parser-owned role and ordinal.
+            /// Unknown paths and ambiguous nested array ordinals leave the payload unchanged.
+            pub fn mask_expression(&mut self, role: &str, position: usize, expected: &str) -> bool {
+                let path = role.split('.').collect::<Vec<_>>();
+                self.mask_expression_path(&path, position, expected, false)
+            }
+        }
+    }
+}
+
+fn maskable(
+    ty: &syn::Type,
+    structures: &std::collections::BTreeMap<String, &syn::ItemStruct>,
+) -> bool {
+    let syn::Type::Path(ty) = ty else {
+        return false;
+    };
+    let Some(segment) = ty.path.segments.last() else {
+        return false;
+    };
+    match segment.ident.to_string().as_str() {
+        "String" => true,
+        "Option" | "Vec" => {
+            let syn::PathArguments::AngleBracketed(arguments) = &segment.arguments else {
+                return false;
+            };
+            matches!(arguments.args.first(), Some(syn::GenericArgument::Type(inner)) if maskable(inner, structures))
+        }
+        name => structures.get(name).is_some_and(|value| {
+            value
+                .fields
+                .iter()
+                .any(|field| maskable(&field.ty, structures))
+        }),
+    }
+}
+
+fn mask_value(
+    ty: &syn::Type,
+    value: TokenStream,
+    structures: &std::collections::BTreeMap<String, &syn::ItemStruct>,
+) -> TokenStream {
+    let syn::Type::Path(ty) = ty else {
+        return quote!(false);
+    };
+    let Some(segment) = ty.path.segments.last() else {
+        return quote!(false);
+    };
+    match segment.ident.to_string().as_str() {
+        "String" => quote!({
+            let source = #value;
+            if path.is_empty() && source == expected { source.clear(); true } else { false }
+        }),
+        "Option" | "Vec" => {
+            let syn::PathArguments::AngleBracketed(arguments) = &segment.arguments else {
+                return quote!(false);
+            };
+            let Some(syn::GenericArgument::Type(inner)) = arguments.args.first() else {
+                return quote!(false);
+            };
+            let inner = mask_value(inner, quote!(next), structures);
+            if segment.ident == "Option" {
+                quote!({ let value = #value; value.as_mut().is_some_and(|next| { #inner }) })
+            } else {
+                quote!({
+                    let values = #value;
+                    if let Some(index) = path.first().and_then(|part| part.parse::<usize>().ok()) {
+                        let path = &path[1..];
+                        values.get_mut(index).is_some_and(|next| { #inner })
+                    } else if !indexed {
+                        let indexed = true;
+                        let _ = indexed;
+                        values.get_mut(position).is_some_and(|next| { #inner })
+                    } else { false }
+                })
+            }
+        }
+        name if structures.contains_key(name) => {
+            quote!((#value).mask_expression_path(path, position, expected, indexed))
+        }
+        _ => quote!(false),
+    }
+}
+
 /// Serde is emitted only for document, analysis-request and durable receipt consumers.
 fn serialization_consumers(reg: &crate::Registry) -> BTreeSet<String> {
     reg.documents()
@@ -207,6 +326,9 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
             }
         }
         let usage = value_traits(&model);
+        let expression_mask = (relative
+            == std::path::Path::new("authored/modeling_declarations.rs"))
+        .then(|| expression_mask(&model));
         let segments = relative
             .with_extension("")
             .components()
@@ -221,7 +343,7 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
         super::emit(
             tree,
             MODEL.to_owned() + "/" + relative.to_string_lossy().as_ref(),
-            quote!(#(#model)* #(#usage)*),
+            quote!(#(#model)* #(#usage)* #expression_mask),
         )?;
         super::emit(
             tree,

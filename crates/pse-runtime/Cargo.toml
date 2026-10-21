@@ -58,6 +58,8 @@ native-solvers = [
 ]
 
 [dependencies]
+levenberg-marquardt.workspace = true
+nalgebra.workspace = true
 async-trait.workspace = true
 egobox-ego.workspace = true
 egobox-moe.workspace = true

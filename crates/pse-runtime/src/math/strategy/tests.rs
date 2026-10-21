@@ -558,7 +558,9 @@ async fn failed_trajectory_can_run_declared_same_backend_profile_and_only_origin
  {
     let mut s = strategy();
     let profile = pse_model::strategy::ProfileRef {
-        backend: pse_backend_native::solve::Backend::Kinsol,
+        method: pse_model::strategy::NumericalMethod::Backend(
+            pse_backend_native::solve::Backend::Kinsol,
+        ),
         key: hash(4),
     };
     s.mechanisms[0].profile = Some(profile);

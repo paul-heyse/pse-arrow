@@ -128,6 +128,7 @@ pub(in crate::workflow) fn profile(
     uncertainty: Option<FitUncertainty>,
 ) -> FitProfile {
     FitProfile {
+        optimizer: FitOptimizer::NativeNlp,
         solver: SolverProfile {
             presolve: Default::default(),
             numerics: Default::default(),

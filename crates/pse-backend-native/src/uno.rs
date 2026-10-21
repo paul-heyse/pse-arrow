@@ -429,7 +429,8 @@ pub fn solve(
         native,
         &context.state.execution,
     );
-    report.evidence.start_submitted = warm.is_some();
+    // The bridge received the explicit primal buffer regardless of optional warm data.
+    report.evidence.start_submitted = true;
     let count = |value| native_known.then(|| u64::try_from(value).ok()).flatten();
     report.evidence.native_observations = Some(Arc::new(NativeObservations {
         backend: Backend::Uno,
@@ -826,6 +827,10 @@ mod tests {
             "{report:?}"
         );
         let candidate = report.candidate.as_ref().unwrap();
+        assert!(
+            report.evidence.start_submitted,
+            "the cold explicit primal reached Uno"
+        );
         assert!((candidate.primal[0] - 1.).abs() < 1e-6);
         let (lower, upper) = candidate.bound_dual.as_ref().unwrap();
         assert!((lower[0] - 2.).abs() < 1e-5);

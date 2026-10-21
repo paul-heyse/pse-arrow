@@ -633,6 +633,19 @@ pub fn requirements(row: &Declaration) -> SourceRequirements<'_> {
         texts.push(&v.tolerance);
         texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
     }
+    if let Some(v) = &row.value.inventory_balance {
+        types.push(&v.r#type);
+        texts.extend([
+            v.axis.as_str(),
+            v.inventory.as_str(),
+            v.flux.as_str(),
+            v.tolerance.as_str(),
+        ]);
+        texts.extend(v.indices.iter().map(|index| index.domain.as_str()));
+        for transfer in &v.transfers {
+            texts.extend([transfer.event.as_str(), transfer.expression.as_str()]);
+        }
+    }
     if let Some(v) = &row.value.contribution {
         texts.push(&v.target);
         texts.push(&v.expression);

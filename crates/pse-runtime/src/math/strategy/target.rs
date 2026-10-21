@@ -3,10 +3,9 @@
 //! Frozen callable targets use the common resolver, task admission and original assessment.
 use super::super::{MathRuntimeError, MathService, SessionDisposition, StepRetention};
 use super::{self as strategy, admission::TaskAdmission};
-use pse_backend_native::{
-    ProblemError,
-    solve::{Backend, Controls},
-};
+#[cfg(any(test, feature = "solver-pounce"))]
+use pse_backend_native::solve::Backend;
+use pse_backend_native::{ProblemError, solve::Controls};
 use pse_ids::ContentHash;
 use pse_model::{
     generated::enums::NumericalAttemptObservation as Observation,
@@ -25,7 +24,7 @@ pub(crate) struct Source<'a> {
     /// Source-owned operation policy projected onto each actually offered solver profile.
     /// Borrowed only for this callable invocation; absent uses the ordinary solver key.
     pub(crate) profile_projection: Option<&'a ProfileProjection<'a>>,
-    pub(crate) backend: Option<Backend>,
+    pub(crate) method: Option<pse_model::strategy::NumericalMethod>,
     pub(crate) solver: Option<&'a super::super::solves::SolverProfile>,
     pub(crate) controls: &'a Controls,
     /// The immutable scientific request; optional recovery permission creates no supplier.
@@ -58,21 +57,25 @@ pub(crate) fn declaration(source: &Source<'_>) -> pse_model::strategy::Numerical
         .into_iter()
         .collect();
     declaration.mechanisms[0].profile =
-        source
-            .backend
-            .map(|backend| pse_model::strategy::ProfileRef {
-                backend,
-                key: source.profile,
-            });
+        source.method.map(|method| pse_model::strategy::ProfileRef {
+            method,
+            key: source.profile,
+        });
     declaration
+}
+
+/// Current invocation admission, separate from the source's frozen scientific identity.
+pub(crate) struct CallContext<'a> {
+    pub(crate) service: &'a MathService,
+    pub(crate) scope: &'a pse_kernels::ExecutionScope,
+    pub(crate) storage: Option<Arc<pse_columnar::AllocationLease>>,
 }
 
 /// One original operation, including all scientific evaluation and completion checks.
 /// The generic driver decides the transition; this adapter owns no recovery policy.
 pub(crate) fn callable<T>(
-    service: &MathService,
+    mut context: CallContext<'_>,
     source: Source<'_>,
-    scope: &pse_kernels::ExecutionScope,
     mut execute: impl FnMut(
         Option<&super::super::solves::SolverProfile>,
         Arc<TaskAdmission>,
@@ -81,11 +84,18 @@ pub(crate) fn callable<T>(
     classify: impl Fn(&T) -> Observation,
     assess: impl Fn(&T, Observation) -> strategy::Assessment,
 ) -> Result<(T, Arc<strategy::Trace>), MathRuntimeError> {
+    // Keep the storage in the argument until its actual admission transfer: on
+    // preflight refusal callback captures must drop before their passive lease.
+    let service = context.service;
+    let scope = context.scope;
     let mut declaration = declaration(&source);
     #[cfg(feature = "solver-pounce")]
     if source.request.limits.is_none()
         && source.request.policy == pse_model::strategy::CompositionPolicy::Auto
-        && source.backend == Some(Backend::Pounce)
+        && source.method
+            == Some(pse_model::strategy::NumericalMethod::Backend(
+                Backend::Pounce,
+            ))
         && let Some(solver) = source.solver
     {
         let settings = match &solver.backend {
@@ -109,6 +119,9 @@ pub(crate) fn callable<T>(
         .map_err(|_| ProblemError::memory("callable profile catalog extent"))?;
     }
     let admission = TaskAdmission::new_for(declaration.limits, scope.clone(), service, false);
+    if let Some(storage) = context.storage.take() {
+        admission.retain_storage_allowance(storage)?;
+    }
     #[cfg(feature = "solver-pounce")]
     let mut profiles = vec![source.solver.cloned()];
     #[cfg(not(feature = "solver-pounce"))]
@@ -263,12 +276,10 @@ pub(crate) fn callable<T>(
                 .unwrap_or(source.profile)
         };
         operation.mechanisms[0].profile =
-            source
-                .backend
-                .map(|backend| pse_model::strategy::ProfileRef {
-                    backend,
-                    key: actual_profile,
-                });
+            source.method.map(|method| pse_model::strategy::ProfileRef {
+                method,
+                key: actual_profile,
+            });
         let mut charging_owner = pse_ids::FramedHasher::new(pse_ids::Frame::NumericalWorkV1);
         charging_owner
             .hash(&source.original)
@@ -385,7 +396,10 @@ pub(crate) fn callable<T>(
             });
         #[cfg(feature = "solver-pounce")]
         if source.request.policy == pse_model::strategy::CompositionPolicy::Auto
-            && source.backend == Some(Backend::Pounce)
+            && source.method
+                == Some(pse_model::strategy::NumericalMethod::Backend(
+                    Backend::Pounce,
+                ))
             && let Some(baseline) = source.solver
             && let Some(Ok(value)) = result.value.as_ref()
             && let Some(report) = native_report(value)
@@ -461,7 +475,7 @@ pub(crate) fn callable<T>(
         publication_request: None,
         declaration,
         original: source.original,
-        backend: source.backend,
+        backend: source.method.and_then(|method| method.backend()),
         profile: source.profile,
         start: source.start,
         starts: vec![source.start; mechanism_count],
@@ -599,6 +613,93 @@ mod tests {
     fn hash(value: u8) -> ContentHash {
         ContentHash::from_bytes([value; 32])
     }
+    #[cfg(feature = "solver-pounce")]
+    #[test]
+    fn callable_preflight_refusal_drops_callback_before_passive_storage() {
+        use std::sync::{
+            Weak,
+            atomic::{AtomicBool, Ordering},
+        };
+
+        struct CallbackOwner {
+            storage: Weak<pse_columnar::AllocationLease>,
+            dropped: Arc<AtomicBool>,
+            storage_live_at_drop: Arc<AtomicBool>,
+        }
+        impl Drop for CallbackOwner {
+            fn drop(&mut self) {
+                self.storage_live_at_drop
+                    .store(self.storage.upgrade().is_some(), Ordering::SeqCst);
+                self.dropped.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let service = crate::math::tests::service();
+        let baseline = service.pool.reserved();
+        let storage = service
+            .reserve("test:callable-passive-storage", 4096)
+            .unwrap();
+        assert_eq!(storage.size(), 4096);
+        let storage_weak = Arc::downgrade(&storage);
+        let dropped = Arc::new(AtomicBool::new(false));
+        let live_at_drop = Arc::new(AtomicBool::new(false));
+        let callback = CallbackOwner {
+            storage: storage_weak.clone(),
+            dropped: dropped.clone(),
+            storage_live_at_drop: live_at_drop.clone(),
+        };
+        let executed = Arc::new(AtomicBool::new(false));
+        let execution_observed = executed.clone();
+        let solver = super::super::super::solves::SolverProfile {
+            backend: pse_backend_native::execution::BackendSettings::Ipopt(Default::default()),
+            composition: pse_model::strategy::CompositionRequest {
+                policy: pse_model::strategy::CompositionPolicy::Auto,
+                limits: None,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let scope =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let result = callable(
+            CallContext {
+                service: &service,
+                scope: &scope,
+                storage: Some(storage),
+            },
+            Source {
+                original: hash(1),
+                preparation: hash(2),
+                profile: hash(3),
+                profile_projection: None,
+                method: Some(pse_model::strategy::NumericalMethod::Backend(
+                    Backend::Pounce,
+                )),
+                solver: Some(&solver),
+                controls: &solver.controls,
+                request: &solver.composition,
+                start: StartOrigin::Specification,
+                start_identity: None,
+            },
+            move |_, _| {
+                std::hint::black_box(&callback);
+                execution_observed.store(true, Ordering::SeqCst);
+                Ok(())
+            },
+            |_| None,
+            |_| panic!("preflight refusal cannot classify a result"),
+            |_, _| panic!("preflight refusal cannot assess a result"),
+        );
+        assert!(
+            matches!(result, Err(MathRuntimeError::Solve(ProblemError::Contract(message)))
+            if message == "callable POUNCE settings differ")
+        );
+        assert!(!executed.load(Ordering::SeqCst));
+        assert!(dropped.load(Ordering::SeqCst));
+        assert!(live_at_drop.load(Ordering::SeqCst));
+        assert!(storage_weak.upgrade().is_none());
+        assert_eq!(service.pool.reserved(), baseline);
+    }
     #[test]
     fn declared_callable_executes_its_actual_bound_direct_operation_once() {
         let service = crate::math::tests::service();
@@ -612,7 +713,7 @@ mod tests {
             preparation: hash(2),
             profile: hash(3),
             profile_projection: None,
-            backend: None,
+            method: (None).map(pse_model::strategy::NumericalMethod::Backend),
             solver: None,
             controls: &controls,
             request: &request,
@@ -623,9 +724,12 @@ mod tests {
             pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
         let mut dispatched = 0;
         let (value, trace) = callable(
-            &service,
+            CallContext {
+                service: &service,
+                scope: &scope,
+                storage: None,
+            },
             source,
-            &scope,
             |profile, _| {
                 assert!(profile.is_none());
                 dispatched += 1;
@@ -662,7 +766,9 @@ mod tests {
             preparation: hash(2),
             profile: hash(3),
             profile_projection: None,
-            backend: Some(Backend::Ipopt),
+            method: Some(pse_model::strategy::NumericalMethod::Backend(
+                Backend::Ipopt,
+            )),
             solver: Some(&solver),
             controls: &solver.controls,
             request: &solver.composition,
@@ -670,9 +776,12 @@ mod tests {
             start_identity: None,
         };
         let error = callable(
-            &service,
+            CallContext {
+                service: &service,
+                scope: &scope,
+                storage: None,
+            },
             source,
-            &scope,
             |_, _| {
                 let contract = pse_backend_native::OracleContract {
                     identity: hash(1),
@@ -756,7 +865,9 @@ mod tests {
             preparation: hash(2),
             profile: project(&solver).unwrap(),
             profile_projection: if projected { Some(&project) } else { None },
-            backend: Some(Backend::Pounce),
+            method: Some(pse_model::strategy::NumericalMethod::Backend(
+                Backend::Pounce,
+            )),
             solver: Some(&solver),
             controls: &solver.controls,
             request: &solver.composition,
@@ -765,9 +876,12 @@ mod tests {
         };
         let mut profiles = Vec::new();
         let (report, trace) = callable(
-            &service,
+            CallContext {
+                service: &service,
+                scope: &scope,
+                storage: None,
+            },
             source,
-            &scope,
             |profile, _| {
                 let profile = profile.unwrap();
                 profiles.push(project(profile).unwrap());

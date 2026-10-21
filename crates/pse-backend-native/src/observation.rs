@@ -155,6 +155,150 @@ pub(crate) fn iteration_metadata(
     }
 }
 
+pub(crate) fn metric_unit(family: &str, name: &str) -> &'static str {
+    match (family, name) {
+        ("petsc_event", "completed_seconds") => "seconds",
+        ("petsc_event", "completed_flops") => "flops",
+        (
+            "petsc_event",
+            "entered_calls" | "native_event_depth" | "stage" | "checkpoint_ordinal",
+        ) => "native_count",
+        ("native_linear_work", name)
+            if name.ends_with(".issued") || name.ends_with(".completed") =>
+        {
+            "native_linear_calls"
+        }
+        ("native_factor", "input_nonzeros" | "factor_nonzeros") => "nonzeros",
+        ("native_factor", "fill_ratio") => "ratio",
+        (
+            "native_factor" | "native_refinement" | "native_linear_call",
+            "call_ordinal" | "parent_call_ordinal" | "detail_group_ordinal",
+        ) => "attempt_local_call_ordinal",
+        ("native_factor", "mc64_retry_attempts") => "issued_mc64_numeric_retry_attempts",
+        ("native_factor", "mc64_to_infnorm_fallbacks") => "mc64_to_infnorm_scaling_fallbacks",
+        (
+            "native_factor",
+            "supernodes"
+            | "max_front_rows"
+            | "static_pivot_perturbations"
+            | "inertia_positive"
+            | "inertia_negative"
+            | "inertia_zero",
+        ) => "native_count",
+        ("native_factor", "min_abs_pivot" | "max_abs_pivot") => "native_factor_pivot",
+        ("dynamic_local_error", "internal_time" | "returned_time" | "last_step") => {
+            "integration_time"
+        }
+        ("dynamic_local_error", "weight") => "inverse_normalized_state",
+        ("dynamic_local_error", "estimated_local_error") => "normalized_state",
+        (
+            "dynamic_local_error",
+            "weighted_local_error" | "weighted_rms" | "squared_norm_contribution",
+        ) => "dimensionless",
+        (
+            "dynamic_local_error",
+            "native_generation"
+            | "native_return_ordinal"
+            | "accepted_steps"
+            | "state_index"
+            | "contributor_ordinal"
+            | "contributors_retained"
+            | "contributors_omitted"
+            | "norm_denominator",
+        ) => "native_count",
+
+        ("native_refinement", name)
+            if name.contains("rhs_issued") || name.contains("rhs_completed") =>
+        {
+            "rhs_substitutions"
+        }
+        ("native_refinement", "correction_batches_issued" | "correction_batches_completed") => {
+            "substitution_batches"
+        }
+        ("native_refinement", "residual_products") => "matrix_vector_products",
+        ("native_refinement", "best_updates") => "rhs_iterate_updates",
+        ("native_refinement", name) if name.ends_with("_rhs") => "right_hand_sides",
+
+        ("nonlinear_iteration", "iteration" | "line_search.trials" | "regime.crossings") => "count",
+        ("nonlinear_iteration", "obj_value" | "objective.normalized") => "native_objective",
+        ("nonlinear_iteration", "inf_pr" | "primal.native") => "native_primal_residual",
+        ("nonlinear_iteration", "inf_du" | "dual.native") => "native_dual_residual",
+        ("nonlinear_iteration", "alpha_du" | "alpha_pr" | "alpha.dual" | "alpha.primal") => "ratio",
+        (
+            "linear_search" | "branch_and_bound",
+            "nodes" | "simplex.iterations" | "ipm.iterations",
+        ) => "count",
+        ("linear_search" | "branch_and_bound", "primal_bound" | "dual_bound") => {
+            "original_objective"
+        }
+        ("linear_search" | "branch_and_bound", "gap") => "ratio",
+        ("linear_search", "seconds") | ("conic_iteration", "solve_time") => "seconds",
+        ("conic_iteration" | "convex_return", "iterations") => "count",
+        ("artificial_time_step", "artificial_time" | "proposed_artificial_step") => {
+            "artificial_time"
+        }
+        ("artificial_time_step", "steps" | "nonlinear_iterations" | "rejections" | "failures") => {
+            "count"
+        }
+        ("dynamic_output" | "dynamic_adjoint" | "dynamic_native_return", "time") => "model_time",
+        ("dynamic_output" | "dynamic_adjoint" | "dynamic_native_return", "steps" | "segment") => {
+            "count"
+        }
+        ("root_raw_map", "ordinal") | ("root_evaluation", "evaluation_ordinal") => {
+            "evaluation_ordinal"
+        }
+        ("root_evaluation", "captured_coordinates") => "count",
+        ("root_evaluation", "scalar.0.residual" | "scalar.1.residual") => "source_residual",
+        ("root_raw_map", "captured_prefix.coordinates") => "count",
+        (
+            "root_raw_map",
+            "captured_prefix.max_physical_error_ratio"
+            | "scalar.0.physical_error_ratio"
+            | "scalar.1.physical_error_ratio",
+        ) => "ratio",
+        ("root_raw_map", "scalar.0.residual" | "scalar.1.residual") => "source_coordinate",
+        _ => "native_unspecified",
+    }
+}
+
+pub(crate) fn metric_field(
+    name: &str,
+    unit: &str,
+    metric: &Metric,
+) -> pse_diagnostics::observation::RecordField {
+    use pse_diagnostics::observation::{RecordAvailability, RecordField, Value};
+    let (value, availability) = match metric {
+        Metric::Integer(value) => (Value::Integer(*value), None),
+        Metric::Real(value) => (Value::number(*value), None),
+        Metric::Bool(value) => (Value::Boolean(*value), None),
+        Metric::Text(value) => (Value::Text(value.clone()), None),
+        Metric::Unavailable(reason) => (
+            Value::Unavailable(format!("{reason:?}")),
+            Some(match reason {
+                crate::solve::UnavailableReason::NotRequested => RecordAvailability::NotRequested,
+                crate::solve::UnavailableReason::NotComputed => RecordAvailability::NotSupplied,
+                _ => RecordAvailability::Unavailable,
+            }),
+        ),
+    };
+    RecordField {
+        name: name.into(),
+        unit: unit.into(),
+        value,
+        availability,
+    }
+}
+
+pub(crate) fn elapsed_field(
+    elapsed: std::time::Duration,
+) -> pse_diagnostics::observation::RecordField {
+    metric_field(
+        "execution_elapsed_seconds",
+        "seconds",
+        &Metric::Real(elapsed.as_secs_f64()),
+    )
+}
+
 pub(crate) fn event(event: &mut Event, producer: Option<&pse_diagnostics::observation::Producer>) {
     use pse_diagnostics::observation::{RecordAvailability, RecordField, Value};
     let (Some(producer), Some(source)) = (producer, event.source.as_mut()) else {
@@ -174,155 +318,22 @@ pub(crate) fn event(event: &mut Event, producer: Option<&pse_diagnostics::observ
             Value::Number(value)
         }
     }
-    fn unit(family: &str, name: &str) -> &'static str {
-        match (family, name) {
-            ("petsc_event", "completed_seconds") => "seconds",
-            ("petsc_event", "completed_flops") => "flops",
-            (
-                "petsc_event",
-                "entered_calls" | "native_event_depth" | "stage" | "checkpoint_ordinal",
-            ) => "native_count",
-            ("native_linear_work", name)
-                if name.ends_with(".issued") || name.ends_with(".completed") =>
-            {
-                "native_linear_calls"
-            }
-            ("native_factor", "input_nonzeros" | "factor_nonzeros") => "nonzeros",
-            ("native_factor", "fill_ratio") => "ratio",
-            (
-                "native_factor" | "native_refinement" | "native_linear_call",
-                "call_ordinal" | "parent_call_ordinal" | "detail_group_ordinal",
-            ) => "attempt_local_call_ordinal",
-            ("native_factor", "mc64_retry_attempts") => "issued_mc64_numeric_retry_attempts",
-            ("native_factor", "mc64_to_infnorm_fallbacks") => "mc64_to_infnorm_scaling_fallbacks",
-            (
-                "native_factor",
-                "supernodes"
-                | "max_front_rows"
-                | "static_pivot_perturbations"
-                | "inertia_positive"
-                | "inertia_negative"
-                | "inertia_zero",
-            ) => "native_count",
-            ("native_factor", "min_abs_pivot" | "max_abs_pivot") => "native_factor_pivot",
-            ("dynamic_local_error", "internal_time" | "returned_time" | "last_step") => {
-                "integration_time"
-            }
-            ("dynamic_local_error", "weight") => "inverse_normalized_state",
-            ("dynamic_local_error", "estimated_local_error") => "normalized_state",
-            (
-                "dynamic_local_error",
-                "weighted_local_error" | "weighted_rms" | "squared_norm_contribution",
-            ) => "dimensionless",
-            (
-                "dynamic_local_error",
-                "native_generation"
-                | "native_return_ordinal"
-                | "accepted_steps"
-                | "state_index"
-                | "contributor_ordinal"
-                | "contributors_retained"
-                | "contributors_omitted"
-                | "norm_denominator",
-            ) => "native_count",
-
-            ("native_refinement", name)
-                if name.contains("rhs_issued") || name.contains("rhs_completed") =>
-            {
-                "rhs_substitutions"
-            }
-            ("native_refinement", "correction_batches_issued" | "correction_batches_completed") => {
-                "substitution_batches"
-            }
-            ("native_refinement", "residual_products") => "matrix_vector_products",
-            ("native_refinement", "best_updates") => "rhs_iterate_updates",
-            ("native_refinement", name) if name.ends_with("_rhs") => "right_hand_sides",
-
-            ("nonlinear_iteration", "iteration" | "line_search.trials" | "regime.crossings") => {
-                "count"
-            }
-            ("nonlinear_iteration", "obj_value" | "objective.normalized") => "native_objective",
-            ("nonlinear_iteration", "inf_pr" | "primal.native") => "native_primal_residual",
-            ("nonlinear_iteration", "inf_du" | "dual.native") => "native_dual_residual",
-            ("nonlinear_iteration", "alpha_du" | "alpha_pr" | "alpha.dual" | "alpha.primal") => {
-                "ratio"
-            }
-            (
-                "linear_search" | "branch_and_bound",
-                "nodes" | "simplex.iterations" | "ipm.iterations",
-            ) => "count",
-            ("linear_search" | "branch_and_bound", "primal_bound" | "dual_bound") => {
-                "original_objective"
-            }
-            ("linear_search" | "branch_and_bound", "gap") => "ratio",
-            ("linear_search", "seconds") | ("conic_iteration", "solve_time") => "seconds",
-            ("conic_iteration" | "convex_return", "iterations") => "count",
-            ("artificial_time_step", "artificial_time" | "proposed_artificial_step") => {
-                "artificial_time"
-            }
-            (
-                "artificial_time_step",
-                "steps" | "nonlinear_iterations" | "rejections" | "failures",
-            ) => "count",
-            ("dynamic_output" | "dynamic_adjoint" | "dynamic_native_return", "time") => {
-                "model_time"
-            }
-            (
-                "dynamic_output" | "dynamic_adjoint" | "dynamic_native_return",
-                "steps" | "segment",
-            ) => "count",
-            ("root_raw_map", "ordinal") | ("root_evaluation", "evaluation_ordinal") => {
-                "evaluation_ordinal"
-            }
-            ("root_evaluation", "captured_coordinates") => "count",
-            ("root_evaluation", "scalar.0.residual" | "scalar.1.residual") => "source_residual",
-            ("root_raw_map", "captured_prefix.coordinates") => "count",
-            (
-                "root_raw_map",
-                "captured_prefix.max_physical_error_ratio"
-                | "scalar.0.physical_error_ratio"
-                | "scalar.1.physical_error_ratio",
-            ) => "ratio",
-            ("root_raw_map", "scalar.0.residual" | "scalar.1.residual") => "source_coordinate",
-            _ => "native_unspecified",
-        }
-    }
     let mut values: Vec<_> = event
         .values
         .iter()
         .map(|(name, metric)| {
-            let (value, availability) = match metric {
-                Metric::Integer(value) => (Value::Integer(*value), None),
-                Metric::Real(value) => (number(*value), None),
-                Metric::Bool(value) => (Value::Boolean(*value), None),
-                Metric::Text(value) => (Value::Text(value.clone()), None),
-                Metric::Unavailable(reason) => (
-                    Value::Unavailable(format!("{reason:?}")),
-                    Some(match reason {
-                        crate::solve::UnavailableReason::NotRequested => {
-                            RecordAvailability::NotRequested
-                        }
-                        crate::solve::UnavailableReason::NotComputed => {
-                            RecordAvailability::NotSupplied
-                        }
-                        _ => RecordAvailability::Unavailable,
-                    }),
-                ),
-            };
-            RecordField {
-                name: name.clone(),
-                unit: unit(
+            metric_field(
+                name,
+                metric_unit(
                     source
                         .family
                         .strip_suffix(".v2")
                         .or_else(|| source.family.strip_suffix(".v1"))
                         .unwrap_or(&source.family),
                     name,
-                )
-                .into(),
-                value,
-                availability,
-            }
+                ),
+                metric,
+            )
         })
         .collect();
     if let Some(incumbent) = &event.incumbent {
@@ -361,12 +372,7 @@ pub(crate) fn event(event: &mut Event, producer: Option<&pse_diagnostics::observ
             availability: None,
         });
     }
-    values.push(RecordField {
-        name: "execution_elapsed_seconds".into(),
-        unit: "seconds".into(),
-        value: number(event.elapsed.as_secs_f64()),
-        availability: None,
-    });
+    values.push(elapsed_field(event.elapsed));
     let record = producer.record(
         &source.family,
         &event.phase,

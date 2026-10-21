@@ -134,6 +134,25 @@ impl ExpectedContract {
     /// # Errors
     /// A contract cannot be resolved or encoded.
     pub fn capture(registry: &Registry, spec: &RelationSpec) -> Result<Self, SchemaError> {
+        struct Expectations(BTreeMap<SemanticId, ExpectedContract>);
+        if registry
+            .relation_by_id(spec.id)
+            .is_some_and(|actual| std::ptr::eq(actual, spec))
+        {
+            let expectations = registry.derived_implementation(|| {
+                Ok(Expectations(
+                    registry
+                        .relations()
+                        .iter()
+                        .map(|spec| Ok((spec.id, Self::capture_uncached(registry, spec)?)))
+                        .collect::<Result<_, SchemaError>>()?,
+                ))
+            })?;
+            return Ok(expectations.0[&spec.id]);
+        }
+        Self::capture_uncached(registry, spec)
+    }
+    fn capture_uncached(registry: &Registry, spec: &RelationSpec) -> Result<Self, SchemaError> {
         Ok(Self {
             relation: spec.id,
             version: spec.key.version,
@@ -161,7 +180,56 @@ pub(crate) struct ContractArena {
     comparisons: std::sync::atomic::AtomicUsize,
 }
 
+/// Completed declaration graph and exact native schemas, excluding receiving proofs.
+#[doc(hidden)]
+#[derive(Debug)]
+pub struct ResolvedContractProducts {
+    /// Fully resolved relation meaning.
+    pub relations: Vec<ResolvedRelationContract>,
+    /// Referenced enum definitions.
+    pub enums: Vec<EnumSpec>,
+    /// Referenced extension definitions.
+    pub extensions: Vec<ResolvedExtensionContract>,
+    /// Exact root execution representations.
+    pub schemas: BTreeMap<SemanticId, arrow_schema::SchemaRef>,
+    /// Independently generated semantic/encoding expectations.
+    pub expectations: BTreeMap<SemanticId, ExpectedContract>,
+}
+impl ResolvedContractProducts {
+    pub(crate) fn hydrate(self) -> Arc<ContractArena> {
+        Arc::new(ContractArena {
+            graph: ResolvedContracts {
+                relations: self
+                    .relations
+                    .into_iter()
+                    .map(|r| (r.declaration.id, r))
+                    .collect(),
+                enums: self.enums.into_iter().map(|e| (e.id, e)).collect(),
+                extensions: self
+                    .extensions
+                    .into_iter()
+                    .map(|e| (e.name.clone(), e))
+                    .collect(),
+            },
+            schemas: self.schemas,
+            expectations: self.expectations,
+            proofs: Mutex::new(Vec::new()),
+            #[cfg(test)]
+            comparisons: std::sync::atomic::AtomicUsize::new(0),
+        })
+    }
+}
+
 impl ContractArena {
+    pub(crate) fn products(&self) -> ResolvedContractProducts {
+        ResolvedContractProducts {
+            relations: self.graph.relations.values().cloned().collect(),
+            enums: self.graph.enums.values().cloned().collect(),
+            extensions: self.graph.extensions.values().cloned().collect(),
+            schemas: self.schemas.clone(),
+            expectations: self.expectations.clone(),
+        }
+    }
     pub(crate) fn resolve(registry: &Registry) -> Result<Arc<Self>, SchemaError> {
         let relations = registry
             .relations()

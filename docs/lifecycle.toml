@@ -2280,7 +2280,13 @@ status_column = 3
 path = "docs/plans/48-execution-performance-and-numerical-efficiency.md"
 name = "finding-dispositions"
 heading = "Finding dispositions"
-headers = ['Finding reference', 'Scenario reference', 'Disposition', 'Decision / work owner', 'Evidence or revisit trigger']
+headers = [
+  'Finding reference',
+  'Scenario reference',
+  'Disposition',
+  'Decision / work owner',
+  'Evidence or revisit trigger',
+]
 kind = "finding"
 id_column = 0
 id_pattern = '^(AF[0-9]+|N[0-9]+)\b'
@@ -2292,7 +2298,13 @@ owner_column = 3
 path = "docs/plans/48-execution-performance-and-numerical-efficiency.md"
 name = "investigation-outcomes"
 heading = "Investigation outcomes"
-headers = ['Inquiry', 'Decision question', 'State', 'Decision / work owner', 'Completion or next trigger']
+headers = [
+  'Inquiry',
+  'Decision question',
+  'State',
+  'Decision / work owner',
+  'Completion or next trigger',
+]
 kind = "finding"
 id_column = 0
 id_pattern = '^(I[0-9]+)\b'

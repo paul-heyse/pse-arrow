@@ -142,7 +142,7 @@ pub(super) fn validate(document: &ReviewContextDocument) -> Result<(), WorkflowE
             }
             "replay-case-constructor.v2"
             | "replay-simulation-constructor.v2"
-            | "replay-fit-constructor.v2" => {
+            | "replay-fit-constructor.v3" => {
                 let source = decode::<SourceReference>(fact)?.source;
                 source_reference(document, source)?;
                 if step(&fact.path).is_some_and(|step| step != source) {

@@ -1,8 +1,8 @@
 ---
 title: "Plan48: Execution performance and numerical efficiency"
-status: draft
+status: done
 date: 2026-10-20
-adrs: []
+adrs: [ADR-0192, ADR-0193, ADR-0201, ADR-0202, ADR-0203, ADR-0204, ADR-0205, ADR-0206, ADR-0207, ADR-0208, ADR-0209, ADR-0210, ADR-0211, ADR-0212]
 review_sources: [docs/design_review/reviews/design_review_execution-performance-recommendations-audit_2026-10-20.md, docs/design_review/evidence/execution-performance-recommendations-audit-2026-10-20/recommendation-register.md]
 scenario_sources: [docs/design_review/reviews/design_review_execution-performance-recommendations-audit_2026-10-20.md]
 doc_role: plan
@@ -158,32 +158,33 @@ production path remains after a replacement is proven and callers have moved.
 
 ## Finding dispositions
 
-All findings are **open**: scheduling a proposal is not acceptance, implementation or resolution.
+The table distinguishes current implementation and focused acceptance from remaining
+package work and assembled qualification; scheduling alone closes no finding.
 
 | Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |
 | --- | --- | --- | --- | --- |
-| AF01 | S01/S02 | open | 48a/A01–A02 | Independent lookup/overlay outcomes and reduced examined-reference work |
-| AF02 | S01 | open | 48a/A03/A05–A06 | Correct invalidation, bounded retention and qualified artifact decisions |
-| AF03 | S01/S02 | open | 48b/B01/B04 | Same identities/custom fallback; fewer repeated descriptions/bootstrap forces |
-| AF04 | S01/S03 | open | 48b/B02–B03/B05 | Domain/template reuse, receiving eligibility and malformed-input rejection |
-| AF05 | S02/S04 | open | 48c/C01; 48d/D05 | Contributor indexes and separately qualified grouping/root policy |
-| AF06 | S02/S03 | open | 48c/C02–C03 | Sparse products and complete validity before reconstruction elision |
-| AF07 | S02/S03 | open | 48c/C04 | Sparse flat direct HVP eligibility without losing entry/reverse routes |
-| AF08 | S01/S02 | open | 48c/C05/C07 | Bounded named modules, fewer children and safe code lifetime |
-| AF09 | S02/S04 | open | 48f/F01 | Compatible/incompatible dispatch and unchanged assessment |
-| AF10 | S02/S05 | open | 48f/F02 | Transition-driven ready visits, continuation/retry order preserved |
-| AF11 | S02/S05 | open | 48f/F03 | Sibling progress during skewed capture; continuation/producer drain retained |
-| AF12 | S04 | open | 48d/D01–D02 | Separate KINSOL/cone obligations; original acceptance unchanged |
-| AF13 | S04 | open | 48d/D03–D04 | Submitted primal, optional payload and internal reuse reported distinctly |
-| AF14 | S03/S04 | open | 48e/E01–E02 | Complete reset/failure discard and current scratch/product reuse |
-| AF15 | S02/S03 | open | 48e/E03 | Bounded private fixed-trial windows with ordered results |
-| AF16 | S02/S05 | open | 48g/G02–G03 | Coherent current/final progress and reduced shared work |
-| AF17 | S02 | open | 48f/F09 | Indexed transport preserves subsets/reordering/unknown-ID errors |
-| AF18 | S01/S02 | open | 48a/A04 | Typed masking preserves field roles/signed zero/conservative fallback |
-| N01 | S02/S03 | open | 48e/E04 | Jacobi demand avoids unconsumed full Jacobian products |
-| N02 | S05 | open | 48g/G01 | Reliable admitted phase retirement under optional-history pressure |
-| N03 | S02/S05 | open | 48g/G03 | Prepared progress IDs preserve all actual consumers |
-| N04 | S02/S05 | open | 48g/G05 | Equivalent coherent publication with bounded row retention |
+| AF01 | S01/S02 | resolved | 48a/A01–A02 | Independent lookup/overlay outcomes and reduced examined-reference work; selected assembled acceptance passes in48h |
+| AF02 | S01 | resolved | 48a/A03/A05–A06 | Narrowed dependencies/bounded retention; complete artifact design and qualified fresh-check/serial decisions recorded in I01–I03; selected assembled acceptance passes in48h |
+| AF03 | S01/S02 | resolved | 48b/B01/B04 | Same identities/custom fallback; fewer repeated descriptions/bootstrap forces |
+| AF04 | S01/S03 | resolved | 48b/B02–B03/B05 | Domain/template reuse, receiving eligibility and malformed-input rejection |
+| AF05 | S02/S04 | resolved | 48c/C01; 48d/D05 | Contributor/request and boundary row/support consumers are indexed; CA01 growth and full boundary obligations pass in the 27-test repair selection;48c/C01 and48h own actual acceptance |
+| AF06 | S02/S03 | resolved | 48c/C02–C03 | Sparse products and complete validity before reconstruction elision |
+| AF07 | S02/S03 | resolved | 48c/C04 | Sparse flat direct HVP eligibility without losing entry/reverse routes |
+| AF08 | S01/S02 | resolved | 48c/C05/C07 | Bounded named modules, fewer children and safe code lifetime |
+| AF09 | S02/S04 | resolved | 48f/F01 | Compatible/incompatible dispatch and unchanged assessment |
+| AF10 | S02/S05 | resolved | 48f/F02 | Transition-driven ready visits, continuation/retry order preserved |
+| AF11 | S02/S05 | resolved | 48f/F03 | Sibling progress during skewed capture; continuation/producer drain retained |
+| AF12 | S04 | resolved | 48d/D01–D02 | Separate KINSOL/cone obligations; original acceptance unchanged |
+| AF13 | S04 | resolved | 48d/D03–D04 | Submitted primal, optional payload and internal reuse reported distinctly; incomplete Ipopt same-structure reset remains explicitly ineligible |
+| AF14 | S03/S04 | resolved | 48e/E01–E02 | Current fixed-profile reset/failure discard, private scratch, distinct active coverage and exact original pool balance after job drain pass; unsupported backward/Second storage stays fresh |
+| AF15 | S02/S03 | resolved | 48e/E03 | Actual private fixed-trial windows, ordered results and distinct active coverage pass their selected controls; selected assembled acceptance passes in48h |
+| AF16 | S02/S05 | resolved | 48g/G02–G03 | Coherent current/final progress and reduced shared work |
+| AF17 | S02 | resolved | 48f/F09 | Indexed transport preserves subsets/reordering/unknown-ID errors |
+| AF18 | S01/S02 | resolved | 48a/A04 | Typed masking preserves field roles/signed zero/conservative fallback; the normal full generator publication now passes; selected assembled acceptance passes in48h |
+| N01 | S02/S03 | resolved | 48e/E04 | Actual authored Jacobi selected setups equal all10 native setups, with positive selected-entry work and zero full setups; unavailable generated-rate uncertainty remains an explicit refusal |
+| N02 | S05 | resolved | 48g/G01 | Reliable admitted phase retirement under optional-history pressure; 60 selected observation controls, zero failures |
+| N03 | S02/S05 | resolved | 48g/G03 | Prepared progress IDs preserve all actual consumers |
+| N04 | S02/S05 | resolved | 48g/G05 | Equivalent coherent publication with bounded row retention; nine focused publication controls, zero failures |
 
 ## Investigation outcomes
 
@@ -194,42 +195,42 @@ method, format, allocator, platform or default is selected by this table.
 
 | Inquiry | Decision question | State | Decision / work owner | Completion or next trigger |
 | --- | --- | --- | --- | --- |
-| I01 | Which checked artifacts and imported body/data dependencies support fresh-process reuse? | open | 48a/A05 | Complete artifact/receiving contract or documented fresh-check route |
-| I02 | Does whole Salsa persistence improve on smaller immutable artifacts? | open | 48a/A05 | Exact-version representation/accumulator/interning decision; no duplicate store |
-| I03 | Which immutable checking phases can run in parallel? | open | 48a/A06 | Eligible phase boundary, deterministic results and shared admission |
-| I04 | Is a frozen catalog/archive useful after description/bootstrap fixes? | open | 48b/B04 | Representability/startup/retention comparison; custom registry preserved |
-| I05 | Which repeated validations truly share one receiving scope? | open | 48b/B03/B05 | Actual binding/lifetime identity, not equal timestamps |
-| I06 | Can typed loading remove remaining work without a second validator? | open | 48b/B05 | Same registry/SQL/null/key/reference obligations and selected route |
-| I07 | What complete child validity permits reconstruction elision? | open | 48c/C03 | Zero/subset/provider/regime changes cannot hide consequential children |
-| I08 | Which arithmetic/instance/value-order reuse preserves ordered meaning? | open | 48c/C06 | Qualified regions, dependency preservation and product sufficiency |
-| I09 | Which scalar artifact/cache/default improves cold/warm total behavior? | open | 48c/C07 | Complete compatibility, code/child lifetime and actual total cost |
-| I10 | Which remaining provider contractions/reverse actions remove per-output work? | open | 48c/C08 | Actual derivative capability and preserved effects/branches |
-| I11 | Does a concrete vector/JIT/device workload justify expansion? | open | 48c/C08 | Eligible bounded prototype or support limit, including transfers/scratch/preparation |
-| I12 | Which native KINSOL working policy meets original acceptance? | open | 48d/D01 | Short scaled/shifted roots; native iteration, no custom polish |
-| I13 | Which conic working/refinement controls are sound per adapter? | open | 48d/D02 | Magnitude/recovery/roundoff cases; POUNCE judged independently |
-| I14 | Which restart/barrier/options policy benefits supplied starts? | open | 48d/D04 | Perturbed cases, effective options and truthful work receipts |
-| I15 | Can Ipopt retain structure including maps/scaling safely? | open | 48d/D04 | Compatible/incompatible structure and value-dependent scaling controls |
-| I16 | Which additional handles have complete neutral reset? | open | 48d/D04; 48e/E01 | Adapter-specific reset/discard/owner-thread contract |
-| I17 | When do grouped tiny/dense/sparse blocks and setup refresh help? | open | 48d/D05 | Root/branch/start-preserving comparisons; no universal cutoff |
-| I18 | Should the explicit recycle default/history/damping change? | open | 48d/D06 | Qualified maps/domain cases and complete history/work comparison |
-| I19 | Are library Wegstein/Broyden or derivative-capable Newton tears useful? | open | 48d/D06 | Admitted map/derivative/root capabilities and concrete library route |
-| I20 | Which eligible sparse-direct/Krylov/native linear backend helps? | open | 48d/D07 | Actual integration, fill/memory/preconditioner/assurance comparison |
-| I21 | Which coupled shifted-DAE preconditioner is useful? | open | 48e/E05 | Correct approximation/refresh/singular fallback and original checks |
-| I22 | Which IDAS corrector/h0/statistics/reset choices are safe? | open | 48e/E06 | Route-specific local-error/IC/sensitivity/failure behavior |
-| I23 | Can a narrower pure-ODE backward route reduce reset/IC work? | open | 48e/E06 | Jumps/history preserved; DAE obligations unchanged |
-| I24 | Is LM/TR useful versus existing constrained Ipopt-GN? | open | 48e/E07 | Actual loss/constraint/derivative eligibility and library route |
-| I25 | Which forward/adjoint policy fits demand and checkpoint budget? | open | 48e/E07 | Axes/output/sample/event/rank/Jacobian demand and complete work |
-| I26 | Are explicit inexact integration controls useful for fitting? | open | 48e/E07 | Objective/gradient consistency and unchanged final physical endpoint |
-| I27 | Which shooting starts/optimizer allocations can be reused? | open | 48e/E08 | Anchors/primal/duals/history/maps distinguished across trial/profile changes |
-| I28 | What immutable admission can local lanes share? | open | 48f/F04 | Complete basis identity; private values/permissions/provider state |
-| I29 | Which durable discovery/claim/wakeup crossings remain unnecessary? | open | 48f/F05 | Existing hints/repair/renewal retained; reconnect-safe authoritative wakeups |
-| I30 | Does publication blocking justify a finite commit stage? | open | 48f/F06 | Observed blocking and bounded products/lease/ACK/uncertain outcome ownership |
-| I31 | Which producer bounds/growth/stack charges improve admission? | open | 48f/F07 | Cover effects before allocation; no RSS-equating or CPU-held memory waits |
-| I32 | Is remaining glue/thread churn better spawned/isolated/pooled? | open | 48f/F08 | Context propagation, affinity, drain and shared-capacity comparison |
-| I33 | Does a concrete workload justify isolated/concurrent native execution? | open | 48f/F08 | Qualified capabilities and total startup/IPC/memory/recovery cost |
-| I34 | Which bounded transport separates lifecycle from optional history? | open | 48g/G04 | Overflow/exit/stall behavior; finite rings are not inherently lossless |
-| I35 | Does an allocator change help after materialization fixes? | open | 48g/G06 | Matched complete-operation latency/memory/native comparison |
-| I36 | Which remaining question needs a larger composed/longer run? | open | 48h/H02 | Short results identify unresolved mechanism and minimal follow-up case |
+| I01 | Which checked artifacts and imported body/data dependencies support fresh-process reuse? | resolved: fresh checking | 48a/A05 | Complete payload/receiving design recorded; FunctionRecord roundtrip does not cover changed defaults/data/physical/absence. Retain fresh process checking; reopen for material restart cost after A01–A04 or a new consumed source/data/physical kind. |
+| I02 | Does whole Salsa persistence improve on smaller immutable artifacts? | resolved: no adoption | 48a/A05 | Exact Salsa0.28.4 supports persistence, but this compiler has no complete wire or qualified owner restoration. Neither storage route adopted; reopen on a concrete restart workload or changed transitive restoration capability. |
+| I03 | Which immutable checking phases can run in parallel? | resolved: serial owner retained | 48a/A06 | Actual immutable parser clone/drain/cancel probe passes; production compiler job admits one core. One cold 68-row dev probe: parse/stage636us, complete9836us. Reopen with actual multi-core source-read grant and a demonstrated parse-dominant workload; canonical error order retained. |
+| I04 | Is a frozen catalog/archive useful after description/bootstrap fixes? | resolved: adopt complete generated products | 48b/B04 | ADR-0210 selects declaration-generated complete resolved products and a fresh live owner shell. The actual producer publishes the complete payload and both standard initializers now hydrate it. Five focused controls pass independent source equivalence, current receiving/fresh owners, custom empty registries and bad IPC refusal. The earlier partial-image gap and compiler-expensive fallible array construction were corrected in the producer. Selected assembled consumers remain with48h. |
+| I05 | Which repeated validations truly share one receiving scope? | resolved: actual receiving owners | 48b/B03/B05 | Existing RunResult shares result_validation; engine operation caches already bind the actual scope. Preserve fresh contexts for distinct calls/activities/new execution_state; no broad equal-value/time scope fusion. |
+| I06 | Can typed loading remove remaining work without a second validator? | resolved: exact-context generated typed admission | 48b/B05 | ADR-0202 scoped target uses generated typed projection only for exact supported declaration and rewrite-free current NativeValidation; custom/rewriting planners retain actual evaluation. Generation refuses unsupported facets. Focused guards/planner/load-path tests passed; exported Arrow remains independently checked. |
+| I07 | What complete child validity permits reconstruction elision? | resolved: complete current First probe | 48c/C03 | Same immutable problem/layout, exact numerical key/point/state-First demand and all-residual/all-coordinate zero-First traversal must re-establish original validity and every complete seed-independent child trace before coefficient/factor elision. Missing/mismatched premises reconstruct; failed guards/cancel/reset/affine use invalidate. Zero/unit/subset/branch/changed-token/Value-only-guard probes and focused dependent implementation controls passed; selected assembled acceptance passes in48h. |
+| I08 | Which arithmetic/instance/value-order reuse preserves ordered meaning? | resolved: current-pass pure sibling reuse | 48c/C06 | Reuse only last completed eligible pure sibling donor with exact gathered bits and sufficient product in the same current pass; no provider/effect/context donation or cross-pass cache. Ordered dependent regions remain. Opposite-sign/equal-value derivative, order, guard, cancellation and insufficiency controls pass in current math/compiled slice. |
+| I09 | Which scalar artifact/cache/default improves cold/warm total behavior? | resolved: adopt disposable scalar cache; explicit compiled selection retained | 48c/C07 | ADR-0212 keys actual generated source, scalar compiler/FP/ABI profile, names and dimensions; bounded atomic images are copied into current private module owners and checked before use. Twelve selected scalar controls pass, including actual fresh-process hit/fallback, changed-input, corruption, stop and lifetime; the subsequent real concurrent-writer/eviction/receiving extension also passes1/1. Interpreted default and one-core sequential compile/link on misses stay unchanged; compiler fanout still needs distinct actual grants. |
+| I10 | Which remaining provider contractions/reverse actions remove per-output work? | resolved: existing composed actions qualified | 48c/C08 | Actual128-input/two-output provider composition over two invocations uses2JVP+2VJP and, for Second,2weighted-second calls without full partial arrays. Distinct cotangent tangents still require distinct VJP under the current demand contract. Context/unknown-owner/branch/guard controls pass; no additional generic contraction demonstrated. Reopen an actual repeated cotangent/contracted product outside this qualified pair. |
+| I11 | Does a concrete vector/JIT/device workload justify expansion? | resolved: scalar profile retained | 48c/C08 | Actual Symbolica3.0.1 scalar JIT/packed/interpreted polynomial probe includes common preparation, packing/output and16 warm passes for1/64/512 rows. JIT improves warm work here but public options select native host ISA rather than the portable scalar compiler target; no FP/ISA equivalence or production adoption inferred. No concrete device/distributed workload established. Reopen a coherent reuse workload plus explicitly admitted ISA/FP/cancellation/transfer owner. |
+| I12 | Which native KINSOL working policy meets original acceptance? | resolved: native roundoff stagnation | 48d/D01 | Zero KINSetScaledStepTol selects native roundoff default; explicit positive values remain relative stagnation. Translated cubic near zero/large origins, shifted bounds, residual multipliers, cold/warm/accepted starts and explicit maximum-step refusal tested with independent original residuals. Physical0.001 unchanged; revisit native formula/scaling or demonstrated false stagnation. |
+| I13 | Which conic working/refinement controls are sound per adapter? | resolved: one bounded Clarabel correction; POUNCE policy retained | 48d/D02 | ADR-0204 production controls pass: finite observed-native-residual/original-quality working correction, same original clock/remaining iterations, native failure/Limit kept distinct, SOC and PSD original checks, ordinary/refined late-publication cancellation and no stale prior candidate. Five new controls are within28/28 selected native passes; existing conic controls also pass. POUNCE's separately observed18-case SOC absolute/gated-relative behavior does not receive Clarabel's heuristic. No universal cone success or physical accuracy change. Reopen a concrete original-quality failure or newly exposed native original-budget control. |
+| I14 | Which restart/barrier/options policy benefits supplied starts? | resolved: explicit existing restart profiles | 48d/D04 | Current Ipopt/POUNCE richer restarts and primal-only paths qualified in bounded native controls. On the six-coordinate perturbed simplex, good seeds took2 versus cold5/6 iterations, primal-only3, poor multipliers/barrier7–8. A stated0.001 barrier did not universally improve good starts. Preserve current explicit profiles and complete per-call reset; no global barrier change. Reopen a demonstrated poor-seed/limited-memory/native-option regression. |
+| I15 | Can Ipopt retain structure including maps/scaling safely? | resolved: retain fresh spaces | 48d/D04 | Actual Ipopt3.14.20 same-structure initialization retains spaces/scaling and skips ordinary cache clearing. Current dimension/pattern signature does not bind complete value-dependent scaling/provider state. Compatible/incompatible classification, changed-gradient scaling and option-removal controls pass with warm_start_same_structure=no; retain it. Reopen complete native cache/scaling reset plus a demonstrated setup-dominant workload. |
+| I16 | Which additional handles have complete neutral reset? | resolved: qualified fixed-profile IDAS storage | 48d/D04; 48e/E01 | Owner-affine Value/Forward reset uses fresh callback/execution validity and distinct finite coverage; failure/changed profile discards, backward/Second stays fresh. Native reset/current-cancel controls, actual nested fitting/profile populations and exact job-drain accounting pass. Other adapters retain their qualified existing reset/fresh policies; reopen a concrete complete reset contract and setup bottleneck. |
+| I17 | When do grouped tiny/dense/sparse blocks and setup refresh help? | resolved: existing common Direct owner; explicit BTF owners | 48d/D05 | Sixty-four one-core separate/grouped populations and changed numeric generations pass original0.001, singular and recovery checks. Grouping removes setup work and increases resident peak. Existing default Direct already solves the common original case as one owner; BTF retains independently requested block permissions, overrides, starts and budgets. No timing threshold rejects grouping. Arbitrary subset coalescing still needs a complete shared permission/admission boundary. |
+| I18 | Should the explicit recycle default/history/damping change? | resolved: explicit native controls retained | 48d/D06 | Six-coordinate contractions/alternating/slow/expansive domain-limited maps compare history0/1/3/5 and delay/damping with original residuals, complete map calls and storage. Larger history helps slow cases but not easy contractions; damping is case-dependent. Existing nonlinear/regime/failure controls retain actual physical meaning. Keep explicit per-request settings and current defaults, including history<=dimension; reopen a representative regime/quality regression. |
+| I19 | Are library Wegstein/Broyden or derivative-capable Newton tears useful? | resolved: retain native map acceleration | 48d/D06 | Current CausalUnit exposes ordered values and independent original state, not a complete composition derivative or permission to change root selection. KINSOL owns qualified fixed-point/Anderson iteration. Pyomo6.10.1 Wegstein owns a different Python Network/Port/Var graph rather than this native map; existing PETSc/diffsol Newton routes require their admitted equation/operator contract. No new cross-model bridge or host iteration adopted. Reopen a concrete native whole-map library integration or complete composition derivative/root permission plus demonstrated benefit. |
+| I20 | Which eligible sparse-direct/Krylov/native linear backend helps? | resolved: retain explicit qualified portfolio | 48d/D07 | Twenty-four one-core existing MUMPS/SPRAL/Pardiso/POUNCE-FERAL complete NLP solves across dense16/banded64/skewed32 and two numeric generations pass original equality/stationarity/inertia/backsolve checks at unchanged engineering policy. Cold/order and outer-method differences prevent an isolated linear winner; Ipopt internal factor RHS/solutions remain unobserved. Retain caller selection; reopen a representative material setup/factor bottleneck with actual operator and admitted team. |
+| I21 | Which coupled shifted-DAE preconditioner is useful? | resolved: adopted BBD binding and public admission boundary qualified | 48e/E05 | Library BBD and historical coupled/action/runtime results retained; CA02 now admits once before public Initial effects. Public absent/insufficient/denied memory, current cancellation, direct reset and authored runtime BBD controls pass in the 27-test repair selection |
+| I22 | Which IDAS corrector/h0/statistics/reset choices are safe? | resolved: explicit correctors/native h0 and coalesced statistics | 48e/E06 | Twelve ODE/DAE KLU/unpreconditioned/Jacobi simultaneous/staggered controls pass original analytic state/output and sensitivity-effect checks at local0.001, without a universal corrector winner. Actual batched statistics match native getters across initialization/advance/reset/failure. Native automatic h0 improves the stiff fixture's original output classification while taking41 versus38 accepted steps and61 versus65 residual evaluations; smooth work is identical. ADR-0207 selects the native automatic default with explicit Configured and positive IC orientation unchanged; IdasSettings3/Profile3 prevent reinterpretation of old omission meaning. The affected current-default/version/native lifecycle selection now passes26/26 with zero warnings or errors. Reopen a representative corrector/h0/setup bottleneck, not an isolated wall-time winner. |
+| I23 | Can a narrower pure-ODE backward route reduce reset/IC work? | resolved: exact first-order ODE initial rates | 48e/E06 | ADR-0206 current guarded negative-transpose action supplies rates only when every actual state is differential and the backward problem is first order. ReInitB/quadratures/observation and segment jumps remain. Native-IC reference pairs retain49/138/139 steps while removing four nonlinear iterations in each observed case; gradients agree within about1.5e-8. Independent nonsymmetric/state/time/parameter action and failure/stop/DAE/Second eligibility controls pass, as do existing nonlinear adjoint/DAE/Second regressions. An original-invalid stiff forward trajectory remains invalid under both routes; no tolerance is changed or success promoted. Reopen a changed mass/formulation or current-action/adjoint regression. |
+| I24 | Is LM/TR useful versus existing constrained Ipopt-GN? | resolved: qualified automatic residual LM adopted | 48e/E07 | Actual unboxed/unconstrained response and requested-contract eligibility, known workspace before effects, honest method/termination/work, persisted public metadata and fresh original assessment pass. Matched complete operations retain objective/gradient/covariance/Wald/predictions at unchanged practical accuracy; no universal speed or optimality certificate. |
+| I25 | Which forward/adjoint policy fits demand and checkpoint budget? | resolved: retain demand-correct explicit selection | 48e/E07 | Actual scheduled nonlinear DAE sampled-functional controls compare forward/adjoint, selected/all axes and checkpoint3/25/250 at unchanged0.001 with direct/initial/schedule terms. LM/rank/Gram require actual response products; gradient-only limited memory can consume explicit adjoint and then fresh final responses. A parameter-count-only crossover lacks functional/output, checkpoint/replay and team premises. Reopen a complete demand- and budget-qualified selector, not a marginal timing win. |
+| I26 | Are explicit inexact integration controls useful for fitting? | resolved: retain fixed original accuracy | 48e/E07 | Native local/endpoint estimates do not enclose the weighted objective and response-gradient error or provide acceptance forcing/upgrade evidence. A loose-tolerance trial loop would mix unqualified value/gradient meaning near flat/active optima. Adopted value-only demand/transactional upgrades remove work without changing accuracy. Reopen an actual objective+gradient-consistent error estimator; physical0.001 stays unchanged. |
+| I27 | Which shooting starts/optimizer allocations can be reused? | resolved: explicit primal and fresh optimizer retained | 48e/E08 | Actual Diffsol/Ipopt tracking at standard engineering accuracy: ordinary/good/poor primal starts took6/3/7 iterations, all independently checked original objective near0.31417; API submission true and native-state reuse false. Changed bounds/options, native iteration-limit then fresh success, invalid/cancelled requests and equal-sized distinct causal anchor maps pass. Shooting has no complete compatible dual/restart-map or neutral optimizer owner; each call uses fresh Retained state and a current callback/execution. No dimension-based history transport or barrier default adopted. Reopen an explicit complete map/reset capability or reproducible setup-dominant repeated-shooting workload. |
+| I28 | What immutable admission can local lanes share? | resolved: retain existing immutable sharing | 48f/F04 | Actual independent equal-basis lane preparations share the same SharedAllocation; changed source/provider/current-scope controls pass. Two views/observations require zero rebuilds while scopes remain distinct. No new HeldPreparationScope or PreparedLaneInputs sharing platform is justified. Reopen demonstrated remaining structural preparation cost with a complete immutable owner. |
+| I29 | Which durable discovery/claim/wakeup crossings remain unnecessary? | resolved: retain current authoritative discovery/claim crossings | 48f/F05 | Actual canonical probe passes five idle and five independently acknowledged usable fixed occurrences after the resident-loan correction. Median observed action1.300806s, claim23.443721ms and inclusive publication978.369690ms; idle actions393–1330us. These scoped observations do not identify claim latency as the remaining dominant cost or justify a new push/subscription platform. Existing hints/repair/renewal remain; F06 separately addresses real joined-publication serialization. Reopen a distinct measured discovery/claim bottleneck or reconnect/readiness regression. |
+| I30 | Does publication blocking justify a finite commit stage? | resolved: bounded Running/Publishing handoff adopted | 48f/F06 | Actual same-worker width-one held-publication refill, finite saturation, late-arrival discovery, late export failure, cancellation/no-payload and lost-ACK/prior-failure controls pass. Original publication/ACK owners remain until terminal drain. |
+| I31 | Which producer bounds/growth/stack charges improve admission? | resolved: retain incomplete-producer envelopes | 48f/F07 | Known flat bounds/growth and constructor/pressure/nested-team/cancellation controls pass. Weighted second/HVP/transpose and provider factories lack a complete scratch-construction maximum; checked result-cell extents cannot replace it. Keep conservative prepayment and actual once-per-team stacks. Reopen a complete producer bound/allocator API or demonstrated admission pressure. |
+| I32 | Is remaining glue/thread churn better spawned/isolated/pooled? | resolved: retain existing lanes and scoped placement | 48f/F08 | Thirty-two-point held-cursor run reaches all31 sibling completions, ordered original values and bounded policy visits; existing native lanes/constructor threads and lane-owned capture supply the required overlap. Resource-fixture reruns remain explicitly separate. No new spawn/pool mechanism without a remaining measured bottleneck. Reopen ordinary cold-chunk starvation or repeated construction cost with useful work waiting. |
+| I33 | Does a concrete workload justify isolated/concurrent native execution? | resolved: retain native exclusions and one shared process | 48f/F08 | PETSc MPIUNI/SCIP/TPI exclusion, process-wait/CPU-pause, gate pressure/cancellation and negative shared-width controls pass. Existing worker/managed transport lacks complete per-member reconstruction/control/assessment/reap for a concrete isolated occurrence. No generic process pool or unsafe shared-width2 adoption. Reopen an actual reconstructible occurrence with its explicit deployment/IPC owner. |
+| I34 | Which bounded transport separates lifecycle from optional history? | resolved: retain prepared/coalesced direct observation | 48g/G04 | Reliable phase retirement is independent of optional-history locking/loss. Held-lock, overflow, unwind/thread-exit, poisoned-state, finite-capacity and terminal controls pass; actual specialization/lowering/materialization intervals close on success/cancellation in the compiler control. Compact/coalesced records remove repeated shared work. Async/multiple producers do not establish SPSC ownership; no ring throughput comparison or scientific observer bottleneck is established. Keep current transport; reopen observed contention/loss that harms required live freshness after these fixes. |
+| I35 | Does an allocator change help after materialization fixes? | resolved: retain current allocator | 48g/G06 | Five post-fix ordinary diagnostic observations:10k prepared tuple publications allocate zero;10k real phase+tuple operations allocate60k small objects/1.88MB total but only141B incremental live peak and zero net retention, roughly2.8–3.46ms including counter overhead. Complete setup/snapshot/terminal/drop has zero net counted allocation. No representative scientific allocator bottleneck is established; installed jemalloc remains unmeasured and no allocator-only speed claim follows. Reopen actual post-fix allocation dominance or retained pressure in a scientific workload. |
+| I36 | Which remaining question needs a larger composed/longer run? | resolved: no currently justified longer campaign | 48h/H02 | Short work-removal controls support adoption. Reopen on actual unexplained factor/setup growth, retained-memory pressure, bulk-transfer cost or long-horizon work growth;48h records the smallest-case, one-variable,60-second diagnostic route and later-review boundary. |
 
 ## Complete recommendation coverage
 
@@ -263,35 +264,183 @@ do not imply industrial-capacity qualification or blanket platform implementatio
 
 ## Current checkpoint
 
-**Document series authored; product execution unstarted.** RC01–RC12 are accepted within
-their stated correction/inquiry limits. The eight companions contain 53 packages; this
-coordinator owns 22 findings and 36 consolidated inquiries. All delivery state remains
-open or conditional. Existing review bodies and other plans remain unchanged.
+**Implemented and Tested, complete adopted scope, 2026-10-21.** The independently identified
+CA01/C01/AF05 and CA02/E05/I21 gaps are repaired and their settling controls pass. All 53
+packages are done, all 22 AF/N findings are resolved, and all 36 inquiries have finite outcomes.
+RC01–RC12 and the 162 source recommendation dispositions retain their accepted boundaries.
 
-**Tested, documentation only:** static inspection confirmed exact once-only coverage of
-all 162 register rows and historical positions, finding/inquiry/rule counts, packet/outcome
-headings, local file/heading links and ten native scope bindings. Bounded independent
-integration review identified and corrected optional-reset blocking of parallel windows,
-missing numerical-preparation parallelism, compiler-observation scope, successive-study
-presentation keys and final/profile assessment ownership. These checks do not qualify
-product implementation or claimed performance.
+Conditional boundary preparation now uses relevant instance request/support candidates and
+the existing row index, preserving complete original coupling and guard obligations. Public
+IDAS attempts establish finite BBD admission before Initial effects; a consumed non-Clone
+admission retains the checked configuration/state extent and original execution without a
+second charge. Direct preparation, replacement bounds and current stop checks remain.
 
-The host RAM startup guard currently blocks admitted documentation validation/publication;
-the guard is preserved. The authored sources remain available for execution planning, with
-broader document command results to be reported separately. The next product step is a
-separately authorized execution-planning request for selected packages, not automatic
-implementation or another decision on the already accepted twelve rule boundaries.
+The combined current-source selection passed 27 tests across math, compiler, native backend
+and authored runtime BBD, including all new work-growth/public refusal controls and adjacent
+boundary/reset/adjoint/failure regressions. Fresh independent review found no material issue.
+Default/no-default and full linked-native/canonical/compiled workspace/all-target Clippy pass
+with zero warnings/errors. [48h](48h-qualification-and-design-publication.md#completion-audit-repair-qualification)
+records exact commands, conditions and retained qualification limits; earlier passing and
+failed selections keep their original scope. H01 consumer reconciliation and H03 affected
+qualification are complete; H04 reconciles the final documentation/current-work selection.
+
+Qualified first-principles work reduction remains the adoption preference despite marginal
+timings. Practical accuracy stays 0.001. H02/I36 require no automatic longer campaign, and
+no full wheel, new platform, global powerset or eliminated environment/provenance proof work
+was added. Enduring target contracts remain with their existing architecture/ADR owners;
+these repairs implement those contracts without changing them. Other plans retain their
+independent scope and status.
+
+## Completion audit
+
+**Audit 2026-10-20; repair closure 2026-10-21 — current conclusion: complete for the accepted adopted scope.**
+The independent audit initially found two missing production obligations; the maintainer
+then authorized their correction. Both are now **Implemented and Tested** with the targeted
+current-source acceptance below; no remaining gap was identified in the audited scope.
+The audit baseline was
+`bf472ec8ea69ff3f555c00ccfdbb39d04283b4bb` plus the staged, unstaged and untracked Plan48
+implementation in the shared checkout, including new generated registry products rather
+than only the committed diff. The audit itself was read-only apart from plan corrections;
+subsequent repairs changed the four math/compiler/IDAS source owners and their tests.
+The original authoring/acceptance descriptions,
+authorized amendments and current architecture were read alongside completion claims.
+Three fresh read-only reviewers covered A/B, C/D and E/F; the coordinator inspected G/H,
+reconciled the source register and independently confirmed both gaps below.
+
+### Coverage and bounded conclusions
+
+All 53 packages, 22 AF/N findings, 36 inquiries and 12 accepted rule boundaries were accounted
+for. All 162 source register rows match the coverage appendix exactly once, without missing
+or duplicate recommendation labels. That mechanical comparison establishes navigation only;
+implementation conclusions come from source and ordinary consumers, including defaults,
+public/persisted receiving, feature paths, failure/drain and replacement obligations.
+
+| Accepted scope | Audit conclusion |
+| --- | --- |
+| A01–A06 | No material gap found in indexed source lookup, mutable views, consumed incremental dependencies or typed masking. Complete checked-artifact persistence and extra source-phase parallelism were conditional; the complete-payload/fresh-check and one-core serial outcomes are legitimate, bounded decisions. |
+| B01–B05 | No material gap found in canonical memoization, shared environments/templates, ordinary generated-registry hydration or the one-family typed loader. General/custom builders, current receiving/function eligibility and explicit raw/export fallback remain supported. |
+| C01–C08 | CA01's remaining boundary lookup work is repaired and growth-tested. No additional gap found in sparse products, complete-current validity, sparse HVP, bounded named modules, pure-instance reuse, disposable scalar artifacts or the retained realization scope. |
+| D01–D07 | No material gap found in native stagnation/refinement meanings, truthful starts, explicit reset eligibility, indexed recycle or qualified portfolio. Fresh Ipopt spaces, explicit grouping/acceleration and absence of a universal backend winner are accepted inquiry outcomes. |
+| E01–E08 | CA02's public pre-effect admission is repaired and public-entry/reset tested. No additional gap found in supported IDAS value/forward storage, actual independent coverage, callback/current-product scratch, fixed-trial windows, selected Jacobi, native h0/backward rates, qualified residual fitting or explicit shooting starts. Unsupported backward/Second/BBD storage stays fresh. |
+| F01–F09 | No material gap found in native-owner compatibility, event frontier, lane-owned capture/close, preparation-key correction, finite publication handoff, conservative unknown bounds or indexed recovery. Shared numerical policy and eligible local batching do not mean durable native bulk was implemented: independent durable members stay scalar under I29's legitimate no-adoption outcome. |
+| G01–G06 | No material production gap found in atomic phase retirement, prepared safe-return callback/compiler tuples, compact KINSOL current/history/durable projection, actual stage scopes or coherent streaming publication. Ring and allocator no-adoptions are bounded; the allocator probe is an ordinary diagnostic fixture, not scientific throughput evidence. Obsolete G Outcome placeholders were corrected during this audit. |
+| H01–H04 | H01 reconciles actual repaired consumers; H03's combined 27-test selection and all three full Clippy modes pass; H04 restores completed documentation/current-work state. H02's bounded observations and no-automatic-long-campaign decision remain applicable. Earlier results retain their original conditions. |
+
+The audit does not turn omitted external remedies, conditional no-adoptions or new preferred
+designs into mandatory implementation. In particular, it requires no general persistence
+platform, universal grouped solve, durable bulk mechanism, ring, allocator change, process
+pool, expanded JIT/device realization or new accuracy policy. The original complete-context,
+provider/branch, native safety, independent-assessment and acknowledged-publication
+constraints remain part of the inspected target.
+
+<a id="ca01"></a>
+### CA01 — resolved: selected boundary lookup
+
+**Implemented and Tested; owner 48c/C01; source finding AF05.** The audit found
+`CasePlan::visit_binding_dependencies` searching all parent supports after selecting relevant
+bindings, and `admit_boundary` scanning parent rows for selected identity/equality checks.
+A small late boundary therefore retained work proportional to unrelated parents.
+
+The production support search now visits the selected instance's actual request groups.
+`CasePlan::row` uses its existing row-to-ordinal map; the compiler consumes that indexed row
+lookup for membership/equality checks. No additional retained index or production lookup
+telemetry was added. Complete binding contributions, duplicates, objective/outside-row
+coupling, fixed/inactive inputs, guards, source order and unknown-ID refusal remain.
+
+`late_boundary_visits_only_relevant_supports_with_unrelated_parent_growth` and
+`conditional_boundary_row_visits_ignore_unrelated_parent_growth` check actual test-only
+visit counts with 1/16/64 unrelated bodies/rows. Independent boundary/guard controls retain
+acceptance, refusal and connection exemptions. They pass in the 27-test repair selection.
+This establishes the intended work removal, without a measured latency or universal speed claim.
+
+<a id="ca02"></a>
+### CA02 — resolved: BBD admission before public Initial
+
+**Implemented and Tested; owner 48e/E05; I21/RC05 adopted boundary.** The audit found
+`idas::attempt` evaluating `Function::Initial` before its later session construction could
+refuse the finite BBD allowance. Direct-session controls had not exercised that wrapper.
+
+An owned, non-Clone `bbd::Admission` is now created before the public attempt's first Initial
+evaluation. It binds the checked linear configuration/state extent and owns the original
+Execution; session preparation consumes it without charging again and refuses a changed
+configuration/extent. Direct preparation/new-session entry points establish their own
+admission. Installation/reinitialization retains actual memory and current cancellation
+checks; BBD remains outside E01's retained-storage subset.
+
+`bbd_public_entries_refuse_storage_before_initial_effects_and_sample_output` exercises public
+fresh/current/workspace paths with absent/insufficient memory or denied storage. It requires
+typed refusal, zero Initial/source effects and unchanged caller output. The public finite-
+attempt, cancellation-during-admission, configuration-mismatch and failed-reinitialization
+controls require exactly one charge and safe failure. They pass with existing current
+adjoint/Second/reset and authored Value/JVP BBD controls in the 27-test repair selection.
+No equation, solver setting or practical-accuracy change was made.
+
+### Qualification and benefit accounting
+
+**Tested/Measured, historical selected scope:** 48h and package Outcomes retain actual
+commands, conditions, initial failures and repaired selections. The audit read the available
+native selections (seven and 21 tests), seven parity checks, the Python 20-pass selection
+and its exact one-test repair, the runtime 11-pass selection and its exact repair, and the
+eight-control native summary, and the
+continuing hygiene/repair, three Clippy-mode, feature-canary, governance and documentation
+results. Those original selections did not cover CA02's public refusal sequence or CA01's
+unrelated-parent growth; the current 27-test repair selection now supplies those controls. No missing historical environment proof,
+all-platform result, full powerset, distribution build or all-case campaign is imposed.
+
+Work removal from sparse storage, compiler packing, registry hydration, compatible allocation,
+readiness and publication changes retains source/recorded support under its stated limits.
+The repair closes CA01's missing boundary-work removal through structural work assertions.
+No new timing, whole-process RSS, allocator, industrial-capacity or universal speed claim was
+established. New checks exercised the repairs; earlier results were neither erased nor
+promoted into coverage of previously unexercised obligations.
+
+**Tested, audit and repair documentation:** `just docs` passed with 548 published chapters;
+`document_lifecycle validate` passed with no metadata/scope errors, and its scope projection
+reflects the completed native owners. `just turn-end` passed ADR-index and formatting;
+`git diff --check` passed. These commands establish documentation consistency, not repaired
+production behavior. [48h's repair qualification](48h-qualification-and-design-publication.md#completion-audit-repair-qualification)
+owns the separately authorized functional/static repair acceptance.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-Not implemented; the execution owner will record actual delivered behavior and evidence.
+**Implemented and Tested:** all 53 packages deliver the accepted adopted scope. The independent
+completion audit's CA01/C01/AF05 and CA02/E05/I21 repairs pass their new controls and relevant
+adjacent journeys. H01/H03/H04 reconcile consumers, selected qualification and final records.
+All 22 AF/N findings, 36 inquiry outcomes, 162 recommendation mappings and 12 accepted target
+boundaries are accounted for in their owning sections.
+
+**Measured, bounded:** earlier selected work counters and observations keep their original
+conditions. The repair adds actual bounded-work and pre-effect refusal assertions; it makes
+no new measured speedup, industrial-capacity or all-case qualification claim.
 
 ### A mistake made and corrected
 
-To be recorded from actual execution.
+The completion audit corrected the earlier overstatement of full completion: selected
+binding indexes alone had not removed parent support/row searches, and direct-session BBD
+denial controls had bypassed the public Initial wrapper. The repairs add actual work-growth
+and public-entry refusal assertions, rather than accepting the earlier tests as sufficient.
+
+The initial native preparation hold was released at Cargo startup, although the runner checks
+source stability through compilation; it refused before tests. Subsequent holds continue to
+actual Nextest startup. Indexed recycle exchange also exposed a production dependency previously
+available only to tests, and unmigrated private scientific consumers; the dependency and consumers
+were corrected together. Generated registry hydration initially exhausted the compile cap;
+sequential outlined producer output removed the compiler blowup before its five controls passed.
+Actual fitting population inspection exposed missing distinct foreign coverage across parent,
+experiment and profile-chain owners; the production contract and consumers were corrected.
+Later control failures included invalid KINSOL box fixtures, decoding the wrong persisted
+receipt layer, and interpreting local integration tolerance or scaled stationarity as a
+stronger original-output guarantee. Their corrections preserve the actual scientific limits,
+positive selected-work checks and original accuracy. Focused checks retain their actual
+executed-versus-not-run boundaries; repaired selections do not erase earlier failures.
 
 ### Deviations from the plan, deliberate
 
-None recorded. Future rule changes follow the decision route above.
+Qualification used affected selections and a Diffsol-only feature canary rather than a
+full Cartesian campaign/global powerset; original failed selections were repaired with
+focused reruns. This preserves the authorized design-phase scope and actual evidence limits.
+Qualified first-principles changes were deployed without requiring marginal timing wins;
+ordinary accuracy stayed unchanged. No full distribution install or eliminated environment/
+provenance proof work was reintroduced. Future rule changes follow the decision route above.

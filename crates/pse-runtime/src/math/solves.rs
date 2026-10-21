@@ -440,7 +440,10 @@ impl PreparedSolve {
                         .map(|backend| {
                             product
                                 .strategy_profile()
-                                .map(|key| pse_model::strategy::ProfileRef { backend, key })
+                                .map(|key| pse_model::strategy::ProfileRef {
+                                    method: pse_model::strategy::NumericalMethod::Backend(backend),
+                                    key,
+                                })
                         })
                         .transpose()?,
                     required: false,
@@ -1938,7 +1941,7 @@ impl PreparedSolve {
             }
             let actual = match rung.backend() {
                 Some(backend) => Some(ProfileRef {
-                    backend,
+                    method: pse_model::strategy::NumericalMethod::Backend(backend),
                     key: rung.strategy_profile()?,
                 }),
                 None => None,
@@ -4583,7 +4586,7 @@ impl MathService {
             seed: chosen.clone(),
             sparse_seed: step.profile.backend.partial_start().cloned(),
             transformations: vec![],
-            submitted: chosen.is_some(),
+            submitted: false,
         };
         let normalization = step.normalization.key();
         Ok(Admitted {
@@ -5982,6 +5985,17 @@ struct Admitted {
     execution: Execution,
     receipt: StartReceipt,
     normalization: pse_ids::ContentHash,
+}
+/// Conservative direct-batch partition supplied by the numerical owner.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct DirectBatchKey {
+    pub(super) backend: Backend,
+    pub(super) profile: pse_ids::ContentHash,
+    pub(super) threads: usize,
+}
+pub(crate) struct DirectBatchCandidate {
+    pub(crate) key: DirectBatchKey,
+    pub(super) decision: pse_ids::ContentHash,
 }
 /// One independent step of a batch (Plan 22 N5), with its attempt and result owner.
 #[derive(Debug)]

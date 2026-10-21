@@ -329,6 +329,7 @@ async fn source_case_on_with_fixed_parameter(
     }
     data.fits.push(fit);
     let mut profile = FitProfile {
+        optimizer: FitOptimizer::NativeNlp,
         solver: SolverProfile {
             intent: SolveIntent::Optimize,
             selection: native::solve::SolverSelection::Explicit(Backend::Ipopt),
@@ -907,6 +908,7 @@ async fn contextual_closure_fit_factory_controls_preserve_explicit_experiment_pr
         .await
         .unwrap();
     let mut profile = FitProfile {
+        optimizer: FitOptimizer::NativeNlp,
         solver: SolverProfile {
             intent: SolveIntent::Optimize,
             selection: native::solve::SolverSelection::Explicit(Backend::Ipopt),
@@ -1331,6 +1333,7 @@ async fn curved_source(
     }
     data.fits.push(serde_json::from_value(serde_json::json!({"fit_id":id(80),"parameters":[{"symbol_id":id(81),"fixed":false,"value":1.,"lower":0.1,"upper":10.,"scale":1.},{"symbol_id":id(82),"fixed":false,"value":2.,"lower":0.1,"upper":10.,"scale":1.}],"experiments":[{"experiment_id":id(84),"case_id":root,"route":"integrated","bindings":[{"parameter_id":id(81),"path":"k"},{"parameter_id":id(82),"path":"a"}]}],"observations":observations})).unwrap());
     let mut profile = FitProfile {
+        optimizer: FitOptimizer::NativeNlp,
         solver: SolverProfile {
             intent: SolveIntent::Optimize,
             selection: native::solve::SolverSelection::Explicit(Backend::Ipopt),
@@ -1635,14 +1638,19 @@ async fn exact_transient_fit_hessian_satisfies_production_action_basis() {
             }
         }
         let mut values = vec![0.; pattern.row_idx().len()];
-        // A fresh point has no completed curvature. Missing the actual native
-        // allowance makes the curvature operation fail without publishing it.
+        // The actual transient owner has its own current finite allowance. Removing
+        // that requirement from the outer coordinator cannot revoke the child's
+        // admitted coverage. Refuse fresh Second work at the consumed child owner.
         oracle.evaluate(&[1.2, 1.8]).unwrap();
         assert!(oracle.point.as_ref().unwrap().curvatures.is_none());
-        let memory = oracle.execution.memory.take();
+        assert!(oracle.execution.memory.is_some());
+        let memory = oracle.transient_execution[0].memory.take();
+        assert!(memory.is_some());
+        values.fill(12345.);
         assert!(oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).is_err());
+        assert!(values.iter().all(|value| *value == 12345.));
         assert!(oracle.point.as_ref().unwrap().curvatures.is_none());
-        oracle.execution.memory = memory;
+        oracle.transient_execution[0].memory = memory;
         let attempted = oracle.transient_curvature_passes;
         oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).unwrap();
         assert_eq!(oracle.transient_curvature_passes, attempted + 1);
@@ -1758,6 +1766,7 @@ async fn exact_transient_fit_hessian_satisfies_production_action_basis() {
 
 pub(super) fn candidate_fit_report(problem: &FitProblem, candidate: Vec<f64>) -> FitReport {
     FitReport {
+        residual: None,
         completion: None,
         strategy: None,
         checks: Vec::new(),
@@ -1845,7 +1854,7 @@ async fn fitting_original_final_assessment_shares_one_fresh_integration_and_pres
                 drop(callback.team.take());
                 let mut report = candidate_fit_report(&problem, vec![2.5]);
                 problem
-                    .observe(&mut report, callback.execution.clone())
+                    .observe(&mut report, callback.execution.clone(), None)
                     .unwrap();
                 assert_eq!(
                     callback.transient_passes, callback_passes,
@@ -2010,7 +2019,7 @@ async fn fitting_original_final_assessment_cancellation_never_falls_back() {
             let mut report = candidate_fit_report(&owner.prepared, vec![2.5]);
             owner
                 .prepared
-                .observe(&mut report, owner.execution.clone())
+                .observe(&mut report, owner.execution.clone(), None)
                 .unwrap();
             assert_eq!(tap.starts.load(std::sync::atomic::Ordering::Relaxed), 1);
             let diagnostic = report.diagnostic.as_ref().unwrap();
@@ -3125,61 +3134,68 @@ async fn fitting_parallel_experiments_keep_order_and_owner_affine_workers() {
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn fitting_profile_chains_borrow_parallel_experiment_capacity() {
-    let runtime = crate::workflow::tests::runtime_on_threads(
-        4 << 30,
-        crate::math::MathPolicy {
-            worker_bytes: 1 << 30,
-            workspace_bytes: 1 << 30,
-            foreign_bytes: 1 << 20,
-            ..Default::default()
-        },
-        4,
-    );
-    let (package, mut profile) = source_case_on(runtime, true, 73., "Dynamic").await;
-    profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
-    profile.uncertainty = Some(FitUncertainty {
-        level: pse_model::scalar!(Fraction(0.9)),
-        profile: Some(ProfileControls {
-            points: pse_model::scalar!(PositiveCount(20)),
-            workers: Some(pse_model::scalar!(PositiveCount(2))),
-            ..Default::default()
-        }),
-        predictions: false,
-    });
-    let prepared = package
-        .prepare_fit(
-            id(73).into(),
-            profile,
-            compiler_profile(),
-            Default::default(),
-            &crate::CancelSource::new(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(prepared.problem.profile_workers(4), 2);
-    let result = prepared.start().unwrap().wait().await.unwrap();
-    let report = regression::report(&result);
-    let chains = report.profiles.as_ref().unwrap().as_ref().unwrap();
-    assert_eq!(chains.len(), 2, "{report:#?}");
-    assert!(
-        chains.iter().all(|chain| chain.actual_parallelism == 2
-            && chain.worker_failure.is_none()
-            && chain.scheduling_failures.is_empty()),
-        "nested experiment/profile admission: {chains:#?}"
-    );
-    // The unit-weight residuals p-2 and p-1 give f=(p-1.5)^2+0.25.
-    // At 90%, sqrt(2*(f-f*))=1.64485 gives ends near 0.3369 and 2.6631,
-    // strictly inside the fixture's [0.1,10] bounds. Both chains must reach
-    // Threshold; retain actual pinned outcomes/causes if this mechanism stops early.
-    assert!(
-        chains
-            .iter()
-            .all(|chain| chain.bound.outcome
+    for method in [
+        native::dynamics::Method::Diffsol,
+        #[cfg(feature = "solver-idas")]
+        native::dynamics::Method::Idas,
+    ] {
+        let runtime = crate::workflow::tests::runtime_on_threads(
+            4 << 30,
+            crate::math::MathPolicy {
+                worker_bytes: 1 << 30,
+                workspace_bytes: 1 << 30,
+                foreign_bytes: 1 << 20,
+                ..Default::default()
+            },
+            4,
+        );
+        let (package, mut profile) = source_case_on(runtime, true, 73., "Dynamic").await;
+        profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
+        for simulation in profile.simulations.values_mut() {
+            simulation.method = method;
+        }
+        profile.uncertainty = Some(FitUncertainty {
+            level: pse_model::scalar!(Fraction(0.9)),
+            profile: Some(ProfileControls {
+                points: pse_model::scalar!(PositiveCount(20)),
+                workers: Some(pse_model::scalar!(PositiveCount(2))),
+                ..Default::default()
+            }),
+            predictions: false,
+        });
+        let prepared = package
+            .prepare_fit(
+                id(73).into(),
+                profile,
+                compiler_profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(prepared.problem.profile_workers(4), 2);
+        let result = prepared.start().unwrap().wait().await.unwrap();
+        let report = regression::report(&result);
+        let chains = report.profiles.as_ref().unwrap().as_ref().unwrap();
+        assert_eq!(chains.len(), 2, "{report:#?}");
+        assert!(
+            chains.iter().all(|chain| chain.actual_parallelism == 2
+                && chain.worker_failure.is_none()
+                && chain.scheduling_failures.is_empty()),
+            "nested experiment/profile admission: {chains:#?}"
+        );
+        // The unit-weight residuals p-2 and p-1 give f=(p-1.5)^2+0.25.
+        // At 90%, sqrt(2*(f-f*))=1.64485 gives ends near 0.3369 and 2.6631,
+        // strictly inside the fixture's [0.1,10] bounds. Both chains must reach
+        // Threshold; retain actual pinned outcomes/causes if this mechanism stops early.
+        assert!(
+            chains.iter().all(|chain| chain.bound.outcome
                 == pse_model::generated::enums::IntervalOutcome::Threshold),
-        "expected interior 90% profile thresholds; candidate={:?}, objective={:?}; actual chains={chains:#?}",
-        report.candidate,
-        report.objective
-    );
+            "expected interior 90% profile thresholds; candidate={:?}, objective={:?}; actual chains={chains:#?}",
+            report.candidate,
+            report.objective
+        );
+    }
 }
 
 /// Rejected value trials cannot justify eager work: both response and gradient-only
@@ -3466,4 +3482,310 @@ async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
         outcome,
         Err(crate::math::MathRuntimeError::Cancelled)
     ));
+}
+
+#[tokio::test]
+async fn transient_fit_neutral_case_scratch_rebinds_current_frames_and_original_values() {
+    let (package, mut profile) = source(false, 73.).await;
+    profile.solver.controls.hessian = HessianMode::GaussNewton;
+    profile.derivatives = FitDerivatives::Responses;
+    let (problem, _) = package
+        .prepare_fit_problem(
+            FitId::from(id(73)),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    with_admitted_fit_oracle(problem.into(), |baseline| {
+        let problem = baseline.prepared.clone();
+        let bank = FitScratch::new(&problem).unwrap();
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("neutral dynamic case handoff");
+        let context = operation.context();
+        let _entered = context.enter();
+        let mut previous = None;
+        for value in [2., 3., 1.5] {
+            let mut current = FitOracle::with_scratch(
+                problem.clone(),
+                baseline.execution.clone(),
+                Some(bank.clone()),
+            )
+            .unwrap();
+            let objective = current.objective(&[value]).unwrap();
+            let expected = baseline.objective(&[value]).unwrap();
+            assert_eq!(objective, expected);
+            let point = current.point.as_ref().unwrap();
+            let prediction = point.predictions[0];
+            if let Some(previous) = previous {
+                assert_ne!(
+                    prediction, previous,
+                    "current frames cannot reuse a previous parameter's output"
+                );
+            }
+            previous = Some(prediction);
+            assert_eq!(prediction, baseline.point.as_ref().unwrap().predictions[0]);
+            drop(current);
+        }
+        let mut pending = vec![operation.reader()];
+        let mut reuses = 0;
+        while let Some(reader) = pending.pop() {
+            let snapshot = reader.snapshot(std::time::Duration::from_secs(60));
+            for metric in snapshot.metrics {
+                if metric.name == "fit.neutral_case_reuses"
+                    && let pse_diagnostics::observation::Value::Count(count) = metric.cumulative
+                {
+                    reuses += count;
+                }
+            }
+            pending.extend(
+                snapshot
+                    .children
+                    .iter()
+                    .filter_map(|child| hub.reader(child.id)),
+            );
+        }
+        assert!(
+            reuses > 0,
+            "actual transient function workers must consume compatible returned CaseScratch"
+        );
+    })
+    .await;
+}
+
+/// Actual submitted storage, three private IVPs, serial/parallel ownership and
+/// Exact's additional parent workers share no resident native envelope.
+#[cfg(feature = "solver-idas")]
+#[tokio::test]
+async fn fitting_native_foreign_population_covers_every_actual_owner_and_discards_on_cancel() {
+    use native::solve::WorkAdmission;
+    use pse_math::{
+        MathError,
+        construction::{self, ConstructionAdmission},
+    };
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    #[derive(Debug)]
+    struct ConstructorObservation {
+        parent: Arc<dyn ConstructionAdmission>,
+        accepted: AtomicUsize,
+    }
+    impl ConstructionAdmission for ConstructorObservation {
+        fn try_grow(&self, bytes: usize) -> Result<(), MathError> {
+            self.accepted
+                .try_update(Ordering::SeqCst, Ordering::SeqCst, |value| {
+                    value.checked_add(bytes)
+                })
+                .map_err(|_| MathError::Limit("test constructor observation overflow"))?;
+            if let Err(error) = self.parent.try_grow(bytes) {
+                self.accepted.fetch_sub(bytes, Ordering::SeqCst);
+                return Err(error);
+            }
+            Ok(())
+        }
+    }
+    let foreign = 32 << 20;
+    let runtime = crate::workflow::tests::runtime_on_threads(
+        8 << 30,
+        crate::math::MathPolicy {
+            worker_bytes: 1 << 30,
+            workspace_bytes: 1 << 30,
+            foreign_bytes: foreign,
+            ..Default::default()
+        },
+        2,
+    );
+    let (package, mut profile) = source_case_on(runtime, false, 73., "Dynamic").await;
+    profile.solver.controls.hessian = HessianMode::GaussNewton;
+    for simulation in profile.simulations.values_mut() {
+        simulation.method = native::dynamics::Method::Idas;
+    }
+    let (mut problem, _) = package
+        .prepare_fit_problem(
+            FitId::from(id(73)),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    // The actual same-source occurrences have distinct ordinal owners. Rebuild
+    // the production sparse consumer layout and prepay their complete numeric state.
+    for ordinal in 1..3 {
+        problem.experiments.push(problem.experiments[0].clone());
+        let mut declaration = problem.declaration.experiments[0].clone();
+        declaration.experiment_id = id(100 + ordinal as u8).into();
+        problem.declaration.experiments.push(declaration);
+        let mut measurement = problem.measurements[0].clone();
+        measurement.experiment = ordinal;
+        problem.measurements.push(measurement);
+    }
+    problem.layout = Arc::new(
+        sparse::Layout::new(
+            &problem.experiments,
+            &problem.measurements,
+            &problem.parameter_columns,
+            problem.contract.rows.len(),
+            problem.contract.variables.len(),
+            DerivativeOrder::First,
+            problem.profile.max_cells,
+        )
+        .unwrap(),
+    );
+    problem.bytes *= 3;
+    let service = problem.runtime.native().clone();
+    // Reserve pressure only after the service's normal idle compiler/native
+    // reclamation has run. Otherwise an optional envelope can lawfully fit by
+    // evicting cache population that was included in the old free-space figure.
+    let exhausted = service
+        .reserve("test:fit-post-reclamation-baseline", 8 << 30)
+        .unwrap_err();
+    assert!(matches!(
+        exhausted,
+        crate::math::MathRuntimeError::Pool(
+            datafusion::common::DataFusionError::ResourcesExhausted(_)
+        )
+    ));
+    let base = service.test_admission_snapshot().0;
+    // Keep the same immutable preparation owners alive across the final job
+    // drain. Mutable workers, native storage and current admission never escape.
+    let returned_preparation = Arc::new(std::sync::Mutex::new(None));
+    let returned = returned_preparation.clone();
+    let inner = service.clone();
+    let handle = service.submit_with_storage(1, problem.bytes, crate::math::Submission::ephemeral(), move |flag, progress, storage| {
+        let scope = pse_kernels::ExecutionScope::new(flag.clone(), None);
+        let task = crate::math::strategy::admission::TaskAdmission::new_for(pse_model::strategy::WorkLimits {
+            attempts: 1, evaluations: None, iterations: None, factorizations: None, proof_steps: None,
+        }, scope.clone(), &inner, false);
+        task.retain_storage_allowance(storage.clone())?;
+        let mut execution = Execution::within(flag, &problem.profile.solver.controls, scope)?;
+        execution.memory = Some(storage.size()); execution.progress = progress;
+        execution.work_admission = Some(task.clone());
+        let before = inner.test_admission_snapshot().0;
+        // Direct preflight verifies six actual resident tokens for Exact's
+        // three parent plus three child owners, independently of native callbacks.
+        problem.profile.solver.controls.hessian = HessianMode::Exact;
+        let assignment = [vec![0,2], vec![1]];
+        let population = foreign::Population::prepare(&problem, &execution, Some(&assignment))?.unwrap();
+        let mut tokens = Vec::new(); let mut identities = Vec::new();
+        for current in population.parent.iter().chain(&population.child) {
+            let identity = Arc::new(());
+            let token = current.work_admission.as_ref().unwrap().prepaid_storage(&identity, foreign)?.unwrap();
+            let lease=foreign::actual_lease(&token).unwrap();
+            assert!(tokens.iter().all(|other| !Arc::ptr_eq(&foreign::actual_lease(other).unwrap(),&lease)));
+            tokens.push(token); identities.push(identity);
+        }
+        assert_eq!(tokens.len(),6);
+        assert_eq!(inner.test_admission_snapshot().0, before + 5*foreign);
+        drop(population);
+        assert!(execution.work_admission.as_ref().unwrap().prepaid_storage(&Arc::new(()),foreign).is_err(),
+            "passive native tokens preserve the original exclusive claim after current facades drop");
+        drop(tokens); drop(identities);
+        assert_eq!(inner.test_admission_snapshot().0,before);
+        let roots=foreign::chains(&problem,&execution,2)?.unwrap();
+        let mut nested=Vec::new(); let mut nested_identities=Vec::new();
+        for root in &roots {
+            let population=foreign::Population::prepare(&problem,root,Some(&assignment))?.unwrap();
+            for current in population.parent.iter().chain(&population.child) {
+                let identity=Arc::new(());
+                let token=current.work_admission.as_ref().unwrap().prepaid_storage(&identity,foreign)?.unwrap();
+                let lease=foreign::actual_lease(&token).unwrap();
+                assert!(nested.iter().all(|other|!Arc::ptr_eq(&foreign::actual_lease(other).unwrap(),&lease)));
+                nested.push(token);nested_identities.push(identity);
+            }
+        }
+        assert_eq!(nested.len(),12);
+        assert_eq!(inner.test_admission_snapshot().0,before+11*foreign,
+            "two actual profile roots and their six-owner populations share each original envelope exactly once");
+        drop(roots);
+        assert!(task.prepaid_storage(&Arc::new(()),foreign).is_err());
+        drop(nested);drop(nested_identities);
+        assert_eq!(inner.test_admission_snapshot().0,before);
+        // Force the optional six-owner grant to refuse after the required second
+        // active lane fits. No provider/native construction has happened yet.
+        let free = (8 << 30) - inner.test_admission_snapshot().0;
+        let pressure = inner.reserve("test:fit-native-resident-pressure", free - foreign - foreign/2)?;
+        let fresh = foreign::Population::prepare(&problem, &execution, Some(&assignment))?.unwrap();
+        for current in fresh.parent.iter().chain(&fresh.child) {
+            assert!(current.work_admission.as_ref().unwrap().prepaid_storage(&Arc::new(()),foreign)?.is_none());
+        }
+        assert_eq!(inner.test_admission_snapshot().0, (8 << 30) - foreign/2);
+        drop(fresh);
+        let tighter = inner.reserve("test:fit-active-width-pressure", foreign)?;
+        let squeezed = inner.test_admission_snapshot().0;
+        assert!(foreign::Population::prepare(&problem, &execution, Some(&assignment))?.is_none(),
+            "a wider active population refuses before any worker construction");
+        assert_eq!(inner.test_admission_snapshot().0,squeezed);
+        let serial = foreign::Population::prepare(&problem, &execution, None)?.unwrap();
+        for current in &serial.parent {
+            assert!(current.work_admission.as_ref().unwrap().prepaid_storage(&Arc::new(()),foreign)?.is_none());
+        }
+        assert_eq!(inner.test_admission_snapshot().0,squeezed,"serial fresh remains eligible without optional resident coverage");
+        drop(serial); drop(tighter); drop(pressure);
+        assert_eq!(inner.test_admission_snapshot().0,before,"partial optional envelopes are released atomically");
+        let constructors=Arc::new(ConstructorObservation {
+            parent:construction::current().expect("actual submitted constructor owner"),
+            accepted:AtomicUsize::new(0),
+        });
+        construction::scoped(constructors.clone(), || {
+        for width in [1,2] {
+            for exact in [false,true] {
+                problem.profile.experiment_workers = PositiveCount::try_new(width).unwrap();
+                problem.profile.solver.controls.hessian = if exact { HessianMode::Exact } else { HessianMode::GaussNewton };
+                let pool_before=format!("{:?}",problem.runtime.shared.pool());
+                let mut oracle = FitOracle::new(Arc::new(problem), execution.clone())?;
+                assert_eq!(oracle.team.is_some(), width == 2);
+                for value in [2.5,0.7,1.5] {
+                    let mut gradient = [0.]; oracle.gradient(&[value], &mut gradient)?;
+                    let point = oracle.point.as_ref().unwrap();
+                    assert!(point.predictions.windows(2).all(|pair| (pair[0]-pair[1]).abs() <= 0.001));
+                    assert!((point.predictions[0]-(71.+value)).abs() <= 0.001);
+                }
+                let current = oracle.prepared.clone();
+                drop(oracle);
+                problem = Arc::try_unwrap(current).unwrap();
+                assert!(task.prepaid_storage(&Arc::new(()),foreign)?.is_some(),
+                    "the native resident claim retires immediately, before reclaiming any service cache");
+                // Known constructor reports extend this same live outer-job
+                // reservation. They retire at job drain, independently of each
+                // native allocation's immediate resident-claim lifetime.
+                let growth=constructors.accepted.load(Ordering::SeqCst);
+                assert!(problem.bytes.checked_add(growth).unwrap()
+                    <= problem.runtime.shared.budget().math.worker_bytes);
+                let expected=before.checked_add(growth).unwrap();
+                let retained = inner.test_admission_snapshot().0;
+                eprintln!("fit native constructor width={width} exact={exact} accepted_bytes={growth} current_pool={retained}");
+                if retained != expected {
+                    eprintln!("fit native drop width={width} exact={exact} before={before} retained={retained} consumers={:?}",
+                        problem.runtime.shared.report().unwrap());
+                    eprintln!("fit native pool before={pool_before}\nafter={:?}",problem.runtime.shared.pool());
+                    let exhausted=inner.reserve("test:fit-post-native-reclamation",8<<30).unwrap_err();
+                    assert!(matches!(exhausted,crate::math::MathRuntimeError::Pool(
+                        datafusion::common::DataFusionError::ResourcesExhausted(_))));
+                }
+                assert_eq!(inner.test_admission_snapshot().0,expected,
+                    "only actual delegated outer-job constructor growth may outlive the native owner");
+            }
+        }
+        execution.cancellation_control().cancel();
+        assert!(foreign::Population::prepare(&problem,&execution,Some(&assignment)).is_err());
+        assert_eq!(inner.test_admission_snapshot().0,
+            before.checked_add(constructors.accepted.load(Ordering::SeqCst)).unwrap(),
+            "cancelled preflight retains no candidate coverage beyond the existing job constructor charge");
+        *returned.lock().unwrap()=Some(problem);
+        Ok(((),0))
+        })
+    }).unwrap();
+    assert!(matches!(
+        handle.finish().await,
+        Err(crate::math::MathRuntimeError::Cancelled)
+    ));
+    assert!(returned_preparation.lock().unwrap().is_some());
+    assert_eq!(
+        service.test_admission_snapshot().0,
+        base,
+        "the complete outer job charge drains while the same immutable preparation stays live"
+    );
 }

@@ -20,6 +20,7 @@ workspace = true
 hex.workspace = true
 pse-columnar.workspace = true
 arrow-array.workspace = true
+arrow-ipc.workspace = true
 arrow-buffer.workspace = true
 arrow-cast.workspace = true
 arrow-ord.workspace = true

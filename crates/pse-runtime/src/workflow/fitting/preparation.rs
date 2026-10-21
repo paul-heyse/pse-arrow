@@ -142,6 +142,11 @@ impl PreparedExperiments {
             .ok_or_else(|| contract("fit sparse derivative/report extent"))?;
         bytes = bytes
             .checked_add(
+                foreign::metadata_bytes(experiments.len())
+                    .ok_or_else(|| contract("fit foreign population metadata extent"))?,
+            )
+            .ok_or_else(|| contract("fit foreign population metadata allowance"))?
+            .checked_add(
                 physical_cells
                     .checked_mul(512)
                     .ok_or_else(|| contract("fit physical report storage"))?,
@@ -234,13 +239,14 @@ impl PreparedExperiments {
         h.hash(&source_identity);
         d.frame(&mut h);
         let source = h.finish_hash();
-        let mut h = FramedHasher::new(pse_ids::Frame::FitProfileV4);
+        let mut h = FramedHasher::new(pse_ids::Frame::FitProfileV5);
         h.hash(
             &crate::math::solves::profile_key(&profile.solver)
                 .map_err(crate::math::MathRuntimeError::from)?
                 .as_id(),
         );
-        h.f64(profile.rank_tolerance)
+        h.str(profile.optimizer.as_str())
+            .f64(profile.rank_tolerance)
             .u64(profile.max_cells as u64)
             .str(profile.derivatives.as_str())
             .u64(profile.experiment_workers.into_inner() as u64);

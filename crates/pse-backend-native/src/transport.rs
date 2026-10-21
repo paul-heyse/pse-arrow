@@ -397,14 +397,18 @@ pub fn recover(
         }
     }
     if let Some(q) = &mut report.quality {
+        // Quality may contain a reordered subset. Index the original inventory
+        // once rather than scan it for every reported row. Admitted contracts
+        // already require uniqueness; retain the first occurrence for direct
+        // malformed inputs just as the former position search did.
+        let mut row_positions = std::collections::BTreeMap::new();
+        for (index, id) in contract.rows.iter().copied().enumerate() {
+            row_positions.entry(id).or_insert(index);
+        }
         for v in &mut q.rows {
-            let i = contract
-                .rows
-                .iter()
-                .position(|id| *id == v.id)
-                .ok_or_else(|| {
-                    ProblemError::Internal("quality row absent from coordinate map".into())
-                })?;
+            let i = row_positions.get(&v.id).copied().ok_or_else(|| {
+                ProblemError::Internal("quality row absent from coordinate map".into())
+            })?;
             let s = n.rows[i];
             v.physical = mul(v.physical, s)?;
             v.tolerance = mul(v.tolerance, s)?;
@@ -672,6 +676,108 @@ mod tests {
             &[faer::sparse::Triplet::new(0, 0, v)],
         )
         .unwrap()
+    }
+    fn quality_report(
+        contract: &OracleContract,
+        rows: Vec<crate::quality::Violation>,
+    ) -> SolveReport {
+        let execution = Execution::new(
+            pse_diagnostics::Cancellation::new(false),
+            &Controls::default(),
+        );
+        let mut report = SolveReport::new(
+            Backend::Pounce,
+            contract,
+            NativeTermination {
+                code: 0,
+                name: "quality recovery fixture".into(),
+                message: None,
+                category: Termination::Success,
+                assurance: Assurance::None,
+            },
+            &execution,
+        );
+        report.quality = Some(crate::quality::Quality::new(rows, vec![], vec![]).unwrap());
+        report
+    }
+    #[test]
+    fn quality_recovery_indexes_reordered_subsets_with_original_scales() {
+        let mut contract = contract();
+        contract.rows = vec![id(2), id(3), id(4)];
+        contract
+            .validate(pse_kernels::DerivativeOrder::First)
+            .unwrap();
+        let normalization = Normalization {
+            variables: vec![3.0],
+            rows: vec![2.0, 4.0, 8.0],
+            objective: 5.0,
+        };
+        for (ids, physical) in [
+            (vec![id(4), id(2)], vec![4.0, 1.0]),
+            (vec![id(3)], vec![2.0]),
+            (vec![id(4), id(3), id(2)], vec![4.0, 2.0, 1.0]),
+            (vec![], vec![]),
+        ] {
+            let mut report = quality_report(
+                &contract,
+                ids.iter()
+                    .map(|id| crate::quality::Violation {
+                        id: *id,
+                        physical: 0.5,
+                        tolerance: 1.0,
+                    })
+                    .collect(),
+            );
+            recover(&mut report, &normalization, &contract).unwrap();
+            let quality = report.quality.unwrap();
+            assert_eq!(quality.rows.iter().map(|v| v.id).collect::<Vec<_>>(), ids);
+            assert_eq!(
+                quality.rows.iter().map(|v| v.physical).collect::<Vec<_>>(),
+                physical
+            );
+            assert_eq!(
+                quality.rows.iter().map(|v| v.tolerance).collect::<Vec<_>>(),
+                physical.iter().map(|v| v * 2.0).collect::<Vec<_>>()
+            );
+            assert_eq!(
+                quality.normalized_max,
+                if ids.is_empty() { 0.0 } else { 0.5 }
+            );
+        }
+    }
+    #[test]
+    fn quality_recovery_preserves_unknown_id_failure_and_duplicate_admission() {
+        let mut contract = contract();
+        contract.rows = vec![id(2), id(3)];
+        let normalization = Normalization {
+            variables: vec![3.0],
+            rows: vec![2.0, 4.0],
+            objective: 5.0,
+        };
+        let mut report = quality_report(
+            &contract,
+            [id(3), id(99)]
+                .into_iter()
+                .map(|id| crate::quality::Violation {
+                    id,
+                    physical: 0.5,
+                    tolerance: 1.0,
+                })
+                .collect(),
+        );
+        let error = recover(&mut report, &normalization, &contract).unwrap_err();
+        assert!(
+            matches!(error, ProblemError::Internal(message) if message == "quality row absent from coordinate map")
+        );
+        let rows = &report.quality.as_ref().unwrap().rows;
+        assert_eq!((rows[0].physical, rows[0].tolerance), (2.0, 4.0));
+        assert_eq!((rows[1].physical, rows[1].tolerance), (0.5, 1.0));
+        contract.rows.push(id(2));
+        assert!(
+            contract
+                .validate(pse_kernels::DerivativeOrder::First)
+                .is_err()
+        );
     }
     #[test]
     fn coordinate_transport_roots_preserves_residual_and_jacobian_products() {

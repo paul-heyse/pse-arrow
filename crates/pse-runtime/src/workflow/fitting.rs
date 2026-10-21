@@ -4,7 +4,8 @@
 mod covariance;
 mod documents;
 mod experiments;
-pub use documents::{FitPreparationDocument, FitProfileDocument};
+mod foreign;
+pub use documents::{FitExecutionDocument, FitPreparationDocument, FitProfileDocument};
 mod modeling;
 mod oracle;
 mod preparation;
@@ -52,10 +53,171 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
+/// Fitting owns selection between its residual method and class-specific native NLPs.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum FitOptimizer {
+    /// Use residual LM only when actual preparation establishes its complete eligibility.
+    #[default]
+    Automatic,
+    /// Preserve the requested native NLP portfolio and settings.
+    NativeNlp,
+    /// Require the supported unconstrained residual interpretation before effects.
+    ResidualLm,
+}
+impl FitOptimizer {
+    /// Stable requested-method identity.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Automatic => "automatic",
+            Self::NativeNlp => "native_nlp",
+            Self::ResidualLm => "residual_lm",
+        }
+    }
+}
+/// Actual fitting route; absence of an NLP backend never implies constant evaluation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FitRoute {
+    /// Every parameter is fixed; evaluate the original source directly.
+    Evaluation,
+    /// Existing class-specific native NLP.
+    Native(native::solve::Backend),
+    /// Library-owned unconstrained weighted residual iteration.
+    ResidualLm,
+}
+impl FitRoute {
+    fn method(self) -> Option<pse_model::strategy::NumericalMethod> {
+        match self {
+            Self::Evaluation => None,
+            Self::Native(backend) => Some(pse_model::strategy::NumericalMethod::Backend(backend)),
+            Self::ResidualLm => Some(pse_model::strategy::NumericalMethod::ResidualLm),
+        }
+    }
+}
+/// Actual residual-native stopping reason, independent of original scientific qualification.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum FitResidualTermination {
+    /// Original callback refused; its typed cause is retained separately.
+    User {
+        /// Literal library callback refusal detail.
+        detail: String,
+    },
+    /// Nonfinite library arithmetic.
+    Numerical {
+        /// Literal library nonfinite arithmetic detail.
+        detail: String,
+    },
+    /// A profile pin fixes every remaining coordinate; the original source is evaluated directly.
+    FixedEvaluation,
+    /// Every requested weighted residual is zero.
+    ResidualsZero,
+    /// Library residual/Jacobian orthogonality criterion.
+    Orthogonal,
+    /// Library relative objective or step stopping tests.
+    Converged {
+        /// Relative objective-change stopping test was satisfied.
+        ftol: bool,
+        /// Relative parameter-step stopping test was satisfied.
+        xtol: bool,
+    },
+    /// Further improvement was limited by machine precision.
+    NoImprovementPossible {
+        /// Literal library precision/stopping limitation.
+        detail: String,
+    },
+    /// Library finite evaluation allowance exhausted.
+    EvaluationLimit,
+    /// Library shape/parameter contract refused.
+    Invalid {
+        /// Literal parameter/residual dimension refusal.
+        detail: String,
+    },
+}
+impl FitResidualTermination {
+    fn successful(&self) -> bool {
+        matches!(
+            self,
+            Self::FixedEvaluation | Self::ResidualsZero | Self::Orthogonal | Self::Converged { .. }
+        )
+    }
+}
+/// Native residual-method evidence; final original assessment sets qualification separately.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FitResidualReport {
+    /// Literal library termination category and detail.
+    pub termination: FitResidualTermination,
+    /// Actual residual callback count.
+    pub residual_evaluations: usize,
+    /// Actual exact response/Jacobian callback count.
+    pub jacobian_evaluations: usize,
+    /// Actual library parameter updates, bounded by original iteration controls.
+    pub parameter_updates: usize,
+    /// First original refusal, preserved through callback None and native return.
+    pub failure: Option<ProfileFailure>,
+    /// Maximum normalized original gradient component from the independent final point.
+    pub stationarity: Option<f64>,
+    /// Qualification from original finite quality/gradient, never native success alone.
+    pub qualification: native::solve::Qualification,
+}
+impl FitResidualReport {
+    /// Shared terminal category; literal residual-native reason stays in `termination`.
+    pub fn termination_category(&self) -> native::solve::Termination {
+        use native::solve::Termination as T;
+        if let Some(failure) = &self.failure {
+            return match failure.cause() {
+                native::ProblemError::Cancelled => T::Cancelled,
+                native::ProblemError::Limit {
+                    kind: native::LimitKind::Time,
+                    ..
+                } => T::TimeLimit,
+                native::ProblemError::Limit { .. } => T::Evaluation,
+                _ => T::Evaluation,
+            };
+        }
+        match self.termination {
+            FitResidualTermination::FixedEvaluation
+            | FitResidualTermination::ResidualsZero
+            | FitResidualTermination::Orthogonal
+            | FitResidualTermination::Converged { .. } => T::Success,
+            FitResidualTermination::EvaluationLimit => T::IterationLimit,
+            FitResidualTermination::Numerical { .. }
+            | FitResidualTermination::NoImprovementPossible { .. } => T::Numerical,
+            FitResidualTermination::User { .. } | FitResidualTermination::Invalid { .. } => {
+                T::Evaluation
+            }
+        }
+    }
+    pub(crate) fn observation(&self) -> pse_model::generated::enums::NumericalAttemptObservation {
+        use pse_model::generated::enums::NumericalAttemptObservation as O;
+        if let Some(failure) = &self.failure {
+            return crate::math::strategy::failure(failure.cause());
+        }
+        match self.termination_category() {
+            native::solve::Termination::Success => O::Converged,
+            native::solve::Termination::IterationLimit => O::Limited,
+            _ => O::NumericalFailure,
+        }
+    }
+}
 /// Controls for the ordinary NLP and explicit dynamic experiment profiles.
 #[derive(Clone, Debug)]
 pub struct FitProfile {
-    /// Ordinary native NLP controls and original-space quality tolerances.
+    /// Requested fitting method; eligibility resolves against the actual prepared problem.
+    pub optimizer: FitOptimizer,
+    /// NLP portfolio/settings and shared physical/resource policy. Explicit backend,
+    /// curvature, presolve or composition requests requiring NLP exclude automatic LM.
     pub solver: SolverProfile,
     /// Smooth integration controls keyed by the experiment's instance. An experiment's
     /// modes, events and scheduled inputs are those its authored case declares (ADR-0119).
@@ -246,7 +408,7 @@ pub struct PreparedFit {
     pub(crate) source: super::ModelingPackage,
     assessments: Vec<modeling::Assessment>,
     pub(crate) problem: Arc<FitProblem>,
-    route: native::routing::Route,
+    route: FitRoute,
 }
 /// Joined native fit plus independently re-evaluated physical predictions.
 #[derive(Debug)]
@@ -266,6 +428,8 @@ pub struct FitReport {
     pub validation_error: Option<pse_model::diagnostic::BoundaryDiagnostic>,
     /// Ordinary native NLP report, absent for all-fixed evaluation.
     pub solve: Option<native::solve::SolveReport>,
+    /// Actual residual-native report, absent for NLP and all-fixed evaluation.
+    pub residual: Option<FitResidualReport>,
     /// The Hessian source of the native solve (PS-07): the exact Lagrangian, the
     /// Gauss–Newton Gram with constraint curvature, or the library's quasi-Newton
     /// approximation.
@@ -367,6 +531,8 @@ impl FitReport {
             + self.checks.capacity() * size_of::<super::ModelingCheck>()
             + self.reports.iter().map(pse_model::HeapUsage::owned_bytes).sum::<usize>()
             + self.validation_error.as_ref().map_or(0, pse_model::HeapUsage::owned_bytes)
+            + self.residual.as_ref().and_then(|r| r.failure.as_ref()).map_or(0, |f| f.cause().retained_bytes())
+            + self.residual.as_ref().map_or(0, |_| 512)
             + self.predictions.capacity() * size_of::<Option<f64>>()
             + self.trajectories.values().map(|report| report.numeric_bytes() + 128).sum::<usize>()
             + (self.constraint_values.capacity()
@@ -403,6 +569,15 @@ impl FitReport {
             .quality
             .as_ref()
             .map_or(refused(CandidateRefusal::Infeasible), constant_use);
+        if let Some(residual) = &self.residual {
+            if residual.failure.is_some() || !residual.termination.successful() {
+                return refused(CandidateRefusal::NativeOutcome);
+            }
+            if residual.qualification != native::solve::Qualification::Stationary {
+                return refused(CandidateRefusal::Unqualified);
+            }
+            return fresh;
+        }
         match self.solve.as_ref().map(|report| native_use(report, policy)) {
             Some(mut native) => {
                 if !fresh.permits_use() {
@@ -419,13 +594,17 @@ impl FitReport {
         self.checks_complete
             && self.checks.iter().all(|c| c.satisfied)
             && self.validation_error.is_none()
-            && self.solve.as_ref().is_some_and(|s| {
-                matches!(
-                    s.qualification,
-                    native::solve::Qualification::Stationary
-                        | native::solve::Qualification::OptimalWithinTolerance
-                )
-            })
+            && (self
+                .residual
+                .as_ref()
+                .is_some_and(|r| r.qualification == native::solve::Qualification::Stationary)
+                || self.solve.as_ref().is_some_and(|s| {
+                    matches!(
+                        s.qualification,
+                        native::solve::Qualification::Stationary
+                            | native::solve::Qualification::OptimalWithinTolerance
+                    )
+                }))
             && self
                 .quality
                 .as_ref()
@@ -462,10 +641,7 @@ impl PreparedFit {
             preparation: problem.key,
             profile: problem.profile_key.as_id(),
             profile_projection: None,
-            backend: match self.route {
-                native::routing::Route::Native(backend) => Some(backend),
-                native::routing::Route::Constant => None,
-            },
+            method: self.route.method(),
             solver: Some(&problem.profile.solver),
             controls: &problem.profile.solver.controls,
             request: &problem.profile.solver.composition,
@@ -538,6 +714,7 @@ impl PreparedFit {
         let configuration = serde_json::to_vec(&(
             1u8,
             &p.declaration,
+            p.profile.optimizer,
             &p.profile.simulations,
             p.profile.rank_tolerance,
             p.profile.max_cells,
@@ -575,7 +752,7 @@ impl PreparedFit {
         self.problem.key
     }
     /// Admitted execution route, including direct constant evaluation.
-    pub fn route(&self) -> native::routing::Route {
+    pub fn route(&self) -> FitRoute {
         self.route
     }
     /// Original generated fit declaration.
@@ -675,6 +852,33 @@ fn observe_report(report: &FitReport) {
     let Some(context) = pse_diagnostics::observation::current() else {
         return;
     };
+    context.text(
+        "fit.optimizer",
+        if report.residual.is_some() {
+            "residual_lm"
+        } else if report.solve.is_some() {
+            "native_nlp"
+        } else {
+            "evaluation"
+        },
+    );
+    if let Some(residual) = &report.residual {
+        context.gauge(
+            "fit.lm.residual_evaluations",
+            "count",
+            residual.residual_evaluations as f64,
+        );
+        context.gauge(
+            "fit.lm.jacobian_evaluations",
+            "count",
+            residual.jacobian_evaluations as f64,
+        );
+        context.gauge(
+            "fit.lm.parameter_updates",
+            "count",
+            residual.parameter_updates as f64,
+        );
+    }
     context.boolean("fit.candidate_available", report.candidate.is_some());
     context.boolean("fit.original_checks_complete", report.checks_complete);
     context.boolean("fit.validation_failed", report.validation_error.is_some());

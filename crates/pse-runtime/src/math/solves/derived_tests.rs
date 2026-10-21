@@ -983,7 +983,7 @@ fn expiry_declaration(
         },
     );
     declaration.mechanisms[0].profile = Some(ProfileRef {
-        backend: Backend::Kinsol,
+        method: pse_model::strategy::NumericalMethod::Backend(Backend::Kinsol),
         key: original.strategy_profile().unwrap(),
     });
     let mut preparation = declaration.mechanisms[0].clone();
@@ -1790,7 +1790,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         .starts
         .push(StartOrigin::Auxiliary);
     declaration.mechanisms[0].profile = Some(ProfileRef {
-        backend: Backend::Ipopt,
+        method: pse_model::strategy::NumericalMethod::Backend(Backend::Ipopt),
         key: original.strategy_profile().unwrap(),
     });
     let mut prep = declaration.mechanisms[0].clone();
@@ -2006,7 +2006,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
     );
     declaration.start.recovery.push(StartOrigin::Specification);
     declaration.mechanisms[0].profile = Some(ProfileRef {
-        backend: Backend::Ipopt,
+        method: pse_model::strategy::NumericalMethod::Backend(Backend::Ipopt),
         key: original.strategy_profile().unwrap(),
     });
     let mut prep = declaration.mechanisms[0].clone();
@@ -2137,7 +2137,7 @@ async fn composition_retains_boxed_rung_bodies_and_refuses_a_short_pool() {
         },
     );
     declaration.mechanisms[0].profile = Some(ProfileRef {
-        backend: original.backend().unwrap(),
+        method: pse_model::strategy::NumericalMethod::Backend(original.backend().unwrap()),
         key: original.strategy_profile().unwrap(),
     });
     let rungs = vec![original.clone().into()];

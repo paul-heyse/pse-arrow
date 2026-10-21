@@ -26,9 +26,31 @@ use std::{
 };
 use suitesparse_sys as _;
 use sundials_sys as ffi;
+mod bbd;
+#[cfg(test)]
+mod coupled_probe;
 mod local_error;
+#[cfg(test)]
+mod policy_inquiry;
+#[cfg(test)]
+mod workspace_tests;
 
 type Jacobian = pse_math::SharedAllocation<faer::sparse::SparseColMat<usize, f64>>;
+/// Exact fields exposed together by SUNDIALS 7.1.1 IDAGetIntegratorStats.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct IntegratorStatistics {
+    steps: c_long,
+    residuals: c_long,
+    linear_setups: c_long,
+    error_test_failures: c_long,
+    last_order: c_int,
+    current_order: c_int,
+    initial_step: f64,
+    last_step: f64,
+    current_step: f64,
+    internal_time: f64,
+}
+
 /// A second-order adjoint result: the symmetric Hessian over the directions and its
 /// largest relative asymmetry before symmetrization.
 type SecondOrder = (faer::Mat<f64>, f64);
@@ -93,7 +115,31 @@ struct Context<'a> {
     colors: Vec<Vec<usize>>,
     /// Inverse Jacobi diagonal of the current Newton matrix (Krylov preconditioner).
     inverse_diagonal: Vec<f64>,
+    #[cfg(test)]
+    coupled_probe: Option<coupled_probe::FactorState>,
     sample_elimination: SampleEliminationPreparation,
+}
+/// Stable address copied by native sensitivity/linear modules. Idle storage owns
+/// only this nullable pointer; the current request alone owns the target Context.
+struct UserDataSlot {
+    current: *mut c_void,
+}
+/// # Safety
+/// `data` is this owner-thread session's live registered slot; while nonnull its
+/// target Box lives through the whole synchronous native call and is exclusive.
+unsafe fn callback_context<'call, 'oracle>(
+    data: *mut c_void,
+) -> Option<&'call mut Context<'oracle>> {
+    if data.is_null() {
+        return None;
+    }
+    // SAFETY: the caller supplies the registered stable slot.
+    let slot = unsafe { &*data.cast::<UserDataSlot>() };
+    if slot.current.is_null() {
+        return None;
+    }
+    // SAFETY: the owner binds a fresh live exclusive Box before every native call.
+    Some(unsafe { &mut *slot.current.cast::<Context<'oracle>>() })
 }
 impl Context<'_> {
     fn evaluate(
@@ -178,6 +224,89 @@ impl Context<'_> {
     fn partials(&mut self, t: f64, x: &[f64]) -> Option<Jacobian> {
         self.evaluate(Function::Rhs, t, x, true)
             .and_then(|e| e.jacobian)
+    }
+    fn rhs_diagonal(&mut self, t: f64, x: &[f64]) -> Option<()> {
+        crate::observation::integer(
+            "idas.callback.mode",
+            "ordinal",
+            i64::try_from(self.mode).unwrap_or(i64::MAX),
+        );
+        crate::observation::boolean("idas.callback.derivatives_requested", true);
+        let Self {
+            oracle,
+            parameters,
+            mode,
+            callback,
+            contract,
+            layout,
+            rhs_product,
+            ..
+        } = self;
+        let result = callback.evaluate("idas.residual_diagonal", || {
+            if rhs_product.len() != contract.states.len() {
+                return Err(ProblemError::internal("IDAS diagonal workspace extent"));
+            }
+            rhs_product.fill(f64::NAN);
+            let source = oracle.rhs_state_diagonal(*mode, t, x, parameters, rhs_product)?;
+            if rhs_product.iter().any(|v| !v.is_finite()) {
+                return Err(ProblemError::numerical("nonfinite IDAS raw RHS diagonal"));
+            }
+            if let RhsDiagonalSource::FullJacobian(evaluation) = &source {
+                let j = evaluation
+                    .jacobian
+                    .as_ref()
+                    .ok_or_else(|| ProblemError::internal("IDAS full diagonal partials absent"))?;
+                // A wrapper may append guarded structural-zero states to its
+                // source's unchanged state prefix. Parameter columns are not
+                // consumed by this product, just as in the ordinary state guard.
+                if j.nrows() == 0
+                    || j.nrows() > contract.states.len()
+                    || evaluation.values.len() != j.nrows()
+                    || j.ncols() < j.nrows()
+                    || evaluation
+                        .values
+                        .iter()
+                        .chain(j.val())
+                        .any(|v| !v.is_finite())
+                    || rhs_product[j.nrows()..].iter().any(|v| *v != 0.)
+                    || (0..j.nrows()).any(|column| {
+                        j.col_range(column)
+                            .any(|entry| layout.get(column, j.row_idx()[entry]).is_none())
+                    })
+                {
+                    return Err(ProblemError::Contract(
+                        "IDAS full diagonal partial outside its declared support or extent".into(),
+                    ));
+                }
+                for (column, value) in rhs_product[..j.nrows()].iter_mut().enumerate() {
+                    *value = j
+                        .col_range(column)
+                        .find(|entry| j.row_idx()[*entry] == column)
+                        .map_or(0., |entry| j.val()[entry]);
+                }
+            }
+            let selected = matches!(source, RhsDiagonalSource::SelectedEntries);
+            crate::observation::boolean("idas.jacobi.selected_entries", selected);
+            crate::observation::count(
+                if selected {
+                    "idas.jacobi.selected_setups"
+                } else {
+                    "idas.jacobi.full_setups"
+                },
+                1,
+            );
+            Ok(())
+        });
+        if result.is_none()
+            && callback.terminal.is_none()
+            && self.trial_policy == TrialPolicy::Terminal
+        {
+            callback.terminal = Some((
+                crate::solve::Termination::Evaluation,
+                "trial failure under terminal policy".into(),
+            ));
+        }
+        result
     }
     fn rhs_action(&mut self, t: f64, x: &[f64], direction: &[f64], cj: f64) -> Option<()> {
         let Self {
@@ -456,6 +585,56 @@ unsafe fn read(v: ffi::N_Vector, n: usize) -> Vec<f64> {
     // SAFETY: its data array holds at least `n` initialized values.
     unsafe { std::slice::from_raw_parts(data, n) }.to_vec()
 }
+/// Borrow one callback input without retaining foreign storage.
+///
+/// # Safety
+/// `vector` is null or a live serial vector. Its initialized data stays live and
+/// unmodified for `'input`; every returned borrow ends before native publication
+/// or a native call that can mutate or invalidate the vector.
+unsafe fn callback_input<'input>(
+    vector: ffi::N_Vector,
+    expected: usize,
+) -> Result<&'input [f64], ProblemError> {
+    let expected_native = ffi::sunindextype::try_from(expected)
+        .map_err(|_| ProblemError::internal("IDAS callback vector extent"))?;
+    // SAFETY: non-null vectors are live serial vectors by the caller's contract.
+    if vector.is_null() || unsafe { ffi::N_VGetLength(vector) } != expected_native {
+        return Err(ProblemError::internal("IDAS callback vector dimensions"));
+    }
+    if expected == 0 {
+        return Ok(&[]);
+    }
+    // SAFETY: the live serial vector has the checked nonzero extent.
+    let pointer = unsafe { ffi::N_VGetArrayPointer(vector) };
+    if pointer.is_null() {
+        return Err(ProblemError::internal("IDAS null callback vector storage"));
+    }
+    // SAFETY: the checked initialized serial data stays unmodified for the
+    // caller-bounded input lifetime and does not outlive its callback.
+    Ok(unsafe { std::slice::from_raw_parts(pointer, expected) })
+}
+/// The caller supplies a live callback vector and ends its input borrow before
+/// any native output publication. Malformed callback storage is terminal, and
+/// never supplies a partially computed native output.
+macro_rules! input {
+    ($context:ident, $vector:expr, $expected:expr) => {{
+        // SAFETY: each callback invocation documents the vector's live serial
+        // extent and confines returned input borrows to its compute scope.
+        match unsafe { callback_input($vector, $expected) } {
+            Ok(values) => values,
+            Err(error) => {
+                if $context.callback.terminal.is_none() {
+                    $context.callback.terminal = Some((
+                        crate::solve::Termination::Evaluation,
+                        "invalid IDAS callback vector".into(),
+                    ));
+                    $context.callback.last_failure = Some(error);
+                }
+                return -1;
+            }
+        }
+    }};
+}
 /// Overwrite the first `values.len()` entries of a serial vector.
 ///
 /// # Safety
@@ -466,6 +645,21 @@ unsafe fn write(v: ffi::N_Vector, values: &[f64]) {
     // SAFETY: its native data array holds at least `values.len()` values and cannot
     // overlap the Rust slice.
     unsafe { std::ptr::copy_nonoverlapping(values.as_ptr(), data, values.len()) };
+}
+/// Publish a column of an independent owned product without another output copy.
+///
+/// # Safety
+/// `vector` is a live serial output with `product.nrows()` entries, no reference
+/// into its data remains live, and column is within the owned matrix.
+unsafe fn write_column(vector: ffi::N_Vector, product: &faer::Mat<f64>, column: usize) {
+    // SAFETY: the output is a live serial vector with the caller-stated extent.
+    let pointer = unsafe { ffi::N_VGetArrayPointer(vector) };
+    for row in 0..product.nrows() {
+        // SAFETY: row is below product.nrows(), the caller-guaranteed native extent.
+        let cell = unsafe { pointer.add(row) };
+        // SAFETY: cell denotes that writable serial output entry, with no live input borrow.
+        unsafe { cell.write(product[(row, column)]) };
+    }
 }
 /// The vector at `k` of a SUNDIALS vector array.
 ///
@@ -508,7 +702,7 @@ unsafe fn publish(
 /// current segment. One faer sparse × dense product (F12).
 fn chained(
     j: &Jacobian,
-    columns: &[Vec<f64>],
+    columns: &[impl AsRef<[f64]>],
     n: usize,
     map: &[usize],
     axes: &[usize],
@@ -516,7 +710,7 @@ fn chained(
     let np = columns.len();
     let chain = faer::Mat::from_fn(n + map.len(), np, |i, k| {
         if i < n {
-            columns[k][i]
+            columns[k].as_ref()[i]
         } else {
             f64::from(map[i - n] == axes[k])
         }
@@ -585,35 +779,36 @@ unsafe extern "C" fn residual(
     out: ffi::N_Vector,
     data: *mut c_void,
 ) -> i32 {
-    // SAFETY: `data` is this session's registered `Context`, live and not otherwise
+    // SAFETY: `data` is this session's registered neutral slot; its current Context is live and not otherwise
     // borrowed while IDAS calls back on the owning thread.
-    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let Some(c) = (unsafe { callback_context(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let n = c.contract.states.len();
         // SAFETY: IDAS passes live serial vectors of the `n` states for the callback.
-        let x = unsafe { read(y, n) };
-        let evaluation = c.evaluate(Function::Rhs, t, &x, false);
+        let x = input!(c, y, n);
+        let evaluation = c.evaluate(Function::Rhs, t, x, false);
         c.initial_ic_residual.get_or_insert(evaluation.is_some());
-        let Some(e) = evaluation else {
+        let Some(mut e) = evaluation else {
             return c.failure();
         };
-        // SAFETY: as above.
-        let yp = unsafe { read(dy, n) };
-        let r: Vec<_> = e
-            .values
-            .iter()
-            .enumerate()
-            .map(|(i, f)| {
-                if c.contract.differential[i] {
-                    yp[i] - f
+        {
+            // SAFETY: IDAS supplies a live n-entry rate input. The possibly
+            // aliased foreign input borrow ends before output publication.
+            let yp = input!(c, dy, n);
+            for (i, value) in e.values.iter_mut().enumerate() {
+                *value = if c.contract.differential[i] {
+                    yp[i] - *value
                 } else {
-                    -f
-                }
-            })
-            .collect();
-        // SAFETY: `out` is IDAS's residual vector of the `n` states; `r` has `n` values.
+                    -*value
+                };
+            }
+        }
+        // SAFETY: out is a live n-entry vector, possibly aliasing y or dy. All
+        // foreign input borrows have ended; e.values is independent owned storage.
         unsafe {
-            write(out, &r);
+            write(out, &e.values);
         }
         0
     }));
@@ -634,15 +829,17 @@ unsafe extern "C" fn jacobian(
     _b: ffi::N_Vector,
     _d: ffi::N_Vector,
 ) -> i32 {
-    // SAFETY: `data` is this session's registered `Context`, live and not otherwise
+    // SAFETY: `data` is this session's registered neutral slot; its current Context is live and not otherwise
     // borrowed while IDAS calls back on the owning thread.
-    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let Some(c) = (unsafe { callback_context(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         crate::observation::gauge("idas.newton.shift", "inverse-time", cj);
         let n = c.contract.states.len();
         // SAFETY: IDAS passes a live serial vector of the `n` states for the callback.
-        let x = unsafe { read(y, n) };
-        let Some(j) = c.partials(t, &x) else {
+        let x = input!(c, y, n);
+        let Some(j) = c.partials(t, x) else {
             return c.failure();
         };
         c.newton_values.fill(0.0);
@@ -678,9 +875,11 @@ unsafe extern "C" fn jtimes(
     _a: ffi::N_Vector,
     _b: ffi::N_Vector,
 ) -> i32 {
-    // SAFETY: `data` is this session's registered `Context`, live and not otherwise
+    // SAFETY: `data` is this session's registered neutral slot; its current Context is live and not otherwise
     // borrowed while IDAS calls back on the owning thread.
-    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let Some(c) = (unsafe { callback_context(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         crate::observation::gauge("idas.newton.shift", "inverse-time", cj);
         let n = c.contract.states.len();
@@ -688,13 +887,9 @@ unsafe extern "C" fn jtimes(
             // SAFETY: IDAS supplies live serial input vectors of n initialized
             // values. They are read-only throughout this inner scope; even if a
             // native output aliases either input, all borrows end before publish.
-            let x_pointer = unsafe { ffi::N_VGetArrayPointer(y) };
-            // SAFETY: the serial vector's initialized array has the contract's n entries.
-            let x = unsafe { std::slice::from_raw_parts(x_pointer, n) };
-            // SAFETY: same native input extent and callback lifetime as above.
-            let direction_pointer = unsafe { ffi::N_VGetArrayPointer(v) };
-            // SAFETY: the direction array has n initialized entries, borrowed only here.
-            let direction = unsafe { std::slice::from_raw_parts(direction_pointer, n) };
+            let x = input!(c, y, n);
+            // SAFETY: IDAS supplies a live direction vector of n initialized values.
+            let direction = input!(c, v, n);
             if c.rhs_action(t, x, direction, cj).is_none() {
                 return c.failure();
             }
@@ -717,28 +912,25 @@ unsafe extern "C" fn precondition_setup(
     cj: f64,
     data: *mut c_void,
 ) -> i32 {
-    // SAFETY: `data` is this session's registered `Context`, live and not otherwise
+    // SAFETY: `data` is this session's registered neutral slot; its current Context is live and not otherwise
     // borrowed while IDAS calls back on the owning thread.
-    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let Some(c) = (unsafe { callback_context(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         crate::observation::gauge("idas.newton.shift", "inverse-time", cj);
         let n = c.contract.states.len();
         // SAFETY: IDAS passes a live serial vector of the `n` states for the callback.
-        let x = unsafe { read(y, n) };
-        let Some(j) = c.partials(t, &x) else {
+        let x = input!(c, y, n);
+        let Some(()) = c.rhs_diagonal(t, x) else {
             return c.failure();
         };
-        let symbolic = j.symbolic();
         for col in 0..n {
-            let partial = symbolic
-                .col_range(col)
-                .find(|k| symbolic.row_idx()[*k] == col)
-                .map_or(0.0, |k| j.val()[k]);
             let diagonal = if c.contract.differential[col] {
                 cj
             } else {
                 0.0
-            } - partial;
+            } - c.rhs_product[col];
             c.inverse_diagonal[col] = if diagonal.is_finite() && diagonal.abs() > f64::MIN_POSITIVE
             {
                 diagonal.recip()
@@ -762,21 +954,33 @@ unsafe extern "C" fn precondition_solve(
     _delta: f64,
     data: *mut c_void,
 ) -> i32 {
-    // SAFETY: `data` is this session's registered `Context`, live and not otherwise
+    // SAFETY: `data` is this session's registered neutral slot; its current Context is live and not otherwise
     // borrowed while IDAS calls back on the owning thread.
-    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let Some(c) = (unsafe { callback_context(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        // SAFETY: IDAS passes live serial vectors of the `n` states for the callback, and
-        // the inverse diagonal has one entry per state.
-        let r = unsafe { read(rvec, c.inverse_diagonal.len()) };
-        let z: Vec<_> = r
-            .iter()
-            .zip(&c.inverse_diagonal)
-            .map(|(r, d)| r * d)
-            .collect();
-        // SAFETY: as above.
+        let n = c.inverse_diagonal.len();
+        if c.rhs_product.len() != n {
+            c.callback.last_failure = Some(ProblemError::internal(
+                "IDAS preconditioner workspace extent",
+            ));
+            return -1;
+        }
+        {
+            // SAFETY: IDAS supplies a live n-entry preconditioner input, borrowed
+            // only while the independent admitted Krylov product is filled.
+            let r = input!(c, rvec, n);
+            for ((output, value), inverse) in
+                c.rhs_product.iter_mut().zip(r).zip(&c.inverse_diagonal)
+            {
+                *output = value * inverse;
+            }
+        }
+        // SAFETY: the live n-entry native output may alias rvec. Its input borrow
+        // ended above, and the session-private product cannot overlap it.
         unsafe {
-            write(zvec, &z);
+            write(zvec, &c.rhs_product);
         }
         0
     }));
@@ -798,9 +1002,11 @@ unsafe extern "C" fn sensitivities(
     _b: ffi::N_Vector,
     _d: ffi::N_Vector,
 ) -> i32 {
-    // SAFETY: `data` is this session's registered `Context`, live and not otherwise
+    // SAFETY: `data` is this session's registered neutral slot; its current Context is live and not otherwise
     // borrowed while IDAS calls back on the owning thread.
-    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let Some(c) = (unsafe { callback_context(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let n = c.contract.states.len();
         if np <= 0 || np as usize != c.axes.len() {
@@ -808,40 +1014,40 @@ unsafe extern "C" fn sensitivities(
         }
         let np = np as usize;
         // SAFETY: IDAS passes live serial vectors of the `n` states for the callback.
-        let x = unsafe { read(y, n) };
-        let Some(j) = c.partials(t, &x) else {
+        let x = input!(c, y, n);
+        let Some(j) = c.partials(t, x) else {
             return c.failure();
         };
-        let columns: Vec<_> = (0..np)
-            .map(|p| {
-                // SAFETY: IDAS passes arrays of `np` sensitivity vectors.
-                let v = unsafe { at(ys, p) };
-                // SAFETY: each is a live serial vector of the `n` states.
-                unsafe { read(v, n) }
-            })
-            .collect();
-        let product = chained(&j, &columns, n, &c.map, &c.axes);
+        let mut columns = Vec::with_capacity(np);
         for p in 0..np {
-            // SAFETY: as above.
-            let v = unsafe { at(yps, p) };
-            // SAFETY: as above.
-            let ds = unsafe { read(v, n) };
-            let residual: Vec<_> = (0..n)
-                .map(|row| {
-                    let rate = if c.contract.differential[row] {
-                        ds[row]
-                    } else {
-                        0.0
-                    };
-                    rate - product[(row, p)]
-                })
-                .collect();
-            // SAFETY: as above.
-            let out = unsafe { at(rs, p) };
-            // SAFETY: as above; `residual` has `n` values.
-            unsafe {
-                write(out, &residual);
+            // SAFETY: IDAS supplies np live n-entry sensitivity vectors.
+            let vector = unsafe { at(ys, p) };
+            columns.push(input!(c, vector, n));
+        }
+        let mut product = chained(&j, &columns, n, &c.map, &c.axes);
+        // Only the independent matrix survives; no foreign state-sensitivity
+        // borrow may remain live while any sensitivity output is published.
+        drop(columns);
+        for p in 0..np {
+            // SAFETY: IDAS supplies np live n-entry rate vectors.
+            let vector = unsafe { at(yps, p) };
+            let ds = input!(c, vector, n);
+            for row in 0..n {
+                let rate = if c.contract.differential[row] {
+                    ds[row]
+                } else {
+                    0.0
+                };
+                product[(row, p)] = rate - product[(row, p)];
             }
+        }
+        // Every native input borrow ended before this publication pass, even
+        // when an output aliases an input belonging to another selected axis.
+        for p in 0..np {
+            // SAFETY: rs is the native output array with np initialized handles and p < np.
+            let output = unsafe { at(rs, p) };
+            // SAFETY: output has n entries; product is owned and all input borrows ended.
+            unsafe { write_column(output, &product, p) };
         }
         0
     }));
@@ -854,13 +1060,15 @@ unsafe extern "C" fn quadrature(
     out: ffi::N_Vector,
     data: *mut c_void,
 ) -> i32 {
-    // SAFETY: `data` is this session's registered `Context`, live and not otherwise
+    // SAFETY: `data` is this session's registered neutral slot; its current Context is live and not otherwise
     // borrowed while IDAS calls back on the owning thread.
-    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let Some(c) = (unsafe { callback_context(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         // SAFETY: IDAS passes a live serial vector of the states for the callback.
-        let x = unsafe { read(y, c.contract.states.len()) };
-        let Some(e) = c.evaluate(Function::QuadratureFlux, t, &x, false) else {
+        let x = input!(c, y, c.contract.states.len());
+        let Some(e) = c.evaluate(Function::QuadratureFlux, t, x, false) else {
             return c.failure();
         };
         // SAFETY: `out` is IDAS's vector of the quadratures, which `evaluate` checked
@@ -889,7 +1097,9 @@ unsafe extern "C" fn quadrature_sensitivities(
     _tmp_q: ffi::N_Vector,
 ) -> i32 {
     // SAFETY: IDAS invokes this on the owning thread with the registered live context.
-    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let Some(c) = (unsafe { callback_context(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         if usize::try_from(ns).ok() != Some(c.axes.len()) {
             c.callback.last_failure =
@@ -898,40 +1108,36 @@ unsafe extern "C" fn quadrature_sensitivities(
         }
         let n = c.contract.states.len();
         // SAFETY: IDAS supplies n state values and ns live sensitivity/output vectors.
-        let x = unsafe { read(y, n) };
-        let Some(e) = c.evaluate(Function::QuadratureFlux, t, &x, true) else {
+        let x = input!(c, y, n);
+        let Some(e) = c.evaluate(Function::QuadratureFlux, t, x, true) else {
             return c.failure();
         };
         let Some(j) = e.jacobian else {
             return -1;
         };
-        let columns = (0..c.axes.len())
-            .map(|k| {
-                // SAFETY: IDAS supplies one handle for each of the ns checked axes.
-                let handle = unsafe { ys.add(k) };
-                // SAFETY: that in-bounds handle is initialized for this callback.
-                let vector = unsafe { *handle };
-                // SAFETY: each live state sensitivity vector has n entries.
-                unsafe { read(vector, n) }
-            })
-            .collect::<Vec<_>>();
-        let product = chained(&j, &columns, n, &c.map, &c.axes);
+        let mut columns = Vec::with_capacity(c.axes.len());
         for k in 0..c.axes.len() {
-            let values = (0..e.values.len())
-                .map(|q| product[(q, k)])
-                .collect::<Vec<_>>();
-            if values.iter().any(|v| !v.is_finite()) {
-                c.callback.last_failure = Some(ProblemError::numerical(
-                    "nonfinite quadrature sensitivity flux",
-                ));
-                return -1;
-            }
-            // SAFETY: IDAS supplies one output handle for each checked selected axis.
-            let handle = unsafe { out.add(k) };
-            // SAFETY: the in-bounds output handle is initialized for this callback.
-            let vector = unsafe { *handle };
-            // SAFETY: the live output vector has the checked nq entries in values.
-            unsafe { write(vector, &values) };
+            // SAFETY: IDAS supplies one live n-entry vector per checked axis.
+            let vector = unsafe { at(ys, k) };
+            columns.push(input!(c, vector, n));
+        }
+        let product = chained(&j, &columns, n, &c.map, &c.axes);
+        drop(columns);
+        // Validate the complete candidate before publishing any axis.
+        if (0..product.ncols())
+            .any(|column| (0..product.nrows()).any(|row| !product[(row, column)].is_finite()))
+        {
+            c.callback.last_failure = Some(ProblemError::numerical(
+                "nonfinite quadrature sensitivity flux",
+            ));
+            return -1;
+        }
+        for k in 0..c.axes.len() {
+            // SAFETY: out contains one initialized native handle per checked axis.
+            let output = unsafe { at(out, k) };
+            // SAFETY: output has nq entries and product owns this checked column;
+            // every foreign input borrow ended before this publication pass.
+            unsafe { write_column(output, &product, k) };
         }
         0
     }));
@@ -944,13 +1150,15 @@ unsafe extern "C" fn roots(
     out: *mut f64,
     data: *mut c_void,
 ) -> i32 {
-    // SAFETY: `data` is this session's registered `Context`, live and not otherwise
+    // SAFETY: `data` is this session's registered neutral slot; its current Context is live and not otherwise
     // borrowed while IDAS calls back on the owning thread.
-    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let Some(c) = (unsafe { callback_context(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         // SAFETY: IDAS passes a live serial vector of the states for the callback.
-        let x = unsafe { read(y, c.contract.states.len()) };
-        let Some(e) = c.evaluate(Function::Roots, t, &x, false) else {
+        let x = input!(c, y, c.contract.states.len());
+        let Some(e) = c.evaluate(Function::Roots, t, x, false) else {
             return -1;
         };
         // SAFETY: `out` holds one value per root function of the active mode, which
@@ -974,21 +1182,23 @@ unsafe extern "C" fn residual_b(
     rr: ffi::N_Vector,
     data: *mut c_void,
 ) -> i32 {
-    // SAFETY: `data` is this session's registered `Context`, live and not otherwise
+    // SAFETY: `data` is this session's registered neutral slot; its current Context is live and not otherwise
     // borrowed while IDAS calls back on the owning thread.
-    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let Some(c) = (unsafe { callback_context(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let n = c.contract.states.len();
         // SAFETY: IDAS passes live serial vectors of the `n` states (forward) and of the
         // `n` adjoint values (first-order backward problem) for the callback.
-        let x = unsafe { read(yy, n) };
-        let Some(j) = c.partials(t, &x) else {
+        let x = input!(c, yy, n);
+        let Some(j) = c.partials(t, x) else {
             return c.failure();
         };
         // SAFETY: as above.
-        let lambda = unsafe { read(yb, n) };
+        let lambda = input!(c, yb, n);
         // SAFETY: as above.
-        let rate = unsafe { read(ypb, n) };
+        let rate = input!(c, ypb, n);
         let symbolic = j.symbolic();
         let product = (0..n)
             .map(|col| {
@@ -1031,14 +1241,16 @@ unsafe extern "C" fn jacobian_b(
     _b: ffi::N_Vector,
     _d: ffi::N_Vector,
 ) -> i32 {
-    // SAFETY: `data` is this session's registered `Context`, live and not otherwise
+    // SAFETY: `data` is this session's registered neutral slot; its current Context is live and not otherwise
     // borrowed while IDAS calls back on the owning thread.
-    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let Some(c) = (unsafe { callback_context(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let n = c.contract.states.len();
         // SAFETY: IDAS passes a live serial vector of the `n` states for the callback.
-        let x = unsafe { read(yy, n) };
-        let Some(j) = c.partials(t, &x) else {
+        let x = input!(c, yy, n);
+        let Some(j) = c.partials(t, x) else {
             return c.failure();
         };
         c.newton_values_b.fill(0.0);
@@ -1085,19 +1297,21 @@ unsafe extern "C" fn quadrature_b(
     out: ffi::N_Vector,
     data: *mut c_void,
 ) -> i32 {
-    // SAFETY: `data` is this session's registered `Context`, live and not otherwise
+    // SAFETY: `data` is this session's registered neutral slot; its current Context is live and not otherwise
     // borrowed while IDAS calls back on the owning thread.
-    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let Some(c) = (unsafe { callback_context(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let n = c.contract.states.len();
         // SAFETY: IDAS passes live serial vectors of the `n` states (forward) and of the
         // `n` adjoint values for the callback.
-        let x = unsafe { read(yy, n) };
-        let Some(j) = c.partials(t, &x) else {
+        let x = input!(c, yy, n);
+        let Some(j) = c.partials(t, x) else {
             return c.failure();
         };
         // SAFETY: as above.
-        let lambda = unsafe { read(yb, n) };
+        let lambda = input!(c, yb, n);
         let symbolic = j.symbolic();
         let mut rate = vec![0.0; c.gradient_axes.len()];
         for (selected, axis) in c.gradient_axes.iter().enumerate() {
@@ -1121,15 +1335,17 @@ unsafe extern "C" fn quadrature_b(
 ///
 /// # Safety
 /// `data` is the address of a live [`Direction`] whose context outlives the call.
-unsafe fn directed<'c>(data: *mut c_void) -> (&'c mut Context<'c>, usize) {
+unsafe fn directed<'c>(data: *mut c_void) -> Option<(&'c mut Context<'c>, usize)> {
+    if data.is_null() {
+        return None;
+    }
     // SAFETY: `data` addresses a live `Direction` (the caller's contract).
     let direction = unsafe { &*data.cast::<Direction>() };
-    (
-        // SAFETY: its context is the session's live `Context`, not otherwise borrowed
-        // while IDAS calls back (the caller's contract).
-        unsafe { &mut *direction.context.cast::<Context<'c>>() },
+    // SAFETY: the Direction carries the same stable slot as the parent session.
+    Some((
+        unsafe { callback_context(direction.context) }?,
         direction.column,
-    )
+    ))
 }
 /// The second-order adjoint residual (ADR-0110 item 4) of `[λ; μ]`, where `μ` is the
 /// tangent of `λ` along one integration column `k`: `M·λ' + f_xᵀλ` as on the first-order
@@ -1149,25 +1365,28 @@ unsafe extern "C" fn residual_bs(
 ) -> i32 {
     // SAFETY: `data` is the problem's boxed `Direction`, registered by `create_backward`
     // and live with the session, whose context IDAS reaches only through this callback.
-    let (c, column) = unsafe { directed(data) };
+    let Some((c, column)) = (unsafe { directed(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let n = c.contract.states.len();
         // SAFETY: IDAS passes live serial vectors of the `n` forward states and of the
         // `2n` second-order adjoint values for the callback.
-        let x = unsafe { read(yy, n) };
-        let Some(j) = c.partials(t, &x) else {
+        let x = input!(c, yy, n);
+        let Some(j) = c.partials(t, x) else {
             return c.failure();
         };
         // SAFETY: as above.
-        let adjoint = unsafe { read(yb, 2 * n) };
+        let adjoint = input!(c, yb, 2 * n);
         // SAFETY: as above.
-        let rate = unsafe { read(ypb, 2 * n) };
+        let rate = input!(c, ypb, 2 * n);
         // SAFETY: IDAS passes one forward sensitivity vector per integration column, and
         // `column` is one of them.
         let sensitivity = unsafe { at(yys, column) };
         // SAFETY: each is a live serial vector of the `n` states.
-        let d = c.direction(column, &unsafe { read(sensitivity, n) });
-        let Some(v) = c.curvature(Function::Rhs, t, &x, &adjoint[..n], &d) else {
+        let sensitivity_values = input!(c, sensitivity, n);
+        let d = c.direction(column, sensitivity_values);
+        let Some(v) = c.curvature(Function::Rhs, t, x, &adjoint[..n], &d) else {
             return c.failure();
         };
         let first = transposed(&j, &adjoint[..n]);
@@ -1211,12 +1430,14 @@ unsafe extern "C" fn jacobian_bs(
 ) -> i32 {
     // SAFETY: `data` is the problem's boxed `Direction`, registered by `create_backward`
     // and live with the session, whose context IDAS reaches only through this callback.
-    let (c, column) = unsafe { directed(data) };
+    let Some((c, column)) = (unsafe { directed(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let n = c.contract.states.len();
         // SAFETY: IDAS passes a live serial vector of the `n` forward states.
-        let x = unsafe { read(yy, n) };
-        let Some(j) = c.partials(t, &x) else {
+        let x = input!(c, yy, n);
+        let Some(j) = c.partials(t, x) else {
             return c.failure();
         };
         let outside = |c: &mut Context<'_>| {
@@ -1247,13 +1468,14 @@ unsafe extern "C" fn jacobian_bs(
         // `column` is one of them.
         let sensitivity = unsafe { at(ys, column) };
         // SAFETY: each is a live serial vector of the `n` states.
-        let d = c.direction(column, &unsafe { read(sensitivity, n) });
+        let sensitivity_values = input!(c, sensitivity, n);
+        let d = c.direction(column, sensitivity_values);
         for color in c.colors.clone() {
             let mut weights = vec![0.0; n];
             for row in &color {
                 weights[*row] = 1.0;
             }
-            let Some(v) = c.curvature(Function::Rhs, t, &x, &weights, &d) else {
+            let Some(v) = c.curvature(Function::Rhs, t, x, &weights, &d) else {
                 return c.failure();
             };
             // Rows of one colour share no state, so each state entry belongs to one row.
@@ -1288,24 +1510,27 @@ unsafe extern "C" fn quadrature_bs(
 ) -> i32 {
     // SAFETY: `data` is the problem's boxed `Direction`, registered by `create_backward`
     // and live with the session, whose context IDAS reaches only through this callback.
-    let (c, column) = unsafe { directed(data) };
+    let Some((c, column)) = (unsafe { directed(data) }) else {
+        return -1;
+    };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let n = c.contract.states.len();
         let width = c.integration.len();
         // SAFETY: IDAS passes live serial vectors of the `n` forward states and of the
         // `2n` second-order adjoint values for the callback.
-        let x = unsafe { read(yy, n) };
-        let Some(j) = c.partials(t, &x) else {
+        let x = input!(c, yy, n);
+        let Some(j) = c.partials(t, x) else {
             return c.failure();
         };
         // SAFETY: as above.
-        let adjoint = unsafe { read(yb, 2 * n) };
+        let adjoint = input!(c, yb, 2 * n);
         // SAFETY: IDAS passes one forward sensitivity vector per integration column, and
         // `column` is one of them.
         let sensitivity = unsafe { at(yys, column) };
         // SAFETY: each is a live serial vector of the `n` states.
-        let d = c.direction(column, &unsafe { read(sensitivity, n) });
-        let Some(v) = c.curvature(Function::Rhs, t, &x, &adjoint[..n], &d) else {
+        let sensitivity_values = input!(c, sensitivity, n);
+        let d = c.direction(column, sensitivity_values);
+        let Some(v) = c.curvature(Function::Rhs, t, x, &adjoint[..n], &d) else {
             return c.failure();
         };
         let first = transposed(&j, &adjoint[..n]);
@@ -1387,7 +1612,56 @@ impl Backward {
 type Adjoints = (Vec<Vec<f64>>, Vec<Vec<f64>>);
 /// The forward state, its rates and its state sensitivities at a restart time.
 type Forward = (Vec<f64>, Vec<f64>, Vec<Vec<f64>>);
+/// Owner-affine optional IDAS allocations. It contains no current oracle or execution.
+pub struct IdasWorkspace {
+    identity: Arc<()>,
+    held: Option<(StorageKey, NativeStorage)>,
+    #[cfg(test)]
+    reuses: usize,
+}
+impl Default for IdasWorkspace {
+    fn default() -> Self {
+        Self {
+            identity: Arc::new(()),
+            held: None,
+            #[cfg(test)]
+            reuses: 0,
+        }
+    }
+}
+impl IdasWorkspace {
+    pub(super) fn clear(&mut self) {
+        self.held = None;
+    }
+}
+impl std::fmt::Debug for IdasWorkspace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IdasWorkspace")
+            .field("retained", &self.held.is_some())
+            .finish()
+    }
+}
+struct StorageKey {
+    contract: ContentHash,
+    profile: pse_ids::roles::ProfileHash,
+    layout: Arc<PreparedLayout>,
+    forward_quadratures: bool,
+}
+impl StorageKey {
+    fn matches(&self, other: &Self) -> bool {
+        self.contract == other.contract
+            && self.profile == other.profile
+            && Arc::ptr_eq(&self.layout, &other.layout)
+            && self.forward_quadratures == other.forward_quadratures
+    }
+}
 struct Session<'a> {
+    reused: bool,
+    vector_cursor: usize,
+    storage_lease: Option<Arc<dyn std::any::Any + Send + Sync>>,
+    user_data: Option<Box<UserDataSlot>>,
+    #[cfg(test)]
+    force_backward_ic: bool,
     replay_steps: Option<StepBudget>,
     local_error: Option<local_error::LocalError>,
     observation_generation: u64,
@@ -1417,7 +1691,72 @@ struct Session<'a> {
     callback: Box<Context<'a>>,
     _local: PhantomData<Rc<()>>,
 }
-impl Drop for Session<'_> {
+// Neutral resources transfer exclusively between one live Session and its idle owner.
+struct NativeStorage {
+    ctx: ffi::SUNContext,
+    mem: *mut c_void,
+    matrix: ffi::SUNMatrix,
+    linear: ffi::SUNLinearSolver,
+    vectors: Vec<ffi::N_Vector>,
+    y: ffi::N_Vector,
+    dy: ffi::N_Vector,
+    quad: ffi::N_Vector,
+    forward: bool,
+    sens: Vec<ffi::N_Vector>,
+    dsens: Vec<ffi::N_Vector>,
+    totals: Vec<f64>,
+    quad_sens: Vec<ffi::N_Vector>,
+    quad_sens_totals: Vec<f64>,
+    transition: Option<Transition>,
+    adjoint: Option<Backward>,
+    _lease: Option<Arc<dyn std::any::Any + Send + Sync>>,
+    user_data: Option<Box<UserDataSlot>>,
+}
+impl NativeStorage {
+    fn take(session: &mut Session<'_>) -> Self {
+        Self {
+            ctx: std::mem::replace(&mut session.ctx, std::ptr::null_mut()),
+            mem: std::mem::replace(&mut session.mem, std::ptr::null_mut()),
+            matrix: std::mem::replace(&mut session.matrix, std::ptr::null_mut()),
+            linear: std::mem::replace(&mut session.linear, std::ptr::null_mut()),
+            vectors: std::mem::take(&mut session.vectors),
+            y: std::mem::replace(&mut session.y, std::ptr::null_mut()),
+            dy: std::mem::replace(&mut session.dy, std::ptr::null_mut()),
+            quad: std::mem::replace(&mut session.quad, std::ptr::null_mut()),
+            forward: std::mem::replace(&mut session.forward, false),
+            sens: std::mem::take(&mut session.sens),
+            dsens: std::mem::take(&mut session.dsens),
+            totals: std::mem::take(&mut session.totals),
+            quad_sens: std::mem::take(&mut session.quad_sens),
+            quad_sens_totals: std::mem::take(&mut session.quad_sens_totals),
+            transition: session.transition.take(),
+            adjoint: session.adjoint.take(),
+            _lease: session.storage_lease.take(),
+            user_data: session.user_data.take(),
+        }
+    }
+    fn install(mut self, session: &mut Session<'_>) {
+        session.storage_lease = self._lease.take();
+        session.user_data = self.user_data.take();
+        session.ctx = std::mem::replace(&mut self.ctx, std::ptr::null_mut());
+        session.mem = std::mem::replace(&mut self.mem, std::ptr::null_mut());
+        session.matrix = std::mem::replace(&mut self.matrix, std::ptr::null_mut());
+        session.linear = std::mem::replace(&mut self.linear, std::ptr::null_mut());
+        session.vectors = std::mem::take(&mut self.vectors);
+        session.y = std::mem::replace(&mut self.y, std::ptr::null_mut());
+        session.dy = std::mem::replace(&mut self.dy, std::ptr::null_mut());
+        session.quad = std::mem::replace(&mut self.quad, std::ptr::null_mut());
+        session.forward = std::mem::replace(&mut self.forward, false);
+        session.sens = std::mem::take(&mut self.sens);
+        session.dsens = std::mem::take(&mut self.dsens);
+        session.totals = std::mem::take(&mut self.totals);
+        session.quad_sens = std::mem::take(&mut self.quad_sens);
+        session.quad_sens_totals = std::mem::take(&mut self.quad_sens_totals);
+        session.transition = self.transition.take();
+        session.adjoint = self.adjoint.take();
+    }
+}
+impl Drop for NativeStorage {
     fn drop(&mut self) {
         // Every object below was created by this session, is freed exactly once, and the
         // integrator memory goes first so nothing native refers to the rest afterwards.
@@ -1426,8 +1765,6 @@ impl Drop for Session<'_> {
             // SAFETY: the session's live IDAS memory; `IDAFree` nulls the pointer.
             unsafe { ffi::IDAFree(&raw mut self.mem) };
         }
-        // Selected diagnostic vectors and their private context end with the attempt.
-        self.local_error = None;
         if !self.linear.is_null() {
             // SAFETY: the session's linear solver, no longer attached to any memory.
             unsafe { ffi::SUNLinSolFree(self.linear) };
@@ -1456,6 +1793,15 @@ impl Drop for Session<'_> {
             // SAFETY: the session's context, freed last, after every object created in it.
             unsafe { ffi::SUNContext_Free(&raw mut self.ctx) };
         }
+        // The slot allocation is covered by the same lease, which drops last.
+        self.user_data = None;
+    }
+}
+impl Drop for Session<'_> {
+    fn drop(&mut self) {
+        // Native teardown completes while the current callback Box still exists.
+        drop(NativeStorage::take(self));
+        self.local_error = None;
     }
 }
 /// Consistent-initialization option of `IDACalcIC`.
@@ -1478,13 +1824,45 @@ struct StatePreparation<'a> {
     forward: bool,
 }
 impl<'a> Session<'a> {
+    fn user_data(&mut self) -> *mut c_void {
+        self.user_data
+            .as_mut()
+            .map_or(std::ptr::null_mut(), |slot| (&raw mut **slot).cast())
+    }
+    fn bind_current_context(&mut self) -> Result<(), ProblemError> {
+        let current = (&raw mut *self.callback).cast();
+        self.user_data
+            .get_or_insert_with(|| {
+                Box::new(UserDataSlot {
+                    current: std::ptr::null_mut(),
+                })
+            })
+            .current = current;
+        let data = self.user_data();
+        native!(ffi::IDASetUserData(self.mem, data), "current user data")
+    }
     fn vector(&mut self, values: &[f64]) -> Result<ffi::N_Vector, ProblemError> {
+        if let Some(&vector) = self.vectors.get(self.vector_cursor) {
+            // SAFETY: every entry is a live serial vector exclusively owned here.
+            if unsafe { ffi::N_VGetLength_Serial(vector) } != index(values.len())? {
+                return Err(ProblemError::internal(
+                    "incompatible retained IDAS vector extent",
+                ));
+            }
+            self.vector_cursor += 1;
+            // SAFETY: the checked vector has exactly the current input extent.
+            unsafe {
+                write(vector, values);
+            }
+            return Ok(vector);
+        }
         // SAFETY: the session's live context; the vector is freed with the session.
         let v = unsafe { ffi::N_VNew_Serial(index(values.len())?, self.ctx) };
         if v.is_null() {
             return Err(ProblemError::memory("IDAS vector allocation"));
         }
         self.vectors.push(v);
+        self.vector_cursor += 1;
         // SAFETY: `v` was just allocated with `values.len()` entries.
         unsafe {
             write(v, values);
@@ -1498,9 +1876,19 @@ impl<'a> Session<'a> {
         config: StatePreparation<'_>,
         execution: Execution,
     ) -> Result<(Self, Evaluation), ProblemError> {
+        let admission = bbd::admit(config.linear, oracle.contract().states.len(), execution)?;
+        Self::prepare_storage(oracle, integration, config, admission, None)
+    }
+    fn prepare_storage(
+        oracle: &'a mut dyn Oracle,
+        integration: &[f64],
+        config: StatePreparation<'_>,
+        admission: bbd::Admission,
+        storage: Option<NativeStorage>,
+    ) -> Result<(Self, Evaluation), ProblemError> {
         let c = oracle.contract().clone();
         let n = c.states.len();
-        execution.check()?;
+        let execution = admission.into_execution(config.linear, n)?;
         let allowance = execution.memory.unwrap_or(usize::MAX);
         let layout = match config.layout {
             Some(layout) => layout,
@@ -1573,6 +1961,12 @@ impl<'a> Session<'a> {
         let newton_values = vec![0.0; layout.rows.len()];
         let newton_values_b = vec![0.0; layout.rows_b.len()];
         let mut s = Self {
+            reused: false,
+            vector_cursor: 0,
+            storage_lease: None,
+            user_data: None,
+            #[cfg(test)]
+            force_backward_ic: false,
             replay_steps: None,
             local_error: None,
             observation_generation: crate::observation::generation(),
@@ -1618,10 +2012,26 @@ impl<'a> Session<'a> {
                 coupling_slots_bs: Vec::new(),
                 colors: Vec::new(),
                 inverse_diagonal: vec![1.0; n],
+                #[cfg(test)]
+                coupled_probe: None,
             }),
             _local: PhantomData,
         };
-        native!(ffi::SUNContext_Create(0, &raw mut s.ctx), "context")?;
+        if let Some(storage) = storage {
+            storage.install(&mut s);
+            s.reused = true;
+            s.sens.clear();
+            s.dsens.clear();
+            s.quad_sens.clear();
+            s.totals.fill(0.);
+            s.quad_sens_totals.fill(0.);
+            s.transition = None;
+        }
+        if s.ctx.is_null() {
+            native!(ffi::SUNContext_Create(0, &raw mut s.ctx), "context")?;
+            #[cfg(test)]
+            workspace_tests::record_context_construction();
+        }
         s.local_error = local_error::LocalError::prepare(n);
         let Some(initial) = s.callback.evaluate(
             Function::Initial,
@@ -1642,28 +2052,35 @@ impl<'a> Session<'a> {
             .collect();
         let id = s.vector(&ids)?;
         let atol = s.vector(config.atol)?;
-        // SAFETY: the session's live context; `Drop` frees the memory.
-        s.mem = unsafe { ffi::IDACreate(s.ctx) };
+        if !s.reused {
+            // SAFETY: SUNContext_Create succeeded for this session; its Drop owns the new memory.
+            s.mem = unsafe { ffi::IDACreate(s.ctx) };
+        }
         if s.mem.is_null() {
             return Err(ProblemError::memory("IDAS memory allocation"));
         }
-        native!(
-            ffi::IDAInit(s.mem, Some(residual), config.time, s.y, s.dy),
-            "initialization",
-        )?;
+        if s.reused {
+            native!(
+                ffi::IDAReInit(s.mem, config.time, s.y, s.dy),
+                "independent state reset"
+            )?;
+        } else {
+            native!(
+                ffi::IDAInit(s.mem, Some(residual), config.time, s.y, s.dy),
+                "initialization"
+            )?;
+        }
         // The boxed context has a stable address for the session's lifetime.
-        native!(
-            ffi::IDASetUserData(s.mem, (&raw mut *s.callback).cast()),
-            "user data",
-        )?;
+        s.bind_current_context()?;
         native!(ffi::IDASetId(s.mem, id), "differential identities")?;
         native!(
             ffi::IDASVtolerances(s.mem, config.rtol, atol),
             "state tolerances",
         )?;
-        if let Some(step) = config.initial_step {
-            native!(ffi::IDASetInitStep(s.mem, step), "initial step")?;
-        }
+        native!(
+            ffi::IDASetInitStep(s.mem, config.initial_step.unwrap_or(0.)),
+            "initial step"
+        )?;
         s.linear_solver(config.linear)?;
         // The authored bounds' signs keep the steps in the domain (ADR-0119 Outcome 4).
         if s.callback
@@ -1684,9 +2101,15 @@ impl<'a> Session<'a> {
                 ffi::IDASetConstraints(s.mem, constraints),
                 "sign constraints",
             )?;
+        } else {
+            native!(
+                ffi::IDASetConstraints(s.mem, std::ptr::null_mut()),
+                "free sign constraints"
+            )?;
         }
         Ok((s, initial))
     }
+    #[cfg(test)]
     fn new(
         oracle: &'a mut dyn Oracle,
         integration: &[f64],
@@ -1696,9 +2119,35 @@ impl<'a> Session<'a> {
         execution: Execution,
         forward_quadratures: bool,
     ) -> Result<Self, ProblemError> {
+        let admission = bbd::admit(p.idas.linear, oracle.contract().states.len(), execution)?;
+        Self::new_storage(
+            oracle,
+            integration,
+            p,
+            directions,
+            layout,
+            admission,
+            forward_quadratures,
+            None,
+        )
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the current scientific request and optional neutral native resources have separate owners"
+    )]
+    fn new_storage(
+        oracle: &'a mut dyn Oracle,
+        integration: &[f64],
+        p: &Profile,
+        directions: &[usize],
+        layout: Option<Arc<PreparedLayout>>,
+        admission: bbd::Admission,
+        forward_quadratures: bool,
+        storage: Option<NativeStorage>,
+    ) -> Result<Self, ProblemError> {
         let forward = p.forward() || !directions.is_empty();
         let map = p.columns_at(oracle.contract().parameters.len(), p.start);
-        let (mut s, initial) = Self::prepare(
+        let (mut s, initial) = Self::prepare_storage(
             oracle,
             integration,
             StatePreparation {
@@ -1709,11 +2158,15 @@ impl<'a> Session<'a> {
                 trial_failures: p.trial_failures,
                 rtol: p.rtol,
                 atol: &p.atol,
-                initial_step: Some(p.initial_step),
+                initial_step: match p.idas.native_initial_step {
+                    IdasInitialStep::Configured => Some(p.initial_step),
+                    IdasInitialStep::Automatic => None,
+                },
                 linear: p.idas.linear,
                 forward,
             },
-            execution,
+            admission,
+            storage,
         )?;
         let n = s.callback.contract.states.len();
         s.callback.axes = if p.sensitivity == DynamicSensitivity::Forward {
@@ -1748,21 +2201,33 @@ impl<'a> Session<'a> {
                 let v = s.vector(&vec![0.0; n])?;
                 s.dsens.push(v);
             }
-            native!(
-                ffi::IDASensInit(
-                    s.mem,
-                    s.callback
-                        .axes
-                        .len()
-                        .try_into()
-                        .map_err(|_| ProblemError::unsupported("IDAS parameter extent"))?,
-                    corrector(p.idas.sensitivity),
-                    Some(sensitivities),
-                    s.sens.as_mut_ptr(),
-                    s.dsens.as_mut_ptr(),
-                ),
-                "forward sensitivities",
-            )?;
+            if s.reused {
+                native!(
+                    ffi::IDASensReInit(
+                        s.mem,
+                        corrector(p.idas.sensitivity),
+                        s.sens.as_mut_ptr(),
+                        s.dsens.as_mut_ptr()
+                    ),
+                    "independent sensitivity reset"
+                )?;
+            } else {
+                native!(
+                    ffi::IDASensInit(
+                        s.mem,
+                        s.callback
+                            .axes
+                            .len()
+                            .try_into()
+                            .map_err(|_| ProblemError::unsupported("IDAS parameter extent"))?,
+                        corrector(p.idas.sensitivity),
+                        Some(sensitivities),
+                        s.sens.as_mut_ptr(),
+                        s.dsens.as_mut_ptr(),
+                    ),
+                    "forward sensitivities",
+                )?;
+            }
             let mut atol_s = Vec::new();
             let scales = p.integration_parameters(&p.parameter_scales);
             for k in 0..s.callback.axes.len() {
@@ -1779,10 +2244,17 @@ impl<'a> Session<'a> {
         if !s.callback.contract.quadratures.is_empty() {
             s.quad = s.vector(&vec![0.0; s.callback.contract.quadratures.len()])?;
             let atol = s.vector(&p.out_atol)?;
-            native!(
-                ffi::IDAQuadInit(s.mem, Some(quadrature), s.quad),
-                "quadrature",
-            )?;
+            if s.reused {
+                native!(
+                    ffi::IDAQuadReInit(s.mem, s.quad),
+                    "independent quadrature reset"
+                )?;
+            } else {
+                native!(
+                    ffi::IDAQuadInit(s.mem, Some(quadrature), s.quad),
+                    "quadrature"
+                )?;
+            }
             native!(
                 ffi::IDAQuadSVtolerances(
                     s.mem,
@@ -1935,22 +2407,27 @@ impl<'a> Session<'a> {
         let n = self.callback.contract.states.len();
         match linear {
             IdasLinear::Klu => {
-                // SAFETY: the session's live context; `Drop` frees the matrix.
-                self.matrix = unsafe {
-                    ffi::SUNSparseMatrix(
-                        index(n)?,
-                        index(n)?,
-                        index(self.callback.layout.rows.len())?,
-                        0,
-                        self.ctx,
-                    )
-                };
+                if self.matrix.is_null() {
+                    // SAFETY: this session owns a live context. Checked native dimensions
+                    // and admitted CSC nonzeros match the prepared original state layout.
+                    self.matrix = unsafe {
+                        ffi::SUNSparseMatrix(
+                            index(n)?,
+                            index(n)?,
+                            index(self.callback.layout.rows.len())?,
+                            0,
+                            self.ctx,
+                        )
+                    };
+                }
                 if self.matrix.is_null() {
                     return Err(ProblemError::memory("IDAS matrix allocation"));
                 }
-                // SAFETY: the session's live state vector, matrix and context; `Drop` frees
-                // the solver.
-                self.linear = unsafe { ffi::SUNLinSol_KLU(self.y, self.matrix, self.ctx) };
+                if self.linear.is_null() {
+                    // SAFETY: the session owns the live state vector, dimension-matched
+                    // matrix and context; its Drop releases the newly created KLU solver.
+                    self.linear = unsafe { ffi::SUNLinSol_KLU(self.y, self.matrix, self.ctx) };
+                }
                 if self.linear.is_null() {
                     return Err(ProblemError::memory("IDAS KLU allocation"));
                 }
@@ -1963,33 +2440,39 @@ impl<'a> Session<'a> {
                     "analytic Jacobian",
                 )?;
             }
-            IdasLinear::Spgmr {
-                dimension,
-                preconditioner,
-            }
-            | IdasLinear::Spfgmr {
-                dimension,
-                preconditioner,
-            } => {
+            IdasLinear::Spgmr { dimension, .. }
+            | IdasLinear::Spfgmr { dimension, .. }
+            | IdasLinear::SpgmrBbd { dimension, .. } => {
                 let dimension = i32::try_from(dimension.into_inner())
                     .map_err(|_| contract("IDAS Krylov dimension"))?;
-                let side = match preconditioner {
-                    Preconditioner::None => ffi::SUN_PREC_NONE,
-                    Preconditioner::Jacobi => ffi::SUN_PREC_LEFT,
-                    Preconditioner::BlockFactor => {
-                        return Err(ProblemError::Unsupported(
-                            "IDAS block factor preconditioning is not supplied".into(),
-                        ));
-                    }
-                } as i32;
-                self.linear = if matches!(linear, IdasLinear::Spgmr { .. }) {
-                    // SAFETY: the session's live state vector and context; `Drop` frees
-                    // the solver.
-                    unsafe { ffi::SUNLinSol_SPGMR(self.y, side, dimension, self.ctx) }
-                } else {
-                    // SAFETY: as above.
-                    unsafe { ffi::SUNLinSol_SPFGMR(self.y, side, dimension, self.ctx) }
+                let preconditioner = match linear {
+                    IdasLinear::Spgmr { preconditioner, .. }
+                    | IdasLinear::Spfgmr { preconditioner, .. } => preconditioner,
+                    _ => Preconditioner::None,
                 };
+                let side = if matches!(linear, IdasLinear::SpgmrBbd { .. }) {
+                    ffi::SUN_PREC_LEFT as i32
+                } else {
+                    (match preconditioner {
+                        Preconditioner::None => ffi::SUN_PREC_NONE,
+                        Preconditioner::Jacobi => ffi::SUN_PREC_LEFT,
+                        Preconditioner::BlockFactor => {
+                            return Err(ProblemError::Unsupported(
+                                "IDAS block factor preconditioning is not supplied".into(),
+                            ));
+                        }
+                    }) as i32
+                };
+                if self.linear.is_null() {
+                    self.linear = if !matches!(linear, IdasLinear::Spfgmr { .. }) {
+                        // SAFETY: the session's live state vector and context; `Drop` frees
+                        // the solver.
+                        unsafe { ffi::SUNLinSol_SPGMR(self.y, side, dimension, self.ctx) }
+                    } else {
+                        // SAFETY: as above.
+                        unsafe { ffi::SUNLinSol_SPFGMR(self.y, side, dimension, self.ctx) }
+                    };
+                }
                 if self.linear.is_null() {
                     return Err(ProblemError::memory("IDAS Krylov allocation"));
                 }
@@ -2001,7 +2484,9 @@ impl<'a> Session<'a> {
                     ffi::IDASetJacTimes(self.mem, None, Some(jtimes)),
                     "analytic Jacobian products",
                 )?;
-                if preconditioner == Preconditioner::Jacobi {
+                if matches!(linear, IdasLinear::SpgmrBbd { .. }) {
+                    bbd::install(self, linear)?;
+                } else if preconditioner == Preconditioner::Jacobi {
                     native!(
                         ffi::IDASetPreconditioner(
                             self.mem,
@@ -2009,6 +2494,11 @@ impl<'a> Session<'a> {
                             Some(precondition_solve),
                         ),
                         "Jacobi preconditioner",
+                    )?;
+                } else {
+                    native!(
+                        ffi::IDASetPreconditioner(self.mem, None, None),
+                        "no preconditioner"
                     )?;
                 }
             }
@@ -2020,6 +2510,9 @@ impl<'a> Session<'a> {
         let events = &self.callback.contract.events[self.callback.mode];
         let mut directions: Vec<i32> = events.iter().map(|e| root_direction(e.direction)).collect();
         let count = events.len();
+        // Same-count IDARootInit preserves old direction and active-root state.
+        // Remove that population before binding a mode or independent request.
+        native!(ffi::IDARootInit(self.mem, 0, None), "clear previous roots")?;
         native!(
             ffi::IDARootInit(
                 self.mem,
@@ -2031,7 +2524,7 @@ impl<'a> Session<'a> {
             "roots",
         )?;
         // IDAS copies the `count` directions.
-        if directions.iter().any(|d| *d != 0) {
+        if count != 0 {
             native!(
                 ffi::IDASetRootDirection(self.mem, directions.as_mut_ptr()),
                 "root directions",
@@ -2173,6 +2666,7 @@ impl<'a> Session<'a> {
             ffi::IDAReInit(self.mem, t, self.y, self.dy),
             "reinitialization",
         )?;
+        bbd::install(self, p.idas.linear)?;
         self.observation_generation = crate::observation::generation();
         self.observation_counters.borrow_mut().clear();
         crate::observation::count("idas.segment.reinitializations", 1);
@@ -2298,14 +2792,21 @@ impl<'a> Session<'a> {
                 .collect::<Vec<_>>();
             tolerances.push(self.vector(&values)?);
         }
-        native!(
-            ffi::IDAQuadSensInit(
-                self.mem,
-                Some(quadrature_sensitivities),
-                self.quad_sens.as_mut_ptr()
-            ),
-            "forward quadrature sensitivities"
-        )?;
+        if self.reused {
+            native!(
+                ffi::IDAQuadSensReInit(self.mem, self.quad_sens.as_mut_ptr()),
+                "independent quadrature sensitivity reset"
+            )?;
+        } else {
+            native!(
+                ffi::IDAQuadSensInit(
+                    self.mem,
+                    Some(quadrature_sensitivities),
+                    self.quad_sens.as_mut_ptr()
+                ),
+                "forward quadrature sensitivities"
+            )?;
+        }
         native!(
             ffi::IDAQuadSensSVtolerances(
                 self.mem,
@@ -2560,6 +3061,27 @@ impl<'a> Session<'a> {
         });
         Ok(())
     }
+    fn integrator_statistics(&self) -> Option<IntegratorStatistics> {
+        let mut value = IntegratorStatistics::default();
+        // SAFETY: this owner-thread session holds live IDAS memory. Every output
+        // is local storage of the exact C ABI type; the getter retains no pointer.
+        let flag = unsafe {
+            ffi::IDAGetIntegratorStats(
+                self.mem,
+                &raw mut value.steps,
+                &raw mut value.residuals,
+                &raw mut value.linear_setups,
+                &raw mut value.error_test_failures,
+                &raw mut value.last_order,
+                &raw mut value.current_order,
+                &raw mut value.initial_step,
+                &raw mut value.last_step,
+                &raw mut value.current_step,
+                &raw mut value.internal_time,
+            )
+        };
+        (flag == ffi::IDA_SUCCESS).then_some(value)
+    }
     /// Native counters of the current segment; IDAS resets them at each reinitialization.
     fn statistics(&self, flag: i32, p: &Profile, returned_time: Option<f64>) -> serde_json::Value {
         let mut value = serde_json::json!({
@@ -2569,41 +3091,46 @@ impl<'a> Session<'a> {
             "derivatives": "analytic state and parameter partials",
             "idas": serde_json::to_value(&p.idas).unwrap_or(serde_json::Value::Null),
         });
-        macro_rules! count {
-            ($($get:ident => $name:literal),* $(,)?) => {$(
-                let mut v: c_long = 0;
-                // SAFETY: a counter query of the session's live IDAS memory into a local.
-                if unsafe { ffi::$get(self.mem, &raw mut v) } == 0 {
+        macro_rules! observed_count {
+            ($value:expr, $name:literal) => {
+                if let Some(v) = $value {
                     value[$name] = serde_json::json!(long_counter(v));
-                    if let (Some(context), Ok(count)) = (pse_diagnostics::observation::current(), u64::try_from(v)) {
+                    if let (Some(context), Ok(count)) =
+                        (pse_diagnostics::observation::current(), u64::try_from(v))
+                    {
                         let name = concat!("idas.work.", $name);
                         if self.observation_counters.borrow_mut().insert($name) {
-                            // This session owns fresh/reinitialized native memory; zero
-                            // is its source-known start, including work preceding the first return.
                             context.count_value(name, "count", 0, self.observation_generation);
                         }
                         context.count_value(name, "count", count, self.observation_generation);
                     }
                 }
+            };
+        }
+        macro_rules! count {
+            ($($get:ident => $name:literal),* $(,)?) => {$(
+                let mut v: c_long = 0;
+                // SAFETY: a counter query of this session's live memory into a local.
+                let available = unsafe { ffi::$get(self.mem, &raw mut v) } == ffi::IDA_SUCCESS;
+                observed_count!(available.then_some(v), $name);
             )*};
         }
-        count!(
-            IDAGetNumSteps => "steps",
-            IDAGetNumResEvals => "residual_evaluations",
-            IDAGetNumNonlinSolvIters => "nonlinear_iterations",
-            IDAGetNumNonlinSolvConvFails => "nonlinear_convergence_failures",
-            IDAGetNumErrTestFails => "error_test_failures",
-            IDAGetNumBacktrackOps => "initialization_backtracks",
+        let stats = self.integrator_statistics();
+        observed_count!(stats.map(|s| s.steps), "steps");
+        observed_count!(stats.map(|s| s.residuals), "residual_evaluations");
+        count!(IDAGetNumNonlinSolvIters => "nonlinear_iterations",
+            IDAGetNumNonlinSolvConvFails => "nonlinear_convergence_failures");
+        observed_count!(stats.map(|s| s.error_test_failures), "error_test_failures");
+        count!(IDAGetNumBacktrackOps => "initialization_backtracks",
             IDAGetNumGEvals => "root_evaluations",
             IDAGetNumLinIters => "linear_iterations",
             IDAGetNumPrecEvals => "preconditioner_evaluations",
-            IDAGetNumJtimesEvals => "jacobian_products",
-            IDAGetNumLinSolvSetups => "linear_setups",
-            IDAGetNumJacEvals => "jacobian_evaluations",
+            IDAGetNumJtimesEvals => "jacobian_products");
+        observed_count!(stats.map(|s| s.linear_setups), "linear_setups");
+        count!(IDAGetNumJacEvals => "jacobian_evaluations",
             IDAGetNumPrecSolves => "preconditioner_solves",
             IDAGetNumLinConvFails => "linear_convergence_failures",
-            IDAGetNumLinResEvals => "linear_residual_evaluations",
-        );
+            IDAGetNumLinResEvals => "linear_residual_evaluations");
         if self.forward && !self.sens.is_empty() {
             count!(
                 IDAGetSensNumResEvals => "sensitivity_residual_evaluations",
@@ -2621,29 +3148,32 @@ impl<'a> Session<'a> {
         }
         // IDAGetLastStep may expose IDACalcIC's artificial step before integration.
         // Only a positive actual step count establishes last accepted-step meaning.
-        let mut steps: c_long = 0;
-        // SAFETY: this live session owns IDAS memory; the getter writes one local scalar.
-        let advanced = unsafe { ffi::IDAGetNumSteps(self.mem, &raw mut steps) } == 0 && steps > 0;
-        macro_rules! output {
-            ($get:ident, $type:ty) => {{
-                let mut result: $type = Default::default();
-                // SAFETY: the live session owns IDAS memory; the getter writes a local
-                // scalar of the exact native output type and retains no pointer.
-                (unsafe { ffi::$get(self.mem, &raw mut result) } == 0).then_some(result)
-            }};
+        let advanced = stats.is_some_and(|s| s.steps > 0);
+        let initial_step = stats
+            .filter(|_| advanced)
+            .map(|s| s.initial_step)
+            .filter(|step| step.is_finite() && *step != 0.);
+        value["actual_initial_step"] =
+            initial_step.map_or(serde_json::Value::Null, serde_json::Value::from);
+        if let Some(step) = initial_step {
+            crate::observation::gauge("idas.initial_step", "physical_time", step);
+        } else {
+            crate::observation::unavailable(
+                "idas.initial_step",
+                "no accepted integration step in the current native segment",
+            );
         }
         let observation = crate::solve::NativeStepObservation::Idas {
-            last_order: advanced
-                .then(|| output!(IDAGetLastOrder, c_int))
-                .flatten()
-                .and_then(|order| u32::try_from(order).ok())
+            last_order: stats
+                .filter(|_| advanced)
+                .and_then(|s| u32::try_from(s.last_order).ok())
                 .filter(|order| *order > 0),
-            current_order: output!(IDAGetCurrentOrder, c_int)
-                .and_then(|order| u32::try_from(order).ok())
+            current_order: stats
+                .and_then(|s| u32::try_from(s.current_order).ok())
                 .filter(|order| *order > 0),
-            last_step: advanced.then(|| output!(IDAGetLastStep, f64)).flatten(),
-            current_step: output!(IDAGetCurrentStep, f64).filter(|step| *step != 0.0),
-            internal_time: output!(IDAGetCurrentTime, f64),
+            last_step: stats.filter(|_| advanced).map(|s| s.last_step),
+            current_step: stats.map(|s| s.current_step).filter(|step| *step != 0.),
+            internal_time: stats.map(|s| s.internal_time),
             returned_time,
         };
         // The derived observation has only scalar fields and lossless number encoding.
@@ -3125,6 +3655,7 @@ impl Session<'_> {
             ffi::IDAReInit(self.mem, start.time, self.y, self.dy),
             "adjoint forward reinitialization",
         )?;
+        bbd::install(self, p.idas.linear)?;
         if self.forward {
             for (v, values) in self.sens.iter().zip(&start.sensitivities) {
                 // SAFETY: as above, for each state sensitivity.
@@ -3222,6 +3753,56 @@ impl Session<'_> {
         let rate = unsafe { read(rate, n) };
         Ok((forward, rate, sensitivities))
     }
+    /// Current exact first-order ODE rates after the caller's actual adjoint jump.
+    /// The ordinary callback guard validates current providers, support and domain.
+    fn ode_backward_rates(
+        &mut self,
+        time: f64,
+        forward: &[f64],
+        states: &[Vec<f64>],
+    ) -> Result<Option<Vec<Vec<f64>>>, ProblemError> {
+        #[cfg(test)]
+        if self.force_backward_ic {
+            return Ok(None);
+        }
+        if !self
+            .callback
+            .contract
+            .differential
+            .iter()
+            .all(|state| *state)
+            || self.backward_mut()?.second_order()
+        {
+            return Ok(None);
+        }
+        let n = self.callback.contract.states.len();
+        if forward.len() != n || states.len() != 1 || states[0].len() != n {
+            return Err(ProblemError::internal(
+                "ODE adjoint rate initialization extent",
+            ));
+        }
+        self.callback.callback.execution.check()?;
+        let jacobian = self
+            .callback
+            .partials(time, forward)
+            .ok_or_else(|| self.callback.failed("ODE adjoint rate initialization"))?;
+        let symbolic = jacobian.symbolic();
+        let mut rate = Vec::with_capacity(n);
+        for column in 0..n {
+            let value = -symbolic
+                .col_range(column)
+                .map(|entry| jacobian.val()[entry] * states[0][symbolic.row_idx()[entry]])
+                .sum::<f64>();
+            if !value.is_finite() {
+                return Err(ProblemError::numerical(
+                    "nonfinite ODE adjoint initial rate",
+                ));
+            }
+            rate.push(value);
+        }
+        self.callback.callback.execution.check()?;
+        Ok(Some(vec![rate]))
+    }
     /// Start every backward problem at `t` with its adjoint values and quadratures:
     /// `IDAInitB`/`IDAInitBS` and their settings once, `IDAReInitB` afterwards, then
     /// `IDACalcICB`/`IDACalcICBS` for the algebraic adjoint and every rate.
@@ -3237,6 +3818,10 @@ impl Session<'_> {
         if self.backward_mut()?.problems.is_empty() {
             self.create_backward(t, p)?;
         }
+        // The all-differential first-order residual has identity mass. Its
+        // current transpose action determines consistent rates exactly; DAE
+        // and second-order systems retain native consistent initialization.
+        let exact_rates = self.ode_backward_rates(t, &forward.0, states)?;
         let b = self.backward_mut()?;
         let (fy, fyp) = (b.forward, b.forward_rate);
         // SAFETY: the adjoint's forward state vector holds the `n` states `forward` was
@@ -3259,8 +3844,15 @@ impl Session<'_> {
             // SAFETY: the problem's vectors hold its adjoint values and quadratures, the
             // extents the backward pass keeps `values` at.
             unsafe { write(problem.y, values.0) };
-            // SAFETY: as above.
-            unsafe { write(problem.yp, &vec![0.0; values.0.len()]) };
+            if let Some(rates) = &exact_rates {
+                // SAFETY: ode_backward_rates supplies one current n-state rate vector per
+                // problem, matching this live problem.yp and the adjoint state extent.
+                unsafe { write(problem.yp, &rates[index]) };
+            } else {
+                // SAFETY: this problem's live rate vector has the same extent as its
+                // checked adjoint states; the zero candidate is independent owned storage.
+                unsafe { write(problem.yp, &vec![0.0; values.0.len()]) };
+            }
             // SAFETY: as above.
             if !problem.quadrature.is_null() {
                 // SAFETY: the nonempty admitted quadrature vector has the sum extent.
@@ -3277,6 +3869,11 @@ impl Session<'_> {
                 )?;
             }
         }
+        if exact_rates.is_some() {
+            self.callback.callback.execution.check()?;
+            crate::observation::count("idas.adjoint.exact_ode_rate_initializations", 1);
+            return Ok(());
+        }
         // `tout1` only orients and scales the initialization step toward the start.
         let toward = t - (t - start).min(p.initial_step);
         let second = b.second_order();
@@ -3286,6 +3883,7 @@ impl Session<'_> {
             b.forward_sensitivity_rates.clone(),
         );
         for which in problems {
+            crate::observation::count("idas.adjoint.consistent_initializations", 1);
             let flag = if second {
                 // SAFETY: the session's live IDAS memory and adjoint vectors on its owning
                 // thread; the sensitivity arrays are local copies of the vector handles.
@@ -3318,7 +3916,7 @@ impl Session<'_> {
     fn create_backward(&mut self, t: f64, p: &Profile) -> Result<(), ProblemError> {
         let n = self.callback.contract.states.len();
         let width = self.callback.gradient_axes.len();
-        let context: *mut c_void = (&raw mut *self.callback).cast();
+        let context = self.user_data();
         let directions = self.backward_mut()?.directions.clone();
         let second = !directions.is_empty();
         let (size, quadratures, nonzeros) = if second {
@@ -3884,9 +4482,41 @@ pub(super) fn integrate_with_samples(
             directions: &[],
             forward_quadratures: false,
             admission: None,
+            current_execution: None,
+            workspace: None,
         },
         cancel,
         progress,
+        output,
+        |_, _| Ok(()),
+    );
+    Ok(report)
+}
+pub(super) fn integrate_with_storage(
+    oracle: &mut dyn Oracle,
+    p: &Profile,
+    integration: &[f64],
+    current: Execution,
+    workspace: Option<&mut IdasWorkspace>,
+    output: &mut SampleOutput<'_>,
+) -> Result<Report, ProblemError> {
+    let admission = current
+        .memory
+        .map(|bytes| oracle.prepared_layout(bytes).map(|layout| (layout, bytes)))
+        .transpose()?;
+    let (report, _, _) = attempt(
+        NumericalRequest {
+            oracle,
+            profile: p,
+            integration,
+            directions: &[],
+            forward_quadratures: false,
+            admission,
+            current_execution: Some(current.clone()),
+            workspace,
+        },
+        current.cancellation_control().clone(),
+        current.progress.clone(),
         output,
         |_, _| Ok(()),
     );
@@ -3940,12 +4570,16 @@ pub(super) fn forward_quadratures(
     progress: Arc<Progress>,
     admission: (Arc<PreparedLayout>, usize),
     reserved_bytes: usize,
+    storage: Option<(&mut IdasWorkspace, Execution)>,
 ) -> Result<ForwardQuadratures, ProblemError> {
     let mut observer = IgnoreSamples;
     let mut output = SampleOutput {
         retention: SampleRetention::Full,
         observer: &mut observer,
     };
+    let (workspace, current_execution) = storage.map_or((None, None), |(workspace, execution)| {
+        (Some(workspace), Some(execution))
+    });
     let (report, derivatives, _) = attempt(
         NumericalRequest {
             oracle,
@@ -3954,6 +4588,8 @@ pub(super) fn forward_quadratures(
             directions: &[],
             forward_quadratures: true,
             admission: Some(admission),
+            current_execution,
+            workspace,
         },
         cancel,
         progress,
@@ -4002,12 +4638,11 @@ pub(super) fn initialize_consistent(
             "invalid consistent-state request or original parameter extent",
         ));
     }
-    let dimension = match request.linear {
-        IdasLinear::Klu => None,
-        IdasLinear::Spgmr { dimension, .. } | IdasLinear::Spfgmr { dimension, .. } => {
-            Some(dimension.into_inner())
-        }
-    };
+    request.linear.validate_for_states(n)?;
+    let dimension = request
+        .linear
+        .krylov_dimension()
+        .map(|dimension| dimension.into_inner());
     if dimension.is_some_and(|value| i32::try_from(value).is_err()) {
         return Err(contract("invalid IDAS initialization Krylov dimension"));
     }
@@ -4239,6 +4874,10 @@ fn ic_counter(
 /// The gradient of the cotangent's functional over the integration parameters, on the
 /// IDAS adjoint (ADR-0110 item 3). The caller validated the profile and charged the
 /// checkpoint estimate.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "fresh adjoints bind scientific inputs and the optional actual-current execution separately"
+)]
 pub(super) fn gradient(
     oracle: &mut dyn Oracle,
     p: &Profile,
@@ -4247,6 +4886,7 @@ pub(super) fn gradient(
     cancel: Cancellation,
     progress: Arc<Progress>,
     admission: (Arc<PreparedLayout>, usize),
+    current: Option<Execution>,
 ) -> Result<Gradient, ProblemError> {
     backward_route(
         oracle,
@@ -4257,6 +4897,7 @@ pub(super) fn gradient(
         cancel,
         progress,
         admission,
+        current,
     )
 }
 /// The gradient and the Hessian over `directions` of the cotangent's functional, by
@@ -4275,6 +4916,7 @@ pub(super) fn hessian(
     cancel: Cancellation,
     progress: Arc<Progress>,
     admission: (Arc<PreparedLayout>, usize),
+    current: Option<Execution>,
 ) -> Result<Gradient, ProblemError> {
     backward_route(
         oracle,
@@ -4285,6 +4927,7 @@ pub(super) fn hessian(
         cancel,
         progress,
         admission,
+        current,
     )
 }
 /// One forward pass with checkpoints, the cotangent of its samples, and the backward pass
@@ -4302,6 +4945,7 @@ fn backward_route(
     cancel: Cancellation,
     progress: Arc<Progress>,
     admission: (Arc<PreparedLayout>, usize),
+    current: Option<Execution>,
 ) -> Result<Gradient, ProblemError> {
     let mut observer = IgnoreSamples;
     let mut output = SampleOutput {
@@ -4316,6 +4960,8 @@ fn backward_route(
             directions,
             forward_quadratures: false,
             admission: Some(admission),
+            current_execution: current,
+            workspace: None,
         },
         cancel,
         progress,
@@ -4377,6 +5023,8 @@ struct NumericalRequest<'a> {
     directions: &'a [usize],
     forward_quadratures: bool,
     admission: Option<(Arc<PreparedLayout>, usize)>,
+    current_execution: Option<Execution>,
+    workspace: Option<&'a mut IdasWorkspace>,
 }
 /// One IDAS attempt: the forward pass, then `after` once it completed, with every failure
 /// and stop kept in the report.
@@ -4394,8 +5042,10 @@ fn attempt<T>(
         directions,
         forward_quadratures,
         admission,
+        current_execution,
+        mut workspace,
     } = request;
-    let execution = Execution {
+    let execution = current_execution.unwrap_or_else(|| Execution {
         cancel: cancel.flag(),
         cancellation: cancel,
         started: Instant::now(),
@@ -4407,7 +5057,7 @@ fn attempt<T>(
         callback_role: pse_diagnostics::observation::ProducerRole::NativeCallback,
         enclosing_scope: None,
         abandonment: Arc::default(),
-    };
+    });
     let mut r = Report::new(p, output.retention, oracle.contract().parameters.len());
     if !directions.is_empty() {
         r.forward_axes = (0..integration.len()).collect();
@@ -4419,33 +5069,107 @@ fn attempt<T>(
         (report.progress, report.dropped_progress) = execution.progress.snapshot();
         report
     };
+    let mut retained = None;
+    let mut storage_key = None;
+    let mut coverage = None;
+    // Even a fresh/unsupported request must not borrow an allowance occupied by
+    // another retained native owner. The temporary identity lasts through teardown.
+    let fresh_identity = Arc::new(());
+    let identity = workspace
+        .as_ref()
+        .map_or(&fresh_identity, |owner| &owner.identity)
+        .clone();
+    let previous = workspace.as_deref_mut().and_then(|owner| owner.held.take());
+    if let Some((_, bytes)) = &admission {
+        coverage = match execution
+            .work_admission
+            .as_ref()
+            .map_or(Ok(None), |owner| owner.prepaid_storage(&identity, *bytes))
+        {
+            Ok(coverage) => coverage,
+            Err(error) => return (failure(r, error), None, 0),
+        };
+    }
+    if workspace.is_some()
+        && coverage.is_some()
+        && p.sensitivity != DynamicSensitivity::Adjoint
+        && directions.is_empty()
+        && !matches!(p.idas.linear, IdasLinear::SpgmrBbd { .. })
+        && let Some((layout, _)) = &admission
+    {
+        let profile = match profile_identity(p) {
+            Ok(profile) => profile,
+            Err(error) => return (failure(r, error), None, 0),
+        };
+        let key = StorageKey {
+            contract: oracle.contract().identity,
+            profile,
+            layout: layout.clone(),
+            forward_quadratures,
+        };
+        if let Some((old, storage)) = previous
+            && old.matches(&key)
+        {
+            retained = Some(storage);
+        }
+        storage_key = Some(key);
+    } else {
+        drop(previous);
+    }
+    // Bind and charge the complete BBD replacement population once, before even
+    // the requested-initial observation can invoke original source effects.
+    let native_admission = match bbd::admit(p.idas.linear, n, execution.clone()) {
+        Ok(admission) => admission,
+        Err(error) => return (failure(r, error), None, 0),
+    };
     let initial = crate::quality::contained(|| {
-        oracle.evaluate(
+        execution.check()?;
+        let initial = oracle.evaluate(
             0,
             Function::Initial,
             p.start,
             &vec![0.0; n],
             &p.parameters_at(integration, p.start),
             false,
-        )
+        )?;
+        execution.check()?;
+        Ok(initial)
     });
     let initial = match initial {
         Ok(initial) => initial,
         Err(error) => return (failure(r, error), None, 0),
     };
     r.requested_initial = initial.values;
-    let mut s = match Session::new(
+    let mut s = match Session::new_storage(
         oracle,
         integration,
         p,
         directions,
         admission.map(|(layout, _)| layout),
-        execution.clone(),
+        native_admission,
         forward_quadratures,
+        retained,
     ) {
         Ok(session) => session,
         Err(error) => return (failure(r, error), None, 0),
     };
+    if let Some(coverage) = coverage {
+        s.storage_lease = Some(coverage);
+    }
+    crate::observation::count(
+        if s.reused {
+            "idas.workspace.reuses"
+        } else {
+            "idas.workspace.constructions"
+        },
+        1,
+    );
+    #[cfg(test)]
+    if s.reused
+        && let Some(workspace) = workspace.as_deref_mut()
+    {
+        workspace.reuses += 1;
+    }
     // SAFETY: the new session's state vector holds the `n` states.
     r.consistent_initial = unsafe { read(s.y, n) };
     let mut outcome = None;
@@ -4477,6 +5201,29 @@ fn attempt<T>(
     }
     (r.progress, r.dropped_progress) = s.callback.callback.execution.progress.snapshot();
     let checkpoints = s.adjoint.as_ref().map_or(0, |b| b.checkpoints);
+    if let (Some(workspace), Some(key)) = (workspace, storage_key)
+        && r.termination == Termination::Completed
+        && r.error.is_none()
+        && s.callback.callback.execution.check().is_ok()
+    {
+        // Detach before the current Box/oracle can die. Failure destroys the
+        // native owner while that Box remains alive; no uncertain reset escapes.
+        if let Some(slot) = &mut s.user_data {
+            slot.current = std::ptr::null_mut();
+        }
+        if native!(
+            ffi::IDASetUserData(s.mem, std::ptr::null_mut()),
+            "detach independent callback"
+        )
+        .is_ok()
+        {
+            let mut storage = NativeStorage::take(&mut s);
+            storage.totals.fill(f64::NAN);
+            storage.quad_sens_totals.fill(f64::NAN);
+            storage.transition = None;
+            workspace.held = Some((key, storage));
+        }
+    }
     (r, outcome, checkpoints)
 }
 
@@ -4570,6 +5317,7 @@ mod initialization_tests {
         fail: bool,
         nonlinear: bool,
         omit_support: bool,
+        state_pointer: Arc<std::sync::atomic::AtomicUsize>,
     }
     impl IcOracle {
         fn new() -> Self {
@@ -4591,6 +5339,7 @@ mod initialization_tests {
                 fail: false,
                 nonlinear: false,
                 omit_support: false,
+                state_pointer: Arc::default(),
             }
         }
     }
@@ -4635,6 +5384,8 @@ mod initialization_tests {
                 "IC-only call does not evaluate outputs, events or quadratures"
             );
             self.residual_calls += 1;
+            self.state_pointer
+                .store(x.as_ptr() as usize, std::sync::atomic::Ordering::Relaxed);
             if self.fail {
                 return Err(pse_math::MathError::Domain {
                     source_id: SemanticId::from_bytes([92; 16]),
@@ -4651,7 +5402,7 @@ mod initialization_tests {
                 Some(
                     faer::sparse::SparseColMat::try_new_from_triplets(
                         2,
-                        2,
+                        2 + self.contract.parameters.len(),
                         &[
                             faer::sparse::Triplet::new(0, 0, -1.0),
                             faer::sparse::Triplet::new(
@@ -4749,6 +5500,493 @@ mod initialization_tests {
         assert!(point.rates.iter().all(|v| *v == 0.0));
         assert!(report.assessment.unwrap().roles_preserved);
     }
+    fn input_session(oracle: &mut IcOracle, linear: IdasLinear) -> Session<'_> {
+        let parameters = vec![0.0; oracle.contract.parameters.len()];
+        let map = (0..parameters.len()).collect();
+        Session::prepare(
+            oracle,
+            &parameters,
+            StatePreparation {
+                layout: None,
+                time: 0.0,
+                parameters: parameters.clone(),
+                map,
+                trial_failures: TrialPolicy::Terminal,
+                rtol: 1e-8,
+                atol: &[1e-10; 2],
+                initial_step: None,
+                linear,
+                forward: false,
+            },
+            execution(),
+        )
+        .unwrap()
+        .0
+    }
+    #[test]
+    fn coalesced_integrator_statistics_match_individual_getters_across_native_lifecycle() {
+        fn check(session: &Session<'_>) -> IntegratorStatistics {
+            let actual = session.integrator_statistics().unwrap();
+            let mut expected = IntegratorStatistics::default();
+            macro_rules! get {
+                ($getter:ident, $field:ident) => {
+                    assert_eq!(
+                        // SAFETY: the session owns live native memory and this getter's
+                        // exact C ABI output is private local storage. No solve intervenes.
+                        unsafe { ffi::$getter(session.mem, &raw mut expected.$field) },
+                        ffi::IDA_SUCCESS
+                    );
+                };
+            }
+            get!(IDAGetNumSteps, steps);
+            get!(IDAGetNumResEvals, residuals);
+            get!(IDAGetNumLinSolvSetups, linear_setups);
+            get!(IDAGetNumErrTestFails, error_test_failures);
+            get!(IDAGetLastOrder, last_order);
+            get!(IDAGetCurrentOrder, current_order);
+            get!(IDAGetActualInitStep, initial_step);
+            get!(IDAGetLastStep, last_step);
+            get!(IDAGetCurrentStep, current_step);
+            get!(IDAGetCurrentTime, internal_time);
+            assert_eq!(actual, expected);
+            actual
+        }
+        let mut oracle = IcOracle::new();
+        let mut session = input_session(&mut oracle, IdasLinear::Klu);
+        let profile = Profile {
+            atol: vec![1e-10; 2],
+            sensitivity: DynamicSensitivity::None,
+            ..Default::default()
+        };
+        assert_eq!(check(&session).steps, 0);
+        session
+            .consistent(0., &profile, ffi::IDA_YA_YDP_INIT)
+            .unwrap();
+        assert_eq!(check(&session).steps, 0);
+        assert!(
+            session.statistics(0, &profile, None)["native_step"]["last_step"].is_null(),
+            "IC artificial steps never become accepted-step observations"
+        );
+        assert!(session.statistics(0, &profile, None)["actual_initial_step"].is_null());
+        let mut time = 0.;
+        assert_eq!(
+            session.solve(0.1, &mut time, "statistics control").unwrap(),
+            ffi::IDA_SUCCESS
+        );
+        let advanced = check(&session);
+        assert!(advanced.steps > 0);
+        assert_eq!(
+            session.statistics(0, &profile, None)["actual_initial_step"].as_f64(),
+            Some(advanced.initial_step)
+        );
+        // SAFETY: these two-state result vectors remain owned by this live session.
+        let state = unsafe { read(session.y, 2) };
+        session.restart(time, &state, &profile, false).unwrap();
+        assert_eq!(check(&session).steps, 0);
+        assert!(session.statistics(0, &profile, None)["native_step"]["last_step"].is_null());
+        assert!(
+            session.statistics(0, &profile, None)["actual_initial_step"].is_null(),
+            "reset does not retain the earlier segment's initial step"
+        );
+        assert_eq!(
+            // SAFETY: the session owns live native memory exclusively throughout
+            // this per-call bound change; no solve is concurrent with this setter.
+            unsafe { ffi::IDASetMaxNumSteps(session.mem, 1) },
+            ffi::IDA_SUCCESS
+        );
+        assert_eq!(
+            session
+                .solve(2., &mut time, "limited statistics control")
+                .unwrap(),
+            ffi::IDA_TOO_MUCH_WORK
+        );
+        let limited = check(&session);
+        assert!(
+            limited.steps > 0,
+            "failed native returns retain actual completed work"
+        );
+        assert_eq!(
+            session.statistics(ffi::IDA_TOO_MUCH_WORK, &profile, None)["actual_initial_step"]
+                .as_f64(),
+            Some(limited.initial_step)
+        );
+        let mut unavailable = IntegratorStatistics {
+            steps: -7,
+            residuals: -7,
+            linear_setups: -7,
+            error_test_failures: -7,
+            last_order: -7,
+            current_order: -7,
+            initial_step: -7.,
+            last_step: -7.,
+            current_step: -7.,
+            internal_time: -7.,
+        };
+        let before = unavailable;
+        // SAFETY: the documented null-memory native error boundary writes none
+        // of these valid exact-type local output pointers and retains none.
+        let flag = unsafe {
+            ffi::IDAGetIntegratorStats(
+                std::ptr::null_mut(),
+                &raw mut unavailable.steps,
+                &raw mut unavailable.residuals,
+                &raw mut unavailable.linear_setups,
+                &raw mut unavailable.error_test_failures,
+                &raw mut unavailable.last_order,
+                &raw mut unavailable.current_order,
+                &raw mut unavailable.initial_step,
+                &raw mut unavailable.last_step,
+                &raw mut unavailable.current_step,
+                &raw mut unavailable.internal_time,
+            )
+        };
+        assert_eq!(flag, ffi::IDA_MEM_NULL);
+        assert_eq!(unavailable, before);
+    }
+    #[test]
+    fn callback_residual_borrows_native_state_and_publishes_after_aliased_inputs_end() {
+        for fail in [false, true] {
+            for alias_rate in [false, true] {
+                let mut oracle = IcOracle::new();
+                oracle.fail = fail;
+                let observed = oracle.state_pointer.clone();
+                let mut session = input_session(&mut oracle, IdasLinear::Klu);
+                // SAFETY: the session owns this two-entry state vector with no live borrow.
+                unsafe { write(session.y, &[2.0, 0.0]) };
+                // SAFETY: the independently writable rate vector also has exactly two entries.
+                unsafe { write(session.dy, &[5.0, 7.0]) };
+                let output = if alias_rate { session.dy } else { session.y };
+                // SAFETY: y is live in this session throughout the synchronous callback.
+                let expected_pointer = unsafe { ffi::N_VGetArrayPointer(session.y) } as usize;
+                // SAFETY: the live context and every native vector belong to this
+                // owner. The output intentionally aliases one of the native inputs.
+                let status =
+                    unsafe { residual(0.0, session.y, session.dy, output, session.user_data()) };
+                assert_eq!(
+                    observed.load(std::sync::atomic::Ordering::Relaxed),
+                    expected_pointer,
+                    "the oracle receives the actual borrowed native input"
+                );
+                // SAFETY: output is still a live two-entry session vector.
+                let actual = unsafe { read(output, 2) };
+                if fail {
+                    assert_ne!(status, 0);
+                    assert_eq!(actual, if alias_rate { [5.0, 7.0] } else { [2.0, 0.0] });
+                    assert!(matches!(
+                        session.callback.callback.last_failure,
+                        Some(ProblemError::Math(pse_math::MathError::Domain { .. }))
+                    ));
+                } else {
+                    assert_eq!(status, 0);
+                    // f=[-2,4], M=[1,0]: M*y'-f=[7,-4].
+                    assert_eq!(actual, [7.0, -4.0]);
+                }
+            }
+        }
+    }
+    #[test]
+    fn callback_jacobi_reuses_private_product_and_refuses_malformed_inputs_before_publish() {
+        let mut oracle = IcOracle::new();
+        let mut session = input_session(
+            &mut oracle,
+            IdasLinear::Spgmr {
+                dimension: PositiveCount::try_new(4).unwrap(),
+                preconditioner: Preconditioner::Jacobi,
+            },
+        );
+        session
+            .callback
+            .inverse_diagonal
+            .copy_from_slice(&[0.5, -2.0]);
+        let vector = session.vector(&[6.0, 9.0]).unwrap();
+        let pointer = session.callback.rhs_product.as_ptr();
+        for _ in 0..2 {
+            // SAFETY: vector is a live session-owned two-entry serial vector.
+            unsafe {
+                write(vector, &[6.0, 9.0]);
+            }
+            // SAFETY: this direct callback uses the live context and deliberately
+            // aliases its n-entry native input and output; unused inputs are null.
+            let status = unsafe {
+                precondition_solve(
+                    0.0,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    vector,
+                    vector,
+                    0.0,
+                    0.0,
+                    session.user_data(),
+                )
+            };
+            assert_eq!(status, 0);
+            // SAFETY: vector remains the same live two-entry serial vector.
+            assert_eq!(unsafe { read(vector, 2) }, [3.0, -18.0]);
+            assert_eq!(session.callback.rhs_product.as_ptr(), pointer);
+        }
+        let short = session.vector(&[42.0]).unwrap();
+        for input in [std::ptr::null_mut(), short] {
+            // SAFETY: vector is live and its output sentinel is independently owned.
+            unsafe {
+                write(vector, &[11.0, 13.0]);
+            }
+            // SAFETY: input is null or a live serial vector; the callback checks
+            // its extent before borrowing. All other pointers obey the contract.
+            let status = unsafe {
+                precondition_solve(
+                    0.0,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    input,
+                    vector,
+                    0.0,
+                    0.0,
+                    session.user_data(),
+                )
+            };
+            assert_eq!(status, -1);
+            // SAFETY: the output is live and refusal must leave its sentinel intact.
+            assert_eq!(unsafe { read(vector, 2) }, [11.0, 13.0]);
+            assert!(matches!(
+                session.callback.callback.last_failure,
+                Some(ProblemError::Internal(_))
+            ));
+        }
+    }
+    #[derive(Debug)]
+    struct SelectedDiagonal {
+        inner: IcOracle,
+        diagonal: Arc<[std::sync::atomic::AtomicU64; 2]>,
+        full_calls: Arc<std::sync::atomic::AtomicUsize>,
+    }
+    impl Oracle for SelectedDiagonal {
+        fn contract(&self) -> &Contract {
+            self.inner.contract()
+        }
+        fn support(&self, mode: usize, function: Function) -> Vec<SupportEntry> {
+            self.inner.support(mode, function)
+        }
+        fn evaluate(
+            &mut self,
+            mode: usize,
+            function: Function,
+            time: f64,
+            state: &[f64],
+            parameters: &[f64],
+            derivatives: bool,
+        ) -> Result<Evaluation, ProblemError> {
+            if derivatives {
+                self.full_calls
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }
+            self.inner
+                .evaluate(mode, function, time, state, parameters, derivatives)
+        }
+        fn rhs_state_diagonal(
+            &mut self,
+            _: usize,
+            _: f64,
+            _: &[f64],
+            _: &[f64],
+            output: &mut [f64],
+        ) -> Result<RhsDiagonalSource, ProblemError> {
+            for (out, value) in output.iter_mut().zip(self.diagonal.iter()) {
+                *out = f64::from_bits(value.load(std::sync::atomic::Ordering::Relaxed));
+            }
+            Ok(RhsDiagonalSource::SelectedEntries)
+        }
+    }
+    #[test]
+    fn jacobi_selected_diagonal_preserves_shift_mass_fallback_and_no_full_requests() {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        let diagonal = Arc::new([
+            AtomicU64::new((-1.0f64).to_bits()),
+            AtomicU64::new((-2.0f64).to_bits()),
+        ]);
+        let full_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut oracle = SelectedDiagonal {
+            inner: IcOracle::new(),
+            diagonal: diagonal.clone(),
+            full_calls: full_calls.clone(),
+        };
+        let (mut session, _) = Session::prepare(
+            &mut oracle,
+            &[],
+            StatePreparation {
+                layout: None,
+                time: 0.,
+                parameters: vec![],
+                map: vec![],
+                trial_failures: TrialPolicy::Terminal,
+                rtol: 1e-8,
+                atol: &[1e-10; 2],
+                initial_step: None,
+                linear: IdasLinear::Spgmr {
+                    dimension: PositiveCount::try_new(4).unwrap(),
+                    preconditioner: Preconditioner::Jacobi,
+                },
+                forward: false,
+            },
+            execution(),
+        )
+        .unwrap();
+        let pointer = session.callback.rhs_product.as_ptr();
+        for (shift, raw, expected) in [
+            (3., [-1., -2.], [0.25, 0.5]),
+            (7., [-1., -2.], [0.125, 0.5]),
+            (0., [0., 1e-320], [1., 1.]),
+            (f64::MAX, [-f64::MAX, 0.], [1., 1.]),
+        ] {
+            for (value, raw) in diagonal.iter().zip(raw) {
+                value.store(f64::to_bits(raw), Ordering::Relaxed);
+            }
+            // SAFETY: all supplied vectors/context belong to this live two-state
+            // session; the unused native inputs are null and never dereferenced.
+            let status = unsafe {
+                precondition_setup(
+                    0.,
+                    session.y,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    shift,
+                    session.user_data(),
+                )
+            };
+            assert_eq!(status, 0);
+            assert_eq!(
+                session.callback.inverse_diagonal, expected,
+                "independent diag(cj*[1,0]-raw) with unchanged finite/small fallback"
+            );
+            assert_eq!(session.callback.rhs_product.as_ptr(), pointer);
+        }
+        assert_eq!(full_calls.load(Ordering::Relaxed), 0);
+        let before = session.callback.inverse_diagonal.clone();
+        diagonal[1].store(f64::NAN.to_bits(), Ordering::Relaxed);
+        // SAFETY: the same live session owns all used handles; malformed raw
+        // numerical output is refused before replacing any inverse entry.
+        let status = unsafe {
+            precondition_setup(
+                0.,
+                session.y,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                2.,
+                session.user_data(),
+            )
+        };
+        assert_ne!(status, 0);
+        assert_eq!(session.callback.inverse_diagonal, before);
+    }
+    #[test]
+    fn rhs_diagonal_full_fallback_keeps_prepared_support_refusal_without_support_replay() {
+        let mut oracle = IcOracle::new();
+        oracle.omit_support = true;
+        let mut session = input_session(
+            &mut oracle,
+            IdasLinear::Spgmr {
+                dimension: PositiveCount::try_new(4).unwrap(),
+                preconditioner: Preconditioner::Jacobi,
+            },
+        );
+        session
+            .callback
+            .inverse_diagonal
+            .copy_from_slice(&[9., 10.]);
+        // SAFETY: all used handles/context belong to this live session. The oracle
+        // deliberately returns an off-diagonal absent from its prepared support.
+        let status = unsafe {
+            precondition_setup(
+                0.,
+                session.y,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                3.,
+                session.user_data(),
+            )
+        };
+        assert_ne!(status, 0);
+        assert_eq!(session.callback.inverse_diagonal, [9., 10.]);
+        assert!(matches!(
+            session.callback.callback.last_failure,
+            Some(ProblemError::Contract(_))
+        ));
+    }
+    #[test]
+    fn rhs_diagonal_full_fallback_is_explicit_and_refuses_before_output_publish() {
+        let mut oracle = IcOracle::new();
+        let mut output = [42., 43.];
+        assert!(matches!(
+            oracle
+                .rhs_state_diagonal(0, 0., &[2., 4.], &[], &mut output)
+                .unwrap(),
+            RhsDiagonalSource::FullJacobian(_)
+        ));
+        assert_eq!(output, [-1., -1.]);
+        oracle.fail = true;
+        output = [42., 43.];
+        assert!(
+            oracle
+                .rhs_state_diagonal(0, 0., &[2., 4.], &[], &mut output)
+                .is_err()
+        );
+        assert_eq!(output, [42., 43.]);
+        assert!(
+            oracle
+                .rhs_state_diagonal(1, 0., &[2., 4.], &[], &mut output)
+                .is_err()
+        );
+        assert_eq!(output, [42., 43.]);
+    }
+    #[test]
+    fn callback_sensitivities_finish_all_rate_borrows_before_cross_axis_alias_publication() {
+        let mut oracle = IcOracle::new();
+        oracle.contract.parameters = vec![
+            SemanticId::from_bytes([3; 16]),
+            SemanticId::from_bytes([4; 16]),
+        ];
+        let mut session = input_session(&mut oracle, IdasLinear::Klu);
+        // This direct callback fixture selects two physically valid parameter axes;
+        // it does not ask the native integrator to advance sensitivity history.
+        session.callback.axes = vec![0, 1];
+        let mut states = [
+            session.vector(&[1.0, 2.0]).unwrap(),
+            session.vector(&[3.0, 4.0]).unwrap(),
+        ];
+        let mut rates = [
+            session.vector(&[5.0, 6.0]).unwrap(),
+            session.vector(&[7.0, 8.0]).unwrap(),
+        ];
+        // The first output aliases the second input rate, so publishing the first
+        // result early would corrupt the still-needed second input.
+        let mut outputs = [rates[1], rates[0]];
+        // SAFETY: the live session/context owns each two-entry vector; all three
+        // arrays contain the stated two handles. Output/input alias is intentional.
+        let status = unsafe {
+            sensitivities(
+                2,
+                0.0,
+                session.y,
+                session.dy,
+                session.dy,
+                states.as_mut_ptr(),
+                rates.as_mut_ptr(),
+                outputs.as_mut_ptr(),
+                session.user_data(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            )
+        };
+        assert_eq!(status, 0);
+        // SAFETY: the first output still denotes a live two-entry session vector.
+        let first = unsafe { read(outputs[0], 2) };
+        // SAFETY: the second output also remains live at its two-entry extent.
+        let second = unsafe { read(outputs[1], 2) };
+        assert_eq!(first, [6.0, 0.0]);
+        assert_eq!(second, [10.0, -2.0]);
+    }
     #[test]
     fn krylov_action_reuses_admitted_buffers_and_publishes_after_foreign_input_borrows_end() {
         use pse_model::scalars::PositiveCount;
@@ -4799,7 +6037,7 @@ mod initialization_tests {
                         direction,
                         output,
                         2.,
-                        (&raw mut *session.callback).cast(),
+                        session.user_data(),
                         std::ptr::null_mut(),
                         std::ptr::null_mut(),
                     )

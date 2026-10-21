@@ -5,6 +5,8 @@ mod exact_objective;
 mod observations;
 mod record;
 mod retention;
+#[cfg(any(feature = "kinsol", test))]
+mod root_progress;
 mod snapshot;
 use crate::ProblemError;
 pub use exact_objective::ExactObjectiveTransport;
@@ -23,6 +25,8 @@ use pse_model::{
     scalars::{Fraction, Tolerance},
 };
 pub use record::{AttemptRecord, NativeAttemptRecordDocument, SubmittedStartRecord};
+#[cfg(any(feature = "kinsol", test))]
+pub(crate) use root_progress::{RootEvaluation, RootEvaluationLayout};
 use std::{
     collections::{BTreeMap, VecDeque},
     sync::{
@@ -698,8 +702,30 @@ struct ProgressObservers {
 }
 #[derive(Debug, Default)]
 struct ProgressState {
-    recent: VecDeque<Event>,
-    current: Option<Event>,
+    recent: VecDeque<StoredEvent>,
+    current: Option<StoredEvent>,
+}
+#[derive(Clone, Debug)]
+enum StoredEvent {
+    Rich(Event),
+    #[cfg(any(feature = "kinsol", test))]
+    Root(RootEvaluation),
+}
+impl StoredEvent {
+    fn event(&self) -> Event {
+        match self {
+            Self::Rich(event) => event.clone(),
+            #[cfg(any(feature = "kinsol", test))]
+            Self::Root(event) => event.event(),
+        }
+    }
+    fn retained_bytes(&self) -> usize {
+        match self {
+            Self::Rich(event) => event.retained_bytes(),
+            #[cfg(any(feature = "kinsol", test))]
+            Self::Root(event) => event.retained_bytes(),
+        }
+    }
 }
 impl Event {
     /// Retained bytes: the phase, the values and the incumbent.
@@ -782,13 +808,33 @@ impl Progress {
             .source
             .get_or_insert_with(|| EventSource::new("unspecified", None, None));
         source.generation = self.generation;
-        source.sequence = self
-            .sequence
+        source.sequence = self.next_sequence();
+        let producer = self.producer(source.role, &source.family, owner);
+        crate::observation::event(&mut event, producer.as_ref());
+        if let Some(tap) = &self.tap {
+            tap.observe(&event);
+        }
+        if event.retained_bytes() > 4096
+            && let Some(incumbent) = event.incumbent.as_mut()
+        {
+            incumbent.primal = None;
+        }
+        self.retain(StoredEvent::Rich(event));
+    }
+    fn next_sequence(&self) -> u64 {
+        self.sequence
             .try_update(Ordering::Relaxed, Ordering::Relaxed, |old| {
                 Some(old.saturating_add(1))
             })
             .unwrap_or(u64::MAX)
-            .saturating_add(1);
+            .saturating_add(1)
+    }
+    fn producer(
+        &self,
+        role: pse_diagnostics::observation::ProducerRole,
+        family: &str,
+        owner: Option<&pse_diagnostics::observation::Producer>,
+    ) -> Option<pse_diagnostics::observation::Producer> {
         let context = self
             .context
             .get()
@@ -803,48 +849,72 @@ impl Progress {
         let producer = owner.cloned().or_else(|| {
             self.observers.try_lock().ok().and_then(|mut observers| {
                 let context = context.as_ref()?;
-                if let Some((_, _, producer)) = observers
-                    .producers
-                    .iter()
-                    .find(|(role, family, _)| *role == source.role && *family == source.family)
+                if let Some((_, _, producer)) =
+                    observers
+                        .producers
+                        .iter()
+                        .find(|(cached_role, cached_family, _)| {
+                            *cached_role == role && cached_family == family
+                        })
                 {
                     return Some(producer.clone());
                 }
-                if observers.producers.len() >= 32 || source.family.len() > 128 {
+                if observers.producers.len() >= 32 || family.len() > 128 {
                     return None;
                 }
-                let producer = context.producer(source.role, &source.family);
+                let producer = context.producer(role, family);
                 observers
                     .producers
-                    .push((source.role, source.family.clone(), producer.clone()));
+                    .push((role, family.to_owned(), producer.clone()));
                 Some(producer)
             })
         });
         if producer.is_none()
             && let Some(context) = context
         {
-            context.record_source_unavailable(&source.family);
+            context.record_source_unavailable(family);
         }
-        crate::observation::event(&mut event, producer.as_ref());
+        producer
+    }
+    /// Prepared source identity and scalar payload; rich values are materialized only
+    /// for a durable consumer or a public current/history projection.
+    #[cfg(any(feature = "kinsol", test))]
+    pub(crate) fn push_root_evaluation(
+        &self,
+        layout: Arc<RootEvaluationLayout>,
+        ordinal: i64,
+        residuals: &[f64],
+        elapsed: Duration,
+        owner: Option<&pse_diagnostics::observation::Producer>,
+    ) {
+        let sequence = self.next_sequence();
+        let producer = self.producer(layout.role(), layout.family(), owner);
+        let mut event = RootEvaluation::new(
+            layout,
+            ordinal,
+            residuals,
+            elapsed,
+            self.generation,
+            sequence,
+        );
+        event.observe(producer.as_ref());
         if let Some(tap) = &self.tap {
-            tap.observe(&event);
+            tap.observe(&event.event());
         }
-        if let Ok(mut s) = self.events.try_lock() {
-            if event.retained_bytes() > 4096
-                && let Some(incumbent) = event.incumbent.as_mut()
-            {
-                incumbent.primal = None;
-            }
-            if event.retained_bytes() <= 4096 {
-                s.current = Some(event.clone());
-                if self.limit > 0 {
-                    if s.recent.len() == self.limit {
-                        s.recent.pop_front();
-                        self.lose();
-                    }
-                    s.recent.push_back(event);
-                    return;
+        self.retain(StoredEvent::Root(event));
+    }
+    fn retain(&self, event: StoredEvent) {
+        if event.retained_bytes() <= 4096
+            && let Ok(mut state) = self.events.try_lock()
+        {
+            state.current = Some(event.clone());
+            if self.limit > 0 {
+                if state.recent.len() == self.limit {
+                    state.recent.pop_front();
+                    self.lose();
                 }
+                state.recent.push_back(event);
+                return;
             }
         }
         self.lose();
@@ -864,7 +934,10 @@ impl Progress {
     /// Latest compact checkpoint, including when history retention is disabled.
     /// Contention is unavailable, never a reason to wait for a native owner.
     pub fn current(&self) -> Option<Event> {
-        self.events.try_lock().ok().and_then(|s| s.current.clone())
+        self.events
+            .try_lock()
+            .ok()
+            .and_then(|s| s.current.as_ref().map(StoredEvent::event))
     }
     /// Producer events omitted from retained history/current, without copying history.
     /// This includes intentional history-zero omission; inspect `current` and source
@@ -878,7 +951,7 @@ impl Progress {
         let dropped = self.dropped_count();
         self.events.try_lock().map_or_else(
             |_| (Vec::new(), dropped.saturating_add(1)),
-            |s| (s.recent.iter().cloned().collect(), dropped),
+            |s| (s.recent.iter().map(StoredEvent::event).collect(), dropped),
         )
     }
 }
@@ -1055,6 +1128,15 @@ pub enum NativeStorageScope {
 /// Task-owned pre-operation admission for disjoint native work. Reservations and
 /// actual observations remain distinct, and an absent counter is unknown.
 pub trait WorkAdmission: std::fmt::Debug + Send + Sync {
+    /// Claim actual prepaid foreign coverage for one simultaneously retained owner.
+    /// Unknown extent leaves reuse unavailable; another live claimant refuses before effects.
+    fn prepaid_storage(
+        &self,
+        _identity: &Arc<()>,
+        _required_bytes: usize,
+    ) -> Result<Option<Arc<dyn std::any::Any + Send + Sync>>, ProblemError> {
+        Ok(None)
+    }
     /// Transfer allocation leases independently of the completed task's work ledger.
     /// A retained native owner replaces this token only after its replacement is admitted.
     fn retain_storage(&self) -> Option<Arc<dyn std::any::Any + Send + Sync>> {
@@ -1924,7 +2006,9 @@ pub struct StartReceipt {
     pub sparse_seed: Option<BTreeMap<SemanticId, f64>>,
     /// Transformations the seed passed through before the native API.
     pub transformations: Vec<SeedTransformation>,
-    /// API submission is observable; native internal consumption may remain unavailable.
+    /// This receipt's selected prior/sparse seed reached the API. A cold primal
+    /// can still be submitted independently (`Evidence::start_submitted`). Native
+    /// internal consumption may remain unavailable.
     pub submitted: bool,
 }
 impl StartReceipt {
@@ -1932,7 +2016,8 @@ impl StartReceipt {
     /// received it and every transformation it passed through, including the interior-point
     /// restart the adapter applied (F25, L-N3).
     pub fn record(&mut self, report: &SolveReport, normalization: ContentHash) {
-        self.submitted = report.evidence.start_submitted;
+        self.submitted =
+            (self.seed.is_some() || self.sparse_seed.is_some()) && report.evidence.start_submitted;
         if self.seed.is_some() || self.sparse_seed.is_some() {
             self.transformations =
                 SeedTransformation::path(normalization, report.preprocessing.as_ref());
@@ -2368,7 +2453,8 @@ pub struct LeastInfeasible {
     /// Original rows violated beyond their acceptance budget, with the physical violation.
     pub violated: Vec<crate::quality::Violation>,
 }
-/// One native attempt, including unsuccessful attempts with no usable candidate.
+/// One admitted numerical attempt, including bounded adapter-owned native calls
+/// and unsuccessful attempts with no usable candidate.
 #[derive(Clone, Debug)]
 pub struct SolveReport {
     pub(crate) callback_failure: Option<Arc<ProblemError>>,

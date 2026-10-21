@@ -34,6 +34,13 @@ scope. The current plan-authoring turn does not delete data or mutate production
 
 ## Qualification handoff from existing plans
 
+The later [Plan48 qualification owner](48h-qualification-and-design-publication.md) supplies
+implemented corrections and selected source, native, result-publication and diagnostic
+controls for the current target. Consume its package-owned evidence only for the affected
+requirements; Plan48's selected assembled qualification remains pending. These deliveries
+do not complete this plan's E3/E4/E5 campaign, resume its stopped reference profiles or
+require rebuilding historical source/environment provenance as a new proof target.
+
 Plan 27 has implemented its A/B/C functional scope and immediate deletions, with a focused
 77-control native accuracy selection and generator/Python transport evidence recorded at its
 [checkpoint](https://github.com/paul-heyse/pse-arrow/blob/4c24721e691187e1a5b28398b29722fbde671da8/docs/plans/27-contextual-engineering-accuracy.md#current-checkpoint).
@@ -764,6 +771,14 @@ owning package and rerun the affected scope. Extra SIMD/JIT/WASM/server-distribu
 generic search/MCP work needs a concrete new requirement; it is not hidden acceptance scope.
 
 ## Checkpoint and next step
+
+The current handoff is the bounded Plan48 evidence selection above. E3/E4/E5 and composed
+N4/T5/L4 acceptance remain open at this owner. A later authorized continuation must select
+the applicable current operation and its actual prerequisites; the stopped-profile, worker
+and service observations below describe the historical campaign, not current deployment
+readiness after subsequent implementation changes. No campaign is resumed by this update.
+
+### Historical checkpoint — 2026-10-11
 
 Execution resumed on 2026-10-11 under the maintainer's instruction to implement the
 detailed remaining-scope approach, starting from `e403c66c81f73fbc45f61542df8b7504a87c38eb`.

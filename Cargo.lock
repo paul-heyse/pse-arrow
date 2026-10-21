@@ -4438,6 +4438,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
+name = "levenberg-marquardt"
+version = "0.15.0"
+source = "git+https://github.com/rust-cv/levenberg-marquardt.git?rev=e67066cf1351e91e054c30fcb2ff49d005db1e50#e67066cf1351e91e054c30fcb2ff49d005db1e50"
+dependencies = [
+ "cfg-if",
+ "nalgebra 0.35.0",
+ "num-traits",
+ "rustc_version",
+]
+
+[[package]]
 name = "lexical-core"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6226,6 +6237,7 @@ name = "pse-codegen"
 version = "0.0.1"
 dependencies = [
  "arrow-array",
+ "arrow-ipc",
  "arrow-schema",
  "petgraph",
  "prettyplease 0.3.0",
@@ -6235,6 +6247,7 @@ dependencies = [
  "pse-quantity",
  "pse-schema",
  "quote",
+ "serde",
  "serde_json",
  "syn 3.0.5",
 ]
@@ -6295,6 +6308,7 @@ dependencies = [
 name = "pse-diagnostics"
 version = "0.0.1"
 dependencies = [
+ "allocation-counter",
  "event-listener",
  "miette",
  "pin-project-lite",
@@ -6595,7 +6609,9 @@ dependencies = [
  "faer",
  "flatbuffers",
  "futures-util",
+ "levenberg-marquardt",
  "miette",
+ "nalgebra 0.35.0",
  "ndarray 0.16.1",
  "object_store",
  "parquet",
@@ -6649,6 +6665,7 @@ dependencies = [
  "arrow-array",
  "arrow-buffer",
  "arrow-cast",
+ "arrow-ipc",
  "arrow-ord",
  "arrow-schema",
  "arrow-select",

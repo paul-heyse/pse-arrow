@@ -188,6 +188,19 @@ fn attempt(
     execution: &Execution,
     sensitivity: DynamicSensitivity,
 ) -> super::SimulationProfile {
+    let mut profile = requested_profile(profile, sensitivity);
+    profile.time_limit = profile.time_limit.min(
+        execution
+            .time_limit
+            .saturating_sub(execution.started.elapsed()),
+    );
+    profile
+}
+#[cfg(feature = "solver-diffsol")]
+fn requested_profile(
+    profile: &super::SimulationProfile,
+    sensitivity: DynamicSensitivity,
+) -> super::SimulationProfile {
     let mut profile = profile.clone();
     profile.sensitivity = sensitivity;
     if sensitivity != DynamicSensitivity::Forward {
@@ -196,11 +209,6 @@ fn attempt(
     if sensitivity != DynamicSensitivity::Adjoint {
         profile.adjoint_parameters = native::dynamics::AdjointParameters::All;
     }
-    profile.time_limit = profile.time_limit.min(
-        execution
-            .time_limit
-            .saturating_sub(execution.started.elapsed()),
-    );
     profile
 }
 
@@ -240,6 +248,27 @@ impl IntegratedExperiment {
             return Err(ProblemError::internal(
                 "an adjoint product is a gradient, not an integration",
             ));
+        }
+        #[cfg(feature = "solver-idas")]
+        if self.profile.resolved_method()? == native::dynamics::Method::Idas {
+            let mut profile = requested_profile(&self.profile, sensitivity);
+            if sensitivity == DynamicSensitivity::Forward {
+                profile.forward_axes = Some(selected.to_vec());
+            }
+            let mut workspace = worker.take_idas_workspace();
+            let result = native::dynamics::integrate_with_workspace_observed(
+                worker,
+                &profile,
+                &self.bind(value),
+                execution,
+                &self.snapshot,
+                &mut workspace,
+            );
+            let success = result
+                .as_ref()
+                .is_ok_and(|report| report.termination == native::dynamics::Termination::Completed);
+            worker.restore_idas_workspace(workspace, success);
+            return completed(result?);
         }
         let mut profile = attempt(&self.profile, execution, sensitivity);
         if sensitivity == DynamicSensitivity::Forward {
@@ -341,11 +370,8 @@ impl IntegratedExperiment {
         selected: &[usize],
         cotangent: native::dynamics::Cotangent<'_>,
     ) -> Result<(native::dynamics::Report, Vec<(usize, f64)>), ProblemError> {
-        let memory = execution.memory.ok_or_else(|| {
-            ProblemError::Contract(
-                "adjoint gradients need the worker's admitted foreign allowance".into(),
-            )
-        })?;
+        #[cfg(feature = "solver-idas")]
+        worker.discard_idas_workspace();
         let bindings = selected
             .iter()
             .map(|index| {
@@ -367,13 +393,12 @@ impl IntegratedExperiment {
             gradient,
             parameter_axes,
             ..
-        } = native::dynamics::gradient_observed(
+        } = native::dynamics::gradient_current_observed(
             worker,
             &profile,
             &self.bind(value),
             cotangent,
-            execution.cancellation_control().clone(),
-            memory,
+            execution,
             &self.snapshot,
         )?;
         let report = completed(report)?;
@@ -418,11 +443,7 @@ impl IntegratedExperiment {
         selected: &[usize],
         cotangent: native::dynamics::Cotangent<'_>,
     ) -> Result<SecondOrder, ProblemError> {
-        let memory = execution.memory.ok_or_else(|| {
-            ProblemError::Contract(
-                "second-order adjoints need the worker's admitted foreign allowance".into(),
-            )
-        })?;
+        worker.discard_idas_workspace();
         let bindings = selected
             .iter()
             .map(|b| {
@@ -443,14 +464,13 @@ impl IntegratedExperiment {
             gradient,
             hessian,
             ..
-        } = native::dynamics::hessian_observed(
+        } = native::dynamics::hessian_current_observed(
             worker,
             &profile,
             &self.bind(value),
             &directions,
             cotangent,
-            execution.cancellation_control().clone(),
-            memory,
+            execution,
             &self.snapshot,
         )?;
         let report = completed(report)?;
@@ -508,6 +528,27 @@ impl IntegratedExperiment {
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("dynamics.window_ivp_initializations", "count", 1);
         }
+        #[cfg(feature = "solver-idas")]
+        if window.profile.resolved_method()? == native::dynamics::Method::Idas {
+            let mut workspace = worker.take_idas_workspace();
+            let result = (|| {
+                let mut oracle = worker.window(false)?;
+                let profile = oracle.profile(&requested_profile(&window.profile, sensitivity));
+                native::dynamics::integrate_with_workspace_observed(
+                    &mut oracle,
+                    &profile,
+                    &Self::window_parameters(window, integration, anchors)?,
+                    execution,
+                    &self.snapshot,
+                    &mut workspace,
+                )
+            })();
+            let success = result
+                .as_ref()
+                .is_ok_and(|report| report.termination == native::dynamics::Termination::Completed);
+            worker.restore_idas_workspace(workspace, success);
+            return completed(result?);
+        }
         let mut oracle = worker.window(false)?;
         let profile = oracle.profile(&attempt(&window.profile, execution, sensitivity));
         let report = native::dynamics::integrate_with_progress_observed(
@@ -532,7 +573,7 @@ impl IntegratedExperiment {
         execution: &Execution,
     ) -> Result<native::dynamics::ForwardQuadratures, ProblemError> {
         execution.check()?;
-        let memory = execution.memory.ok_or_else(|| {
+        execution.memory.ok_or_else(|| {
             ProblemError::Contract(
                 "forward quadratures need the worker's admitted foreign allowance".into(),
             )
@@ -545,21 +586,27 @@ impl IntegratedExperiment {
                 1,
             );
         }
-        let mut oracle = worker.window(false)?;
-        let profile = oracle.profile(&attempt(
-            &window.profile,
-            execution,
-            DynamicSensitivity::Forward,
-        ));
-        let mut product = native::dynamics::forward_quadratures_observed(
-            &mut oracle,
-            &profile,
-            &Self::window_parameters(window, integration, anchors)?,
-            execution.cancellation_control().clone(),
-            std::sync::Arc::new(native::solve::Progress::new(256)),
-            &self.snapshot,
-            memory,
-        )?;
+        let mut workspace = worker.take_idas_workspace();
+        let result = (|| {
+            let mut oracle = worker.window(false)?;
+            let profile = oracle.profile(&requested_profile(
+                &window.profile,
+                DynamicSensitivity::Forward,
+            ));
+            native::dynamics::forward_quadratures_with_workspace_observed(
+                &mut oracle,
+                &profile,
+                &Self::window_parameters(window, integration, anchors)?,
+                execution,
+                &self.snapshot,
+                &mut workspace,
+            )
+        })();
+        let success = result.as_ref().is_ok_and(|product| {
+            product.report.termination == native::dynamics::Termination::Completed
+        });
+        worker.restore_idas_workspace(workspace, success);
+        let mut product = result?;
         product.report = completed(product.report)?;
         if product.derivatives.as_ref().is_none_or(|values| {
             values.len()
@@ -594,11 +641,8 @@ impl IntegratedExperiment {
         selected: &[usize],
         cotangent: native::dynamics::Cotangent<'_>,
     ) -> Result<WindowGradient, ProblemError> {
-        let memory = execution.memory.ok_or_else(|| {
-            ProblemError::Contract(
-                "adjoint gradients need the worker's admitted foreign allowance".into(),
-            )
-        })?;
+        #[cfg(feature = "solver-idas")]
+        worker.discard_idas_workspace();
         execution.check()?;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("dynamics.window_adjoint_initializations", "count", 1);
@@ -616,13 +660,12 @@ impl IntegratedExperiment {
             gradient,
             parameter_axes,
             ..
-        } = native::dynamics::gradient_observed(
+        } = native::dynamics::gradient_current_observed(
             &mut oracle,
             &profile,
             &Self::window_parameters(window, integration, anchors)?,
             cotangent,
-            execution.cancellation_control().clone(),
-            memory,
+            execution,
             &self.snapshot,
         )?;
         let report = completed(report)?;

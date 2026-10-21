@@ -31,6 +31,8 @@ use pse_math::{binding::ObjectiveSense, normalization::Normalization};
 use pse_model::generated::enums::ModelingVariableDomain;
 use std::time::Instant;
 
+mod portfolio_inquiry;
+
 const ALPHA: f64 = 1e-2;
 
 /// The grid side `m`: `PSE_MEASURE_GRID`, else 100, read once.

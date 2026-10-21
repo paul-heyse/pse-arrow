@@ -55,6 +55,25 @@ supervisor's join wait overlaps native execution. Shared-flight waiters link to 
 their waiting intervals are not additional construction or exclusive CPU time. A stale
 checkpoint or opaque native interval alone does not establish a hang.
 
+Phase retirement is independent of optional duration/history publication. Dropping an
+admitted guard retires its current token even when optional detail is contended or refused;
+terminal operations also suppress still-live phase tokens. Lost exit detail remains explicit
+and does not fabricate a measured duration. Nested phase intervals are inclusive, so their
+sum is not exclusive elapsed or CPU time.
+
+`modeling.specialization`, `compiler.typed_body_lowering` and
+`compiler.body_materialization` mark their actual source owners. They are nested,
+inclusive intervals with reliable current retirement and optional bounded history.
+Use them to locate preparation work; adding them together does not produce a
+disjoint preparation total.
+
+Ordinary callback facts publish one coherent tuple at each safe return: attempted/completed
+calls, elapsed time, accumulated seconds, optional selected thread CPU and the failure class
+refer to the same accepted population. An in-flight callback is represented by its active
+phase; its last completed tuple remains a prior safe checkpoint. A refused tuple is omitted
+as a whole and updates loss coverage. Exact locally counted final report facts are separate
+from this optional live population; do not join them into a synthetic complete live history.
+
 A durable-study wait is associated with the primary admitted for that dispatch.
 If it drains or is known to have changed and no terminal inventory exists, execution
 returns `StudyExecutionUnavailable` with the study identity. Inspect the retained
@@ -134,6 +153,12 @@ operation's collection coverage and generation; missing metrics do not establish
 | `compiler.projection_lookups`, `compiler.projection_lookup_entries` | Shared runtime/formal lookup construction and its entries for a grouped projection. Consumer-local normalization remains separate. |
 | `study.parent_cancellation_handled` | Actual study frontier cancellation handling, independent of the child token already observing its parent. |
 
+Ordinary compiler query observation reuses prepared current-operation handles and does not
+format authored database keys per event. Explicitly selecting `compiler_query.v1` adds opaque
+query ingredient/key locators for source attribution. Salsa execution events do not report a
+miss cause, and wait-entry events have no matching duration exit; those quantities remain
+unavailable rather than inferred from another phase.
+
 The `math.compiler_admission` phase is a wait for exclusive workspace authority before
 active CPU/native dispatch. It still occupies the existing bounded population. A subsequent
 `native.join.wait` can overlap execution and foreign teardown; neither interval is exclusive
@@ -173,12 +198,22 @@ an already completed curvature product is a separate fact. Failure or cancellati
 cannot publish partial curvature as a completion. Counts describe the observed demands,
 not every optimizer iteration or every scientific output.
 
-The explicit compiled scalar evaluator adds the `math.native_scalar_compilation` phase,
-`math.native_scalar_compilations`, `math.native_scalar_evaluations` and
-`math.native_scalar_executable_bytes`. Compilation counts successful loaded modules;
-evaluation counts native arithmetic calls, not independently accepted outputs. Executable
-bytes describe the generated file, not mapped-memory residency. Compare compilation work
-with actual eligible value or derivative demand rather than assuming amortization.
+The explicit compiled scalar evaluator exposes the `math.native_scalar_preparation` phase;
+actual compiler/linker misses have a nested `math.native_scalar_compilation` phase.
+`math.native_scalar_compilations` counts successfully compiled and loaded modules;
+`math.native_scalar_cache_hits` counts complete compatible code images received without
+compiler children. `math.native_scalar_module_functions` records demanded functions packed
+into these modules, while `math.native_scalar_evaluations` counts native arithmetic calls,
+not independently accepted outputs. `math.native_scalar_executable_bytes` describes the
+whole generated file, not mapped-memory residency. Compare preparation, misses, received
+modules and actual eligible demands separately rather than assuming amortization.
+
+The local scalar cache is disposable bounded temporary code storage. Its key covers actual
+generated source, conservative compiler/ABI/FP profile and demanded names/dimensions. Missing,
+corrupt, oversized, unavailable or incompatible images compile afresh; current receiving
+copies code into the worker-owned private module directory and checks all named exports.
+No provider, checked model, numerical result or old execution permission is restored.
+Interpreted versus compiled selection remains explicit and independent of this acceleration.
 
 This opt-in `compiled-evaluator` feature uses the fixed Linux x86-64 scalar C++ profile
 for eligible Value, selected First/Second partials, weighted Hessian and directional/action
@@ -526,7 +561,11 @@ field histories into iterations. Records retain source generation/sequence, fami
 availability, timestamp, phase, coordinates/norm and typed fields/availability. Current
 native progress is also available from `RunHandle.current_progress()` with history zero;
 its separately read issued head/loss makes stale or refused current retention visible.
-Durable append sequence is a different identity.
+Durable append sequence is a different identity. Root-evaluation history retains a bounded
+compact value payload with one stable per-solve coordinate layout. Rich events are materialized
+for an actual selected consumer or reader. History zero still retains current progress and an
+explicit durable tap can still receive events; neither behavior depends on an optional hub.
+The issued source sequence precedes fan-out, so refused copies leave visible sequence gaps.
 
 `runtime.observations().collect(DetailRequest(...))` explicitly selects finite families,
 window, stride and memory/output allowances before constructing work in its synchronous
@@ -782,6 +821,27 @@ report curtailment before later getter populations fit. Original retained statis
 detail remain independent sources; no zero-work or complete-history claim follows from an
 absent compact metric. Export only copies the report and never calls native getters again.
 
+For IDAS, distinguish native initial-step selection from local integration tolerance and
+the original physical checks. Current `IdasSettings` v3 defaults to native `Automatic` h0;
+explicit `Configured` submits the positive `Profile.initial_step` value as the attempted
+initial step. That positive value still orients consistent initialization in either policy.
+The enclosing dynamic profile is v3; older explicit versions refuse rather than silently
+acquiring the new omission meaning. Compare accepted steps, residual evaluations, linear
+setups, error-test failures and original output quality together. A different step count is
+neither a changed engineering accuracy nor evidence of slower complete execution by itself.
+`actual_initial_step` in retained segment statistics and the live `idas.initial_step` gauge
+report the same native batched statistic only after an accepted integration step. Initialization
+and reset expose null/unavailable, so an earlier segment's h0 is not presented as current.
+
+Fitting's `fit.native_resident_population` and `fit.native_fresh_population` count the
+actual owner population selected for prepaid retention or fresh execution. They describe
+admission and lifetime policy, not the instantaneous number of allocated native sessions.
+An Exact parent owner, for example, may allocate only after its experiment wave finishes.
+Use the native construction/reinitialization counters and current memory consumers to
+distinguish permitted residency from allocations that actually occurred. Parallel profile
+chains and their nested experiment populations retain distinct coverage; do not infer
+shared native storage from a shared immutable prepared model.
+
 ```bash
 just diagnostics record-launch --request launch.json --json
 ```
@@ -911,8 +971,13 @@ started observations with matching model/settings and retain every raw sample. I
 phases are not additive exclusive CPU time, and configured workers do not establish
 actual parallelism. No timing threshold or statistical winner is inferred by this tool.
 
-Each campaign publishes `index.html`, `index.md`, `index.json` and `observations.csv`,
-linking original records, result packs and independent coverage. `--publish-only` accepts
+Each publication stages and closes `index.html`, `index.md`, `index.json` and
+`observations.csv`, then atomically publishes them in a fresh `review-<unique>/`
+subdirectory of the output directory. The command prints that generation's `index.html`
+path; readers use the printed generation rather than expecting aggregate files at the
+raw campaign root. Earlier publications and raw inputs remain intact if publication fails.
+The files link original records, result packs and independent coverage; extracted source
+projections remain identifiable and are not independent samples. `--publish-only` accepts
 existing `--input` case/campaign directories and `--supplement` artifacts. Keep those
 artifacts inside the delivered directory so the resulting relative links remain portable.
 CSV values retain source paths, JSON pointers, JSONL line numbers and nulls.

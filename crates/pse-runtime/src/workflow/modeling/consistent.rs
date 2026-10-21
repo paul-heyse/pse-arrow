@@ -376,20 +376,23 @@ impl ModelingSimulation {
             move |flag, progress| {
                 let composition = pse_model::strategy::CompositionRequest::default();
                 let (mut observed, trace) = crate::math::strategy::target::callable(
-                    prepared.runtime.shared.math(),
+                    crate::math::strategy::target::CallContext {
+                        service: prepared.runtime.shared.math(),
+                        scope: &scope,
+                        storage: None,
+                    },
                     crate::math::strategy::target::Source {
                         original: prepared.contract.identity,
                         preparation: prepared.contract.identity,
                         profile: profile_identity(&request, &controls)?,
                         profile_projection: None,
-                        backend: None,
+                        method: (None).map(pse_model::strategy::NumericalMethod::Backend),
                         solver: None,
                         controls: &controls,
                         request: &composition,
                         start: pse_model::strategy::StartOrigin::Specification,
                         start_identity: None,
                     },
-                    &scope,
                     |_, admission| {
                         let mut execution =
                             Execution::within(flag.clone(), &controls, scope.clone())?;

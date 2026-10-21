@@ -17,19 +17,15 @@ impl MathService {
             lease,
             Vec::new(),
         )?;
-        let mut artifacts = Vec::new();
-        for request in prepared.artifacts.iter() {
-            if driver.token().is_cancelled() {
-                return Err(MathRuntimeError::Cancelled);
-            }
-            artifacts.push(Self::preparation_wait(&driver, self.artifact(request.clone())).await?);
-        }
-        let _ = self.preparation_driver(&driver)?;
         let plan = Arc::new(prepared.plan.as_ref().clone().with_owner(owner.clone()));
         let layout = self.reserve(
             "case_operation_layout",
             plan.operation_layout_allocation_bound()?,
         )?;
+        let artifacts = self
+            .prepare_artifacts(prepared.artifacts.iter(), &driver)
+            .await?;
+        let _ = self.preparation_driver(&driver)?;
         #[cfg(test)]
         self.preparation_effects
             .function_assemblies

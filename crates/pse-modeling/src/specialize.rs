@@ -569,6 +569,7 @@ pub fn specialize_with_discretizer(
     cancel: &dyn Fn() -> bool,
     discretizer: &dyn crate::continuous::Discretizer,
 ) -> Result<SpecializedModel> {
+    let _phase = pse_diagnostics::observation::phase("modeling.specialization");
     if bindings
         .arguments
         .keys()
@@ -1775,7 +1776,7 @@ impl Engine<'_, '_> {
                         let expected = self.c.resolve(
                             &parameter.r#type,
                             &BTreeSet::new(),
-                            self.lexical_bases.evaluation(self.p, definition).as_ref(),
+                            &self.p.named_types(definition),
                             definition,
                         )?;
                         let supplied = Value::Set(vec![point]);

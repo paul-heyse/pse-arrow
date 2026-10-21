@@ -401,3 +401,101 @@ async fn compiled_nested_composite_references_agree_with_invariant_sql() {
         }
     }
 }
+
+#[test]
+fn local_children_share_one_actual_binding_scope_but_separate_calls_do_not() {
+    use crate::validate::{AdmissionScope, planner::ValidationPlanner};
+    use datafusion_common::DFSchema;
+    use datafusion_physical_expr::PhysicalExpr;
+    use std::sync::{
+        Mutex,
+        atomic::{AtomicUsize, Ordering},
+    };
+    #[derive(Clone, Debug)]
+    struct Counting {
+        state: datafusion::execution::session_state::SessionState,
+        snapshots: Arc<AtomicUsize>,
+        scopes: Arc<Mutex<Vec<AdmissionScope>>>,
+    }
+    impl ValidationPlanner for Counting {
+        fn snapshot(&self) -> Arc<dyn ValidationPlanner> {
+            self.snapshots.fetch_add(1, Ordering::Relaxed);
+            Arc::new(self.clone())
+        }
+        fn create_logical_expr(&self, sql: &str, schema: &DFSchema) -> Result<Expr> {
+            self.state.create_logical_expr(sql, schema)
+        }
+        fn prepare(&self, expression: Expr, schema: &DFSchema) -> Result<Arc<dyn PhysicalExpr>> {
+            ValidationPlanner::prepare(&self.state, expression, schema)
+        }
+        fn prepare_in_scope(
+            &self,
+            expression: Expr,
+            schema: &DFSchema,
+            scope: &AdmissionScope,
+        ) -> Result<Arc<dyn PhysicalExpr>> {
+            self.scopes.lock().unwrap().push(scope.clone());
+            ValidationPlanner::prepare_in_scope(&self.state, expression, schema, scope)
+        }
+    }
+    let mut builder = RegistryBuilder::new();
+    for name in ["first_child", "second_child"] {
+        builder.declare_relation(
+            RelationDecl::new(
+                Namespace::Authored,
+                name,
+                1,
+                Authority::Authored,
+                SnapshotClass::Model,
+                "",
+            )
+            .pk(&["n"])
+            .columns(vec![FieldContract::key(
+                "n",
+                FieldContract::native(DataType::Int64),
+                "",
+            )])
+            .checks(BTreeMap::from([(
+                "clock".into(),
+                "to_timestamp_seconds(n) <= now()".into(),
+            )])),
+        );
+    }
+    let registry = builder.build().unwrap();
+    let session = SessionContext::new();
+    let inputs = registry
+        .relations()
+        .iter()
+        .map(|spec| {
+            let batch = RecordBatch::new_empty(
+                pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap(),
+            );
+            (
+                spec.id,
+                session.read_batch(batch).unwrap().into_unoptimized_plan(),
+            )
+        })
+        .collect();
+    let state = Counting {
+        state: session.state(),
+        snapshots: Arc::new(AtomicUsize::new(0)),
+        scopes: Arc::new(Mutex::new(Vec::new())),
+    };
+    let templates = ObligationTemplates::new(&registry);
+    for _ in 0..2 {
+        assert_eq!(
+            templates
+                .bind_required(&inputs, &state, None, |_, kind| kind
+                    == ObligationKind::LocalValues)
+                .unwrap()
+                .len(),
+            2
+        );
+    }
+    assert_eq!(state.snapshots.load(Ordering::Relaxed), 2);
+    let scopes = state.scopes.lock().unwrap();
+    assert_eq!(scopes.len(), 4);
+    assert!(scopes[0].same_invocation(&scopes[1]));
+    assert!(scopes[2].same_invocation(&scopes[3]));
+    assert!(!scopes[0].same_invocation(&scopes[2]));
+}

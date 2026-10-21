@@ -30,6 +30,11 @@ use pse_schema::{
     model::{FieldContract, IntegerRange},
 };
 
+#[cfg(test)]
+thread_local! {
+    pub(super) static CURRENT_ENVIRONMENTS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// Explicit resolved enum domains, owned independently of the current registry.
 #[derive(Clone, Debug, Default)]
 pub struct DomainEnvironment {
@@ -38,6 +43,8 @@ pub struct DomainEnvironment {
 impl DomainEnvironment {
     /// Resolve current declarations for the shared predicate compiler.
     pub fn current(registry: &Registry) -> Self {
+        #[cfg(test)]
+        CURRENT_ENVIRONMENTS.with(|count| count.set(count.get() + 1));
         Self {
             members: registry
                 .enums()
@@ -167,12 +174,6 @@ pub fn field_value_in(
     depth: usize,
 ) -> Result<Expr> {
     field_predicate(domains, field, value, depth, true)
-}
-/// Compile only this field's own current obligations; traversal owns descendants.
-/// # Errors
-/// Unknown domains or unsupported native expressions.
-pub fn field_local(registry: &Registry, field: &Field, value: Expr) -> Result<Expr> {
-    field_local_in(&DomainEnvironment::current(registry), field, value)
 }
 /// Compile a local obligation from explicit resolved domains.
 /// # Errors

@@ -32,6 +32,9 @@ use std::{
     sync::{Arc, atomic::AtomicBool},
 };
 
+mod window_team;
+use window_team::WindowTeam;
+
 /// Registry vocabulary of the shooting routes (ADR-0110 Outcome 5).
 pub use pse_model::generated::enums::ShootingMethod;
 
@@ -821,10 +824,11 @@ impl ShootingProblem {
             preparation: self.contract.identity,
             profile: self.operation_profile(solver)?,
             profile_projection: None,
-            backend: match self.route {
+            method: (match self.route {
                 native::routing::Route::Native(backend) => Some(backend),
                 native::routing::Route::Constant => None,
-            },
+            })
+            .map(pse_model::strategy::NumericalMethod::Backend),
             solver: Some(solver),
             controls: &solver.controls,
             request: &solver.composition,
@@ -1154,15 +1158,8 @@ struct ShootingOracle {
     problem: Arc<ShootingProblem>,
     execution: Execution,
     point: Option<Point>,
-    /// One mathematical/provider worker on this serial attempt lane; native histories
-    /// are created and destroyed separately for each window invocation.
-    worker: Option<WindowWorker>,
-}
-#[derive(Debug)]
-struct WindowWorker {
-    source: Arc<ShootingProblem>,
-    execution: Execution,
-    inner: super::dynamics::DynamicWorker,
+    /// Private evaluator/provider owners, retained on their actual trial lanes.
+    worker: Option<WindowTeam>,
 }
 fn same_execution(a: &Execution, b: &Execution) -> bool {
     a.started == b.started
@@ -1196,11 +1193,12 @@ impl ShootingOracle {
             // End the incompatible provider ownership before rebuilding it; never
             // retarget an existing provider to another attempt's execution scope.
             self.worker = None;
-            self.worker = Some(WindowWorker {
-                source: self.problem.clone(),
-                execution: self.execution.clone(),
-                inner: self.problem.experiment.worker(&self.execution)?,
-            });
+            // Native callback teams are admitted before entering the NLP. A fresh
+            // standalone/original assessment uses its current owner's width-one lane.
+            self.worker = Some(WindowTeam::inline(
+                self.problem.clone(),
+                self.execution.clone(),
+            )?);
         } else if let Some(context) = pse_diagnostics::observation::current() {
             context.count("dynamics.workflow_worker_reuses", "count", 1);
         }
@@ -1266,94 +1264,33 @@ impl ShootingOracle {
         } else {
             DynamicSensitivity::None
         };
-        let integration = p.integration(x);
         self.prepare_worker()?;
         let purpose = if same {
             self.derivative_purpose()
         } else {
             self.purpose
         };
-        let worker = &mut self
+        let forward_quadratures = forward && p.forward_quadratures();
+        let mut integral_gradient = forward_quadratures.then(|| vec![0.; n]);
+        let products = self
             .worker
             .as_mut()
             .ok_or_else(|| ProblemError::internal("shooting lane worker absent"))?
-            .inner;
-        let forward_quadratures = forward && p.forward_quadratures();
-        let mut integral_gradient = forward_quadratures.then(|| vec![0.; n]);
-        let reports = p
-            .windows
-            .iter()
+            .evaluate(
+                x,
+                window_team::Demand::Forward {
+                    sensitivity,
+                    quadratures: forward_quadratures,
+                },
+                &self.execution,
+                self.observation.clone(),
+                purpose,
+            )?;
+        let reports = products
+            .into_iter()
             .enumerate()
-            .map(|(k, window)| {
-                let _phase = pse_diagnostics::observation::current().map(|context| {
-                    context.count("shooting.window_integrations", "count", 1);
-                    context.gauge("shooting.window_index", "index", k as f64);
-                    context.gauge(
-                        "shooting.window_columns",
-                        "count",
-                        window.columns.len() as f64,
-                    );
-                    context.gauge(
-                        "shooting.window_start",
-                        "physical seconds",
-                        window.profile.start,
-                    );
-                    context.gauge(
-                        "shooting.window_end",
-                        "physical seconds",
-                        window.profile.end,
-                    );
-                    context.boolean("shooting.forward_sensitivities", forward);
-                    context.phase("shooting.window")
-                });
-                let observation = crate::invocation::IntegrationObservation::begin(
-                    self.observation.clone(),
-                    purpose,
-                    forward,
-                    false,
-                    false,
-                    k as u64,
-                    forward.then(|| {
-                        window
-                            .profile
-                            .forward_axes
-                            .as_ref()
-                            .map_or(window.columns.len(), Vec::len)
-                    }),
-                );
-                let result = if forward_quadratures {
-                    #[cfg(feature = "solver-idas")]
-                    {
-                        p.experiment
-                            .window_forward_quadratures(
-                                worker,
-                                window,
-                                &integration,
-                                p.anchors(k, x),
-                                &self.execution,
-                            )
-                            .map(|product| (product.report, product.derivatives))
-                    }
-                    #[cfg(not(feature = "solver-idas"))]
-                    {
-                        Err(ProblemError::unsupported(
-                            "IDAS forward quadratures are not linked",
-                        ))
-                    }
-                } else {
-                    p.experiment
-                        .integrate_window(
-                            worker,
-                            window,
-                            &integration,
-                            p.anchors(k, x),
-                            &self.execution,
-                            sensitivity,
-                        )
-                        .map(|report| (report, None))
-                };
-                observation.finish(result.is_ok());
-                let (report, product): (native::dynamics::Report, Option<Vec<f64>>) = result?;
+            .map(|(k, (report, product))| {
+                let window = &p.windows[k];
                 if let Some(gradient) = &mut integral_gradient {
                     let product = product.ok_or_else(|| {
                         ProblemError::internal("missing forward integral derivatives")
@@ -1380,8 +1317,7 @@ impl ShootingOracle {
                             }
                         }
                     }
-                    // Endpoint derivative storage belongs to this window only. Reduce
-                    // and release it before the next window's native workspace exists.
+                    // Reduce in declared order; endpoint product storage retires here.
                 }
                 Ok(report)
             })
@@ -1558,53 +1494,26 @@ impl ShootingOracle {
         let p = self.problem.clone();
         let mut total = vec![0.; x.len()];
         if !p.integral.is_empty() && !x.is_empty() {
-            let integration = p.integration(x);
             self.prepare_worker()?;
-            let worker = &mut self
+            let products = self
                 .worker
                 .as_mut()
                 .ok_or_else(|| ProblemError::internal("shooting lane worker absent"))?
-                .inner;
-            let m = p.experiment.program.contract.outputs.len();
-            let nq = p.experiment.program.contract.quadratures.len();
-            for (k, window) in p.windows.iter().enumerate() {
-                let mut cotangent = |r: &native::dynamics::Report| {
-                    let mut w = vec![0.; r.samples.len() * (m + nq)];
-                    let last = (r.samples.len() - 1) * (m + nq);
-                    for (q, weight) in &p.integral {
-                        w[last + m + q] += weight;
-                    }
-                    Ok(w)
-                };
-                let observation = crate::invocation::IntegrationObservation::begin(
+                .evaluate(
+                    x,
+                    window_team::Demand::Integral,
+                    &self.execution,
                     self.observation.clone(),
                     purpose,
-                    false,
-                    true,
-                    false,
-                    k as u64,
-                    None,
-                );
-                let selected = p.adjoint_axes(k);
-                let product = p.experiment.window_gradient(
-                    worker,
-                    window,
-                    &integration,
-                    p.anchors(k, x),
-                    &self.execution,
-                    &selected,
-                    &mut cotangent,
-                );
-                observation.finish(product.is_ok());
-                let (_, axes, gradient) = product?;
-                for (axis, d) in axes.iter().zip(&gradient) {
-                    let column = window
-                        .columns
-                        .get(*axis)
-                        .ok_or_else(|| ProblemError::internal("shooting adjoint coordinate"))?;
-                    if let Some(v) = p.variable(k, column) {
-                        total[v] += d;
-                    }
+                )?;
+            for (_, gradient) in products {
+                let gradient = gradient
+                    .ok_or_else(|| ProblemError::internal("shooting integral gradient absent"))?;
+                if gradient.len() != total.len() {
+                    return Err(ProblemError::internal("shooting integral gradient extent"));
+                }
+                for (sum, value) in total.iter_mut().zip(gradient) {
+                    *sum += value;
                 }
             }
         }
@@ -1683,6 +1592,7 @@ impl ShootingProblem {
         progress: Arc<native::solve::Progress>,
         initial: Option<&[f64]>,
         solver: &SolverProfile,
+        storage: Option<Arc<pse_columnar::AllocationLease>>,
     ) -> Result<ShootingReport, crate::math::MathRuntimeError> {
         let operation = pse_diagnostics::observation::current().map(|parent| {
             parent.child(
@@ -1706,9 +1616,12 @@ impl ShootingProblem {
             let mut source = self.callable_source(solver, initial)?;
             source.profile_projection = Some(&projection);
             let (mut report, trace) = crate::math::strategy::target::callable(
-                self.runtime.shared.math(),
+                crate::math::strategy::target::CallContext {
+                    service: self.runtime.shared.math(),
+                    scope: &scope,
+                    storage,
+                },
                 source,
-                &scope,
                 |profile, admission| {
                     let profile = profile.unwrap_or(solver);
                     native::execution::scoped(
@@ -1797,6 +1710,15 @@ impl ShootingProblem {
         if initial.len() != self.contract.variables.len() {
             return Err(ProblemError::Contract("shooting initial point extent".into()).into());
         }
+        let team = if initial.is_empty() {
+            None
+        } else {
+            Some(WindowTeam::new(
+                self.clone(),
+                execution.clone(),
+                Some(worker),
+            )?)
+        };
         let (solve, candidate) = if initial.is_empty() {
             (None, Some(vec![]))
         } else {
@@ -1835,11 +1757,7 @@ impl ShootingProblem {
                         problem: self.clone(),
                         execution: execution.clone(),
                         point: None,
-                        worker: Some(WindowWorker {
-                            source: self.clone(),
-                            execution: execution.clone(),
-                            inner: worker,
-                        }),
+                        worker: team,
                     }),
                     initial: &initial,
                     presolve: &solver.presolve,
@@ -2353,6 +2271,16 @@ fn stitch_conservation(
     Ok(points)
 }
 
+impl ShootingProblem {
+    pub(super) fn execution_snapshot(&self) -> &pse_backend_native::execution::Snapshot {
+        &self.snapshot
+    }
+
+    pub(super) fn replay_constructor_extent(&self) -> usize {
+        self._original_owner.size()
+    }
+}
+
 #[cfg(test)]
 mod conservation_tests {
     use super::*;
@@ -2446,15 +2374,3 @@ mod conservation_tests {
 #[cfg(feature = "solver-ipopt")]
 #[path = "shooting_tests.rs"]
 mod tests;
-
-impl ShootingProblem {
-    pub(super) fn execution_snapshot(&self) -> &pse_backend_native::execution::Snapshot {
-        &self.snapshot
-    }
-}
-
-impl ShootingProblem {
-    pub(super) fn replay_constructor_extent(&self) -> usize {
-        self._original_owner.size()
-    }
-}

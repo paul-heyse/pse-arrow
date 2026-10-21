@@ -103,6 +103,441 @@ async fn admitted(
         definition,
     )
 }
+#[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+#[tokio::test]
+#[allow(
+    clippy::print_stderr,
+    reason = "bounded I29 inquiry reports actual owner phase durations without treating overlapping phases as exclusive time"
+)]
+async fn canonical_worker_claim_and_idle_phase_probe() {
+    use pse_diagnostics::observation::{Outcome, Value};
+    let runtime = durable_runtime();
+    let mut samples = Vec::new();
+    async fn observed(runtime: &Runtime) -> (Processed, u128, Vec<(String, u64)>) {
+        let operation = runtime.observations().hub().start("inquiry.worker-action");
+        let reader = operation.reader();
+        let started = std::time::Instant::now();
+        let action =
+            pse_diagnostics::observation::scope(Some(operation.context()), runtime.work_once())
+                .await
+                .unwrap();
+        let elapsed = started.elapsed().as_micros();
+        operation.finish(Outcome::Completed);
+        let mut pending = vec![reader];
+        let mut visited = std::collections::HashSet::new();
+        let mut durations = Vec::new();
+        while let Some(reader) = pending.pop() {
+            let snapshot = reader.snapshot(Duration::from_secs(60));
+            if !visited.insert(snapshot.id) {
+                continue;
+            }
+            for metric in snapshot.metrics {
+                if metric.name.starts_with("phase.")
+                    && let Value::Count(nanos) = metric.cumulative
+                {
+                    durations.push((metric.name, nanos));
+                }
+            }
+            pending.extend(
+                snapshot
+                    .children
+                    .iter()
+                    .filter_map(|child| runtime.observations().reader(child.id)),
+            );
+        }
+        (action, elapsed, durations)
+    }
+    for _ in 0..5 {
+        let (action, elapsed, durations) = observed(&runtime).await;
+        assert!(matches!(action, Processed::Idle));
+        assert!(
+            !durations
+                .iter()
+                .any(|(name, _)| name.contains("claim_acquire"))
+        );
+        samples.push(("idle", elapsed, durations));
+    }
+    let (_, definition) = admitted(&runtime, |_, _, fixed| {
+        (0..5)
+            .map(|index| {
+                let mut requested = point(fixed, index, vec![], StartPolicy::Fresh);
+                assert!(
+                    matches!(&requested.operation, OperationRequest::DeclaredCase(_)),
+                    "fixed fixture requires a declared case"
+                );
+                if let OperationRequest::DeclaredCase(operation) = &mut requested.operation {
+                    operation.settings.backend = Some(pse_backend_native::solve::Backend::Kinsol);
+                }
+                requested
+            })
+            .collect()
+    })
+    .await;
+    let handle = runtime
+        .start_recorded_study(definition, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let mut completed = 0;
+    let mut attempts = std::collections::BTreeSet::new();
+    for _ in 0..20 {
+        let (action, elapsed, durations) = observed(&runtime).await;
+        let kind = match action {
+            Processed::Ran { record, .. } => {
+                assert!(record.attempt.is_ok() && record.manifest.is_some());
+                assert!(attempts.insert(record.attempt_id));
+                assert!(
+                    durations
+                        .iter()
+                        .any(|(name, _)| name == "phase.managed.worker.claim_acquire.nanoseconds")
+                );
+                completed += 1;
+                "productive"
+            }
+            Processed::Maintenance { .. } => "maintenance",
+            other => panic!("unexpected action before five acknowledged points: {other:?}"),
+        };
+        samples.push((kind, elapsed, durations));
+        if completed == 5 {
+            break;
+        }
+    }
+    assert_eq!(completed, 5);
+    let status = handle.status().await.unwrap();
+    assert!(
+        status.points.iter().all(|point| point
+            .outcome
+            .as_ref()
+            .is_some_and(|outcome| outcome.scientific.usable)),
+        "original fixed-case outcomes: {:?}",
+        status.points
+    );
+    eprintln!(
+        "I29 ordinary local canonical store, five idle passes then five fixed scientific occurrences; action_us and independently owned phase_ns (overlap retained): {samples:?}"
+    );
+}
+
+#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[tokio::test]
+async fn same_worker_publication_handoff_refills_and_bounds_actual_unacknowledged_attempts() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    for mode in 0..3 {
+        let runtime = durable_tests::durable_runtime_on(tests::runtime_with_workspace(128 << 20));
+        // Root retains its authored two-sided box. Its existing Ipopt route
+        // is eligible; KINSOL's sign constraints cannot encode that box.
+        let (_, definition) = admitted(&runtime, |root, _, _| {
+            (0..3)
+                .map(|index| point(root, index, vec![], StartPolicy::Fresh))
+                .collect()
+        })
+        .await;
+        let handle = runtime
+            .start_recorded_study(definition, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let stop = crate::CancelSource::new();
+        let count = Arc::new(AtomicUsize::new(0));
+        let changed = Arc::new(tokio::sync::Notify::new());
+        let observer = {
+            let count = count.clone();
+            let changed = changed.clone();
+            Arc::new(move || {
+                count.fetch_add(1, Ordering::AcqRel);
+                changed.notify_one();
+            })
+        };
+        let (reached, reached_rx) = tokio::sync::oneshot::channel();
+        let (release, release_rx) = tokio::sync::oneshot::channel();
+        let settings = WorkerSettings {
+            maximum_in_flight: Some(1),
+            maximum_actions: Some(3),
+            until_idle: true,
+            ..Default::default()
+        };
+        let serving = durable::gated_worker_export(
+            reached,
+            release_rx,
+            mode == 1,
+            worker::observed_scientific_publication(observer, runtime.serve(settings, &stop)),
+        );
+        let control = async {
+            let reached = matches!(
+                tokio::time::timeout(Duration::from_secs(20), reached_rx).await,
+                Ok(Ok(()))
+            );
+            let second = if reached {
+                tokio::time::timeout(Duration::from_secs(20), async {
+                    loop {
+                        let notified = changed.notified();
+                        if count.load(Ordering::Acquire) >= 2 {
+                            break;
+                        }
+                        notified.await;
+                    }
+                })
+                .await
+                .is_ok()
+            } else {
+                false
+            };
+            let pending = handle.status().await;
+            let observed = count.load(Ordering::Acquire);
+            if mode == 2 || !second {
+                stop.cancel();
+            }
+            let cancelled = if mode == 2 && second {
+                // Keep the admitted publisher blocked until the second owner
+                // has actually settled cancellation without a payload slot.
+                tokio::time::timeout(Duration::from_secs(20), async {
+                    loop {
+                        let status = handle.status().await?;
+                        if let Some(point) = status.points.iter().find(|point| point.settled)
+                            && let Some(attempt) = point.attempt.as_deref()
+                        {
+                            let record = runtime.operations()?.record(&point.run, attempt).await?;
+                            break Ok::<_, WorkflowError>((status, record));
+                        }
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    }
+                })
+                .await
+                .ok()
+                .and_then(Result::ok)
+            } else {
+                None
+            };
+            // Every issued native/publication owner drains before assertions.
+            let _ = release.send(());
+            (reached, second, observed, pending, cancelled)
+        };
+        let (served, (reached, second, observed, pending, cancelled)) =
+            tokio::join!(serving, control);
+        runtime.shared.math().shutdown_native_lanes().await;
+        assert!(
+            reached && second,
+            "one actual width-one worker must complete its second scientific/native owner while first export is held: mode={mode}, first_export={reached}, second_ready={second}, ready_count={observed}, served={:?}, pending={pending:?}",
+            served.as_ref().map_err(ToString::to_string)
+        );
+        assert_eq!(
+            observed, 2,
+            "W Running + W Publishing forbids a third unacknowledged claim"
+        );
+        let pending = pending.unwrap();
+        assert_eq!(
+            pending
+                .points
+                .iter()
+                .filter(|point| point.attempt.is_some())
+                .count(),
+            2
+        );
+        assert!(
+            pending
+                .points
+                .iter()
+                .filter(|point| point.attempt.is_some())
+                .all(|point| !point.settled),
+            "neither publication nor slot acknowledgement is a terminal ACK"
+        );
+        if mode == 0 {
+            assert_eq!(served.unwrap(), 3);
+            let status = handle.status().await.unwrap();
+            assert!(status.points.iter().all(|point| {
+                point.settled
+                    && point
+                        .outcome
+                        .as_ref()
+                        .is_some_and(|outcome| outcome.scientific.usable)
+            }));
+        } else if mode == 1 {
+            assert!(
+                served.is_err(),
+                "late required publication refusal stays visible"
+            );
+        } else {
+            assert!(served.is_ok(), "cancellation joins both issued attempts");
+            let (before_release, record) = cancelled
+                .expect("unadmitted cancellation settles while first publisher remains held");
+            assert_eq!(
+                before_release
+                    .points
+                    .iter()
+                    .filter(|point| point.settled)
+                    .count(),
+                1
+            );
+            assert_eq!(
+                before_release
+                    .points
+                    .iter()
+                    .filter(|point| point.attempt.is_some())
+                    .count(),
+                2
+            );
+            assert!(record.attempt.as_ref().unwrap().terminal);
+            assert_eq!(
+                record.completion.as_ref().unwrap().state,
+                pse_model::generated::enums::AttemptState::Cancelled
+            );
+            assert!(
+                record.completion.as_ref().unwrap().completion.is_none(),
+                "cancelled waiting owner never exports original scientific payload"
+            );
+            assert!(record.solutions.is_empty());
+            let descriptors: Vec<pse_operations::canonical_execution::ResultSetDescriptor> =
+                serde_json::from_slice(record.manifest.as_ref().unwrap().descriptors.as_slice())
+                    .unwrap();
+            assert!(
+                descriptors.iter().all(|set| set.name == "__progress"),
+                "only already-owned progress may exist without a publication slot: {descriptors:?}"
+            );
+            let status = handle.status().await.unwrap();
+            assert!(
+                status
+                    .points
+                    .iter()
+                    .filter(|point| point.attempt.is_some())
+                    .count()
+                    <= 2
+            );
+        }
+    }
+}
+
+#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[tokio::test]
+async fn same_worker_publication_refills_a_study_created_after_actual_idle_discovery() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    let runtime = durable_tests::durable_runtime_on(tests::runtime_with_workspace(128 << 20));
+    let requested = |root, key| vec![point(root, key, vec![], StartPolicy::Fresh)];
+    let (_, first_definition) = admitted(&runtime, |root, _, _| requested(root, 0)).await;
+    // Recording this definition retains its exact source; occurrence creation
+    // happens only in start_recorded_study after the real idle event below.
+    let (_, late_definition) = admitted(&runtime, |root, _, _| requested(root, 1)).await;
+    let first = runtime
+        .start_recorded_study(first_definition, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let stop = crate::CancelSource::new();
+    let ready = Arc::new(AtomicUsize::new(0));
+    let ready_changed = Arc::new(tokio::sync::Notify::new());
+    let idle = Arc::new(AtomicUsize::new(0));
+    let idle_changed = Arc::new(tokio::sync::Notify::new());
+    let ready_observer = {
+        let ready = ready.clone();
+        let changed = ready_changed.clone();
+        Arc::new(move || {
+            ready.fetch_add(1, Ordering::AcqRel);
+            changed.notify_one();
+        })
+    };
+    let idle_observer = {
+        let idle = idle.clone();
+        let changed = idle_changed.clone();
+        Arc::new(move || {
+            idle.fetch_add(1, Ordering::AcqRel);
+            changed.notify_one();
+        })
+    };
+    let (reached, reached_rx) = tokio::sync::oneshot::channel();
+    let (release, release_rx) = tokio::sync::oneshot::channel();
+    let settings = WorkerSettings {
+        maximum_in_flight: Some(1),
+        maximum_actions: Some(2),
+        poll: Duration::from_millis(10),
+        ..Default::default()
+    };
+    let serving = durable::gated_worker_export(
+        reached,
+        release_rx,
+        false,
+        worker::observed_scientific_publication(
+            ready_observer,
+            worker::observed_idle(idle_observer, runtime.serve(settings, &stop)),
+        ),
+    );
+    let control = async {
+        let reached = matches!(
+            tokio::time::timeout(Duration::from_secs(20), reached_rx).await,
+            Ok(Ok(()))
+        );
+        let idle_before = idle.load(Ordering::Acquire);
+        let observed_idle = if reached {
+            tokio::time::timeout(Duration::from_secs(20), async {
+                loop {
+                    let changed = idle_changed.notified();
+                    if idle.load(Ordering::Acquire) > idle_before {
+                        break;
+                    }
+                    changed.await;
+                }
+            })
+            .await
+            .is_ok()
+        } else {
+            false
+        };
+        let late = if observed_idle {
+            Some(
+                tokio::time::timeout(Duration::from_secs(20), async {
+                    let handle = runtime
+                        .start_recorded_study(late_definition, &crate::CancelSource::new())
+                        .await?;
+                    loop {
+                        let changed = ready_changed.notified();
+                        if ready.load(Ordering::Acquire) >= 2 {
+                            break;
+                        }
+                        changed.await;
+                    }
+                    let pending = handle.status().await?;
+                    Ok::<_, WorkflowError>((handle, pending))
+                })
+                .await,
+            )
+        } else {
+            None
+        };
+        let first_pending = first.status().await;
+        if !matches!(&late, Some(Ok(Ok(_)))) {
+            stop.cancel();
+        }
+        let _ = release.send(());
+        (reached, observed_idle, late, first_pending)
+    };
+    let (served, (reached, observed_idle, late, first_pending)) = tokio::join!(serving, control);
+    runtime.shared.math().shutdown_native_lanes().await;
+    assert!(
+        reached && observed_idle,
+        "actual idle discovery occurs while the first publisher remains held: first_export={reached}, idle={observed_idle}, ready_count={}, served={:?}, first_pending={first_pending:?}",
+        ready.load(Ordering::Acquire),
+        served.as_ref().map_err(ToString::to_string)
+    );
+    let (late, late_pending) = late
+        .expect("late occurrence was created")
+        .expect("late native owner joined before release")
+        .unwrap();
+    assert!(!first_pending.unwrap().points[0].settled);
+    assert!(late_pending.points[0].attempt.is_some() && !late_pending.points[0].settled);
+    assert_eq!(served.unwrap(), 2);
+    assert_eq!(ready.load(Ordering::Acquire), 2);
+    for handle in [first, late] {
+        let status = handle.status().await.unwrap();
+        assert!(status.points.iter().all(|point| {
+            point.settled
+                && point
+                    .outcome
+                    .as_ref()
+                    .is_some_and(|outcome| outcome.scientific.usable)
+        }));
+    }
+}
+
 #[test]
 fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
     let case = pse_model::generated::identities::DeclarationId::from_bytes([4; 16]);

@@ -561,7 +561,7 @@ budgets (`ResolvedAccuracy::from_policy`). Derived library options:
 | Adapter | Derived from the policy |
 |---|---|
 | Ipopt and POUNCE | `tol`, `constr_viol_tol`, `dual_inf_tol`, `compl_inf_tol`; `bound_relax_factor = 0` and `honor_original_bounds`; acceptable-level options only when an acceptable budget is declared |
-| KINSOL | `kinsol::Settings::from_policy`: each variable and residual scale is `feasibility * s / t` and the scaled-step tolerance is `feasibility`, so KINSOL's residual and step tests reduce to the original per-row and per-coordinate budgets; sign constraints from one-sided bounds on shifted coordinates and from guard signs ([§18.10](#section-18-10)). Callers choose only the method (`kinsol::Method`) |
+| KINSOL | `kinsol::Settings::from_policy`: each variable and residual scale is `feasibility * s / t`; the function-norm test expresses original row budgets. Scaled-step termination is a separate relative stagnation test with denominator `1/uscale + abs(current shifted iterate)`, never an absolute physical-step budget or convergence assurance. Plan48 RC01 / proposed ADR-0201 select the native roundoff default as the target stagnation policy, with bounded qualification owned by Plan48d. Sign constraints derive from one-sided bounds on shifted coordinates and from guard signs ([§18.10](#section-18-10)). Callers choose only the method (`kinsol::Method`) |
 | HiGHS | Feasibility, integrality and MIP gap controls |
 | Clarabel | Primal/dual residual and gap controls, with cone-block adjustments retained in provenance |
 
@@ -1532,6 +1532,28 @@ step only when the steps are declared independent.
 
 ### 18.8 Threading, cancellation and resource ownership
 
+> Decision: [ADR-0205](../../adr/0205-fixed-profile-idas-storage.md) (proposed; maintainer-authorized Plan48 E01 target).
+
+An optional owner-affine IDAS value/forward storage owner reserves its complete finite resident
+extent before allocation through the existing independent retained-storage lease. Idle storage
+contains no borrowed oracle, callback context, completed Execution or active permission. Each
+request receives fresh current controls and a new callback context; native user data and any
+borrowed sensitivity parameter pointers are rebound and detached before idle retention;
+scale/index values copied into native arrays are reset to their current values. The analytic
+route currently has no borrowed sensitivity parameter pointer.
+Unknown lease/coverage, incompatibility or uncertain reset selects fresh construction; native
+resources retire before their lease. A live different claimant of the same opaque allowance is
+a typed admission refusal before effects, not permission for fresh allocation under occupied
+coverage. Fitting and fixed-window owners prepay distinct coverage for their actual resident
+populations, including separate team/parent workers and parallel profile-likelihood chains.
+Each chain delegates its actual passive coverage to its nested experiment population; token
+representation does not replace the admission contract. Required active coverage is established
+before dispatch, narrowing the team or using serial execution when needed. Required active parallel coverage remains
+when optional complete-population retention cannot be admitted; that population then executes
+fresh without mixed retained/uncovered siblings. Library-metadata and constructor allowances
+retain their own purposes. Adjoint checkpoints and backward populations remain fresh.
+Retention does not establish factor reuse or renew work permission.
+
 > Decision: [ADR-0188](../../adr/0188-consumed-runtime-settings.md) (proposed; maintainer-authorized Plan38f target).
 
 Process resource compatibility includes every remaining consumed budget setting. No unused
@@ -1836,6 +1858,48 @@ the target.
 
 ### 18.10 Root, coefficient and cone adapters
 
+> Decision: [ADR-0208](../../adr/0208-idas-banded-preconditioner.md) (proposed; Plan48 E05 target).
+
+The explicit IDAS SPGMR/BBD route uses original-order differencing and retained half-bands
+for a library-owned approximation to the current shifted residual operator. Exact Krylov
+actions preserve every coupling; no physical block fiction replaces the equations. Native
+BBD owns difference quotients, band factors and application under finite precharged storage.
+Singular bands, current-source failures and cancellation remain explicit; no unannounced
+post-effect fallback or generic factor retention follows. Existing direct/None/Jacobi and
+all accuracy defaults remain. Small timing differences alone do not reject a qualified
+work-removing method; diagnose unexpected performance in its actual composed pipeline.
+
+> Decision: [ADR-0207](../../adr/0207-explicit-idas-native-initial-step.md) (proposed; explicit Plan48 E06 choice).
+
+IDAS defaults to its native automatic initial-step estimate from current weighted consistent
+derivatives and the requested first-output horizon. Explicit Configured uses positive
+`Profile.initial_step` as the attempted physical step; both choices retain that positive value
+for IC orientation. Current IdasSettings and enclosing dynamic Profile version3 make the
+omission/default change explicit; identities use `DynamicProfileV12`,
+unsupported older documents refuse rather than silently changing their meaning. Complete profile
+identity and compatible-storage reset consume this choice. Accuracy and other-method defaults
+remain unchanged; numerical success still requires independent original checks.
+
+> Decision: [ADR-0206](../../adr/0206-pure-ode-adjoint-rate-initialization.md) (proposed; Plan48 E06 target).
+
+For first-order all-differential IDAS adjoints, the current guarded state Jacobian may
+initialize `λ′ = −f_yᵀ λ` after each observation or segment jump. The adapter checks the
+finite current rates before the unchanged native backward/quadrature reinitialization;
+only redundant native consistent initialization is omitted. Algebraic and second-order
+backward problems retain native IC. Every scheduled segment, checkpoint replay, sample
+impulse and original derivative assessment remains required. This targeted optimization
+does not make a failed current action reusable or change accuracy controls.
+
+> Decision: [ADR-0205](../../adr/0205-fixed-profile-idas-storage.md) (proposed; bounded IDAS storage target).
+
+Compatible independent IDAS value/forward calls may retain library allocations only under a
+complete source/layout/profile identity and complete reset of state, sensitivities, quadratures,
+roots, options, statistics generation and callback failures. They recompute original-policy
+consistent initial conditions and use fresh current parameters, controls and execution. Native
+reinitialization still performs first setup/factorization; no KLU symbolic or numerical factor
+retention follows. Errors or uncertain reset discard storage while its current callback box
+remains alive through all native returns and teardown. Unsupported profiles use fresh sessions.
+
 > Decision: [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — Clarabel's
 > SDP profile runs on the image's single oneMKL BLAS/LAPACK provider (Plan 22 N1,
 > implemented); [ADR-0116](../../adr/0116-typed-boundary-documents.md) — pse-owned boundary
@@ -1980,6 +2044,13 @@ updated from anchor to anchor. *Tested* by `mip_node_budget_independent`,
 `fixed_lp_duals_conditional_on_commitment`, `basis_inverse_and_presolve_views`,
 `cut_pool_captured_on_request` and `degeneracy_hunter_reuses_session` (native backend
 units).
+
+> Decision: [ADR-0204](../../adr/0204-bounded-native-cone-refinement.md) — Clarabel native
+> feasibility is relative. A native-success candidate failing independent original quality
+> may receive at most one adapter-owned native refinement using its observed residual and
+> quality ratio, within the original remaining clock/iterations. Native statuses and both
+> attempts' work/assessment summaries remain truthful; no original physical budget changes.
+> Unknown/nonfinite premises, native failure or exhausted permission retain failure.
 
 **Clarabel** (`conic`) receives explicit cones through a pse-owned boundary vocabulary:
 `conic::SparseMatrix` (CSC with its dimensions), `conic::Cone` (zero, nonnegative,

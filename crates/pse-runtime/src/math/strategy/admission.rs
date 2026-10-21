@@ -28,6 +28,7 @@ struct State {
     unreported: WorkObservation,
     storage: Vec<Arc<pse_columnar::AllocationLease>>,
     storage_allowance: Option<(Arc<pse_columnar::AllocationLease>, usize)>,
+    storage_claim: std::sync::Weak<()>,
     local: Option<(WorkLimits, WorkObservation)>,
     hooked: bool,
     local_bound: Option<WorkObservation>,
@@ -108,6 +109,7 @@ impl TaskAdmission {
                 unreported: zero(),
                 storage: Vec::new(),
                 storage_allowance: None,
+                storage_claim: std::sync::Weak::new(),
                 local: None,
                 hooked: false,
                 local_bound: None,
@@ -727,6 +729,30 @@ impl TaskAdmission {
     }
 }
 impl WorkAdmission for TaskAdmission {
+    fn prepaid_storage(
+        &self,
+        identity: &Arc<()>,
+        required_bytes: usize,
+    ) -> Result<Option<Arc<dyn std::any::Any + Send + Sync>>, ProblemError> {
+        self.scope.check().map_err(ProblemError::Provider)?;
+        let mut state = self.state()?;
+        if let Some(claimant) = state.storage_claim.upgrade()
+            && !Arc::ptr_eq(&claimant, identity)
+        {
+            return Err(ProblemError::memory(
+                "prepaid foreign allowance has another resident native owner",
+            ));
+        }
+        let Some((owner, _)) = state.storage_allowance.as_ref() else {
+            return Ok(None);
+        };
+        if required_bytes == 0 || owner.size() < required_bytes {
+            return Ok(None);
+        }
+        let owner = owner.clone();
+        state.storage_claim = Arc::downgrade(identity);
+        Ok(Some(owner))
+    }
     fn retain_storage(&self) -> Option<Arc<dyn std::any::Any + Send + Sync>> {
         let mut state = self.state.lock().ok()?;
         // Transfer these actual reservations to the native owner. The task must not
@@ -1149,6 +1175,46 @@ mod tests {
         );
         assert_eq!(pool.reserved(), 64);
         drop(current);
+        assert_eq!(pool.reserved(), 0);
+    }
+    #[test]
+    fn prepaid_foreign_coverage_is_actual_exclusive_and_detached_from_task() {
+        use datafusion::execution::memory_pool::GreedyMemoryPool;
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64));
+        let task = TaskAdmission::new(
+            limits(),
+            pse_kernels::ExecutionScope::new(Default::default(), None),
+            Some(pool.clone()),
+            false,
+        );
+        let first = Arc::new(());
+        let other = Arc::new(());
+        assert!(task.prepaid_storage(&first, 1).unwrap().is_none());
+        let reservation = MemoryConsumer::new("actual-foreign").register(&pool);
+        reservation.try_grow(64).unwrap();
+        task.retain_storage_allowance(pse_columnar::AllocationLease::new(reservation))
+            .unwrap();
+        assert!(task.prepaid_storage(&first, 65).unwrap().is_none());
+        assert!(task.prepaid_storage(&first, 0).unwrap().is_none());
+        let token = task.prepaid_storage(&first, 64).unwrap().unwrap();
+        assert!(
+            task.prepaid_storage(&other, 1).is_err(),
+            "one actual envelope cannot cover concurrent retained owners"
+        );
+        assert!(task.prepaid_storage(&first, 64).unwrap().is_some());
+        assert_eq!(
+            pool.reserved(),
+            64,
+            "sharing actual coverage adds no pool charge"
+        );
+        drop(token);
+        drop(first);
+        let token = task.prepaid_storage(&other, 64).unwrap().unwrap();
+        let ledger = Arc::downgrade(&task);
+        drop(task);
+        assert!(ledger.upgrade().is_none());
+        assert_eq!(pool.reserved(), 64);
+        drop(token);
         assert_eq!(pool.reserved(), 0);
     }
     #[test]

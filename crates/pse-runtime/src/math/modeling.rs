@@ -124,6 +124,16 @@ pub struct ModelingPreparation {
     pub(super) _owner: Arc<super::products::ProductOwner>,
     pub(super) _source_owner: Option<Arc<AllocationLease>>,
 }
+struct EntryPreparation {
+    pairs: Vec<(SemanticId, SemanticId)>,
+    eligible_provider_keys: Vec<pse_kernels::ProviderKey>,
+    _owner: Arc<AllocationLease>,
+}
+pub(crate) fn selected_entry_provider_eligible(registration: &pse_kernels::Registration) -> bool {
+    registration
+        .source::<pse_math::implicit::reconstruction::ReconstructionFactory>()
+        .is_some_and(|source| source.factory().supports_provider_free_selected_first())
+}
 impl ModelingPreparation {
     pub(crate) fn with_consumed_source_versions(
         mut self,
@@ -519,9 +529,22 @@ impl MathService {
                 }
             }
             for (selected, mut bound) in requests {
-                for request in selected {
-                    let artifact =
-                        Self::preparation_wait(&driver, self.artifact(request.artifact().clone()))
+                let cloned_bytes = selected
+                    .iter()
+                    .try_fold(0usize, |bytes, request| {
+                        bytes.checked_add(request.artifact().descriptor_bytes())
+                    })
+                    .ok_or(MathRuntimeError::Limit(
+                        "implicit artifact request descriptor extent",
+                    ))?;
+                let artifacts = super::artifacts::collect_artifacts(
+                    selected.iter(),
+                    self.artifact_width(),
+                    &driver,
+                    cloned_bytes,
+                    |bytes| self.reserve("math:implicit-artifact-request-batch", bytes),
+                    |request, child| async move {
+                        self.artifact_for(request.artifact().clone(), &child)
                             .await
                             .map_err(|error| {
                                 match derivative_cause(&error)
@@ -530,7 +553,11 @@ impl MathService {
                                     Some(attributed) => MathRuntimeError::Math(attributed),
                                     None => error,
                                 }
-                            })?;
+                            })
+                    },
+                )
+                .await?;
+                for (request, artifact) in selected.into_iter().zip(artifacts) {
                     bound.bind(request, artifact.program.clone())?;
                 }
                 programs.push(bound);
@@ -797,6 +824,84 @@ impl MathService {
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
+        self.prepare_modeling_function_products_inner(
+            workspace,
+            model,
+            rows,
+            coordinates,
+            order,
+            actions,
+            None,
+            profile,
+            driver,
+        )
+        .await
+    }
+    /// Compiler-issued exact semantic entry products, prepared before native work.
+    /// Complete static support remains available independently of numeric coverage.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the admitted request carries semantic rows/coordinates, exact entry pairs, actions and the original compiler policy/driver"
+    )]
+    pub(crate) async fn prepare_modeling_function_entries(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        model: ModelingPreparation,
+        rows: Vec<SemanticId>,
+        coordinates: Vec<SemanticId>,
+        order: pse_kernels::DerivativeOrder,
+        actions: Vec<pse_math::jets::ProductKind>,
+        entries: Vec<(SemanticId, SemanticId)>,
+        providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        profile: pse_compiler::workspace::Profile,
+        driver: &crate::CancelSource,
+    ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
+        let bytes = providers
+            .len()
+            .checked_mul(size_of::<pse_kernels::ProviderKey>())
+            .and_then(|bytes| bytes.checked_add(size_of::<EntryPreparation>()))
+            .ok_or(MathRuntimeError::Limit("selected entry provider bindings"))?;
+        let owner = self.reserve("math:selected-entry-provider-bindings", bytes)?;
+        let mut eligible_provider_keys = Vec::with_capacity(providers.len());
+        for (key, registration) in providers {
+            if selected_entry_provider_eligible(registration) {
+                eligible_provider_keys.push(*key);
+            }
+        }
+        let entries = EntryPreparation {
+            pairs: entries,
+            eligible_provider_keys,
+            _owner: owner,
+        };
+        self.prepare_modeling_function_products_inner(
+            workspace,
+            model,
+            rows,
+            coordinates,
+            order,
+            actions,
+            Some(entries),
+            profile,
+            driver,
+        )
+        .await
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one compiler job binds the full or exact-entry product request and its admitted source/policy/driver"
+    )]
+    async fn prepare_modeling_function_products_inner(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        model: ModelingPreparation,
+        rows: Vec<SemanticId>,
+        coordinates: Vec<SemanticId>,
+        order: pse_kernels::DerivativeOrder,
+        actions: Vec<pse_math::jets::ProductKind>,
+        entries: Option<EntryPreparation>,
+        profile: pse_compiler::workspace::Profile,
+        driver: &crate::CancelSource,
+    ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
         let driver = self.preparation_driver(driver)?;
         let control = Cancellation::default();
         let operation = self.compiler_job_retained(
@@ -815,7 +920,31 @@ impl MathService {
                     profile,
                     &flag,
                 )?;
-                let bytes = prepared.plan.retained_bytes();
+                let prepared = if let Some(entries) = &entries {
+                    let selected = prepared.prepare_jacobian_entries(&entries.pairs, &flag)?;
+                    // These are actual selected support occurrences, including
+                    // guard-only providers conservatively. Registration does not
+                    // certify an arbitrary exact SelectedColumns request. The
+                    // concrete childless single-root reconstruction owner can
+                    // qualify its own nested implementation; all other owners
+                    // retain full preparation before compilation or effects.
+                    let qualified = selected.plan.jacobian_entry_provider_sources().iter().all(
+                        |(_, _, key)| entries.eligible_provider_keys.binary_search(key).is_ok(),
+                    );
+                    if qualified {
+                        drop(prepared);
+                        selected
+                    } else {
+                        if let Some(context) = pse_diagnostics::observation::current() {
+                            context.count("dynamics.jacobi.full_preparation_fallbacks", "count", 1);
+                        }
+                        drop(selected);
+                        prepared
+                    }
+                } else {
+                    prepared
+                };
+                let bytes = prepared.retained_bytes();
                 Ok((prepared, bytes))
             },
         );

@@ -51,6 +51,34 @@ fn copy_matrix(target: &mut Mat<f64>, source: &Mat<f64>) {
     }
 }
 impl Problem {
+    #[cfg(test)]
+    pub(super) fn probe_state_linearization(
+        &self,
+        parameters: &[f64],
+        point: &[f64],
+        direction: &[f64],
+        options: &Options,
+        scope: &pse_kernels::ExecutionScope,
+    ) -> Result<(Vec<f64>, Vec<crate::execution::ProviderVisit>), MathError> {
+        let program = self.product_program(
+            ProductKind::JacobianAction,
+            &[],
+            DerivativeOrder::First,
+            scope,
+        )?;
+        self.with_product(
+            &program,
+            parameters,
+            point,
+            ProductValues::JacobianAction { direction },
+            scope.cancellation(),
+            None,
+            |values, trial| {
+                self.verify_values(&trial.values, options)?;
+                Ok((values.to_vec(), trial.provider_visits().to_vec()))
+            },
+        )
+    }
     fn prepare_program(
         &self,
         kind: ProductKind,
@@ -314,7 +342,13 @@ impl Problem {
         };
         let extent = extent.and_then(|v| {
             if request.order >= DerivativeOrder::First {
-                n.checked_mul(n).map(|state| v.max(state))
+                let state = match request.demand {
+                    ProviderDemand::CompleteJets | ProviderDemand::SelectedColumns { .. } => {
+                        n.checked_mul(n)
+                    }
+                    _ => Some(self.pattern.row_idx().len()),
+                };
+                state.map(|state| v.max(state))
             } else {
                 Some(v)
             }
@@ -411,7 +445,12 @@ impl Problem {
             .map(|v| v / 8 * 8)
             .ok_or(MathError::Limit("implicit padded matrix rows"))?;
         let bytes = padded_rows
-            .checked_mul(batch.max(n))
+            .checked_mul(match request.demand {
+                ProviderDemand::CompleteJets | ProviderDemand::SelectedColumns { .. } => {
+                    batch.max(n)
+                }
+                _ => batch,
+            })
             .and_then(|v| v.checked_mul(8))
             .and_then(|v| {
                 (n + self.inputs)
@@ -420,6 +459,7 @@ impl Problem {
                     .and_then(|w| v.checked_add(w))
             })
             .and_then(|v| v.checked_add(8 * (n + self.inputs)))
+            .and_then(|v| v.checked_add(self.pattern.row_idx().len().checked_mul(2)?))
             .and_then(|v| v.checked_add(2 * numerical + bindings))
             .and_then(|v| v.checked_mul(size_of::<f64>()))
             .and_then(|v| v.checked_add(memory))
@@ -626,6 +666,28 @@ impl Problem {
         premise: ContentHash,
         scope: &pse_kernels::ExecutionScope,
     ) -> Result<ProviderValues, MathError> {
+        let result = self.demanded_derivatives_inner(
+            parameters, point, request, runtime, options, premise, scope,
+        );
+        if result.is_err() {
+            self.invalidate_factor();
+        }
+        result
+    }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "current IFT qualification retains the exact complete numerical premise"
+    )]
+    fn demanded_derivatives_inner(
+        &self,
+        parameters: &[f64],
+        point: &[f64],
+        request: &PreparedProviderRequest,
+        runtime: ProviderRuntime<'_>,
+        options: &Options,
+        premise: ContentHash,
+        scope: &pse_kernels::ExecutionScope,
+    ) -> Result<ProviderValues, MathError> {
         let cancel = scope.cancellation();
         if request.order == DerivativeOrder::Value {
             return Ok(ProviderValues {
@@ -682,24 +744,68 @@ impl Problem {
             .product_scratch
             .lock()
             .map_err(|_| MathError::Contract("implicit product scratch lock poisoned".into()))?;
-        let ProductScratch {
-            tangent,
-            seed,
-            children,
-            ..
-        } = &mut *scratch;
-        tangent.resize_with(n, n, |_, _| 0.);
+        let ProductScratch { seed, children, .. } = &mut *scratch;
+        let mut coefficients = vec![0.; self.pattern.row_idx().len()];
         seed.resize(width, 0.);
         seed.fill(0.);
         children.clear();
+        let candidate = self
+            .factor
+            .lock()
+            .map_err(|_| MathError::Contract("implicit factor lock poisoned".into()))?
+            .association
+            .as_ref()
+            .is_some_and(|association| {
+                association.matches_state(premise, point, coefficients.len())
+            });
+        let mut restored = false;
+        if candidate {
+            // The zero action still executes every original residual and current
+            // child at First with the complete physical-coordinate selection.
+            self.with_product(
+                &state,
+                parameters,
+                point,
+                ProductValues::JacobianAction { direction: seed },
+                cancel,
+                None,
+                |_, trial| {
+                    self.verify_values(&trial.values, options)?;
+                    children.extend_from_slice(trial.provider_visits());
+                    Ok(())
+                },
+            )?;
+            let held = self
+                .factor
+                .lock()
+                .map_err(|_| MathError::Contract("implicit factor lock poisoned".into()))?;
+            if let Some(association) = held.association.as_ref().filter(|association| {
+                association.matches_state(premise, point, coefficients.len())
+                    && association.children == *children
+            }) {
+                for (target, bits) in coefficients.iter_mut().zip(&association.matrix) {
+                    *target = f64::from_bits(*bits);
+                }
+                restored = true;
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("implicit.state.coefficient_reuse", "calls", 1);
+                }
+            }
+        }
+        if !restored {
+            children.clear();
+        }
         // All physical coordinates remain selected, even for a zero parameter
         // seed. Each active differentiable child therefore qualifies its actual
         // First context rather than returning a Value-only observation.
-        for j in 0..n {
+        for j in 0..if restored { 0 } else { n } {
             if j > 0 {
                 seed[j - 1] = 0.;
             }
             seed[j] = 1.;
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("implicit.state.unit_actions", "calls", 1);
+            }
             self.with_product(
                 &state,
                 parameters,
@@ -716,18 +822,19 @@ impl Problem {
                             pse_kernels::ProviderError::LinearizationChanged,
                         ));
                     }
-                    for i in 0..n {
-                        tangent[(i, j)] = values[i];
+                    let begin = self.pattern.col_ptr()[j];
+                    let end = self.pattern.col_ptr()[j + 1];
+                    for (entry, &row) in coefficients[begin..end]
+                        .iter_mut()
+                        .zip(&self.pattern.row_idx()[begin..end])
+                    {
+                        *entry = values[row];
                     }
                     Ok(())
                 },
             )?;
         }
         seed.fill(0.);
-        let coefficients = (0..n)
-            .flat_map(|j| self.pattern.as_ref().row_idx_of_col(j).map(move |i| (i, j)))
-            .map(|(i, j)| tangent[(i, j)])
-            .collect();
         let matrix = SparseColMat::new(self.pattern.clone(), coefficients);
         let mut factor = self.factorize_ift(&matrix, premise, point, children, cancel)?;
         let ProductScratch {

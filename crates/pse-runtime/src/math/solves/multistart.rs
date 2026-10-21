@@ -66,7 +66,7 @@ impl PreparedMultistart {
     /// Frozen native profile declaration consumed by the common strategy.
     pub fn profile_ref(&self) -> Result<ProfileRef, ProblemError> {
         Ok(ProfileRef {
-            backend: self.backend(),
+            method: pse_model::strategy::NumericalMethod::Backend(self.backend()),
             key: self.strategy_profile()?,
         })
     }

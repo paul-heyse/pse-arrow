@@ -1,0 +1,1183 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//! Pinned LM 0.15 nalgebra-0.35 revision over the actual unbounded fitting residual/response authority.
+use super::*;
+use levenberg_marquardt::{LeastSquaresProblem, LevenbergMarquardt, TerminationReason};
+use nalgebra::{DMatrix, DVector, Dyn, storage::Owned};
+use std::cell::{Cell, RefCell};
+use std::time::Instant;
+
+type FixtureResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+const MATRIX_ALLOWANCE: usize = 1 << 20;
+struct ResidualProblem {
+    oracle: RefCell<FitOracle>,
+    x: DVector<f64>,
+    error: RefCell<Option<ProblemError>>,
+    evaluations: Cell<usize>,
+    jacobians: Cell<usize>,
+    cap: usize,
+}
+impl ResidualProblem {
+    fn new(
+        problem: Arc<FitProblem>,
+        execution: Execution,
+        x: Vec<f64>,
+        cap: usize,
+    ) -> Result<Self, ProblemError> {
+        if problem
+            .contract
+            .variables
+            .iter()
+            .any(|v| v.lower.is_finite() || v.upper.is_finite())
+            || !problem.bounds.is_empty()
+            || x.len() > 16
+            || problem.measurements.len() > 32
+        {
+            return Err(ProblemError::unsupported(
+                "private LM fixture is not bounded unboxed residual-only fitting",
+            ));
+        }
+        Ok(Self {
+            oracle: RefCell::new(FitOracle::new(problem, execution)?),
+            x: DVector::from_vec(x),
+            error: RefCell::new(None),
+            evaluations: Cell::new(0),
+            jacobians: Cell::new(0),
+            cap,
+        })
+    }
+    fn retain<T>(&self, result: Result<T, ProblemError>) -> Option<T> {
+        match result {
+            Ok(value) => Some(value),
+            Err(error) => {
+                if self.error.borrow().is_none() {
+                    *self.error.borrow_mut() = Some(error);
+                }
+                None
+            }
+        }
+    }
+}
+impl LeastSquaresProblem<f64, Dyn, Dyn> for ResidualProblem {
+    type ParameterStorage = Owned<f64, Dyn>;
+    type ResidualStorage = Owned<f64, Dyn>;
+    type JacobianStorage = Owned<f64, Dyn, Dyn>;
+    fn set_params(&mut self, x: &DVector<f64>) {
+        self.x.copy_from(x);
+    }
+    fn params(&self) -> DVector<f64> {
+        self.x.clone()
+    }
+    fn residuals(&self) -> Option<DVector<f64>> {
+        if self.error.borrow().is_some() {
+            return None;
+        }
+        self.retain((|| {
+            let mut oracle = self.oracle.borrow_mut();
+            oracle.execution.check()?;
+            if self.evaluations.get() >= self.cap {
+                return Err(ProblemError::Limit {
+                    kind: native::LimitKind::Work,
+                    detail: "private LM original residual evaluation cap".into(),
+                });
+            }
+            self.evaluations.set(self.evaluations.get() + 1);
+            let problem = oracle.prepared.clone();
+            let point = oracle.evaluate_demand(self.x.as_slice(), Demand::default())?;
+            let values = problem
+                .measurements
+                .iter()
+                .zip(&point.predictions)
+                .filter(|(measurement, _)| measurement.included)
+                .map(|(measurement, prediction)| {
+                    FitOracle::residual(measurement, *prediction).map(|value| value.0)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(DVector::from_vec(values))
+        })())
+    }
+    fn jacobian(&self) -> Option<DMatrix<f64>> {
+        if self.error.borrow().is_some() {
+            return None;
+        }
+        self.retain((|| {
+            let mut oracle = self.oracle.borrow_mut();
+            oracle.execution.check()?;
+            self.jacobians.set(self.jacobians.get() + 1);
+            let problem = oracle.prepared.clone();
+            let point = oracle.evaluate_demand(self.x.as_slice(), Demand::responses())?;
+            let mut mapping = vec![None; problem.measurements.len()];
+            let mut rows = 0;
+            for (index, (measurement, prediction)) in problem
+                .measurements
+                .iter()
+                .zip(&point.predictions)
+                .enumerate()
+            {
+                if measurement.included {
+                    mapping[index] = Some((rows, FitOracle::residual(measurement, *prediction)?.1));
+                    rows += 1;
+                }
+            }
+            let source = point.responses.matrix();
+            let mut result = DMatrix::zeros(rows, self.x.len());
+            for column in 0..source.ncols() {
+                for entry in source.col_range(column) {
+                    if let Some((row, weight)) = mapping[source.row_idx()[entry]] {
+                        result[(row, column)] = source.val()[entry] * weight;
+                    }
+                }
+            }
+            Ok(result)
+        })())
+    }
+}
+
+pub(in crate::workflow::fitting) async fn fixture(
+    kind: &str,
+    scales: [f64; 2],
+) -> FixtureResult<PreparedFit> {
+    fixture_on(kind, scales, crate::workflow::tests::runtime()).await
+}
+async fn fixture_on(
+    kind: &str,
+    scales: [f64; 2],
+    runtime: crate::workflow::Runtime,
+) -> FixtureResult<PreparedFit> {
+    use crate::workflow::tests::{compiler_profile, id};
+    let mut physical = crate::workflow::tests::physical();
+    physical.preconditions = Arc::new(pse_quantity::PhysicalPreconditions::new(
+        pse_quantity::generated::standard_preconditions(),
+    )?);
+    let outputs = (1..=4)
+        .map(|i| {
+            let column = if kind == "near-collinear" {
+                1. + (i as f64) * 0.0001
+            } else {
+                i as f64
+            };
+            let intercept = if kind == "domain" { "sqrt(a)" } else { "a" };
+            format!("let y{i}: Scalar = {intercept} + b*{column};")
+        })
+        .collect::<String>();
+    let mut rows = pse_authoring::language::parse(
+        &format!(
+            "package p {{ def Root {{ param a: Scalar = 1; param b: Scalar = 1; {outputs} }} }}"
+        ),
+        id(20),
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )?;
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .ok_or_else(|| WorkflowError::Input("fixture Root declaration missing".into()))?
+        .declaration_id;
+    rows.extend(measured_rows(
+        &(0..4)
+            .map(|i| {
+                (
+                    id(40 + i as u8),
+                    "Scalar",
+                    Some(regression::Y[i]),
+                    Some(regression::SIGMA[i]),
+                )
+            })
+            .collect::<Vec<_>>(),
+    ));
+    let parameters = (0..2)
+        .map(|i| {
+            serde_json::json!({"symbol_id":id(i as u8 + 1),"fixed":false,
+        "value":1.,"lower":null,"upper":null,"scale":scales[i]})
+        })
+        .collect::<Vec<_>>();
+    let observations = (0..4).map(|i| serde_json::json!({"value_attribute":"value",
+        "standard_deviation_attribute":"sigma","observation_id":id(40 + i as u8),"experiment_id":id(33),
+        "output_path":format!("y{}",i+1),"time":null,"included":true,"importance":1.})).collect::<Vec<_>>();
+    let declaration = serde_json::from_value(
+        serde_json::json!({"fit_id":id(32),"parameters":parameters,
+        "experiments":[{"experiment_id":id(33),"case_id":root,"route":"steady","bindings":[
+            {"parameter_id":id(1),"path":"a"},{"parameter_id":id(2),"path":"b"}]}],"observations":observations}),
+    )?;
+    Ok(runtime
+        .modeling_package(rows, physical)
+        .await?
+        .with_fit_declarations(FitDeclarations::from_owned_rows(vec![declaration], vec![]))
+        .await?
+        .prepare_fit(
+            id(32).into(),
+            regression::profile(HessianMode::GaussNewton, None),
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await?)
+}
+fn fresh(
+    problem: Arc<FitProblem>,
+    execution: Execution,
+    x: &[f64],
+) -> Result<(f64, Vec<f64>), ProblemError> {
+    let mut oracle = FitOracle::new(problem, execution)?;
+    let objective = oracle.objective(x)?;
+    let mut gradient = vec![0.; x.len()];
+    oracle.gradient(x, &mut gradient)?;
+    Ok((objective, gradient))
+}
+/// This fixture is linear in (intercept, slope), including sqrt(a)'s positive
+/// domain. Centering gives a stable independent quadratic identity even when
+/// the two authored columns are nearly collinear.
+struct QuadraticWitness {
+    best: f64,
+    gap: f64,
+    scaled: f64,
+    gradient: [f64; 2],
+}
+fn quadratic_witness(kind: &str, p: &FitProblem, x: &[f64], objective: f64) -> QuadraticWitness {
+    let columns: Vec<_> = (1..=4)
+        .map(|i| {
+            if kind == "near-collinear" {
+                1. + i as f64 * 0.0001
+            } else {
+                i as f64
+            }
+        })
+        .collect();
+    let weights: Vec<_> = regression::SIGMA
+        .iter()
+        .map(|sigma| 1. / (sigma * sigma))
+        .collect();
+    let total = weights.iter().sum::<f64>();
+    let mean_x = columns
+        .iter()
+        .zip(&weights)
+        .map(|(x, w)| x * w)
+        .sum::<f64>()
+        / total;
+    let mean_y = regression::Y
+        .iter()
+        .zip(&weights)
+        .map(|(y, w)| y * w)
+        .sum::<f64>()
+        / total;
+    let centered = columns
+        .iter()
+        .zip(&weights)
+        .map(|(x, w)| w * (x - mean_x).powi(2))
+        .sum::<f64>();
+    let slope = columns
+        .iter()
+        .zip(regression::Y)
+        .zip(&weights)
+        .map(|((x, y), w)| w * (x - mean_x) * (y - mean_y))
+        .sum::<f64>()
+        / centered;
+    let intercept = mean_y - slope * mean_x;
+    let best = columns
+        .iter()
+        .zip(regression::Y)
+        .zip(&weights)
+        .map(|((x, y), w)| 0.5 * w * (intercept + slope * x - y).powi(2))
+        .sum::<f64>();
+    let actual_intercept = if kind == "domain" { x[0].sqrt() } else { x[0] };
+    assert!(actual_intercept.is_finite());
+    let du = actual_intercept - intercept;
+    let db = x[1] - slope;
+    let gap = 0.5 * (total * (du + mean_x * db).powi(2) + centered * db * db);
+    let mut gradient = [0., 0.];
+    for ((column, y), weight) in columns.iter().zip(regression::Y).zip(&weights) {
+        let residual = actual_intercept + x[1] * column - y;
+        gradient[0] += weight * residual;
+        gradient[1] += weight * residual * column;
+    }
+    // 1/2 g^T H^-1 g in centered coordinates, with the exact authored
+    // intercept derivative restored before physical/scaled stationarity.
+    let gradient_gap = 0.5
+        * (gradient[0].powi(2) / total + (gradient[1] - mean_x * gradient[0]).powi(2) / centered);
+    assert!((gradient_gap - gap).abs() <= 1e-7 * (1. + gap));
+    if kind == "domain" {
+        gradient[0] /= 2. * actual_intercept;
+    }
+    let scaled = gradient
+        .iter()
+        .zip(&p.normalization.variables)
+        .map(|(g, scale)| (g * scale / p.normalization.objective).abs())
+        .fold(0., f64::max);
+    assert!(
+        (objective - best - gap).abs() <= 1e-7 * (1. + objective.abs()),
+        "original objective must equal analytic optimum plus its exact current quadratic gap"
+    );
+    QuadraticWitness {
+        best,
+        gap,
+        scaled,
+        gradient,
+    }
+}
+#[tokio::test]
+async fn pinned_lm_actual_fit_residual_inquiry_preserves_original_weighted_objective() {
+    for (kind, scales) in [
+        ("linear", [1., 2.]),
+        ("linear", [0.001, 1000.]),
+        ("near-collinear", [1., 2.]),
+    ] {
+        let prepared = fixture(kind, scales).await.unwrap();
+        let problem = prepared.problem.clone();
+        let mut comparisons = Vec::new();
+        for mode in [
+            HessianMode::GaussNewton,
+            HessianMode::Exact,
+            HessianMode::LimitedMemory,
+        ] {
+            comparisons.push(
+                prepared
+                    .source
+                    .prepare_fit(
+                        prepared.declaration().fit_id,
+                        regression::profile(mode, None),
+                        crate::workflow::tests::compiler_profile(),
+                        Default::default(),
+                        &crate::CancelSource::new(),
+                    )
+                    .await
+                    .unwrap(),
+            );
+        }
+        let bytes = comparisons
+            .iter()
+            .map(|prepared| prepared.problem.bytes)
+            .chain(std::iter::once(problem.bytes))
+            .max()
+            .unwrap()
+            + MATRIX_ALLOWANCE;
+        let service = problem.runtime.native().clone();
+        service.job_scoped(1, bytes, Default::default(), None, move |flag| {
+            let controls = problem.profile.solver.controls.clone();
+            let execution = Execution::new(flag, &controls);
+            let started = Instant::now();
+            let adapter = ResidualProblem::new(problem.clone(), execution.clone(), problem.initial.clone(), 200)?;
+            let (adapter, report) = LevenbergMarquardt::new().with_tol(0.001).with_patience(40).minimize(adapter);
+            assert!(adapter.error.borrow().is_none(), "{:?}", adapter.error.borrow());
+            let (objective, gradient) = fresh(problem.clone(), execution.clone(), adapter.x.as_slice())?;
+            assert!(objective > 0., "the inquiry must retain nonzero residuals");
+            assert!((objective - report.objective_function).abs() <= 0.001 * objective.abs().max(1.));
+            assert!(gradient.iter().all(|value| value.abs() <= 0.001), "{kind}: {gradient:?}");
+            println!("LM0.15 kind={kind} scales={scales:?} native={:?} original={objective} gradient={gradient:?} residual_calls={} jacobian_calls={} prepaid_matrix_bytes={MATRIX_ALLOWANCE} complete_ms={}",
+                report.termination, adapter.evaluations.get(), adapter.jacobians.get(), started.elapsed().as_secs_f64()*1000.);
+            for prepared in comparisons {
+                let problem = &prepared.problem;
+                let solver = &problem.profile.solver;
+                let mode = solver.controls.hessian;
+                let started = Instant::now();
+                let native = problem.execute_profile(solver, prepared.route(), execution.scope()?,
+                    Arc::new(native::solve::Progress::new(256)), 1, None)?;
+                let candidate = native.candidate.as_ref().expect("current Ipopt route must retain a physical candidate");
+                let (actual, _) = fresh(problem.clone(), execution.clone(), candidate)?;
+                let QuadraticWitness { best, gap, scaled, gradient } = quadratic_witness(kind, problem, candidate, actual);
+                println!("fit_quadratic kind={kind} x={candidate:?} physical_gradient={gradient:?} scaled_stationarity={scaled} analytic_best={best} exact_gap={gap}");
+                assert!((objective-best).abs() <= 0.001*(1.+best.abs()), "LM original optimum: {kind}");
+                assert!(scaled <= problem.accuracy.stationarity, "{kind} {mode:?}: stationarity {scaled}");
+                if gap > 0.001*(1.+best.abs()) {
+                    assert_eq!((kind, scales, mode), ("linear", [0.001,1000.], HessianMode::LimitedMemory),
+                        "an unanticipated objective-gap classification needs its own causal evidence");
+                }
+                println!("Ipopt kind={kind} hessian={mode:?} original={actual} quality={:?} complete_ms={}", native.quality, started.elapsed().as_secs_f64()*1000.);
+            }
+            Ok(())
+        }).await.unwrap();
+    }
+}
+#[tokio::test]
+async fn pinned_lm_actual_fit_refusal_cancel_and_evaluation_cap_remain_typed() {
+    let prepared = fixture("domain", [1., 2.]).await.unwrap();
+    let problem = prepared.problem.clone();
+    let service = problem.runtime.native().clone();
+    service
+        .job_scoped(
+            1,
+            problem.bytes + MATRIX_ALLOWANCE,
+            Default::default(),
+            None,
+            move |flag| {
+                for (kind, x, cap) in [
+                    ("domain", vec![-1., 1.], 40),
+                    ("cancel", vec![1., 1.], 40),
+                    ("cap", vec![1., 1.], 1),
+                ] {
+                    if flag.flag().load(std::sync::atomic::Ordering::Acquire) {
+                        return Err(ProblemError::Cancelled.into());
+                    }
+                    let execution =
+                        Execution::new(Default::default(), &problem.profile.solver.controls);
+                    let adapter = ResidualProblem::new(problem.clone(), execution.clone(), x, cap)?;
+                    if kind == "cancel" {
+                        execution.cancellation_control().cancel();
+                    }
+                    let (adapter, report) = LevenbergMarquardt::new()
+                        .with_tol(0.001)
+                        .with_patience(20)
+                        .minimize(adapter);
+                    assert!(
+                        matches!(report.termination, TerminationReason::User(_)),
+                        "{kind}: {:?}",
+                        report.termination
+                    );
+                    let error = adapter.error.borrow();
+                    assert!(error.is_some(), "{kind}: retain the actual source refusal");
+                    if kind == "cap" {
+                        assert!(matches!(
+                            error.as_ref(),
+                            Some(ProblemError::Limit {
+                                kind: native::LimitKind::Work,
+                                ..
+                            })
+                        ));
+                    }
+                    if kind == "cancel" {
+                        assert!(matches!(error.as_ref(), Some(ProblemError::Cancelled)));
+                    }
+                }
+                Ok(())
+            },
+        )
+        .await
+        .unwrap();
+}
+
+async fn production_profile(
+    prepared: &PreparedFit,
+    mut profile: FitProfile,
+) -> FixtureResult<PreparedFit> {
+    profile.optimizer = FitOptimizer::Automatic;
+    profile.solver.selection = native::solve::SolverSelection::Auto;
+    profile.solver.controls.hessian = HessianMode::GaussNewton;
+    Ok(prepared
+        .source
+        .prepare_fit(
+            prepared.declaration().fit_id,
+            profile,
+            crate::workflow::tests::compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await?)
+}
+#[tokio::test]
+async fn fitting_owned_residual_lm_uses_real_method_and_fresh_original_assessment() {
+    for (scales, native_scaling) in [
+        ([1., 2.], true),
+        ([0.001, 1000.], true),
+        ([0.001, 1000.], false),
+    ] {
+        let seed = fixture("linear", scales).await.unwrap();
+        let mut profile = seed.problem.profile.clone();
+        profile.solver.numerics.native_scaling = native_scaling;
+        profile.uncertainty = Some(FitUncertainty {
+            level: Fraction::try_new(0.95).unwrap(),
+            profile: Some(Default::default()),
+            predictions: false,
+        });
+        let prepared = production_profile(&seed, profile).await.unwrap();
+        assert_eq!(prepared.route(), FitRoute::ResidualLm);
+        assert_eq!(
+            prepared.numerical_strategy().mechanisms[0]
+                .profile
+                .unwrap()
+                .method,
+            pse_model::strategy::NumericalMethod::ResidualLm
+        );
+        let result = prepared.start().unwrap().wait().await.unwrap();
+        let report = regression::report(&result);
+        assert!(report.solve.is_none());
+        let residual = report.residual.as_ref().unwrap();
+        assert!(residual.failure.is_none(), "{residual:?}");
+        assert_eq!(
+            residual.qualification,
+            native::solve::Qualification::Stationary,
+            "{residual:?}"
+        );
+        assert!(report.estimate_qualified(), "{report:?}");
+        let (expected_covariance, estimate) = regression::analytic();
+        let covariance = report.covariance.as_ref().unwrap();
+        assert_eq!(
+            covariance.approximation,
+            pse_model::generated::enums::CovarianceApproximation::GaussNewton
+        );
+        let covariance = covariance.values.as_ref().unwrap();
+        for (actual, expected) in covariance.iter().zip(expected_covariance) {
+            assert!((actual - expected).abs() <= 0.001 * (1. + expected.abs()));
+        }
+        assert_eq!(report.wald.as_ref().unwrap().as_ref().unwrap().len(), 2);
+        let objective = 0.5
+            * (0..4)
+                .map(|i| {
+                    let residual = (estimate[0] + estimate[1] * regression::X[i]
+                        - regression::Y[i])
+                        / regression::SIGMA[i];
+                    residual * residual
+                })
+                .sum::<f64>();
+        assert!((report.objective.unwrap() - objective).abs() <= 0.001 * objective.max(1.));
+        let completion = result.completion().unwrap();
+        let computation = completion.computation.as_ref().unwrap();
+        assert_eq!(
+            computation.state,
+            pse_model::generated::enums::NativeRunState::Native
+        );
+        assert_eq!(computation.backend, None);
+        assert_eq!(computation.native_code, None);
+        assert_eq!(
+            computation.candidate_kind,
+            Some(pse_model::generated::enums::NativeCandidateKind::FinalIterate)
+        );
+        assert!(
+            computation
+                .native_status
+                .as_ref()
+                .unwrap()
+                .starts_with("residual_lm.")
+        );
+        assert!(matches!(
+            report.execution_document(),
+            FitExecutionDocument::ResidualLm { .. }
+        ));
+        for chain in report.profiles.as_ref().unwrap().as_ref().unwrap() {
+            assert!(!chain.points.is_empty());
+            assert!(chain.points.iter().all(|point| point.residual.is_some()));
+        }
+    }
+}
+#[tokio::test]
+async fn fitting_residual_eligibility_preserves_required_native_contracts_before_callbacks() {
+    let seed = fixture("linear", [1., 2.]).await.unwrap();
+    let mut shared = seed.problem.profile.clone();
+    shared.solver.selection = native::solve::SolverSelection::Auto;
+    shared.solver.controls.hessian = HessianMode::GaussNewton;
+    for intent in [
+        SolveIntent::Root,
+        SolveIntent::FeasiblePoint,
+        SolveIntent::Initialize,
+        SolveIntent::Certify,
+    ] {
+        shared.solver.intent = intent;
+        assert!(
+            !residual::request_eligible(&shared),
+            "{intent:?} is a real requested purpose"
+        );
+    }
+    shared.solver.intent = SolveIntent::Optimize;
+    // The real typed request must not disappear into the residual binding.
+    shared.solver.sensitivity = Some(crate::math::settings::SensitivityRequest {
+        parameters: vec![crate::workflow::tests::id(1)],
+        reduced_hessian: false,
+        propagation: None,
+    });
+    assert!(!residual::request_eligible(&shared));
+    shared.solver.sensitivity = None;
+    shared.solver.composition.limits = Some(pse_model::strategy::WorkLimits {
+        attempts: 1,
+        evaluations: Some(256),
+        iterations: None,
+        factorizations: None,
+        proof_steps: None,
+    });
+    assert!(
+        residual::request_eligible(&shared),
+        "actual residual/evaluation caps remain supported"
+    );
+    for request in [
+        "required-presolve",
+        "declared-composition",
+        "exact-curvature",
+        "explicit-backend",
+        "native-iteration-cap",
+        "native-factor-cap",
+        "native-proof-cap",
+    ] {
+        let mut profile = seed.problem.profile.clone();
+        profile.optimizer = FitOptimizer::Automatic;
+        profile.solver.selection = native::solve::SolverSelection::Auto;
+        profile.solver.controls.hessian = HessianMode::GaussNewton;
+        match request {
+            "required-presolve" => {
+                profile.solver.presolve = native::presolve::Policy::from_native_options(
+                    &Default::default(),
+                    [native::presolve::Pass::AffineElimination].into(),
+                )
+                .unwrap()
+            }
+            "declared-composition" => {
+                profile.solver.composition.policy = pse_model::strategy::CompositionPolicy::Declared
+            }
+            "exact-curvature" => profile.solver.controls.hessian = HessianMode::Exact,
+            "native-iteration-cap" | "native-factor-cap" | "native-proof-cap" => {
+                profile.solver.composition.limits = Some(pse_model::strategy::WorkLimits {
+                    attempts: 1,
+                    evaluations: None,
+                    iterations: (request == "native-iteration-cap").then_some(64),
+                    factorizations: (request == "native-factor-cap").then_some(64),
+                    proof_steps: (request == "native-proof-cap").then_some(64),
+                });
+            }
+            _ => {
+                profile.solver.selection = native::solve::SolverSelection::Explicit(Backend::Ipopt)
+            }
+        }
+        let native = seed
+            .source
+            .prepare_fit(
+                seed.declaration().fit_id,
+                profile.clone(),
+                crate::workflow::tests::compiler_profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        assert!(matches!(native.route(), FitRoute::Native(_)), "{request}");
+        profile.optimizer = FitOptimizer::ResidualLm;
+        assert!(
+            seed.source
+                .prepare_fit(
+                    seed.declaration().fit_id,
+                    profile,
+                    crate::workflow::tests::compiler_profile(),
+                    Default::default(),
+                    &crate::CancelSource::new()
+                )
+                .await
+                .is_err(),
+            "{request}"
+        );
+    }
+}
+
+/// Known dense workspace belongs to method eligibility before numerical products
+/// or callbacks are prepared. The execution-time check remains a separate guard.
+#[tokio::test]
+async fn fitting_residual_dense_workspace_eligibility_precedes_numerical_preparation() {
+    let seed = fixture("linear", [1., 2.]).await.unwrap();
+    let m = seed
+        .problem
+        .measurements
+        .iter()
+        .filter(|m| m.included)
+        .count();
+    let n = seed.problem.contract.variables.len();
+    let bytes = residual::matrix_bytes(m, n).unwrap();
+    assert!(!residual::workspace_eligible(
+        usize::MAX,
+        2,
+        usize::MAX,
+        usize::MAX
+    ));
+    for allowance in [bytes - 1, bytes] {
+        let mut profile = seed.problem.profile.clone();
+        profile.optimizer = FitOptimizer::Automatic;
+        profile.solver.selection = native::solve::SolverSelection::Auto;
+        profile.solver.controls.hessian = HessianMode::GaussNewton;
+        profile.solver.controls.foreign_bytes = Some(allowance);
+        let prepared = seed
+            .source
+            .prepare_fit(
+                seed.declaration().fit_id,
+                profile.clone(),
+                crate::workflow::tests::compiler_profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let Experiment::Steady(source) = &prepared.problem.experiments[0] else {
+            panic!("steady fixture");
+        };
+        if allowance < bytes {
+            assert!(matches!(prepared.route(), FitRoute::Native(_)));
+            assert_eq!(
+                source.case.assembly.order(),
+                DerivativeOrder::Second,
+                "NLP constraint curvature preparation must survive an ineligible dense LM route"
+            );
+        } else {
+            assert_eq!(prepared.route(), FitRoute::ResidualLm);
+            assert_eq!(source.case.assembly.order(), DerivativeOrder::First);
+        }
+        profile.optimizer = FitOptimizer::ResidualLm;
+        let explicit = seed
+            .source
+            .prepare_fit(
+                seed.declaration().fit_id,
+                profile,
+                crate::workflow::tests::compiler_profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await;
+        if allowance < bytes {
+            assert!(
+                explicit
+                    .unwrap_err()
+                    .to_string()
+                    .contains("dense workspace")
+            );
+        } else {
+            assert_eq!(explicit.unwrap().route(), FitRoute::ResidualLm);
+        }
+    }
+}
+
+/// The physical assembly is unchanged while pins/free maps and current scopes are
+/// rebuilt. Only the actual callback Drop releases its numeric buffers for reuse.
+#[tokio::test]
+async fn fit_neutral_scratch_returns_after_drop_and_rebinds_current_maps_and_controls() {
+    let seed = fixture("linear", [1., 2.]).await.unwrap();
+    let prepared = production_profile(&seed, seed.problem.profile.clone())
+        .await
+        .unwrap();
+    let problem = prepared.problem.clone();
+    let incompatible = fixture("domain", [1., 2.]).await.unwrap().problem.clone();
+    let service = problem.runtime.native().clone();
+    service
+        .job_scoped(
+            1,
+            problem.bytes + MATRIX_ALLOWANCE,
+            Default::default(),
+            None,
+            move |_| {
+                let baseline = problem.runtime.native().test_admission_snapshot().0;
+                let bank =
+                    FitScratch::new(&problem).expect("the finite neutral population is admitted");
+                let charged = problem.runtime.native().test_admission_snapshot().0;
+                assert!(charged > baseline);
+                let pointer = |oracle: &mut FitOracle, x: &[f64]| -> Result<usize, ProblemError> {
+                    let Experiment::Steady(steady) = &problem.experiments[0] else {
+                        panic!("steady fixture");
+                    };
+                    let mut values = steady.values.clone();
+                    for &(id, column) in &steady.coordinates {
+                        values.scalars.insert(id, x[column.get()]);
+                    }
+                    Ok(oracle.workers[0]
+                        .as_mut()
+                        .unwrap()
+                        .jacobian(&values)?
+                        .val()
+                        .as_ptr() as usize)
+                };
+                let current = || {
+                    let mut execution =
+                        Execution::new(Default::default(), &problem.profile.solver.controls);
+                    execution.memory = Some(MATRIX_ALLOWANCE);
+                    execution
+                };
+                let prior = current();
+                let mut first =
+                    FitOracle::with_scratch(problem.clone(), prior.clone(), Some(bank.clone()))?;
+                let value = first.objective(&[1., 2.])?;
+                assert!(value.is_finite());
+                assert_eq!(bank.steady_reuses(), 0);
+                // A second callback while the first remains live gets its own fresh worker.
+                let mut other =
+                    FitOracle::with_scratch(problem.clone(), current(), Some(bank.clone()))?;
+                assert_eq!(bank.steady_reuses(), 0);
+                let returned_pointer = pointer(&mut other, &[1., 2.])?;
+                drop(other);
+                drop(first);
+                prior.cancellation_control().cancel();
+                drop(prior);
+                let mut final_oracle =
+                    FitOracle::with_scratch(problem.clone(), current(), Some(bank.clone()))?;
+                assert_eq!(bank.steady_reuses(), 1);
+                let actual = final_oracle.objective(&[2., 0.5])?;
+                let (fresh, _) = fresh(problem.clone(), current(), &[2., 0.5])?;
+                assert_eq!(
+                    actual, fresh,
+                    "no previous Point or old cancellation may survive reset"
+                );
+                assert_eq!(pointer(&mut final_oracle, &[2., 0.5])?, returned_pointer);
+                assert_eq!(
+                    problem.runtime.native().test_admission_snapshot().0,
+                    charged
+                );
+                assert_ne!(actual, value);
+                drop(final_oracle);
+                let roles = &problem.declaration.experiments;
+                let Experiment::Steady(different) = &incompatible.experiments[0] else {
+                    panic!("steady fixture");
+                };
+                assert!(
+                    bank.steady(roles[0].experiment_id, &different.case.assembly)
+                        .is_none()
+                );
+                // Equal-length pins change the actual free-coordinate map. Reuse is tied to
+                // the physical assembly, while every residual adapter rebuilds that map.
+                for pin in [(0, 1.), (1, 2.)] {
+                    let (evidence, candidate) = residual::solve(
+                        &problem,
+                        current(),
+                        &[1., 1.],
+                        Some(pin),
+                        Some(bank.clone()),
+                    )?;
+                    assert!(evidence.failure.is_none(), "{evidence:?}");
+                    assert_eq!(candidate[pin.0], pin.1);
+                    let (objective, gradient, feasible) = residual::assess_pin(
+                        &problem,
+                        current(),
+                        &candidate,
+                        pin.0,
+                        Some(bank.clone()),
+                    )?;
+                    assert!(
+                        objective.is_finite()
+                            && feasible
+                            && gradient <= problem.accuracy.stationarity
+                    );
+                }
+                assert!(bank.steady_reuses() >= 5);
+                assert_eq!(
+                    problem.runtime.native().test_admission_snapshot().0,
+                    charged,
+                    "fixed physical slots must not grow with the pin population"
+                );
+                // An actual current derivative refusal discards the whole optional bank;
+                // it never makes an old numerical point available to another callback.
+                let mut failed =
+                    FitOracle::with_scratch(problem.clone(), current(), Some(bank.clone()))?;
+                assert!(
+                    failed
+                        .evaluate_demand(&[f64::NAN, 1.], Demand::responses())
+                        .is_err()
+                );
+                drop(failed);
+                let Experiment::Steady(steady) = &problem.experiments[0] else {
+                    panic!("steady fixture");
+                };
+                assert!(
+                    bank.steady(roles[0].experiment_id, &steady.case.assembly)
+                        .is_none()
+                );
+                drop(bank);
+                assert_eq!(
+                    problem.runtime.native().test_admission_snapshot().0,
+                    baseline
+                );
+                Ok(())
+            },
+        )
+        .await
+        .unwrap();
+}
+
+/// Matched actual public operations, including independent final assessment,
+/// report derivation, source physical checks and publication/join. Timing remains
+/// observed evidence: no noisy wall-clock threshold changes scientific acceptance.
+#[tokio::test]
+async fn fitting_residual_production_matches_native_complete_operations_at_original_accuracy() {
+    for (kind, scales) in [
+        ("linear", [1., 2.]),
+        ("linear", [0.001, 1000.]),
+        ("near-collinear", [1., 2.]),
+        ("domain", [1., 2.]),
+    ] {
+        let seed = fixture(kind, scales).await.unwrap();
+        let mut objectives = Vec::new();
+        for round in 0..2 {
+            let mut routes = vec![
+                (FitOptimizer::Automatic, HessianMode::GaussNewton),
+                (FitOptimizer::NativeNlp, HessianMode::GaussNewton),
+                (FitOptimizer::NativeNlp, HessianMode::Exact),
+                (FitOptimizer::NativeNlp, HessianMode::LimitedMemory),
+            ];
+            if round == 1 {
+                routes.reverse();
+            }
+            for (optimizer, curvature) in routes {
+                let mut profile = seed.problem.profile.clone();
+                profile.optimizer = optimizer;
+                profile.solver.selection = native::solve::SolverSelection::Auto;
+                profile.solver.controls.hessian = curvature;
+                profile.uncertainty = Some(FitUncertainty {
+                    level: Fraction::try_new(0.95).unwrap(),
+                    profile: None,
+                    predictions: true,
+                });
+                let started = Instant::now();
+                let prepared = seed
+                    .source
+                    .prepare_fit(
+                        seed.declaration().fit_id,
+                        profile,
+                        crate::workflow::tests::compiler_profile(),
+                        Default::default(),
+                        &crate::CancelSource::new(),
+                    )
+                    .await
+                    .unwrap();
+                let preparation = started.elapsed();
+                let route = prepared.route();
+                let result = prepared.start().unwrap().wait().await.unwrap();
+                let elapsed = started.elapsed();
+                let report = regression::report(&result);
+                assert!(
+                    report.checks_complete && report.checks.iter().all(|check| check.satisfied)
+                );
+                assert!(report.validation_error.is_none(), "{report:?}");
+                assert!(report.quality.as_ref().unwrap().feasible(), "{report:?}");
+                let covariance = report.covariance.as_ref().unwrap();
+                assert!(
+                    covariance
+                        .values
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .all(|value| value.is_finite()),
+                    "{covariance:?}"
+                );
+                assert_eq!(report.wald.as_ref().unwrap().as_ref().unwrap().len(), 2);
+                let objective = report.objective.unwrap();
+                assert!(objective.is_finite() && objective > 0.);
+                if optimizer == FitOptimizer::Automatic {
+                    assert_eq!(route, FitRoute::ResidualLm);
+                    let evidence = report.residual.as_ref().unwrap();
+                    assert!(evidence.failure.is_none(), "{evidence:?}");
+                    assert_eq!(
+                        evidence.qualification,
+                        native::solve::Qualification::Stationary,
+                        "{evidence:?}"
+                    );
+                    assert!(evidence.stationarity.unwrap() <= seed.problem.accuracy.stationarity);
+                } else {
+                    assert!(report.residual.is_none());
+                    let native = report.solve.as_ref().unwrap();
+                    assert!(
+                        native.callback_failure().is_none()
+                            && native.validation_failure().is_none(),
+                        "{native:?}"
+                    );
+                }
+                let QuadraticWitness {
+                    best,
+                    gap,
+                    scaled,
+                    gradient,
+                } = quadratic_witness(
+                    kind,
+                    &seed.problem,
+                    report.candidate.as_ref().unwrap(),
+                    objective,
+                );
+                println!(
+                    "fit_quadratic kind={kind} x={:?} physical_gradient={gradient:?} scaled_stationarity={scaled} analytic_best={best} exact_gap={gap}",
+                    report.candidate.as_ref().unwrap()
+                );
+                assert!(
+                    scaled <= seed.problem.accuracy.stationarity,
+                    "{kind}: {scaled}"
+                );
+                if optimizer == FitOptimizer::Automatic {
+                    assert!(
+                        gap <= 0.001 * (1. + best.abs()),
+                        "LM independent original optimum: {kind}"
+                    );
+                    objectives.push(objective);
+                } else if gap > 0.001 * (1. + best.abs()) {
+                    assert_eq!(
+                        (kind, scales, curvature),
+                        ("linear", [0.001, 1000.], HessianMode::LimitedMemory),
+                        "only the causally established scaled-stationarity/objective-gap mismatch is expected"
+                    );
+                    println!(
+                        "fit_objective_classification=stationary_without_objective_gap_guarantee"
+                    );
+                } else {
+                    objectives.push(objective);
+                }
+                println!(
+                    "fit_complete kind={kind} scales={scales:?} round={round} route={route:?} curvature={curvature:?} objective={objective} preparation_ms={} total_ms={} lm={:?} native_work={:?}",
+                    preparation.as_secs_f64() * 1000.,
+                    elapsed.as_secs_f64() * 1000.,
+                    report.residual,
+                    report.solve.as_ref().map(|report| report.evidence.work)
+                );
+            }
+        }
+        let reference = objectives[0];
+        assert!(
+            objectives
+                .iter()
+                .all(|value| (value - reference).abs() <= 0.001 * (1. + reference.abs())),
+            "{kind}: {objectives:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn fit_neutral_scratch_discards_after_actual_derivative_upgrade_refusal() {
+    let seed = fixture("domain", [1., 2.]).await.unwrap();
+    let prepared = production_profile(&seed, seed.problem.profile.clone())
+        .await
+        .unwrap();
+    let problem = prepared.problem.clone();
+    let service = problem.runtime.native().clone();
+    service
+        .job_scoped(
+            1,
+            problem.bytes + MATRIX_ALLOWANCE,
+            Default::default(),
+            None,
+            move |flag| {
+                let bank = FitScratch::new(&problem).unwrap();
+                let execution = Execution::new(flag, &problem.profile.solver.controls);
+                let mut oracle = FitOracle::with_scratch(
+                    problem.clone(),
+                    execution.clone(),
+                    Some(bank.clone()),
+                )?;
+                let value = oracle.objective(&[0., 1.])?;
+                assert!(
+                    value.is_finite(),
+                    "sqrt(0) retains its independent Value meaning"
+                );
+                assert!(
+                    oracle
+                        .evaluate_demand(&[0., 1.], Demand::responses())
+                        .is_err()
+                );
+                drop(oracle);
+                let Experiment::Steady(steady) = &problem.experiments[0] else {
+                    panic!("steady fixture");
+                };
+                assert!(
+                    bank.steady(
+                        problem.declaration.experiments[0].experiment_id,
+                        &steady.case.assembly
+                    )
+                    .is_none()
+                );
+                let mut fresh =
+                    FitOracle::with_scratch(problem.clone(), execution, Some(bank.clone()))?;
+                assert!(fresh.objective(&[1., 1.])?.is_finite());
+                assert_eq!(
+                    bank.steady_reuses(),
+                    0,
+                    "failed derivative buffers cannot be offered to the next oracle"
+                );
+                Ok(())
+            },
+        )
+        .await
+        .unwrap();
+}
+
+/// The same public fixture crosses the actual canonical result boundary. Reopening
+/// reads stored method/status/work; it never reconstructs a synthetic FitReport.
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and_profile() {
+    let runtime = crate::workflow::tests::durable_runtime();
+    let seed = fixture_on("linear", [1., 2.], runtime.clone())
+        .await
+        .unwrap();
+    let prepared = production_profile(&seed, seed.problem.profile.clone())
+        .await
+        .unwrap();
+    let strategy = prepared.numerical_strategy();
+    assert_eq!(
+        strategy.mechanisms[0].profile.unwrap().method,
+        pse_model::strategy::NumericalMethod::ResidualLm
+    );
+    let handle = prepared.start().unwrap();
+    let result = handle.wait().await.unwrap();
+    let report = regression::report(&result);
+    let FitExecutionDocument::ResidualLm { report: literal } = report.execution_document() else {
+        panic!("real LM descriptor");
+    };
+    assert!(literal.failure.is_none());
+    assert_eq!(
+        literal.qualification,
+        native::solve::Qualification::Stationary
+    );
+    let status = result
+        .completion()
+        .unwrap()
+        .computation
+        .as_ref()
+        .unwrap()
+        .native_status
+        .clone();
+    let termination = serde_json::to_string(&literal.termination).unwrap();
+    let (run, attempt) = (
+        handle.canonical_run_key().unwrap().to_owned(),
+        handle.canonical_attempt_key().unwrap().to_owned(),
+    );
+    drop(result);
+    drop(handle);
+    let reopened = runtime
+        .operations()
+        .unwrap()
+        .record(&run, &attempt)
+        .await
+        .unwrap();
+    let stored = reopened
+        .completion
+        .as_ref()
+        .unwrap()
+        .completion
+        .as_ref()
+        .unwrap();
+    let computation = stored.computation.as_ref().unwrap();
+    assert_eq!(
+        computation.state,
+        pse_model::generated::enums::NativeRunState::Native
+    );
+    assert_eq!(computation.backend, None);
+    assert_eq!(computation.native_code, None);
+    assert_eq!(computation.native_status, status);
+    // The canonical receipt wraps the exact runtime selection bytes together
+    // with its immutable source list; decode both actual receiving contracts.
+    type SourceRevision = (String, String, u64, String);
+    type RecordedSelection = (u8, Vec<u8>, Vec<SourceRevision>);
+    let (receipt_version, selection, _sources): RecordedSelection =
+        serde_json::from_slice(&reopened.run.as_ref().unwrap().source_selection).unwrap();
+    assert_eq!(receipt_version, 1);
+    let (selection_version, _identity, _physical, strategies): (
+        u8,
+        serde_json::Value,
+        ContentHash,
+        Vec<pse_model::strategy::NumericalStrategy>,
+    ) = serde_json::from_slice(&selection).unwrap();
+    assert_eq!(selection_version, 1);
+    assert_eq!(strategies.len(), 1);
+    let stored_strategy = &strategies[0];
+    assert_eq!(
+        stored_strategy.mechanisms[0].profile.unwrap().method,
+        pse_model::strategy::NumericalMethod::ResidualLm
+    );
+    let mut cursor = runtime
+        .results(
+            &run,
+            &attempt,
+            "runtime.solve_metrics",
+            0,
+            u64::MAX,
+            pse_columnar::CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    let mut metrics = Vec::new();
+    while let Some(batch) = cursor.next_batch().await.unwrap() {
+        metrics.extend(pse_relations::generated::runtime::solve_metrics::RuntimeSolveMetricsView::try_from_batch_with_registry(
+            runtime.registry(), &batch, &runtime.validation_context()).unwrap().rows().unwrap());
+    }
+    assert!(metrics.iter().any(|row| row.namespace == "native"
+        && row.name == "method"
+        && row.text.as_deref() == Some("residual_lm")));
+    assert!(metrics.iter().any(|row| row.namespace == "residual_lm"
+        && row.name == "termination"
+        && row.text.as_deref() == Some(termination.as_str())));
+    assert!(!metrics.iter().any(|row| row.namespace == "native"
+        && row.name == "backend"
+        && row.text.as_deref() == Some("ipopt")));
+}

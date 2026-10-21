@@ -20,6 +20,8 @@ pub(crate) struct Adapter {
     pub(crate) jac: Pattern,
     pub(crate) hess: Pattern,
     pub(crate) initial: Vec<f64>,
+    /// A successful native starting-point callback copied the primal coordinates.
+    pub(crate) start_submitted: bool,
     pub(crate) duals: Option<(Vec<f64>, Vec<f64>, Vec<f64>)>,
     pub(crate) solution: Option<Candidate>,
     pub(crate) scratch: Scratch,
@@ -291,7 +293,9 @@ impl TNLP for Adapter {
             .is_some()
     }
     fn get_starting_point(&mut self, s: StartingPoint<'_>) -> bool {
-        self.state
+        let primal_requested = s.init_x;
+        let accepted = self
+            .state
             .evaluate("start", || {
                 if s.init_x && s.x.len() != self.initial.len()
                     || s.init_z
@@ -344,7 +348,9 @@ impl TNLP for Adapter {
                 }
                 Ok(())
             })
-            .is_some()
+            .is_some();
+        self.start_submitted |= accepted && primal_requested;
+        accepted
     }
     fn eval_f(&mut self, x: &[f64], _: bool) -> Option<f64> {
         self.state.evaluate("objective", || {

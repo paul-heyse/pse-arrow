@@ -102,7 +102,7 @@ fn consumed_body_edit_executes_one_source_and_cuts_off_equal_sibling_phases() {
     assert_fresh(&workspace, &source, &after);
     assert_ne!(before.checked, after.checked);
     assert_eq!(count(&events, "parsed") - parses, 1);
-    assert_eq!(count(&events, "resolved") - resolutions, 1);
+    assert_eq!(count(&events, "resolved") - resolutions, 0);
     assert_eq!(count(&events, "typed") - types, 1);
     assert_eq!(count(&events, "effective_members"), members);
     assert_eq!(count(&events, "occurrence") - occurrences, 1);
@@ -745,4 +745,62 @@ fn current_input_roots_do_not_accumulate_candidate_preflight_history() {
     assert!(source.size_of_fields() > 0);
     assert_eq!(source.heap_size_of_fields(), None);
     assert!(workspace.retention_usage().1 >= workspace.granular.known_bytes(&workspace.db));
+}
+
+#[test]
+fn unrelated_preceding_type_change_retains_exact_sibling_signature_products() {
+    let (mut workspace, events) = observed();
+    let text = "package p {fn law(x:Scalar)->Scalar=x; fn untouched(x:Integer)->Integer=x; def Root {var x:Scalar;eq e:x==1;}}";
+    let source = rows(text);
+    let before = workspace
+        .publish_modeling(source.clone(), PhysicalScope::default())
+        .unwrap();
+    assert_fresh(&workspace, &source, &before);
+    let typed = count(&events, "typed");
+    let resolved = count(&events, "resolved");
+    let changed = rows(&text.replace("law(x:Scalar)->Scalar", "law(x:Temperature)->Temperature"));
+    let after = workspace
+        .publish_modeling(changed.clone(), PhysicalScope::default())
+        .unwrap();
+    assert_fresh(&workspace, &changed, &after);
+    assert_eq!(count(&events, "typed") - typed, 1);
+    assert_eq!(count(&events, "resolved") - resolved, 1);
+}
+
+#[test]
+fn consumed_preceding_named_type_change_refuses_then_repair_matches_fresh() {
+    let (mut workspace, _) = observed();
+    let text = "package p {fn law(x:Scalar)->Scalar=x; fn apply(f:law,x:Scalar)->Scalar=f(x); def Root {var x:Scalar;eq e:x==1;}}";
+    let source = rows(text);
+    let head = workspace
+        .publish_modeling(source.clone(), PhysicalScope::default())
+        .unwrap();
+    assert_fresh(&workspace, &source, &head);
+    let changed = rows(&text.replace("law(x:Scalar)->Scalar", "law(x:Temperature)->Temperature"));
+    let context = TypeContext {
+        admissions: None,
+        formula_authority: None,
+        quantities: &workspace.inputs.quantities,
+        preconditions: &workspace.inputs.preconditions,
+        scope: &head.scope,
+    };
+    let expected = pse_modeling::check::check(&changed, &context)
+        .unwrap_err()
+        .to_string();
+    let actual = workspace
+        .publish_modeling(changed, PhysicalScope::default())
+        .unwrap_err()
+        .to_string();
+    assert!(
+        actual.contains(&expected),
+        "fresh: {expected}; retained: {actual}"
+    );
+    assert!(Arc::ptr_eq(
+        &head,
+        &workspace.modeling.as_ref().unwrap().revision
+    ));
+    let repaired = workspace
+        .publish_modeling(source.clone(), PhysicalScope::default())
+        .unwrap();
+    assert_fresh(&workspace, &source, &repaired);
 }

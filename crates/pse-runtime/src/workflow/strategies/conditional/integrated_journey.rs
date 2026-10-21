@@ -211,7 +211,14 @@ async fn indexed_mixer_holdup_separator_executes_conditional_recycle_and_externa
             budget,
         )
         .unwrap();
-        boundary.extend(unit.evaluate(&boundary, &execution).unwrap());
+        let inputs = unit
+            .inputs()
+            .iter()
+            .map(|id| boundary[id])
+            .collect::<Vec<_>>();
+        let mut outputs = vec![f64::NAN; unit.outputs().len()];
+        unit.evaluate(&inputs, &mut outputs, &execution).unwrap();
+        boundary.extend(unit.outputs().iter().copied().zip(outputs));
         let mut values = unit.program.values.as_ref().clone();
         values.scalars.extend(unit.original_values().scalars);
         let instance = model

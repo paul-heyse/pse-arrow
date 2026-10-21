@@ -2250,7 +2250,7 @@ mod tests {
                 mechanism.limits = declaration.limits;
                 mechanism.operation = rung.operation_contract().unwrap();
                 mechanism.profile = Some(pse_model::strategy::ProfileRef {
-                    backend: rung.backend().unwrap(),
+                    method: pse_model::strategy::NumericalMethod::Backend(rung.backend().unwrap()),
                     key: rung.strategy_profile().unwrap(),
                 });
                 mechanism
@@ -2981,6 +2981,7 @@ impl OriginalFitInputs {
             .reserve("replay:original-fit-constructor", extent)?;
         Ok(Arc::new(Self {
             document: ReplayFitConstructor {
+                optimizer: profile.optimizer,
                 source: 0,
                 id,
                 preparation: super::PreparationSettings { compiler, limits },
@@ -3006,6 +3007,8 @@ impl OriginalFitInputs {
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayFitConstructor {
+    /// Requested fitting method, preserved before contextual resolution.
+    pub optimizer: super::fitting::FitOptimizer,
     /// Source closure index.
     pub source: usize,
     /// Exact authored fit declaration.
@@ -3038,6 +3041,7 @@ impl ReplayFitConstructor {
             .prepare_fit(
                 self.id,
                 super::FitProfile {
+                    optimizer: self.optimizer,
                     solver: self.solver.profile()?,
                     simulations: self.simulations.clone(),
                     rank_tolerance: self.rank_tolerance,

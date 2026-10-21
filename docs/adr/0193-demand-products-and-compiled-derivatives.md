@@ -63,6 +63,24 @@ verification invalidate that association. Assembled reuse preserves foreign-outp
 Plan46a/46b own targeted implementation and I01/I02 decisions; this amendment selects no universal
 performance winner and does not change numerical accuracy or formal ADR status.
 
+**Plan48 RC04 target amendment, 2026-10-20 (Proposed before C03 implementation):**
+A demanded implicit state factor may avoid coefficient reconstruction only after complete
+current-linearization qualification. The association belongs to the immutable problem/layout
+and records the exact parameter/numerical policy key, point bits, state-First sufficiency,
+canonical coefficient bits and complete ordered child source/key/linearization trace. A
+candidate matching the non-effect premises reruns the same all-residual/all-coordinate First
+JVP program with a zero seed under the current scope, verifies original residuals and the
+unknown-bound neighborhood, and requires every actual child to establish its complete
+seed-independent context equal to the association. Provider capability explicitly defines
+that context as independent of action seeds; missing or unknown context cannot qualify reuse.
+Only then may retained coefficients/factor serve new numerical action bindings. Unchanged
+values, an empty requested subset or a matrix match alone grant no elision. An absent or
+mismatched association reconstructs the sparse coefficients with the existing complete
+checks; failed current validation, cancellation, reset or affine workspace use invalidates
+before another attempt. Reusing state-First factors never grants unperformed higher-order
+child work. Plan48 I07 selects this bounded route; its targeted/assembled acceptance remains
+with Plan48c/48h and formal ADR status is unchanged.
+
 ### Consequences
 
 Use support-driven assembly and prepared offsets. Joint arithmetic optimization is bounded to adjacent independent siblings within one semantic scope; every original materialized value and ordered domain/derivative-eligibility check survives, alongside finite checks on the complete requested product. Direct weighted/action completion does not certify unrequested intermediate partial jets. Provider/guard/branch/domain/applicability boundaries remain barriers. Native NLP matrix consumers retain their matrix contract; action consumers request actions. Unknown-only Newton and final parameter derivatives are separate demands. Eligible derivative arithmetic can use the existing optional Symbolica C++ compile/load owner with complete artifact admission and identity.

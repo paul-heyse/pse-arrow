@@ -241,6 +241,8 @@ fn selected_empty_axes_integrate_values_without_sensitivities_and_missing_is_una
 fn selected_anchor_and_later_interval_keep_fixed_anchor_values() {
     for method in methods() {
         let mut oracle = Anchored::new(Coupled::new(), false).unwrap();
+        let prepared = oracle.prepare_layout(64 << 10).unwrap();
+        oracle.use_prepared_layout(prepared).unwrap();
         let mut profile = oracle.profile(&profile(method, None));
         // Unscheduled forcing, coupling, initial factor, x anchor, y anchor,
         // then the scheduled rate's two intervals.
@@ -626,6 +628,8 @@ fn selected_adjoint_full_selected_empty_preserve_values_initial_direct_and_sched
 fn selected_adjoint_anchor_and_later_interval_keep_physical_identity() {
     for method in methods() {
         let mut oracle = Anchored::new(Coupled::new(), false).unwrap();
+        let prepared = oracle.prepare_layout(64 << 10).unwrap();
+        oracle.use_prepared_layout(prepared).unwrap();
         let mut profile = oracle.profile(&adjoint_profile(method, AdjointParameters::All));
         let values = [5., 2., 0.4, 2., 1., 1., 3.];
         profile.adjoint_parameters = AdjointParameters::Selected(vec![6, 3]);

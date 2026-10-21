@@ -230,27 +230,6 @@ impl MathService {
         }
         Ok(driver.with_deadline(Some(deadline)))
     }
-    /// Waiting for independently owned shared products preserves this caller's clock.
-    pub(crate) async fn preparation_wait<T>(
-        driver: &crate::CancelSource,
-        operation: impl Future<Output = Result<T, MathRuntimeError>>,
-    ) -> Result<T, MathRuntimeError> {
-        if driver.token().is_cancelled() {
-            return Err(MathRuntimeError::Cancelled);
-        }
-        let deadline = driver.deadline().ok_or_else(|| {
-            MathRuntimeError::Infrastructure("preparation wait without resolved deadline".into())
-        })?;
-        if std::time::Instant::now() >= deadline {
-            return Err(waiter_expiry());
-        }
-        tokio::select! {
-            biased;
-            () = driver.cancelled() => Err(MathRuntimeError::Cancelled),
-            () = tokio::time::sleep_until(deadline.into()) => Err(waiter_expiry()),
-            result = operation => result,
-        }
-    }
     /// Each shared producer receives its own finite service clock at creation.
     pub(crate) fn preparation_producer_deadline(
         &self,

@@ -188,6 +188,34 @@ fn coupled_source(
     values[1] = 0.4;
     (factory, values, calls)
 }
+#[test]
+fn childless_implicit_owner_qualifies_selected_first_without_descriptor_inference() {
+    let (factory, _, _) = coupled(4, 1_000_000);
+    assert!(ImplicitFactory::Root(factory.clone()).supports_provider_free_selected_first());
+    let mut value_only = factory.clone();
+    value_only.requirements.requested_output = DerivativeOrder::Value;
+    assert!(!ImplicitFactory::Root(value_only).supports_provider_free_selected_first());
+    let mut nonsmooth = factory.clone();
+    nonsmooth.spec.smoothness = DerivativeOrder::Value;
+    assert!(!ImplicitFactory::Root(nonsmooth).supports_provider_free_selected_first());
+    let mut selector = factory.clone();
+    selector.requirements.selector_neighborhood = DerivativeOrder::Value;
+    assert!(!ImplicitFactory::Root(selector).supports_provider_free_selected_first());
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let descriptor = pse_kernels::AdmittedProvider::new(factory.spec.clone(), &registry).unwrap();
+    let child = pse_kernels::Registration::bind(
+        descriptor,
+        Arc::new(ImplicitFactory::Root(factory.clone())),
+    )
+    .unwrap();
+    let mut dependent = factory;
+    dependent.providers.insert(child.spec().key(), child);
+    assert!(
+        !ImplicitFactory::Root(dependent).supports_provider_free_selected_first(),
+        "a matching descriptor alone cannot qualify a child provider graph"
+    );
+}
+
 fn analytic(parameters: &[f64]) -> ProviderValues {
     let p = parameters.len();
     let a = parameters[0];
@@ -877,6 +905,7 @@ struct MovingResidual {
     coefficient: Arc<AtomicU64>,
     calls: Arc<AtomicUsize>,
     qualified: bool,
+    current_context: Arc<AtomicBool>,
 }
 impl ProviderFactory for MovingResidual {
     fn spec(&self) -> &ProviderSpec {
@@ -897,6 +926,9 @@ impl pse_kernels::Provider for MovingResidual {
         self.qualified
     }
     fn completed_linearization(&self) -> Option<ContentHash> {
+        if !self.current_context.load(Ordering::Acquire) {
+            return None;
+        }
         let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
         h.str("moving residual coefficient")
             .u64(self.coefficient.load(Ordering::Relaxed));
@@ -960,6 +992,7 @@ fn moving_residual(qualified: bool) -> (Factory, MovingResidual) {
         coefficient: Arc::new(AtomicU64::new(1_f64.to_bits())),
         calls: Arc::new(AtomicUsize::new(0)),
         qualified,
+        current_context: Arc::new(AtomicBool::new(true)),
     };
     factory.providers.insert(
         spec.key(),
@@ -1624,6 +1657,51 @@ fn native_implicit_preparation_preserves_selected_evaluator_policy() {
             .census()
             .instantiated_orders[DerivativeOrder::Second as usize]
     );
+    drop(programs);
+    let action = pse_kernels::PreparedProviderRequest::new(
+        Arc::new(factory.spec.clone()),
+        ProviderRequest {
+            outputs: vec![1, 0],
+            order: DerivativeOrder::First,
+            demand: ProviderDemand::JacobianAction { directions: 1 },
+        },
+    )
+    .unwrap();
+    problem.prepare_product(&action, &scope).unwrap();
+    let direction = vec![1.; parameters.len()];
+    let actual = problem
+        .demanded_derivatives(
+            &parameters,
+            &expected.values,
+            &action,
+            ProviderRuntime {
+                directions: &direction,
+                ..Default::default()
+            },
+            options,
+            ContentHash::from_bytes([82; 32]),
+            &scope,
+        )
+        .unwrap();
+    close(
+        &actual.jacobian,
+        &(0..2)
+            .map(|row| {
+                expected.jacobian[row * parameters.len()..(row + 1) * parameters.len()]
+                    .iter()
+                    .sum()
+            })
+            .collect::<Vec<_>>(),
+    );
+    let programs = problem.product_workers.lock().unwrap();
+    assert!(
+        programs
+            .iter()
+            .find(|p| p.kind == ProductKind::JacobianAction)
+            .unwrap()
+            .native_blocks
+            > 0
+    );
 }
 
 #[test]
@@ -1845,4 +1923,516 @@ fn complete_implicit_preparation_and_cached_lookup_respect_admitted_residual_ord
         ),
         "broader retained artifact cannot bypass a narrowed admission"
     );
+}
+
+#[test]
+fn sparse_state_actions_preserve_canonical_coefficients_for_diagonal_and_banded_changes() {
+    crate::initialize().unwrap();
+    let n = 5;
+    for banded in [false, true] {
+        let control = pse_diagnostics::Cancellation::default();
+        let scope = ExecutionScope::new(control.clone(), None);
+        let source_id = pse_ids::named_id(SemanticId::NIL, "sparse state action control");
+        let formals = (0..=n)
+            .map(|i| crate::library::formal(i).unwrap())
+            .collect::<Vec<_>>();
+        let expressions = (0..n)
+            .map(|i| {
+                let diagonal = &formals[n] * &formals[i] - Atom::num((i + 1) as i64);
+                if banded && i > 0 {
+                    diagonal + &formals[i - 1]
+                } else {
+                    diagonal
+                }
+            })
+            .collect();
+        let mut allowance = crate::typed::BodyLimits::default().occurrences;
+        let outputs = (n + 1..2 * n + 1).collect::<Vec<_>>();
+        let body = PreparedBody::new_with_allowance(
+            n + 1,
+            2 * n + 1,
+            outputs.clone(),
+            vec![Stage::Block {
+                expressions,
+                outputs,
+                source: source_id,
+            }],
+            &mut allowance,
+        )
+        .unwrap();
+        let compile = |coordinates: &[usize], order| {
+            Arc::new(
+                body.compile(
+                    &(0..n).collect::<Vec<_>>(),
+                    coordinates,
+                    order,
+                    Optimization::default(),
+                    EvaluationLimits::default(),
+                    &scope,
+                )
+                .unwrap(),
+            )
+        };
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let quantity = registry.neutral_dimensionless().unwrap();
+        let port = |ordinal| pse_kernels::Port {
+            id: pse_ids::named_id(source_id, &format!("port{ordinal}")),
+            quantity,
+            unit: registry.quantity_type(quantity).unwrap().canonical_unit,
+        };
+        let problem = Problem::new(
+            source_id,
+            ContentHash::from_bytes([97; 32]),
+            (0..n)
+                .map(|i| Unknown {
+                    id: port(i).id,
+                    lower: -100.,
+                    upper: 100.,
+                })
+                .collect(),
+            (n..2 * n).map(|i| port(i).id).collect(),
+            1,
+            ResidualBodies {
+                unknown: compile(&(0..n).collect::<Vec<_>>(), DerivativeOrder::First),
+                source: compile(&[], DerivativeOrder::Value),
+            },
+            1024,
+        )
+        .unwrap();
+        assert_eq!(
+            problem.pattern.row_idx().len(),
+            if banded { 2 * n - 1 } else { n }
+        );
+        let spec = Arc::new(ProviderSpec {
+            id: source_id,
+            revision: ContentHash::from_bytes([98; 32]),
+            data: ContentHash::from_bytes([99; 32]),
+            inputs: vec![port(2 * n)],
+            outputs: (0..n).map(port).collect(),
+            shapes: Default::default(),
+            derivative_source: pse_kernels::DerivativeSource::Analytic,
+            derivatives: DerivativeOrder::First,
+            smoothness: DerivativeOrder::First,
+        });
+        let options = Options {
+            start: vec![0.; n],
+            variable_nominals: vec![1.; n],
+            variable_tolerance: vec![1e-10; n],
+            residual_tolerance: vec![1e-10; n],
+            iterations: 10,
+            time_limit: Duration::from_secs(10),
+            derivative_tolerance: 1e-11,
+        };
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("sparse current state coefficient reuse");
+        let observation = operation.context();
+        let _entered = observation.enter();
+        for (parameter, directions) in [(1.5, vec![2.]), (2.5, vec![-1., 3.])] {
+            let mut point = vec![0.; n];
+            let mut derivative = vec![0.; n];
+            for i in 0..n {
+                point[i] =
+                    ((i + 1) as f64 - if banded && i > 0 { point[i - 1] } else { 0. }) / parameter;
+                derivative[i] = (-point[i]
+                    - if banded && i > 0 {
+                        derivative[i - 1]
+                    } else {
+                        0.
+                    })
+                    / parameter;
+            }
+            problem
+                .verify(&[parameter], &point, &options, &control.flag())
+                .unwrap();
+            let request = pse_kernels::PreparedProviderRequest::new(
+                spec.clone(),
+                ProviderRequest {
+                    outputs: vec![n - 1, 0],
+                    order: DerivativeOrder::First,
+                    demand: ProviderDemand::JacobianAction {
+                        directions: directions.len(),
+                    },
+                },
+            )
+            .unwrap();
+            problem.prepare_product(&request, &scope).unwrap();
+            let actual = problem
+                .demanded_derivatives(
+                    &[parameter],
+                    &point,
+                    &request,
+                    ProviderRuntime {
+                        directions: &directions,
+                        ..Default::default()
+                    },
+                    &options,
+                    ContentHash::from_bytes([100; 32]),
+                    &scope,
+                )
+                .unwrap();
+            let expected = derivative
+                .iter()
+                .flat_map(|d| directions.iter().map(move |v| d * v))
+                .collect::<Vec<_>>();
+            close(&actual.jacobian, &expected);
+            let factor = problem.factor.lock().unwrap();
+            let association = factor.association.as_ref().unwrap();
+            let expected_coefficients = (0..n)
+                .flat_map(|col| {
+                    problem
+                        .pattern
+                        .as_ref()
+                        .row_idx_of_col(col)
+                        .map(move |row| {
+                            if row == col {
+                                parameter.to_bits()
+                            } else {
+                                1.0f64.to_bits()
+                            }
+                        })
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(association.matrix, expected_coefficients);
+            drop(factor);
+            let units = count(&observation, "implicit.state.unit_actions");
+            let reuses = count(&observation, "implicit.state.coefficient_reuse");
+            let rebound = directions.iter().map(|d| d * 2.).collect::<Vec<_>>();
+            close(
+                &problem
+                    .demanded_derivatives(
+                        &[parameter],
+                        &point,
+                        &request,
+                        ProviderRuntime {
+                            directions: &rebound,
+                            ..Default::default()
+                        },
+                        &options,
+                        ContentHash::from_bytes([100; 32]),
+                        &scope,
+                    )
+                    .unwrap()
+                    .jacobian,
+                &expected.iter().map(|v| v * 2.).collect::<Vec<_>>(),
+            );
+            assert_eq!(
+                count(&observation, "implicit.state.unit_actions"),
+                units,
+                "complete zero traversal avoids all five state unit actions on the qualified hit"
+            );
+            assert_eq!(
+                count(&observation, "implicit.state.coefficient_reuse"),
+                reuses + 1
+            );
+            control.cancel();
+            assert!(
+                problem
+                    .demanded_derivatives(
+                        &[parameter],
+                        &point,
+                        &request,
+                        ProviderRuntime {
+                            directions: &directions,
+                            ..Default::default()
+                        },
+                        &options,
+                        ContentHash::from_bytes([100; 32]),
+                        &scope
+                    )
+                    .is_err()
+            );
+            assert!(problem.factor.lock().unwrap().association.is_none());
+            control.flag().store(false, Ordering::Release);
+            close(
+                &problem
+                    .demanded_derivatives(
+                        &[parameter],
+                        &point,
+                        &request,
+                        ProviderRuntime {
+                            directions: &directions,
+                            ..Default::default()
+                        },
+                        &options,
+                        ContentHash::from_bytes([100; 32]),
+                        &scope,
+                    )
+                    .unwrap()
+                    .jacobian,
+                &expected,
+            );
+            assert!(
+                problem
+                    .verify(&[0.], &point, &options, &control.flag())
+                    .is_err()
+            );
+        }
+    }
+}
+
+#[test]
+fn zero_state_traversal_keeps_complete_current_child_visits_for_subset_actions_and_branches() {
+    for branched in [false, true] {
+        let (mut factory, _, _) = coupled(2, 256);
+        let (_, child) = moving_residual(true);
+        factory.spec.inputs.truncate(1);
+        factory.providers.insert(
+            child.spec.key(),
+            pse_kernels::Registration::new(
+                Arc::new(child.clone()),
+                &pse_quantity::standard::standard_registry().unwrap(),
+            )
+            .unwrap(),
+        );
+        let source = factory.spec.id;
+        let provider = |source| Stage::Provider {
+            spec: child.spec.clone(),
+            partial: vec![],
+            inputs: vec![2],
+            outputs: vec![3],
+            source,
+        };
+        let mut stages = if branched {
+            vec![
+                Stage::Block {
+                    expressions: vec![Atom::num(0)],
+                    outputs: vec![4],
+                    source,
+                },
+                Stage::Branch {
+                    continuity: DerivativeOrder::Second,
+                    comparison: crate::guarded::Comparison::Lt,
+                    left: 4,
+                    right: 2,
+                    then: vec![provider(pse_ids::named_id(source, "then child"))],
+                    otherwise: vec![provider(pse_ids::named_id(source, "else child"))],
+                },
+            ]
+        } else {
+            vec![provider(source)]
+        };
+        stages.push(Stage::Block {
+            expressions: vec![
+                crate::library::formal(0).unwrap() + crate::library::formal(3).unwrap(),
+                crate::library::formal(1).unwrap() - crate::library::formal(0).unwrap(),
+            ],
+            outputs: vec![5, 6],
+            source,
+        });
+        let body = PreparedBody::new(3, 7, vec![5, 6], stages, DerivativeOrder::Second).unwrap();
+        factory.solver = Arc::new(Affine::new(&body, 2).unwrap());
+        factory.bodies = residual_bodies_for_test(Arc::new(
+            body.compile(
+                &[0, 1],
+                &[0, 1, 2],
+                DerivativeOrder::Second,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &ExecutionScope::new(factory.cancel.clone(), None),
+            )
+            .unwrap(),
+        ));
+        let scope = ExecutionScope::new(factory.cancel.clone(), None);
+        let problem = factory.problem(scope.clone()).unwrap();
+        let request = pse_kernels::PreparedProviderRequest::new(
+            Arc::new(factory.spec.clone()),
+            ProviderRequest {
+                outputs: vec![1],
+                order: DerivativeOrder::First,
+                demand: ProviderDemand::JacobianAction { directions: 1 },
+            },
+        )
+        .unwrap();
+        problem.prepare_product(&request, &scope).unwrap();
+        let options = match &factory.configuration {
+            Configuration::Fixed(_, options) => options,
+            _ => panic!("fixed fixture"),
+        };
+        let mut branch_visits = Vec::new();
+        for parameter in [0.5, -0.5, 0.] {
+            let point = [-parameter, -parameter];
+            let before = child.calls.load(Ordering::Relaxed);
+            let (zero, visits) = problem
+                .probe_state_linearization(&[parameter], &point, &[0., 0., 0.], options, &scope)
+                .unwrap();
+            assert_eq!(zero, [0., 0.]);
+            assert_eq!(
+                visits.len(),
+                1,
+                "the unselected residual's child is still visited"
+            );
+            assert!(visits.iter().all(|visit| visit.linearization.is_some()));
+            for direction in [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]] {
+                let (_, actual) = problem
+                    .probe_state_linearization(&[parameter], &point, &direction, options, &scope)
+                    .unwrap();
+                assert_eq!(actual, visits);
+            }
+            assert_eq!(child.calls.load(Ordering::Relaxed) - before, 4);
+            branch_visits.push(visits);
+        }
+        if branched {
+            assert_ne!(branch_visits[0][0].source, branch_visits[1][0].source);
+        }
+        let (old_numbers, old) = problem
+            .probe_state_linearization(&[0.], &[0., 0.], &[0., 0., 0.], options, &scope)
+            .unwrap();
+        child.coefficient.store(3_f64.to_bits(), Ordering::Release);
+        let (numbers, changed) = problem
+            .probe_state_linearization(&[0.], &[0., 0.], &[0., 0., 0.], options, &scope)
+            .unwrap();
+        assert_eq!(old_numbers, numbers);
+        assert_ne!(
+            old, changed,
+            "equal zero products and residuals do not establish current premises"
+        );
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("complete child state reuse qualification");
+        let observation = operation.context();
+        let _entered = observation.enter();
+        let premise = ContentHash::from_bytes([108; 32]);
+        let evaluate = |parameter: f64, point: &[f64]| {
+            problem.demanded_derivatives(
+                &[parameter],
+                point,
+                &request,
+                ProviderRuntime {
+                    directions: &[1.],
+                    ..Default::default()
+                },
+                options,
+                premise,
+                &scope,
+            )
+        };
+        close(&evaluate(0., &[0., 0.]).unwrap().jacobian, &[-3., -3.]);
+        assert_eq!(count(&observation, "implicit.state.unit_actions"), 2);
+        close(&evaluate(0., &[0., 0.]).unwrap().jacobian, &[-3., -3.]);
+        assert_eq!(count(&observation, "implicit.state.unit_actions"), 2);
+        assert_eq!(count(&observation, "implicit.state.coefficient_reuse"), 1);
+        child.coefficient.store(4_f64.to_bits(), Ordering::Release);
+        close(&evaluate(0., &[0., 0.]).unwrap().jacobian, &[-4., -4.]);
+        assert_eq!(
+            count(&observation, "implicit.state.unit_actions"),
+            4,
+            "changed child context reconstructs even when the state coefficients and residuals match"
+        );
+        if branched {
+            close(&evaluate(0.5, &[-2., -2.]).unwrap().jacobian, &[-4., -4.]);
+            assert_eq!(
+                count(&observation, "implicit.state.unit_actions"),
+                6,
+                "different source occurrence/point cannot reuse the previous branch association"
+            );
+        }
+        child.current_context.store(false, Ordering::Release);
+        assert!(evaluate(0., &[0., 0.]).is_err());
+        assert!(problem.factor.lock().unwrap().association.is_none());
+        child.current_context.store(true, Ordering::Release);
+        evaluate(0., &[0., 0.]).unwrap();
+        assert!(
+            evaluate(1., &[0., 0.]).is_err(),
+            "original residual budgets remain binding"
+        );
+        assert!(problem.factor.lock().unwrap().association.is_none());
+        factory.cancel.cancel();
+        assert!(matches!(
+            problem.probe_state_linearization(&[0.], &[0., 0.], &[0., 0., 0.], options, &scope),
+            Err(MathError::Cancelled)
+        ));
+    }
+}
+
+#[test]
+fn zero_state_traversal_keeps_value_only_child_of_original_first_guard_after_numeric_cancellation()
+{
+    let (mut factory, mut child) = moving_residual(true);
+    child.spec.derivatives = DerivativeOrder::Value;
+    child.spec.smoothness = DerivativeOrder::Value;
+    factory.providers.clear();
+    factory.providers.insert(
+        child.spec.key(),
+        pse_kernels::Registration::new(
+            Arc::new(child.clone()),
+            &pse_quantity::standard::standard_registry().unwrap(),
+        )
+        .unwrap(),
+    );
+    let source = pse_ids::named_id(factory.spec.id, "original First guard");
+    let child_output = crate::library::formal(2).unwrap();
+    let body = PreparedBody::new(
+        2,
+        4,
+        vec![3],
+        vec![
+            Stage::Provider {
+                spec: child.spec.clone(),
+                partial: vec![],
+                inputs: vec![1],
+                outputs: vec![2],
+                source: child.spec.id,
+            },
+            Stage::Require {
+                argument: 2,
+                condition: crate::guarded::Condition::Nonnegative,
+                order: DerivativeOrder::First,
+                source,
+                lineage: None,
+            },
+            Stage::Block {
+                expressions: vec![
+                    crate::library::formal(0).unwrap() + &child_output - &child_output,
+                ],
+                outputs: vec![3],
+                source: factory.spec.id,
+            },
+        ],
+        DerivativeOrder::Second,
+    )
+    .unwrap();
+    factory.solver = Arc::new(Affine::new(&body, 1).unwrap());
+    factory.bodies = residual_bodies_for_test(Arc::new(
+        body.compile(
+            &[0],
+            &[0, 1],
+            DerivativeOrder::Second,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &ExecutionScope::new(factory.cancel.clone(), None),
+        )
+        .unwrap(),
+    ));
+    let scope = ExecutionScope::new(factory.cancel.clone(), None);
+    let problem = factory.problem(scope.clone()).unwrap();
+    let request = pse_kernels::PreparedProviderRequest::new(
+        Arc::new(factory.spec.clone()),
+        ProviderRequest {
+            outputs: vec![0],
+            order: DerivativeOrder::First,
+            demand: ProviderDemand::JacobianAction { directions: 1 },
+        },
+    )
+    .unwrap();
+    problem.prepare_product(&request, &scope).unwrap();
+    let options = match &factory.configuration {
+        Configuration::Fixed(_, options) => options,
+        _ => panic!("fixed fixture"),
+    };
+    let (_, visits) = problem
+        .probe_state_linearization(&[1.], &[0.], &[0., 0.], options, &scope)
+        .unwrap();
+    assert_eq!(visits.len(), 1);
+    assert_eq!(
+        problem
+            .probe_state_linearization(&[1.], &[0.], &[1., 0.], options, &scope)
+            .unwrap()
+            .1,
+        visits
+    );
+    for direction in [[0., 0.], [1., 0.]] {
+        assert!(
+            matches!(problem.probe_state_linearization(&[-1.], &[0.], &direction, options, &scope),
+            Err(MathError::Domain { source_id, .. }) if source_id == source)
+        );
+    }
 }

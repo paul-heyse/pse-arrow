@@ -240,6 +240,18 @@ struct FactorAssociation {
     first_columns: Vec<usize>,
     children: Vec<crate::execution::ProviderVisit>,
 }
+impl FactorAssociation {
+    fn matches_state(&self, premise: ContentHash, point: &[f64], entries: usize) -> bool {
+        self.premise == premise
+            && self.point.len() == point.len()
+            && self.point.iter().zip(point).all(|(a, b)| *a == b.to_bits())
+            && self.matrix.len() == entries
+            && self
+                .children
+                .iter()
+                .all(|visit| visit.linearization.is_some())
+    }
+}
 impl std::fmt::Debug for FactorWorkspace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FactorWorkspace")
@@ -1564,6 +1576,35 @@ pub enum ImplicitFactory {
     Regimes(RegimeFactory),
 }
 impl ImplicitFactory {
+    /// Qualify this concrete nested worker for valid First selected-column
+    /// requests before numerical construction. Unknown child capabilities and
+    /// alternative selectors remain conservative. Every actual fill still
+    /// executes its current checks and seals its complete linearization token.
+    pub fn supports_provider_free_selected_first(&self) -> bool {
+        let Self::Root(factory) = self else {
+            return false;
+        };
+        let requirements = factory.requirements;
+        factory.providers.is_empty()
+            && factory.spec.derivatives >= DerivativeOrder::First
+            && factory.spec.smoothness >= DerivativeOrder::First
+            && [
+                requirements.residual_available,
+                requirements.output_smoothness,
+                requirements.selector_neighborhood,
+                requirements.requested_output,
+                requirements.residual_compilation,
+            ]
+            .into_iter()
+            .all(|order| order >= DerivativeOrder::First)
+            && [&factory.bodies.unknown, &factory.bodies.source]
+                .into_iter()
+                .chain(factory.hints.iter())
+                .chain(factory.terms.iter())
+                .chain(factory.selection.anchor.iter())
+                .chain(factory.selection.restriction.iter())
+                .all(|body| body.required_provider_keys().is_empty())
+    }
     /// Library programs and conservative derivative scratch retained by the factory.
     pub fn retained_bytes(&self) -> Result<usize, MathError> {
         match self {

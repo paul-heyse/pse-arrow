@@ -54,7 +54,7 @@ impl LexicalBases {
         if let Some(base) = self.evaluation.borrow().get(&owner) {
             return Arc::clone(base);
         }
-        let mut base = package.named_types(at);
+        let mut base = BTreeMap::new();
         if let Some(function) = package.functions.get(&at) {
             base.extend(function.arguments.iter().cloned());
         }
@@ -101,7 +101,7 @@ impl LexicalBases {
             if let Some(function) = package.functions.get(&at) {
                 types.extend(function.arguments.iter().cloned());
             }
-            Ok(types)
+            Ok(types.into_bindings())
         })
     }
 }
@@ -199,5 +199,57 @@ mod tests {
             crate::Limits::default(),
         )
         .unwrap();
+    }
+    #[test]
+    fn admission_same_owner_reads_changed_extent_and_reader_after_an_earlier_lookup() {
+        let (registry, _) = crate::kernel_types::physical();
+        let preconditions = pse_quantity::PhysicalPreconditions::new(
+            pse_quantity::generated::standard_preconditions(),
+        )
+        .unwrap();
+        let scope = PhysicalScope::default();
+        let mut package = crate::check(
+            &crate::kernel_types::source(
+                "package p {entity kind item {} entity item a {} entity item b {} def Root {}}",
+            ),
+            &TypeContext {
+                admissions: None,
+                formula_authority: None,
+                quantities: &registry,
+                preconditions: &preconditions,
+                scope: &scope,
+            },
+        )
+        .unwrap();
+        let owner = package.entry("p.Root").unwrap();
+        let member = package.entry("p.b").unwrap();
+        let second = package.entities.remove(&member).unwrap();
+        let bases = LexicalBases::default();
+        let expression = pse_authoring::dsl::parse_expr("size(item)").unwrap();
+        let evaluate = |package: &CheckedPackage, admission: bool| {
+            let context = package.context();
+            let values = Environment::new();
+            Evaluator {
+                lexical_bases: Some(&bases),
+                selections: None,
+                package,
+                physical: &context,
+                at: owner,
+                env: &values,
+                limit: 16,
+                stack: Vec::new(),
+                reader: if admission {
+                    crate::provenance::Reader::Admission(None)
+                } else {
+                    crate::provenance::Reader::Production(owner)
+                },
+            }
+            .expr(&expression, None, 0)
+        };
+        assert_eq!(evaluate(&package, true).unwrap(), Value::Integer(1));
+        package.entities.insert(member, second);
+        assert_eq!(evaluate(&package, true).unwrap(), Value::Integer(2));
+        assert!(evaluate(&package, false).is_err());
+        assert_eq!(evaluate(&package, true).unwrap(), Value::Integer(2));
     }
 }

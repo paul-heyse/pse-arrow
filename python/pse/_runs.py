@@ -37,6 +37,7 @@ from pse.contracts.documents import (
     CompositionRequest,
     DiagnosticOrigin,
     EligibilityDocument,
+    FitExecutionDocument,
     FitProfileDocument,
     FrozenAdvice,
     FrozenEvidenceSet,
@@ -394,6 +395,12 @@ class RunResult:
     def usable(self) -> bool:
         """Whether every requested candidate satisfies its final usability policy."""
         return self._handle.usable
+
+    @property
+    def fit_execution(self) -> FitExecutionDocument | None:
+        """Retained fitting method, stopping reason and observed work."""
+        data = self._handle.fit_execution()
+        return None if data is None else codec.decode_json(data, FitExecutionDocument)
 
     @property
     def fit_profiles(self) -> FitProfileDocument | None:

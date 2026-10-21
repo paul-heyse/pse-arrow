@@ -1219,11 +1219,11 @@ pub(crate) fn predicate(
     }
     Ok(())
 }
-pub(crate) fn declaration_environment(
-    p: &dyn FunctionAdmission,
+pub(crate) fn declaration_environment<'a>(
+    p: &'a dyn FunctionAdmission,
     context: &TypeContext<'_>,
     id: DeclarationId,
-) -> Result<BTreeMap<String, Type>> {
+) -> Result<crate::check::NamedTypes<'a>> {
     if let Some(context) = pse_diagnostics::observation::current() {
         context.count("modeling.declaration_environments", "environments", 1);
     }

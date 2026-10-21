@@ -165,7 +165,7 @@ fn supports_payload(fact: RequiredFact, retained: &crate::workflow::ReviewContex
             "physical-input-bits.v1"
             | "replay-case-inputs.v2"
             | "replay-case-constructor.v2"
-            | "replay-fit-constructor.v2",
+            | "replay-fit-constructor.v3",
         )
         | (
             RequiredFact::PhysicalCoordinates,

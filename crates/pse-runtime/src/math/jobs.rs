@@ -78,6 +78,11 @@ impl PopulationScope {
     pub(crate) fn capture() -> Self {
         Self(POPULATION.try_with(Clone::clone).ok())
     }
+    pub(super) fn belongs_to(&self, service: &MathService) -> bool {
+        self.0
+            .as_ref()
+            .is_some_and(|lane| Arc::ptr_eq(&lane.jobs, &service.jobs))
+    }
     pub(crate) async fn run<T>(self, work: impl Future<Output = T>) -> T {
         match self.0 {
             Some(lane) => population_scope(lane, work).await,
@@ -123,6 +128,32 @@ impl ActiveAttempt {
     }
 }
 impl MathService {
+    /// Reserve one resident constructor population before creating its owner-affine
+    /// worker. Opaque reports consume this prepaid envelope instead of charging it again.
+    #[cfg(any(test, feature = "solver-diffsol", feature = "solver-idas"))]
+    pub(crate) fn reserve_constructor(
+        &self,
+        name: &str,
+        construction: ConstructionEstimate,
+        execution: &pse_backend_native::solve::Execution,
+    ) -> Result<Arc<dyn pse_math::construction::ConstructionAdmission>, MathRuntimeError> {
+        execution.check()?;
+        if construction.bytes() > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit("constructor worker capacity"));
+        }
+        let reservation = Arc::new(
+            datafusion::execution::memory_pool::MemoryConsumer::new(name).register(&self.pool),
+        );
+        self.pressure.try_grow(&reservation, construction.bytes())?;
+        execution.check()?;
+        Ok(Arc::new(ConstructionOwner::new(
+            reservation,
+            construction,
+            self.policy.worker_bytes,
+            execution.cancel.clone(),
+            self.pressure.clone(),
+        )))
+    }
     /// A genuine synchronous phase boundary lends its population to the nested team.
     /// Parent resident memory remains charged, but active resources are released before
     /// complete additional construction admission. Failed full-team attempts release
@@ -679,6 +710,13 @@ pub(crate) struct Submission {
     /// Absolute task deadline, including durable job and CPU waiting.
     pub(crate) deadline: Option<std::time::Instant>,
 }
+/// Current admission lifetime, including who owns expiration and its ready signal.
+struct AdmissionControl {
+    cancel: Cancellation,
+    admitted: Option<tokio::sync::oneshot::Sender<()>>,
+    deadline: Option<std::time::Instant>,
+    source_owns_deadline: bool,
+}
 impl Submission {
     /// In-memory work: a fresh cancellation, 256 retained events, refused when full.
     pub(crate) fn ephemeral() -> Self {
@@ -741,6 +779,35 @@ impl MathService {
     {
         self.submit_construction(cores, ConstructionEstimate::Known(bytes), submission, work)
     }
+    /// Detach the job's already admitted foreign allowance before dispatch. The
+    /// explicit consumer may retain it independently of the joined task ledger.
+    pub(crate) fn submit_with_storage<T: Send + 'static>(
+        self: &Arc<Self>,
+        cores: usize,
+        bytes: usize,
+        submission: Submission,
+        work: impl FnOnce(
+            Cancellation,
+            Arc<pse_backend_native::solve::Progress>,
+            Arc<pse_columnar::AllocationLease>,
+        ) -> Result<(T, usize), MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError>
+    {
+        self.submit_construction_storage(
+            cores,
+            ConstructionEstimate::Known(bytes),
+            submission,
+            false,
+            true,
+            move |flag, progress, storage| {
+                let storage =
+                    storage.ok_or(MathRuntimeError::Limit("missing prepaid foreign allowance"))?;
+                work(flag, progress, storage)
+            },
+        )
+    }
     /// Submit construction whose source distinguishes an initial bound from a
     /// prepaid opaque envelope before any dispatch task is created.
     pub(crate) fn submit_construction<T: Send + 'static>(
@@ -796,6 +863,31 @@ impl MathService {
         + 'static,
     ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError>
     {
+        self.submit_construction_storage(
+            cores,
+            construction,
+            submission,
+            source_owns_deadline,
+            false,
+            move |flag, progress, _| work(flag, progress),
+        )
+    }
+    fn submit_construction_storage<T: Send + 'static>(
+        self: &Arc<Self>,
+        cores: usize,
+        construction: ConstructionEstimate,
+        submission: Submission,
+        source_owns_deadline: bool,
+        retain_foreign: bool,
+        work: impl FnOnce(
+            Cancellation,
+            Arc<pse_backend_native::solve::Progress>,
+            Option<Arc<pse_columnar::AllocationLease>>,
+        ) -> Result<(T, usize), MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError>
+    {
         let bytes = construction.bytes();
         if matches!(construction, ConstructionEstimate::Opaque(_))
             && bytes > self.policy.worker_bytes
@@ -820,13 +912,18 @@ impl MathService {
                 "math.submission",
                 pse_operations::canonical::inherit_activity(async move {
                     let result = service
-                        .admitted(
+                        .admitted_storage(
                             cores,
                             bytes,
-                            flag,
-                            (admitted, deadline, source_owns_deadline),
+                            AdmissionControl {
+                                cancel: flag,
+                                admitted,
+                                deadline,
+                                source_owns_deadline,
+                            },
                             Some(entry),
-                            move |flag| work(flag, events),
+                            retain_foreign,
+                            move |flag, storage| work(flag, events, storage),
                         )
                         .await;
                     let _ = sender.send(result);
@@ -1226,6 +1323,41 @@ impl MathService {
         entry: Option<AdmissionEntry>,
         work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError> + Send + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
+        self.admitted_storage(
+            cores,
+            bytes,
+            AdmissionControl {
+                cancel,
+                admitted,
+                deadline,
+                source_owns_deadline,
+            },
+            entry,
+            false,
+            move |flag, _| work(flag),
+        )
+        .await
+    }
+    async fn admitted_storage<T: Send + 'static>(
+        self: &Arc<Self>,
+        cores: usize,
+        bytes: usize,
+        control: AdmissionControl,
+        entry: Option<AdmissionEntry>,
+        retain_foreign: bool,
+        work: impl FnOnce(
+            Cancellation,
+            Option<Arc<pse_columnar::AllocationLease>>,
+        ) -> Result<(T, usize), MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
+        let AdmissionControl {
+            cancel,
+            admitted,
+            deadline,
+            source_owns_deadline,
+        } = control;
         let entry = match entry {
             Some(entry) => entry,
             None => self.admit_entry(cores, bytes, &cancel, deadline, None)?,
@@ -1265,6 +1397,13 @@ impl MathService {
                     let _ = admitted.send(());
                 }
                 let flag = cancel.clone();
+                let storage = if retain_foreign {
+                    let foreign = service.policy.foreign_bytes;
+                    if foreign == 0 || foreign > lease.size() {
+                        return Err(MathRuntimeError::Limit("prepaid foreign allowance extent"));
+                    }
+                    Some(pse_columnar::AllocationLease::new(lease.split(foreign)))
+                } else { None };
                 let compute = super::staged::ComputeOwner::new(
                     service.active_jobs.clone(),
                     service.cpu.clone(),
@@ -1304,7 +1443,7 @@ impl MathService {
                         let interval = crate::invocation::stage("native.worker_execution");
                         let result = pse_backend_native::execution::compute_scoped(
                             Box::new(native_compute),
-                            || pse_math::construction::scoped(construction, || work(flag)),
+                            || pse_math::construction::scoped(construction, || work(flag, storage)),
                         );
                         interval.finish(match &result {
                             Ok(_) => crate::invocation::InvocationOutcome::Completed,
@@ -1386,11 +1525,43 @@ impl MathService {
     }
 }
 
+#[cfg(all(test, feature = "solver-idas"))]
+mod idas_storage_tests;
+
 #[cfg(test)]
 mod construction_tests {
     use super::*;
     use datafusion::execution::memory_pool::{FairSpillPool, MemoryConsumer, MemoryPool};
     use pse_math::construction::ConstructionAdmission;
+    #[tokio::test]
+    async fn storage_aware_submission_detaches_only_prepaid_foreign_through_actual_join() {
+        let (service, _cache) = super::super::tests::service_with_policy(
+            256 << 20,
+            super::super::MathPolicy {
+                foreign_bytes: 1 << 20,
+                ..Default::default()
+            },
+        );
+        let baseline = service.pool.reserved();
+        let handle = service
+            .submit_with_storage(1, 0, Submission::ephemeral(), |_, _, storage| {
+                assert_eq!(storage.size(), 1 << 20);
+                Ok((storage, 32))
+            })
+            .unwrap();
+        let (storage, result) = handle.finish().await.unwrap();
+        assert_eq!(storage.size(), 1 << 20);
+        assert_eq!(result.size(), 32);
+        assert_eq!(
+            service.pool.reserved(),
+            baseline + (1 << 20) + 32,
+            "joined stack/constructor ownership ends without reclaiming detached foreign bytes"
+        );
+        drop(result);
+        assert_eq!(service.pool.reserved(), baseline + (1 << 20));
+        drop(storage);
+        assert_eq!(service.pool.reserved(), baseline);
+    }
     #[test]
     fn closed_cpu_refuses_even_when_jobs_are_saturated() {
         let jobs = Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(1));
@@ -1739,9 +1910,18 @@ mod construction_tests {
             })
             .await
             .unwrap();
+        assert_eq!(
+            service.artifact_width(),
+            service.cores.min(service.policy.flights).max(1)
+        );
         let borrowed = service.clone();
         let answer = sessions[0]
             .prepare(async move {
+                assert_eq!(
+                    borrowed.artifact_width(),
+                    1,
+                    "dependent cold artifact preparation owns one exclusive population loan"
+                );
                 borrowed
                     .job(1, 0, Cancellation::default(), |_| Ok(42))
                     .await
@@ -2121,6 +2301,58 @@ mod construction_tests {
         drop(owner);
         drop(reservation);
         assert_eq!(pool.reserved(), 0);
+    }
+    #[test]
+    fn resident_opaque_constructor_precharges_and_follows_last_worker_owner() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let execution = pse_backend_native::solve::Execution::new(
+            Cancellation::default(),
+            &pse_backend_native::solve::Controls::default(),
+        );
+        let owner = service
+            .reserve_constructor(
+                "test:resident-constructor",
+                ConstructionEstimate::Opaque(16),
+                &execution,
+            )
+            .unwrap();
+        assert_eq!(service.pool.reserved(), baseline + 16);
+        owner.try_grow(7).unwrap();
+        owner.try_grow(9).unwrap();
+        assert_eq!(service.pool.reserved(), baseline + 16);
+        assert!(owner.try_grow(1).is_err());
+        let worker = owner.clone();
+        drop(owner);
+        assert_eq!(service.pool.reserved(), baseline + 16);
+        drop(worker);
+        assert_eq!(service.pool.reserved(), baseline);
+        let held = MemoryConsumer::new("test:resident-refusal").register(&service.pool);
+        held.try_grow((512 << 20) - baseline).unwrap();
+        assert!(
+            service
+                .reserve_constructor(
+                    "test:refused-constructor",
+                    ConstructionEstimate::Opaque(16),
+                    &execution
+                )
+                .is_err()
+        );
+        assert_eq!(service.pool.reserved(), 512 << 20);
+        drop(held);
+        assert_eq!(service.pool.reserved(), baseline);
+        execution.cancel.store(true, Ordering::Release);
+        assert!(matches!(
+            service.reserve_constructor(
+                "test:cancelled-constructor",
+                ConstructionEstimate::Opaque(16),
+                &execution
+            ),
+            Err(MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Cancelled
+            ))
+        ));
+        assert_eq!(service.pool.reserved(), baseline);
     }
     #[tokio::test]
     async fn phase_constructor_uses_its_reservation_and_restores_parent_owner() {

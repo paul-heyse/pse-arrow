@@ -3339,7 +3339,9 @@ mod tests {
                 );
                 let mut declaration = prepared.solve.numerical_strategy();
                 declaration.mechanisms[0].profile = Some(pse_model::strategy::ProfileRef {
-                    backend: pse_backend_native::solve::Backend::Kinsol,
+                    method: pse_model::strategy::NumericalMethod::Backend(
+                        pse_backend_native::solve::Backend::Kinsol,
+                    ),
                     key: prepared.solve.strategy_profile().unwrap(),
                 });
                 let direct = prepared

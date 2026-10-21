@@ -29,7 +29,10 @@ use crate::model::{
 
 mod identities;
 mod integrity;
+pub(crate) mod products;
 mod structures;
+#[doc(hidden)]
+pub use products::ResolvedRegistryProducts;
 
 mod native;
 
@@ -174,6 +177,10 @@ impl Registry {
     /// profiles still require explicit member inventory and all member obligations.
     pub fn artifact_profile(&self, name: &str) -> Option<&BTreeSet<SemanticId>> {
         self.artifact_profiles.get(name)
+    }
+    /// Declaration-bounded root inventories for immutable semantic preparation.
+    pub(crate) fn artifact_profile_roots(&self) -> impl Iterator<Item = &BTreeSet<SemanticId>> {
+        self.artifact_profiles.values()
     }
     /// The registry's package identity (ADR-0050).
     pub const fn package_id(&self) -> SemanticId {

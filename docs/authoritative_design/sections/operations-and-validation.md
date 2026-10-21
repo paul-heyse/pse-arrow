@@ -241,6 +241,17 @@ from durable append sequences. Current compact records and bounded recent record
 independent retention; history zero does not remove admitted current progress. Point-coalesced
 metric histories remain a separate view and never reconstruct an iteration tuple.
 
+Plan48 RC03 / proposed ADR-0192 extend ordinary observation with one prepared
+safe-return batch for coupled callback completion counts and elapsed facts. Each
+batch is accepted or lost together at one source time; optional metrics may remain
+stale or incomplete after loss, which remains explicit. Exact local work/admission,
+pre-work and post-success stop checks and final native report counts/time remain
+authoritative independently of optional observation. Missing intervals are never
+invented from cumulative elapsed time. Current phase retirement does not depend on
+batch publication. Compiler ordinary events use prepared populations bound to the
+current operation; opaque per-query attribution is selected detail. Plan48g owns
+implementation and qualification of this extension.
+
 Selected detail declares event family, interval, sampled/complete requirement and finite
 memory/output allowances. Successful queue drain is not complete source coverage; loss,
 unsupported families, writer failure and unacknowledged tails remain explicit. Selection is
@@ -744,6 +755,39 @@ private peak memory or a capacity SLA. The Outcome owns exact commands, zero-tar
 static/manual results and unexamined routes. Numerical defaults and practical accuracies
 remain unchanged; this supplements the historical basis rather than requalifying every
 scientific model, native library, platform or distribution.
+
+Selected Plan48 execution-performance acceptance of 2026-10-20 belongs to the
+[Plan48h Outcome](../../plans/48h-qualification-and-design-publication.md#outcome-recorded-after-implementation).
+**Implemented and Tested, selected scope:** indexed source/preparation and typed receiving,
+declaration-derived registry hydration, exact selected mathematical products, bounded scalar
+modules/cache, native stagnation/refinement/start controls, fixed-profile IDAS value/forward
+storage, independent fixed-trial windows, qualified fitting residual LM, and finite
+compute/publication handoff compose with current original assessment and ownership. Their
+contract owners are §§4/5/13/14/18/19/20/23; proposed ADR-0201–ADR-0212 retain their formal
+status independently of implementation acceptance. Unsupported reset, backward/Second
+storage and unknown producer bounds retain fresh execution or conservative coverage.
+
+The selected native/Python journeys include actual fitting foreign populations and exact
+pool balance after enclosing job drain, authored shooting, cancellation, publication failure,
+ordinary-stack durable studies, current public strategy receiving, edits and relocated
+review readback. Composite repaired selections retain their initial failures rather than
+claiming a second whole-selection pass. Selected covariance/Parmest and sensitivity/sIPOPT
+comparisons pass against the pinned IDAES reference. Continuing Clippy passes default,
+no-default and full linked-native/canonical/compiled workspace/all-target modes with zero
+warnings/errors. Ruff, Pyrefly, generated equivalence and governance pass after the
+continuing hygiene bundle's reported repairs; an affected no-default Diffsol-only canary
+also passes. The Outcome owns actual commands, counts, scope and exclusions.
+
+**Measured, bounded conditions:** package controls record reduced selected-entry construction,
+registry hydration, compiler children, redundant initialization and compatible native
+allocation, with their actual samples and scientific checks. These establish the described
+work removal, not a universal timing winner or statistical/industrial capacity claim.
+Qualified first-principles work reduction may be deployed despite marginal timing differences;
+unexpected composed costs prompt causal diagnosis. Practical physical accuracy remains 0.001;
+native local tolerances do not themselves certify global physical-output error. No full
+feature powerset, all-case campaign, new-platform or release/distribution qualification is
+claimed. Environment/provenance proof remains permanently eliminated. Other plans retain
+their independent scope and status.
 
 ### 24.3 Benchmarks
 

@@ -912,11 +912,22 @@ fn project_documents(
             if !document.modeling_validation_required(registry, validation)? {
                 continue;
             }
+            if let Some(rows) = document.modeling_rows()
+                && let Some(admission) = authored::modeling_declarations::admit_typed_rows(
+                    registry, rows, validation, &cancel,
+                )?
+            {
+                *rows
+                    .admission
+                    .lock()
+                    .map_err(|_| contract(None, "modeling native owner lock poisoned"))? =
+                    Some(admission);
+                continue;
+            }
+            // Unqualified receiving planners retain their actual native checks.
             if let Some(funds) = allocation.as_deref_mut() {
                 funds.grow(memory::modeling_batch_extent(document)?)?;
             }
-            // Generated native validation is columnar today. Discard its narrow
-            // projection immediately; the admitted parser rows remain authoritative.
             document.modeling_batch(registry, validation, &cancel)?;
             continue;
         }
@@ -1059,7 +1070,7 @@ mod kernel_document_tests {
             .collect()
     }
     #[test]
-    fn typed_modeling_rows_export_only_on_request_and_reuse_runs_native_admission() {
+    fn typed_modeling_rows_avoid_transient_batch_and_export_explicitly() {
         let registry = pse_schema::shared_registry().unwrap();
         let validation = fixture_validation(&registry);
         let sources = named_sources(b"package q { def D { var x: Scalar; } }");
@@ -1071,6 +1082,17 @@ mod kernel_document_tests {
         )
         .unwrap();
         let rows = modeling_rows(&bundle);
+        let modeled = validation
+            .relation(
+                &registry,
+                authored::modeling_declarations::spec(&registry).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            modeled.evaluation_count(),
+            0,
+            "qualified typed admission constructs no transient batch"
+        );
         assert!(
             !bundle
                 .batches
@@ -1090,6 +1112,11 @@ mod kernel_document_tests {
             .unwrap()
             .unwrap();
         use pse_relations::columnar::RelationRow;
+        assert_eq!(
+            modeled.evaluation_count(),
+            1,
+            "fresh explicit Arrow export still receives native checks"
+        );
         assert_eq!(
             rows,
             authored::modeling_declarations::Row::rows(&projected).unwrap()
@@ -1126,6 +1153,299 @@ mod kernel_document_tests {
             load_package_documents(sources, &registry, ParseBudget::default(), &validation).is_ok()
         );
     }
+    #[test]
+    fn typed_modeling_loader_qualifies_actual_bound_factory_context() {
+        let registry = pse_schema::shared_registry().unwrap();
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
+        let thread = std::num::NonZeroUsize::new(1).unwrap();
+        let sessions = pse_testkit::factory(
+            pool,
+            pse_engine::session::ExecutionSettings::default(),
+            pse_engine::session::ThreadBudget {
+                pool_threads: thread,
+                target_partitions: thread,
+            },
+        )
+        .unwrap();
+        let model = Arc::new(sessions).bind_model(registry.clone()).unwrap();
+        let validation = model.validation_context();
+        assert!(validation.typed_modeling_local_eligible());
+        let bundle = load_package_documents(
+            named_sources(b"package q { def D { var x: Scalar; } }"),
+            &registry,
+            ParseBudget::default(),
+            &validation,
+        )
+        .unwrap();
+        assert!(!modeling_rows(&bundle).is_empty());
+        assert_eq!(
+            validation
+                .relation(
+                    &registry,
+                    authored::modeling_declarations::spec(&registry).unwrap()
+                )
+                .unwrap()
+                .evaluation_count(),
+            0
+        );
+    }
+
+    #[test]
+    fn typed_modeling_admission_matches_native_negative_controls_and_preserves_bits() {
+        use authored::modeling_declarations::{
+            self as declarations, AuthoredModelingDeclarationsFieldValue as Value,
+            AuthoredModelingDeclarationsFieldValueConstant as Constant,
+            AuthoredModelingDeclarationsFieldValueDifferenceScheme as Difference,
+        };
+        use pse_model::generated::structures::{
+            ModelingCell, ModelingCellValue, ModelingCellValueInteger, ModelingCellValueQuantity,
+            ModelingProvenance,
+        };
+        let registry = pse_schema::shared_registry().unwrap();
+        let validation = fixture_validation(&registry);
+        let sources = named_sources(b"package q { def D { var x: Scalar; } }");
+        let bundle =
+            load_package_documents(sources, &registry, ParseBudget::default(), &validation)
+                .unwrap();
+        let original = modeling_rows(&bundle)[0].clone();
+        let cancel = pse_columnar::CancellationToken::new();
+        let native = |row: &declarations::Row| {
+            let mut builder = declarations::Builder::with_registry(&registry, 1, &validation)?;
+            builder.push(row.clone())?;
+            builder.finish()
+        };
+        let mut cases = Vec::new();
+        let mut row = original.clone();
+        row.ordinal = -1;
+        cases.push(("ordinal", row));
+        let mut row = original.clone();
+        row.source_start = -1;
+        cases.push(("source_start", row));
+        let mut row = original.clone();
+        row.source_end = i64::from(u32::MAX) + 1;
+        cases.push(("source_end", row));
+        let mut row = original.clone();
+        row.value.scope = None;
+        cases.push(("missing_selected_arm", row));
+        let mut row = original.clone();
+        row.value = Value::from_difference_scheme(Difference {
+            order: 2,
+            offsets: vec![0],
+            weights: vec![1.0],
+            quadrature: vec![],
+        });
+        row.value.scope = original.value.scope.clone();
+        cases.push(("overlapping_arm", row));
+        for (label, order, weight) in [
+            ("nested_range", 65, 1.0),
+            ("nested_nan", 2, f64::NAN),
+            ("nested_infinity", 2, f64::INFINITY),
+        ] {
+            let mut row = original.clone();
+            row.value = Value::from_difference_scheme(Difference {
+                order,
+                offsets: vec![0],
+                weights: vec![weight],
+                quadrature: vec![],
+            });
+            cases.push((label, row));
+        }
+        let integer = ModelingCellValue::from_integer(ModelingCellValueInteger { value: 1 });
+        let constant = |value| {
+            Value::from_constant(Constant {
+                r#type: vec![],
+                value: ModelingCell {
+                    value,
+                    uncertainty: None,
+                },
+                provenance: ModelingProvenance {
+                    source: vec![],
+                    role: vec![],
+                    lineage: vec![],
+                },
+            })
+        };
+        let mut missing = integer.clone();
+        missing.integer = None;
+        let mut overlapping = integer;
+        overlapping.quantity = Some(ModelingCellValueQuantity {
+            magnitude: 1.0,
+            unit: None,
+        });
+        for (label, value) in [
+            ("nested_missing_selected_arm", missing),
+            ("nested_overlapping_arms", overlapping),
+            (
+                "nested_cell_nan",
+                ModelingCellValue::from_quantity(ModelingCellValueQuantity {
+                    magnitude: f64::NAN,
+                    unit: None,
+                }),
+            ),
+        ] {
+            let mut row = original.clone();
+            row.value = constant(value);
+            cases.push((label, row));
+        }
+        for (label, row) in cases {
+            assert!(
+                declarations::admit_typed_rows(
+                    &registry,
+                    std::slice::from_ref(&row),
+                    &validation,
+                    &cancel
+                )
+                .is_err(),
+                "typed admitted {label}"
+            );
+            assert!(native(&row).is_err(), "native admitted {label}");
+        }
+        let mut unit_arm = original.clone();
+        unit_arm.value = constant(ModelingCellValue::from_missing());
+        assert!(
+            declarations::admit_typed_rows(
+                &registry,
+                std::slice::from_ref(&unit_arm),
+                &validation,
+                &cancel
+            )
+            .unwrap()
+            .is_some()
+        );
+        assert!(native(&unit_arm).is_ok());
+        let mut valid = original;
+        valid.value = Value::from_difference_scheme(Difference {
+            order: 2,
+            offsets: vec![],
+            weights: vec![-0.0],
+            quadrature: vec![],
+        });
+        let before = valid.value.difference_scheme.as_ref().unwrap().weights[0].to_bits();
+        let admission = declarations::admit_typed_rows(
+            &registry,
+            std::slice::from_ref(&valid),
+            &validation,
+            &cancel,
+        )
+        .unwrap()
+        .unwrap();
+        assert!(
+            admission
+                .matches(
+                    &registry,
+                    declarations::spec(&registry).unwrap(),
+                    &validation
+                )
+                .unwrap()
+        );
+        assert!(native(&valid).is_ok());
+        assert_eq!(
+            valid.value.difference_scheme.as_ref().unwrap().weights[0].to_bits(),
+            before
+        );
+        let cancelled = pse_columnar::CancellationToken::new();
+        cancelled.cancel();
+        assert!(
+            declarations::admit_typed_rows(&registry, &[valid.clone()], &validation, &cancelled)
+                .is_err()
+        );
+        let independent = pse_schema::catalog::assemble().unwrap();
+        assert!(
+            declarations::admit_typed_rows(&independent, &[valid.clone()], &validation, &cancel)
+                .is_err()
+        );
+        let next = validation.new_scope();
+        assert!(
+            !next
+                .admission_scope()
+                .same_invocation(validation.admission_scope())
+        );
+        assert!(
+            declarations::admit_typed_rows(&registry, &[valid], &next, &cancel)
+                .unwrap()
+                .is_some()
+        );
+        // A copied generated identity cannot admit changed current meaning/row SQL.
+        let mut custom = pse_schema::RegistryBuilder::new();
+        let actual = declarations::spec(&registry).unwrap();
+        custom.declare_relation(
+            pse_schema::model::RelationDecl::new(
+                actual.key.namespace,
+                actual.key.name,
+                actual.key.version,
+                actual.authority,
+                actual.snapshot_class,
+                "changed",
+            )
+            .pk(&[])
+            .columns(vec![])
+            .check("changed_native_sql", "false"),
+        );
+        let custom = custom.build().unwrap();
+        let receiving = fixture_validation(&custom);
+        assert!(declarations::admit_typed_rows(&custom, &[], &receiving, &cancel).is_err());
+    }
+
+    #[test]
+    fn unqualified_typed_modeling_planner_retains_native_evaluation() {
+        use pse_relations::validate::planner::ValidationPlanner;
+        #[derive(Clone, Debug)]
+        struct NativeOnly(pse_engine::validation::NativeValidation);
+        impl ValidationPlanner for NativeOnly {
+            fn snapshot(&self) -> Arc<dyn ValidationPlanner> {
+                Arc::new(self.clone())
+            }
+            fn create_logical_expr(
+                &self,
+                sql: &str,
+                schema: &datafusion::common::DFSchema,
+            ) -> datafusion::common::Result<datafusion::logical_expr::Expr> {
+                self.0.create_logical_expr(sql, schema)
+            }
+            fn prepare(
+                &self,
+                expression: datafusion::logical_expr::Expr,
+                schema: &datafusion::common::DFSchema,
+            ) -> datafusion::common::Result<Arc<dyn datafusion::physical_expr::PhysicalExpr>>
+            {
+                self.0.prepare(expression, schema)
+            }
+        }
+        let registry = pse_schema::shared_registry().unwrap();
+        let validation = pse_relations::validate::ValidationContext::new(
+            &registry,
+            NativeOnly(pse_engine::validation::NativeValidation(
+                datafusion::prelude::SessionContext::new().state(),
+            )),
+        );
+        assert!(!validation.typed_modeling_local_eligible());
+        let bundle = load_package_documents(
+            named_sources(b"package q { def D { var x: Scalar; } }"),
+            &registry,
+            ParseBudget::default(),
+            &validation,
+        )
+        .unwrap();
+        let prepared = validation
+            .relation(
+                &registry,
+                authored::modeling_declarations::spec(&registry).unwrap(),
+            )
+            .unwrap();
+        assert!(prepared.evaluation_count() > 0);
+        assert!(
+            authored::modeling_declarations::admit_typed_rows(
+                &registry,
+                &modeling_rows(&bundle),
+                &validation,
+                &pse_columnar::CancellationToken::new()
+            )
+            .unwrap()
+            .is_none()
+        );
+    }
+
     #[tokio::test]
     async fn source_and_physical_boundaries_refuse_the_same_missing_registration() {
         let registry = pse_schema::shared_registry().unwrap();

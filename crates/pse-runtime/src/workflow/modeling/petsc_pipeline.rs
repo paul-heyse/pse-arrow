@@ -184,7 +184,7 @@ mod tests {
         let mut strategy = NumericalStrategy::direct(original.profile.controls.start, limits);
         let mut correction = strategy.mechanisms[0].clone();
         correction.profile = Some(pse_model::strategy::ProfileRef {
-            backend: Backend::Petsc,
+            method: pse_model::strategy::NumericalMethod::Backend(Backend::Petsc),
             key: original.solve.strategy_profile().unwrap(),
         });
         correction.starts = vec![StartOrigin::Auxiliary];

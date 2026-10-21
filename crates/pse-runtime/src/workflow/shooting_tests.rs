@@ -6,6 +6,7 @@ use super::*;
 use crate::workflow::tests::{compiler_profile, id};
 use native::solve::{Backend, Controls, SolverSelection};
 use pse_backend_native::dynamics::{Method, ScheduledInput};
+use pse_model::scalars::Tolerance;
 use pse_modeling::{Bindings, Limits};
 use std::time::Instant;
 
@@ -31,6 +32,22 @@ async fn tracking_dimensions(
     allowance: f64,
     channels: usize,
     changes: Vec<f64>,
+) -> crate::workflow::ModelingSimulation {
+    tracking_dimensions_on(
+        method,
+        allowance,
+        channels,
+        changes,
+        crate::workflow::tests::runtime_with_workspace(32 << 20),
+    )
+    .await
+}
+async fn tracking_dimensions_on(
+    method: Method,
+    allowance: f64,
+    channels: usize,
+    changes: Vec<f64>,
+    runtime: crate::workflow::Runtime,
 ) -> crate::workflow::ModelingSimulation {
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
@@ -59,10 +76,7 @@ async fn tracking_dimensions(
         .find(|r| r.name == "Tracking")
         .unwrap()
         .declaration_id;
-    let package = crate::workflow::tests::runtime_with_workspace(32 << 20)
-        .modeling_package(rows, physical)
-        .await
-        .unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     let profile = native::dynamics::Profile {
         method,
         end: 2.,
@@ -607,6 +621,7 @@ async fn scientific_shooting_strict_composed_work_refuses_before_integration() {
             Arc::new(native::solve::Progress::new(16)),
             None,
             &problem.solver,
+            None,
         )
         .unwrap_err();
     let trace = error.strategy_trace().unwrap();
@@ -635,6 +650,7 @@ async fn scientific_shooting_strict_composed_work_refuses_before_integration() {
             Arc::new(native::solve::Progress::new(16)),
             Some(&[]),
             &problem.solver,
+            None,
         )
         .unwrap_err();
     let trace = error.strategy_trace().unwrap();
@@ -727,6 +743,163 @@ async fn shooting_matches_simultaneous_optimum() {
             );
         }
     }
+}
+
+/// I27 qualifies the existing explicit-primal/fresh-owner route. These are
+/// independent native solves, not transported multipliers or optimizer history.
+#[tokio::test]
+async fn shooting_primal_start_inquiry_preserves_fresh_owner_and_current_bounds() {
+    let simulation = tracking(Method::Diffsol).await;
+    let problem = Arc::new(
+        simulation
+            .shooting(request(&simulation, ShootingMethod::Single, vec![], true))
+            .unwrap(),
+    );
+    let (optimum, value) = analytic();
+    let poor = [0.05, 4.9];
+    for (name, initial) in [
+        ("specification", None),
+        ("good_primal", Some(optimum.as_slice())),
+        ("poor_primal", Some(poor.as_slice())),
+    ] {
+        let started = Instant::now();
+        let handle = match initial {
+            Some(initial) => problem.start_with_initial(initial.to_vec()),
+            None => problem.start(),
+        }
+        .unwrap();
+        let result = handle.wait().await.unwrap();
+        let report = report_of(&result);
+        assert!(
+            result.usable(),
+            "{name}: {:?}; {:?}",
+            result.assessments(),
+            report.validation_error
+        );
+        assert_original_objective(report, value, objective_budget(&problem), &simulation);
+        assert_constraints(
+            report,
+            problem.constraint_bounds(),
+            &problem.tolerances().rows,
+        );
+        let native = report.solve.as_ref().unwrap();
+        assert!(native.evidence.start_submitted);
+        assert!(!native.evidence.reused_native_state);
+        assert!(native.evidence.restart.is_none());
+        assert!(!native.evidence.working_set_submitted);
+        println!(
+            "I27 {name} elapsed_us={} iterations={:?} evaluations={:?} factors={:?} original_objective={} start_submitted={} reused_native_state={}",
+            started.elapsed().as_micros(),
+            native.evidence.work.iterations,
+            native.evidence.work.evaluations,
+            native.evidence.work.factorizations,
+            original_objective(report.controls.values().next().unwrap()),
+            native.evidence.start_submitted,
+            native.evidence.reused_native_state
+        );
+    }
+
+    // Refused requests and a cancelled invocation cannot poison a later solve.
+    assert!(problem.start_with_initial(vec![0.5]).is_err());
+    assert!(problem.start_with_initial(vec![f64::NAN, 0.5]).is_err());
+    let cancelled = crate::CancelSource::new();
+    cancelled.cancel();
+    assert!(
+        problem
+            .start_replay_with_cancel(Some(optimum.to_vec()), &cancelled)
+            .is_err()
+    );
+
+    // The same coordinate count does not retain old bounds or options. Ipopt's
+    // cold bound push is deliberately changed and then removed on a fresh owner.
+    let mut changed = request(&simulation, ShootingMethod::Single, vec![], true);
+    changed.controls[0].upper = Some(1.);
+    changed.solver.backend =
+        native::execution::BackendSettings::Ipopt(native::settings::ipopt::Settings {
+            bound_push: pse_model::scalar!(Tolerance(0.02)),
+            ..Default::default()
+        });
+    let changed = simulation.shooting(changed).unwrap();
+    assert_eq!(changed.initial_extent(), problem.initial_extent());
+    assert_ne!(
+        changed.contract().variables[0].upper,
+        problem.contract().variables[0].upper
+    );
+    let budget = objective_budget(&changed);
+    let bounds = changed.constraint_bounds().to_vec();
+    let rows = changed.tolerances().rows.clone();
+    let result = solve(changed, Some(&optimum)).await;
+    let report = report_of(&result);
+    assert!(
+        result.usable(),
+        "{:?}; {:?}",
+        result.assessments(),
+        report.validation_error
+    );
+    // Both unconstrained optimum coordinates exceed one; the convex quadratic
+    // has its bound-constrained minimum at this corner (checked independently).
+    let ([a11, a12, a22], [r1, r2]) = quadratic();
+    assert!(a11 + a12 < r1 && a12 + a22 < r2);
+    assert_original_objective(report, original_objective(&[1., 1.]), budget, &simulation);
+    assert_constraints(report, &bounds, &rows);
+    let native = report.solve.as_ref().unwrap();
+    assert!(native.evidence.start_submitted && !native.evidence.reused_native_state);
+    assert!(native.evidence.restart.is_none());
+
+    let mut limited = request(&simulation, ShootingMethod::Single, vec![], true);
+    limited.solver.controls.iterations = 1;
+    let result = solve(simulation.shooting(limited).unwrap(), Some(&poor)).await;
+    let report = report_of(&result);
+    assert_eq!(
+        report.solve.as_ref().unwrap().termination.category,
+        native::solve::Termination::IterationLimit
+    );
+    assert!(!report.completion.permits_use());
+
+    let result = problem
+        .start_with_initial(optimum.to_vec())
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
+    let report = report_of(&result);
+    assert!(result.usable(), "{:?}", result.assessments());
+    assert_original_objective(report, value, objective_budget(&problem), &simulation);
+    assert!(!report.solve.as_ref().unwrap().evidence.reused_native_state);
+}
+
+#[tokio::test]
+async fn shooting_equal_size_anchor_maps_are_distinct_start_contexts() {
+    let simulation = tracking(Method::Diffsol).await;
+    let first = simulation
+        .shooting(request(
+            &simulation,
+            ShootingMethod::Multiple,
+            vec![0.75],
+            true,
+        ))
+        .unwrap();
+    let second = simulation
+        .shooting(request(
+            &simulation,
+            ShootingMethod::Multiple,
+            vec![1.25],
+            true,
+        ))
+        .unwrap();
+    assert_eq!(first.initial_extent(), second.initial_extent());
+    assert_ne!(first.contract().identity, second.contract().identity);
+    assert_ne!(
+        first.request_identity(Some(&[1., 1., 0.5])),
+        second.request_identity(Some(&[1., 1., 0.5]))
+    );
+    let execution = Execution::new(Default::default(), &solver().controls);
+    let first_start = first.initial_point(&execution).unwrap();
+    let second_start = second.initial_point(&execution).unwrap();
+    // Initial anchors remain causal integrations, bound to their actual times.
+    assert!((first_start[2] - 0.5 * (1. - (-0.75_f64).exp())).abs() <= 0.001);
+    assert!((second_start[2] - 0.5 * (1. - (-1.25_f64).exp())).abs() <= 0.001);
+    assert_ne!(first_start[2].to_bits(), second_start[2].to_bits());
 }
 
 #[tokio::test]
@@ -1631,15 +1804,12 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
             problem: problem.clone(),
             execution: execution.clone(),
             point: None,
-            worker: None,
+            // This control isolates the current-thread owner's retention. The
+            // separate team control exercises independently admitted wider lanes.
+            worker: Some(WindowTeam::with_width(problem.clone(), execution.clone(), 1).unwrap()),
         };
         oracle.objective(&[0.4, 1.2, 0.3]).unwrap();
-        let identity = oracle
-            .worker
-            .as_ref()
-            .unwrap()
-            .inner
-            .buffer_identity(0, native::dynamics::Function::Rhs);
+        let identity = oracle.worker.as_ref().unwrap().buffer_identity().unwrap();
         let x = [0.6, 1.1, 0.4];
         let value = oracle.objective(&x).unwrap();
         let mut gradient = vec![0.; x.len()];
@@ -1691,12 +1861,7 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
         oracle.jacobian(&x, &mut jacobian).unwrap();
         assert_eq!(
             identity,
-            oracle
-                .worker
-                .as_ref()
-                .unwrap()
-                .inner
-                .buffer_identity(0, native::dynamics::Function::Rhs)
+            oracle.worker.as_ref().unwrap().buffer_identity().unwrap()
         );
         let counts = crate::workflow::tests::observation_counts(&hub, observed.reader());
         for (name, expected) in [
@@ -1708,11 +1873,14 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
             ),
             (
                 "dynamics.window_layout_constructions",
-                if method == Method::Idas { 0 } else { 1 },
+                if method == Method::Idas { 1 } else { 2 },
             ),
             (
                 "dynamics.window_layout_reuses",
-                if method == Method::Idas { 0 } else { 1 },
+                // Every forward IVP and integral adjoint opens its own wrapper.
+                // Exactly one wrapper per plain/observed kind constructs its layout.
+                6 + if method == Method::Idas { 0 } else { 2 }
+                    - if method == Method::Idas { 1 } else { 2 },
             ),
         ] {
             assert_eq!(
@@ -2343,4 +2511,257 @@ async fn shooting_exact_functional_routes_at_fixed_engineering_policy() {
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[cfg(feature = "solver-idas")]
+#[tokio::test]
+async fn shooting_fixed_window_team_matches_inline_and_drains_failed_upgrade() {
+    // One retained compiler workspace plus three private opaque worker envelopes
+    // and two thread/native populations must fit before any child is created.
+    let runtime = crate::workflow::tests::runtime_on(
+        8 << 30,
+        crate::math::MathPolicy {
+            workspace_bytes: 1 << 30,
+            worker_bytes: 1 << 30,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    );
+    let simulation = tracking_dimensions_on(
+        Method::Idas,
+        pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction,
+        1,
+        vec![1.],
+        runtime,
+    )
+    .await;
+    let problem = Arc::new(
+        simulation
+            .shooting(request(
+                &simulation,
+                ShootingMethod::Multiple,
+                vec![0.2, 1.3],
+                true,
+            ))
+            .unwrap(),
+    );
+    assert_eq!(
+        problem.solver.controls.threads, 1,
+        "KKT width does not choose child-phase width"
+    );
+    let runtime = tokio::runtime::Handle::current();
+    tokio::task::spawn_blocking(move || {
+        let _runtime = runtime.enter();
+        let mut execution =
+            Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
+        execution.memory = Some(
+            problem
+                .runtime
+                .shared
+                .budget()
+                .math
+                .foreign_allowance(&solver().controls),
+        );
+        use native::solve::WorkAdmission;
+        let storage = problem
+            .runtime
+            .native()
+            .reserve("test:shooting-original-foreign", execution.memory.unwrap())
+            .unwrap();
+        let task = crate::math::strategy::admission::TaskAdmission::new_for(
+            pse_model::strategy::WorkLimits {
+                attempts: 1,
+                evaluations: None,
+                iterations: None,
+                factorizations: None,
+                proof_steps: None,
+            },
+            execution.scope().unwrap(),
+            problem.runtime.native(),
+            false,
+        );
+        task.retain_storage_allowance(storage).unwrap();
+        execution.work_admission = Some(task.clone());
+        let mut initial = problem.experiment.worker(&execution).unwrap();
+        let anchors = problem
+            .initial_point_with_worker(&mut initial, &execution)
+            .unwrap();
+        assert_eq!(anchors.len(), problem.contract.variables.len());
+        assert!(
+            task.prepaid_storage(&Arc::new(()), execution.memory.unwrap())
+                .is_err(),
+            "actual initial integrations retain the one original native envelope"
+        );
+        let handed_off =
+            WindowTeam::new(problem.clone(), execution.clone(), Some(initial)).unwrap();
+        assert_eq!(
+            handed_off.width(),
+            2,
+            "completed initial native storage retires before wider child preflight"
+        );
+        drop(handed_off);
+        assert!(
+            task.prepaid_storage(&Arc::new(()), execution.memory.unwrap())
+                .unwrap()
+                .is_some()
+        );
+        let x = [0.4, 1.2, 0.1, 0.6];
+        assert_eq!(x.len(), problem.contract.variables.len());
+        let mut serial = ShootingOracle {
+            observation: None,
+            purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
+            problem: problem.clone(),
+            execution: execution.clone(),
+            point: None,
+            worker: Some(WindowTeam::with_width(problem.clone(), execution.clone(), 1).unwrap()),
+        };
+        let first = serial.evaluate(&x, DerivativeOrder::First).unwrap();
+        let expected = (
+            first.objective,
+            first.constraints.clone(),
+            first.jacobian.clone(),
+            first.gradient.clone(),
+            first.integral_gradient.clone(),
+            first
+                .reports
+                .iter()
+                .map(|report| {
+                    report
+                        .samples
+                        .iter()
+                        .map(|sample| (sample.time, sample.state.clone()))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>(),
+        );
+        drop(serial);
+        let mut team = WindowTeam::with_width(problem.clone(), execution.clone(), 2).unwrap();
+        assert_eq!(
+            team.width(),
+            2,
+            "the actual quiescent child phase must admit two lanes"
+        );
+        team.require_concurrent_wave();
+        let mut parallel = ShootingOracle {
+            observation: None,
+            purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
+            problem: problem.clone(),
+            execution: execution.clone(),
+            point: None,
+            worker: Some(team),
+        };
+        let point = parallel.evaluate(&x, DerivativeOrder::First).unwrap();
+        let allowance =
+            pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction;
+        for (actual, expected) in std::iter::once(point.objective)
+            .chain(point.constraints.iter().copied())
+            .chain(point.jacobian.iter().copied())
+            .chain(point.gradient.iter().copied())
+            .chain(point.integral_gradient.as_ref().unwrap().iter().copied())
+            .zip(
+                std::iter::once(expected.0)
+                    .chain(expected.1)
+                    .chain(expected.2)
+                    .chain(expected.3)
+                    .chain(expected.4.unwrap()),
+            )
+        {
+            assert!((actual - expected).abs() <= allowance * expected.abs().max(1.));
+        }
+        let x_symbol = problem
+            .simulation
+            .model()
+            .compiled()
+            .model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path.ends_with(".x"))
+            .unwrap()
+            .id;
+        let xi = problem
+            .experiment
+            .program
+            .contract
+            .states
+            .iter()
+            .position(|id| *id == x_symbol)
+            .unwrap();
+        for (k, (actual, reference)) in point.reports.iter().zip(expected.5).enumerate() {
+            assert_eq!(actual.samples.len(), reference.len());
+            let window = &problem.windows[k];
+            for (sample, reference) in actual.samples.iter().zip(reference) {
+                assert_eq!(sample.time, reference.0);
+                for (actual, reference) in sample.state.iter().zip(reference.1) {
+                    assert!((actual - reference).abs() <= allowance * reference.abs().max(1.));
+                }
+                let mut state = problem.anchors(k, &x)[0];
+                let mut start = window.profile.start;
+                for end in [1.0, sample.time]
+                    .into_iter()
+                    .filter(|time| *time > window.profile.start && *time <= sample.time)
+                {
+                    let u = if start < 1.0 { x[0] } else { x[1] };
+                    state = u + (state - u) * (-(end - start)).exp();
+                    start = end;
+                }
+                assert!(
+                    (sample.state[xi] - state).abs() <= allowance,
+                    "window{k}: t={} actual={} analytic={state}",
+                    sample.time,
+                    sample.state[xi]
+                );
+            }
+        }
+        let identities = parallel
+            .worker
+            .as_ref()
+            .unwrap()
+            .buffer_identities()
+            .unwrap();
+        assert_eq!(identities.len(), 3);
+        assert_eq!(
+            identities
+                .values()
+                .map(|identity| identity.0)
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            3,
+            "every fixed window owns private evaluator buffers"
+        );
+        let next = [0.5, 1.1, 0.2, 0.7];
+        parallel.evaluate(&next, DerivativeOrder::Value).unwrap();
+        assert_eq!(
+            parallel
+                .worker
+                .as_ref()
+                .unwrap()
+                .buffer_identities()
+                .unwrap(),
+            identities,
+            "changed points retain actual owner-affine scratch"
+        );
+        let weaker = parallel.point.as_ref().unwrap().objective;
+        parallel.worker.as_mut().unwrap().fail_window(Some(1));
+        assert!(parallel.evaluate(&next, DerivativeOrder::First).is_err());
+        assert_eq!(
+            parallel.point.as_ref().unwrap().achieved,
+            DerivativeOrder::Value
+        );
+        assert_eq!(
+            parallel.objective(&next).unwrap(),
+            weaker,
+            "failed stronger window work does not replace complete same-point values"
+        );
+        parallel.worker.as_mut().unwrap().fail_window(None);
+        execution
+            .cancel
+            .store(true, std::sync::atomic::Ordering::Release);
+        assert!(matches!(
+            parallel.evaluate(&x, DerivativeOrder::Value),
+            Err(ProblemError::Cancelled)
+        ));
+        drop(parallel); // Every started wave has drained before child owners join.
+    })
+    .await
+    .unwrap();
 }

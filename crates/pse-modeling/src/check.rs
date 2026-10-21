@@ -134,6 +134,8 @@ pub struct FiniteReduction {
 pub struct CheckedPackage {
     /// Derived access paths prepared once after admission, never an independent authority.
     pub(crate) selection_index: SelectionIndex,
+    pub(crate) lexical_index: Arc<LexicalIndex>,
+    pub(crate) physical_types: Arc<BTreeMap<String, Type>>,
     pub(crate) expressions: crate::expression::occurrences::Occurrences,
     pub(crate) selection_closures: crate::scientific_selection::Selections,
     pub(crate) quantities: Arc<pse_quantity::QuantityRegistry>,
@@ -160,7 +162,7 @@ pub struct CheckedPackage {
     pub(crate) interfaces: BTreeMap<DeclarationId, BTreeSet<DeclarationId>>,
     /// Checked entity kinds: refinement, attribute schema, keys and bindings (ADR-0123
     /// Outcome 2).
-    pub(crate) kinds: BTreeMap<DeclarationId, crate::entity::Kind>,
+    pub(crate) kinds: KindInventory,
     /// Admitted entity records by identity: declared entities and keyed rows.
     pub(crate) entities: BTreeMap<DeclarationId, crate::entity::Record>,
     /// Identifier values, each held by one entity of the admitted closure.
@@ -179,6 +181,270 @@ pub struct CheckedPackage {
     /// Test-only datasets and constants: their role is test-only, or their lineage reaches
     /// test-only data (ADR-0123 Outcome 5).
     pub(crate) test_only_data: BTreeSet<DeclarationId>,
+}
+
+/// Current kind records and their mechanically derived extent types. Key mutations
+/// update both maps; borrowed views cannot detach the projection from its inventory.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct KindInventory {
+    records: BTreeMap<DeclarationId, crate::entity::Kind>,
+    extents: BTreeMap<DeclarationId, Type>,
+}
+impl KindInventory {
+    pub(crate) fn insert(
+        &mut self,
+        id: DeclarationId,
+        kind: crate::entity::Kind,
+    ) -> Option<crate::entity::Kind> {
+        self.extents
+            .entry(id)
+            .or_insert_with(|| Type::Set(Box::new(Type::Entity(id))));
+        self.records.insert(id, kind)
+    }
+    fn get_mut(&mut self, id: &DeclarationId) -> Option<&mut crate::entity::Kind> {
+        self.records.get_mut(id)
+    }
+    #[cfg(test)]
+    fn remove(&mut self, id: &DeclarationId) -> Option<crate::entity::Kind> {
+        self.extents.remove(id);
+        self.records.remove(id)
+    }
+    fn extent_type(&self, id: &DeclarationId) -> Option<&Type> {
+        self.extents.get(id)
+    }
+    pub(crate) fn extent_bytes(&self) -> usize {
+        self.extents
+            .values()
+            .map(|ty| size_of::<(DeclarationId, Type)>() + 64 + crate::extent::ty(ty))
+            .sum()
+    }
+}
+impl std::ops::Deref for KindInventory {
+    type Target = BTreeMap<DeclarationId, crate::entity::Kind>;
+    fn deref(&self) -> &Self::Target {
+        &self.records
+    }
+}
+impl<'a> IntoIterator for &'a KindInventory {
+    type Item = (&'a DeclarationId, &'a crate::entity::Kind);
+    type IntoIter = std::collections::btree_map::Iter<'a, DeclarationId, crate::entity::Kind>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.records.iter()
+    }
+}
+impl From<BTreeMap<DeclarationId, crate::entity::Kind>> for KindInventory {
+    fn from(records: BTreeMap<DeclarationId, crate::entity::Kind>) -> Self {
+        let extents = records
+            .keys()
+            .map(|id| (*id, Type::Set(Box::new(Type::Entity(*id)))))
+            .collect();
+        Self { records, extents }
+    }
+}
+
+/// Derived immutable lexical access paths. Ordered imports retain source precedence.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct LexicalIndex {
+    children: BTreeMap<DeclarationId, BTreeMap<String, DeclarationId>>,
+    imports: BTreeMap<DeclarationId, Vec<DeclarationId>>,
+}
+impl LexicalIndex {
+    fn build(package: &CheckedPackage) -> Self {
+        let mut index = Self::default();
+        for (owner, children) in &package.children {
+            for id in children {
+                let row = &package.declarations[id];
+                index
+                    .children
+                    .entry(*owner)
+                    .or_default()
+                    .entry(row.name.clone())
+                    .or_insert(*id);
+                if row.value.import.is_some() {
+                    index.imports.entry(*owner).or_default().push(*id);
+                }
+            }
+        }
+        index
+    }
+    fn select(&self, selected: &BTreeSet<DeclarationId>) -> Self {
+        Self {
+            children: self
+                .children
+                .iter()
+                .filter(|(owner, _)| selected.contains(owner))
+                .map(|(owner, children)| {
+                    (
+                        *owner,
+                        children
+                            .iter()
+                            .filter(|(_, id)| selected.contains(id))
+                            .map(|(name, id)| (name.clone(), *id))
+                            .collect(),
+                    )
+                })
+                .collect(),
+            imports: self
+                .imports
+                .iter()
+                .filter(|(owner, _)| selected.contains(owner))
+                .map(|(owner, imports)| {
+                    (
+                        *owner,
+                        imports
+                            .iter()
+                            .filter(|id| selected.contains(id))
+                            .copied()
+                            .collect(),
+                    )
+                })
+                .collect(),
+        }
+    }
+    pub(crate) fn retained_bytes(&self) -> usize {
+        self.children
+            .values()
+            .map(|children| {
+                128 + children
+                    .keys()
+                    .map(|name| name.capacity() + 128)
+                    .sum::<usize>()
+            })
+            .sum::<usize>()
+            + self
+                .imports
+                .values()
+                .map(|ids| 128 + ids.capacity() * size_of::<DeclarationId>())
+                .sum::<usize>()
+    }
+}
+
+/// A lazy lexical view with occurrence-local bindings and a borrowed current type phase.
+/// No owner-only memo freezes mutable admission state.
+#[derive(Clone)]
+pub(crate) struct NamedTypes<'a> {
+    package: &'a CheckedPackage,
+    owner: DeclarationId,
+    types: Option<&'a phases::Types>,
+    bindings: BTreeMap<String, Type>,
+    extents: bool,
+    only_extents: bool,
+}
+impl NamedTypes<'_> {
+    pub(crate) fn insert(&mut self, name: String, ty: Type) -> Option<Type> {
+        self.bindings.insert(name, ty)
+    }
+    pub(crate) fn extend(&mut self, values: impl IntoIterator<Item = (String, Type)>) {
+        self.bindings.extend(values);
+    }
+    pub(crate) fn into_bindings(self) -> BTreeMap<String, Type> {
+        self.bindings
+    }
+    pub(crate) fn with_extents(mut self, only_extents: bool) -> Self {
+        self.extents = true;
+        self.only_extents = only_extents;
+        self
+    }
+    fn ty(&self, id: DeclarationId) -> Option<&Type> {
+        if self.extents
+            && let Some(ty) = self.package.kinds.extent_type(&id)
+        {
+            return Some(ty);
+        }
+        if self.only_extents {
+            return None;
+        }
+        match self.types {
+            Some(types) => types.get(&id),
+            None => self.package.types.get(&id),
+        }
+    }
+}
+impl crate::TypeLookup for NamedTypes<'_> {
+    fn get(&self, name: &str) -> Option<&Type> {
+        if let Some(ty) = self.bindings.get(name) {
+            return Some(ty);
+        }
+        let p = self.package;
+        let lookup = |id| self.ty(id);
+        let mut current = Some(self.owner);
+        while let Some(owner) = current {
+            if let Some(observation) = pse_diagnostics::observation::current() {
+                observation.count("modeling.lexical_lookup_visits", "scopes", 1);
+            }
+            // Match the complete enumeration's precedence, innermost first.
+            if let Some(ty) = p
+                .lexical_index
+                .children
+                .get(&owner)
+                .and_then(|children| children.get(name))
+                .and_then(|id| self.ty(*id))
+            {
+                return Some(ty);
+            }
+            if let Some(ty) = p
+                .members
+                .get(&owner)
+                .and_then(|members| members.get(name))
+                .and_then(|id| self.ty(*id))
+            {
+                return Some(ty);
+            }
+            // Later imports overwrite earlier aliases in the enumeration. Admission
+            // rejects ambiguous aliases before this view becomes externally visible.
+            for id in p
+                .lexical_index
+                .imports
+                .get(&owner)
+                .into_iter()
+                .flatten()
+                .rev()
+            {
+                let row = &p.declarations[id];
+                let import = row.value.import.as_ref()?;
+                let alias = import.alias.as_deref().unwrap_or(&row.name);
+                if let Some(tail) = name
+                    .strip_prefix(alias)
+                    .and_then(|tail| tail.strip_prefix('.'))
+                    && let Some(ty) = p
+                        .names
+                        .get(&format!("{}.{tail}", row.name))
+                        .and_then(|id| self.ty(*id))
+                {
+                    return Some(ty);
+                }
+            }
+            if let Some(scope) = p.qualified_name(owner)
+                && let Some(id) = p.names.get(&format!("{scope}.{name}"))
+                && p.resolve_with_types(owner, name, &lookup) == Some(*id)
+                && let Some(ty) = self.ty(*id)
+            {
+                return Some(ty);
+            }
+            current = p.declarations.get(&owner).and_then(|row| row.parent_id);
+        }
+        if !self.only_extents
+            && p.package_of(self.owner)
+                .is_some_and(|row| p.scope.sees(row.document_id))
+        {
+            let local = p
+                .scope
+                .package
+                .as_ref()
+                .and_then(|prefix| name.strip_prefix(prefix.as_str()))
+                .and_then(|tail| tail.strip_prefix('.'))
+                .unwrap_or(name);
+            if let Some(ty) = p.physical_types.get(local) {
+                return Some(ty);
+            }
+        }
+        // Absolute names must exist in the source index. In particular synthesized
+        // f_<id> spellings are not promoted into the lexical type environment.
+        let id = p.names.get(name)?;
+        (p.resolve_with_types(self.owner, name, &lookup) == Some(*id))
+            .then(|| self.ty(*id))
+            .flatten()
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -596,7 +862,7 @@ impl CheckedPackage {
             return Some(id);
         }
         loop {
-            for child in self.children.get(&owner).into_iter().flatten() {
+            for child in self.lexical_index.imports.get(&owner).into_iter().flatten() {
                 let row = &self.declarations[child];
                 if let Some(import) = &row.value.import {
                     let alias = import.alias.as_deref().unwrap_or(&row.name);
@@ -620,9 +886,10 @@ impl CheckedPackage {
                 return Some(*id);
             }
             if let Some(id) = self
+                .lexical_index
                 .children
                 .get(&owner)
-                .and_then(|v| v.iter().find(|id| self.declarations[id].name == name))
+                .and_then(|children| children.get(name))
             {
                 return Some(*id);
             }
@@ -645,122 +912,15 @@ impl CheckedPackage {
         }
     }
 
-    // The trailing dot distinguishes lexical descendants from packages or names
-    // with the same leading characters (for example, a and ab).
-    fn names_below<'a>(
-        &'a self,
-        scope: &'a str,
-    ) -> impl Iterator<Item = (&'a String, &'a DeclarationId)> {
-        let prefix = format!("{scope}.");
-        self.names
-            .range(prefix.clone()..)
-            .take_while(move |(name, _)| name.starts_with(&prefix))
-    }
-
-    pub(crate) fn named_types(&self, owner: DeclarationId) -> BTreeMap<String, Type> {
-        self.named_types_with(owner, &|id| self.types.get(&id))
-    }
-    fn named_types_with<'a>(
-        &self,
-        owner: DeclarationId,
-        types: &impl Fn(DeclarationId) -> Option<&'a Type>,
-    ) -> BTreeMap<String, Type> {
-        let mut chain = Vec::new();
-        let mut node = Some(owner);
-        while let Some(id) = node {
-            chain.push(id);
-            node = self.declarations[&id].parent_id;
+    pub(crate) fn named_types(&self, owner: DeclarationId) -> NamedTypes<'_> {
+        NamedTypes {
+            package: self,
+            owner,
+            types: None,
+            bindings: BTreeMap::new(),
+            extents: false,
+            only_extents: false,
         }
-        // Absolute lookup is admitted only within the owning package, or through
-        // an import alias visible on the actual lexical chain. Enumerate these
-        // candidate prefixes; resolve remains the visibility/shadowing authority.
-        let mut prefixes = BTreeSet::new();
-        if let Some(package) = chain.last().and_then(|id| self.declarations.get(id)) {
-            prefixes.insert(package.name.clone());
-        }
-        for scope in &chain {
-            for child in self.children.get(scope).into_iter().flatten() {
-                let row = &self.declarations[child];
-                if let Some(import) = &row.value.import {
-                    prefixes.insert(import.alias.as_deref().unwrap_or(&row.name).to_owned());
-                }
-            }
-        }
-        let mut names = BTreeMap::new();
-        for prefix in prefixes {
-            for (name, id) in self
-                .names
-                .get_key_value(&prefix)
-                .into_iter()
-                .chain(self.names_below(&prefix))
-            {
-                if let Some(ty) = types(*id)
-                    && self.resolve_with_types(owner, name, types) == Some(*id)
-                {
-                    names.insert(name.clone(), ty.clone());
-                }
-            }
-        }
-        // ADR-0123 Outcome 6: a package whose manifest depends on the declaring package
-        // sees the physical names unqualified and as `<package>.<Name>`.
-        if let Some(package) = chain.last().and_then(|id| self.declarations.get(id))
-            && self.scope.sees(package.document_id)
-        {
-            for (name, value) in self.quantities.physical_names() {
-                let ty = match value {
-                    pse_quantity::PhysicalName::QuantityType(id) => {
-                        Type::Quantity(pse_quantity::scheme::Scheme::Concrete(id))
-                    }
-                    pse_quantity::PhysicalName::ReferenceState(_) => Type::ReferenceState,
-                };
-                if let Some(prefix) = &self.scope.package {
-                    names.insert(format!("{prefix}.{name}"), ty.clone());
-                }
-                names.insert(name.into(), ty);
-            }
-        }
-        for owner in chain.into_iter().rev() {
-            // A nominal coordinate slot is addressed relative to every visible lexical
-            // owner exactly as ordinary declaration lookup addresses it.
-            if let Some(scope) = self.qualified_name(owner)
-                && self.names.get(&scope) == Some(&owner)
-            {
-                let prefix = format!("{scope}.");
-                for (name, id) in self.names_below(&scope) {
-                    if let Some(relative) = name.strip_prefix(&prefix)
-                        && self.resolve_with_types(owner, relative, types) == Some(*id)
-                        && let Some(ty) = types(*id)
-                    {
-                        names.insert(relative.to_owned(), ty.clone());
-                    }
-                }
-            }
-            for id in self.children.get(&owner).into_iter().flatten() {
-                let row = &self.declarations[id];
-                if let Some(import) = &row.value.import {
-                    let alias = import.alias.as_deref().unwrap_or(&row.name);
-                    let prefix = format!("{}.", row.name);
-                    for (name, id) in self.names_below(&row.name) {
-                        if let Some(tail) = name.strip_prefix(&prefix)
-                            && let Some(ty) = types(*id)
-                        {
-                            names.insert(format!("{alias}.{tail}"), ty.clone());
-                        }
-                    }
-                }
-            }
-            for (name, id) in self.members.get(&owner).into_iter().flatten() {
-                if let Some(ty) = types(*id) {
-                    names.insert(name.clone(), ty.clone());
-                }
-            }
-            for id in self.children.get(&owner).into_iter().flatten() {
-                if let Some(ty) = types(*id) {
-                    names.insert(self.declarations[id].name.clone(), ty.clone());
-                }
-            }
-        }
-        names
     }
 }
 /// Validate declarations and definitions independently of root instantiation, without
@@ -1322,6 +1482,7 @@ pub(super) fn inventory_package(
             p.types.insert(id, ty);
         }
     }
+    p.lexical_index = Arc::new(LexicalIndex::build(&p));
     // ADR-0123 Outcome 6: a package that sees the physical names declares none of them;
     // the same name in both places is ambiguous and refused.
     for row in rows {
@@ -1833,6 +1994,8 @@ impl CheckedPackage {
             .collect();
         Ok(Self {
             selection_index: self.selection_index.select(&selected),
+            lexical_index: Arc::new(self.lexical_index.select(&selected)),
+            physical_types: self.physical_types.clone(),
             declarations: selected_map(&self.declarations, &selected),
             names: selected
                 .iter()
@@ -1910,7 +2073,7 @@ impl CheckedPackage {
                     })
                 })
                 .collect(),
-            kinds: selected_map(&self.kinds, &selected),
+            kinds: selected_map(&self.kinds, &selected).into(),
             provenance: selected_map(&self.provenance, &selected),
             attribute_provenance: selected
                 .iter()
@@ -1977,7 +2140,8 @@ impl crate::selected_source::LexicalLookup for CheckedLexical<'_> {
     fn imported(&mut self, owner: DeclarationId, name: &str) -> crate::selected_source::Lookup {
         let id = self
             .0
-            .children
+            .lexical_index
+            .imports
             .get(&owner)
             .into_iter()
             .flatten()
@@ -1996,13 +2160,10 @@ impl crate::selected_source::LexicalLookup for CheckedLexical<'_> {
     fn member(&mut self, owner: DeclarationId, name: &str) -> crate::selected_source::Lookup {
         let id = self.0.declared_member(owner, name).or_else(|| {
             self.0
+                .lexical_index
                 .children
                 .get(&owner)
-                .and_then(|children| {
-                    children
-                        .iter()
-                        .find(|id| self.0.declarations[id].name == name)
-                })
+                .and_then(|children| children.get(name))
                 .copied()
         });
         id.map_or(crate::selected_source::Lookup::Absent, |id| {
@@ -2087,6 +2248,8 @@ fn type_dependencies(ty: &Type, out: &mut Vec<DeclarationId>) {
 }
 
 #[cfg(test)]
+mod artifact_contract_tests;
+#[cfg(test)]
 mod named_types_tests;
 #[cfg(test)]
 mod selection_tests;
@@ -2094,6 +2257,24 @@ mod selection_tests;
 fn empty_package(context: &TypeContext<'_>) -> CheckedPackage {
     CheckedPackage {
         selection_index: SelectionIndex::default(),
+        lexical_index: Arc::new(LexicalIndex::default()),
+        physical_types: Arc::new(
+            context
+                .quantities
+                .physical_names()
+                .map(|(name, value)| {
+                    (
+                        name.to_owned(),
+                        match value {
+                            pse_quantity::PhysicalName::QuantityType(id) => {
+                                Type::Quantity(pse_quantity::scheme::Scheme::Concrete(id))
+                            }
+                            pse_quantity::PhysicalName::ReferenceState(_) => Type::ReferenceState,
+                        },
+                    )
+                })
+                .collect(),
+        ),
         expressions: BTreeMap::new(),
         selection_closures: BTreeMap::new(),
         quantities: Arc::new(context.quantities.clone()),
@@ -2109,7 +2290,7 @@ fn empty_package(context: &TypeContext<'_>) -> CheckedPackage {
         temporal: BTreeMap::new(),
         tables: BTreeMap::new(),
         interfaces: BTreeMap::new(),
-        kinds: BTreeMap::new(),
+        kinds: KindInventory::default(),
         entities: BTreeMap::new(),
         identifiers: crate::entity::ModelingIdentifierScope::default(),
         constants: BTreeMap::new(),

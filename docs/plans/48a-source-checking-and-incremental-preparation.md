@@ -1,6 +1,6 @@
 ---
 title: Source checking and incremental preparation
-status: draft
+status: done
 date: 2026-10-20
 adrs: []
 doc_role: plan
@@ -19,9 +19,11 @@ and its [recommendation register](../design_review/evidence/execution-performanc
 particularly AF01, AF02 and AF18 and the corrected R2 P01/P02/P18 remedies.
 The coordinator owns all finding dispositions, rule decisions and inquiry state. Packet
 descriptions here specify delivery; they do not accept a rule change or resolve an inquiry.
-All target changes below are **Proposed**. The operator accepted RC01–RC12 as written on
+The delivery descriptions below preserve the accepted implementation target; package states and the Outcome record adopted scope and settled no-adoption choices. The operator accepted RC01–RC12 as written on
 2026-10-20; the coordinator owns that record and the required decision/design routing.
-A05 adoption still depends on the bounded I01/I02 outcomes and an effective RC02 contract.
+I01/I02 are settled as complete-payload/fresh-check design and no persistent adoption;
+I03 retains serial production under the current one-core owner. The coordinator records
+these bounded choices; completed selected assembled qualification is recorded in48h.
 
 The target serves cold package admission and repeated edit/re-solve without making every
 declaration enumerate every visible name. A value-only change should retain mathematics
@@ -39,7 +41,7 @@ under Core 3.4, Efficient Architecture 1.0 and Process Simulator 1.5, reusing th
 than restarting its review. The enduring owners are [blueprint §14.3 and §14.4](../authoritative_design/sections/mathematics-and-compilation.md#section-14-4)
 and the source/model contracts in [§6.1](../authoritative_design/sections/schema-and-relations.md#section-6-1).
 
-`CheckedPackage::named_types_with` currently walks lexical ancestors, collects visible
+At the assessed baseline, `CheckedPackage::named_types_with` walked lexical ancestors, collects visible
 prefixes and names and repeatedly resolves candidates against current types. Its visibility
 and shadowing behavior is useful authority, but building a broad `BTreeMap<String, Type>`
 for a small lookup is the physical work A01 removes. This is narrower than claiming that
@@ -57,10 +59,10 @@ structural sharing and pointer equality can accelerate it, but an unqualified di
 silently stand in for it. Stable independently versioned inputs may receive high durability;
 durability supplies neither a dependency partition nor persistence.
 
-`check/phases/expressions.rs::Environment::new` currently serializes typed declarations,
+At the assessed baseline, `check/phases/expressions.rs::Environment::new` serialized typed declarations,
 masks expression fields by role/position and deserializes them. Failed normalization keeps
 the original row, deliberately preserving conservative dependencies and signed zero.
-A04 removes that internal crossing while retaining parser-owned occurrence meaning. JSON
+A04 now removes that internal crossing while retaining parser-owned occurrence meaning. JSON
 at external import, semantic witness and transport boundaries has different consumers and
 is outside that deletion.
 
@@ -87,12 +89,12 @@ none of its numerical-state assessment can be replaced by a checked-source cache
 
 | Packet | Prerequisite | Delivery and acceptance | State |
 | --- | --- | --- | --- |
-| A01 — lazy indexed lookup | Existing lexical/physical visibility semantics and exact source inventories | Resolve actual requested names through indexed scope/child/import paths, retain complete enumeration and independent precedence cases; delete eager lookup-only environment construction after all affected callers move. | open |
-| A02 — mutable phase overlays and memo ownership | A01 resolution view usable by checking and admission evaluation | Share immutable lexical bases with current type/entity/extent/reader overlays; prove same-owner evolving-phase lookups remain fresh, reject owner-only memo keys and retire redundant phase environment rebuilding. | open |
-| A03 — granular sharing and bounded retention | A02 current phase ownership; existing granular query roots | Narrow consumed structural dependencies and exact shared products, retain absence/order/global obligations and byte accounting; compare incremental results with fresh checking and remove replaced broad inputs. | open |
-| A04 — typed declaration masks | Parser-owned role/ordinal mapping and generated declaration source | Replace the JSON masking round trip with a typed/generated projection preserving signed zero and unknown-field conservatism; verify changed versus masked fields independently and remove the internal JSON helper. | open |
-| A05 — checked artifacts | I01 complete artifact/import/body/data contract, I02 storage choice, accepted RC02 routed into its owner and current receiving reconstruction | Conditionally deliver a disposable complete checked-artifact accelerator with atomic publication, bounded retention and fresh-check fallback; otherwise retain fresh-process checking and deliver the inquiries' explicit no-adoption result. | open |
-| A06 — read-only parallel phases | A02 immutable inputs, I03 ownership/cancellation outcome and dependent source-order stages complete | Conditionally execute genuinely independent read-only work under existing capacity, with deterministic failures and joined cancellation; migrate selected consumers and retire the replaced serial scheduling where qualified. | open |
+| A01 — lazy indexed lookup | Existing lexical/physical visibility semantics and exact source inventories | Resolve actual requested names through indexed scope/child/import paths, retain complete enumeration and independent precedence cases; delete eager lookup-only environment construction after all affected callers move. | done: implemented; focused tested; selected assembled acceptance recorded in48h |
+| A02 — mutable phase overlays and memo ownership | A01 resolution view usable by checking and admission evaluation | Share immutable lexical bases with current type/entity/extent/reader overlays; maintain the package-owned kind/extent projection at inventory mutation, prove same-owner evolving-phase lookups remain fresh, reject owner-only memo keys and retire redundant phase environment rebuilding. | done: implemented; inventory projection correction focused tested; selected assembled acceptance recorded in48h |
+| A03 — granular sharing and bounded retention | A02 current phase ownership; existing granular query roots | Narrow consumed structural dependencies and exact shared products, retain absence/order/global obligations and byte accounting; compare incremental results with fresh checking and remove replaced broad inputs. | done: implemented; focused tested; selected assembled acceptance recorded in48h |
+| A04 — typed declaration masks | Parser-owned role/ordinal mapping and generated declaration source | Replace the JSON masking round trip with a typed/generated projection preserving signed zero and unknown-field conservatism; verify changed versus masked fields independently and remove the internal JSON helper. | done: implemented; focused tested; selected assembled acceptance recorded in48h |
+| A05 — checked artifacts | I01 complete artifact/import/body/data contract, I02 storage choice, accepted RC02 routed into its owner and current receiving reconstruction | Conditionally deliver a disposable complete checked-artifact accelerator with atomic publication, bounded retention and fresh-check fallback; otherwise retain fresh-process checking and deliver the inquiries' explicit no-adoption result. | done: settled; fresh checking retained, no persistence adoption; selected assembled acceptance recorded in48h |
+| A06 — read-only parallel phases | A02 immutable inputs, I03 ownership/cancellation outcome and dependent source-order stages complete | Conditionally execute genuinely independent read-only work under existing capacity, with deterministic failures and joined cancellation; migrate selected consumers and retire the replaced serial scheduling where qualified. | done: settled; production serial retained; selected assembled acceptance recorded in48h |
 
 ### A01 — resolve the names the operation reads
 
@@ -237,28 +239,223 @@ Python journeys and representative cold/warm measurements occur once at the coor
 scope end, selected for the implemented scope. No universal near-linear bound, cache hit
 ratio or latency SLA is introduced.
 
-This authoring task ran no tests, builds, services or environment qualification. A future
-implementation checkpoint reports the command, mode, scope and failures against zero, plus
-what was removed. A completed A01–A04 does not resolve all of AF02, establish A05 eligibility
-or qualify assembled numerical behavior. Enduring contract changes follow the decision/design
+The original authoring phase ran no tests, builds, services or environment qualification.
+The implementation checkpoint below records the current focused verification boundary.
+A01–A04 implementation and the settled A05/A06 conditional choices do not resolve all of
+AF02 or qualify assembled numerical behavior. Enduring contract changes follow the decision/design
 route and transfer to their existing owners when the coordinator closes the series.
+
+## Execution checkpoint — 2026-10-20
+
+A01–A04 are implemented in the assigned source/compiler scope. Checking and admission-time
+evaluation now use indexed lazy lexical views, borrowing the current type population and
+extending occurrence-local bindings instead of building a complete visible-name map.
+The immutable specialization cache retains only local formal/scope bindings; admission
+readers do not use an owner-only cache. Kind/entity extent enumeration remains complete.
+The subsequent A02 completeness pass found that `with_extents` still rebuilt the whole
+kind-to-extent map for each view. `KindInventory` now owns current kind records and their
+derived extent types; key insertion updates both, mutable access is limited to record
+values, and no mutable map dereference can bypass the projection. Extent views now only
+select a mode and borrow those stored types. Selected packages rebuild only their selected
+kind projection, and retained-byte accounting includes its map entries and boxed types.
+The old production eager lookup builder and JSON mask helper are removed. One exhaustive
+lookup oracle remains in tests alongside independently expected precedence and physical/
+quoted-name cases; redundant prefix-builder test helpers have been retired.
+
+Compiler signature inputs now retain the exact consumed resolved-name projection, rather
+than a persistent complete preceding type root per declaration. Namespace equality shares
+exact equal allocations at phase boundaries; reduced-law signatures alone read the full
+coordinate namespace. Body/default/data and expression dependencies retain their existing
+incremental owners. Shared physical registries, prerequisite/scope and lexical-index roots
+are charged once per live input census; owned maps retain conservative per-owner bounds.
+Generated typed role/ordinal dispatch masks only the exact matching string coordinate and
+keeps unknown/ambiguous mappings conservative, without rewriting scientific float cells.
+
+Focused verification at this implementation baseline: `just check-package pse-modeling`
+and `just check-package pse-compiler` passed their all-target compile scopes; the compiler
+check reported no warnings. `just unit-package pse-modeling 'all()'` passed 248 library tests
+with 0 failures/0 skipped, and `just unit-package pse-compiler 'test(workspace::modeling::granular_tests)'` passed 17 selected tests with 0 failures and
+259 filtered. These were the pinned repository routes, with actual closure validation
+selected by those routes. They exercise typed masking, fresh/current lookup semantics,
+consumed and unrelated earlier type edits, fresh-versus-incremental agreement, absent names,
+shadow/import changes, candidate rollback and bounded retention/history. The subsequent oracle retirement, current entity-extent/read-mode evolution and bounded A05
+artifact controls passed the expanded 249-test modeling library scope, with zero failures
+and no compiler warnings. A subsequent focused `just unit-package pse-modeling
+'test(indexed_import_lookup_preserves_nested_alias_shadowing_and_refuses_conflicts)'`
+passed its one added import/alias control with zero failures and no warnings. Its first
+attempt used an infallible test parser for a deliberately duplicate named identity; the
+control now asserts that refusal at the parser owner before checking alias conflicts.
+The later A02 inventory correction passed `just check-package pse-modeling` across all
+targets with zero errors and warnings, followed by `just unit-package pse-modeling
+'test(check::named_types_tests)'`: 12 selected tests passed, zero failures, 241 skipped and
+zero compiler warnings. Three new controls verify shared borrowed projection values,
+current schema replacement/removal/reinsertion with exact retained storage, and selected
+kind closure boundaries; the independent lexical oracle and precedence controls remain.
+This focused correction does not enlarge the earlier 249-test modeling or 19-test compiler
+qualification scopes. These focused receipts do not establish scope-end hygiene, assembled
+journeys, numerical qualification or whole-workload performance; 48h owns their current
+selection and acceptance.
+
+A05 is settled as a bounded no-adoption outcome: complete-artifact receiving dependencies
+are specified below, the existing portable function record is insufficient, and production
+retains fresh-process checking. A06 is settled as no parallel adoption under the runtime's
+one-core source-compiler owner, with the tested independent read boundary and concrete
+revisit trigger below. The coordinator accepted I01/I02/I03 on 2026-10-20 and owns aggregate
+acceptance; these are not remaining implementation promises. Scope-end assembled
+qualification remains owned by 48h.
+
+### A05 — bounded complete-artifact comparison
+
+**Tested:** `check::artifact_contract_tests` within the expanded 249-test modeling library
+run on 2026-10-20 round-trips the existing `portable::FunctionRecord`. The fixture is an
+imported unit/function consuming a constructor default, an admitted complete-over table
+and a constant interpreted through a custom physical unit. Changing the function body
+preserves its signature but changes the record. Changing the consumed default, table value
+or custom-unit scale leaves that function record equal while changing its actual specialized
+equations/functions/symbols. An absent caller binding is still refused until supplied; the
+imported function record remains equal after repair. Restoring the raw deserialized record
+outside the qualified reconstruction recipe remains refused. Thus the existing function
+record is useful subpayload and is not a complete checked-artifact/reuse key.
+
+**Proposed complete record, not a new production API:** capture the complete authored
+source/import/declaration population and order, package/document ownership and actual
+physical scope, immutable physical declarations/prerequisites, and exact data-document
+identities/content/decoded typed rows. The semantic payload covers checked types/functions
+(including `FunctionRecord` admissions, guards, effects and physical roles), effective
+members/interfaces/temporal contracts, kinds/entities/identifier scope/constants/tables,
+provenance/oracles/test-only taint, source occurrences and scientific selection closures.
+Derivable name/child/selection/physical-type indexes can be rebuilt from those complete
+owners. It must retain negative lookup and ordered candidate membership, not only successful
+selected targets or type signatures. Exact consumed input comparison remains authoritative;
+current source/span attribution and resource `DataOwner` lifetimes are rebound by their
+current receiving owners. Native/provider handles, mutable compiler lanes and prior receiving
+permission are not payload. `pse-modeling` owns capture/reconstruction; the compiler's current
+physical/context/resource shell must qualify the complete record before existing strict
+record restoration can run. Unknown/incomplete payloads fall back to fresh source checking.
+
+**Interface-checked comparison:** Salsa 0.28.4 supports persistence; the pinned skill's
+B025–B027/B034–B036 records demonstrate memo/interned restoration, transitive persistability
+requirements and renewed execution after intern collection. The current workspace feature
+selection omits `persistence`; compiler ingredients are not marked `persist` and their
+`CheckedPackage`, type and document inventories do not expose a complete serializable wire.
+`Arc<dyn DataOwner>` is allocation lifetime, not serializable scientific content. Persisting
+Salsa requires the entire selected transitive ingredient/key/value closure plus fresh
+cancellation/retention/receiving construction; accumulated diagnostics would require their
+own reconstruction if introduced. A whole-database design can supply this without requiring
+a separate smaller-artifact API, but it does not remove these obligations.
+
+The coordinator accepted no persistent production adoption on 2026-10-20: retain
+fresh-process checking and the implemented in-process sharing. No complete checked-package round trip,
+receiving restore, atomic storage publication or cold restart benefit has been established.
+This is the settled conditional no-adoption outcome; it creates no outstanding artifact
+implementation promise. Reopen for a concrete restart workload whose
+source-checking cost remains material after A01–A04, or a new source/data/physical kind that
+changes the complete supported payload and capture/restore choice.
+
+### A06 — bounded immutable-read boundary
+
+The useful independent subset is parsing after serial `Source` staging and before global
+inventory/signatures. All preflight accounting and input setters stay on the sole mutable
+candidate owner; cloned Salsa handles execute only `parsed` over staged immutable inputs.
+Every handle must be joined/dropped before inventory or repair setters. Results/errors are
+collected in the existing canonical serial traversal order, never completion order; local
+cancellation cannot be mistaken for a successful package. Signature prefixes, inherited
+members and `finish` retain their dependency order. The current `Driver`'s `RefCell`/`Cell`
+state is not shared. No `rayon` feature or separate resource configuration is needed to
+identify this boundary.
+
+The actual runtime owner `math/jobs.rs::compiler_job_retained` admits and executes one
+entry/core (`admit_entry(1, ...)`, `job_retained_on_entry(1, ...)`). Optimizer `compiler_cores`
+is a different control. Adding read threads without that owner's grant would spend
+ungranted capacity. **Tested:** `workspace::modeling::granular::parallel_probe_tests` passed alongside the
+17 granular controls (19 selected compiler tests, zero failures, 262 filtered) on 2026-10-20.
+Three cloned read handles completed success, malformed-source error and local cancellation;
+all readers were drained before repair setters and the cancelled query recomputed normally.
+**Measured:** one synthetic cold development-profile, one-worker run with 64 scalar functions
+and 68 declaration rows took 636 microseconds for parsing plus `Source` staging and 9,836
+microseconds for complete candidate admission. This is one revealing fixture, with no timing
+threshold, fan-out speed result or wider workload claim.
+The coordinator accepted retaining the production serial path on 2026-10-20. Reopen only with an actual
+multi-core source-read grant and a parse-dominant workload showing a useful bounded subset;
+any adoption must retain the same accounting, original clock and complete reader drain.
+
+### H01 scoped completeness handoff
+
+The linked recommendation coverage is accounted for within this package: P01 lookup,
+kind/extent indexes and the independent eager oracle use the implemented lazy views;
+P01 mutable-candidate ownership uses current borrowed phase populations. P02 tracked-input,
+exact-equality and retention recommendations use consumed signature projections and live-root
+accounting while retaining the existing Salsa query/durability owners. The expanded modeling
+and compiler controls above exercise the actual checking and admission consumers, including
+imports, absence, shadowing and mutation; they do not replace complete namespace obligations.
+P18 typed masking is consumed by expression phase comparison through generated string-leaf
+dispatch, with unknown paths and scientific numerical cells preserved.
+
+The final scoped pass corrected the remaining per-view kind-map reconstruction through
+A02's current inventory projection. After that retained-footprint change and normal
+generation, six existing compiler controls passed in the canonical native runtime/compiler
+selection: consumed body edits, namespace add/delete/shadow/import/absence, pressure rotation,
+current input roots, unrelated preceding type sharing and consumed preceding type refusal/
+repair. They compare against fresh checking and preserve detached products and exact sharing;
+the selection's separately owned runtime failures do not turn these six passes into an
+enclosing qualification. The earlier 249-test modeling and 19-test compiler results retain
+their earlier baseline. No additional source production gap or superseded lookup/mask path
+was found in this bounded A01–A06 consumer pass; 48h still owns assembled qualification.
+
+The remaining P02 persistence and parallel-read rows have the settled I01–I03 outcomes above:
+a portable function record is not a complete receiving package, and the actual compiler job
+owns one admitted core. Neither a signature-only cache, whole-database persistence nor an
+unused parallel feature was introduced. These are explicit no-adoption boundaries with
+concrete reopening conditions, not missing implementation promises. P18 cross-package hashing
+and registry work remains owned by48b. This handoff accounts for A's linked producer/consumer
+scope;48h retains assembled qualification and the coordinator retains aggregate coverage state.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-**Proposed; not implemented.** This document supplies the execution design and conditional
-inquiries only. No source checking, caching, persistence or scheduling behavior changed.
-Implementation outcomes, a mistake made and corrected, deliberate deviations and actual
-verification will be recorded when the work is performed; current inquiry and rule outcomes
-remain solely in the coordinator.
+**Implemented and Tested, completed adopted scope (2026-10-20):** the package table records
+all delivery/inquiry outcomes. [Plan48h](48h-qualification-and-design-publication.md#final-qualification-accounting)
+records completed selected assembled acceptance and scope-end checks. The individual
+observations below retain their original conditions and partial-run boundaries; they do
+not assert a universal speedup or extend unsupported capabilities. There is no outstanding
+authorized package work in this companion.
+
+**Implemented:** A01–A04 source lookup, current phase views, narrowed signature products,
+shared-root accounting and generated typed expression masking described above, including
+the A02 current kind-inventory projection replacing per-view extent-map reconstruction. A05/I01–I02
+and A06/I03 are settled conditional no-adoption outcomes with retained fresh checking and
+serial production, not deferred implementation promises.
+**Tested:** the expanded 249-test modeling and 19-test compiler scopes above, against a zero
+failure baseline on 2026-10-20; both final runs emitted no compiler warnings. This does not establish assembled numerical qualification or a measured whole-workload
+performance claim. The later A02 projection correction separately passed the all-target
+modeling compile check with zero errors/warnings and all 12 selected named-type controls
+with zero failures/warnings; it does not claim a repeated full modeling/compiler run.
+After normal generation, the six affected compiler freshness, absence, exact-sharing and
+retention controls also passed in the canonical runtime/compiler selection, as recorded in
+the H01 handoff. Its separately owned runtime failures remain failures against zero.
+48h owns the remaining assembled qualification.
 
 ### A mistake made and corrected
 
-**Proposed; not implemented.** No implementation mistake or correction is recorded yet.
-Record the actual lesson when the work is performed.
+Sparse signature projection exposed the source-requirement view's omitted inventory-balance
+type. The full modeling library tests refused `Time` in inventory/temporal cases. The source
+owner now includes inventory type/axis/index/flux/tolerance/transfer dependencies, and the
+remaining temporal constructor consumer was migrated from the old complete cached type map
+to the current lazy view. The subsequent 248-test run had zero failures.
+
+The first A02 implementation removed eager lexical environments but left whole-kind extent
+map reconstruction in each extent view. The completeness pass exposed that remaining work
+amplification; the package-owned current projection and three targeted mutation, sharing
+and selection controls now replace it. Compilation also caught the signature-resolution
+constructor still initializing the former map field; both current constructors now use the
+mode flag, and the final all-target check and focused controls passed without warnings.
 
 ### Deviations from the plan, deliberate
 
-**Proposed; not implemented.** No implementation deviation is recorded yet. Record deliberate
-changes and their consequences when the work is performed.
+Full namespace reads remain for reduced-law coordinate admission and global population
+obligations; they are not replaced by signatures-only reuse. A06 will preserve the existing
+canonical declaration-id result/error ordering if parallel execution is adopted. Its
+original source-order wording does not authorize changing diagnostic selection during a
+scheduling optimization. A05 no persistence and A06 no parallel production adoption are deliberate settled choices
+under their stated complete-payload/resource limits and concrete reopen triggers.

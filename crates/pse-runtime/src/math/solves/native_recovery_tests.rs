@@ -132,7 +132,7 @@ async fn explicit_entry_then_screened_native_recovery_dispatches_and_retains_ori
     let mut initial_declaration = original.numerical_strategy();
     initial_declaration.limits = limits;
     initial_declaration.mechanisms[0].profile = Some(ProfileRef {
-        backend: Backend::Pounce,
+        method: pse_model::strategy::NumericalMethod::Backend(Backend::Pounce),
         key: original.strategy_profile().unwrap(),
     });
     let initial_task = original
@@ -205,7 +205,7 @@ async fn explicit_entry_then_screened_native_recovery_dispatches_and_retains_ori
     declaration.mechanisms[0].starts = vec![StartOrigin::Auxiliary];
     declaration.mechanisms[0].transitions = vec![Transition::Finish, Transition::Stop];
     declaration.mechanisms[0].profile = Some(ProfileRef {
-        backend: Backend::Pounce,
+        method: pse_model::strategy::NumericalMethod::Backend(Backend::Pounce),
         key: rebound.strategy_profile().unwrap(),
     });
     let policy = rebound.numerics.policy.clone();

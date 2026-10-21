@@ -1157,6 +1157,7 @@ struct PointUncertaintyRequest<'a> {
 
 #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
 pub(super) struct DynamicAttemptContext<'a> {
+    pub(super) execution: &'a pse_backend_native::solve::Execution,
     pub(super) run_id: RunId,
     pub(super) scope: &'a pse_kernels::ExecutionScope,
     pub(super) progress: Arc<pse_backend_native::solve::Progress>,
@@ -2020,6 +2021,7 @@ impl ModelingSimulation {
         crate::math::MathRuntimeError,
     > {
         let DynamicAttemptContext {
+            execution,
             run_id,
             scope,
             progress,
@@ -2114,7 +2116,7 @@ impl ModelingSimulation {
                 profile,
                 occurrence as u64,
                 scope,
-                progress.clone(),
+                execution,
                 SampleCapture {
                     retention: *retention,
                     observer,

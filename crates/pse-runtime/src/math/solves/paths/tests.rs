@@ -608,7 +608,7 @@ async fn genuine_compiled_sheet_binds_prior_origin_then_certifies_actual_target_
             position: Position::Preparation,
             required: true,
             profile: Some(ProfileRef {
-                backend: Backend::Ipopt,
+                method: pse_model::strategy::NumericalMethod::Backend(Backend::Ipopt),
                 key: profile_key(path.profile()).unwrap().as_id(),
             }),
             support: path.support().into_iter().collect(),
@@ -622,7 +622,7 @@ async fn genuine_compiled_sheet_binds_prior_origin_then_certifies_actual_target_
             position: Position::Execution,
             required: true,
             profile: Some(ProfileRef {
-                backend: Backend::Ipopt,
+                method: pse_model::strategy::NumericalMethod::Backend(Backend::Ipopt),
                 key: original.strategy_profile().unwrap(),
             }),
             support: vec![],
@@ -741,7 +741,7 @@ async fn actual_path_rung_transfers_start_to_shared_original_correction_and_perm
     let mut strategy = NumericalStrategy::direct(StartPolicy::PreviousAccepted, limits);
     strategy.start.recovery = vec![StartOrigin::Auxiliary];
     let original_profile = ProfileRef {
-        backend: Backend::Ipopt,
+        method: pse_model::strategy::NumericalMethod::Backend(Backend::Ipopt),
         key: original.strategy_profile().unwrap(),
     };
     strategy.mechanisms = vec![
@@ -751,7 +751,7 @@ async fn actual_path_rung_transfers_start_to_shared_original_correction_and_perm
             position: Position::Preparation,
             required: true,
             profile: Some(ProfileRef {
-                backend: Backend::Ipopt,
+                method: pse_model::strategy::NumericalMethod::Backend(Backend::Ipopt),
                 key: profile_key(path.profile()).unwrap().as_id(),
             }),
             support: path.support().into_iter().collect(),
@@ -1046,7 +1046,7 @@ async fn shared_driver_retains_actual_localized_event_under_original_completion(
             position: Position::Preparation,
             required: true,
             profile: Some(ProfileRef {
-                backend: Backend::Ipopt,
+                method: pse_model::strategy::NumericalMethod::Backend(Backend::Ipopt),
                 key: profile_key(path.profile()).unwrap().as_id(),
             }),
             support: path.support().into_iter().collect(),
@@ -1060,7 +1060,7 @@ async fn shared_driver_retains_actual_localized_event_under_original_completion(
             position: Position::Execution,
             required: true,
             profile: Some(ProfileRef {
-                backend: Backend::Ipopt,
+                method: pse_model::strategy::NumericalMethod::Backend(Backend::Ipopt),
                 key: original.strategy_profile().unwrap(),
             }),
             support: vec![],

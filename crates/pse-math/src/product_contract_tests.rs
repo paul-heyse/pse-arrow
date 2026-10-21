@@ -502,3 +502,182 @@ fn transpose_first_keeps_second_only_guards_inactive() {
     );
     assert_eq!(output, [-6.]);
 }
+
+#[test]
+fn sparse_flat_weighted_actions_match_analytic_and_entry_products_in_selected_axis_order() {
+    crate::initialize().unwrap();
+    let n = 5;
+    let x = (0..n)
+        .map(|i| library::formal(i).unwrap())
+        .collect::<Vec<_>>();
+    let point = [0.4, -0.3, 0.6, 0.8, -0.5];
+    let axes = [4, 0, 2];
+    let direction = [0.7, -0.2, 0.3];
+    let control = pse_diagnostics::Cancellation::default();
+    let scope = pse_kernels::ExecutionScope::new(control.clone(), None);
+    for shape in ["diagonal", "banded", "disconnected"] {
+        let expression = match shape {
+            "diagonal" => (0..n).fold(Atom::num(0), |sum, i| {
+                sum + Atom::num((i + 1) as i64) * x[i].pow(3)
+            }),
+            "banded" => (0..n - 1).fold(Atom::num(0), |sum, i| sum + x[i].pow(2) * &x[i + 1]),
+            _ => x[0].pow(2) * &x[1] + &x[3] * x[4].pow(2),
+        };
+        let mut hessian = vec![vec![0.; n]; n];
+        match shape {
+            "diagonal" => {
+                for i in 0..n {
+                    hessian[i][i] = 6. * (i + 1) as f64 * point[i];
+                }
+            }
+            "banded" => {
+                for i in 0..n - 1 {
+                    hessian[i][i] += 2. * point[i + 1];
+                    hessian[i][i + 1] = 2. * point[i];
+                    hessian[i + 1][i] = 2. * point[i];
+                }
+            }
+            _ => {
+                hessian[0][0] = 2. * point[1];
+                hessian[0][1] = 2. * point[0];
+                hessian[1][0] = 2. * point[0];
+                hessian[4][4] = 2. * point[3];
+                hessian[3][4] = 2. * point[4];
+                hessian[4][3] = 2. * point[4];
+            }
+        }
+        let body = PreparedBody::new(
+            n,
+            n + 2,
+            vec![n, n + 1],
+            vec![Stage::Block {
+                expressions: vec![expression.clone(), -expression + x[2].pow(2)],
+                outputs: vec![n, n + 1],
+                source: SemanticId::from_bytes([102; 16]),
+            }],
+            DerivativeOrder::Second,
+        )
+        .unwrap();
+        let support = body
+            .prepare_support(&[1, 0], &axes, DerivativeOrder::Second, &control.flag())
+            .unwrap();
+        let compile = |kind| {
+            support
+                .compile_product(
+                    kind,
+                    Optimization::default(),
+                    EvaluationLimits::default(),
+                    &scope,
+                )
+                .unwrap()
+        };
+        let action = compile(ProductKind::WeightedHessianAction);
+        let entries = compile(ProductKind::WeightedHessian);
+        assert!(
+            action.product_pairs().is_empty(),
+            "{shape}: actions retain no second-entry population"
+        );
+        let census = action
+            .census()
+            .find(|c| c.order == DerivativeOrder::Second)
+            .unwrap();
+        assert!(census.direct_weighted);
+        assert_eq!(census.derivative_components, 2);
+        assert_eq!(census.second_pairs, 0);
+        let mut action = action.worker();
+        let mut matrix = entries.worker();
+        let mut out = vec![73.; axes.len()];
+        for weights in [[2., -0.5], [1., 1.], [0., 0.]] {
+            action
+                .evaluate_product_into(
+                    &point,
+                    ProductValues::WeightedHessianAction {
+                        weights: &weights,
+                        direction: &direction,
+                    },
+                    &mut ProviderBindings::new(),
+                    &control.flag(),
+                    &mut out,
+                )
+                .unwrap();
+            let expected = axes
+                .iter()
+                .map(|&row| {
+                    axes.iter()
+                        .zip(direction)
+                        .map(|(&col, seed)| {
+                            ((weights[1] - weights[0]) * hessian[row][col]
+                                + if row == 2 && col == 2 {
+                                    2. * weights[0]
+                                } else {
+                                    0.
+                                })
+                                * seed
+                        })
+                        .sum::<f64>()
+                })
+                .collect::<Vec<_>>();
+            for (actual, expected) in out.iter().zip(&expected) {
+                assert!(
+                    (actual - expected).abs() < 1e-12,
+                    "{shape}: {out:?} vs {expected:?}"
+                );
+            }
+            let mut coefficients = vec![f64::NAN; entries.product_len()];
+            matrix
+                .evaluate_product_into(
+                    &point,
+                    ProductValues::WeightedHessian { weights: &weights },
+                    &mut ProviderBindings::new(),
+                    &control.flag(),
+                    &mut coefficients,
+                )
+                .unwrap();
+            let mut contracted = vec![0.; axes.len()];
+            for (&(i, j), value) in entries.product_pairs().iter().zip(coefficients) {
+                contracted[i] += value * direction[j];
+                if i != j {
+                    contracted[j] += value * direction[i];
+                }
+            }
+            for (actual, expected) in out.iter().zip(contracted) {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+        }
+        let intact = out.clone();
+        let mut nonfinite = point;
+        nonfinite[0] = f64::MAX;
+        assert!(
+            action
+                .evaluate_product_into(
+                    &nonfinite,
+                    ProductValues::WeightedHessianAction {
+                        weights: &[0., 0.],
+                        direction: &direction
+                    },
+                    &mut ProviderBindings::new(),
+                    &control.flag(),
+                    &mut out
+                )
+                .is_err()
+        );
+        assert_eq!(out, intact);
+        control.cancel();
+        assert!(
+            action
+                .evaluate_product_into(
+                    &point,
+                    ProductValues::WeightedHessianAction {
+                        weights: &[1., 1.],
+                        direction: &direction
+                    },
+                    &mut ProviderBindings::new(),
+                    &control.flag(),
+                    &mut out
+                )
+                .is_err()
+        );
+        assert_eq!(out, intact);
+        control.flag().store(false, Ordering::Release);
+    }
+}

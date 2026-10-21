@@ -428,6 +428,7 @@ impl RunResult {
                     _ => None,
                 };
                 let native = r.and_then(|r| r.solve.as_ref());
+                let residual = r.and_then(|r| r.residual.as_ref());
                 let physical = p.source.physical.key;
                 let p = &p.problem;
                 let mut row = header(
@@ -436,22 +437,31 @@ impl RunResult {
                     p.source_identity,
                     p.profile_key.as_id(),
                 );
-                row.state = if native.is_some() {
+                row.state = if native.is_some() || residual.is_some() {
                     NativeRunState::Native
                 } else if r.is_some() {
                     NativeRunState::ConstantEvaluation
                 } else {
                     NativeRunState::Rejected
                 };
-                row.termination = native.map(|s| s.termination.category);
+                row.termination = native.map(|s| s.termination.category).or_else(|| {
+                    residual.map(super::fitting::FitResidualReport::termination_category)
+                });
                 row.backend = native.map(|s| s.backend);
                 row.native_code = native.map(|s| s.termination.code);
-                row.native_status = native.map(|s| s.termination.name.clone());
-                row.qualification =
-                    native.map_or(NativeQualification::Unqualified, |s| s.qualification);
+                row.native_status = native
+                    .map(|s| s.termination.name.clone())
+                    .or_else(|| residual.map(|r| format!("residual_lm.{:?}", r.termination)));
+                row.qualification = native
+                    .map(|s| s.qualification)
+                    .or_else(|| residual.map(|r| r.qualification))
+                    .unwrap_or(NativeQualification::Unqualified);
                 row.candidate_kind = native.and_then(|s| s.candidate.as_ref().map(|c| c.kind));
                 row.candidate_available = r.is_some_and(|r| r.candidate.is_some());
-                if native.is_none() && row.candidate_available {
+                if residual.is_some() && row.candidate_available {
+                    row.candidate_kind = Some(NativeCandidateKind::FinalIterate);
+                }
+                if native.is_none() && residual.is_none() && row.candidate_available {
                     row.candidate_kind = Some(NativeCandidateKind::ConstantEvaluation);
                 }
                 row.feasible = r.and_then(|r| r.quality.as_ref().map(|q| q.feasible()));
@@ -464,6 +474,13 @@ impl RunResult {
                     .or_else(|| r.and_then(|r| r.validation_error.as_ref().map(|d| d.to_string())));
                 row.error = row
                     .error
+                    .or_else(|| {
+                        residual.and_then(|r| {
+                            r.failure
+                                .as_ref()
+                                .map(|failure| failure.cause().to_string())
+                        })
+                    })
                     .or_else(|| r.and_then(|r| r.diagnostic.as_ref().map(ToString::to_string)));
                 product.computation = Some(row);
                 let mut actual_environment =
@@ -479,6 +496,11 @@ impl RunResult {
                     for (name, value) in &native.provenance {
                         actual_environment.str(name).str(value);
                     }
+                }
+                if residual.is_some() {
+                    actual_environment
+                        .str("residual_lm")
+                        .str("e67066cf1351e91e054c30fcb2ff49d005db1e50");
                 }
                 let lineage = p.lineage.lineage();
                 product.lineage.push(run_lineage::Row {

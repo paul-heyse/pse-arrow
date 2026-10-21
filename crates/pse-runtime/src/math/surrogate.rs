@@ -1300,7 +1300,7 @@ mod tests {
                 position: Position::Execution,
                 required: true,
                 profile: Some(ProfileRef {
-                    backend: Backend::Kinsol,
+                    method: pse_model::strategy::NumericalMethod::Backend(Backend::Kinsol),
                     key: original.strategy_profile().unwrap(),
                 }),
                 support: vec![],

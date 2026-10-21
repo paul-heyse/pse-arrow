@@ -722,6 +722,35 @@ impl FinishExportGate {
         }
     }
 }
+#[cfg(all(test, feature = "canonical-tests"))]
+tokio::task_local! {
+    static WORKER_EXPORT_CONTROL: Arc<Mutex<Option<FinishExportGate>>>;
+}
+#[cfg(all(test, feature = "canonical-tests"))]
+pub(super) async fn gated_worker_export<T>(
+    reached: tokio::sync::oneshot::Sender<()>,
+    release: tokio::sync::oneshot::Receiver<()>,
+    failure: bool,
+    work: impl Future<Output = T>,
+) -> T {
+    let gate = FinishExportGate {
+        phase: if failure {
+            FinishExportPhase::Completion
+        } else {
+            FinishExportPhase::Table
+        },
+        reached: Mutex::new(Some(reached)),
+        release: Mutex::new(Some(release)),
+        failure: failure.then(|| {
+            Arc::new(WorkflowError::Canonical(
+                pse_operations::canonical::CanonicalError::Timeout,
+            ))
+        }),
+    };
+    WORKER_EXPORT_CONTROL
+        .scope(Arc::new(Mutex::new(Some(gate))), work)
+        .await
+}
 fn uncertain_progress_queue(progress: &super::ProgressCoverage) -> Option<u64> {
     use super::{
         ProgressCoverage, ProgressWriteStage, ProgressWriterFailure, ProgressWriterOutcome,
@@ -840,6 +869,7 @@ impl PublicationAcks {
 }
 #[derive(Debug)]
 pub(crate) struct DurableAttempt {
+    worker_publication: Option<super::worker::PublicationHandoff>,
     live_prefix: super::result_projection::ResultStreamPosition,
     live_prefix_failed: bool,
     live_append_control: Option<Arc<pse_columnar::AllocationLease>>,
@@ -868,6 +898,18 @@ pub(crate) struct DurableAttempt {
     heartbeat: Option<Heartbeat>,
 }
 impl DurableAttempt {
+    pub(super) fn set_worker_publication(
+        &mut self,
+        handoff: Option<super::worker::PublicationHandoff>,
+    ) {
+        self.worker_publication = handoff;
+    }
+    pub(super) async fn begin_worker_publication(&mut self) -> Result<bool, WorkflowError> {
+        match self.worker_publication.take() {
+            Some(handoff) => handoff.ready().await,
+            None => Ok(true),
+        }
+    }
     pub(super) fn new(operations: &Operations) -> Result<Self, WorkflowError> {
         let operations = operations.admitted()?;
         let metadata_owner = durable_metadata_owner(
@@ -882,6 +924,7 @@ impl DurableAttempt {
         let fence = Arc::new(OnceLock::new());
         let acknowledgments = PublicationAcks::new(&operations.pool);
         Ok(Self {
+            worker_publication: None,
             live_prefix: Default::default(),
             live_prefix_failed: false,
             live_append_control: None,
@@ -926,7 +969,15 @@ impl DurableAttempt {
         let shared = Arc::new(OnceLock::new());
         let _ = shared.set(fence);
         let acknowledgments = PublicationAcks::new(&operations.pool);
+        let stream = Streamer::new(&operations, shared.clone(), acknowledgments.clone());
+        #[cfg(all(test, feature = "canonical-tests"))]
+        if let Ok(Some(gate)) = WORKER_EXPORT_CONTROL
+            .try_with(|control| control.lock().ok().and_then(|mut gate| gate.take()))
+        {
+            let _ = stream.export_gate.set(gate);
+        }
         Ok(Self {
+            worker_publication: None,
             live_prefix: Default::default(),
             live_prefix_failed: false,
             live_append_control: None,
@@ -942,7 +993,7 @@ impl DurableAttempt {
             attempt,
             run_id: Some(run_id),
             claim_operation: format!("claimed:{attempt}"),
-            stream: Streamer::new(&operations, shared.clone(), acknowledgments.clone()),
+            stream,
             acknowledgments,
             solutions: Vec::new(),
             solutions_owner: None,
@@ -1462,7 +1513,29 @@ impl DurableAttempt {
             Err(error) => self.reject_export(Arc::new(error)).await,
         }
     }
-    pub(crate) async fn abandon(mut self, error: &Arc<WorkflowError>) -> DurableRecord {
+    pub(crate) async fn abandon(self, error: &Arc<WorkflowError>) -> DurableRecord {
+        self.abandon_with_cancellation(error, false).await
+    }
+    /// Settle an unadmitted cancelled publication without emitting result or
+    /// completion payloads, retaining an earlier typed scientific failure.
+    pub(super) async fn abandon_cancelled(self, error: &Arc<WorkflowError>) -> DurableRecord {
+        self.abandon_with_cancellation(error, true).await
+    }
+    /// A lost capacity acknowledgement is uncertain, not proof of cancellation.
+    /// Drain existing progress and reject through the existing fenced owner;
+    /// never launch a completion payload without a publication slot.
+    pub(super) async fn reject_worker_publication(
+        mut self,
+        error: Arc<WorkflowError>,
+    ) -> DurableRecord {
+        let _ = self.stream.finish().await;
+        self.reject_export(error).await
+    }
+    async fn abandon_with_cancellation(
+        mut self,
+        error: &Arc<WorkflowError>,
+        cancelled: bool,
+    ) -> DurableRecord {
         let progress = self.stream.finish().await;
         if self.fence.get().is_none() {
             return self.failed_record(error.clone());
@@ -1477,7 +1550,7 @@ impl DurableAttempt {
         {
             return self.reject_export(error.clone()).await;
         }
-        let outcome = failure(error, export_error.is_some());
+        let outcome = failure(error, cancelled || export_error.is_some());
         let stored = StoredCompletion {
             version: 2,
             attempt_id: self.attempt,
@@ -4227,6 +4300,140 @@ mod canonical_durable_codec {
             .await
             .unwrap()
     }
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    #[allow(
+        clippy::print_stderr,
+        reason = "bounded I30 inquiry reports complete ordinary export and native durations, separately from deliberately gated publication"
+    )]
+    async fn canonical_joined_publication_progress_and_ordinary_cost_probe() {
+        use super::super::durable_tests::{LINEAR, durable_runtime_on, package_on};
+        let runtime = super::super::tests::runtime_with_workspace(32 << 20);
+        let (package, analysis) = package_on(&runtime, LINEAR).await;
+        let prepared = package
+            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let publication = durable_runtime_on(runtime.clone());
+        let operations = publication.operations().unwrap().clone();
+        let mut samples = Vec::new();
+        let mut retained = None;
+        for index in 0..5 {
+            let started = std::time::Instant::now();
+            let result = prepared.start().unwrap().wait().await.unwrap();
+            let native_us = started.elapsed().as_micros();
+            assert!(result.usable());
+            let claim =
+                study_claim_on(&publication, &format!("ordinary-publication-{index}")).await;
+            operations.store.mark_study_started(&claim).await.unwrap();
+            let mut attempt = DurableAttempt::claimed(
+                &operations,
+                claim.fence.clone(),
+                result.run_id,
+                pse_operations::mint_id(),
+            )
+            .unwrap();
+            attempt.start(Arc::new(|| {})).await.unwrap();
+            let started = std::time::Instant::now();
+            let record = attempt.finish(&result, false).await;
+            let export_us = started.elapsed().as_micros();
+            assert!(record.attempt.as_ref().unwrap().terminal && record.manifest.is_some());
+            assert!(record.completion.as_ref().unwrap().completion.is_some());
+            samples.push((native_us, export_us));
+            retained = Some(result);
+        }
+        let result = retained.unwrap();
+        for (index, phase) in [FinishExportPhase::Table, FinishExportPhase::Completion]
+            .into_iter()
+            .enumerate()
+        {
+            let claim = study_claim_on(&publication, &format!("gated-publication-{index}")).await;
+            operations.store.mark_study_started(&claim).await.unwrap();
+            let mut attempt = DurableAttempt::claimed(
+                &operations,
+                claim.fence.clone(),
+                result.run_id,
+                pse_operations::mint_id(),
+            )
+            .unwrap();
+            let (reached, reached_rx) = tokio::sync::oneshot::channel();
+            let (release, release_rx) = tokio::sync::oneshot::channel();
+            attempt
+                .stream
+                .export_gate
+                .set(FinishExportGate {
+                    phase,
+                    reached: Mutex::new(Some(reached)),
+                    release: Mutex::new(Some(release_rx)),
+                    failure: (index == 1).then(|| {
+                        Arc::new(WorkflowError::Canonical(
+                            pse_operations::canonical::CanonicalError::Timeout,
+                        ))
+                    }),
+                })
+                .unwrap();
+            attempt.start(Arc::new(|| {})).await.unwrap();
+            let finish = attempt.finish(&result, false);
+            let control = async {
+                let reached = matches!(
+                    tokio::time::timeout(Duration::from_secs(10), reached_rx).await,
+                    Ok(Ok(()))
+                );
+                // Exercise the same actual math/pool owner while export retains
+                // its original source, heartbeat, fence and selected output.
+                let sibling = if reached {
+                    Some(match prepared.start() {
+                        Err(error) => Err(error),
+                        Ok(handle) => {
+                            match tokio::time::timeout(Duration::from_secs(20), handle.wait()).await
+                            {
+                                Ok(result) => result,
+                                Err(_) => {
+                                    handle.cancel();
+                                    let _ = handle.wait().await;
+                                    Err(contract(
+                                        "publication probe sibling budget elapsed after actual drain",
+                                    ))
+                                }
+                            }
+                        }
+                    })
+                } else {
+                    None
+                };
+                let pending = operations
+                    .store
+                    .canonical_attempt(claim.fence.attempt())
+                    .await;
+                // Always release issued publication before asserting the control.
+                let _ = release.send(());
+                (reached, sibling, pending)
+            };
+            let (record, (reached, sibling, pending)) = tokio::join!(finish, control);
+            assert!(reached);
+            assert!(
+                sibling.unwrap().unwrap().usable(),
+                "useful native work can finish while another joined export waits"
+            );
+            assert!(
+                !pending.unwrap().unwrap().terminal,
+                "a gated export is not an acknowledged terminal attempt"
+            );
+            if index == 0 {
+                assert!(record.attempt.as_ref().unwrap().terminal);
+            } else {
+                assert!(record.attempt.is_err() && record.manifest.is_none());
+            }
+            assert!(
+                result.usable(),
+                "publication refusal does not replace original scientific completion"
+            );
+        }
+        eprintln!(
+            "I30 same shared math/pool, five ordinary KINSOL runs: native_wait_us/export_through_ACK_us={samples:?}; gated Table and failing Completion both permitted independent native completion before release; no separate commit stage was installed"
+        );
+    }
+
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn canonical_finish_cancellation_at_each_export_boundary_keeps_exact_prefix_and_science()

@@ -64,6 +64,10 @@ struct Outcome {
 }
 
 /// The gradient of the cotangent's functional over the integration parameters.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "fresh adjoints preserve scientific inputs and optional actual-current execution through one core"
+)]
 pub(in crate::dynamics) fn gradient(
     oracle: &mut dyn Oracle,
     profile: &Profile,
@@ -72,8 +76,9 @@ pub(in crate::dynamics) fn gradient(
     cancel: Cancellation,
     progress: Arc<crate::solve::Progress>,
     layout: Arc<PreparedLayout>,
+    current: Option<crate::solve::Execution>,
 ) -> Result<Gradient, ProblemError> {
-    let shared = Shared::new(oracle, profile, parameters, cancel, progress)?;
+    let shared = Shared::new_current(oracle, profile, parameters, cancel, progress, current)?;
     let mut report = Report::new(
         profile,
         SampleRetention::Full,
@@ -99,6 +104,17 @@ pub(in crate::dynamics) fn gradient(
         ),
     }));
     shared.contain(result, &mut report);
+    if report.termination == Termination::Completed
+        && let Some(current) = &shared.current
+        && let Err(error) = current.check()
+    {
+        report.termination = match current.stopped() {
+            Some(crate::solve::Termination::Cancelled) => Termination::Cancelled,
+            Some(crate::solve::Termination::TimeLimit) => Termination::TimeLimit,
+            _ => Termination::Failed,
+        };
+        report.error = Some(error);
+    }
     if report.termination != Termination::Completed {
         outcome.gradient = None;
     }
