@@ -30,6 +30,12 @@ establish what exists. Preserve concurrent work and distinguish implemented scop
 decisions and proposals. The following principles guide attention; they are not required stages
 or another plan template.
 
+A refreshed design-principle audit belongs to a new design-review engagement, not routine
+plan authoring or execution. Loading review criteria does not initiate it. Use the source review,
+its applicable integrated revision and current architectural owners; preserve diagnostic/source
+finding identities and the one owning plan's scheduled disposition. Recommendation-audit
+dispositions are editorial judgments, not completed implementation.
+
 ## Allocate advance thought by consequence
 
 Consider a decision's reach, reversibility and cost of learning later. Resolve questions early
@@ -127,7 +133,7 @@ Follow the repository binding's
 The foundation assessment belongs to [create-plan](../create-plan/SKILL.md); ordinary execution
 does not repeat it or initiate recurring architecture or domain-model reviews. Reopen a
 consequential question when new evidence warrants it. Library questions follow the repository's
-capability-skill and documentation routes.
+overview, Context7 and primary-source routes, with the active native solver skill when applicable.
 
 Present material sequencing choices, assumptions and unresolved prerequisites in the conversation.
 Use the available planning interface when useful. The approach is sufficiently detailed when
@@ -145,3 +151,11 @@ When work intersects other active plans, use the
 [aggregate scope route](../../../docs/dev/documentation.md#metadata-and-aggregate-scope) to locate
 native content owners and reconcile dependencies. Multiple concurrent plans are supported;
 selection of an execution scope does not transfer another plan's ownership or close its work.
+
+
+A requested or explicitly planned [plan-completion audit](../plan-completion-audit/SKILL.md)
+takes a fresh look at claimed scope against the accepted plan and actual consumers. It updates
+that same plan's current conclusion, package state and remaining obligations; implementation,
+qualification and benefit claims stay distinct. This deliberate boundary is not a per-slice or
+every-handoff gate, and auditing alone does not authorize production repairs. Handoff stays with
+the existing owning plan/packet checkpoint.

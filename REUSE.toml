@@ -112,7 +112,7 @@ path = [
   "python/pse/_native*.so",
   "python/pse/_native*.pyd",
   "**/__pycache__/**",
-  # lu-resolve's own build directory (gitignored; the library-catalog resolver).
+  # Tool-local build output is not source.
   "tools/*/target/**",
 ]
 precedence = "aggregate"

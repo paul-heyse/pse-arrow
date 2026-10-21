@@ -25,6 +25,12 @@ instructions and `standard.toml`. Preserve the reference material's relevant obl
 reconsidering assumptions when current evidence or the intended capabilities warrant a different
 approach. Distinguish the implemented baseline, accepted decisions and proposed changes.
 
+A refreshed design-principle audit belongs to a new design-review engagement, not routine
+plan authoring or execution. Loading review criteria does not initiate it. Use the source review,
+its applicable integrated revision and current architectural owners; preserve diagnostic/source
+finding identities and the one owning plan's scheduled disposition. Recommendation-audit
+dispositions are editorial judgments, not completed implementation.
+
 ## Assess the foundations the plan will use
 
 As part of developing the plan, assess the existing components and contracts on which the
@@ -75,8 +81,8 @@ where an extension would be expressed, what it would reuse and what should remai
 These scenarios clarify the reason for a boundary; they need not expand implementation scope.
 
 Explain consequential decisions through their benefits, costs and assumptions. Consider library
-capabilities and alternatives where they affect the design, using the repository's capability
-skills and documentation routes. Preserve enough rationale for an implementer to recognize
+capabilities and alternatives where they affect the design, using optional overviews, Context7, primary sources and the repository's active
+native solver skill. Preserve enough rationale for an implementer to recognize
 evidence that would reopen a decision. Relate an expected benefit to its mechanism and workload
 or conditions, and consider material integration, lifecycle and maintenance obligations.
 Quantitative benefits need a baseline and measurement route; unmeasured benefits remain hypotheses.

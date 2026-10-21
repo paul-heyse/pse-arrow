@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Make the flat modules in `scripts/` importable by the library-catalog tests."""
+"""Make the flat modules in `scripts/` importable by script tests."""
 
 import sys
 from pathlib import Path

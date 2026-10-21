@@ -42,8 +42,8 @@ user input only when a material scope or authorization decision requires it.
 
 Implement prerequisites before work that requires them, and integrate contributions with
 their adjacent consumers. Complete the plan's applicable migration, preservation and retirement
-obligations as part of delivering the target. Follow the repository's library-skill and
-documentation routes when library behavior matters. A completed assignment does not by itself
+obligations as part of delivering the target. Follow the repository's library overview, Context7 and primary-source
+research routes (including its active native solver skill) when library behavior matters. A completed assignment does not by itself
 establish accepted integrated scope.
 
 Follow the binding's
@@ -77,3 +77,16 @@ At closure, follow the [document lifecycle route](../../../docs/dev/documentatio
 reconcile references and dependencies, transfer enduring meaning and retire eligible completed
 content. Maintain native scope bindings when tables change; other active plans keep their owners.
 Document retirement never releases producer artifacts or their required provenance by itself.
+
+A refreshed design-principle audit belongs to a new design-review engagement, not routine
+execution. Loading review criteria does not initiate it. Use source reviews and architectural
+owners, preserve diagnostic/source finding IDs, and keep scheduled disposition in the owning plan.
+Recommendation-audit dispositions are editorial judgments, not implementation progress.
+
+
+A requested or explicitly planned [plan-completion audit](../plan-completion-audit/SKILL.md)
+takes a fresh look at claimed scope against the accepted plan and actual consumers. It updates
+that same plan's current conclusion, package state and remaining obligations; implementation,
+qualification and benefit claims stay distinct. This deliberate boundary is not a per-slice or
+every-handoff gate, and auditing alone does not authorize production repairs. Handoff stays with
+the existing owning plan/packet checkpoint.

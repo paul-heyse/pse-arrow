@@ -107,6 +107,9 @@ ROLE_NAMES = (
 PROCESS_SKILLS = (
     "adr",
     "design-review",
+    "design-principle-audit",
+    "design-review-audit",
+    "plan-completion-audit",
     "design-review-process-simulator",
     "plan-design-review",
     "plan-creation",

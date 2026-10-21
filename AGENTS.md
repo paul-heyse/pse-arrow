@@ -319,10 +319,37 @@ The [local process skills](.codex/skills/README.md) pair conversational preparat
 switch runtime modes. Read `docs/plans/README.md`, then the active plan or packet checkpoint
 for the baseline and handoff. Existing plans own status and findings.
 
+### Design audits and solution focus
+
+Use design-principle-audit before a new design-review engagement. The
+[living diagnostic account](docs/design_review/audit/README.md) records the source baseline,
+standard and coverage; it is not default context for ordinary production edits. The operator
+selects holistic/unconstrained, library-targeted, principle-focused or combined solution review;
+clarify an unspecified choice. Agents choose investigation and depth inside that focus.
+Preparation and review can share the applicable refreshed audit.
+
+Use design-review-audit at requested or explicitly planned boundaries. Publish the
+[net-change companion](docs/design_review/reviews/audits/README.md) and revise the principal
+review in place, preserving the exact input in Git and attributing the revised judgment.
+Use plan-completion-audit for claimed scope completion and correct that same owning plan,
+including affected summaries, packages, findings and next work. Separate implementation,
+required qualification and benefit evidence. These assessments do not recur per slice and do
+not alone authorize production repairs. Existing plans keep scheduled disposition and handoff.
+
+### Library research
+
+Optional [library overviews](docs/libraries/README.md) give repository-agnostic capability
+awareness. Context7 is the first documentation lookup, followed by primary sources, upstream
+tests or installed sources for consequential details at the locked version. Native solver
+work continues to load native-solver-libraries, the only selected active library skill.
+Other central skills are [inactive references](.codex/skills/README.md#inactive-central-library-skill-references);
+they are no longer discovered or required here. Leave older plan references for deliberate
+revisits. Missing coverage or an empty search does not establish capability absence.
+
 ## Agent runtimes
 
 `AGENTS.md` is the shared authority; `CLAUDE.md` imports it and adds Claude specifics.
-Library skills are selected in `.config/library-skills.toml` (`just ready` links them), shared
+Only native-solver-libraries is selected in `.config/library-skills.toml` (`just ready` links it); shared
 roles live in [.agents/roles/](.agents/roles/README.md), and native adapters in
 `.claude/agents/` and `.codex/agents/` own model and effort. Hooks, permissions, runtime
 capability opt-in (MCP servers, plugins, LSP) and the environment each runtime receives are

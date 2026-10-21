@@ -103,6 +103,19 @@ The plan has one overall lifecycle status; its packet table owns packet progress
 packet may instead own that packet's progress, in which case the plan links it rather than
 maintaining a second status value.
 
+### Deliberate audit boundaries
+
+Before a new solution-review engagement, refresh the living design-principle audit through the
+local audit skill. It is not default context for production edits or the plan's focused foundation
+assessment. The operator selects holistic, library-targeted, principle-focused or combined review.
+
+Requested design-review recommendation audits produce a net-change companion and an attributed
+integrated principal review, preserving the exact original in Git. Editorial dispositions do
+not change scheduled scope. Requested completion audits reconstruct accepted obligations and
+correct the same owning plan's current conclusion, package state, findings and next work.
+Separate implementation, required qualification and benefit measurements. These are deliberate
+boundaries, not recurring per-slice gates; auditing does not authorize production repair.
+
 ### Execution rhythm in plans
 
 Structure every plan the way AGENTS.md *Execution rhythm* runs it:

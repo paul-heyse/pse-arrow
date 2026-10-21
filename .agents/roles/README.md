@@ -84,6 +84,10 @@ can resolve the uncertainty directly. A configuration edit does not change an al
 
 | Workflow | Typical contribution |
 |---|---|
+| Design principle audit | Evidence workers inspect broad alignment; the coordinator reconciles one living diagnostic account |
+| Design-review recommendation audit | A fresh design reviewer reconsiders each recommendation and omissions; the coordinator publishes the companion and attributed integrated revision |
+| Plan-completion audit | A fresh implementation reviewer assesses claimed accepted scope; the coordinator corrects the same owning plan and checkpoint |
+
 | Review planning and design review | Mappers and library researchers establish evidence; a fresh design reviewer forms the architectural judgment |
 | Plan preparation and creation | Evidence workers inform options and the integral foundation assessment; focused design advice addresses consequential questions; one author assembles the document |
 | Execution planning and execution | The coordinator orders ready packages; executors implement; implementation reviewers and test agents assess stable work; design review follows the binding's cadence |

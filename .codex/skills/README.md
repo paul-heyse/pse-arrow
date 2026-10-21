@@ -15,6 +15,9 @@ It never generates or overwrites native agent adapters.
 
 | Process skill | Use |
 |---|---|
+| [design-principle-audit](design-principle-audit/SKILL.md) | Refresh the broad persisted diagnostic account before a new review engagement |
+| [design-review-audit](design-review-audit/SKILL.md) | Reassess recommendations and omissions; publish a companion and integrated review |
+| [plan-completion-audit](plan-completion-audit/SKILL.md) | Assess claimed completion and correct the same owning plan |
 | [adr](adr/SKILL.md) | Record or supersede a decision and amend its architectural owner |
 | [plan-design-review](plan-design-review/SKILL.md) | Develop an approach to a requested review |
 | [design-review](design-review/SKILL.md) | Conduct a scoped review against the declared layered standard |
@@ -44,8 +47,41 @@ Quantitative performance/capacity claims require measurements; semantic correctn
 remain. The binding owns cadence. Routine implementation adds no standing domain-model
 review or exhaustive flow tracing.
 
-Library capability skills remain shared live sources selected by `.config/library-skills.toml`,
-exposed through gitignored links. Follow the skill and Context7 routes in `.agents/roles/worker.md`. Change shared
-library skills at their shared source, preserving repository-independent guidance; local process
-skills stay tracked here. Formatting is the root's `just turn-end` and skill synchronization
-`just ready`; these workflows add no hooks, and run `just hygiene` only at scope end.
+## Library orientation and active exception
+
+Use [library overviews](../../docs/libraries/README.md) for optional first-pass awareness,
+then Context7 and primary documentation, upstream source/tests or installed sources for
+consequential details. Check the relevant lockfile before transferring version claims.
+The [native-solver-libraries](native-solver-libraries/SKILL.md) skill remains active and selected
+in .config/library-skills.toml; existing setup/readiness/worktree synchronization keeps that one
+local discovery link. Central sources are unchanged.
+
+## Inactive central library-skill references
+
+The other former library skills below remain central historical references. They are no longer
+selected, synchronized, discovered or required here. Existing plans may still name them; do not
+rewrite those plans merely for this transition. Old pinned profiles and receipts do not qualify
+current dependency behavior.
+
+| Former skill | Reference identity |
+|---|---|
+| rust-code-model | Central library-skill source, inactive here |
+| symbolica-faer-oximo | Central library-skill source, inactive here |
+| pyomo-and-solvers | Central library-skill source, inactive here |
+| rust-reasoning | Central library-skill source, inactive here |
+| neo4j-surrealdb | Central library-skill source, inactive here |
+| datafusion | Central library-skill source, inactive here |
+| ast-grep-ripgrep | Central library-skill source, inactive here |
+| datafusion-tracing | Central library-skill source, inactive here |
+| salsa | Central library-skill source, inactive here |
+| rust-graphs | Central library-skill source, inactive here |
+
+The [living diagnostic audit](../../docs/design_review/audit/README.md) precedes solution review.
+The operator chooses holistic, library-targeted, principle-focused or combined focus. Requested
+recommendation audits write [net changes](../../docs/design_review/reviews/audits/README.md) and
+revise the principal review in place; completion audits correct the same owning plan. These are
+deliberate review boundaries, not automatic recurring gates. No actual audit is performed by
+installing these skills; no root STATUS or separate handoff ledger is introduced.
+
+Formatting remains the root's just turn-end and native-skill synchronization just ready.
+These workflows add no hooks; just hygiene remains at scope end.

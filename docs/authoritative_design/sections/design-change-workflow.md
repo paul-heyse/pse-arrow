@@ -11,7 +11,8 @@ status: current
 > [ADR-0096](../../adr/0096-current-rationale-and-selective-retirement.md),
 > [ADR-0129](../../adr/0129-domain-model-review-scope.md),
 > [ADR-0149](../../adr/0149-agent-permissions-by-contract.md),
-> [ADR-0162](../../adr/0162-workload-fit-review-principles.md).
+> [ADR-0162](../../adr/0162-workload-fit-review-principles.md),
+> [ADR-0213](../../adr/0213-audit-led-workflow-and-library-orientation.md).
 
 The [selected design standard](../../design_review/design_principles/standard.toml) governs
 architecture review.
@@ -84,11 +85,37 @@ available planning interface without switching runtime modes or creating another
 sequence. That focused assessment does not certify an enclosing subsystem or initiate recurring
 model assessment during ordinary implementation.
 
+The audit-led workflow is Implemented policy (2026-10-20, operator-authorized rollout;
+ADR-0213 remains proposed under the local record lifecycle). Before a new solution-review
+engagement, [design-principle-audit](../../../.codex/skills/design-principle-audit/SKILL.md)
+refreshes [one living diagnosis](../../design_review/audit/README.md). Preparation and review
+consume its identified baseline while applicable. The operator selects holistic/unconstrained,
+library-targeted, principle-focused or combined focus; reviewers choose methods and depth.
+Ordinary implementation and focused plan-foundation assessment do not initiate a broad audit.
+
+At a deliberate requested or planned boundary,
+[design-review-audit](../../../.codex/skills/design-review-audit/SKILL.md) reassesses every
+recommendation and omissions. Its [net-change companion](../../design_review/reviews/audits/README.md)
+owns first-round critique; the principal review is revised in place as an attributed coherent
+design, preserving its exact original in Git. Editorial dispositions are not implementation status.
+[Plan-completion-audit](../../../.codex/skills/plan-completion-audit/SKILL.md) reconstructs
+accepted obligations and inspects actual consumers, correcting the same owning plan's current
+conclusion, package state, findings and next work. Functional implementation, qualification and
+benefit claims remain separate. Neither audit is a recurring per-slice gate or production-repair
+authorization.
+
+[Library overviews](../../libraries/README.md) are optional, repository-agnostic orientation;
+Context7 and primary sources resolve consequential current details. Only native-solver-libraries
+remains an active shared capability skill, with existing local selection/synchronization.
+Other shared skills remain inactive historical references. The library-catalog MCP and its
+refresh/query/resolver tooling are removed; capability maps, independent storage inventory and
+historical reports with retained consumers remain. Existing plans and reviews are unchanged.
+
 The [shared roles](../../../.agents/roles/README.md) own reusable worker behavior, coordination
 and each role's permitted effects; the separate native adapters own model and effort defaults
 only. Codex roles inherit the session's sandbox and approval settings (Codex ignores sandbox keys
 in role files) and Claude roles the session's tools, so no adapter declares either. `library-research` may write new dated folders
-in the evidence locations AGENTS.md names and the shared library skill its brief assigns, and
+in the evidence locations AGENTS.md names and the active native solver skill when its brief explicitly assigns that source, and
 lists every file written; the other evidence roles stay read-only. These scopes are instructions,
 not runtime enforcement; the edit-protection hook still applies to every role. The root coordinator retains
 design decisions, integration and acceptance; executors choose local details inside their brief.

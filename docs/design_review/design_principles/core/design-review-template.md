@@ -9,7 +9,8 @@ Use the [principles](design-principles.md) together with
 choices. The companion supplies conditional execution patterns for existing AP-07/G9; retain
 the current principles, twelve lenses and overlapping guidance.
 
-Output and synthesis guidance revised 2026-10-01; assessment rules and slot identifiers unchanged.
+Output and synthesis guidance revised 2026-10-01; audit/revision routing added 2026-10-20.
+Assessment rules and slot identifiers unchanged.
 
 ## Part 1 — The review contract
 
@@ -360,3 +361,18 @@ disagreement and its effect on the decision when the evidence does not settle it
 A successful review makes the next representative change understandable and identifies what
 would falsify the design's claims. It need not add a framework, artifact or test where none
 improves the decision.
+
+
+### Audit input, recommendation revision and planning
+
+Where the repository binding requires a diagnostic audit, identify its consumed revision,
+source/standard baseline and relevant finding anchors. The operator selects holistic,
+library-targeted, principle-focused or combined solution focus; tier and effort are separate.
+The baseline is challengeable diagnosis; solution reasoning can improve it and discover omissions.
+
+When a recommendation audit revises this review, preserve its exact input recoverably, attribute
+the revised judgment and link the net-change companion. Keep first-round critique in the
+companion; the principal explains the resulting design. Preserve finding/rule-impact identities,
+distinguish recommendation correspondence from diagnoses, and reconcile foundation/gate/overall
+judgments, alternatives and dependencies. Old receipts keep their dates and evidence limits.
+These authoring routes add no assessment gate or automated acceptance.

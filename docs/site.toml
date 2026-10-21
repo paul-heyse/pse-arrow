@@ -11,7 +11,6 @@ current_work = [
   "plans/28*.md",
   "plans/32-workspace-content-lifecycle.md",
   "plans/40*.md",
-  "plans/44*.md",
   "plans/48*.md",
 ]
 assets = [
@@ -78,6 +77,11 @@ root = "capability-maps"
 scope = "Reference"
 
 [[collections]]
+title = "Library capability overviews"
+root = "libraries"
+scope = "Reference"
+
+[[collections]]
 title = "Generated reference"
 root = "generated"
 scope = "Reference"
@@ -104,6 +108,14 @@ patterns = [
   "external-review-postgresl-typing-and-other-typing-enhancements.md",
 ]
 scope = "History"
+
+[[overrides]]
+patterns = [
+  "library-utilization.md",
+  "design_review/audit/**/*.md",
+  "design_review/reviews/audits/**/*.md",
+]
+scope = "Reference"
 
 [[asset_bundles]]
 name = "pipeline-diagnostics-and-review-artifacts-2026-10-18"

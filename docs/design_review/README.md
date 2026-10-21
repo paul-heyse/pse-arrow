@@ -15,6 +15,14 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
+The new [living diagnostic account](audit/README.md) is an unperformed-audit scaffold.
+Use design-principle-audit to refresh it before a new solution-review engagement, then preserve
+the operator's holistic, library-targeted, principle-focused or combined focus. Requested
+recommendation audits use [net-change companions](reviews/audits/README.md) and an attributed
+principal revision; completion audits update the same owning plan. Installing these routes does
+not reinterpret historical reviews or initiate audits. See the [local skills](../../.codex/skills/README.md)
+and [library research orientation](../libraries/README.md).
+
 The [execution-performance recommendations audit](reviews/design_review_execution-performance-recommendations-audit_2026-10-20.md)
 independently reconciles both external performance reviews against current source and the
 retained short-case observations. Its [recommendation register](evidence/execution-performance-recommendations-audit-2026-10-20/recommendation-register.md)

@@ -1,18 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-# Shared live library skills exposed to both Codex and Claude Code.
+# Native solver capabilities remain active; other central library skills are inactive references.
 # Edit enabled, then run just skills-sync. Skill sources live outside this repo.
 directory = ".codex/skills"
-enabled = [
-  "ast-grep-ripgrep",
-  "datafusion",
-  "datafusion-tracing",
-  "native-solver-libraries",
-  "neo4j-surrealdb",
-  "pyomo-and-solvers",
-  "rust-code-model",
-  "rust-graphs",
-  "rust-reasoning",
-  "salsa",
-  "symbolica-faer-oximo",
-]
+enabled = ["native-solver-libraries"]

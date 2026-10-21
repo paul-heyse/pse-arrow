@@ -957,11 +957,6 @@ fmt:
     "{{ ruff }}" format --config pyproject.toml
 
 [group('mutating')]
-[doc('Regenerate the library-utilization catalog (docs/library-utilization.jsonl) and the usage index behind the library-catalog MCP server')]
-library-catalog:
-    "{{ py }}" scripts/library_utilization.py --write
-
-[group('mutating')]
 [doc('Regenerate relations, Python contracts, docs/generated, the canonical native schema and codecs, the Ipopt bindings')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "functional", "--", "bash", "-euo", "pipefail")]
 codegen:

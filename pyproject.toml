@@ -205,9 +205,6 @@ extend-exclude = [
   ".codex/skills/**",
   ".claude/skills/**",
   ".agents/skills/**",
-  # The library-utilization catalog tooling: a maintainer script set, developed on 3.14 syntax.
-  "scripts/library_*.py",
-  "scripts/tests/test_library_*.py",
 ]
 
 [tool.ruff.format]

@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 215
-date: 2026-10-19
+revision: 237
+date: 2026-10-20
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 237 | 2026-10-20 | ADR-0213: add broad diagnostic, recommendation and completion audit boundaries (§24.4), operator-selected review focus and overview-led research; retain only the active native solver skill and remove library-catalog tooling. Preserve existing standard/profile criteria and plan ownership. | Maintainer-approved process rollout; PSE_DESIGN_EDIT=1; record remains proposed; no product qualification claimed. |
 | 215 | 2026-10-19 | Reconcile explicit original initialization/recycle review context, joined native segment statistics and selected table source comparison with separate document/projection bounds (§23.1), and selected assembled diagnostic acceptance (§24.2); Plan47f owns exact qualification results. | Maintainer-authorized Plan47f execution; PSE_DESIGN_EDIT=1; accepted RC01/RC02 and proposed ADR-0196, formal status unchanged. |
 | 214 | 2026-10-18 | Reconcile Plan47 completeness repairs: admitted analysis and context/map ingress, actual performed-session copies, optional producer handoff and composed selected-result/diagnostic offline publication (§23.1). | Maintainer-authorized CA01–CA12 execution; visible .design-edit route; proposed ADR-0196 extension, targeted checks owned by Plan47; assembled qualification remains 47f. |
 | 213 | 2026-10-18 | Install accepted Plan47c–e source-linked analysis, acknowledged source recording, bounded contextual queries and offline pack/CLI targets (§23.1). | Maintainer-authorized C–E implementation; PSE_DESIGN_EDIT=1; proposed ADR-0192/0196 amended before dependent changes; full-series qualification remains 47f. |

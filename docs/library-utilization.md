@@ -1,18 +1,28 @@
 # Library utilization catalog
 
-A flat, generated record of which third-party libraries the workspace uses, and (once curated)
-which of their capabilities it uses, through which local abstraction, in which files. Agents read
-it through the `library-catalog` MCP server; humans can read the JSONL directly.
+**Retired reference — 2026-10-20.** The catalog MCP server, refresh/query helpers, resolver and
+dedicated tests have been removed. This page explains retained historical data for existing
+review/plan consumers; it is not an operator guide or a current inventory.
+
+For current research use [library overviews and their authoring guide](libraries/README.md),
+then Context7 and primary sources. Only native-solver-libraries remains an active library skill.
+The retained JSONL records keep their own dated verification stamps, pins and source identities;
+those observations and old skill profiles do not establish current dependencies, API behavior or
+present usage. No catalog refresh or replacement indexing service is part of the current workflow.
+
+The former catalog recorded which third-party libraries the workspace used and, where curated,
+which capabilities were used through which local abstractions and files. The following describes
+that retired representation and producer, not available commands or services.
 
 | File | What |
 |---|---|
 | `docs/library-utilization.jsonl` | The catalog: one JSON object per line, `kind` is `library` or `capability` |
 | `build/library-usage.sqlite` | Gitignored usage index written by a full `--write` run: every library item the source references, and each file's mtime and size at indexing time |
 
-Regenerate both with `just library-catalog` (`scripts/library_utilization.py --write`). It edits
-the tree and takes a few minutes the first time (it builds `tools/lu-resolve` offline), then one to
-two. `uv run python scripts/library_utilization.py` alone is a
-dry run: it prints the drift and exits 1 if there is any.
+The retired producer wrote the JSONL and a local usage index. Its regeneration recipe, dry-run
+entrypoint and rust-analyzer resolver no longer exist. Historical producer details are recoverable
+from Git alongside the original catalog; retaining this data does not imply that a usable SQLite
+index remains on disk.
 
 ## Records
 
@@ -22,17 +32,16 @@ library skill and its pin delta, `status`, and the files that reference it by ro
 `status` is `used`, `test-only`, `dormant-only`, `declared-unused` or `not-used` (skill-covered, no
 direct dependency).
 
-A `capability` record is **hand-curated**: `id`, `lib`, `feature`, `use`, `items`, `as_written`,
-`wrapper`, and the computed `files`, `n_files`, `status`, `verified`. The script never invents
-capabilities. It keeps the curated fields, rewrites `items` to the defining paths, and recomputes
-the files and status. **This repository starts with none**, so `capabilities_by_library` returns
-`{"libraries": {}}` until they are written; the usage index and every other tool work without them.
+A `capability` record was **hand-curated**: `id`, `lib`, `feature`, `use`, `items`, `as_written`,
+`wrapper`, and the computed `files`, `n_files`, `status`, `verified`. The retired script preserved curated fields, rewrote item names to defining paths and recomputed
+files and status; it did not invent capability descriptions. Whether a retained snapshot contains
+curated capability records must be read from that snapshot, not inferred from this format note.
 
-Only direct workspace dependencies covered by an enabled library skill (or already in the catalog)
-become `library` records. The rest are listed as `unlisted` in the dry-run report and by
-`catalog_gaps("dependency_without_record")`.
+The old producer selected direct dependencies covered by then-enabled library skills or already
+present in the catalog. Its gap report described that historical selection, not a complete view
+of current dependencies.
 
-## Pipeline
+## Retired pipeline
 
 | Stage | Reads | Gives |
 |---|---|---|
@@ -41,19 +50,14 @@ become `library` records. The rest are listed as `unlisted` in the dry-run repor
 | S2 | `tools/lu-resolve` (rust-analyzer, `ra_ap_*` 0.0.352, no build, proc-macro server off) | every library item each file resolves, by defining path |
 | S3 | the skills' `content/index` tables | canonical item names |
 
-`tools/lu-resolve` has its own workspace and its own toolchain (`nightly-2026-09-13`, in its
-`rust-toolchain.toml`) and builds under `tools/lu-resolve/target`, so it never touches the product
-build directory.
+The removed resolver used its own workspace, nightly-2026-09-13 toolchain and local target
+directory. Its old source/lock/toolchain are recoverable from Git; they are not active setup inputs.
 
-Exit codes: 0 no drift (or written), 1 drift in a dry run, 2 setup failure, 3 the catalog changed
-during the run. `--json` prints one JSON object; `--index PATH` overrides the index location.
+## Retired catalog server
 
-## The catalog server
-
-`scripts/library_catalog_mcp.py` is a local, read-only FastMCP server over stdio, registered in
-`.mcp.json` as `library-catalog`. `.mcp.json` starts it with
-`uv run --no-project --with fastmcp==4.0.5`, so it needs nothing from the project environment and
-adds nothing to `pyproject.toml` or `uv.lock`.
+The removed server used local read-only FastMCP over stdio and a temporary fastmcp==4.0.5
+environment. Its registrations are gone from both runtimes. The names below explain historical
+tool results cited by existing consumers; none is an available local catalog tool.
 
 | Tool | Answers |
 |---|---|
@@ -66,19 +70,12 @@ adds nothing to `pyproject.toml` or `uv.lock`.
 | `catalog_gaps` | Not-used libraries, declared-unused, pin deltas, capabilities without a wrapper, dependencies without a record |
 | `catalog_status` | Libraries with status and capability ids, skills, verified stamps, and what the usage index covers |
 
-Nothing is truncated. A miss (`no_reference_found`) is answered from the usage index and states its
+The old server returned full selections. A miss (`no_reference_found`) came from the usage index with its
 blind spots: references inside macro and derive output, methods a proc macro generates, files
 outside the module tree, and types that are only inferred. It does not mean the library is unused.
 
-## Tests
+## Retired tests and tooling
 
-`scripts/tests/test_library_*.py` (pytest, `unit` tier; the stdio test is `component`). They need
-fastmcp, which the project environment does not carry:
-
-```bash
-uv run --no-project --with fastmcp==4.0.5 --with pytest python -m pytest -c /dev/null \
-  --rootdir . -p no:cacheprovider scripts/tests/test_library_*.py
-```
-
-The catalog scripts and their tests are excluded from ruff and pyrefly in `pyproject.toml`: they
-use Python 3.14 syntax and are a maintainer tool set, not product source.
+The eight dedicated catalog/scan/name/resolver test modules were removed with their implementation.
+Their former isolated FastMCP/pytest invocation and catalog-only lint exclusions are retired.
+Retained reports do not carry a current test pass or authorize restoring the mechanism.

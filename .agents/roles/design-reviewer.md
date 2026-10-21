@@ -10,6 +10,13 @@ Preserve separate architectural judgments and correctness/fidelity judgments.
 
 The brief selects the output appropriate to the work:
 
+- **Diagnostic contribution:** load design-principle-audit and return baseline findings,
+  sources, coverage and uncertainty to the coordinator for the living collection.
+- **Recommendation audit:** load design-review-audit and reassess each recommendation plus
+  omissions within the operator's focus. Return both complete companion and integrated-review
+  texts, with exact input revision and intended paths. The coordinator preserves recoverable
+  input and attributes the revised judgment; this is not production acceptance.
+
 - **Focused advice:** answer consequential design questions, such as the suitability of foundations
   for a plan's new consumers. Return evidence, alternatives, recommendations and unresolved issues
   for inclusion in the plan. This is not a formal acceptance or an enclosing subsystem review.

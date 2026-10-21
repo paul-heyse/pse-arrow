@@ -401,8 +401,8 @@ What a session loads costs context and processes, so optional capabilities are o
   the pyright LSP (the repository's checker is pyrefly). Re-enable one for a session with
   `--settings` or `/plugin`.
 - **Codex** — `.codex/config.toml` raises `project_doc_max_bytes` so AGENTS.md is never
-  truncated, sets static non-secret command defaults, and makes the `library-catalog` and
-  `rust-analyzer` MCP servers opt-in: `codex -c mcp_servers.library-catalog.enabled=true`.
+  truncated, sets static non-secret command defaults, and makes the
+  `rust-analyzer` MCP server opt-in: `codex -c mcp_servers.rust-analyzer.enabled=true`.
   Codex 0.160 role files cannot change MCP servers, so there is no subagent-only setting.
   Codex runs `bash -lc` without direnv; prefix commands with `scripts/pse-env --`.
 
@@ -430,9 +430,12 @@ interpreting raw rows as a qualified scientific result.
 **Semantic navigation, when text search is not enough.** rust-analyzer (Claude's LSP plugin,
 or the Codex MCP server when enabled) answers callers, implementations and type resolution
 across the workspace; `rust-analyzer.toml` gives it the force-validate feature and its own
-target directory, so it never waits on an agent's build lock. The library catalog
-(`library-catalog` MCP, `just library-catalog` to refresh) answers where a library item is
-used. Context7 serves current library documentation (`.agents/roles/worker.md`).
+target directory, so it never waits on an agent's build lock. Context7 serves current library
+documentation; optional docs/libraries/ overviews orient capability research. The former library
+catalog MCP, refresh/read helpers and resolver are removed. Native-solver-libraries remains the
+only selected shared skill; existing setup/readiness/worktree routes synchronize that link.
+Other central skills are inactive historical references. Retained reports and capability maps
+keep their original evidence scope; they are not live catalog lookup services.
 
 ## Explicit host controls
 

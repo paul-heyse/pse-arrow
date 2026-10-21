@@ -1,6 +1,6 @@
 ---
 name: design-review
-description: Review system architecture, a proposed design or an existing code scope for change locality, contracts, composition, explicit domain models and semantic authority, constraints and local reasoning. Apply the repository's layered standard, including scientific profiles where relevant. Use for architecture/design reviews, modularity or testability assessments, and library-integration tradeoffs; ordinary implementation does not itself request a review.
+description: Develop and assess design corrections from the refreshed audit within the operator-selected library and principle focus. Compare alternatives against the layered standard and functional target, preserving independent judgment and evidence limits.
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Agent
 user-invocable: true
 model-baseline: claude-5 (2026-08)
@@ -15,6 +15,25 @@ does not itself request a product audit or edits.
 Apply domain-model assessment during a requested review or one due at the repository's declared
 cadence. Ordinary implementation work does not itself initiate a domain-model review.
 [REFERENCE.md](REFERENCE.md) supplies optional lenses and calibrated examples.
+
+## Start from the refreshed audit and operator focus
+
+Before a new engagement, refresh the broad diagnostic account through
+[design-principle-audit](../design-principle-audit/SKILL.md), including direct invocation.
+Preparation and review share that baseline while it remains applicable; reconcile intervening
+source/standard changes and cite the audit publication revision and finding anchors. The audit
+supplies a challengeable diagnosis, not the selected correction. Concentrate review effort on
+solutions, alternatives, preservation and opportunities within the operator's chosen focus.
+
+The operator selects holistic/unconstrained, library-targeted, principle-focused or combined
+focus. Resolve this from the request/conversation; clarify an unspecified choice rather than
+choosing for the operator. Tier and depth remain separate choices. A library hypothesis directs
+investigation, not adoption; principle focus directs depth while relevant guarantees constrain
+remedies. Record encountered out-of-focus concerns without automatically broadening the assignment.
+
+Loading assessment criteria for plan authoring/execution does not initiate a formal review or
+broad audit. A requested [recommendation audit](../design-review-audit/SKILL.md) normally
+continues this same engagement and integrates its revised judgment without a second broad audit.
 
 ## Find the standard
 
@@ -57,7 +76,7 @@ need documentation updates only when an enduring contract, explanation or workfl
 
 ## Scope the assessment
 
-Infer `tier` (change/design), system/subsystem/change boundary and optional focus from the
+Infer `tier` (change/design) and system/subsystem/change boundary from the
 request and binding. The `purpose` is always `target`, the best architecture serving the
 functional outcome; the tier sets breadth only. The template's `conformance` purpose is not used:
 whether an implementation matches its accepted design belongs to implementation review. Clarify only material ambiguity. Include the
@@ -118,14 +137,10 @@ new proof machinery.
   neutral wrapper must not discard consumed bulk or planning opportunities. Full capability eligibility remains;
   integration cost is assessed independently of whether a consumer already exists.
 
-  **Optional context: existing library use.** A focused look at relevant entries in
-  docs/library-utilization.jsonl, where available, can be especially helpful when considering
-  implementation alternatives. The catalog highlights library capabilities and integration
-  patterns already found useful in the codebase, and may reveal opportunities to reuse
-  established mechanisms instead of introducing ad hoc equivalents. It remains useful as a
-  source of ideas even when some entries lag the implementation. Consultation is optional;
-  catalog entries inform the alternatives, while alignment with the design principles governs
-  the judgment.
+  Use optional [library overviews](../../../docs/libraries/README.md) for capability awareness,
+  then Context7 and primary sources for consequential version-specific details. The selected
+  native solver skill remains active. Capability maps retain their evidence scope; old
+  utilization reports are historical references, not a live catalog or required lookup.
 
 - **Decision and follow-up:** distinguish architectural fitness from behavioral adequacy, apply
   the template's decision rules, and link findings to one disposition owner. Do not implement
@@ -258,6 +273,11 @@ State architectural fitness, behavioral adequacy, overall decision and evidence 
 accepted as a design remains unqualified implementation until supported by execution evidence.
 Close with the decision, material findings, rule impacts, coverage and artifact path. If nothing
 is wrong, say so with the coverage limits; do not manufacture findings or pilot results.
+
+Requested recommendation audits use the companion and attributed integrated-revision convention
+in [design-review-audit](../design-review-audit/SKILL.md). Preserve the exact input in Git before
+replacement. The revised principal explains the resulting design; the companion owns judgments
+of the first round. Editorial dispositions do not change implementation status.
 
 ## Failure modes
 

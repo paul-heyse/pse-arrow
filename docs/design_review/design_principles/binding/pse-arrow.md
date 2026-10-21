@@ -42,12 +42,52 @@ mismatches early. During implementation, focus on choices left open or exposed m
 without restarting settled reviews. Existing principles, twelve lenses and overlapping guidance
 remain; the companion introduces no exhaustive checklist, cost models or proof machinery.
 
+## Design principle audit
+
+The [audit skill](../../../../.codex/skills/design-principle-audit/SKILL.md) maintains
+[one living Markdown collection](../../audit/README.md) at `docs/design_review/audit/`.
+It diagnoses current code broadly against the functional target and the same core, heuristic and
+profile principles, without an incoming library preference or principle subset. It need not choose
+remedies or render an overall acceptance verdict.
+
+Refresh the account before a new design-review engagement, including direct review invocation.
+Use the preceding audited source state and intervening changes to focus current inspection;
+reconsider unchanged dependencies and earlier findings when their premises change. Record source
+commit, included dirty changes, date, standard versions and meaningful coverage limits honestly.
+The publishing commit is distinct from the source baseline. An empty scaffold is not an audit.
+
+One refreshed account can serve preparation and review in the same engagement while its baseline
+remains applicable; reconcile intervening source or standard changes before relying on it. Reviews
+cite its publication revision and stable finding anchors. An inherited observation keeps the date
+and applicability limits of its evidence rather than becoming freshly verified by republication.
+
+The audit owns baseline diagnosis and groups structural causes in flexible documents, initially
+around semantic authority, structure/invariants, boundaries/composition, local reasoning/assurance
+and execution fit. Give each finding one primary home, relevant principle IDs and its inspected
+footprint; distinguish suspected reach. Keep identity across moves and material lineage across
+splits/merges. Resolve and remove findings on evidence; Git and the removal commit preserve history.
+Do not copy plan progress or run a new whole-codebase audit to close every implementation slice.
+
+Ordinary implementation, focused plan-foundation assessment and loading review criteria do not
+initiate a broad principle audit or formal review. Principle audits do not automatically start solution reviews or authorize
+remediation. Process discussion and edits to this workflow do not require an audit/review artifact.
+The initial audit and detailed library overviews remain separately scoped work.
+
+
 ## Reviews in this repository
 
 - **Location:** `docs/design_review/reviews/design_review_{slug}_{YYYY-MM-DD}.md`; supporting
   evidence files under `docs/design_review/evidence/`.
 - **Skills:** `design-review` (core method) with `design-review-process-simulator` (profile
   lenses). The `design-reviewer` agent applies both with this binding.
+- **Focus:** the operator selects holistic/unconstrained, library-targeted, principle-focused
+  or combined review. Clarify an unspecified selection; agents choose methods and depth within it.
+  Library focus is an investigation hypothesis, not required adoption. Relevant guarantees still
+  constrain remedies; encountered out-of-focus concerns do not automatically expand solution scope.
+- **Inputs:** cite the refreshed diagnostic-audit revision and stable finding anchors. Inspect
+  decisive current sources, compare corrections and preserve useful strengths. An applicable audit
+  can serve preparation, review and recommendation audit within the same engagement.
+
 - **Grounding:** the standard and the functional target. The target is stated as outcomes in
   the process-simulator profile's *Functional target* (a best-in-class simulator serving
   edit/re-solve, studies, recycles, dynamics and extension) and in blueprint §0 and §0.2 (the
@@ -73,6 +113,62 @@ supply explicit scientific families and bounded composition only where no fittin
 supplies the complete consumed contract. The proposal review used profile 1.3 to assess the
 clarification, not an exception to a MUST. Implementation status belongs to Plan 25m.
 
+## Design-review recommendation audit
+
+Use [design-review-audit](../../../../.codex/skills/design-review-audit/SKILL.md) for a deliberate
+requested or explicitly planned reassessment, usually between a completed review and plan
+creation (ADR-0213). Inherit its operator-selected focus and applicable standard. Reconsider
+each recommendation and their interactions, and seek omitted improvements within that focus.
+Judge diagnoses separately from remedies; retaining a recommendation is a valid result.
+
+Publish a net-change companion at
+`docs/design_review/reviews/audits/<principal-review-stem>_audit.md` and an integrated revised
+review at the original principal path. The [folder guide](../../reviews/audits/README.md)
+owns naming and repeat-audit conventions. The companion accounts for every input recommendation
+with Retain, Improve, Correct or adjust, Omit, or Unresolved, plus additional recommendations and
+their basis. Preserve the exact input in Git before replacement and cite its revision. Record
+the current audit date, source/standard baselines and evidence limits, distinguishing changes
+since the first assessment from corrections to it.
+
+The revised principal explains the resulting design, with consistent judgments, recommendations,
+dependencies and rule impacts. Briefly attribute the new judgment and link the companion; it
+does not imply the original reviewer agreed. Keep critique of the first round in the companion.
+Preserve finding/rule-impact identities and the difference between recommendation correspondence
+and finding identity. Omitting a remedy can leave a valid diagnosis open. Existing test receipts
+remain historical evidence at their original strength, date and applicability.
+
+This normally continues the same engagement and does not itself require another broad audit;
+reconcile changed premises and use the freshness rule if it becomes a new engagement. A fresh
+`design-reviewer` can provide independent judgment, returning both texts for coordinator
+publication. Recommendation dispositions are editorial, not execution status. Flag implications
+for plans already consuming the review without silently changing accepted scope. Rule changes
+still go to the operator in plan creation; the audit does not authorize remediation.
+
+## Plan-completion audit
+
+Use [plan-completion-audit](../../../../.codex/skills/plan-completion-audit/SKILL.md) at a
+deliberate requested or explicitly planned claimed-completion boundary (ADR-0213), for the whole
+plan or explicitly bounded scope. Reconstruct the accepted obligations from the intended behavior,
+target design, authorized scope changes and acceptance conditions, including applicable consumer,
+migration, preservation and retirement work. Inspect actual implementation beyond completed rows
+or the reported diff. New design opportunities are distinct from unfinished accepted scope.
+
+Update the same owning plan in place: a current Completion audit section records date, inspected
+source state, claimed scope, bounded conclusion and evidence limits. Reconcile affected package
+state, findings, completion claims and next work rather than appending a contradictory report.
+The coordinator owns a series' combined conclusion; supporting plans retain affected local
+details and source finding identities. Git holds prior accounts and receipts keep their original
+dates and scope. No separate completion report, folder or progress register is introduced.
+
+Distinguish functional implementation, required qualification and benefit measurements. Use
+existing applicable evidence and targeted investigation as warranted; no automatic full test
+campaign follows. Missing required evidence remains outstanding under the existing qualification
+policy. A fresh `implementation-reviewer` can return the judgment and proposed plan corrections
+read-only for coordinator publication. The audit identifies actionable repair scope without
+authorizing production repairs, broad principle diagnosis or a new solution review. Neither new
+audit is a recurring per-slice gate or an automatic part of every handoff.
+
+
 ## Architecture scenarios
 
 These are reusable scenario seeds, not new product requirements or a demand to implement every
@@ -95,6 +191,12 @@ map. No count of crates, traits, schemas or library features establishes quality
 
 ## Follow-up ownership
 
+Diagnostic findings retain stable DA-nnn identities; consuming reviews cite their audit snapshot.
+New review-only findings use the review's existing convention without renumbering inherited
+identities. Editorial recommendation dispositions are separate from implementation progress.
+The revised review preserves the recoverable original and attributes the new judgment.
+Plan-completion corrections update the scheduled owner in place.
+
 The review records its version, inspected scope, findings and evidence strength. After a
 finding is adopted for work, the owning plan's coverage/disposition table holds its current
 state and links its scenario, decision where needed, packet and evidence. Until then the
@@ -116,7 +218,7 @@ and semantic judgments remain separate; there is no generated approval or archit
 | Model authority and identity (DP-01, DP-04, DP-05) | blueprint §2 (D1–D14), §5 and §6; ADR-0088/0089 |
 | Ownership of math, derivatives, sparse algebra, properties, structure and solvers (DP-13, DP-17, PS-07, PS-09) | blueprint §1.3, §3.2, §3.3, §7, §14 and §18; ADR-0082–0084 |
 | Supported math, provider and solver scope (DP-15, PS-02, PS-10) | blueprint §9, §18 and §25; ADR-0082–0084 and ADR-0093 |
-| Library capability evidence (DP-15) | `docs/capability-maps/` (`just lib-outline <file>` first) and the library skills: `symbolica-faer-oximo`, `native-solver-libraries`, `salsa`, `rust-graphs`, `datafusion`, `deltalake`, `library-research` |
+| Library capability evidence (DP-15) | `docs/capability-maps/` (`just lib-outline <file>` first) and optional overviews in docs/libraries/, Context7 and primary sources, plus the active native-solver-libraries skill |
 | Error taxonomy (DP-21) | blueprint §23.2; every `pub enum *Error` derives `thiserror::Error` and implements `miette::Diagnostic` (AGENTS.md *Invariants*) |
 | Dependency admission (DP-13) | [dependency policy](../../../dev/dependency-policy.md) and ADR-0066: no library or licence is refused in phases 0–1, so licence is never a reason to reject a §F candidate |
 | Reference validation (PS-13) | IDAES parity against `idaes-pse==2.13.0` as a reference oracle, clean-room: read for behaviour, never copied ([relationship to IDAES](../../../relationship-to-idaes.md)) |
@@ -144,7 +246,7 @@ where one governs how the review itself is conducted or reported, such as eviden
 |---|---|
 | Targeted behaviour (*Tested*) | `just unit-package <pkg> <filter>` |
 | Compilation of touched code | `just check-package <pkg>`, `just check` |
-| Library fit where doubt remains (DP-15) | capability maps (`just lib-outline`), the library skills and their probes |
+| Library fit where doubt remains (DP-15) | capability maps (`just lib-outline`), optional overviews, Context7/primary sources and the native solver skill |
 | Dependency families (DP-15) | `just family-check` |
 | Reference validation (PS-13) | `just parity` |
 | Plan-close qualification | the [qualification command guide](../../../dev/validation-assessment.md) and AGENTS.md *Qualification reporting* |

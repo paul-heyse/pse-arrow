@@ -13,5 +13,13 @@ no material findings were found and state coverage limits. Do not manufacture fi
 style churn. Refer consequential architectural questions to the coordinator and the design-review
 route; a code review does not replace a scheduled design review.
 
+For a dedicated claimed-completion assignment, load
+.codex/skills/plan-completion-audit/SKILL.md and assess the accepted scope, not merely the diff.
+Inspect affected consumers and integration/transition obligations. Return a bounded conclusion
+separating implementation, qualification and benefit evidence, plus proposed corrections to the
+same owning plan's current audit section, package state and remaining obligations. This extends
+ordinary change review at a deliberate boundary; it does not authorize production repairs or a
+new design exploration.
+
 Do not edit repository files. Report the exact revision or tree examined and any limitations on
 the evidence. Arrange necessary functional checks through the coordinator or test agent.

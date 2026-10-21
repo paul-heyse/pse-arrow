@@ -43,6 +43,9 @@ lcov.info
 /.codex/skills/*
 !/.codex/skills/adr/
 !/.codex/skills/design-review/
+!/.codex/skills/design-principle-audit/
+!/.codex/skills/design-review-audit/
+!/.codex/skills/plan-completion-audit/
 !/.codex/skills/design-review-process-simulator/
 !/.codex/skills/README.md
 !/.codex/skills/plan-design-review/
@@ -53,6 +56,9 @@ lcov.info
 /.claude/skills/*
 !/.claude/skills/adr/
 !/.claude/skills/design-review/
+!/.claude/skills/design-principle-audit/
+!/.claude/skills/design-review-audit/
+!/.claude/skills/plan-completion-audit/
 !/.claude/skills/design-review-process-simulator/
 !/.claude/skills/README.md
 !/.claude/skills/plan-design-review/
@@ -63,6 +69,9 @@ lcov.info
 /.agents/skills/*
 !/.agents/skills/adr/
 !/.agents/skills/design-review/
+!/.agents/skills/design-principle-audit/
+!/.agents/skills/design-review-audit/
+!/.agents/skills/plan-completion-audit/
 !/.agents/skills/design-review-process-simulator/
 !/.agents/skills/README.md
 !/.agents/skills/plan-design-review/
@@ -85,7 +94,7 @@ lcov.info
 # Logs, except the committed evidence receipts
 *.log
 !docs/capability-maps/evidence/**/*.log
-# lu-resolve (rust-analyzer resolver behind the library catalog) builds in its own target
+# Tool-local build output stays untracked.
 /tools/*/target/
 
 # rustc internal-compiler-error dumps (written to the cwd on a compiler crash)

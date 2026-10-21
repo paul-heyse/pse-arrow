@@ -10,6 +10,11 @@ and storage capabilities. See the [relationship to IDAES](relationship-to-idaes.
 | Know what is supported | [Scope and open design](authoritative_design/sections/scope-and-open-design.md) |
 | Find active work | [Current work](plans/README.md) |
 | Review or change a design | [Design-change workflow](authoritative_design/sections/design-change-workflow.md) |
+| Audit broad design-principle alignment | [Living diagnostic account](design_review/audit/README.md) and design-principle-audit |
+| Reassess review recommendations | [Recommendation-audit guide](design_review/reviews/audits/README.md) and design-review-audit |
+| Audit claimed plan completion | plan-completion-audit; update the same owning plan/packet checkpoint |
+| Orient library capability research | [Library overviews and authoring guide](libraries/README.md), then Context7 and primary sources |
+
 | Research a pinned library | [Capability maps](capability-maps/README.md) |
 | Understand a decision | [Decision records](adr/README.md) |
 | Work on documentation | [Publishing documentation](dev/documentation.md) |
@@ -43,6 +48,10 @@ their original conditions; only named tests and measurements support Tested and 
 | `docs/authoritative_design/` | **Authoritative collection:** current contracts in numbered `sections/` pages; `blueprint.md` keeps revisions and former anchors | Start at its README; edits follow the design route below |
 | `docs/adr/` | Retained decision records, immutable once accepted; obsolete ones retired to Git (ADR-0096) | `just adr-new`; index via `just adr-index` |
 | `docs/plans/` | Active plans, living until done; completed plans retire to Git | `just plan <slug>` |
+| docs/libraries/ | Optional repository-agnostic capability overviews and authoring guide | Orientation before current documentation; native solver skill stays active |
+| docs/design_review/audit/ | One living diagnostic account | Explicit audit/new-review context, not routine implementation |
+| docs/design_review/reviews/audits/ | Recommendation net-change companions | Revised principal review remains planning input; plans own scheduled progress |
+
 | `docs/capability-maps/` | Pinned third-party API maps + their evidence | `just lib-outline <file>` first; they are large |
 | `docs/design_review/` | The layered design standard (`design_principles/standard.toml`: core principles, process-simulator profile, pse-arrow binding) and reviews whose findings are still open | The `design-review` and `design-review-process-simulator` skills' output contract |
 | `docs/generated/` | `pse-schema` output | Never edit |

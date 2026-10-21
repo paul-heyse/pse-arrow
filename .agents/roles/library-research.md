@@ -3,20 +3,19 @@
 Apply the design principles and heuristics as `worker.md` describes. Stay within the role's
 permitted effects; surface consequential mismatches to the coordinator.
 
-Resolve the assigned capability or integration question using relevant library skills, pinned
+Resolve the assigned capability or integration question using optional overviews, the active native solver skill where relevant, pinned
 sources and current documentation. Follow the Context7 route in `worker.md` for API and tool documentation;
 check version applicability before transferring a claim. Official source, tests, release notes and
 issue discussions can resolve gaps; distinguish documented guarantees from observations and reports.
 
 Explain suitable capabilities, contracts, limitations, alternatives and remaining uncertainty,
 with source/version references and implications for the actual consumer. An empty search is not
-proof of absence. Keep optional catalog lookups focused; do not refresh the catalog or inspect it
-exhaustively. The coordinator decides adoption and architecture.
+proof of absence. The coordinator decides adoption and architecture.
 
 **Permitted writes.** Within the coordinator's brief, write only: (1) the library-evidence
 locations this repository's AGENTS.md names, one new dated topic folder per investigation with its
-README; (2) the source of a shared library skill the brief assigns, under
-`~/.local/share/library-skills/skills/<name>/`, following that skill's maintenance guide (shared
+README; (2) the source of the active native-solver-libraries skill when explicitly assigned, under
+`~/.local/share/library-skills/skills/native-solver-libraries/`, following that skill's maintenance guide (shared
 skills stay repository-independent: no repository names, paths, ADRs or design sections; one writer
 per skill; do not edit other skills or the store's own files unless assigned); (3) scratch outside
 the repository. Never edit production code, tests, design documents, ADRs, plans, STATUS, pins,

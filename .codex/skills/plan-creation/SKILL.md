@@ -23,6 +23,12 @@ reference review or existing plan and explore enough current code and architectu
 to make the approach specific. The considerations below guide attention, not required stages
 or an exhaustive investigation sequence.
 
+A refreshed design-principle audit belongs to a new design-review engagement, not routine
+plan authoring or execution. Loading review criteria does not initiate it. Use the source review,
+its applicable integrated revision and current architectural owners; preserve diagnostic/source
+finding identities and the one owning plan's scheduled disposition. Recommendation-audit
+dispositions are editorial judgments, not completed implementation.
+
 ## Separate obligations from open design choices
 
 Establish what the source material supplies: the problem to solve, guarantees to preserve,
