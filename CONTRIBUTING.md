@@ -120,7 +120,7 @@ the completed plan and its resolved reviews then retire (Git history keeps them)
 | `just test` | unit/integration tests pass **with `force-validate` on**, so Arrow invariants are enforced | release-profile behaviour, or anything needing a solver beyond the container's |
 | `just doctest` | documentation examples compile and run | that the surrounding prose is accurate |
 | `just codegen-check` | committed generated sources match the generator, byte for byte | that the generator is *correct* |
-| `just family-check` | exactly one resolved version per pinned family, matching the evidence lockfiles | that the pinned versions are the best ones |
+| `just family-check` | exactly one resolved version per pinned family | that the pinned versions are the best ones |
 | `just governance` | the repository's own invariants (pin reasons, registration, the nightly pin against the MSRV floor, floors, unsafe allowlist, error taxonomy) | anything about the domain |
 | `just deps-report` | what is in the dependency graph and under what licences — **advisory, always exits 0** | nothing: it refuses nothing, and no library or licence blocks a merge (§3.3.2, ADR-0066) |
 | `just policy` | the same `cargo deny` + `cargo audit` checks run strictly. Opt-in; not part of `just ci-pr` | that a dependency is *appropriate* |
@@ -128,7 +128,6 @@ the completed plan and its resolved reviews then retire (Git history keeps them)
 | `just bench-smoke` | benchmarks still build and run | any performance claim — that needs `Measured` with conditions |
 | `just quality` | ruff, pyrefly, import-linter, REUSE, lockfile freshness | that the Python surface matches the native extension |
 | `just parity` | agreement with `idaes-pse==2.13.0` on the comparisons under test, on this Linux machine with the pinned solver prefix | agreement anywhere else, or that IDAES is right where we differ |
-| `just doc-lint` | every backticked `a::b::c` in `docs/**` resolves in the pinned API surface | that the prose describes what the API does |
 | `just ci-pr` | the local composite Rust, Python, quality and documentation checks pass | GitHub's interpreter matrix, parity, or deeper manual jobs |
 
 GitHub check workflows run only when manually dispatched; `just ci-pr` is optional.
@@ -152,7 +151,7 @@ Say what you verified using the §D vocabulary, and say what you did not.
 - **A hold needs a reason.** A pin that must not be bumped casually carries its reason in
   `[workspace.metadata.pse.pins]` (Rust) or beside the pin in `pyproject.toml` (Python);
   `dependency_pins` checks the Rust side. A family **major** (arrow, datafusion, pyo3,
-  object_store) needs an ADR, a regenerated capability map, and a green `family-check`.
+  object_store) needs an ADR and a green `family-check`.
 - **Adding a dependency needs none of that.** No library is refused and no licence is
   grounds to refuse one through phases 0–1: add it pinned exactly, commit the
   lockfile, and carry on. See [dependency policy](docs/dev/dependency-policy.md) for what

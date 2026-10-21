@@ -138,14 +138,14 @@ new proof machinery.
   integration cost is assessed independently of whether a consumer already exists.
 
   Use optional [library overviews](../../../docs/libraries/README.md) for capability awareness,
-  then Context7 and primary sources for consequential version-specific details. The selected
+  then Context7 and primary sources for consequential details. The selected
   native solver skill remains active. Capability maps retain their evidence scope; old
   utilization reports are historical references, not a live catalog or required lookup.
 
   **Preserve enabling mechanisms.** In any review focus, when a recommendation materially
   depends on library functionality, name the concrete capabilities and recognizable API names,
   explain how they compose to realize the intended responsibility or guarantee, and preserve why
-  that choice matters. Include material conditions and limitations, applicable version and
+  that choice matters. Include material conditions and limitations,
   evidence strength, and precise references to the relevant overview section, primary
   documentation or tagged source. Overviews orient discovery; qualify consequential contracts
   through the repository's research routes. Distinguish a selected mechanism from a candidate,

@@ -15,7 +15,7 @@ and storage capabilities. See the [relationship to IDAES](relationship-to-idaes.
 | Audit claimed plan completion | plan-completion-audit; update the same owning plan/packet checkpoint |
 | Orient library capability research | [Library overviews and authoring guide](libraries/README.md), then Context7 and primary sources |
 
-| Research a pinned library | [Capability maps](capability-maps/README.md) |
+| Research a library capability | Optional [overviews](libraries/README.md) → Context7, then primary sources; [capability maps](capability-maps/README.md) supply additional leads |
 | Understand a decision | [Decision records](adr/README.md) |
 | Work on documentation | [Publishing documentation](dev/documentation.md) |
 
@@ -52,7 +52,7 @@ their original conditions; only named tests and measurements support Tested and 
 | docs/design_review/audit/ | One living diagnostic account | Explicit audit/new-review context, not routine implementation |
 | docs/design_review/reviews/audits/ | Recommendation net-change companions | Revised principal review remains planning input; plans own scheduled progress |
 
-| `docs/capability-maps/` | Pinned third-party API maps + their evidence | `just lib-outline <file>` first; they are large |
+| `docs/capability-maps/` | Third-party API maps + their evidence | `just lib-outline <file>` first; they are large |
 | `docs/design_review/` | The layered design standard (`design_principles/standard.toml`: core principles, process-simulator profile, pse-arrow binding) and reviews whose findings are still open | The `design-review` and `design-review-process-simulator` skills' output contract |
 | `docs/generated/` | `pse-schema` output | Never edit |
 | `external/` | Pinned read-only checkouts (`just fetch-external`) | **Not source.** Gitignored, never edited, never copied from |
@@ -80,7 +80,7 @@ Do not restate these; cite them.
   resolved, never installed ad hoc; the parity group and test oracles are holds, each with
   its reason beside it. No release of `uv` itself is
   required.
-- **`docs/capability-maps/`** — what the pinned libraries actually expose, with evidence.
+- **`docs/capability-maps/`** — library capabilities and their scoped evidence.
   `just lib-outline docs/capability-maps/arrow-rust.md` before reading one.
 - **`docs/design_review/design_principles/standard.toml`** — the layered design standard
   used by design reviews: seven architectural foundations (`AP-nn`), operational refinements

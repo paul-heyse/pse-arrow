@@ -340,7 +340,7 @@ not alone authorize production repairs. Existing plans keep scheduled dispositio
 
 Optional [library overviews](docs/libraries/README.md) give repository-agnostic capability
 awareness. Context7 is the first documentation lookup, followed by primary sources, upstream
-tests or installed sources for consequential details at the locked version. Native solver
+tests or installed sources for consequential details. Native solver
 work continues to load native-solver-libraries, the only selected active library skill.
 Other central skills are [inactive references](.codex/skills/README.md#inactive-central-library-skill-references);
 they are no longer discovered or required here. Leave older plan references for deliberate

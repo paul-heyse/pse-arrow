@@ -11,8 +11,7 @@ Context7 is the first documentation lookup; an overview is not a prerequisite.
 Use the [overview-authoring guide](authoring-guide.md) for new concise, comprehensive capability
 overviews. Detailed authorship remains separate work; this scaffold supplies no library claims.
 Existing [capability maps](../capability-maps/README.md) and their retained evidence remain in
-place. Assess their version, provenance and scope before transferring a claim. Check the relevant
-lockfile; absent coverage or an empty search does not establish absence of a capability.
+place. Absent coverage or an empty search does not establish absence of a capability.
 
 ## Active and inactive library skills
 

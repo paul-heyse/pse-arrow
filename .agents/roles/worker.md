@@ -26,7 +26,7 @@ independent in-scope work where useful. Make ordinary local decisions within the
 
 Return the result with precise source locations or artifact pointers, the baseline examined,
 material uncertainties and anything unfinished. For consequential negative claims, state the search
-scope, versions or paths covered and limitations; an empty search does not establish absence. Distinguish observed facts from interpretation.
+scope, paths covered and limitations; an empty search does not establish absence. Distinguish observed facts from interpretation.
 For edits, identify changed ownership or behavior and deletions. For checks, give commands and
 `passed` / `failed` / `blocked` / `not_run`, retaining raw evidence where useful. Keep the response
 compact enough for integration without hiding consequential details.
@@ -45,9 +45,9 @@ memory-capped scope.
 workflow. Native solver work additionally uses the active native-solver-libraries skill.
 Other central library skills are inactive references listed in .codex/skills/README.md; they
 are not required or discovered here. Use optional docs/libraries/ overviews and the retained
-capability maps for first-pass awareness, checking version applicability.
+capability maps for first-pass awareness.
 
 For API and tool documentation, Context7 is the first lookup, followed by primary documentation,
 upstream source/tests or installed sources for consequential details. Resolve the library ID,
-then query the specific concept at the relevant version. An empty search or missing overview
+then query the specific concept. An empty search or missing overview
 does not establish that a capability is absent.

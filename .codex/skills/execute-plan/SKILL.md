@@ -47,8 +47,8 @@ research routes (including its active native solver skill) when library behavior
 establish accepted integrated scope.
 
 Start library work from the plan's recorded mechanisms and precise references, preserving their
-intended composition, guarantees and advantages. Reassess details when the actual version or
-integration premises differ. A consequential substitution needs a reasoned account of how it
+intended composition, guarantees and advantages. Reassess details when concrete integration
+evidence changes the premises. A consequential substitution needs a reasoned account of how it
 preserves the target or changes it, with the owning plan and affected assignments reconciled
 through existing decision and authorization routes. Routine API adjustments remain implementation
 judgment; avoid silently replacing an enabling capability with weaker behavior or bespoke machinery.

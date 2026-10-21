@@ -1,7 +1,6 @@
 # Design principles
 
 **Version 3.4 · 2026-10-05** · Core layer: repository- and domain-agnostic.
-DP-14/DP-15 wording revised 2026-10-04 (resolved version); obligations unchanged.
 Seven architectural foundations organize the operational rules retained from Core 2.0.
 §I maps the retired charter's IDs, which some retained decisions still cite.
 
@@ -501,12 +500,9 @@ derivative routine.
 
 ### DP-14 — Built-ins and thin adapters
 
-> 2026-10-04: wording revised from 'pin' to 'qualify at the resolved version'; obligations
-> unchanged (ADR-0159).
-
 **SHOULD · G8.** Within the standard library and adopted libraries, use the built-in function,
 kernel, algorithm or idiom rather than a hand-rolled equivalent; do not re-implement what the
-resolved version provides, and do not wrap a library only to rebuild its features. Adapters
+library provides, and do not wrap a library only to rebuild its features. Adapters
 translate representations and bind identifiers; domain rules, defaults, provider selection and
 policy do not live in adapters. A conversion that changes interpretation is a named
 transformation under DP-08. Prefer a built-in when both consumed semantics and composed
@@ -518,10 +514,7 @@ nowhere else?
 
 ### DP-15 — Qualify every library boundary
 
-> 2026-10-04: wording revised from 'pin' to 'qualify at the resolved version'; obligations
-> unchanged (ADR-0159).
-
-**MUST · G7.** Qualify behaviour at the resolved (locked) version and the enabled features. Establish that the specific routine's semantics,
+**MUST · G7.** Establish that the specific routine's semantics,
 restrictions and outputs fit the intended use — from documentation, source, types or
 experience, with a probe or test only where genuine doubt remains. A library's name or
 reputation alone is not enough, and an entry point's name may not match its algorithm. Keep one resolved

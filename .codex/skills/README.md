@@ -51,7 +51,7 @@ review or exhaustive flow tracing.
 
 Use [library overviews](../../docs/libraries/README.md) for optional first-pass awareness,
 then Context7 and primary documentation, upstream source/tests or installed sources for
-consequential details. Check the relevant lockfile before transferring version claims.
+consequential details.
 The [native-solver-libraries](native-solver-libraries/SKILL.md) skill remains active and selected
 in .config/library-skills.toml; existing setup/readiness/worktree synchronization keeps that one
 local discovery link. Central sources are unchanged.
@@ -60,8 +60,7 @@ local discovery link. Central sources are unchanged.
 
 The other former library skills below remain central historical references. They are no longer
 selected, synchronized, discovered or required here. Existing plans may still name them; do not
-rewrite those plans merely for this transition. Old pinned profiles and receipts do not qualify
-current dependency behavior.
+rewrite those plans merely for this transition.
 
 | Former skill | Reference identity |
 |---|---|
