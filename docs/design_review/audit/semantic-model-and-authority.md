@@ -80,7 +80,7 @@ catalogued `Frame::NamedV1`. That frame is documented for named-policy reference
 "whose qualified names are the public contract" (`crates/pse-ids/src/derive.rs:934-953`).
 It is reused as a general derived-identity mint at roughly 169 production call sites
 (about 85 of them in `pse-modeling`) for derived row, parameter and output identities. The
-meaning that distinguishes each derivation is an uncatalogued preimage literal at the call
+meaning that distinguishes each derivation is an uncataloged preimage literal at the call
 site, and some preimages format a Rust `Debug` value.
 
 The frame context is catalogued, so §5.3's "no context is a literal" holds in letter. But

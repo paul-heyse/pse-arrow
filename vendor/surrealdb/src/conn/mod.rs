@@ -103,19 +103,6 @@ impl Router {
         }
     }
 
-    pub(crate) fn from_bounded_route_sender(
-        sender: Sender<Route>,
-        shutdown: async_channel::Receiver<()>,
-        features: HashSet<ExtraFeatures>,
-        config: Config,
-    ) -> Self {
-        Self {
-            engine: Arc::new(RouteChannelEngine::with_shutdown(sender, shutdown)),
-            config,
-            features,
-        }
-    }
-
     /// Builds a router around an engine that serves [`SurrealEngine`]
     /// directly, with no route channel behind it.
     #[cfg_attr(

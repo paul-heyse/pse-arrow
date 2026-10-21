@@ -203,11 +203,7 @@ def beta(
 def sql(resource: str, database: str, query: str) -> list[object]:
     """Independent authenticated synchronous data oracle using private NS access."""
     with tool.activity(resource) as (record, config, credentials):
-        endpoint = (
-            str(config["endpoint"])
-            .replace("ws://", "http://", 1)
-            .replace("wss://", "https://", 1)
-        )
+        endpoint = str(config["endpoint"]).replace("grpc://", "http://", 1)
         request = urllib.request.Request(  # noqa: S310 -- authenticated selected loopback fixture
             endpoint + "/signin",
             data=json.dumps(

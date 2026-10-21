@@ -12,6 +12,7 @@ import io
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -948,6 +949,138 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertEqual(config, server.config_for(self.state))
         self.assertTrue(config["accepting_writes"])
 
+    def test_retired_receiver_evidence_needs_exact_dead_drained_borrower_state(
+        self,
+    ) -> None:
+        self.initialized()
+        base = {
+            "kind": "namespace",
+            "state": str(self.state / ".receivers/retired/context"),
+            "cleanup": "retained",
+            "drained": True,
+            "live": False,
+            "borrows": {},
+        }
+        for changes, allowed in (
+            ({}, True),
+            ({"drained": False}, False),
+            ({"drained": "true"}, False),
+            ({"live": True}, False),
+            ({"creation_borrower": {"nonce": "pending"}}, False),
+            ({"borrows": {"active": {}}}, False),
+            ({"cleanup": "removing", "cleaner": {"live": True}}, False),
+        ):
+            record = {**base, **changes}
+            before = json.loads(json.dumps(record))
+            with (
+                self.subTest(changes=changes),
+                patch.object(
+                    server.test_resources,
+                    "resource_status",
+                    return_value={"retained": record},
+                ),
+                patch.object(
+                    server.test_resources,
+                    "borrower_alive",
+                    side_effect=lambda row: row.get("live", False),
+                ),
+            ):
+                if allowed:
+                    server.require_borrowers_drained(self.state)
+                else:
+                    with self.assertRaises(server.SupervisorError):
+                        server.require_borrowers_drained(self.state)
+            self.assertEqual(record, before)
+
+    def test_start_consumes_acknowledged_payload_freeze_in_caller_snapshot(
+        self,
+    ) -> None:
+        template = self.initialized()
+        for already_running in (False, True):
+            with self.subTest(already_running=already_running):
+                config = dict(template)
+                config.update(
+                    payload_frozen=True, admission="quiesced", accepting_writes=False
+                )
+                server.write_json(self.state / "config.json", config)
+                observations = (
+                    [readiness_fixture(server.Readiness.READY)] * 2
+                    if already_running
+                    else [
+                        readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                        readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                        readiness_fixture(server.Readiness.STARTING),
+                    ]
+                )
+                with (
+                    patch.object(server, "service_readiness", side_effect=observations),
+                    patch.object(
+                        server, "service_allocation", return_value=self.allocation
+                    ),
+                    patch.object(server, "materialize_service"),
+                    patch.object(server, "establish_protocol_readiness"),
+                    patch.object(server, "payload_query", return_value=True) as thaw,
+                ):
+                    server.start(self.state, config)
+                thaw.assert_called_once()
+                self.assertNotIn("payload_frozen", config)
+                self.assertEqual(config, server.config_for(self.state))
+                with patch.object(
+                    server,
+                    "service_readiness",
+                    return_value=readiness_fixture(server.Readiness.READY),
+                ):
+                    server.start(self.state, config)
+                self.assertNotIn("payload_frozen", server.config_for(self.state))
+
+    def test_parked_partial_reopen_failure_preserves_acknowledged_primary_thaw(
+        self,
+    ) -> None:
+        config = self.initialized()
+        config.update(
+            payload_frozen=True,
+            parked=True,
+            admission="quiesced",
+            accepting_writes=False,
+        )
+        server.write_json(self.state / "config.json", config)
+        receiver = self.state / ".receivers/partial/context"
+        receiver.mkdir(mode=0o700, parents=True)
+        server.write_json(
+            receiver / "config.json",
+            {**config, "service_state": str(self.state), "database": "receiver"},
+        )
+        with (
+            patch.object(
+                server, "managed_contexts", return_value=[self.state, receiver]
+            ),
+            patch.object(
+                server,
+                "service_readiness",
+                return_value=readiness_fixture(server.Readiness.READY),
+            ),
+            patch.object(server, "payload_query", side_effect=[True, False]) as thaw,
+            self.assertRaisesRegex(
+                server.SupervisorError, "File admission reopen was not acknowledged"
+            ),
+        ):
+            server._start(  # noqa: SLF001 -- inject partial multi-context reopen into the reserved startup owner
+                self.state, config, validation=False, deadline=time.monotonic() + 30
+            )
+        self.assertEqual(thaw.call_count, 2)
+        self.assertEqual(
+            [entry.args[0] for entry in thaw.call_args_list], [self.state, receiver]
+        )
+        primary = server.config_for(self.state)
+        remaining = server.config_for(receiver)
+        self.assertNotIn("payload_frozen", primary)
+        self.assertTrue(remaining["payload_frozen"])
+        self.assertTrue(primary["parked"])
+        self.assertEqual(config, primary)
+        for selected in (primary, remaining):
+            self.assertFalse(selected["accepting_writes"])
+            self.assertEqual(selected["admission"], "quiesced")
+
     def test_validation_launch_keeps_published_admission_closed(self) -> None:
         config = self.initialized()
         server.close_context_admission(self.state, admission="validation_required")
@@ -1220,7 +1353,11 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.root = Path(self.scratch.name)
         self.state = self.root / "state"
         native_cache = patch.dict(
-            os.environ, {"PSE_NATIVE_CACHE": str(self.root / "native-cache")}
+            os.environ,
+            {
+                "PSE_NATIVE_CACHE": str(self.root / "native-cache"),
+                "PSE_TEST_RESOURCE_STATE": str(self.root / "test-resources"),
+            },
         )
         native_cache.start()
         self.addCleanup(native_cache.stop)
@@ -1267,7 +1404,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         manager.start()
         self.addCleanup(manager.stop)
 
-    def initialized(self) -> dict[str, object]:
+    def initialized(self, *, fresh: bool = False) -> dict[str, object]:
         args = server.parser().parse_args(
             [
                 "setup",
@@ -1295,15 +1432,25 @@ class SurrealSupervisorTests(unittest.TestCase):
                 server,
                 "install",
                 return_value={
-                    "version": "3.3.0",
+                    "version": "3.3.4",
+                    "surrealmx_version": "1.0.0",
+                    "inputs": server.surreal_source.inputs(),
                     "binary": str(binary),
                     "binary_sha256": server.file_digest(binary),
-                    "archive_sha256": "abc",
+                    "upstream_revision": server.surreal_source.REVISION,
                 },
             ),
             patch.object(server, "active", return_value=False),
         ):
             server.setup(args)
+        initialized = server.read_json(self.state / "config.json")
+        self.assertEqual(initialized["admission"], "validation_required")
+        self.assertFalse(initialized["accepting_writes"])
+        # These controls exercise an explicitly initialized ordinary service.
+        if not fresh:
+            initialized.pop("fresh_root_bootstrap")
+            initialized.update(admission="open", accepting_writes=True)
+        server.write_json(self.state / "config.json", initialized)
         (self.state / "database").mkdir()
         (self.state / "database" / "fixture").write_bytes(
             b"acknowledged fixed operation identity"
@@ -1477,12 +1624,337 @@ class SurrealSupervisorTests(unittest.TestCase):
             with self.subTest(mode=mode):
                 self.check_recovery_probe_retirement(mode)
 
+    def test_initialize_uses_exact_existing_owner_and_settles_closed(self) -> None:
+        config = self.initialized()
+        config.update(admission="validation_required", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+
+        def install(
+            state: Path, selected: dict[str, object], command: list[str]
+        ) -> None:
+            self.assertEqual(command, ["/current/xtask", "canonical-init", str(state)])
+            pending = server.object_mapping(selected["derived_rebuild_pending"])
+            self.assertEqual(pending["kind"], "initialize")
+            self.assertEqual(selected["instance_id"], config["instance_id"])
+            self.assertFalse(selected["accepting_writes"])
+            self.assertTrue(
+                server.reservation_live(
+                    server.read_json(state / "lifecycle-owner.json")
+                )
+            )
+            pending["phase"] = "validated"
+            server.write_json(state / "config.json", selected)
+
+        with (
+            patch.object(server, "private_offline_state"),
+            patch.object(server, "initialize_rebuild", side_effect=install),
+            patch.object(server, "drain_maintenance_listener"),
+        ):
+            server.initialize(
+                self.state, ["/current/xtask", "canonical-init", str(self.state)]
+            )
+        selected = server.config_for(self.state)
+        self.assertEqual(selected["admission"], "quiesced")
+        self.assertFalse(selected["accepting_writes"])
+        self.assertNotIn("derived_rebuild_pending", selected)
+        self.assertEqual(selected["instance_id"], config["instance_id"])
+
+    def test_initialize_failure_retains_same_pending_target_for_retry(self) -> None:
+        config = self.initialized()
+        config.update(admission="validation_required", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        with (
+            patch.object(server, "private_offline_state"),
+            patch.object(server, "drain_maintenance_listener"),
+            patch.object(
+                server,
+                "initialize_rebuild",
+                side_effect=server.SupervisorError("interrupted"),
+            ),
+        ):
+            pending: dict[str, object] | None = None
+            for _ in range(2):
+                with self.assertRaisesRegex(server.SupervisorError, "interrupted"):
+                    server.initialize(self.state, ["/current/xtask"])
+                selected = server.config_for(self.state)
+                current = server.object_mapping(selected["derived_rebuild_pending"])
+                if pending is not None:
+                    self.assertEqual(current, pending)
+                pending = current
+                self.assertEqual(selected["instance_id"], config["instance_id"])
+                self.assertFalse(selected["accepting_writes"])
+
+    def test_initializer_child_failure_drains_under_existing_lifetime(self) -> None:
+        config = self.initialized()
+        config.update(admission="validation_required", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        with (
+            patch.object(server, "private_offline_state"),
+            patch.object(server, "drain_maintenance_listener") as drain,
+            patch.object(
+                server, "maintenance_endpoint", return_value="http://127.0.0.1:18080"
+            ) as listener,
+            patch.object(server, "establish_protocol_readiness") as readiness,
+            patch.object(server, "run_file_effect", return_value=1) as child,
+            patch.object(server, "stop") as stop,
+            self.assertRaisesRegex(server.SupervisorError, "initializer failed"),
+        ):
+            server.initialize(self.state, ["/current/xtask"])
+        listener.assert_called_once()
+        readiness.assert_called_once()
+        drain.assert_called_with(self.state)
+        stop.assert_not_called()
+        arguments, options = child.call_args
+        self.assertEqual(arguments[0], ["/current/xtask"])
+        pending = server.object_mapping(
+            server.config_for(self.state)["derived_rebuild_pending"]
+        )
+        self.assertEqual(
+            arguments[1]["PSE_CANONICAL_INITIALIZER"],
+            server.object_mapping(pending["initializer"])["nonce"],
+        )
+        self.assertIsInstance(options["deadline"], float)
+
+    def test_fresh_engine_retires_only_closed_drained_state_and_rotates_authority(
+        self,
+    ) -> None:
+        old = self.initialized()
+        old.update(admission="quiesced", accepting_writes=False)
+        server.write_json(self.state / "config.json", old)
+        old_payload = server.payload_files.root(self.state, old) / "generated.bin"
+        old_payload.write_bytes(b"disposable generated scientific values")
+        with (
+            patch.object(server, "install", return_value=old["server"]),
+            patch.object(server, "all_contexts_drained") as drain,
+            patch.object(server, "active", return_value=False),
+            patch.object(server, "stop"),
+        ):
+            server.fresh_engine(self.state, self.root / "tools")
+        selected = server.config_for(self.state)
+        self.assertNotEqual(selected["instance_id"], old["instance_id"])
+        self.assertNotEqual(selected["payload_incarnation"], old["payload_incarnation"])
+        self.assertNotEqual(selected["database"], old["database"])
+        self.assertEqual(selected["admission"], "validation_required")
+        self.assertFalse(selected["accepting_writes"])
+        self.assertEqual(selected["endpoint"], "grpc://127.0.0.1:18080")
+        self.assertFalse((self.state / "database").exists())
+        self.assertFalse(old_payload.exists())
+        self.assertFalse((self.state / "fresh-engine-pending.json").exists())
+        self.assertGreaterEqual(drain.call_count, 1)
+
+    def test_fresh_engine_rebinds_existing_owned_service_file(self) -> None:
+        old = self.initialized()
+        old.update(admission="quiesced", accepting_writes=False, unit_materialized=True)
+        server.write_json(self.state / "config.json", old)
+        manager = self.root / "manager"
+        unit = manager / "systemd/user" / server.unit_name(self.state)
+        unit.parent.mkdir(parents=True)
+        unit.write_text("[Service]\nDescription=old owned generation\n")
+        with (
+            patch.object(server, "install", return_value=old["server"]),
+            patch.object(server, "all_contexts_drained"),
+            patch.object(server, "active", return_value=False),
+            patch.object(server, "stop"),
+            patch.dict(os.environ, {"XDG_CONFIG_HOME": str(manager)}),
+        ):
+            server.fresh_engine(self.state, self.root / "tools")
+            selected = server.config_for(self.state)
+            self.assertTrue(selected["unit_materialized"])
+            with (
+                patch.object(server, "verify_generation"),
+                patch.object(server, "recovery_qualified", return_value=False),
+                patch.object(
+                    server,
+                    "storage_placement",
+                    return_value={
+                        "slice": "pse.slice",
+                        "memory_bytes": 2 * server.GIB,
+                        "cpu_threads": 2,
+                    },
+                ),
+            ):
+                server.materialize_service(self.state, selected, self.allocation)
+            self.assertIn(str(selected["instance_id"]), unit.read_text())
+
+    def test_prior_mx_inputs_are_retirement_only(self) -> None:
+        old = self.initialized()
+        old.update(admission="quiesced", accepting_writes=False)
+        old_server = dict(server.object_mapping(old["server"]))
+        old_server["inputs"] = {"retired": "previous exact MX generation"}
+        old["server"] = old_server
+        server.write_json(self.state / "config.json", old)
+        with self.assertRaisesRegex(server.SupervisorError, "admitted source-built"):
+            server.config_for(self.state)
+        current = {**old_server, "inputs": server.surreal_source.inputs()}
+        with (
+            patch.object(server, "install", return_value=current),
+            patch.object(server, "all_contexts_drained"),
+            patch.object(server, "active", return_value=False),
+            patch.object(server, "stop"),
+        ):
+            server.fresh_engine(self.state, self.root / "tools")
+        self.assertEqual(server.config_for(self.state)["server"], current)
+
+    def test_fresh_bootstrap_binds_exact_owner_and_never_infers_freshness(self) -> None:
+        config = self.initialized(fresh=True)
+        config.update(admission="validation_required", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        with server.lifecycle_reservation(self.state):
+            owner = server.read_json(self.state / "lifecycle-owner.json")
+            with self.assertRaisesRegex(
+                server.SupervisorError, "explicit initialization"
+            ):
+                server.fresh_root_authority(self.state, config)
+            config["surrealkit_rollout_pending"] = {
+                "phase": "prepared",
+                "sql_outcome": "not_submitted",
+                "instance_id": config["instance_id"],
+                "owner": owner,
+            }
+            self.assertEqual(
+                server.fresh_root_authority(self.state, config),
+                config["fresh_root_bootstrap"],
+            )
+            for change in ({"owner": {"nonce": "wrong"}}, {"sql_outcome": "unknown"}):
+                selected = {
+                    **config,
+                    "surrealkit_rollout_pending": {
+                        **server.object_mapping(config["surrealkit_rollout_pending"]),
+                        **change,
+                    },
+                }
+                with self.assertRaises(server.SupervisorError):
+                    server.fresh_root_authority(self.state, selected)
+            config.pop("fresh_root_bootstrap")
+            self.assertIsNone(server.fresh_root_authority(self.state, config))
+
+    def test_fresh_rollout_bootstrap_acknowledges_without_ordinary_readiness(
+        self,
+    ) -> None:
+        config = self.initialized(fresh=True)
+        authority = config["fresh_root_bootstrap"]
+        with (
+            patch.object(server, "private_offline_state"),
+            patch.object(server, "start"),
+            patch.object(server, "drain_maintenance_listener"),
+            patch.object(server, "establish_protocol_readiness") as authenticate,
+            server.lifecycle_reservation(self.state),
+        ):
+            owner = server.read_json(self.state / "lifecycle-owner.json")
+            config["surrealkit_rollout_pending"] = {
+                "phase": "prepared",
+                "sql_outcome": "not_submitted",
+                "instance_id": config["instance_id"],
+                "owner": owner,
+            }
+            server.write_json(self.state / "config.json", config)
+            server.maintenance_endpoint(self.state)
+            listener = server.read_json(self.state / ".maintenance-listener.json")
+            self.assertEqual(listener["root_bootstrap"], authority)
+            self.assertEqual(listener["owner"], owner)
+            self.assertFalse(authenticate.call_args.kwargs["record_readiness"])
+            selected = server.config_for(self.state)
+            self.assertNotIn("fresh_root_bootstrap", selected)
+            self.assertFalse(selected["accepting_writes"])
+            self.assertFalse((self.state / "protocol-readiness.json").exists())
+
+    def test_fresh_engine_refuses_open_or_undrained_before_disposal(self) -> None:
+        old = self.initialized()
+        with patch.object(server, "install") as build:
+            with self.assertRaisesRegex(server.SupervisorError, "closed"):
+                server.fresh_engine(self.state, self.root / "tools")
+            build.assert_not_called()
+        old.update(admission="quiesced", accepting_writes=False)
+        server.write_json(self.state / "config.json", old)
+        with (
+            patch.object(
+                server,
+                "all_contexts_drained",
+                side_effect=server.SupervisorError("undrained"),
+            ),
+            patch.object(server, "discard_generated_tree") as discard,
+            self.assertRaisesRegex(server.SupervisorError, "undrained"),
+        ):
+            server.fresh_engine(self.state, self.root / "tools")
+        discard.assert_not_called()
+        self.assertTrue((self.state / "database" / "fixture").exists())
+
+    def test_fresh_engine_resume_keeps_exact_target_after_interrupted_disposal(
+        self,
+    ) -> None:
+        old = self.initialized()
+        old.update(admission="quiesced", accepting_writes=False)
+        server.write_json(self.state / "config.json", old)
+        with (
+            patch.object(server, "install", return_value=old["server"]) as build,
+            patch.object(server, "all_contexts_drained"),
+            patch.object(server, "active", return_value=False),
+            patch.object(server, "stop"),
+        ):
+            with (
+                patch.object(
+                    server,
+                    "discard_generated_tree",
+                    side_effect=server.SupervisorError("interrupted"),
+                ),
+                self.assertRaisesRegex(server.SupervisorError, "interrupted"),
+            ):
+                server.fresh_engine(self.state, self.root / "tools")
+            pending = server.read_json(self.state / "fresh-engine-pending.json")
+            with self.assertRaisesRegex(server.SupervisorError, "incomplete"):
+                server.config_for(self.state)
+            server.fresh_engine(self.state, self.root / "tools")
+            build.assert_called_once()
+        selected = server.config_for(self.state)
+        self.assertEqual(selected, pending["target"])
+        self.assertEqual(
+            server.read_json(self.state / "credentials.json"), pending["credentials"]
+        )
+
+    def test_fresh_engine_legacy_profile_is_retirement_only(self) -> None:
+        old = self.initialized()
+        budget = server.object_mapping(old["resources"])
+        old_budget = {
+            key: value
+            for key, value in budget.items()
+            if not key.startswith("surrealmx_") and key != "grpc_max_attached_sessions"
+        }
+        old_budget.update(
+            rocksdb_block_cache_bytes=2 * server.GIB // 4,
+            rocksdb_write_buffer_bytes=32 * server.MIB,
+            rocksdb_write_buffers=2,
+        )
+        old.update(
+            profile_version=2,
+            endpoint="ws://127.0.0.1:18080",
+            websocket_max_message_bytes=server.MESSAGE_BYTES,
+            resources=old_budget,
+            admission="quiesced",
+            accepting_writes=False,
+        )
+        old.pop("rpc_max_message_bytes")
+        old.pop("payload_incarnation")
+        server.write_json(self.state / "config.json", old)
+        with self.assertRaisesRegex(server.SupervisorError, "fresh-engine"):
+            server.config_for(self.state)
+        with (
+            patch.object(server, "install", return_value=old["server"]),
+            patch.object(server, "all_contexts_drained"),
+            patch.object(server, "active", return_value=False),
+            patch.object(server, "stop"),
+        ):
+            server.fresh_engine(self.state, self.root / "tools")
+        self.assertEqual(server.config_for(self.state)["profile_version"], 3)
+        self.assertNotEqual(
+            server.config_for(self.state).get("payload_incarnation"), None
+        )
+
     def test_joint_budget_rejects_overallocation(self) -> None:
         with self.assertRaises(server.SupervisorError):
             server.resources(2 * server.GIB, server.GIB, 2, server.GIB)
         allocation = server.resources(4 * server.GIB, 2 * server.GIB, 2, server.GIB)
         self.assertLess(
-            server.integer(allocation["rocksdb_block_cache_bytes"]),
+            server.integer(allocation["surrealmx_memory_limit_bytes"]),
             server.integer(allocation["memory_threshold_bytes"]),
         )
         self.assertLess(
@@ -3832,7 +4304,11 @@ class SurrealSupervisorTests(unittest.TestCase):
             config, {"username": "user", "password": "secret"}
         )
         self.assertEqual(
-            environment["SURREAL_ROCKSDB_BLOCK_CACHE_SIZE"], str(4 * server.GIB)
+            environment["SURREAL_GRPC_MAX_MESSAGE_SIZE"], str(server.MESSAGE_BYTES)
+        )
+        self.assertTrue(
+            "memory_limit=" + str(8 * server.GIB)
+            in server.database_endpoint(self.state)
         )
         self.assertEqual(environment["SURREAL_MEMORY_THRESHOLD"], str(12 * server.GIB))
         allocation = config["resources"]
@@ -3898,52 +4374,12 @@ class SurrealSupervisorTests(unittest.TestCase):
             server.checked_directory(alias)
         self.assertFalse(self.state.exists())
 
-    def test_release_metadata_refuses_nonofficial_origin_without_network(self) -> None:
-        with patch.object(server.urllib.request, "urlopen") as opened:
-            for origin in (
-                "file:///etc/passwd",
-                "http://api.github.com/",
-                "https://api.github.com.evil/releases",
-            ):
+    def test_server_install_refuses_unselected_version_before_build(self) -> None:
+        with patch.object(server.surreal_source, "install") as build:
+            for version in ("v3.3.0", "v3.3.5", "latest", "../surreal"):
                 with self.assertRaises(server.SupervisorError):
-                    server.fetched_json(origin)
-        opened.assert_not_called()
-
-    def test_release_partial_and_corrupt_installations_refuse_same_path_overwrite(
-        self,
-    ) -> None:
-        tag = "v3.3.0"
-        filename = f"surreal-{tag}.linux-amd64.tgz"
-        release = {
-            "tag_name": tag,
-            "assets": [
-                {
-                    "name": filename,
-                    "digest": "sha256:" + "a" * 64,
-                    "browser_download_url": f"https://github.com/surrealdb/surrealdb/releases/download/{tag}/{filename}",
-                }
-            ],
-        }
-        directory = self.root / "tools" / tag / "linux-amd64"
-        directory.mkdir(parents=True)
-        binary = directory / "surreal"
-        binary.write_bytes(b"existing executable")
-        with (
-            patch.object(server.platform, "system", return_value="Linux"),
-            patch.object(server.platform, "machine", return_value="x86_64"),
-            patch.object(server, "fetched_json", return_value=release),
-            patch.object(server.urllib.request, "urlopen") as download,
-        ):
-            with self.assertRaisesRegex(server.SupervisorError, "incomplete"):
-                server.install(tag, self.root / "tools")
-            server.write_json(
-                directory / "release.json",
-                {"archive_sha256": "a" * 64, "binary_sha256": "b" * 64},
-            )
-            with self.assertRaisesRegex(server.SupervisorError, "changed"):
-                server.install(tag, self.root / "tools")
-            self.assertEqual(binary.read_bytes(), b"existing executable")
-            download.assert_not_called()
+                    server.install(version, self.root / "tools")
+            build.assert_not_called()
 
     def test_worker_scope_gets_independent_native_owner_and_launch_guard(self) -> None:
         allocation: dict[str, object] = {"native_worker_memory_bytes": server.GIB}
@@ -3978,14 +4414,15 @@ class SurrealSupervisorTests(unittest.TestCase):
         with patch.object(server, "listener_ready", return_value=True):
             self.assertFalse(server.ready(self.state, config))
 
-    def test_websocket_readiness_proof_binds_invocation_generation_and_credentials(
+    def test_grpc_readiness_proof_binds_invocation_generation_and_credentials(
         self,
     ) -> None:
         config = self.initialized()
         observed = subprocess.CompletedProcess([], 0, "actual-invocation\n", "")
         with patch.object(server, "systemctl", return_value=observed):
             proof = {
-                "schema": "native-ws-readiness-v1",
+                "schema": "native-grpc-readiness-v1",
+                "datastore": server.database_endpoint(self.state),
                 "instance_id": config["instance_id"],
                 "invocation": "actual-invocation",
                 "binary_sha256": server.object_mapping(config["server"])[
@@ -4015,7 +4452,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                     ):
                         self.assertFalse(
                             server.public_status(self.state, config)[
-                                "authenticated_websocket_ready"
+                                "authenticated_grpc_ready"
                             ]
                         )
 
@@ -4044,7 +4481,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 )
                 self.assertEqual(status["listener_owned"], selected.listener_owned)
                 self.assertEqual(
-                    status["authenticated_websocket_ready"], selected.protocol_ready
+                    status["authenticated_grpc_ready"], selected.protocol_ready
                 )
                 lifecycle = server.object_mapping(status["lifecycle"])
                 self.assertEqual(lifecycle["phase"], phase.value)
@@ -4066,10 +4503,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                 config, {"username": "user", "password": "secret"}
             )
         self.assertNotIn("SURREAL_UNAUTHENTICATED", environment)
-        self.assertEqual(environment["SURREAL_WEBSOCKET_MAX_MESSAGE_SIZE"], "4194304")
-        self.assertEqual(
-            environment["SURREAL_ROCKSDB_BLOCK_CACHE_SIZE"], str(512 * server.MIB)
-        )
+        self.assertEqual(environment["SURREAL_GRPC_MAX_MESSAGE_SIZE"], "4194304")
+        self.assertNotIn("SURREAL_ROCKSDB_BLOCK_CACHE_SIZE", environment)
+        self.assertEqual(environment["SURREAL_GRPC_MAX_ATTACHED_SESSIONS"], "256")
         self.assertEqual(environment["SURREAL_RUNTIME_WORKER_THREADS"], "4")
 
     def test_resource_override_outside_recorded_budget_is_refused(self) -> None:
@@ -4078,7 +4514,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertIsInstance(allocation, dict)
         if not isinstance(allocation, dict):
             self.fail("recorded resource allocation must be an object")
-        allocation["rocksdb_block_cache_bytes"] = 100 * server.GIB
+        allocation["surrealmx_memory_limit_bytes"] = 100 * server.GIB
         server.write_json(self.state / "config.json", config)
         with self.assertRaises(server.SupervisorError):
             server.config_for(self.state)
@@ -6082,8 +6518,13 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 64 * 1024,
             )
             self.assertNotIn("PSE_PRESERVED_INPUTS", environment)
-            self.assertEqual(options["stdout"], subprocess.DEVNULL)
-            self.assertEqual(options["stderr"], subprocess.DEVNULL)
+            self.assertIsInstance(options["stdout"], int)
+            self.assertGreaterEqual(options["stdout"], 0)
+            self.assertEqual(options["stderr"], options["stdout"])
+            diagnostic = Path(f"/proc/self/fd/{options['stdout']}").readlink()
+            self.assertEqual(diagnostic.parent, self.state)
+            self.assertTrue(diagnostic.name.startswith("canonical-initializer-"))
+            self.assertEqual(stat.S_IMODE(diagnostic.stat().st_mode), 0o600)
             self.assertNotIn("deadline", options)
             self.assertTrue((self.state / "lifecycle-owner.json").exists())
             self.assertEqual(
@@ -6141,6 +6582,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             events,
             ["stop", "accounts", "start", "initialize", "validate", "stop", "dispose"],
         )
+        self.assertFalse((self.state / ".maintenance-listener.json").exists())
         config = server.config_for(self.state)
         self.assertFalse(config["accepting_writes"])
         self.assertFalse(config.get("derived_rebuild_pending"))
@@ -6182,6 +6624,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         ):
             server.rebuild(self.state, ["initializer"])
         self.assertEqual(stop.call_count, 2)
+        self.assertFalse((self.state / ".maintenance-listener.json").exists())
         discard.assert_not_called()
         config = server.config_for(self.state)
         self.assertTrue(config["derived_rebuild_pending"])
@@ -6225,6 +6668,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         ):
             server.rebuild(self.state, ["initializer"])
         self.assertEqual(stop.call_count, 2)
+        self.assertFalse((self.state / ".maintenance-listener.json").exists())
         validate.assert_not_called()
         discard.assert_not_called()
         config = server.config_for(self.state)
@@ -6405,7 +6849,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             environment = server.object_mapping(options["env"])
             self.assertEqual(environment["SURREAL_PASS"], credentials["password"])
             self.assertNotIn("SURREAL_INJECTED", environment)
-            self.assertIn("SURREAL_ROCKSDB_BLOCK_CACHE_SIZE", environment)
+            self.assertTrue("SURREAL_GRPC_MAX_MESSAGE_SIZE" in environment)
             query = options["input"]
             assert isinstance(query, str)
             nonce = query.split("maintenance: '")[1].split("'")[0]
@@ -7614,13 +8058,10 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 self.assertNotIn("SURREAL_USER", environment)
                 self.assertNotIn("SURREAL_PASS", environment)
                 self.assertEqual(
-                    environment["SURREAL_ROCKSDB_BLOCK_CACHE_SIZE"],
-                    str(
-                        server.object_mapping(selected["resources"])[
-                            "rocksdb_block_cache_bytes"
-                        ]
-                    ),
+                    environment["SURREAL_GRPC_MAX_MESSAGE_SIZE"],
+                    str(server.MESSAGE_BYTES),
                 )
+                self.assertTrue("SURREAL_ROCKSDB_BLOCK_CACHE_SIZE" not in environment)
             with (
                 patch.object(
                     server,

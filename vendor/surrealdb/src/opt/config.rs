@@ -36,7 +36,7 @@ pub struct Config {
 }
 
 impl Config {
-    /// Enable the pinned finite native WebSocket application profile.
+    /// Enable the pinned finite native gRPC application profile.
     pub fn bounded_requests(mut self) -> Self {
         self.bounded_requests = true;
         self

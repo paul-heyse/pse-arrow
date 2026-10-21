@@ -104,3 +104,6 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     invariants::declare(builder);
     s14_passes::declare(builder);
 }
+
+/// Canonical synchronous refusal identities and classes.
+pub mod canonical_refusals;

@@ -178,7 +178,7 @@ impl CanonicalStore {
 mod canonical_result_retention_server_unit {
     use super::*;
     use crate::{
-        canonical::{CanonicalOptions, checked},
+        canonical::{CanonicalOptions, bounded_query, checked},
         canonical_execution::{RunRequest, TerminalClass},
         generated::surreal as wire,
     };
@@ -333,9 +333,27 @@ mod canonical_result_retention_server_unit {
                 .unwrap()
                 .unwrap()
                 .outcome
-                .as_deref(),
+                .as_ref()
+                .map(|value| value.as_str()),
             Some("partial")
         );
+        assert!(
+            store
+                .canonical_attempt(&attempt)
+                .await
+                .unwrap()
+                .unwrap()
+                .completion
+                .is_none()
+        );
+        let compacted = store.canonical_attempt(&attempt).await.unwrap().unwrap();
+        assert_eq!(
+            compacted.phase,
+            pse_model::generated::enums::CanonicalAttemptPhase::TerminalCompacted
+        );
+        assert!(compacted.terminal());
+        let resurrected=bounded_query(store.db.query("UPDATE ONLY type::record('canonical_attempts',$attempt) SET completion=$completion;").bind(("attempt",attempt.clone())).bind(("completion",surrealdb::types::Bytes::from(vec![9_u8])))).await.unwrap_err();
+        assert!(matches!(resurrected, CanonicalError::Driver(_)));
         assert!(
             store
                 .canonical_attempt(&attempt)
@@ -350,6 +368,7 @@ mod canonical_result_retention_server_unit {
             .query("SELECT key FROM canonical_roots WHERE owner_kind='run' AND owner=$run;")
             .bind(("run", request.key.clone()))
             .await
+            .map_err(CanonicalError::from)
             .and_then(checked)
             .unwrap();
         assert!(roots.take::<Vec<Object>>(0).unwrap().is_empty());
@@ -585,6 +604,7 @@ mod canonical_result_retention_server_unit {
             )
             .bind(("analysis", header.key.clone()))
             .await
+            .map_err(CanonicalError::from)
             .and_then(checked)
             .unwrap();
         assert_eq!(roots.take::<Vec<Object>>(0).unwrap().len(), 1);
@@ -616,7 +636,8 @@ mod canonical_result_retention_server_unit {
                 .unwrap()
                 .unwrap()
                 .outcome
-                .as_deref(),
+                .as_ref()
+                .map(|value| value.as_str()),
             Some("partial")
         );
         assert_eq!(store.database(), database);

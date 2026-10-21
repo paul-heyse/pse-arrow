@@ -1135,7 +1135,7 @@ def run_gates(
     )
     for error in test_resources.reclaim_reports():
         print(
-            f"test-resources: report remains pinned after cleanup error: {error}",
+            f"test-resources: cleanup deferred after error: {error}",
             file=sys.stderr,
         )
     return int(not receipt["required_checks_covered"])

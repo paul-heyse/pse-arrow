@@ -22,8 +22,8 @@ use std::{
 };
 use surrealdb::{
     Surreal,
-    engine::remote::ws::Ws,
-    opt::{Config, WebsocketConfig},
+    engine::remote::grpc::Grpc,
+    opt::{Config, GrpcConfig},
     types::{Object, Value},
 };
 #[path = "canonical_metadata.rs"]
@@ -43,6 +43,34 @@ pub(crate) const ACTIVATION_REQUEST_TIMEOUT: std::time::Duration =
 // A finite contention window for sixteen clients sharing one retention guard.
 // This does not change any RPC deadline or permit replay after uncertain completion.
 const GUARDED_ATTEMPTS: u32 = 32;
+
+/// Registry-owned native refusal identities and their policy meaning.
+pub use pse_schema::catalog::canonical_refusals::{RefusalClass, RefusalCode};
+/// What a returned failure actually establishes about the submitted effect.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FailureEffect {
+    /// This exact statement was synchronously refused; enclosing transaction policy
+    /// still owns any broader absence/replay conclusion.
+    StatementRefused,
+    /// Dispatch/commit may have happened; settle the original immutable receipt.
+    Unknown,
+}
+/// Native MX failure meaning, carried separately from domain THROW codes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StoreFailure {
+    /// Finite resident-engine capacity was exhausted.
+    MemoryLimit,
+    /// The transaction exceeded the configured maximum age.
+    TransactionTooOld,
+    /// The engine requires supervised recovery after an unrecoverable failure.
+    DatabasePoisoned,
+    /// A configured asynchronous persistence queue refused admission.
+    AsyncQueueFull,
+    /// Persistence contents failed integrity validation.
+    Corrupted,
+    /// Persistence failed without establishing the commit outcome.
+    CommitUnknown,
+}
 
 /// Canonical protocol and guarded-operation failures.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -72,7 +100,50 @@ pub enum CanonicalError {
     Configuration(String),
     #[error("canonical store driver: {0} (query domain: {domain:?})", domain = .0.query_details())]
     /// Protocol/database failure retaining its native typed cause.
-    Driver(#[from] surrealdb::Error),
+    Driver(surrealdb::Error),
+    /// A recognized synchronous native THROW; rendered prose never grants policy.
+    #[error("canonical refusal {code} at {stage} ({class:?}, {effect:?})")]
+    Refused {
+        /// Exact registry identity.
+        code: RefusalCode,
+        /// Registry policy class, retained with the failure.
+        class: RefusalClass,
+        /// Actual operation stage when attributed, otherwise statement completion.
+        stage: &'static str,
+        /// The limited effect knowledge established by this failure.
+        effect: FailureEffect,
+    },
+    /// A recognized native MX failure; never a transaction-conflict alias.
+    #[error("canonical MX {failure:?} at {stage} ({effect:?}): {source}")]
+    StoreFailure {
+        /// Exact engine failure meaning.
+        failure: StoreFailure,
+        /// Operation stage retaining the engine refusal.
+        stage: &'static str,
+        /// Commit/dispatch uncertainty remains explicit.
+        effect: FailureEffect,
+        /// Original native typed failure.
+        #[source]
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
+    /// Recovery fenced a lost worker; this is infrastructure, not a schema refusal.
+    #[error("canonical worker lost for {run}/{attempt} generation {generation}")]
+    WorkerLost {
+        /// Original run identity.
+        run: String,
+        /// Original attempt identity.
+        attempt: String,
+        /// Original worker generation.
+        generation: u64,
+    },
+    /// Definite native conflicts exhausted the finite fresh-decision budget.
+    #[error("canonical {operation} exhausted {attempts} transaction-conflict attempts")]
+    ConflictExhausted {
+        /// Original guarded operation identity/stage.
+        operation: &'static str,
+        /// Total actual attempts, not replay permission.
+        attempts: u32,
+    },
     #[error(transparent)]
     /// Declared wire domain or shape refusal.
     Codec(#[from] CodecError),
@@ -161,7 +232,134 @@ pub enum CanonicalError {
         source: Arc<CanonicalError>,
     },
 }
+impl From<surrealdb::Error> for CanonicalError {
+    fn from(error: surrealdb::Error) -> Self {
+        // Only the native kind authenticates this wire grammar. An Internal error
+        // whose message resembles THROW must remain an invariant/infrastructure error.
+        if error.is_thrown() {
+            let message = error
+                .message()
+                .strip_prefix("An error occurred: ")
+                .unwrap_or(error.message());
+            if let Some(code) = RefusalCode::parse(message) {
+                return Self::Refused {
+                    code,
+                    class: code.class(),
+                    stage: "statement",
+                    effect: FailureEffect::StatementRefused,
+                };
+            }
+        } else if error.is_internal() {
+            let failure = [
+                ("PSE_MX_MEMORY_LIMIT:", StoreFailure::MemoryLimit),
+                ("PSE_MX_TX_TOO_OLD:", StoreFailure::TransactionTooOld),
+                ("PSE_MX_DATABASE_POISONED:", StoreFailure::DatabasePoisoned),
+                ("PSE_MX_ASYNC_QUEUE_FULL:", StoreFailure::AsyncQueueFull),
+                ("PSE_MX_CORRUPTED:", StoreFailure::Corrupted),
+                ("PSE_MX_COMMIT_UNKNOWN:", StoreFailure::CommitUnknown),
+            ]
+            .into_iter()
+            .find_map(|(prefix, failure)| error.message().starts_with(prefix).then_some(failure));
+            if let Some(failure) = failure {
+                return Self::StoreFailure {
+                    failure,
+                    stage: "statement",
+                    effect: FailureEffect::Unknown,
+                    source: Box::new(error),
+                };
+            }
+        }
+        Self::Driver(error)
+    }
+}
 impl CanonicalError {
+    /// Infrastructure termination is distinct from a scientific/domain refusal.
+    pub fn is_infrastructure(&self) -> bool {
+        matches!(
+            self,
+            Self::Driver(_)
+                | Self::StoreFailure { .. }
+                | Self::ConflictExhausted { .. }
+                | Self::WorkerLost { .. }
+                | Self::ConnectionUnavailable
+                | Self::PhysicalClose { .. }
+                | Self::Timeout
+                | Self::IncompleteResponse
+                | Self::ProtectionRelease { .. }
+        )
+    }
+    /// Whether this failure leaves submitted effects unresolved. The scientific
+    /// owner must settle original receipts before granting replay.
+    pub fn effect_is_unknown(&self) -> bool {
+        match self {
+            Self::StoreFailure { effect, .. } | Self::Refused { effect, .. } => {
+                *effect == FailureEffect::Unknown
+            }
+            Self::Driver(error) => {
+                !error.is_thrown()
+                    && !matches!(
+                        error.query_details(),
+                        Some(
+                            surrealdb::types::QueryError::NotExecuted
+                                | surrealdb::types::QueryError::TransactionConflict
+                        )
+                    )
+            }
+            Self::Timeout | Self::IncompleteResponse | Self::WorkerLost { .. } => true,
+            Self::AnalysisUnsettled { .. }
+            | Self::ArtifactUnsettled { .. }
+            | Self::SourceEditUnsettled { .. } => true,
+            Self::PhysicalClose { source } | Self::ProtectionRelease { source } => {
+                source.effect_is_unknown()
+            }
+            _ => false,
+        }
+    }
+    /// Only fresh-premise refusals can demand a new scientific policy decision.
+    pub fn needs_fresh_premise(&self) -> bool {
+        matches!(
+            self,
+            Self::Refused {
+                class: RefusalClass::FreshPremise,
+                ..
+            }
+        )
+    }
+    /// Capacity or definite contention may be retried by an owning policy; this
+    /// observation never grants replay of an uncertain mutation.
+    pub fn retryable(&self) -> bool {
+        matches!(
+            self,
+            Self::ConflictExhausted { .. }
+                | Self::WorkerLost { .. }
+                | Self::StoreFailure {
+                    failure: StoreFailure::MemoryLimit
+                        | StoreFailure::TransactionTooOld
+                        | StoreFailure::AsyncQueueFull,
+                    ..
+                }
+        )
+    }
+    fn at_stage(mut self, operation: &'static str) -> Self {
+        match &mut self {
+            Self::Refused { stage, .. } | Self::StoreFailure { stage, .. } => *stage = operation,
+            _ => {}
+        }
+        self
+    }
+    fn is_conflict(&self) -> bool {
+        matches!(self, Self::Driver(error) if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
+    }
+    pub(crate) fn exhaust_conflict(self, operation: &'static str, attempts: u32) -> Self {
+        if self.is_conflict() {
+            Self::ConflictExhausted {
+                operation,
+                attempts,
+            }
+        } else {
+            self.at_stage(operation)
+        }
+    }
     /// Whether the source-effect owner established refusal in its actual
     /// transaction phase, rather than merely observing no receipt.
     pub fn proves_source_refusal(&self) -> bool {
@@ -170,7 +368,8 @@ impl CanonicalError {
     // Used only at the exact source transaction response, before interpreting a
     // later receipt read. The same error types at that later read prove nothing.
     pub(crate) fn source_transaction_refused(&self) -> bool {
-        matches!(self,Self::Driver(error) if error.is_thrown() || matches!(error.query_details(),Some(surrealdb::types::QueryError::NotExecuted|surrealdb::types::QueryError::TransactionConflict)))
+        matches!(self, Self::Refused { .. } | Self::ConflictExhausted { .. })
+            || matches!(self,Self::Driver(error) if error.is_thrown() || matches!(error.query_details(),Some(surrealdb::types::QueryError::NotExecuted|surrealdb::types::QueryError::TransactionConflict)))
     }
 }
 impl pse_diagnostics::TypedDiagnostic for CanonicalError {
@@ -201,7 +400,7 @@ pub async fn response_ownership_scope<F: Future>(
 /// Authenticated deployment parameters. Credentials never appear in Debug or status output.
 #[derive(Clone)]
 pub struct CanonicalOptions {
-    /// Authenticated loopback native WebSocket endpoint.
+    /// Authenticated loopback native gRPC endpoint.
     pub endpoint: String,
     /// Application namespace.
     pub namespace: String,
@@ -417,8 +616,8 @@ impl CanonicalOptions {
         };
         let deployment: Deployment = serde_json::from_slice(&read(&state.join("config.json"))?)
             .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-        if deployment.profile_version != 2 {
-            return Err(CanonicalError::Configuration("canonical service profile revision 2 required; explicitly upgrade/readmit an older profile".into()));
+        if deployment.profile_version != 3 {
+            return Err(CanonicalError::Configuration("canonical service profile revision 3 required; retire an older profile with fresh-engine and initialize fresh data".into()));
         }
         let mut deployment = deployment;
         if let Some(database) = database {
@@ -728,6 +927,10 @@ pub(crate) enum QueryEffect {
     Mutation,
 }
 
+#[cfg(all(test, feature = "canonical-tests"))]
+#[path = "canonical_pacing_observation.rs"]
+pub(crate) mod pacing_observation;
+
 #[derive(Default)]
 struct ProblemTurns {
     problems: std::sync::Mutex<
@@ -749,10 +952,18 @@ impl ProblemTurns {
             return Err(CanonicalError::Timeout);
         }
         let gate = self.gate(problem)?;
+        #[cfg(all(test, feature = "canonical-tests"))]
+        let queued = {
+            pacing_observation::submitted(problem);
+            std::time::Instant::now()
+        };
         within_clock(deadline, async {
             match effect {
                 QueryEffect::Read => {
                     let _turn = gate.read_owned().await;
+                    #[cfg(all(test, feature = "canonical-tests"))]
+                    let _observation =
+                        pacing_observation::entered(problem, effect, queued.elapsed());
                     if tokio::time::Instant::now() >= deadline {
                         return Err(CanonicalError::Timeout);
                     }
@@ -760,6 +971,9 @@ impl ProblemTurns {
                 }
                 QueryEffect::Mutation => {
                     let _turn = gate.write_owned().await;
+                    #[cfg(all(test, feature = "canonical-tests"))]
+                    let _observation =
+                        pacing_observation::entered(problem, effect, queued.elapsed());
                     if tokio::time::Instant::now() >= deadline {
                         return Err(CanonicalError::Timeout);
                     }
@@ -959,20 +1173,23 @@ impl CanonicalStore {
         let deadline = original_deadline(REQUEST_TIMEOUT);
         let mut build = build;
         within_clock(deadline, async {
-            for attempt in 0..GUARDED_ATTEMPTS {
+            let mut attempt=0;
+            loop {
                 let result = self.problem_turns.run(
                     problem, effect, deadline, async { bounded_query(build()?).await },
                 ).await;
+                #[cfg(all(test, feature = "canonical-tests"))]
+                if matches!(&result,Err(CanonicalError::Driver(error)) if matches!(error.query_details(),Some(surrealdb::types::QueryError::TransactionConflict))) { pacing_observation::conflict(problem); }
                 if matches!(&result, Err(CanonicalError::Driver(error))
                     if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
                     && attempt + 1 < GUARDED_ATTEMPTS {
                     conflict_backoff(attempt).await;
+                    attempt+=1;
                     continue;
                 }
                 if let Err(error) = &result { operation_failed(operation, error); }
-                return result;
+                return result.map_err(|error| error.exhaust_conflict(operation, GUARDED_ATTEMPTS));
             }
-            Err(CanonicalError::IncompleteResponse)
         }).await
             }).await
     }
@@ -1009,7 +1226,7 @@ impl CanonicalStore {
             self.connection_options.initializer_nonce.as_deref(),
         )
     }
-    /// Connect to the supported authenticated native WebSocket deployment.
+    /// Connect to the supported authenticated native gRPC deployment.
     pub async fn connect(options: &CanonicalOptions) -> Result<Self, CanonicalError> {
         for identifier in [&options.namespace, &options.database] {
             if identifier.is_empty()
@@ -1025,11 +1242,11 @@ impl CanonicalStore {
         }
         let endpoint = url::Url::parse(&options.endpoint)
             .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-        if endpoint.scheme() != "ws"
+        if endpoint.scheme() != "grpc"
             || !matches!(endpoint.host_str(), Some("127.0.0.1" | "localhost" | "::1"))
         {
             return Err(CanonicalError::Configuration(
-                "supported profile requires loopback native WebSocket".into(),
+                "supported profile requires loopback native gRPC".into(),
             ));
         }
         let address = endpoint
@@ -1089,7 +1306,8 @@ impl CanonicalStore {
         Q: Future<Output = Result<surrealdb::IndexedResults, CanonicalError>>,
     {
         within_clock(original_deadline(ACTIVATION_REQUEST_TIMEOUT), async {
-            for attempt in 0..8 {
+            let mut attempt = 0_u32;
+            loop {
                 self.ensure_writes()?;
                 if !self.initialization_required().await? {
                     return self.open().await;
@@ -1110,15 +1328,13 @@ impl CanonicalStore {
                             (1 << attempt) + jitter,
                         ))
                         .await;
+                        attempt += 1;
                     }
-                    Err(error) => return Err(error),
+                    Err(error) => return Err(error.exhaust_conflict("canonical::initialize", 8)),
                     // Readback failure after an acknowledged commit never replays DDL.
                     Ok(_) => return self.open().await,
                 }
             }
-            Err(CanonicalError::Configuration(
-                "initialization retry extent".into(),
-            ))
         })
         .await
     }
@@ -1380,7 +1596,8 @@ impl CanonicalStore {
         activity.scope(async {
         let deadline = original_deadline(ACTIVATION_REQUEST_TIMEOUT);
         within_clock(deadline, async {
-        for attempt in 0..GUARDED_ATTEMPTS {
+        let mut attempt=0;
+            loop {
             self.ensure_writes()?;
             let query = self
                 .activation_db
@@ -1418,8 +1635,10 @@ impl CanonicalStore {
                     && attempt + 1 < GUARDED_ATTEMPTS
                 {
                     conflict_backoff(attempt).await;
+                    attempt+=1;
                     continue;
                 }
+                let error = error.exhaust_conflict("canonical::activate_source_stage", GUARDED_ATTEMPTS);
                 operation_failed("canonical::activate_source_stage", &error);
                 return Err(if refused {CanonicalError::SourceEditRefused {problem:stage.problem.clone(),operation:stage.operation.clone(),source:Box::new(error)}}else{error});
 
@@ -1428,9 +1647,6 @@ impl CanonicalStore {
             return revision
                 .ok_or_else(|| CanonicalError::Configuration("committed revision missing".into()));
         }
-        Err(CanonicalError::Configuration(
-            "staged activation retries exhausted".into(),
-        ))
         }).await
             }).await
     }
@@ -1463,7 +1679,7 @@ impl CanonicalStore {
             .await
     }
     async fn protection_grant_key(&self, problem: &str) -> Result<String, CanonicalError> {
-        let mut response = bounded_query(self.db.query("LET $authority=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $authority=NONE OR $authority.incarnation=NONE { THROW 'source protection authority unavailable'; }; RETURN {incarnation:$authority.incarnation,deadline:time::micros()+30000000};").bind(("problem",problem.to_owned()))).await?;
+        let mut response = bounded_query(self.db.query("LET $authority=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $authority=NONE OR $authority.incarnation=NONE { THROW 'PSE_REFUSAL:source_protection_authority_unavailable'; }; RETURN {incarnation:$authority.incarnation,deadline:time::micros()+30000000};").bind(("problem",problem.to_owned()))).await?;
         let mut grant = response
             .take::<Option<Object>>(response.num_statements().saturating_sub(1))?
             .ok_or(CanonicalError::IncompleteResponse)?;
@@ -1660,7 +1876,7 @@ impl CanonicalStore {
         if names.len() > 256 {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = self.protected_query(&selection.revision().problem, QueryEffect::Read, "canonical::select_names", || Ok(self.db.query(format!("{}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;", PROTECTED_BEGIN))
+        let mut response = self.protected_query(&selection.revision().problem, QueryEffect::Read, "canonical::select_names", || Ok(self.db.query(format!("{}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;", PROTECTED_BEGIN))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.to_owned())).bind(("names", names.to_vec())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -1734,7 +1950,8 @@ impl CanonicalStore {
         let receipt = blob.receipt.as_ref().ok_or(CanonicalError::PayloadLimit)?;
         let content = pse_model::generated::runtime::canonical_body_contents::Row { key: blob.version.clone(), version: blob.version.clone(), digest: blob.digest.clone(), bytes: blob.payload_bytes as u64, producer: product.producer.clone(), interpretation: wire::INTERPRETATION.into(), format: crate::canonical_staging::BODY_CONTENT_KIND.into() };
         let selection_receipt = pse_model::generated::runtime::canonical_selection_receipts::Row { key: receipt.version.clone(), version: receipt.version.clone(), digest: receipt.digest.clone(), bytes: receipt.bytes as u64, interpretation: wire::INTERPRETATION.into(), format: crate::canonical_staging::SELECTION_RECEIPT_KIND.into() };
-        for attempt in 0..GUARDED_ATTEMPTS {
+        let mut attempt=0;
+            loop {
             self.ensure_writes()?;
             let result = self
                 .staging_query(
@@ -1760,7 +1977,7 @@ impl CanonicalStore {
                         .bind(("request_digest", stage.request_digest.clone()))
                 )
                 .await
-                .and_then(|response| checked(response).map_err(Into::into));
+                .and_then(checked);
             match result {
                 Ok(mut response) => {
                     return Ok(crate::canonical_codec::decode_string(
@@ -1777,16 +1994,15 @@ impl CanonicalStore {
                         && attempt + 1 < GUARDED_ATTEMPTS
                     {
                         conflict_backoff(attempt).await;
+                    attempt+=1;
                         continue;
                     }
+                    let error = error.exhaust_conflict("canonical::admit_product", GUARDED_ATTEMPTS);
                     operation_failed("canonical::admit_product", &error);
                     return Err(error);
                 }
             }
         }
-        Err(CanonicalError::Configuration(
-            "product admission retries exhausted".into(),
-        ))
         }).await
             }).await
     }
@@ -2011,7 +2227,7 @@ impl CanonicalStore {
 
 fn initialization_statement() -> String {
     format!(
-        "BEGIN;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'original schema installation deadline expired'; }};\n{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, issuing_store = <string>rand::uuid::v4(), payload_incarnation = $payload_incarnation;\nCREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'original schema installation deadline expired'; }};\nCOMMIT;",
+        "BEGIN;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'PSE_REFUSAL:original_schema_installation_deadline_expired'; }};\n{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, issuing_store = <string>rand::uuid::v4(), payload_incarnation = $payload_incarnation;\nCREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'PSE_REFUSAL:original_schema_installation_deadline_expired'; }};\nCOMMIT;",
         wire::SCHEMA
     )
 }
@@ -2054,15 +2270,11 @@ async fn connect_client(
 ) -> Result<Arc<CanonicalClient>, CanonicalError> {
     let deadline = original_deadline(REQUEST_TIMEOUT);
     within_clock(deadline, async {
-        let config = Config::new().bounded_requests().websocket(
-            WebsocketConfig::new()
-                .max_message_size(MESSAGE_BYTES)
-                .read_buffer_size(128 * 1024)
-                .write_buffer_size(128 * 1024)
-                .max_write_buffer_size(8 * 1024 * 1024),
-        )?;
+        let config = Config::new()
+            .bounded_requests()
+            .grpc(GrpcConfig::new().max_message_size(MESSAGE_BYTES))?;
         let db = within_clock(deadline, async {
-            Surreal::new::<Ws>((address, config))
+            Surreal::new::<Grpc>((address, config))
                 .await
                 .map_err(Into::into)
         })
@@ -2088,8 +2300,12 @@ where
     Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
 {
     within_clock(original_deadline(REQUEST_TIMEOUT), async {
-        for attempt in 0..GUARDED_ATTEMPTS {
-            match bounded_query(build()?).await {
+        let mut attempt=0;
+            loop {
+            let result=bounded_query(build()?).await;
+            #[cfg(all(test, feature = "canonical-tests"))]
+            if matches!(&result,Err(CanonicalError::Driver(error)) if matches!(error.query_details(),Some(surrealdb::types::QueryError::TransactionConflict))) { pacing_observation::conflict(operation); }
+            match result {
                 Err(CanonicalError::Driver(error))
                     if matches!(
                         error.query_details(),
@@ -2097,18 +2313,16 @@ where
                     ) && attempt + 1 < GUARDED_ATTEMPTS =>
                 {
                     conflict_backoff(attempt).await;
+                    attempt+=1;
                 }
                 result => {
                     if let Err(error) = &result {
                         operation_failed(operation, error);
                     }
-                    return result;
+                    return result.map_err(|error| error.exhaust_conflict(operation, GUARDED_ATTEMPTS));
                 }
             }
         }
-        Err(CanonicalError::Configuration(
-            "guarded operation retries exhausted".into(),
-        ))
     })
     .await
 }
@@ -2141,7 +2355,7 @@ async fn conflict_backoff(attempt: u32) {
 
 pub(crate) fn checked(
     mut response: surrealdb::IndexedResults,
-) -> Result<surrealdb::IndexedResults, surrealdb::Error> {
+) -> Result<surrealdb::IndexedResults, CanonicalError> {
     let errors = response.take_errors().into_values().collect::<Vec<_>>();
     if !errors.is_empty() {
         let substantive = errors.iter().position(|error| {
@@ -2154,7 +2368,7 @@ pub(crate) fn checked(
             )
         });
         if let Some(error) = errors.into_iter().nth(substantive.unwrap_or(0)) {
-            return Err(error);
+            return Err(error.into());
         }
     }
     Ok(response)
@@ -2165,14 +2379,14 @@ pub(crate) fn checked(
 pub(crate) const PROTECTED_BEGIN: &str = r#"BEGIN;
 SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $pin = SELECT * FROM ONLY type::record('canonical_protections', $protection) FOR UPDATE;
-IF $pin = NONE OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence OR $pin.released OR ($pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection)) { THROW 'immutable selection protection expired'; };
+IF $pin = NONE OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence OR $pin.released OR ($pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection)) { THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; };
 LET $grant=fn::pse_execution_v1::protection_grant($pse_rpc_expires_at,$problem,$protection,false);
-IF $pin.grant_deadline!=$grant.grant_deadline OR $pin.grant_nonce!=$grant.grant_nonce OR $pin.authority_incarnation!=$grant.authority_incarnation { THROW 'immutable selection grant differs'; };
+IF $pin.grant_deadline!=$grant.grant_deadline OR $pin.grant_nonce!=$grant.grant_nonce OR $pin.authority_incarnation!=$grant.authority_incarnation { THROW 'PSE_REFUSAL:immutable_selection_grant_differs'; };
 LET $result_pin=SELECT * FROM ONLY type::record('canonical_result_protections',$protection) FOR UPDATE;
 IF $result_pin!=NONE {
     LET $retirement=SELECT * FROM ONLY type::record('canonical_result_retirements',$result_pin.run) FOR UPDATE;
     LET $selected_manifest=SELECT * FROM ONLY type::record('canonical_result_manifests',$result_pin.manifest) FOR UPDATE;
-    IF $retirement!=NONE OR $selected_manifest=NONE OR $selected_manifest.attempt!=$result_pin.attempt { THROW 'result protection retired or manifest unavailable'; };
+    IF $retirement!=NONE OR $selected_manifest=NONE OR $selected_manifest.attempt!=$result_pin.attempt { THROW 'PSE_REFUSAL:result_protection_retired_or_manifest_unavailable'; };
 };"#;
 
 pub(crate) fn descriptor_for_product(
@@ -2271,10 +2485,10 @@ const PRODUCT_ACK: &str = r#"BEGIN;
 SELECT * FROM type::record('canonical_guards','retention:'+$problem) FOR UPDATE;
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $saved = SELECT * FROM ONLY type::record('canonical_product_descriptors',$descriptor.key);
-IF $saved != NONE AND ($saved.issuing_store != $descriptor.issuing_store OR $saved.problem != $descriptor.problem OR $saved.request != $descriptor.request OR $saved.payload != $descriptor.payload OR $saved.dependencies != $descriptor.dependencies OR $saved.content != $descriptor.content OR $saved.receipt != $descriptor.receipt OR $saved.producer != $descriptor.producer OR $saved.interpretation != $descriptor.interpretation) { THROW 'immutable descriptor hash collision'; };
+IF $saved != NONE AND ($saved.issuing_store != $descriptor.issuing_store OR $saved.problem != $descriptor.problem OR $saved.request != $descriptor.request OR $saved.payload != $descriptor.payload OR $saved.dependencies != $descriptor.dependencies OR $saved.content != $descriptor.content OR $saved.receipt != $descriptor.receipt OR $saved.producer != $descriptor.producer OR $saved.interpretation != $descriptor.interpretation) { THROW 'PSE_REFUSAL:immutable_descriptor_hash_collision'; };
 LET $association = IF $saved = NONE OR $saved.association = NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_product_associations',$saved.association) };
 LET $root = IF $association = NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_roots',$association.key) FOR UPDATE };
-IF $association != NONE AND ($association.descriptor != $descriptor.key OR $association.issuing_store != $descriptor.issuing_store OR $association.problem != $descriptor.problem OR $association.request != $descriptor.request OR $association.payload != $descriptor.payload OR $association.dependencies != $descriptor.dependencies OR $association.content != $descriptor.content OR $association.receipt != $descriptor.receipt OR $association.producer != $descriptor.producer OR $association.interpretation != $descriptor.interpretation) { THROW 'descriptor association equality differs'; };
+IF $association != NONE AND ($association.descriptor != $descriptor.key OR $association.issuing_store != $descriptor.issuing_store OR $association.problem != $descriptor.problem OR $association.request != $descriptor.request OR $association.payload != $descriptor.payload OR $association.dependencies != $descriptor.dependencies OR $association.content != $descriptor.content OR $association.receipt != $descriptor.receipt OR $association.producer != $descriptor.producer OR $association.interpretation != $descriptor.interpretation) { THROW 'PSE_REFUSAL:descriptor_association_equality_differs'; };
 LET $rpc_result = IF $root != NONE AND $root.key = $association.key AND $root.owner_kind = 'product' AND $root.owner = $association.key AND $root.problem = $association.problem AND $root.revision = $association.revision { $association.key } ELSE { NONE };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 RETURN $rpc_result; COMMIT;"#;
@@ -2285,26 +2499,26 @@ SELECT * FROM $stage_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_e
 LET $guards = array::sort([$content.version,$receipt.version]).map(|$v| type::record('canonical_guards','version:'+$v));
 FOR $guard IN $guards { SELECT * FROM $guard FOR UPDATE; };
 LET $stage = SELECT * FROM ONLY type::record('canonical_stages', $operation);
-IF $operation != $product.key OR $stage = NONE OR $stage.problem != $problem OR $stage.request_digest != $request_digest OR $stage.generation != $generation OR $stage.closed = false OR $stage.activated OR $stage.abandoned OR $stage.expires_at <= time::micros() OR $stage.edit_count != 2dec OR $stage.expected_head != NONE { THROW 'closed product staging manifest fenced'; };
+IF $operation != $product.key OR $stage = NONE OR $stage.problem != $problem OR $stage.request_digest != $request_digest OR $stage.generation != $generation OR $stage.closed = false OR $stage.activated OR $stage.abandoned OR $stage.expires_at <= time::micros() OR $stage.edit_count != 2dec OR $stage.expected_head != NONE { THROW 'PSE_REFUSAL:closed_product_staging_manifest_fenced'; };
 FOR $part IN [{ordinal:0dec,kind:'pse.body-content.v1',record:$content},{ordinal:1dec,kind:'pse.selection-receipt.v1',record:$receipt}] {
     LET $child = SELECT * FROM ONLY type::record('canonical_staged_edits',$operation+':'+<string>$part.ordinal);
     LET $manifest = SELECT * FROM ONLY type::record('canonical_version_manifests',$part.record.version);
-    IF $child = NONE OR $child.stage != $operation OR $child.ordinal != $part.ordinal OR $child.version != $part.record.version OR $child.logical != $part.kind OR $child.scope != $part.kind OR $child.name != $part.kind OR $manifest = NONE OR $manifest.closed = false OR $manifest.logical != $part.kind OR $manifest.kind != $part.kind OR $manifest.interpretation != $product.interpretation OR $manifest.reference_count != 0dec OR $manifest.payload_digest != $part.record.digest OR $manifest.payload_len != $part.record.bytes { THROW 'product physical part association invalid'; };
+    IF $child = NONE OR $child.stage != $operation OR $child.ordinal != $part.ordinal OR $child.version != $part.record.version OR $child.logical != $part.kind OR $child.scope != $part.kind OR $child.name != $part.kind OR $manifest = NONE OR $manifest.closed = false OR $manifest.logical != $part.kind OR $manifest.kind != $part.kind OR $manifest.interpretation != $product.interpretation OR $manifest.reference_count != 0dec OR $manifest.payload_digest != $part.record.digest OR $manifest.payload_len != $part.record.bytes { THROW 'PSE_REFUSAL:product_physical_part_association_invalid'; };
 };
-IF $product.issuing_store != (SELECT * FROM ONLY canonical_interpretations:current).issuing_store OR $descriptor.issuing_store != $product.issuing_store OR $descriptor.key != $product.descriptor OR $descriptor.content != $content.key OR $descriptor.receipt != $receipt.key OR $product.content != $content.key OR $product.receipt != $receipt.key OR $content.version != $content.key OR $receipt.version != $receipt.key OR $content.producer != $product.producer OR $content.interpretation != $product.interpretation OR $receipt.interpretation != $product.interpretation OR $content.format != 'pse.body-content.v1' OR $receipt.format != 'pse.selection-receipt.v1' { THROW 'product physical meaning differs'; };
+IF $product.issuing_store != (SELECT * FROM ONLY canonical_interpretations:current).issuing_store OR $descriptor.issuing_store != $product.issuing_store OR $descriptor.key != $product.descriptor OR $descriptor.content != $content.key OR $descriptor.receipt != $receipt.key OR $product.content != $content.key OR $product.receipt != $receipt.key OR $content.version != $content.key OR $receipt.version != $receipt.key OR $content.producer != $product.producer OR $content.interpretation != $product.interpretation OR $receipt.interpretation != $product.interpretation OR $content.format != 'pse.body-content.v1' OR $receipt.format != 'pse.selection-receipt.v1' { THROW 'PSE_REFUSAL:product_physical_meaning_differs'; };
 LET $old_content = SELECT * FROM ONLY type::record('canonical_body_contents',$content.key);
 IF $old_content = NONE { CREATE type::record('canonical_body_contents',$content.key) CONTENT $content; } ELSE {
-    IF $old_content.version != $content.version OR $old_content.digest != $content.digest OR $old_content.bytes != $content.bytes OR $old_content.producer != $content.producer OR $old_content.interpretation != $content.interpretation OR $old_content.format != $content.format { THROW 'immutable body content collision'; };
+    IF $old_content.version != $content.version OR $old_content.digest != $content.digest OR $old_content.bytes != $content.bytes OR $old_content.producer != $content.producer OR $old_content.interpretation != $content.interpretation OR $old_content.format != $content.format { THROW 'PSE_REFUSAL:immutable_body_content_collision'; };
 };
 LET $old_receipt = SELECT * FROM ONLY type::record('canonical_selection_receipts',$receipt.key);
 IF $old_receipt = NONE { CREATE type::record('canonical_selection_receipts',$receipt.key) CONTENT $receipt; } ELSE {
-    IF $old_receipt.version != $receipt.version OR $old_receipt.digest != $receipt.digest OR $old_receipt.bytes != $receipt.bytes OR $old_receipt.interpretation != $receipt.interpretation OR $old_receipt.format != $receipt.format { THROW 'immutable selection receipt collision'; };
+    IF $old_receipt.version != $receipt.version OR $old_receipt.digest != $receipt.digest OR $old_receipt.bytes != $receipt.bytes OR $old_receipt.interpretation != $receipt.interpretation OR $old_receipt.format != $receipt.format { THROW 'PSE_REFUSAL:immutable_selection_receipt_collision'; };
 };
 LET $saved = SELECT * FROM ONLY type::record('canonical_product_descriptors',$descriptor.key) FOR UPDATE;
-IF $saved != NONE AND ($saved.issuing_store != $descriptor.issuing_store OR $saved.problem != $descriptor.problem OR $saved.request != $descriptor.request OR $saved.payload != $descriptor.payload OR $saved.dependencies != $descriptor.dependencies OR $saved.content != $descriptor.content OR $saved.receipt != $descriptor.receipt OR $saved.producer != $descriptor.producer OR $saved.interpretation != $descriptor.interpretation) { THROW 'immutable descriptor hash collision'; };
+IF $saved != NONE AND ($saved.issuing_store != $descriptor.issuing_store OR $saved.problem != $descriptor.problem OR $saved.request != $descriptor.request OR $saved.payload != $descriptor.payload OR $saved.dependencies != $descriptor.dependencies OR $saved.content != $descriptor.content OR $saved.receipt != $descriptor.receipt OR $saved.producer != $descriptor.producer OR $saved.interpretation != $descriptor.interpretation) { THROW 'PSE_REFUSAL:immutable_descriptor_hash_collision'; };
 LET $equivalent = IF $saved = NONE OR $saved.association = NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_product_associations',$saved.association) };
 LET $equivalent_root = IF $equivalent = NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_roots',$equivalent.key) FOR UPDATE };
-IF $equivalent != NONE AND ($equivalent.descriptor != $descriptor.key OR $equivalent.issuing_store != $descriptor.issuing_store OR $equivalent.problem != $descriptor.problem OR $equivalent.request != $descriptor.request OR $equivalent.payload != $descriptor.payload OR $equivalent.dependencies != $descriptor.dependencies OR $equivalent.content != $descriptor.content OR $equivalent.receipt != $descriptor.receipt OR $equivalent.producer != $descriptor.producer OR $equivalent.interpretation != $descriptor.interpretation) { THROW 'descriptor association equality differs'; };
+IF $equivalent != NONE AND ($equivalent.descriptor != $descriptor.key OR $equivalent.issuing_store != $descriptor.issuing_store OR $equivalent.problem != $descriptor.problem OR $equivalent.request != $descriptor.request OR $equivalent.payload != $descriptor.payload OR $equivalent.dependencies != $descriptor.dependencies OR $equivalent.content != $descriptor.content OR $equivalent.receipt != $descriptor.receipt OR $equivalent.producer != $descriptor.producer OR $equivalent.interpretation != $descriptor.interpretation) { THROW 'PSE_REFUSAL:descriptor_association_equality_differs'; };
 LET $eligible = $equivalent_root != NONE AND $equivalent_root.key = $equivalent.key AND $equivalent_root.problem = $equivalent.problem AND $equivalent_root.revision = $equivalent.revision AND $equivalent_root.owner_kind = 'product' AND $equivalent_root.owner = $equivalent.key;
 IF $eligible = false {
     LET $existing = SELECT * FROM ONLY type::record('canonical_product_associations',$product.key);
@@ -2313,9 +2527,9 @@ IF $eligible = false {
         fn::pse_execution_v1::source_creator($pse_rpc_expires_at,$problem,$product.key);
         CREATE type::record('canonical_roots',$product.key) SET key=$product.key,problem=$problem,revision=$product.revision,sequence=$sequence,owner_kind='product',owner=$product.key;
     } ELSE {
-        IF $existing.issuing_store != $product.issuing_store OR $existing.problem != $product.problem OR $existing.revision != $product.revision OR $existing.descriptor != $product.descriptor OR $existing.request != $product.request OR $existing.payload != $product.payload OR $existing.dependencies != $product.dependencies OR $existing.content != $product.content OR $existing.receipt != $product.receipt OR $existing.producer != $product.producer OR $existing.interpretation != $product.interpretation { THROW 'immutable product identity reused'; };
+        IF $existing.issuing_store != $product.issuing_store OR $existing.problem != $product.problem OR $existing.revision != $product.revision OR $existing.descriptor != $product.descriptor OR $existing.request != $product.request OR $existing.payload != $product.payload OR $existing.dependencies != $product.dependencies OR $existing.content != $product.content OR $existing.receipt != $product.receipt OR $existing.producer != $product.producer OR $existing.interpretation != $product.interpretation { THROW 'PSE_REFUSAL:immutable_product_identity_reused'; };
         LET $root = SELECT * FROM ONLY type::record('canonical_roots',$product.key) FOR UPDATE;
-        IF $root=NONE OR $root.problem!=$existing.problem OR $root.revision!=$existing.revision OR $root.owner_kind!='product' OR $root.owner!=$existing.key { THROW 'product retention explicitly released or changed'; };
+        IF $root=NONE OR $root.problem!=$existing.problem OR $root.revision!=$existing.revision OR $root.owner_kind!='product' OR $root.owner!=$existing.key { THROW 'PSE_REFUSAL:product_retention_explicitly_released_or_changed'; };
     };
     IF $saved = NONE { CREATE type::record('canonical_product_descriptors',$descriptor.key) CONTENT $descriptor; };
     UPDATE type::record('canonical_product_descriptors',$descriptor.key) SET association=$product.key;
@@ -2326,7 +2540,7 @@ FOR $key IN [$content.version,$receipt.version] { UPSERT type::record('canonical
 fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 LET $rpc_result = IF $eligible { $equivalent.key } ELSE { $product.key };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-IF $pin.expires_at <= time::micros() OR $stage.expires_at <= time::micros() { THROW 'product publication authority expired'; };
+IF $pin.expires_at <= time::micros() OR $stage.expires_at <= time::micros() { THROW 'PSE_REFUSAL:product_publication_authority_expired'; };
 RETURN $rpc_result;
 "#;
 
@@ -2344,14 +2558,14 @@ SELECT * FROM $stage_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_e
 LET $head_guard = type::record('canonical_guards', 'head:' + $problem);
 SELECT * FROM $head_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $ack = SELECT * FROM ONLY type::record('canonical_revisions', $operation);
-IF $ack != NONE { THROW 'operation identity already committed; settle immutable revision'; };
+IF $ack != NONE { THROW 'PSE_REFUSAL:operation_identity_already_committed_settle_immutable_revision'; };
 LET $admission_owner=IF $admission=NONE {NONE} ELSE {fn::pse_study_v1::admission_authority($pse_rpc_expires_at,$admission)};
 LET $stage = SELECT * FROM ONLY type::record('canonical_stages', $operation);
-IF $stage = NONE OR $stage.problem != $problem OR ($stage.expected_head ?? NONE) != $expected OR $stage.request_digest != $request_digest OR $stage.generation != $generation OR $stage.closed = false OR $stage.abandoned OR $stage.activated OR $stage.expires_at <= time::micros() { THROW 'closed staging manifest fenced or unavailable'; };
+IF $stage = NONE OR $stage.problem != $problem OR ($stage.expected_head ?? NONE) != $expected OR $stage.request_digest != $request_digest OR $stage.generation != $generation OR $stage.closed = false OR $stage.abandoned OR $stage.activated OR $stage.expires_at <= time::micros() { THROW 'PSE_REFUSAL:closed_staging_manifest_fenced_or_unavailable'; };
 LET $head = SELECT * FROM ONLY type::record('canonical_problems', $problem);
-IF ($head.head ?? NONE) != $expected { THROW 'head compare-and-set conflict'; };
+IF ($head.head ?? NONE) != $expected { THROW 'PSE_REFUSAL:head_compare_and_set_conflict'; };
 LET $changes = SELECT * FROM canonical_staged_edits WHERE stage = $operation ORDER BY ordinal LIMIT /* EDIT_SCAN_LIMIT */;
-IF array::len($changes) != $stage.edit_count OR array::len($changes) > /* EDIT_LIMIT */ { THROW 'closed staging metadata coverage mismatch'; };
+IF array::len($changes) != $stage.edit_count OR array::len($changes) > /* EDIT_LIMIT */ { THROW 'PSE_REFUSAL:closed_staging_metadata_coverage_mismatch'; };
 LET $sequence = ($head.sequence ?? 0dec) + 1dec;
 UPSERT type::record('canonical_problems', $problem) SET key = $problem, head = $operation, sequence = $sequence;
 // Close all displaced intervals before checking the final namespace. Every
@@ -2383,7 +2597,7 @@ FOR $guards IN array::clump($scope_guards, 64) {
 };
 LET $incoming = $changes.filter(|$change| $change.version != NONE);
 LET $names = $incoming.map(|$change| type::string([$change.scope, $change.name]));
-IF array::len(array::distinct($names)) != array::len($names) { THROW 'name already exists within incoming revision'; };
+IF array::len(array::distinct($names)) != array::len($names) { THROW 'PSE_REFUSAL:name_already_exists_within_incoming_revision'; };
 FOR $batch IN array::clump($changes, 64) {
     LET $creates = $batch.filter(|$change| $change.version != NONE);
     // Read exact guard IDs, update existing records, and insert absent records.
@@ -2404,10 +2618,10 @@ FOR $batch IN array::clump($changes, 64) {
     INSERT INTO canonical_guards $missing RETURN NONE;
     LET $manifest_records = $creates.map(|$change| type::record('canonical_version_manifests', $change.version));
     LET $manifests = SELECT * FROM $manifest_records;
-    IF array::len($manifests) != array::len($creates) { THROW 'staged immutable source manifest coverage invalid'; };
+    IF array::len($manifests) != array::len($creates) { THROW 'PSE_REFUSAL:staged_immutable_source_manifest_coverage_invalid'; };
     FOR $change IN $creates {
         LET $manifest = $manifests.find(|$header| $header.key = $change.version);
-        IF $manifest = NONE OR $manifest.closed = false OR $manifest.logical != $change.logical OR $manifest.interpretation != $interpretation { THROW 'staged immutable source manifest invalid'; };
+        IF $manifest = NONE OR $manifest.closed = false OR $manifest.logical != $change.logical OR $manifest.interpretation != $interpretation { THROW 'PSE_REFUSAL:staged_immutable_source_manifest_invalid'; };
     };
     // One native name selection per demanded namespace/page, with scalar
     // bindings so released 3.3 selects the compound namespace index. Scientific
@@ -2418,7 +2632,7 @@ FOR $batch IN array::clump($changes, 64) {
         LET $survivors = SELECT name, logical FROM canonical_memberships WITH INDEX membership_selection WHERE problem = $problem AND scope = $scope AND name IN $names AND to_sequence = NONE;
         FOR $survivor IN $survivors {
             LET $replacement = $scope_changes.find(|$change| $change.name = $survivor.name);
-            IF $replacement = NONE OR $survivor.logical != $replacement.logical { THROW 'name already exists'; };
+            IF $replacement = NONE OR $survivor.logical != $replacement.logical { THROW 'PSE_REFUSAL:name_already_exists'; };
         };
     };
     LET $memberships = $creates.map(|$change| {
@@ -2438,7 +2652,7 @@ UPSERT $head_guard SET key = 'head:' + $problem, generation = (generation ?? 0de
 UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
 IF (SELECT * FROM ONLY $retention_guard)=NONE { CREATE ONLY $retention_guard SET key='retention:'+$problem,generation=0dec,incarnation=<string>rand::uuid::v4(); };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-IF $stage.expires_at <= time::micros() { THROW 'activation staging lease expired before commit'; };
+IF $stage.expires_at <= time::micros() { THROW 'PSE_REFUSAL:activation_staging_lease_expired_before_commit'; };
 IF $admission_owner!=NONE { fn::pse_execution_v1::lease($pse_rpc_expires_at,$admission_owner.expires_at); };
 COMMIT;
 "#;
@@ -2504,7 +2718,7 @@ mod canonical_admission_unit {
             }),
         );
         let config = serde_json::json!({
-            "profile_version": 2, "endpoint": "ws://127.0.0.1:8000",
+            "profile_version": 3, "endpoint": "grpc://127.0.0.1:8000",
             "namespace": "canonical", "database": "selected",
             "schema_interpretation": wire::INTERPRETATION,
             "max_message_bytes": MESSAGE_BYTES, "credentials_file": credentials,
@@ -3342,6 +3556,239 @@ mod canonical_server_unit {
             options,
         )
     }
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn canonical_sixteen_lane_pacing_attributes_actual_work_and_preserves_control_progress() {
+        use crate::canonical_execution::{ResultPayload, RunRequest};
+        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+        use std::time::Duration;
+        let (store, _) = initialization_fixture().await;
+        store.create().await.unwrap();
+        let revision = store
+            .edit("problem", None, "pacing-initial", &[])
+            .await
+            .unwrap();
+        let request = |key: &str| RunRequest {
+            key: key.into(),
+            revision: revision.clone(),
+            sources: vec![],
+            request: vec![1],
+            source_selection: vec![2],
+            attestation: vec![3],
+        };
+        store.begin_run(&request("pacing-cancel")).await.unwrap();
+        let fence = store
+            .claim_run(
+                "pacing-cancel",
+                "pacing-claim",
+                "worker",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+        let probe = pacing_observation::Probe::default();
+        let gate = store.problem_turns.gate("problem").unwrap();
+        let held = gate.write_owned().await;
+        let barrier = Arc::new(tokio::sync::Barrier::new(17));
+        let independent = Arc::new(AtomicUsize::new(0));
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let mut jobs = tokio::task::JoinSet::new();
+        for lane in 0..16 {
+            let store = store.clone();
+            let revision = revision.clone();
+            let barrier = barrier.clone();
+            let probe = probe.clone();
+            let independent = independent.clone();
+            let cancelled = cancelled.clone();
+            jobs.spawn(async move {
+                probe
+                    .scope(async {
+                        barrier.wait().await;
+                        match lane {
+                            0..=3 => {
+                                // Four exact callers publish one source receipt, without
+                                // holding the problem turn across their whole operation.
+                                store
+                                    .edit(
+                                        "problem",
+                                        Some("pacing-initial"),
+                                        "pacing-shared-source",
+                                        &[ObjectEdit {
+                                            logical: "paced-object".into(),
+                                            scope: "root".into(),
+                                            name: "Paced".into(),
+                                            references: vec![],
+                                            version: Some(version(
+                                                "paced-version",
+                                                "paced-object",
+                                                b"retained",
+                                            )),
+                                        }],
+                                    )
+                                    .await
+                                    .unwrap();
+                            }
+                            4..=6 => {
+                                let key = format!("pacing-start-{lane}");
+                                let request = RunRequest {
+                                    key: key.clone(),
+                                    revision: revision.clone(),
+                                    sources: vec![],
+                                    request: vec![1],
+                                    source_selection: vec![2],
+                                    attestation: vec![3],
+                                };
+                                let run = store.begin_run(&request).await.unwrap();
+                                assert_eq!(store.begin_run(&request).await.unwrap(), run);
+                                let attempt = store
+                                    .claim_run(
+                                        &key,
+                                        &format!("pacing-claim-{lane}"),
+                                        "worker",
+                                        Duration::from_secs(60),
+                                    )
+                                    .await
+                                    .unwrap();
+                                store
+                                    .renew_attempt(&attempt, Duration::from_secs(60))
+                                    .await
+                                    .unwrap();
+                                store
+                                    .cancel_run(&key, &format!("pacing-cancel-{lane}"))
+                                    .await
+                                    .unwrap();
+                            }
+                            7..=10 => {
+                                let protection = store
+                                    .protect(revision.clone(), Duration::from_secs(60))
+                                    .await
+                                    .unwrap();
+                                let mut selected =
+                                    crate::canonical_selection::SelectedRead::new(protection);
+                                assert!(
+                                    store
+                                        .resolve_logicals(&mut selected, &["absent".into()])
+                                        .await
+                                        .unwrap()
+                                        .is_empty()
+                                );
+                                store.release(selected.selection()).await.unwrap();
+                            }
+                            11..=14 => {
+                                store
+                                    .edit(
+                                        &format!("independent-{lane}"),
+                                        None,
+                                        &format!("independent-source-{lane}"),
+                                        &[],
+                                    )
+                                    .await
+                                    .unwrap();
+                                independent.fetch_add(1, Ordering::SeqCst);
+                            }
+                            _ => {
+                                let run = store
+                                    .cancel_run("pacing-cancel", "pacing-control-cancel")
+                                    .await
+                                    .unwrap();
+                                assert!(run.cancelled);
+                                cancelled.store(true, Ordering::SeqCst);
+                            }
+                        }
+                    })
+                    .await
+            });
+        }
+        barrier.wait().await;
+        tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                let queued = probe
+                    .snapshot()
+                    .get("problem")
+                    .map_or(0, |observation| observation.submitted);
+                if queued >= 4
+                    && independent.load(Ordering::SeqCst) == 4
+                    && cancelled.load(Ordering::SeqCst)
+                {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        // An expired original clock leaves the actual native mutation unissued.
+        let expired=operation_scope(std::time::Instant::now()+Duration::from_millis(20),store.protected_query("problem",QueryEffect::Mutation,"qualification::expired_pacing",||Ok(store.db.query("CREATE canonical_guards:expired_pacing SET key='expired_pacing',generation=0dec;")))).await;
+        assert!(matches!(expired, Err(CanonicalError::Timeout)));
+        drop(held);
+        tokio::time::timeout(Duration::from_secs(45), async {
+            while let Some(result) = jobs.join_next().await {
+                result.unwrap();
+            }
+        })
+        .await
+        .unwrap();
+        let mut missing = bounded_query(
+            store
+                .db
+                .query("SELECT * FROM ONLY canonical_guards:expired_pacing;"),
+        )
+        .await
+        .unwrap();
+        assert!(missing.take::<Option<Object>>(0).unwrap().is_none());
+        assert!(
+            store
+                .append_result_batch(
+                    &fence,
+                    "pacing-revoked-write",
+                    "values",
+                    0,
+                    ResultPayload::new(vec![1]).unwrap(),
+                    1
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            store
+                .execution_run_page("problem", None, 64)
+                .await
+                .unwrap()
+                .len(),
+            4
+        );
+        assert_eq!(
+            store
+                .revision("pacing-shared-source")
+                .await
+                .unwrap()
+                .unwrap()
+                .sequence,
+            revision.sequence + 1
+        );
+        let observations = probe.snapshot();
+        assert!(observations["problem"].mutations >= 4);
+        assert!(
+            observations["problem"].reads >= 4,
+            "actual protected selection reads must be observed"
+        );
+        assert!(observations["problem"].longest_queue > Duration::ZERO);
+        assert!(
+            observations
+                .keys()
+                .any(|key| key.starts_with("execution-run:pacing"))
+        );
+        assert!(
+            observations
+                .keys()
+                .any(|key| key.starts_with("independent-"))
+        );
+        eprintln!(
+            "actual sixteen-lane pacing (queue and hold exclude scientific work): {observations:#?}"
+        );
+        store.result_read_drain.drain().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
     #[tokio::test]
     async fn operation_owned_initialization_repeats_and_preserves_readback_failure() {
         let (store, options) = initialization_fixture().await;
@@ -4098,7 +4545,7 @@ mod canonical_server_unit {
         // TEST ONLY: an explicit bounded opaque loopback relay may forward the
         // configured actual server. Ordinary native controls keep their fixture route.
         if let Ok(endpoint) = std::env::var("PSE_CANONICAL_TEST_ENDPOINT") {
-            if endpoint != "ws://127.0.0.1:18089" {
+            if endpoint != "grpc://127.0.0.1:18089" {
                 return Err(CanonicalError::Configuration(
                     "transport fixture relay must be the assigned loopback endpoint".into(),
                 ));
@@ -4242,9 +4689,10 @@ mod canonical_server_unit {
             attempts.load(std::sync::atomic::Ordering::SeqCst),
             GUARDED_ATTEMPTS as usize
         );
-        assert!(
-            matches!(result, Err(CanonicalError::Driver(error)) if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
-        );
+        assert!(matches!(
+            result,
+            Err(CanonicalError::ConflictExhausted { .. })
+        ));
         for kind in [
             surrealdb::types::QueryError::Cancelled,
             surrealdb::types::QueryError::NotExecuted,
@@ -4319,9 +4767,10 @@ mod canonical_server_unit {
             })
             .await;
         assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 8);
-        assert!(
-            matches!(result, Err(CanonicalError::Driver(error)) if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
-        );
+        assert!(matches!(
+            result,
+            Err(CanonicalError::ConflictExhausted { .. })
+        ));
         attempts.store(0, std::sync::atomic::Ordering::SeqCst);
         let result = store
             .initialize_with(|| async {
@@ -4809,7 +5258,7 @@ mod canonical_server_unit {
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
-    async fn websocket_exact_cells_and_guarded_revisions() {
+    async fn grpc_exact_cells_and_guarded_revisions() {
         let state =
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
@@ -4819,11 +5268,11 @@ mod canonical_server_unit {
         let result: Result<(), CanonicalError> = async {
             for (index, value) in [0, (1u64<<63)-1, 1u64<<63, (1u64<<63)+1, u64::MAX-1, u64::MAX].into_iter().enumerate() {
                 let row = pse_model::generated::runtime::canonical_guards::Row { key: format!("boundary-{index}"), generation: value, incarnation: None, protection_closed_through: None, analysis_creation_closed_through: None, artifact_creation_closed_through: None };
-                let mut response = store.db.query("CREATE type::record('canonical_guards', $key) CONTENT $row;").bind(("key", row.key.clone())).bind(("row", wire::encode_canonical_guards(&row)?)).await.and_then(checked)?;
+                let mut response = store.db.query("CREATE type::record('canonical_guards', $key) CONTENT $row;").bind(("key", row.key.clone())).bind(("row", wire::encode_canonical_guards(&row)?)).await.map_err(CanonicalError::from).and_then(checked)?;
                 let saved: Option<Object> = response.take(0)?;
                 assert_eq!(wire::decode_canonical_guards(saved.unwrap())?.generation, value);
             }
-            let mut ordered = store.db.query("SELECT generation FROM canonical_guards WHERE generation >= $lower ORDER BY generation;").bind(("lower", crate::canonical_codec::encode_uint(1u64<<63)?)).await.and_then(checked)?;
+            let mut ordered = store.db.query("SELECT generation FROM canonical_guards WHERE generation >= $lower ORDER BY generation;").bind(("lower", crate::canonical_codec::encode_uint(1u64<<63)?)).await.map_err(CanonicalError::from).and_then(checked)?;
             let rows: Vec<Object> = ordered.take(0)?;
             let ordered = rows.into_iter().map(|mut row| crate::canonical_codec::decode_uint(row.remove("generation").unwrap())).collect::<Result<Vec<_>,_>>()?;
             assert_eq!(ordered, [1u64<<63, (1u64<<63)+1, u64::MAX-1, u64::MAX]);
@@ -4865,16 +5314,16 @@ pub(crate) const ACQUIRE_PROTECTION: &str = r#"BEGIN;
             SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
             LET $grant=fn::pse_execution_v1::protection_grant($pse_rpc_expires_at,$problem,$key,true);
             LET $revision = SELECT * FROM ONLY type::record('canonical_revisions', $revision);
-            IF $revision = NONE OR $revision.problem != $problem { THROW 'revision unavailable'; };
+            IF $revision = NONE OR $revision.problem != $problem { THROW 'PSE_REFUSAL:revision_unavailable'; };
             LET $reclaimed = SELECT key FROM canonical_reclaimed_ranges WHERE problem = $problem AND from_sequence <= $revision.sequence AND to_sequence > $revision.sequence LIMIT 1;
-            IF array::len($reclaimed) != 0 { THROW 'source selection reclaimed'; };
+            IF array::len($reclaimed) != 0 { THROW 'PSE_REFUSAL:source_selection_reclaimed'; };
             IF (SELECT * FROM ONLY type::record('canonical_protections', $key) FOR UPDATE) = NONE { CREATE type::record('canonical_protections', $key) SET key = $key, problem = $problem, revision = $revision.key, sequence = $revision.sequence, expires_at = time::micros() + $lifetime, released = false, grant_deadline=$grant.grant_deadline, grant_nonce=$grant.grant_nonce, authority_incarnation=$grant.authority_incarnation; };
             fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
             LET $rpc_result = SELECT * FROM ONLY type::record('canonical_revisions', $revision.key) TIMEOUT $pse_rpc_timeout;
             fn::pse_execution_v1::deadline($pse_rpc_expires_at);
             LET $protection = SELECT * FROM ONLY type::record('canonical_protections', $key);
-            IF $protection = NONE OR $protection.released OR $protection.expires_at <= time::micros() { THROW 'immutable selection protection expired'; };
-            IF $protection.problem!=$problem OR $protection.revision!=$revision.key OR $protection.sequence!=$revision.sequence OR $protection.grant_deadline!=$grant.grant_deadline OR $protection.grant_nonce!=$grant.grant_nonce OR $protection.authority_incarnation!=$grant.authority_incarnation { THROW 'immutable selection grant identity reused'; };
+            IF $protection = NONE OR $protection.released OR $protection.expires_at <= time::micros() { THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; };
+            IF $protection.problem!=$problem OR $protection.revision!=$revision.key OR $protection.sequence!=$revision.sequence OR $protection.grant_deadline!=$grant.grant_deadline OR $protection.grant_nonce!=$grant.grant_nonce OR $protection.authority_incarnation!=$grant.authority_incarnation { THROW 'PSE_REFUSAL:immutable_selection_grant_identity_reused'; };
             RETURN $rpc_result;
             COMMIT;"#;
 
@@ -4884,7 +5333,7 @@ pub(crate) const RELEASE_PROTECTION: &str = r#"BEGIN;
             fn::pse_execution_v1::deadline($pse_rpc_expires_at);
             LET $grant=fn::pse_execution_v1::protection_grant($pse_rpc_expires_at,$problem,$protection,false);
             LET $pin = SELECT * FROM ONLY type::record('canonical_protections', $protection) FOR UPDATE;
-            IF $pin != NONE AND ($pin.key != $protection OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence) { THROW 'immutable selection protection identity differs'; };
+            IF $pin != NONE AND ($pin.key != $protection OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence) { THROW 'PSE_REFUSAL:immutable_selection_protection_identity_differs'; };
             IF !$grant.closed OR $pin!=NONE { UPSERT type::record('canonical_protections', $protection) SET key = $protection, problem = $problem, revision = $revision, sequence = $sequence, expires_at = 0, released = true, grant_deadline=$grant.grant_deadline, grant_nonce=$grant.grant_nonce, authority_incarnation=$grant.authority_incarnation; };
             fn::pse_files_v1::release_ticket($pse_rpc_expires_at,$protection);
             fn::pse_execution_v1::deadline($pse_rpc_expires_at);
@@ -4920,5 +5369,133 @@ mod source_refusal_tests {
             assert!(!raw.source_transaction_refused());
             assert!(!raw.proves_source_refusal());
         }
+    }
+}
+
+#[cfg(test)]
+mod typed_refusal_unit {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "exact native phase codec controls require valid generated wire values"
+    )]
+    use super::*;
+    #[test]
+    fn native_kind_authenticates_every_known_refusal_and_unknowns_fail_closed() {
+        for &code in RefusalCode::ALL {
+            let decoded = CanonicalError::from(surrealdb::Error::thrown(format!(
+                "An error occurred: {}",
+                code.wire()
+            )));
+            assert!(
+                matches!(decoded, CanonicalError::Refused { code: actual, class, effect: FailureEffect::StatementRefused, .. } if actual == code && class == code.class())
+            );
+            assert!(matches!(
+                CanonicalError::from(surrealdb::Error::internal(code.wire().into())),
+                CanonicalError::Driver(_)
+            ));
+        }
+        assert!(matches!(
+            CanonicalError::from(surrealdb::Error::thrown(
+                "An error occurred: PSE_REFUSAL:unknown".into()
+            )),
+            CanonicalError::Driver(_)
+        ));
+    }
+    #[test]
+    fn mx_capacity_and_poison_are_distinct_from_conflicts_and_keep_unknown_effect() {
+        for (wire, expected) in [
+            ("PSE_MX_MEMORY_LIMIT:", StoreFailure::MemoryLimit),
+            ("PSE_MX_TX_TOO_OLD:", StoreFailure::TransactionTooOld),
+            ("PSE_MX_DATABASE_POISONED:", StoreFailure::DatabasePoisoned),
+            ("PSE_MX_ASYNC_QUEUE_FULL:", StoreFailure::AsyncQueueFull),
+            ("PSE_MX_CORRUPTED:", StoreFailure::Corrupted),
+            ("PSE_MX_COMMIT_UNKNOWN:", StoreFailure::CommitUnknown),
+        ] {
+            let decoded = CanonicalError::from(surrealdb::Error::internal(wire.into()));
+            let original = std::error::Error::source(&decoded)
+                .unwrap()
+                .downcast_ref::<surrealdb::Error>()
+                .unwrap();
+            assert!(original.is_internal());
+            assert_eq!(original.message(), wire);
+            assert!(
+                matches!(decoded, CanonicalError::StoreFailure { failure, effect: FailureEffect::Unknown, .. } if failure==expected)
+            );
+            assert!(matches!(
+                CanonicalError::from(surrealdb::Error::thrown(wire.into())),
+                CanonicalError::Driver(_)
+            ));
+        }
+        let conflict = CanonicalError::from(surrealdb::Error::query(
+            "conflict".into(),
+            Some(surrealdb::types::QueryError::TransactionConflict),
+        ));
+        assert!(matches!(
+            conflict.exhaust_conflict("test", 32),
+            CanonicalError::ConflictExhausted { attempts: 32, .. }
+        ));
+    }
+    #[test]
+    fn every_physical_phase_roundtrips_without_unsigned_or_observational_coercion() {
+        use crate::canonical_execution::{CanonicalAttempt, TerminalClass};
+        use pse_model::generated::enums::CanonicalAttemptPhase as Phase;
+        let mut row = CanonicalAttempt {
+            key: "attempt".into(),
+            run: "run".into(),
+            generation: u64::MAX,
+            claim_operation: "claim".into(),
+            request: vec![1].into(),
+            worker: "worker".into(),
+            expires_at: 7,
+            phase: Phase::Ingesting,
+            close_generation: None,
+            outcome: None,
+            closed_manifest: None,
+            completion: None,
+            seed_manifest: None,
+            finalization_study: None,
+        };
+        for (phase, ingesting, terminal, manifest) in [
+            (Phase::Ingesting, true, false, false),
+            (Phase::ClosedAwaitingManifest, false, false, false),
+            (Phase::ClosedWithManifest, false, false, true),
+            (Phase::Terminal, false, true, true),
+            (Phase::TerminalCompacted, false, true, true),
+        ] {
+            row.phase = phase;
+            row.close_generation = (!ingesting).then_some(u64::MAX);
+            row.outcome = terminal.then_some(TerminalClass::Succeeded);
+            row.closed_manifest = manifest.then(|| row.key.clone());
+            row.completion = (phase == Phase::Terminal).then(|| vec![7].into());
+            let decoded =
+                wire::decode_canonical_attempts(wire::encode_canonical_attempts(&row).unwrap())
+                    .unwrap();
+            assert_eq!(decoded, row);
+            assert_eq!(decoded.generation, u64::MAX);
+            assert_eq!(decoded.ingestion_open(), ingesting);
+            assert_eq!(decoded.closed(), !ingesting);
+            assert_eq!(decoded.terminal(), terminal);
+        }
+    }
+    #[test]
+    fn physical_and_observed_lifecycle_projections_do_not_share_spellings() {
+        use crate::canonical_execution::TerminalClass;
+        use pse_model::generated::enums::{AttemptState, StudyPointState};
+        assert_eq!(
+            TerminalClass::Succeeded.attempt_state(),
+            AttemptState::Completed
+        );
+        assert_eq!(
+            TerminalClass::Partial.attempt_state(),
+            AttemptState::Partial
+        );
+        assert_eq!(
+            TerminalClass::Partial.study_point_state(true),
+            StudyPointState::Completed
+        );
+        assert_eq!(
+            TerminalClass::Partial.study_point_state(false),
+            StudyPointState::Failed
+        );
     }
 }

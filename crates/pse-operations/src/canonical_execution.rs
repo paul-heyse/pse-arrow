@@ -46,12 +46,13 @@ pub struct CanonicalAttemptMetadata {
 }
 impl From<CanonicalAttempt> for CanonicalAttemptMetadata {
     fn from(row: CanonicalAttempt) -> Self {
+        let terminal = row.terminal();
         Self {
             key: row.key,
             run: row.run,
             generation: row.generation,
-            terminal: row.terminal,
-            outcome: row.outcome,
+            terminal,
+            outcome: row.outcome.map(|outcome| outcome.as_str().to_owned()),
             closed_manifest: row.closed_manifest,
             close_generation: row.close_generation,
         }
@@ -524,7 +525,7 @@ mod canonical_execution_server_unit {
                 .await
                 .unwrap()
                 .unwrap();
-            assert!(current.ingestion_open && !current.closed && !current.terminal);
+            assert!(current.ingestion_open() && !current.closed() && !current.terminal());
             assert!(current.closed_manifest.is_none());
             remove(&store, &database).await;
         }
@@ -602,7 +603,7 @@ mod canonical_execution_server_unit {
                     .await
                     .unwrap()
                     .unwrap()
-                    .terminal
+                    .terminal()
             );
             remove(&store, &database).await;
         }
@@ -672,7 +673,7 @@ mod canonical_execution_server_unit {
                     .await
                     .unwrap()
                     .unwrap()
-                    .terminal
+                    .terminal()
             );
             remove(&store, &database).await;
         }
@@ -908,7 +909,10 @@ mod canonical_execution_server_unit {
                     .await
             }
             .unwrap();
-            assert_eq!(attempt.outcome.as_deref(), Some("cancelled"));
+            assert_eq!(
+                attempt.outcome.as_ref().map(|value| value.as_str()),
+                Some("cancelled")
+            );
             assert!(
                 store
                     .claim_run(
@@ -1168,7 +1172,7 @@ mod canonical_execution_server_unit {
                 .await
         }
         .unwrap();
-        assert!(terminal.terminal);
+        assert!(terminal.terminal());
         assert!(terminal.seed_manifest.is_none());
         let candidates = store
             .result_seed_candidates("layout", "preparation", "backend", None)
@@ -1355,7 +1359,14 @@ mod canonical_execution_server_unit {
             manifest.row()
         );
         let history = store.read_results("run", fence.attempt()).await.unwrap();
-        assert_eq!(history.attempt().outcome.as_deref(), Some("partial"));
+        assert_eq!(
+            history
+                .attempt()
+                .outcome
+                .as_ref()
+                .map(|value| value.as_str()),
+            Some("partial")
+        );
         let fresh = store
             .claim_run("run", "new-claim", "worker", Duration::from_secs(60))
             .await
@@ -1504,7 +1515,10 @@ mod canonical_execution_server_unit {
                         .await
                 }
                 .unwrap();
-                assert_eq!(terminal.outcome.as_deref(), Some("succeeded"));
+                assert_eq!(
+                    terminal.outcome.as_ref().map(|value| value.as_str()),
+                    Some("succeeded")
+                );
                 let read = store.read_results(&key, fence.attempt()).await.unwrap();
                 assert_eq!(read.run().revision, revision.key);
                 let payload = store
@@ -1700,17 +1714,22 @@ mod canonical_execution_server_unit {
             .renew_attempt(&fence, Duration::from_secs(60))
             .await
             .unwrap_err();
-        assert!(
-            error.to_string().contains("lease expired before commit"),
-            "{error}"
-        );
+        assert!(matches!(
+            error,
+            CanonicalError::Refused {
+                code: pse_schema::catalog::canonical_refusals::RefusalCode::ExecutionAttemptLeaseExpiredBeforeCommit,
+                class: pse_schema::catalog::canonical_refusals::RefusalClass::Fence,
+                effect: crate::canonical::FailureEffect::StatementRefused,
+                ..
+            }
+        ), "{error}");
         let saved = store
             .canonical_attempt(&fence.attempt)
             .await
             .unwrap()
             .unwrap();
         assert_eq!(saved.expires_at, original.expires_at);
-        assert!(!saved.terminal);
+        assert!(!saved.terminal());
         remove(&store, &database).await;
     }
 
@@ -1804,7 +1823,10 @@ mod canonical_execution_server_unit {
                 .await
         }
         .unwrap();
-        assert_eq!(failed.outcome.as_deref(), Some("failed"));
+        assert_eq!(
+            failed.outcome.as_ref().map(|value| value.as_str()),
+            Some("failed")
+        );
         assert_eq!(
             decode_result_descriptors(manifest.row()).unwrap()[0].row_count,
             1
@@ -1882,7 +1904,10 @@ mod canonical_execution_server_unit {
                 .await
         }
         .unwrap();
-        assert_eq!(terminal.outcome.as_deref(), Some("cancelled"));
+        assert_eq!(
+            terminal.outcome.as_ref().map(|value| value.as_str()),
+            Some("cancelled")
+        );
         assert!(
             store
                 .claim_run(
@@ -1893,6 +1918,498 @@ mod canonical_execution_server_unit {
                 )
                 .await
                 .is_err()
+        );
+        remove(&store, &database).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "explicit owned server restart needs its external lifecycle rendezvous"]
+    async fn retained_canonical_store_recovers_a_new_generation_after_external_server_restart() {
+        let directory = std::path::PathBuf::from(
+            std::env::var_os("PSE_CANONICAL_RESTART_CONTROL")
+                .expect("explicit owned restart control directory required"),
+        );
+        for name in [
+            "ready.json",
+            "stopped.json",
+            "down-observed.json",
+            "restarted.json",
+            "complete.json",
+        ] {
+            assert!(
+                !directory.join(name).exists(),
+                "restart rendezvous must be fresh: {name}"
+            );
+        }
+        let publish = |name: &str, value: serde_json::Value| {
+            let temporary = directory.join(format!("{name}.tmp"));
+            std::fs::write(&temporary, serde_json::to_vec(&value).unwrap()).unwrap();
+            std::fs::rename(temporary, directory.join(name)).unwrap();
+        };
+        async fn wait(directory: &Path, name: &str) {
+            let deadline = tokio::time::Instant::now() + Duration::from_secs(120);
+            while !directory.join(name).exists() {
+                assert!(
+                    tokio::time::Instant::now() < deadline,
+                    "external lifecycle did not publish {name}"
+                );
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        }
+        let (store, database, revision) = fixture().await;
+        let request = RunRequest {
+            key: "retained-restart-run".into(),
+            revision: revision.clone(),
+            sources: vec![],
+            request: vec![1],
+            source_selection: vec![2],
+            attestation: vec![3],
+        };
+        let original = store.begin_run(&request).await.unwrap();
+        let fence = store
+            .claim_run(
+                &original.key,
+                "retained-restart-claim",
+                "worker",
+                Duration::from_secs(600),
+            )
+            .await
+            .unwrap();
+        let acknowledged = store.canonical_run(&original.key).await.unwrap().unwrap();
+        let issuing_store = store.issuing_store().unwrap().to_owned();
+        publish(
+            "ready.json",
+            serde_json::json!({"database":database,"state":store.deployment_state(),"sequence":original.sequence,"attempt":fence.attempt(),"generation":fence.generation(),"issuing_store":issuing_store}),
+        );
+        wait(&directory, "stopped.json").await;
+        // Force this retained physical generation to observe the real closed
+        // server. The failed read is not an application replay authorization.
+        let lost = crate::canonical::operation_scope(
+            std::time::Instant::now() + Duration::from_secs(2),
+            store.canonical_run(&original.key),
+        )
+        .await;
+        let error = lost.unwrap_err();
+        assert!(
+            error.is_infrastructure(),
+            "closed server must not fabricate a domain refusal: {error}"
+        );
+        publish(
+            "down-observed.json",
+            serde_json::json!({"database":database,"error":error.to_string()}),
+        );
+        wait(&directory, "restarted.json").await;
+        // The same handle/session owner must restore ACK-only setup for a new
+        // undispatched operation. Do not reconnect or reopen in this control.
+        assert_eq!(store.begin_run(&request).await.unwrap(), acknowledged);
+        assert_eq!(store.issuing_store().unwrap(), issuing_store);
+        let resumed = store
+            .claim_run(
+                &original.key,
+                "retained-restart-claim",
+                "worker",
+                Duration::from_secs(600),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resumed.attempt(), fence.attempt());
+        assert_eq!(resumed.generation(), fence.generation());
+        store
+            .renew_attempt(&fence, Duration::from_secs(600))
+            .await
+            .unwrap();
+        store
+            .append_result_batch(
+                &fence,
+                "retained-restart-batch",
+                "values",
+                0,
+                ResultPayload::new(vec![7]).unwrap(),
+                1,
+            )
+            .await
+            .unwrap();
+        let closed = store
+            .close_result_ingestion(&fence, "retained-restart-close")
+            .await
+            .unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        assert_eq!(decode_result_descriptors(manifest.row()).unwrap().len(), 1);
+        let fresh = store
+            .begin_run(&RunRequest {
+                key: "retained-restart-next".into(),
+                ..request
+            })
+            .await
+            .unwrap();
+        assert_eq!(
+            fresh.sequence,
+            original.sequence + 1,
+            "ACK restoration must not replay a publication or consume another sequence"
+        );
+        assert_eq!(
+            store
+                .execution_run_page(&revision.problem, None, 64)
+                .await
+                .unwrap()
+                .len(),
+            2
+        );
+        remove(&store, &database).await;
+        publish(
+            "complete.json",
+            serde_json::json!({"database":database,"same_store":true,"same_attempt":true,"next_sequence":fresh.sequence}),
+        );
+    }
+
+    #[tokio::test]
+    async fn canonical_physical_phase_assertions_backstop_direct_mutations() {
+        let (store, database, revision) = fixture().await;
+        run(&store, &revision, "phase-backstop").await;
+        let fence = store
+            .claim_run(
+                "phase-backstop",
+                "phase-claim",
+                "worker",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+        let original = store
+            .canonical_attempt(fence.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        run(&store, &revision, "phase-legal-sibling").await;
+        let sibling = store
+            .claim_run(
+                "phase-legal-sibling",
+                "phase-sibling-claim",
+                "worker",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+        let sibling_closed = store
+            .close_result_ingestion(&sibling, "phase-sibling-close")
+            .await
+            .unwrap();
+        store
+            .reconcile_closed_attempt(&sibling_closed)
+            .await
+            .unwrap();
+        let sibling_before = store
+            .canonical_attempt(sibling.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        let multirow=bounded_query(store.db.query("UPDATE canonical_attempts SET phase='terminal',outcome='failed',completion=$completion WHERE key IN [$attempt,$sibling];").bind(("attempt",fence.attempt().to_owned())).bind(("sibling",sibling.attempt().to_owned())).bind(("completion",Bytes::from(vec![1_u8])))).await.unwrap_err();
+        assert!(matches!(multirow, CanonicalError::Driver(_)));
+        assert_eq!(
+            store
+                .canonical_attempt(fence.attempt())
+                .await
+                .unwrap()
+                .unwrap(),
+            original
+        );
+        assert_eq!(
+            store
+                .canonical_attempt(sibling.attempt())
+                .await
+                .unwrap()
+                .unwrap(),
+            sibling_before,
+            "one invalid row must roll back the otherwise legal sibling mutation"
+        );
+        for (index, statement) in [
+            "CREATE ONLY type::record('canonical_attempts',$key) CONTENT $row;",
+            "UPSERT ONLY type::record('canonical_attempts',$key) CONTENT $row;",
+            "INSERT INTO canonical_attempts $row;",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let key = format!("illegal-created-phase-{index}");
+            let mut row = wire::encode_canonical_attempts(&original).unwrap();
+            row.insert(
+                "id",
+                canonical_codec::record_link("canonical_attempts", &key),
+            );
+            row.insert("key", Value::String(key.clone()));
+            row.insert("phase", Value::String("invented".into()));
+            let error = bounded_query(
+                store
+                    .db
+                    .query(statement)
+                    .bind(("key", key.clone()))
+                    .bind(("row", row)),
+            )
+            .await
+            .unwrap_err();
+            assert!(
+                matches!(error, CanonicalError::Driver(_)),
+                "schema failure must stay internal: {error}"
+            );
+            assert!(store.canonical_attempt(&key).await.unwrap().is_none());
+        }
+        let mut duplicate = wire::encode_canonical_attempts(&original).unwrap();
+        duplicate.insert(
+            "id",
+            canonical_codec::record_link("canonical_attempts", fence.attempt()),
+        );
+        let error = bounded_query(
+            store
+                .db
+                .query(
+                    "INSERT INTO canonical_attempts $row ON DUPLICATE KEY UPDATE phase='invented';",
+                )
+                .bind(("row", duplicate)),
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(error, CanonicalError::Driver(_)));
+        for sql in [
+            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='terminal',outcome='succeeded';",
+            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='closed_awaiting_manifest';",
+            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET outcome='invented';",
+            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET key='different';",
+            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='ingesting',completion=$completion;",
+            "BEGIN; CREATE canonical_guards:illegal_phase_rollback SET key='illegal_phase_rollback',generation=0dec; UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='invented'; COMMIT;",
+        ] {
+            let error = bounded_query(
+                store
+                    .db
+                    .query(sql)
+                    .bind(("attempt", fence.attempt().to_owned()))
+                    .bind(("completion", Bytes::from(vec![1_u8]))),
+            )
+            .await
+            .unwrap_err();
+            assert!(
+                matches!(error, CanonicalError::Driver(_)),
+                "schema failures must not become domain refusals: {error}"
+            );
+            assert!(
+                store
+                    .canonical_attempt(fence.attempt())
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .ingestion_open()
+            );
+        }
+        let mut rolled_back = bounded_query(
+            store
+                .db
+                .query("SELECT * FROM ONLY canonical_guards:illegal_phase_rollback;"),
+        )
+        .await
+        .unwrap();
+        assert!(rolled_back.take::<Option<Object>>(0).unwrap().is_none());
+        let closed = store
+            .close_result_ingestion(&fence, "phase-close")
+            .await
+            .unwrap();
+        let row = store
+            .canonical_attempt(fence.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            row.phase,
+            pse_model::generated::enums::CanonicalAttemptPhase::ClosedAwaitingManifest
+        );
+        assert!(row.closed_manifest.is_none());
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        let row = store
+            .canonical_attempt(fence.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            row.phase,
+            pse_model::generated::enums::CanonicalAttemptPhase::ClosedWithManifest
+        );
+        // SAFETY: this isolated fixture owns its empty synthetic result and exact completion.
+        let terminal = unsafe {
+            store
+                .seal_attempt(
+                    &manifest,
+                    "phase-seal",
+                    TerminalClass::Succeeded,
+                    b"original completion",
+                    SeedEligibility::Unavailable,
+                )
+                .await
+        }
+        .unwrap();
+        assert!(terminal.terminal());
+        assert!(terminal.seed_manifest.is_none());
+        let error=bounded_query(store.db.query("UPDATE ONLY type::record('canonical_attempts',$attempt) SET seed_manifest=$attempt;").bind(("attempt",fence.attempt().to_owned()))).await.unwrap_err();
+        assert!(
+            matches!(error, CanonicalError::Driver(_)),
+            "a terminal noneligible attempt cannot promote itself to a seed"
+        );
+        let error = bounded_query(
+            store
+                .db
+                .query(
+                    "UPDATE ONLY type::record('canonical_attempts',$attempt) SET completion=NONE;",
+                )
+                .bind(("attempt", fence.attempt().to_owned())),
+        )
+        .await
+        .unwrap_err();
+        assert!(
+            matches!(error, CanonicalError::Driver(_)),
+            "payload removal requires the explicit physical compaction transition"
+        );
+        bounded_query(store.db.query("UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='terminal_compacted',completion=NONE;").bind(("attempt",fence.attempt().to_owned()))).await.unwrap();
+        let compacted = store
+            .canonical_attempt(fence.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            compacted.phase,
+            pse_model::generated::enums::CanonicalAttemptPhase::TerminalCompacted
+        );
+        assert!(compacted.terminal() && compacted.closed() && !compacted.ingestion_open());
+        assert_eq!(compacted.outcome, Some(TerminalClass::Succeeded));
+        assert!(compacted.completion.is_none());
+        for sql in [
+            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET completion=$completion;",
+            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='terminal';",
+        ] {
+            let error = bounded_query(
+                store
+                    .db
+                    .query(sql)
+                    .bind(("attempt", fence.attempt().to_owned()))
+                    .bind(("completion", Bytes::from(vec![9_u8]))),
+            )
+            .await
+            .unwrap_err();
+            assert!(
+                matches!(error, CanonicalError::Driver(_)),
+                "compaction cannot be reversed or resurrect its payload: {error}"
+            );
+        }
+        let metadata = store
+            .canonical_attempt_page(fence.run(), None, fence.generation())
+            .await
+            .unwrap();
+        assert_eq!(metadata.len(), 1);
+        assert!(metadata[0].terminal);
+        run(&store, &revision, "phase-seed-eligible").await;
+        let eligible = store
+            .claim_run(
+                "phase-seed-eligible",
+                "phase-seed-claim",
+                "worker",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+        let eligible_closed = store
+            .close_result_ingestion(&eligible, "phase-seed-close")
+            .await
+            .unwrap();
+        let eligible_manifest = store
+            .reconcile_closed_attempt(&eligible_closed)
+            .await
+            .unwrap();
+        // SAFETY: this owner declares the entire empty synthetic inventory eligible.
+        let eligible_terminal = unsafe {
+            store
+                .seal_attempt(
+                    &eligible_manifest,
+                    "phase-seed-seal",
+                    TerminalClass::Succeeded,
+                    b"eligible completion",
+                    SeedEligibility::CompleteOriginalInventory,
+                )
+                .await
+        }
+        .unwrap();
+        assert_eq!(
+            eligible_terminal.seed_manifest.as_deref(),
+            Some(eligible.attempt())
+        );
+        for sql in [
+            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET seed_manifest='different';",
+            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET seed_manifest=NONE;",
+        ] {
+            let error = bounded_query(
+                store
+                    .db
+                    .query(sql)
+                    .bind(("attempt", eligible.attempt().to_owned())),
+            )
+            .await
+            .unwrap_err();
+            assert!(
+                matches!(error, CanonicalError::Driver(_)),
+                "a sealed seed pointer cannot change or disappear"
+            );
+            assert_eq!(
+                store
+                    .canonical_attempt(eligible.attempt())
+                    .await
+                    .unwrap()
+                    .unwrap(),
+                eligible_terminal
+            );
+        }
+        let multirow=bounded_query(store.db.query("UPDATE canonical_attempts SET expires_at+=1,seed_manifest=IF key=$eligible { NONE } ELSE { seed_manifest } WHERE key IN [$eligible,$other];")
+            .bind(("eligible",eligible.attempt().to_owned())).bind(("other",fence.attempt().to_owned()))).await.unwrap_err();
+        assert!(matches!(multirow, CanonicalError::Driver(_)));
+        assert_eq!(
+            store
+                .canonical_attempt(eligible.attempt())
+                .await
+                .unwrap()
+                .unwrap(),
+            eligible_terminal
+        );
+        assert_eq!(
+            store
+                .canonical_attempt(fence.attempt())
+                .await
+                .unwrap()
+                .unwrap(),
+            compacted,
+            "the legal sibling mutation must roll back when the synchronous seed backstop throws"
+        );
+        bounded_query(store.db.query("UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='terminal_compacted',completion=NONE;").bind(("attempt",eligible.attempt().to_owned()))).await.unwrap();
+        let eligible_compacted = store
+            .canonical_attempt(eligible.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            eligible_compacted.seed_manifest, eligible_terminal.seed_manifest,
+            "legal payload compaction retains the immutable seed pointer"
+        );
+        let admission_key = "phase-expired-admission";
+        let mut admission = original;
+        admission.key = admission_key.into();
+        admission.run = "study-admission:phase-expired".into();
+        bounded_query(
+            store
+                .db
+                .query("CREATE ONLY type::record('canonical_attempts',$key) CONTENT $row;")
+                .bind(("key", admission_key))
+                .bind(("row", wire::encode_canonical_attempts(&admission).unwrap())),
+        )
+        .await
+        .unwrap();
+        bounded_query(store.db.query("UPDATE ONLY type::record('canonical_attempts',$key) SET phase='terminal',outcome='failed';").bind(("key",admission_key))).await.unwrap();
+        let error=bounded_query(store.db.query("UPDATE ONLY type::record('canonical_attempts',$key) SET completion=$completion;").bind(("key",admission_key)).bind(("completion",Bytes::from(vec![9_u8])))).await.unwrap_err();
+        assert!(
+            matches!(error, CanonicalError::Driver(_)),
+            "expired source admission has no completion payload to resurrect"
         );
         remove(&store, &database).await;
     }
@@ -1983,7 +2500,7 @@ mod canonical_execution_server_unit {
                 .await
                 .unwrap()
                 .unwrap()
-                .terminal
+                .terminal()
         );
         for index in 0..8 {
             let key = format!("seal-race-{index}");
@@ -2024,9 +2541,12 @@ mod canonical_execution_server_unit {
                 .unwrap()
                 .unwrap();
             if sealed.is_ok() {
-                assert_eq!(actual.outcome.as_deref(), Some("succeeded"));
+                assert_eq!(
+                    actual.outcome.as_ref().map(|value| value.as_str()),
+                    Some("succeeded")
+                );
             } else {
-                assert!(!actual.terminal);
+                assert!(!actual.terminal());
                 let closed = store
                     .recover_closed_attempt(&key, &format!("race-recover-{index}"))
                     .await
@@ -2045,7 +2565,10 @@ mod canonical_execution_server_unit {
                         .await
                 }
                 .unwrap();
-                assert_eq!(final_outcome.outcome.as_deref(), Some("cancelled"));
+                assert_eq!(
+                    final_outcome.outcome.as_ref().map(|value| value.as_str()),
+                    Some("cancelled")
+                );
             }
         }
         remove(&store, &database).await;
@@ -2061,7 +2584,7 @@ pub struct AttemptFence {
 }
 impl AttemptFence {
     pub(crate) fn from_row(row: CanonicalAttempt) -> Result<Self, CanonicalError> {
-        if row.generation == 0 || row.terminal || row.closed {
+        if row.generation == 0 || row.terminal() || row.closed() {
             return Err(CanonicalError::Configuration(
                 "native claim returned no live fence".into(),
             ));
@@ -2097,29 +2620,7 @@ pub enum SeedEligibility {
 }
 
 /// Terminal class supplied only after the scientific owner determines quality.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TerminalClass {
-    /// Qualified numerical completion under the scientific owner's admission.
-    Succeeded,
-    /// Failed execution with potentially useful retained diagnostics.
-    Failed,
-    /// Explicitly incomplete scientific coverage.
-    Partial,
-    /// Cancellation won admission, whether or not native work already stopped.
-    Cancelled,
-}
-impl TerminalClass {
-    /// Canonical terminal outcome spelling stored atomically with the manifest.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Succeeded => "succeeded",
-            Self::Failed => "failed",
-            Self::Partial => "partial",
-            Self::Cancelled => "cancelled",
-        }
-    }
-}
+pub use pse_model::generated::enums::CanonicalTerminalOutcome as TerminalClass;
 
 /// Closed ingestion receipt. Recovery authority is separate from the old worker.
 #[derive(Clone, Debug)]
@@ -3077,7 +3578,7 @@ fn bounded(value: &[u8], limit: usize) -> Result<(), CanonicalError> {
     }
 }
 fn closed(row: CanonicalAttempt) -> Result<ClosedAttempt, CanonicalError> {
-    if !row.closed || row.ingestion_open {
+    if !row.closed() || row.ingestion_open() {
         return Err(CanonicalError::Configuration(
             "attempt ingestion is not closed".into(),
         ));
@@ -3705,7 +4206,7 @@ impl CanonicalStore {
             within_clock(original_deadline(REQUEST_TIMEOUT), async {
                 identity(run)?;
                 let mut response = bounded_query(self.db.query(crate::canonical_history::run_query(
-                    "SELECT key,run,generation,terminal,outcome,closed_manifest,close_generation FROM canonical_attempts WHERE run=$run AND generation>$after AND generation<=$through ORDER BY generation LIMIT 64;", "run"))
+                    "SELECT key,run,generation,phase IN ['terminal','terminal_compacted'] AS terminal,outcome,closed_manifest,close_generation FROM canonical_attempts WHERE run=$run AND generation>$after AND generation<=$through ORDER BY generation LIMIT 64;", "run"))
                     .bind(("run", run.to_owned()))
                     .bind(("after", after.map(canonical_codec::encode_uint).transpose()?.unwrap_or(canonical_codec::encode_int(-1)?)))
                     .bind(("through", canonical_codec::encode_uint(through)?))).await?;
@@ -4499,8 +5000,8 @@ impl CanonicalStore {
                 .canonical_attempt(&closed.fence.attempt)
                 .await?
                 .ok_or_else(|| CanonicalError::Configuration("closed attempt unavailable".into()))?;
-            if !attempt.closed
-                || attempt.ingestion_open
+            if !attempt.closed()
+                || attempt.ingestion_open()
                 || attempt.generation != closed.fence.generation
             {
                 return Err(CanonicalError::Configuration(
@@ -4842,7 +5343,7 @@ impl CanonicalStore {
                     let mut row = writer_response(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?;
                     let attempt = match canonical_codec::required(&mut row,"attempt")? { Value::Object(row) => wire::decode_canonical_attempts(row)?, _ => return Err(CanonicalError::IncompleteResponse) };
                     let run = match canonical_codec::required(&mut row,"run")? { Value::Object(row) => wire::decode_canonical_runs(row)?, _ => return Err(CanonicalError::IncompleteResponse) };
-                    if !row.is_empty() || attempt.run != run.key || run.terminal_attempt.as_deref() != Some(attempt.key.as_str()) || !attempt.terminal || attempt.closed_manifest.as_deref() != Some(manifest.row.key.as_str()) || attempt.completion.as_ref().map(|bytes| bytes.as_slice()) != Some(completion) { return Err(CanonicalError::OperationReused); }
+                    if !row.is_empty() || attempt.run != run.key || run.terminal_attempt.as_deref() != Some(attempt.key.as_str()) || !attempt.terminal() || attempt.closed_manifest.as_deref() != Some(manifest.row.key.as_str()) || attempt.completion.as_ref().map(|bytes| bytes.as_slice()) != Some(completion) { return Err(CanonicalError::OperationReused); }
                     Ok(SealAck { attempt, run })
                 },
                 Err(error) => match self.settle_operation_for_run(operation, "seal", &request,Some(&fence.run)).await? {

@@ -43,8 +43,8 @@ impl MetadataResponse {
             Self::Header | Self::Selection | Self::OutputPage => wire::RESULT_MESSAGE_BYTES,
         };
         surrealdb::opt::ResponseLimits {
-            // Generated FlatBuffers tables/vectors need at most 128 bytes per
-            // visited node beyond copied strings for this scalar ACK layout.
+            // Native protobuf messages and repeated slots need at most 128 bytes
+            // per admitted node beyond copied strings for this scalar ACK layout.
             wire_bytes: if matches!(self, Self::Protection) {
                 nodes * 128 + strings
             } else {

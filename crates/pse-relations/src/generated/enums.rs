@@ -9,9 +9,10 @@ pub use pse_model::generated::r#enums::{
     AccuracyResolutionStatus, AccuracyUnavailableReason, AssertionStatus, AttemptState,
     Authority, BasisKind, BasisRule, BoundActivity, BoundKind, BoundStatus,
     CandidateBoundOrigin, CandidateQualifier, CandidateRefusal, CandidateUse,
-    CaptureKind, CaptureOutputKind, CaptureStatus, ClarabelDirect, ClarabelMergeMethod,
-    ClarabelMode, ClosureAssessment, ClosurePolicy, ColumnRole, CompositionBasis,
-    ComputationKind, ConstraintScalingScheme, ConversionKind, CovarianceApproximation,
+    CanonicalAttemptPhase, CanonicalTerminalOutcome, CaptureKind, CaptureOutputKind,
+    CaptureStatus, ClarabelDirect, ClarabelMergeMethod, ClarabelMode, ClosureAssessment,
+    ClosurePolicy, ColumnRole, CompositionBasis, ComputationKind,
+    ConstraintScalingScheme, ConversionKind, CovarianceApproximation,
     DerivationGranularity, DerivedQuantity, Determinism, DiagnosticCode,
     DiagnosticNonfiniteObservation, DiagnosticObservationKind, DiagnosticRule,
     DiagnosticSeverity, DiagnosticStage, DiffsolLinear, DiffsolMethod, DualQualification,
@@ -654,6 +655,64 @@ impl crate::columnar::ArrowValue for CandidateUse {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(CandidateUse).to_owned(),
                 enumeration: stringify!(CandidateUse).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for CanonicalAttemptPhase {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(CanonicalAttemptPhase).to_owned(),
+                enumeration: stringify!(CanonicalAttemptPhase).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for CanonicalTerminalOutcome {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(CanonicalTerminalOutcome).to_owned(),
+                enumeration: stringify!(CanonicalTerminalOutcome).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value

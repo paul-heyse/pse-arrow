@@ -169,6 +169,19 @@ pub fn decode_finite(value: Value) -> Result<f64, CodecError> {
     Ok(value)
 }
 
+/// A bounded query's exclusive record-id cursor, with no secondary key index.
+/// The enclosing SELECT supplies its finite page size and legitimate selectors.
+pub(crate) fn record_page(table: &str, after: &str) -> surrealdb::types::RecordId {
+    use std::ops::Bound;
+    surrealdb::types::RecordId::new(
+        table,
+        surrealdb::types::RecordIdKeyRange::from((
+            Bound::Excluded(after.to_owned()),
+            Bound::<String>::Unbounded,
+        )),
+    )
+}
+
 #[cfg(test)]
 mod canonical_codec_unit {
     use super::*;

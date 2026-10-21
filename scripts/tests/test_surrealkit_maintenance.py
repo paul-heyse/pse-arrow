@@ -21,11 +21,15 @@ from unittest.mock import patch
 
 from scripts import surreal_server as server
 from scripts import surrealkit_maintenance as tool
+from scripts import surrealkit_source
 from scripts.tests import surrealkit_rollout_fixture_check as probe
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
     from typing import BinaryIO
+
+
+VERIFY_SAVED = tool.surrealkit.verify_saved
 
 
 class MaintenanceTests(unittest.TestCase):
@@ -94,6 +98,11 @@ class MaintenanceTests(unittest.TestCase):
                 return_value={"version": "1.0.0-beta.6", "binary_sha256": "binary"},
             ),
             patch.object(
+                tool.surrealkit,
+                "verify_saved",
+                return_value={"version": "1.0.0-beta.6", "binary_sha256": "binary"},
+            ),
+            patch.object(
                 tool.subprocess,
                 "run",
                 return_value=subprocess.CompletedProcess(
@@ -106,98 +115,6 @@ class MaintenanceTests(unittest.TestCase):
         ):
             replacement.start()
             self.addCleanup(replacement.stop)
-
-    def cutover_publication(self) -> dict[str, object]:
-        (self.folder / tool.surreal_rollout_producer.REGISTER).write_text("{}")
-        return {
-            "rollouts": [
-                {"id": "one", "cutover": tool.surreal_rollout_producer.CUTOVER}
-            ]
-        }
-
-    def test_design_cutover_requires_empty_application_rows_and_exact_bookkeeping(
-        self,
-    ) -> None:
-        publication = self.cutover_publication()
-        with (
-            patch.object(
-                tool.surreal_rollout_producer, "load", return_value=publication
-            ),
-            patch.object(
-                server,
-                "maintenance_catalog",
-                return_value={
-                    "tables": {"__entity": "", "__rollout": "", "sample": ""}
-                },
-            ),
-            patch.object(
-                server, "maintenance_query", return_value={"rows": []}
-            ) as query,
-        ):
-            tool.require_empty_cutover_target(
-                self.state, self.config, self.folder, ["one"], None
-            )
-            self.assertEqual(query.call_count, 1)
-            self.assertIn("FROM `sample` LIMIT 1", query.call_args.args[-1])
-            for rows in ([{"id": "sample:retained"}], None):
-                query.return_value = {"rows": rows}
-                with (
-                    self.subTest(rows=rows),
-                    self.assertRaisesRegex(
-                        tool.MaintenanceError, "retained or unknown"
-                    ),
-                ):
-                    tool.require_empty_cutover_target(
-                        self.state, self.config, self.folder, ["one"], None
-                    )
-
-    def test_design_cutover_refuses_initialized_v5_before_native_submission(
-        self,
-    ) -> None:
-        publication = self.cutover_publication()
-        marker = {
-            "interpretation": "pse.substrate.v5",
-            "schema_digest": "old",
-            "issuing_store": "old",
-        }
-        with (
-            patch.object(
-                tool.surreal_rollout_producer, "load", return_value=publication
-            ),
-            patch.object(tool, "predecessor_marker", return_value=marker),
-            patch.object(tool.native_operation, "run_child_scope") as child,
-            self.assertRaisesRegex(
-                tool.MaintenanceError, "retained-data upgrade refused"
-            ),
-        ):
-            tool.execute(
-                self.binary, self.state, self.folder, "start", rollout_id="one"
-            )
-        child.assert_not_called()
-        value = server.object_mapping(
-            server.read_json(self.state / "config.json")[tool.PENDING]
-        )
-        self.assertEqual(value["sql_outcome"], "not_submitted")
-        self.assertEqual(
-            server.object_inventory(value["attempts"])[0]["listener_drain"], "complete"
-        )
-
-    def test_design_cutover_rechecks_current_marker_on_completion(self) -> None:
-        publication = self.cutover_publication()
-        with (
-            patch.object(
-                tool.surreal_rollout_producer, "load", return_value=publication
-            ),
-            patch.object(
-                tool,
-                "predecessor_marker",
-                return_value={"interpretation": "pse.substrate.v6"},
-            ),
-            self.assertRaisesRegex(tool.MaintenanceError, "fresh empty uninitialized"),
-        ):
-            tool.require_empty_cutover_target(
-                self.state, self.config, self.folder, ["one"], None
-            )
 
     @contextlib.contextmanager
     def reservation(self, _state: Path) -> Generator[None]:
@@ -231,7 +148,7 @@ class MaintenanceTests(unittest.TestCase):
         attempt = Path(command[command.index("--attempt") + 1])
         snapshot = Path(command[command.index("--folder") + 1])
         self.assertEqual(tool.inputs(snapshot)[1], tool.inputs(self.folder)[1])
-        self.assertEqual(env["SURREALDB_HOST"], "http://127.0.0.1:19000")
+        self.assertEqual(env["SURREALDB_HOST"], "grpc://127.0.0.1:19000")
         self.assertEqual(env["SURREALDB_AUTH_LEVEL"], "root")
         self.assertNotIn("SURREAL_PASS", env)
         server.write_json(
@@ -365,6 +282,53 @@ class MaintenanceTests(unittest.TestCase):
             cast("list[dict[str, object]]", result["attempts"])[0]["listener_drain"],
             "complete",
         )
+
+    def test_private_bootstrap_failure_resumes_same_unsubmitted_nonce_after_drain(
+        self,
+    ) -> None:
+        self.config.update(
+            admission="validation_required",
+            fresh_root_bootstrap={
+                "instance_id": self.config["instance_id"],
+                "credentials_sha256": server.file_digest(
+                    self.state / "credentials.json"
+                ),
+                "nonce": "a" * 32,
+            },
+        )
+        server.write_json(self.state / "config.json", self.config)
+        attempts = 0
+
+        def bootstrap(state: Path) -> str:
+            nonlocal attempts
+            attempts += 1
+            selected = server.read_json(state / "config.json")
+            self.assertIsNotNone(server.fresh_root_authority(state, selected))
+            if attempts == 1:
+                raise server.SupervisorError("private ROOT acknowledgment interrupted")
+            selected.pop("fresh_root_bootstrap")
+            server.write_json(state / "config.json", selected)
+            return self.endpoint(state)
+
+        with patch.object(server, "maintenance_endpoint", side_effect=bootstrap):
+            with self.assertRaisesRegex(server.SupervisorError, "ROOT acknowledgment"):
+                self.run_tool()
+            pending = self.current()
+            self.assertEqual(
+                (pending["phase"], pending["sql_outcome"]),
+                ("prepared", "not_submitted"),
+            )
+            self.assertNotIn("child", self.calls)
+            self.owner = {**self.owner, "nonce": "b" * 32}
+            server.write_json(self.state / "lifecycle-owner.json", self.owner)
+            self.calls.clear()
+            resumed = self.run_tool(pending_nonce=str(pending["nonce"]))
+        self.assertEqual(resumed["nonce"], pending["nonce"])
+        self.assertEqual(resumed["owner"], self.owner)
+        self.assertLess(self.calls.index("drain"), self.calls.index("listener"))
+        self.assertEqual(resumed["sql_outcome"], "unknown")
+        with self.assertRaisesRegex(tool.MaintenanceError, "prepared, unsubmitted"):
+            self.run_tool(pending_nonce=str(pending["nonce"]))
 
     def test_whole_chain_submission_binds_beta_order_instead_of_filename_order(
         self,
@@ -502,7 +466,9 @@ class MaintenanceTests(unittest.TestCase):
         self.calls.clear()
         with (
             patch.object(
-                tool.surrealkit, "verify", return_value={"binary_sha256": "replacement"}
+                tool.surrealkit,
+                "verify_saved",
+                return_value={"binary_sha256": "replacement"},
             ),
             self.assertRaisesRegex(tool.MaintenanceError, "tool provenance"),
         ):
@@ -515,6 +481,78 @@ class MaintenanceTests(unittest.TestCase):
             )
         self.assertNotIn("listener", self.calls)
         self.assertEqual(self.current()["nonce"], value["nonce"])
+
+    def test_exact_pending_recovery_uses_saved_immutable_tool_after_source_changes(
+        self,
+    ) -> None:
+        value = self.run_tool()
+        built = self.root / "built"
+        built.write_bytes(b"immutable saved executable")
+        declared = tool.surrealkit.selection()
+        old = surrealkit_source.publish(
+            self.root,
+            declared,
+            "a" * 64,
+            built,
+            {"source_build": True, "release_build_locked": True},
+        )
+        receipt = server.read_json(old.parent / "release.json")
+        value["tool"] = receipt
+        tool.update(self.state, value)
+
+        def run(args: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            output = (
+                "surrealkit " + declared["version"] + "\n"
+                if args[-1] == "--version"
+                else "1 rollout(s) are valid, in order: one\n"
+            )
+            return subprocess.CompletedProcess(args, 0, output, "")
+
+        with (
+            patch.object(
+                tool.surrealkit,
+                "verify",
+                side_effect=tool.surrealkit.ToolError("current inputs changed"),
+            ) as ordinary,
+            patch.object(
+                tool.surrealkit, "verify_saved", side_effect=VERIFY_SAVED
+            ) as saved,
+            patch.object(tool.subprocess, "run", side_effect=run),
+        ):
+            recovered = tool.execute(
+                old,
+                self.state,
+                self.folder,
+                "status",
+                pending_nonce=str(value["nonce"]),
+            )
+            self.assertEqual(recovered["tool"], receipt)
+            ordinary.assert_not_called()
+            saved.assert_called_once_with(old, receipt)
+            other = surrealkit_source.publish(
+                self.root,
+                declared,
+                "b" * 64,
+                built,
+                {"source_build": True, "release_build_locked": True},
+            )
+            with self.assertRaisesRegex(tool.surrealkit.ToolError, "submitted rollout"):
+                tool.execute(
+                    other,
+                    self.state,
+                    self.folder,
+                    "status",
+                    pending_nonce=str(value["nonce"]),
+                )
+            saved.reset_mock()
+            with self.assertRaisesRegex(
+                tool.MaintenanceError, "pending rollout identity"
+            ):
+                tool.execute(
+                    old, self.state, self.folder, "status", pending_nonce="arbitrary"
+                )
+            saved.assert_not_called()
+            self.assertEqual(self.current()["command"], ["rollout", "up", "--complete"])
 
     def test_recovery_cannot_substitute_frozen_chain(self) -> None:
         result = self.run_tool()
@@ -1168,7 +1206,7 @@ class OwnedChildTests(unittest.TestCase):
             losing = threading.Thread(target=lose_owner)
             losing.start()
             with (
-                patch.dict(os.environ, {"SURREALDB_HOST": "http://127.0.0.1:19000"}),
+                patch.dict(os.environ, {"SURREALDB_HOST": "grpc://127.0.0.1:19000"}),
                 patch.object(server, "reservation_live", return_value=True),
                 patch.object(server, "config_for", return_value={"port": 19000}),
                 patch.object(
@@ -1278,7 +1316,7 @@ class OwnedChildTests(unittest.TestCase):
 
                 with (
                     patch.dict(
-                        os.environ, {"SURREALDB_HOST": "http://127.0.0.1:19000"}
+                        os.environ, {"SURREALDB_HOST": "grpc://127.0.0.1:19000"}
                     ),
                     patch.object(server, "reservation_live", return_value=True),
                     patch.object(server, "config_for", return_value={"port": 19000}),

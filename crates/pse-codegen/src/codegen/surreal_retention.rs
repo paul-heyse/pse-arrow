@@ -14,11 +14,11 @@ const FUNCTIONS: &str = r#"
 DEFINE FUNCTION fn::pse_retention_v1::settle_protection($rpc_expiry:int,$problem:string,$key:string) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $parts=string::split($key,':');
-    IF array::len($parts)!=4 OR $parts[0]!='pse.protection.v2' OR string::len($parts[1])!=36 OR string::len($parts[2])!=36 OR <int>$parts[3]<=0 { THROW 'protection settlement immutable grant binding'; };
+    IF array::len($parts)!=4 OR $parts[0]!='pse.protection.v2' OR string::len($parts[1])!=36 OR string::len($parts[2])!=36 OR <int>$parts[3]<=0 { THROW 'PSE_REFUSAL:protection_settlement_immutable_grant_binding'; };
     LET $authority=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem) FOR UPDATE;
-    IF $authority=NONE { THROW 'protection settlement authority unavailable'; };
+    IF $authority=NONE { THROW 'PSE_REFUSAL:protection_settlement_authority_unavailable'; };
     LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$key) FOR UPDATE;
-    IF $pin!=NONE AND ($pin.problem!=$problem OR $pin.grant_deadline!=<int>$parts[3] OR $pin.grant_nonce!=$parts[2] OR $pin.authority_incarnation!=$parts[1]) { THROW 'protection settlement requires original grant'; };
+    IF $pin!=NONE AND ($pin.problem!=$problem OR $pin.grant_deadline!=<int>$parts[3] OR $pin.grant_nonce!=$parts[2] OR $pin.authority_incarnation!=$parts[1]) { THROW 'PSE_REFUSAL:protection_settlement_requires_original_grant'; };
     IF fn::pse_files_v1::ticket_open($rpc_expiry,$key) { RETURN {complete:false,waiting:true}; };
     IF $authority.incarnation!=$parts[1] {
         // A rotated authority closes old acquisition, but is not evidence that
@@ -29,10 +29,10 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_protection($rpc_expiry:int,$problem
             LET $artifact=IF $artifact_read=NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_artifacts',$artifact_read.artifact) FOR UPDATE };
             LET $result_read=SELECT * FROM ONLY type::record('canonical_result_protections',$key) FOR UPDATE;
             LET $run=IF $result_read=NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_runs',$result_read.run) };
-            IF ($artifact=NONE OR $artifact.primary_problem!=$problem) AND ($run=NONE OR $run.problem!=$problem) { THROW 'historical protection original receipt unavailable'; };
+            IF ($artifact=NONE OR $artifact.primary_problem!=$problem) AND ($run=NONE OR $run.problem!=$problem) { THROW 'PSE_REFUSAL:historical_protection_original_receipt_unavailable'; };
             LET $revision_key=IF $artifact!=NONE AND $artifact.primary_problem=$problem { $artifact.revision } ELSE { $run.revision };
             LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$revision_key);
-            IF $revision=NONE OR $revision.problem!=$problem { THROW 'historical protection original revision unavailable'; };
+            IF $revision=NONE OR $revision.problem!=$problem { THROW 'PSE_REFUSAL:historical_protection_original_revision_unavailable'; };
             CREATE ONLY type::record('canonical_protections',$key) SET key=$key,problem=$problem,revision=$revision.key,sequence=$revision.sequence,expires_at=0,released=true,grant_deadline=<int>$parts[3],grant_nonce=$parts[2],authority_incarnation=$parts[1];
         } ELSE {
             // Retain the exact terminal grant as its lost-reply receipt. Released
@@ -57,7 +57,7 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_study($rpc_expiry: int, $study:stri
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::touch($rpc_expiry, 'study:'+$study);
     LET $header=SELECT * FROM ONLY type::record('canonical_studies',$study);
-    IF $header=NONE OR !$header.terminal { THROW 'only terminal studies may be retired'; };
+    IF $header=NONE OR !$header.terminal { THROW 'PSE_REFUSAL:only_terminal_studies_may_be_retired'; };
     UPSERT type::record('canonical_study_retirements',$study) SET key=$study,study=$study;
     LET $inputs=SELECT * FROM canonical_artifact_obligations WHERE owner_kind='study' AND owner=$study ORDER BY key LIMIT 64;
     FOR $input IN $inputs { fn::pse_artifact_v1::release($rpc_expiry,object::remove($input,['id'])); };
@@ -72,9 +72,9 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysi
     LET $header=SELECT * FROM ONLY type::record('canonical_analyses',$analysis) FOR UPDATE;
     IF $header=NONE {
         LET $parts=string::split($analysis,':');
-        IF array::len($parts)!=4 OR $parts[0]!='pse.analysis.v2' OR string::len($parts[1])!=36 OR string::len($parts[2])!=36 { THROW 'unknown analysis key has no creation authority'; };
+        IF array::len($parts)!=4 OR $parts[0]!='pse.analysis.v2' OR string::len($parts[1])!=36 OR string::len($parts[2])!=36 { THROW 'PSE_REFUSAL:unknown_analysis_key_has_no_creation_authority'; };
         LET $authorities=SELECT key FROM canonical_guards WITH INDEX guard_incarnation WHERE incarnation=$parts[1] LIMIT 2;
-        IF array::len($authorities)!=1 OR !string::starts_with($authorities[0].key,'retention:') { THROW 'analysis creation authority unavailable'; };
+        IF array::len($authorities)!=1 OR !string::starts_with($authorities[0].key,'retention:') { THROW 'PSE_REFUSAL:analysis_creation_authority_unavailable'; };
         LET $intent={key:$analysis,primary_problem:string::slice($authorities[0].key,10),primary_authority:$parts[1],creation_nonce:$parts[2],creation_expires_at:<decimal>$parts[3]};
         RETURN fn::pse_retention_v1::settle_analysis($rpc_expiry,$intent);
     };
@@ -89,13 +89,13 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysi
     IF array::len($roots)!=0 {
         FOR $root IN $roots {
             LET $source=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$root.problem) FOR UPDATE;
-            IF $source=NONE { THROW 'analysis cleanup source authority unavailable'; };
+            IF $source=NONE { THROW 'PSE_REFUSAL:analysis_cleanup_source_authority_unavailable'; };
         };
         DELETE $roots.id;
         fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false};
     };
     LET $authority=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$header.primary_problem) FOR UPDATE;
-    IF $authority=NONE { THROW 'analysis original settlement authority unavailable'; };
+    IF $authority=NONE { THROW 'PSE_REFUSAL:analysis_original_settlement_authority_unavailable'; };
     IF $authority.incarnation=$header.primary_authority AND time::micros()<$header.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
     RETURN fn::pse_retention_v1::settle_analysis($rpc_expiry,$header);
 };
@@ -104,10 +104,10 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_analysis($rpc_expiry:int,$intent:ob
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $header=SELECT * FROM ONLY type::record('canonical_analyses',$intent.key) FOR UPDATE;
     LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) FOR UPDATE;
-    IF $guard=NONE OR ($guard.incarnation!=$intent.primary_authority AND $header=NONE) { THROW 'analysis settlement authority unavailable'; };
-    IF $intent.key!='pse.analysis.v2:'+$intent.primary_authority+':'+$intent.creation_nonce+':'+<string><int>$intent.creation_expires_at { THROW 'analysis settlement key binding'; };
+    IF $guard=NONE OR ($guard.incarnation!=$intent.primary_authority AND $header=NONE) { THROW 'PSE_REFUSAL:analysis_settlement_authority_unavailable'; };
+    IF $intent.key!='pse.analysis.v2:'+$intent.primary_authority+':'+$intent.creation_nonce+':'+<string><int>$intent.creation_expires_at { THROW 'PSE_REFUSAL:analysis_settlement_key_binding'; };
     IF $guard.incarnation=$intent.primary_authority AND time::micros()<$intent.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
-    IF $header!=NONE AND object::remove($header,['id','active','retiring'])!=object::remove($intent,['id','active','retiring']) { THROW 'analysis settlement requires exact original occurrence'; };
+    IF $header!=NONE AND object::remove($header,['id','active','retiring'])!=object::remove($intent,['id','active','retiring']) { THROW 'PSE_REFUSAL:analysis_settlement_requires_exact_original_occurrence'; };
     IF $header!=NONE AND !$header.retiring { UPDATE ONLY type::record('canonical_analyses',$intent.key) SET retiring=true; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $edges=SELECT key FROM canonical_analysis_edges WHERE analysis=$intent.key LIMIT 1;
     LET $nodes=SELECT key FROM canonical_analysis_nodes WHERE analysis=$intent.key LIMIT 1;
@@ -131,30 +131,30 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) 
     LET $old=SELECT * FROM ONLY type::record('canonical_result_retirements',$run) FOR UPDATE;
     IF $old!=NONE { LET $rpc_result = $old; fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
     LET $header=SELECT * FROM ONLY type::record('canonical_runs',$run);
-    IF $header=NONE { THROW 'retired run unavailable'; };
+    IF $header=NONE { THROW 'PSE_REFUSAL:retired_run_unavailable'; };
     fn::pse_execution_v1::register($rpc_expiry, 'retention:'+$header.problem);
-    LET $live=SELECT key FROM canonical_attempts WHERE run=$run AND terminal=false LIMIT 1;
-    IF array::len($live)!=0 OR ($header.terminal_attempt=NONE AND (SELECT * FROM ONLY type::record('canonical_history_identities','effect-free-run:'+$run))=NONE) { THROW 'run recovery must finish before retirement'; };
+    LET $live=SELECT key FROM canonical_attempts WHERE run=$run AND phase NOT IN ['terminal','terminal_compacted'] LIMIT 1;
+    IF array::len($live)!=0 OR ($header.terminal_attempt=NONE AND (SELECT * FROM ONLY type::record('canonical_history_identities','effect-free-run:'+$run))=NONE) { THROW 'PSE_REFUSAL:run_recovery_must_finish_before_retirement'; };
     LET $reader_page=SELECT key FROM canonical_result_protections WHERE run=$run AND type::record('canonical_protections',key).released=false ORDER BY key LIMIT 64;
     LET $readers=$reader_page.filter(|$reader|type::record('canonical_protections',$reader.key).expires_at>time::micros() OR fn::pse_files_v1::ticket_open($rpc_expiry,$reader.key));
     FOR $reader IN $reader_page {
         LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$reader.key) FOR UPDATE;
         IF $pin!=NONE AND !$pin.released AND $pin.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($rpc_expiry,$reader.key) { UPDATE ONLY type::record('canonical_protections',$reader.key) SET released=true; };
     };
-    IF array::len($readers)!=0 { THROW 'run results have protected readers'; };
+    IF array::len($readers)!=0 { THROW 'PSE_REFUSAL:run_results_have_protected_readers'; };
     IF array::len($reader_page)=64 { RETURN {pending:true}; };
     LET $point=SELECT study FROM canonical_study_points WHERE run=$run LIMIT 1;
     LET $parent=SELECT key FROM canonical_studies WHERE run=$run LIMIT 1;
     LET $studies=array::distinct(array::concat($point.study,$parent.key));
     FOR $study IN $studies {
         SELECT * FROM ONLY type::record('canonical_study_retirements',$study) FOR UPDATE;
-        IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))=NONE { THROW 'run results are retained by a study'; };
+        IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))=NONE { THROW 'PSE_REFUSAL:run_results_are_retained_by_a_study'; };
     };
     LET $staging=SELECT key FROM canonical_artifact_staging_inputs WHERE run=$run LIMIT 1;
-    IF array::len($staging)!=0 { THROW 'run results have unsettled artifact transfer'; };
+    IF array::len($staging)!=0 { THROW 'PSE_REFUSAL:run_results_have_unsettled_artifact_transfer'; };
 
     LET $roots=SELECT key,problem FROM canonical_roots WHERE owner_kind='run' AND owner=$run ORDER BY key LIMIT 66;
-    IF array::len($roots)>65 { THROW 'run source retention limit'; };
+    IF array::len($roots)>65 { THROW 'PSE_REFUSAL:run_source_retention_limit'; };
     FOR $root IN $roots { fn::pse_execution_v1::source_creator($rpc_expiry,$root.problem,$root.key); };
     DELETE $roots.map(|$root|type::record('canonical_roots',$root.key));
     LET $rpc_result = CREATE ONLY type::record('canonical_result_retirements',$run) SET key=$run,run=$run,after_generation=0dec,complete=false;
@@ -166,7 +166,7 @@ DEFINE FUNCTION fn::pse_retention_v1::collect_run($rpc_expiry: int, $run:string)
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::touch($rpc_expiry, 'execution-run:'+$run);
     LET $retirement=SELECT * FROM ONLY type::record('canonical_result_retirements',$run);
-    IF $retirement=NONE { THROW 'explicit run retirement required'; };
+    IF $retirement=NONE { THROW 'PSE_REFUSAL:explicit_run_retirement_required'; };
     IF $retirement.complete { RETURN {complete:true,batches:0dec,indexes:0dec,sets:0dec}; };
     LET $attempts=SELECT key,generation FROM canonical_attempts WHERE run=$run AND generation>$retirement.after_generation ORDER BY generation LIMIT 1;
     IF array::len($attempts)=0 {
@@ -208,7 +208,7 @@ DEFINE FUNCTION fn::pse_retention_v1::collect_run($rpc_expiry: int, $run:string)
     IF $manifest.closed_manifest!=NONE { DELETE ONLY type::record('canonical_result_manifests',$manifest.closed_manifest); };
     // Inline observations and operation response bytes are scientific payloads,
     // while the effect identity/request and actual terminal class remain receipts.
-    UPDATE ONLY type::record('canonical_attempts',$attempt.key) SET completion=NONE;
+    UPDATE ONLY type::record('canonical_attempts',$attempt.key) SET phase='terminal_compacted',completion=NONE;
     LET $operations=SELECT key FROM canonical_execution_operations WHERE run=$run AND kind='seal' AND attempt=$attempt.key LIMIT 1;
     FOR $operation IN $operations { UPDATE ONLY type::record('canonical_execution_operations',$operation.key) SET result=type::bytes(''); };
     UPDATE ONLY type::record('canonical_result_retirements',$run) SET after_generation=$attempt.generation;

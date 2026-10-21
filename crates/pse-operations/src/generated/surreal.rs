@@ -13,9 +13,9 @@ pub const RESULT_MESSAGE_BYTES: usize = 4194304usize;
 /// Derived defensive metadata loop ceiling, independent of framing.
 pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
-pub const INTERPRETATION: &str = "pse.substrate.v6";
+pub const INTERPRETATION: &str = "pse.substrate.v7";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "aa6329a06f7833abf4aa74f06226dc3898c58c180e9a028291397d37eee694c8";
+pub const SCHEMA_DIGEST: &str = "28f894ce3c8442063987fee2565a3c89de7371b59f1e9a326bcbeaa7050ab128";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.
@@ -852,16 +852,18 @@ pub fn encode_canonical_attempts(
     object.insert("expires_at", crate::canonical_codec::encode_int(row.r#expires_at)?);
     object
         .insert(
-            "ingestion_open",
-            crate::canonical_codec::encode_boolean(row.r#ingestion_open)?,
+            "phase",
+            crate::canonical_codec::encode_string(row.r#phase.as_str().to_owned())?,
         );
-    object.insert("closed", crate::canonical_codec::encode_boolean(row.r#closed)?);
     if let Some(value) = &row.r#close_generation {
         object.insert("close_generation", crate::canonical_codec::encode_uint(*value)?);
     }
-    object.insert("terminal", crate::canonical_codec::encode_boolean(row.r#terminal)?);
-    if let Some(value) = &row.r#outcome {
-        object.insert("outcome", crate::canonical_codec::encode_string(value.clone())?);
+    if let Some(value) = row.r#outcome {
+        object
+            .insert(
+                "outcome",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
     }
     if let Some(value) = &row.r#closed_manifest {
         object
@@ -920,22 +922,26 @@ pub fn decode_canonical_attempts(
         r#expires_at: crate::canonical_codec::decode_int(
             crate::canonical_codec::required(&mut object, "expires_at")?,
         )?,
-        r#ingestion_open: crate::canonical_codec::decode_boolean(
-            crate::canonical_codec::required(&mut object, "ingestion_open")?,
-        )?,
-        r#closed: crate::canonical_codec::decode_boolean(
-            crate::canonical_codec::required(&mut object, "closed")?,
-        )?,
+        r#phase: crate::canonical_codec::decode_string(
+                crate::canonical_codec::required(&mut object, "phase")?,
+            )?
+            .parse::<pse_model::generated::enums::CanonicalAttemptPhase>()
+            .map_err(|_| crate::canonical_codec::CodecError::Domain("phase"))?,
         r#close_generation: match object.remove("close_generation") {
             None | Some(surrealdb::types::Value::None) => None,
             Some(value) => Some(crate::canonical_codec::decode_uint(value)?),
         },
-        r#terminal: crate::canonical_codec::decode_boolean(
-            crate::canonical_codec::required(&mut object, "terminal")?,
-        )?,
         r#outcome: match object.remove("outcome") {
             None | Some(surrealdb::types::Value::None) => None,
-            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+            Some(value) => {
+                Some(
+                    crate::canonical_codec::decode_string(value)?
+                        .parse::<pse_model::generated::enums::CanonicalTerminalOutcome>()
+                        .map_err(|_| crate::canonical_codec::CodecError::Domain(
+                            "outcome",
+                        ))?,
+                )
+            }
         },
         r#closed_manifest: match object.remove("closed_manifest") {
             None | Some(surrealdb::types::Value::None) => None,
@@ -3899,11 +3905,11 @@ pub fn encode_canonical_runs(
                 crate::canonical_codec::encode_string(value.clone())?,
             );
     }
-    if let Some(value) = &row.r#terminal_class {
+    if let Some(value) = row.r#terminal_class {
         object
             .insert(
                 "terminal_class",
-                crate::canonical_codec::encode_string(value.clone())?,
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
             );
     }
     Ok(object)
@@ -3960,7 +3966,15 @@ pub fn decode_canonical_runs(
         },
         r#terminal_class: match object.remove("terminal_class") {
             None | Some(surrealdb::types::Value::None) => None,
-            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+            Some(value) => {
+                Some(
+                    crate::canonical_codec::decode_string(value)?
+                        .parse::<pse_model::generated::enums::CanonicalTerminalOutcome>()
+                        .map_err(|_| crate::canonical_codec::CodecError::Domain(
+                            "terminal_class",
+                        ))?,
+                )
+            }
         },
     };
     if let Some(native_id) = native_id {
@@ -4228,6 +4242,16 @@ pub fn encode_canonical_studies(
             "next_ordinal",
             crate::canonical_codec::encode_uint(row.r#next_ordinal)?,
         );
+    object
+        .insert(
+            "dependency_count",
+            crate::canonical_codec::encode_uint(row.r#dependency_count)?,
+        );
+    object
+        .insert(
+            "installed_dependencies",
+            crate::canonical_codec::encode_uint(row.r#installed_dependencies)?,
+        );
     object.insert("active", crate::canonical_codec::encode_boolean(row.r#active)?);
     object.insert("cancelled", crate::canonical_codec::encode_boolean(row.r#cancelled)?);
     object.insert("generation", crate::canonical_codec::encode_uint(row.r#generation)?);
@@ -4266,6 +4290,12 @@ pub fn decode_canonical_studies(
         )?,
         r#next_ordinal: crate::canonical_codec::decode_uint(
             crate::canonical_codec::required(&mut object, "next_ordinal")?,
+        )?,
+        r#dependency_count: crate::canonical_codec::decode_uint(
+            crate::canonical_codec::required(&mut object, "dependency_count")?,
+        )?,
+        r#installed_dependencies: crate::canonical_codec::decode_uint(
+            crate::canonical_codec::required(&mut object, "installed_dependencies")?,
         )?,
         r#active: crate::canonical_codec::decode_boolean(
             crate::canonical_codec::required(&mut object, "active")?,

@@ -23,12 +23,12 @@ async fn server_now(store: &CanonicalStore) -> u64 {
 // profile unchanged: its pinned adapter does not expose interactive sessions.
 async fn held_transaction(
     options: &CanonicalOptions,
-) -> surrealdb::method::Transaction<surrealdb::engine::remote::ws::Client> {
+) -> surrealdb::method::Transaction<surrealdb::engine::remote::grpc::Client> {
     let address = url::Url::parse(&options.endpoint)
         .unwrap()
         .socket_addrs(|| None)
         .unwrap()[0];
-    let db = surrealdb::Surreal::new::<surrealdb::engine::remote::ws::Ws>(address)
+    let db = surrealdb::Surreal::new::<surrealdb::engine::remote::grpc::Grpc>(address)
         .await
         .unwrap();
     db.signin(surrealdb::opt::auth::Root {

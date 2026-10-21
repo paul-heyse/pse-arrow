@@ -191,8 +191,6 @@ def main() -> int:
                 str(source),
                 "--port",
                 str(args.port),
-                "--version",
-                "v3.3.0",
                 "--memory-mib",
                 "4096",
                 "--server-memory-mib",
@@ -205,9 +203,7 @@ def main() -> int:
             ]
         )
         server.setup(setup)
-        server.start(source, server.config_for(source))
-        initialize(source)
-        server.stop(source, server.config_for(source))
+        server.initialize(source, [str(xtask), "canonical-init", str(source)])
         original = server.config_for(source)
         original_credentials = server.read_json(source / "credentials.json")
         # Mutations suppress their row results: offline maintenance requires

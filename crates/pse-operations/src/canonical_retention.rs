@@ -107,7 +107,8 @@ impl CanonicalStore {
                                     .into(),
                             ));
                         }
-                        for attempt in 0..RETRIES {
+                        let mut attempt = 0;
+                        loop {
                             self.ensure_writes()?;
                             let result = bounded_query(
                                 self.db
@@ -124,13 +125,16 @@ impl CanonicalStore {
                             match result {
                                 Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
                                     tokio::task::yield_now().await;
+                                    attempt += 1;
                                 }
-                                other => return other,
+                                other => {
+                                    return other.map_err(|error| {
+                                        error
+                                            .exhaust_conflict("canonical_retention", RETRIES as u32)
+                                    });
+                                }
                             }
                         }
-                        Err(CanonicalError::Configuration(
-                            "retention retries exhausted".into(),
-                        ))
                     },
                 )
                 .await
@@ -185,7 +189,8 @@ impl CanonicalStore {
                                     .into(),
                             ));
                         }
-                        for attempt in 0..RETRIES {
+                        let mut attempt = 0;
+                        loop {
                             self.ensure_writes()?;
                             let result = bounded_query(
                                 self.db
@@ -201,13 +206,16 @@ impl CanonicalStore {
                             match result {
                                 Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
                                     tokio::task::yield_now().await;
+                                    attempt += 1;
                                 }
-                                other => return other,
+                                other => {
+                                    return other.map_err(|error| {
+                                        error
+                                            .exhaust_conflict("canonical_retention", RETRIES as u32)
+                                    });
+                                }
                             }
                         }
-                        Err(CanonicalError::Configuration(
-                            "retention retries exhausted".into(),
-                        ))
                     },
                 )
                 .await
@@ -252,7 +260,7 @@ impl CanonicalStore {
                         Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
                             tokio::task::yield_now().await;
                         }
-                        Err(error) => return Err(error),
+                        Err(error) => return Err(error.exhaust_conflict("canonical_retention::reclaim", RETRIES as u32)),
                         Ok(mut response) => {
                             decision = response
                                 .take::<Option<Object>>(response.num_statements().saturating_sub(2))?;
@@ -260,9 +268,7 @@ impl CanonicalStore {
                         }
                     }
                 }
-                let mut decision = decision.ok_or_else(|| {
-                    CanonicalError::Configuration("reclamation retries exhausted".into())
-                })?;
+                let mut decision = decision.ok_or(CanonicalError::IncompleteResponse)?;
                 page.examined += 1;
                 page.memberships += usize::from(canonical_codec::decode_boolean(
                     canonical_codec::required(&mut decision, "membership")?,
@@ -295,35 +301,35 @@ impl CanonicalStore {
 }
 
 const RETAIN: &str = r#"BEGIN;
-IF $owner_kind != 'history' { THROW 'only deliberate history roots can be minted or moved explicitly'; };
+IF $owner_kind != 'history' { THROW 'PSE_REFUSAL:only_deliberate_history_roots_can_be_minted_or_moved_explicitly'; };
 LET $guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $selected = SELECT * FROM ONLY type::record('canonical_revisions', $revision);
-IF $selected = NONE OR $selected.problem != $problem { THROW 'retained revision unavailable'; };
-IF $selected.interpretation != $interpretation { THROW 'retained revision interpretation mismatch'; };
+IF $selected = NONE OR $selected.problem != $problem { THROW 'PSE_REFUSAL:retained_revision_unavailable'; };
+IF $selected.interpretation != $interpretation { THROW 'PSE_REFUSAL:retained_revision_interpretation_mismatch'; };
 LET $pruned = SELECT key FROM canonical_reclaimed_ranges WHERE problem = $problem AND from_sequence <= $selected.sequence AND to_sequence > $selected.sequence LIMIT 1;
-IF array::len($pruned) != 0 { THROW 'revision source history has been reclaimed'; };
+IF array::len($pruned) != 0 { THROW 'PSE_REFUSAL:revision_source_history_has_been_reclaimed'; };
 LET $old = SELECT * FROM ONLY type::record('canonical_roots', $root) FOR UPDATE;
-IF $old != NONE AND ($old.problem != $problem OR $old.owner_kind != $owner_kind OR $old.owner != $owner) { THROW 'retention owner identity collision'; };
+IF $old != NONE AND ($old.problem != $problem OR $old.owner_kind != $owner_kind OR $old.owner != $owner) { THROW 'PSE_REFUSAL:retention_owner_identity_collision'; };
 UPSERT type::record('canonical_roots', $root) SET key = $root, problem = $problem, revision = $selected.key, sequence = $selected.sequence, owner_kind = $owner_kind, owner = $owner;
 fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 COMMIT;"#;
 
 const DROP_ROOT: &str = r#"BEGIN;
-IF $owner_kind IN ['run','analysis','active_attempt'] { THROW 'lifecycle roots are released only by their owning retirement'; };
+IF $owner_kind IN ['run','analysis','active_attempt'] { THROW 'PSE_REFUSAL:lifecycle_roots_are_released_only_by_their_owning_retirement'; };
 LET $guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $old = SELECT * FROM ONLY type::record('canonical_roots', $root) FOR UPDATE;
 IF $old != NONE {
-    IF $old.problem != $problem OR $old.revision != $revision OR $old.owner_kind != $owner_kind OR $old.owner != $owner { THROW 'retained owner selection changed'; };
+    IF $old.problem != $problem OR $old.revision != $revision OR $old.owner_kind != $owner_kind OR $old.owner != $owner { THROW 'PSE_REFUSAL:retained_owner_selection_changed'; };
     DELETE ONLY type::record('canonical_roots', $root);
     IF $owner_kind = 'product' {
         LET $association = SELECT * FROM ONLY type::record('canonical_product_associations',$root);
         IF $association != NONE {
             LET $descriptor = SELECT * FROM ONLY type::record('canonical_product_descriptors',$association.descriptor) FOR UPDATE;
             IF $descriptor != NONE {
-                IF $descriptor.issuing_store != $association.issuing_store OR $descriptor.problem != $association.problem OR $descriptor.request != $association.request OR $descriptor.payload != $association.payload OR $descriptor.dependencies != $association.dependencies OR $descriptor.content != $association.content OR $descriptor.receipt != $association.receipt OR $descriptor.producer != $association.producer OR $descriptor.interpretation != $association.interpretation { THROW 'released association descriptor equality differs'; };
+                IF $descriptor.issuing_store != $association.issuing_store OR $descriptor.problem != $association.problem OR $descriptor.request != $association.request OR $descriptor.payload != $association.payload OR $descriptor.dependencies != $association.dependencies OR $descriptor.content != $association.content OR $descriptor.receipt != $association.receipt OR $descriptor.producer != $association.producer OR $descriptor.interpretation != $association.interpretation { THROW 'PSE_REFUSAL:released_association_descriptor_equality_differs'; };
                 LET $remaining = SELECT key FROM canonical_product_associations WHERE descriptor = $association.descriptor AND issuing_store = $association.issuing_store AND problem = $association.problem AND request = $association.request AND payload = $association.payload AND dependencies = $association.dependencies AND content = $association.content AND receipt = $association.receipt AND producer = $association.producer AND interpretation = $association.interpretation AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key ORDER BY key LIMIT 1;
                 UPDATE type::record('canonical_product_descriptors',$association.descriptor) SET association = IF array::len($remaining) = 0 { NONE } ELSE { $remaining[0].key };
             };
@@ -343,7 +349,7 @@ LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_seq
     {membership:false, version:false, edges:0dec, blocks:0dec, pending:false}
 } ELSE {
     LET $head = SELECT * FROM ONLY type::record('canonical_problems', $problem);
-    IF $head = NONE { THROW 'reclamation problem head unavailable'; };
+    IF $head = NONE { THROW 'PSE_REFUSAL:reclamation_problem_head_unavailable'; };
     LET $roots = SELECT key FROM canonical_roots WHERE problem = $problem AND sequence >= $member.from_sequence AND sequence < $member.to_sequence LIMIT 1;
     LET $pin_page=SELECT key,expires_at FROM canonical_protections WHERE problem=$problem AND sequence >= $member.from_sequence AND sequence < $member.to_sequence AND released=false ORDER BY key LIMIT 64;
     FOR $pin_key IN $pin_page {

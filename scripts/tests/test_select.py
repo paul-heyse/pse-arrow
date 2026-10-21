@@ -21,6 +21,83 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class SelectorTests(unittest.TestCase):
+    def test_integration_run_uses_existing_runner_and_preserves_target_selection(
+        self,
+    ) -> None:
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "PSE_NATIVE_OPERATION": "owned",
+                    "PSE_NEXTEST_ACTION": "run --no-fail-fast",
+                },
+            ),
+            patch.object(select, "resolve") as resolution,
+            patch.object(select, "run_rust", return_value=7) as execution,
+        ):
+            self.assertEqual(
+                select.main(
+                    [
+                        "--features",
+                        "pse-runtime/native-solvers",
+                        "integration",
+                        "pse-runtime",
+                        "worker",
+                        "-E",
+                        "test(caller_exit)",
+                    ]
+                ),
+                7,
+            )
+        resolution.assert_not_called()
+        execution.assert_called_once_with(
+            [
+                "cargo",
+                "nextest",
+                "run",
+                "--no-fail-fast",
+                "-p",
+                "pse-runtime",
+                "--test",
+                "worker",
+                "--locked",
+                "--features",
+                "pse-runtime/native-solvers",
+                "-E",
+                "test(caller_exit)",
+            ],
+            effects="canonical",
+            package_scope=False,
+        )
+
+    def test_integration_listing_never_enters_execution_runner(self) -> None:
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "PSE_NATIVE_OPERATION": "owned",
+                    "PSE_NEXTEST_ACTION": "list --message-format json",
+                },
+            ),
+            patch.object(select, "resolve") as resolution,
+            patch.object(select, "run_rust") as execution,
+            patch.object(select.subprocess, "call", return_value=0) as listing,
+        ):
+            resolution.return_value.command = [
+                "cargo",
+                "nextest",
+                "list",
+                "--message-format",
+                "json",
+                "-p",
+                "pse-runtime",
+                "--test",
+                "worker",
+            ]
+            self.assertEqual(select.main(["integration", "pse-runtime", "worker"]), 0)
+        execution.assert_not_called()
+        listing.assert_called_once_with(resolution.return_value.command)
+
     def test_running_observer_owns_the_single_cargo_resolution(self) -> None:
         with (
             patch.dict(

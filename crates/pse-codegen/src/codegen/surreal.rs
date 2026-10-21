@@ -25,7 +25,12 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
             .filter_map(|column| column.graph_endpoint().map(|endpoint| (endpoint, column)))
             .collect::<Vec<_>>();
         if endpoints.is_empty() {
-            let _ = writeln!(ddl, "DEFINE TABLE {table} SCHEMAFULL;");
+            let caches = if pse_schema::catalog::substrate::INLINE_VERTICES.contains(&table) {
+                " INLINE EDGES 64 INLINE REFERENCES 32"
+            } else {
+                ""
+            };
+            let _ = writeln!(ddl, "DEFINE TABLE {table} SCHEMAFULL{caches};");
         } else {
             let target = |endpoint: &str| -> Result<&str, SchemaError> {
                 endpoints.iter().find(|(name,_)| *name == endpoint).and_then(|(_,column)| column.fk()).and_then(|fk| fk.relation.strip_prefix("runtime.")).ok_or_else(|| SchemaError::Codegen { language: "surreal", reason: format!("{table} graph endpoint {endpoint} requires a declared runtime record target") })
@@ -85,12 +90,32 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
                     });
                 }
             };
-            let declared_ty = if column.nullable() {
-                format!("option<{ty}>")
+            let enum_type = column
+                .enum_name()
+                .map(|name| format_ident!("{}", super::rust::types::pascal(name)));
+            let literal_ty = if let Some(name) = column.enum_name() {
+                registry
+                    .enum_spec(name)
+                    .ok_or_else(|| SchemaError::Codegen {
+                        language: "surreal",
+                        reason: format!("unknown canonical enum {name}"),
+                    })?
+                    .members
+                    .iter()
+                    .map(|member| format!("\"{}\"", member.name))
+                    .collect::<Vec<_>>()
+                    .join(" | ")
             } else {
                 ty.to_owned()
             };
-            let assertion = if codec == "id" {
+            let declared_ty = if column.nullable() {
+                format!("option<{literal_ty}>")
+            } else {
+                literal_ty
+            };
+            let assertion = if name == "key" {
+                " ASSERT $value = record::id($this.id)"
+            } else if codec == "id" {
                 " ASSERT $value = NONE OR bytes::len($value) = 16"
             } else if ty == "decimal" {
                 " ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value)"
@@ -99,15 +124,63 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
             } else {
                 ""
             };
+            let readonly = if name == "key"
+                || (table == "canonical_attempts"
+                    && pse_schema::catalog::substrate::IMMUTABLE_ATTEMPT_FIELDS.contains(&name))
+                || (table == "canonical_studies"
+                    && pse_schema::catalog::substrate::IMMUTABLE_STUDY_FIELDS.contains(&name))
+            {
+                " READONLY"
+            } else {
+                ""
+            };
+            let assertion = if table == "canonical_attempts" && name == "phase" {
+                let transitions = pse_schema::catalog::substrate::ATTEMPT_TRANSITIONS
+                    .iter()
+                    .map(|(before, after)| format!("($before='{before}' AND $value='{after}')"))
+                    .collect::<Vec<_>>()
+                    .join(" OR ");
+                // Input-admission attempts own no native result inventory. Ordinary
+                // attempts cannot skip closure/manifest publication. Completion is
+                // separately compactable after terminal retention release. The
+                // nonoptional phase assertion owns absence checks: native optional
+                // field assertions are skipped when their value becomes NONE.
+                format!(
+                    " ASSERT ($before=NONE AND $value='ingesting' OR $before=$value OR {transitions} OR (string::starts_with($this.run,'study-admission:') AND $before IN ['ingesting','closed_awaiting_manifest','closed_with_manifest'] AND $value='terminal')) AND (($value='ingesting' AND $this.close_generation=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_awaiting_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_with_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest!=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value IN ['terminal','terminal_compacted'] AND (($value='terminal_compacted' AND $this.completion=NONE) OR ($value='terminal' AND ((string::starts_with($this.run,'study-admission:') AND $this.outcome='failed' AND $this.completion=NONE) OR ($this.completion!=NONE AND !(string::starts_with($this.run,'study-admission:') AND $this.outcome='failed'))))) AND $this.outcome IN ['succeeded','failed','partial','cancelled'] AND (string::starts_with($this.run,'study-admission:') OR ($this.close_generation!=NONE AND $this.closed_manifest!=NONE))))"
+                )
+            } else if table == "canonical_attempts" && name == "outcome" {
+                " ASSERT $before=NONE OR $before=$value".to_owned()
+            } else if table == "canonical_attempts" && name == "closed_manifest" {
+                " ASSERT ($value=NONE OR $value=$this.key) AND ($before=NONE OR $before=$value)"
+                    .to_owned()
+            } else if table == "canonical_attempts" && name == "completion" {
+                " ASSERT ($this.phase!='terminal_compacted' OR $value=NONE) AND ($before=NONE OR $before=$value OR ($value=NONE AND $this.phase='terminal_compacted'))".to_owned()
+            } else if table == "canonical_studies" && name == "next_ordinal" {
+                " ASSERT $value>=0dec AND $value<=18446744073709551615dec AND math::floor($value)=$value AND $value<=$this.point_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR $value=$this.point_count)".to_owned()
+            } else if table == "canonical_studies" && name == "installed_dependencies" {
+                " ASSERT $value>=0dec AND $value<=18446744073709551615dec AND math::floor($value)=$value AND $value<=$this.dependency_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR ($value=$this.dependency_count AND $this.next_ordinal=$this.point_count))".to_owned()
+            } else {
+                assertion.to_owned()
+            };
             let _ = writeln!(
                 ddl,
-                "DEFINE FIELD {name} ON {table} TYPE {declared_ty}{assertion};"
+                "DEFINE FIELD {name} ON {table} TYPE {declared_ty}{readonly}{assertion};"
             );
             if ty == "object" {
                 let _ = writeln!(
                     ddl,
                     "DEFINE FIELD {name}.bits ON {table} TYPE option<bytes> ASSERT ($this.{name} = NONE AND $value = NONE) OR ($value != NONE AND bytes::len($value) = 8);\nDEFINE FIELD {name}.projection ON {table} TYPE option<float> ASSERT ($this.{name} = NONE AND $value = NONE) OR ($value >= -1.7976931348623157e308f AND $value <= 1.7976931348623157e308f);"
                 );
+            }
+            if let Some(enum_type) = enum_type {
+                if column.nullable() {
+                    encoders.push(quote! { if let Some(value) = row.#ident { object.insert(#name, crate::canonical_codec::encode_string(value.as_str().to_owned())?); } });
+                    decoders.push(quote! { #ident: match object.remove(#name) { None | Some(surrealdb::types::Value::None) => None, Some(value) => Some(crate::canonical_codec::decode_string(value)?.parse::<pse_model::generated::enums::#enum_type>().map_err(|_| crate::canonical_codec::CodecError::Domain(#name))?), } });
+                } else {
+                    encoders.push(quote! { object.insert(#name, crate::canonical_codec::encode_string(row.#ident.as_str().to_owned())?); });
+                    decoders.push(quote! { #ident: crate::canonical_codec::decode_string(crate::canonical_codec::required(&mut object, #name)?)?.parse::<pse_model::generated::enums::#enum_type>().map_err(|_| crate::canonical_codec::CodecError::Domain(#name))? });
+                }
+                continue;
             }
             let encode_field = format_ident!("encode_{codec}");
             let decode_field = format_ident!("decode_{codec}");
@@ -130,10 +203,6 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
                 decoders.push(quote! { #ident: crate::canonical_codec::#decode_field(crate::canonical_codec::required(&mut object, #name)?)? });
             }
         }
-        let _ = writeln!(
-            ddl,
-            "DEFINE INDEX {table}_key ON {table} FIELDS key UNIQUE;\n"
-        );
         codecs.push(quote! {
             #[doc = "Encode the registry row using native exact values."]
             pub fn #encode(row: &#row_path) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
@@ -187,10 +256,23 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
             if index.unique { " UNIQUE" } else { "" }
         );
     }
+    let immutable_terminal_publication =
+        pse_schema::catalog::substrate::TERMINAL_IMMUTABLE_ATTEMPT_FIELDS
+            .iter()
+            .map(|field| format!("$before.{field}!=$after.{field}"))
+            .collect::<Vec<_>>()
+            .join(" OR ");
+    let seed_refusal = pse_schema::catalog::canonical_refusals::RefusalCode::ExecutionTerminalSeedManifestImmutable.wire();
+    // A default event runs synchronously inside this transaction. Optional field
+    // ASSERTs skip NONE and cannot protect either clearing or later resurrection.
+    let _ = writeln!(
+        ddl,
+        "DEFINE EVENT pse_attempt_terminal_publication_immutable ON canonical_attempts WHEN $event='UPDATE' AND $before.phase IN ['terminal','terminal_compacted'] AND ({immutable_terminal_publication}) THEN {{ THROW '{seed_refusal}'; }};"
+    );
     ddl.push_str(
         r#"
 DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
-    IF time::micros() >= $rpc_expiry { THROW 'original canonical RPC deadline expired'; };
+    IF time::micros() >= $rpc_expiry { THROW 'PSE_REFUSAL:original_canonical_rpc_deadline_expired'; };
     RETURN true;
 };
 "#,
@@ -202,9 +284,21 @@ DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
     super::surreal_analyses::append(&mut ddl);
     super::surreal_artifacts::append(&mut ddl);
     super::surreal_history::append(&mut ddl);
+    for statement in ddl.split("THROW '").skip(1) {
+        let code = statement.split('\'').next().unwrap_or("");
+        if pse_schema::catalog::canonical_refusals::RefusalCode::parse(code).is_none() {
+            return Err(SchemaError::Codegen {
+                language: "surreal",
+                reason: format!("undeclared canonical refusal {code}"),
+            });
+        }
+    }
     let interpretation = pse_schema::catalog::substrate::INTERPRETATION;
     let mut digest = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalSchemaV1);
     digest.str(interpretation).part(ddl.as_bytes());
+    for code in pse_schema::catalog::canonical_refusals::RefusalCode::ALL {
+        digest.str(code.wire()).str(&format!("{:?}", code.class()));
+    }
     for codec in &codecs {
         digest.str(&codec.to_string());
     }

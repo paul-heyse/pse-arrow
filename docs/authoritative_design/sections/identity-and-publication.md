@@ -489,10 +489,12 @@ never substitutes success for a requested failed result or orders by wall clock.
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). The implemented canonical substrate replaces the PostgreSQL/Delta publication composition. The decision remains proposed; implementation and focused controls do not establish comprehensive qualification or decision acceptance.
 
+> Decision: [ADR-0214](../../adr/0214-surrealmx-canonical-store.md) (proposed; maintainer-authorized Plan49a target). Select pinned SurrealDB3.3.4 with persistent MX1.0, explicit SSI, synchronous AOL/EveryAppend, finite capacity/transaction age and bounded gRPC. gRPC sessions are scoped to their actual physical connection and reclaimed on disconnect; new connections restore acknowledged setup rather than reuse dead-session IDs. Fresh initialization regenerates existing data; historical import/backfill and old-data rollback are not required. Newly generated data retains durable receipts, protected payloads and backup/restore/recovery obligations. STO01–STO08 own implementation and qualification; prior RocksDB/WS evidence does not qualify this target.
+
 One authenticated loopback SurrealDB database holds canonical source revisions, compilation
 products, execution receipts, scientific result descriptors and analysis lineage. Bulk
-result/artifact/seed payloads reside in sealed private files; RocksDB is the supported
-native catalog backend. The registry declares their contracts; `pse-operations` supplies
+result/artifact/seed payloads reside in sealed private files; persistent MX is the selected
+replacement catalog backend. The registry declares their contracts; `pse-operations` supplies
 typed operations and generated native structural functions. Scientific computation and bulk
 payload staging stay outside short guarded admission transactions. Ordinary execution
 retains the actual scientific outcome automatically. Explicit ephemeral execution keeps its
@@ -835,9 +837,10 @@ validation-only. Neither the beta tool nor a supplied settlement file grants act
 Maintenance keeps ordinary canonical admission closed and drains registered holders and the
 ordinary server. Its live lifecycle owner may run a temporary authenticated loopback server
 using the declared binary, storage configuration and charged allocation. Native SQL/export/import
-clients connect remotely and never open RocksDB directly: the pinned embedded CLI drops the
-server's RocksDB configuration. This listener establishes no ordinary readiness, provisions no
-accounts and starts no scientific workers. It has no automatic restart. Physical copying,
+clients connect remotely and never independently open the server's persistence directory.
+This listener establishes no ordinary readiness and starts no scientific workers.
+Only fresh initialization bootstraps ROOT/VIEWER under its exact pending lifecycle owner;
+credential recovery never provisions missing accounts. It has no automatic restart. Physical copying,
 initializer handoff and ordinary readmission require acknowledged stop and actual descendant
 drain. Owner loss or uncertain shutdown leaves admission closed and resource ownership retained;
 recovery first settles the exact prior service invocation. Recorded ROOT credential candidates
@@ -952,7 +955,7 @@ chosen seed's inventory membership and per-step scientific permission; discovery
 confer future storage permission. Old terminal records are never upgraded by inference.
 
 
-> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). `pse-operations` owns the thin authenticated native WebSocket client and typed guarded operations under Plan 30 implementation. Native science stays outside database transactions.
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). `pse-operations` owns the bounded authenticated gRPC client and typed guarded operations; ADR-0214 selects its persistent MX integration. Native science stays outside database transactions.
 
 One original monotonic operation clock covers admission, queueing, reconnect, dispatch
 and complete response handling. Definite conflicts may retry the guarded decision within
@@ -1008,13 +1011,32 @@ Service setup/readmission owns account provisioning; schema installation remains
 
 **Authority and client.** Short native transactions establish source roots, immutable
 operation identity and current cancellation/generation premises under named conflict guards,
-including absent-name and set premises. Predicate scans do not supply phantom protection.
-Analysis settlement specifically consumes point-record `FOR UPDATE` registration, including
-absent keys, in writable explicit transactions on the pinned RocksDB backend. This is
-commit-conflict validation against the transaction snapshot, not blocking lock acquisition or
-global serializability; exact emitted-query races must qualify that capability (ADR-0172). Full-domain decimal sequence/generation and actual expiry checks prevent
+including absent-name and set premises. Explicit MX serializable snapshot isolation tracks
+point and range reads in writing transactions. Named guard writes remain required for
+lifecycle decisions and external-effect authority. Analysis settlement additionally consumes
+point-record `FOR UPDATE` registration, including absent keys. This is optimistic commit
+validation rather than blocking lock acquisition; actual generated-query races qualify the
+selected adapter. Prior RocksDB controls retain their historical scope (ADR-0172). Full-domain decimal sequence/generation and actual expiry checks prevent
 wall-clock ordering or an earlier transaction timestamp from renewing stale authority.
 Immutable operation acknowledgments settle uncertain effects without rerunning science.
+
+**Generated physical lifecycle (ADR-0214).** The registry declares ingestion,
+closed-awaiting-manifest, closed-with-manifest, terminal and terminal-compacted phases.
+The compacted phase records irreversible completion-payload removal while retaining
+terminal metadata. Exhaustive projections preserve separate public attempt/study
+observations; terminal observation alone does not prove payload drain or manifest
+availability. Native constraints backstop legal phases, immutable identities, exact
+record keys, full-u64 generations and completion shape. A synchronous row event freezes
+the terminal seed pointer without deciding scientific eligibility; guarded functions
+retain cross-record authority and synchronous readiness.
+
+Record identities serve exact lookup and bounded whole-table cursor ranges. Compound
+selection indexes remain. Attributed, receipt-owned edges retain classic identity and
+endpoint enforcement, with finite inline caches and high-degree fallback. Study ingestion
+installs all nodes before bounded dependency edges, then activates only a complete graph.
+Problem mutation pacing retains the common creator/reclaimer conflict dependency across
+staging and close; run-specific renewal/cancellation and distinct problems remain separate.
+Visible-run sequence publication stays serialized through its commit.
 
 **Run lifecycle.** Registration and fenced claim precede native effects. Renewal and
 append require the current unexpired generation and open ingestion gate. Closing freezes
@@ -1068,6 +1090,13 @@ writers are observed; an expired summary writer may be replaced without rerunnin
 points. Generic run recovery leaves an unfinished study header recoverable and does not
 invent the summary conclusion.
 
+Worker loss retains an unknown scientific effect. Recovery can establish absence only
+after fencing the exact writer: an immutable summary-only capability has no native
+dispatch authority, or a refreshed same-attempt point snapshot proves native work never
+started. The native-start marker and recovery share the execution-run fence, so a start
+that committed first must be visible and a stale start cannot commit afterward. A started
+but lost occurrence retains uncertainty; cancellation alone supplies no absence proof.
+
 > Decision: [ADR-0166](../../adr/0166-bounded-parallel-scientific-execution.md)
 > (proposed, under Plan 28/30 implementation). The reference primary durable group has
 > sixteen bounded lanes sharing one runtime, pool and CPU owner in one supervised
@@ -1079,8 +1108,8 @@ invent the summary conclusion.
 > isolation uses whole operations and explicit partitions where required. Numeric
 > placement and actual readback are L7 prerequisites, not RSS guarantees.
 
-**Operational limits.** The target deployment is authenticated local native WebSocket with native
-RocksDB and finite server/native-worker allocations. Offline backup closes admission and excludes GC before freezing its catalog, drains authenticated file owners and managed work, and copies the stopped database together with its exact required file closure. Acknowledged unpublished/incomplete data and unresolved intents are included; legitimately absent/unsealed staging remains unresolved. Missing required sealed files fail closure. Completion is published last. Restore validates inventory, integrity and interpretation under a fresh root/incarnation/credentials before activation; old-root cleanup still requires authentic drain. This is an offline operator lifecycle.
+**Operational limits.** The target deployment is authenticated loopback gRPC with persistent
+MX1.0, synchronous AOL/EveryAppend, periodic snapshots and finite server/native-worker allocations. Offline backup closes admission and excludes GC before freezing its catalog, drains authenticated file owners and managed work, and copies the stopped database together with its exact required file closure. Acknowledged unpublished/incomplete data and unresolved intents are included; legitimately absent/unsealed staging remains unresolved. Missing required sealed files fail closure. Completion is published last. Restore validates inventory, integrity and interpretation under a fresh root/incarnation/credentials before activation; old-root cleanup still requires authentic drain. This is an offline operator lifecycle.
 These contracts alone do not establish qualification or claim power-loss durability, remote
 deployment support, capacity measurements or comprehensive scientific coverage. Completed selected Plan39/38 acceptance belongs to §24.2 and the Plan39d Outcome.
 Plan28's remaining independent campaign belongs to the

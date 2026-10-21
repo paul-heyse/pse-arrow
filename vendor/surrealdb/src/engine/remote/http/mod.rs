@@ -133,138 +133,144 @@ const RPC_PATH: &str = "rpc";
 /// without cloning the entire state for each request.
 #[derive(Debug)]
 struct SessionState {
-    /// HTTP headers for this session (e.g., namespace, database)
-    headers: RwLock<HeaderMap>,
-    /// Authentication state for REST endpoints (export/import).
-    /// RPC calls don't need this as the server session is already authenticated.
-    auth: RwLock<Option<Auth>>,
-    /// Commands to replay when cloning a session (e.g., Attach, Use, Signin, etc.)
-    /// Uses boxcar::Vec for lock-free concurrent appends.
-    replay: boxcar::Vec<Command>,
+	/// HTTP headers for this session (e.g., namespace, database)
+	headers: RwLock<HeaderMap>,
+	/// Authentication state for REST endpoints (export/import).
+	/// RPC calls don't need this as the server session is already authenticated.
+	auth: RwLock<Option<Auth>>,
+	/// Commands to replay when cloning a session (e.g., Attach, Use, Signin, etc.)
+	/// Uses boxcar::Vec for lock-free concurrent appends.
+	replay: boxcar::Vec<Command>,
 }
 
 impl Default for SessionState {
-    fn default() -> Self {
-        Self {
-            headers: RwLock::new(HeaderMap::new()),
-            auth: RwLock::new(None),
-            replay: boxcar::Vec::new(),
-        }
-    }
+	fn default() -> Self {
+		Self {
+			headers: RwLock::new(HeaderMap::new()),
+			auth: RwLock::new(None),
+			replay: boxcar::Vec::new(),
+		}
+	}
 }
 
 impl SessionState {
-    /// Clone the session state by reading the current values.
-    /// This is used when cloning a session to create a new independent copy.
-    async fn clone_state(&self) -> Self {
-        Self {
-            headers: RwLock::new(self.headers.read().await.clone()),
-            auth: RwLock::new(self.auth.read().await.clone()),
-            replay: self.replay.clone(),
-        }
-    }
+	/// Clone the session state by reading the current values.
+	/// This is used when cloning a session to create a new independent copy.
+	async fn clone_state(&self) -> Self {
+		Self {
+			headers: RwLock::new(self.headers.read().await.clone()),
+			auth: RwLock::new(self.auth.read().await.clone()),
+			replay: self.replay.clone(),
+		}
+	}
 }
 
 type SessionResult = std::result::Result<Arc<SessionState>, SessionError>;
 
 /// Router state for HTTP connections
 struct RouterState {
-    /// Per-session state (headers, auth for REST endpoints, replay commands)
-    sessions: HashMap<Uuid, SessionResult>,
-    /// The shared HTTP client used to send requests.
-    /// On native platforms, this client is configured with a resolved address
-    /// via `reqwest::ClientBuilder::resolve()` to ensure all requests go to
-    /// the same server node, avoiding issues with DNS round-robin.
-    client: reqwest::Client,
-    /// The base URL for the SurrealDB server
-    base_url: Url,
+	/// Per-session state (headers, auth for REST endpoints, replay commands)
+	sessions: HashMap<Uuid, SessionResult>,
+	/// The shared HTTP client used to send requests.
+	/// On native platforms, this client is configured with a resolved address
+	/// via `reqwest::ClientBuilder::resolve()` to ensure all requests go to
+	/// the same server node, avoiding issues with DNS round-robin.
+	client: reqwest::Client,
+	/// The base URL for the SurrealDB server
+	base_url: Url,
 }
 
 impl RouterState {
-    /// Creates a new RouterState with the given client and base URL
-    fn new(client: reqwest::Client, base_url: Url) -> Self {
-        Self {
-            sessions: HashMap::new(),
-            client,
-            base_url,
-        }
-    }
+	/// Creates a new RouterState with the given client and base URL
+	fn new(client: reqwest::Client, base_url: Url) -> Self {
+		Self {
+			sessions: HashMap::new(),
+			client,
+			base_url,
+		}
+	}
 
-    /// Replay all stored commands for a session (attach + any Use/Signin/etc.)
-    async fn replay_session(&self, session_id: Uuid, session_state: &SessionState) -> Result<()> {
-        // Clone headers and auth upfront to avoid holding the lock across network I/O
-        let headers = session_state.headers.read().await.clone();
-        let auth = session_state.auth.read().await.clone();
+	/// Replay all stored commands for a session (attach + any Use/Signin/etc.)
+	async fn replay_session(&self, session_id: Uuid, session_state: &SessionState) -> Result<()> {
+		// Clone headers and auth upfront to avoid holding the lock across network I/O
+		let headers = session_state.headers.read().await.clone();
+		let auth = session_state.auth.read().await.clone();
 
-        for (_, command) in &session_state.replay {
-            let request = command
-                .clone()
-                .into_router_request(None, Some(session_id))
-                .expect("replay command should convert to router request");
+		for (_, command) in &session_state.replay {
+			let request = command
+				.clone()
+				.into_router_request(None, Some(session_id))
+				.expect("replay command should convert to router request");
 
-            send_request(request, &self.base_url, &self.client, &headers, &auth).await?;
-        }
-        Ok(())
-    }
+			send_request(request, &self.base_url, &self.client, &headers, &auth).await?;
+		}
+		Ok(())
+	}
 
-    /// Handle a new session being created.
-    async fn handle_session_initial(&self, session_id: Uuid) {
-        let session_state = SessionState::default();
-        session_state.replay.push(Command::Attach { session_id });
-        let session_state = Arc::new(session_state);
-        self.sessions
-            .insert(session_id, Ok(Arc::clone(&session_state)));
+	/// Handle a new session being created.
+	async fn handle_session_initial(&self, session_id: Uuid) {
+		let session_state = SessionState::default();
+		session_state.replay.push(Command::Attach {
+			session_id,
+		});
+		let session_state = Arc::new(session_state);
+		self.sessions.insert(session_id, Ok(Arc::clone(&session_state)));
 
-        if let Err(error) = self.replay_session(session_id, &session_state).await {
-            self.sessions
-                .insert(session_id, Err(SessionError::Remote(error.to_string())));
-        }
-    }
+		if let Err(error) = self.replay_session(session_id, &session_state).await {
+			self.sessions.insert(session_id, Err(SessionError::Remote(error.to_string())));
+		}
+	}
 
-    /// Handle a session being cloned.
-    async fn handle_session_clone(&self, old: Uuid, new: Uuid) {
-        match self.sessions.get(&old) {
-            Some(Ok(session_state)) => {
-                let mut new_state = session_state.clone_state().await;
-                // Replace the attach command with the new session id
-                if let Some(cmd) = new_state.replay.get_mut(0) {
-                    *cmd = Command::Attach { session_id: new };
-                }
-                let new_state = Arc::new(new_state);
-                self.sessions.insert(new, Ok(Arc::clone(&new_state)));
+	/// Handle a session being cloned.
+	async fn handle_session_clone(&self, old: Uuid, new: Uuid) {
+		match self.sessions.get(&old) {
+			Some(Ok(session_state)) => {
+				let mut new_state = session_state.clone_state().await;
+				// Replace the attach command with the new session id
+				if let Some(cmd) = new_state.replay.get_mut(0) {
+					*cmd = Command::Attach {
+						session_id: new,
+					};
+				}
+				let new_state = Arc::new(new_state);
+				self.sessions.insert(new, Ok(Arc::clone(&new_state)));
 
-                if let Err(error) = self.replay_session(new, &new_state).await {
-                    self.sessions
-                        .insert(new, Err(SessionError::Remote(error.to_string())));
-                }
-            }
-            Some(Err(error)) => {
-                self.sessions.insert(new, Err(error));
-            }
-            None => {
-                self.sessions.insert(new, Err(SessionError::NotFound(old)));
-            }
-        }
-    }
+				if let Err(error) = self.replay_session(new, &new_state).await {
+					self.sessions.insert(new, Err(SessionError::Remote(error.to_string())));
+				}
+			}
+			Some(Err(error)) => {
+				self.sessions.insert(new, Err(error));
+			}
+			None => {
+				self.sessions.insert(new, Err(SessionError::NotFound(old)));
+			}
+		}
+	}
 
-    /// Handle a session being dropped.
-    async fn handle_session_drop(&self, session_id: Uuid) {
-        if self.sessions.get(&session_id).is_some() {
-            let session_state = SessionState::default();
-            session_state.replay.push(Command::Detach { session_id });
-            self.replay_session(session_id, &session_state).await.ok();
-        }
-        self.sessions.remove(&session_id);
-    }
+	/// Handle a session being dropped.
+	async fn handle_session_drop(&self, session_id: Uuid) {
+		if self.sessions.get(&session_id).is_some() {
+			let session_state = SessionState::default();
+			session_state.replay.push(Command::Detach {
+				session_id,
+			});
+			self.replay_session(session_id, &session_state).await.ok();
+		}
+		self.sessions.remove(&session_id);
+	}
 
-    /// Dispatch a session-lifecycle event to the appropriate handler.
-    async fn handle_session(&self, session_id: crate::SessionId) {
-        match session_id {
-            crate::SessionId::Initial(id) => self.handle_session_initial(id).await,
-            crate::SessionId::Clone { old, new } => self.handle_session_clone(old, new).await,
-            crate::SessionId::Drop(id) => self.handle_session_drop(id).await,
-        }
-    }
+	/// Dispatch a session-lifecycle event to the appropriate handler.
+	async fn handle_session(&self, session_id: crate::SessionId) {
+		match session_id {
+			crate::SessionId::Initial(id) => self.handle_session_initial(id).await,
+			crate::SessionId::Clone {
+				old,
+				new,
+			} => self.handle_session_clone(old, new).await,
+			crate::SessionId::Drop(id) => self.handle_session_drop(id).await,
+		}
+	}
 }
 
 /// The HTTP scheme used to connect to `http://` endpoints.
@@ -347,36 +353,36 @@ pub struct Https;
 pub struct Client(());
 
 impl Surreal<Client> {
-    /// Connects to a specific database endpoint, saving the connection on the
-    /// static client
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use std::sync::LazyLock;
-    /// use surrealdb::Surreal;
-    /// use surrealdb::engine::remote::http::Client;
-    /// use surrealdb::engine::remote::http::Http;
-    ///
-    /// static DB: LazyLock<Surreal<Client>> = LazyLock::new(Surreal::init);
-    ///
-    /// # #[tokio::main]
-    /// # async fn main() -> surrealdb::Result<()> {
-    /// DB.connect::<Http>("localhost:8000").await?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn connect<P>(
-        &self,
-        address: impl IntoEndpoint<P, Client = Client>,
-    ) -> Connect<Client, ()> {
-        Connect {
-            surreal: Arc::clone(&self.inner).into(),
-            address: address.into_endpoint(),
-            capacity: 0,
-            response_type: PhantomData,
-        }
-    }
+	/// Connects to a specific database endpoint, saving the connection on the
+	/// static client
+	///
+	/// # Examples
+	///
+	/// ```no_run
+	/// use std::sync::LazyLock;
+	/// use surrealdb::Surreal;
+	/// use surrealdb::engine::remote::http::Client;
+	/// use surrealdb::engine::remote::http::Http;
+	///
+	/// static DB: LazyLock<Surreal<Client>> = LazyLock::new(Surreal::init);
+	///
+	/// # #[tokio::main]
+	/// # async fn main() -> surrealdb::Result<()> {
+	/// DB.connect::<Http>("localhost:8000").await?;
+	/// # Ok(())
+	/// # }
+	/// ```
+	pub fn connect<P>(
+		&self,
+		address: impl IntoEndpoint<P, Client = Client>,
+	) -> Connect<Client, ()> {
+		Connect {
+			surreal: Arc::clone(&self.inner).into(),
+			address: address.into_endpoint(),
+			capacity: 0,
+			response_type: PhantomData,
+		}
+	}
 }
 
 /// Serialize a `Value` as a JSON string for a REST body.
@@ -384,220 +390,221 @@ impl Surreal<Client> {
 /// Cannot fail: the conversion goes through `serde_json::Value`, whose string
 /// serialization is infallible.
 fn json_encode_str(value: Value) -> String {
-    serde_json::to_string(&value.into_json_value())
-        .expect("serialization to json string should not fail")
+	serde_json::to_string(&value.into_json_value())
+		.expect("serialization to json string should not fail")
 }
 
 pub(crate) fn default_headers() -> HeaderMap {
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        ACCEPT,
-        HeaderValue::from_static(surrealdb_rpc::format::FLATBUFFERS),
-    );
-    headers.insert(
-        CONTENT_TYPE,
-        HeaderValue::from_static(surrealdb_rpc::format::FLATBUFFERS),
-    );
-    headers
+	let mut headers = HeaderMap::new();
+	headers.insert(ACCEPT, HeaderValue::from_static(surrealdb_rpc::format::FLATBUFFERS));
+	headers.insert(CONTENT_TYPE, HeaderValue::from_static(surrealdb_rpc::format::FLATBUFFERS));
+	headers
 }
 
 #[derive(Debug, Clone)]
 enum Auth {
-    Basic {
-        user: String,
-        pass: String,
-        ns: Option<String>,
-        db: Option<String>,
-    },
-    Bearer {
-        token: AccessToken,
-    },
+	Basic {
+		user: String,
+		pass: String,
+		ns: Option<String>,
+		db: Option<String>,
+	},
+	Bearer {
+		token: AccessToken,
+	},
 }
 
 trait Authenticate {
-    fn auth(self, auth: &Option<Auth>) -> Self;
+	fn auth(self, auth: &Option<Auth>) -> Self;
 }
 
 impl Authenticate for RequestBuilder {
-    fn auth(self, auth: &Option<Auth>) -> Self {
-        match auth {
-            Some(Auth::Basic { user, pass, ns, db }) => {
-                let mut req = self.basic_auth(user, Some(pass));
-                if let Some(ns) = ns {
-                    req = req.header(&AUTH_NS, ns);
-                }
-                if let Some(db) = db {
-                    req = req.header(&AUTH_DB, db);
-                }
-                req
-            }
-            Some(Auth::Bearer { token }) => self.bearer_auth(token.as_insecure_token()),
-            None => self,
-        }
-    }
+	fn auth(self, auth: &Option<Auth>) -> Self {
+		match auth {
+			Some(Auth::Basic {
+				user,
+				pass,
+				ns,
+				db,
+			}) => {
+				let mut req = self.basic_auth(user, Some(pass));
+				if let Some(ns) = ns {
+					req = req.header(&AUTH_NS, ns);
+				}
+				if let Some(db) = db {
+					req = req.header(&AUTH_DB, db);
+				}
+				req
+			}
+			Some(Auth::Bearer {
+				token,
+			}) => self.bearer_auth(token.as_insecure_token()),
+			None => self,
+		}
+	}
 }
 
 #[derive(Debug, Serialize, Deserialize, SurrealValue)]
 #[surreal(crate = "crate::types")]
 struct Credentials {
-    user: String,
-    pass: String,
-    ac: Option<String>,
-    ns: Option<String>,
-    db: Option<String>,
+	user: String,
+	pass: String,
+	ac: Option<String>,
+	ns: Option<String>,
+	db: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[expect(dead_code)]
 struct AuthResponse {
-    code: u16,
-    details: String,
-    token: Option<Token>,
+	code: u16,
+	details: String,
+	token: Option<Token>,
 }
 
 type BackupSender = async_channel::Sender<Result<Vec<u8>>>;
 
 #[cfg(not(target_family = "wasm"))]
 async fn export_file(request: RequestBuilder, path: PathBuf) -> Result<()> {
-    let mut response = request
-        .send()
-        .await
-        .map_err(crate::std_error_to_types_error)?
-        .error_for_status()
-        .map_err(crate::std_error_to_types_error)?
-        .bytes_stream()
-        .map_err(futures::io::Error::other)
-        .into_async_read()
-        .compat();
-    let mut file = match OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&path)
-        .await
-    {
-        Ok(path) => path,
-        Err(error) => {
-            return Err(Error::internal(format!(
-                "Failed to open `{}`: {error}",
-                path.display()
-            )));
-        }
-    };
-    if let Err(error) = io::copy(&mut response, &mut file).await {
-        return Err(Error::internal(format!(
-            "Failed to read `{}`: {error}",
-            path.display()
-        )));
-    }
+	let mut response = request
+		.send()
+		.await
+		.map_err(crate::std_error_to_types_error)?
+		.error_for_status()
+		.map_err(crate::std_error_to_types_error)?
+		.bytes_stream()
+		.map_err(futures::io::Error::other)
+		.into_async_read()
+		.compat();
+	let mut file =
+		match OpenOptions::new().write(true).create(true).truncate(true).open(&path).await {
+			Ok(path) => path,
+			Err(error) => {
+				return Err(Error::internal(format!(
+					"Failed to open `{}`: {error}",
+					path.display()
+				)));
+			}
+		};
+	if let Err(error) = io::copy(&mut response, &mut file).await {
+		return Err(Error::internal(format!("Failed to read `{}`: {error}", path.display())));
+	}
 
-    Ok(())
+	Ok(())
 }
 
 async fn export_bytes(request: RequestBuilder, bytes: BackupSender) -> Result<()> {
-    let response = request
-        .send()
-        .await
-        .map_err(crate::std_error_to_types_error)?
-        .error_for_status()
-        .map_err(crate::std_error_to_types_error)?;
+	let response = request
+		.send()
+		.await
+		.map_err(crate::std_error_to_types_error)?
+		.error_for_status()
+		.map_err(crate::std_error_to_types_error)?;
 
-    let future = async move {
-        let mut response = response.bytes_stream();
-        while let Ok(Some(b)) = response.try_next().await {
-            if bytes.send(Ok(b.to_vec())).await.is_err() {
-                break;
-            }
-        }
-    };
+	let future = async move {
+		let mut response = response.bytes_stream();
+		while let Ok(Some(b)) = response.try_next().await {
+			if bytes.send(Ok(b.to_vec())).await.is_err() {
+				break;
+			}
+		}
+	};
 
-    #[cfg(not(target_family = "wasm"))]
-    tokio::spawn(future);
+	#[cfg(not(target_family = "wasm"))]
+	tokio::spawn(future);
 
-    #[cfg(target_family = "wasm")]
-    spawn_local(future);
+	#[cfg(target_family = "wasm")]
+	spawn_local(future);
 
-    Ok(())
+	Ok(())
 }
 
 #[cfg(not(target_family = "wasm"))]
 async fn import(request: RequestBuilder, path: PathBuf) -> Result<()> {
-    let file = match OpenOptions::new().read(true).open(&path).await {
-        Ok(path) => path,
-        Err(error) => {
-            return Err(Error::internal(format!(
-                "Failed to open `{}`: {}",
-                path.display(),
-                error
-            )));
-        }
-    };
+	let file = match OpenOptions::new().read(true).open(&path).await {
+		Ok(path) => path,
+		Err(error) => {
+			return Err(Error::internal(format!("Failed to open `{}`: {}", path.display(), error)));
+		}
+	};
 
-    let res = request
-        .header(ACCEPT, surrealdb_rpc::format::FLATBUFFERS)
-        .body(file)
-        .send()
-        .await
-        .map_err(crate::std_error_to_types_error)?;
+	let res = request
+		.header(ACCEPT, surrealdb_rpc::format::FLATBUFFERS)
+		.body(file)
+		.send()
+		.await
+		.map_err(crate::std_error_to_types_error)?;
 
-    if res.error_for_status_ref().is_err() {
-        let res = res.text().await.map_err(crate::std_error_to_types_error)?;
+	let status = res.status();
+	let bytes = res.bytes().await.map_err(crate::std_error_to_types_error)?;
 
-        match res.parse::<serde_json::Value>() {
-            Ok(body) => {
-                let error_msg = format!(
-                    "\n{}",
-                    serde_json::to_string_pretty(&body).unwrap_or_else(|_| "{}".into())
-                );
-                return Err(Error::connection(
-                    format!("HTTP error: {error_msg}"),
-                    ConnectionError::ConnectionFailed,
-                ));
-            }
-            Err(_) => {
-                return Err(Error::connection(
-                    format!("HTTP error: {res}"),
-                    ConnectionError::ConnectionFailed,
-                ));
-            }
-        }
-    }
+	// A dump that reached execution is answered with the array of statements
+	// that failed - empty when the whole dump applied - and the status says
+	// whether it applied in full. Read that array first, so that a caller whose
+	// import failed is told which statement failed rather than which status the
+	// transport carried. A request rejected before execution is answered with
+	// an error document instead, and is reported from that document.
+	match surrealdb_types::decode::<Value>(&bytes) {
+		Ok(Value::Array(arr)) => {
+			for val in arr.into_vec() {
+				let result = QueryResult::from_value(val)
+					.map_err(|e| Error::internal(format!("Failed to parse query result: {e}")))?;
+				result.result?;
+			}
+			// The import applied in full only when the server also said so. A
+			// failure it reported without attributing it to a statement is
+			// still a failure, and must not be returned as success.
+			if status.is_success() {
+				Ok(())
+			} else {
+				Err(Error::internal(format!(
+					"The server reported a failed import with HTTP status {status}, and the import may have been partially applied"
+				)))
+			}
+		}
+		decoded => {
+			if !status.is_success() {
+				let body = String::from_utf8_lossy(&bytes);
 
-    let bytes = res.bytes().await.map_err(crate::std_error_to_types_error)?;
+				return match body.parse::<serde_json::Value>() {
+					Ok(body) => {
+						let error_msg = format!(
+							"\n{}",
+							serde_json::to_string_pretty(&body).unwrap_or_else(|_| "{}".into())
+						);
+						Err(Error::connection(
+							format!("HTTP error: {error_msg}"),
+							ConnectionError::ConnectionFailed,
+						))
+					}
+					Err(_) => Err(Error::connection(
+						format!("HTTP error: {body}"),
+						ConnectionError::ConnectionFailed,
+					)),
+				};
+			}
 
-    let value: Value = surrealdb_types::decode(&bytes)
-        .map_err(|x| format!("Failed to deserialize flatbuffers payload: {x:?}"))
-        .map_err(|e| {
-            crate::Error::serialization(
-                format!("The server returned an unexpected response: {e}"),
-                SerializationError::Deserialization,
-            )
-        })?;
-
-    // Convert Value::Array to Vec<QueryResult>
-    let Value::Array(arr) = value else {
-        return Err(Error::internal(
-            "Expected array response from import".to_string(),
-        ));
-    };
-
-    for val in arr.into_vec() {
-        let result = QueryResult::from_value(val)
-            .map_err(|e| Error::internal(format!("Failed to parse query result: {e}")))?;
-        result.result?;
-    }
-
-    Ok(())
+			match decoded {
+				Ok(_) => Err(Error::internal("Expected array response from import".to_string())),
+				Err(e) => Err(crate::Error::serialization(
+					format!(
+						"The server returned an unexpected response: Failed to deserialize flatbuffers payload: {e:?}"
+					),
+					SerializationError::Deserialization,
+				)),
+			}
+		}
+	}
 }
 
 pub(crate) async fn health(request: RequestBuilder) -> Result<()> {
-    request
-        .send()
-        .await
-        .map_err(crate::std_error_to_types_error)?
-        .error_for_status()
-        .map_err(crate::std_error_to_types_error)?;
-    Ok(())
+	request
+		.send()
+		.await
+		.map_err(crate::std_error_to_types_error)?
+		.error_for_status()
+		.map_err(crate::std_error_to_types_error)?;
+	Ok(())
 }
 
 /// Sends an RPC request to the SurrealDB server and returns the response.
@@ -611,518 +618,546 @@ pub(crate) async fn health(request: RequestBuilder) -> Result<()> {
 ///   needs to identify the authenticated user and extract namespace/database from JWT claims (e.g.,
 ///   after `authenticate()`)
 async fn send_request(
-    req: RouterRequest,
-    base_url: &Url,
-    client: &reqwest::Client,
-    headers: &HeaderMap,
-    auth: &Option<Auth>,
+	req: RouterRequest,
+	base_url: &Url,
+	client: &reqwest::Client,
+	headers: &HeaderMap,
+	auth: &Option<Auth>,
 ) -> Result<Vec<QueryResult>> {
-    let url = base_url.join(RPC_PATH).expect("valid RPC path");
+	let url = base_url.join(RPC_PATH).expect("valid RPC path");
 
-    let req_value = req.into_value();
-    let body = surrealdb_types::encode(&req_value)
-        .map_err(|x| format!("Failed to serialize to flatbuffers: {x}"))
-        .map_err(|e| {
-            crate::Error::internal(format!(
-                "Tried to send a value which could not be serialized: {e}"
-            ))
-        })?;
+	let req_value = req.into_value();
+	let body = surrealdb_types::encode(&req_value)
+		.map_err(|x| format!("Failed to serialize to flatbuffers: {x}"))
+		.map_err(|e| {
+			crate::Error::internal(format!(
+				"Tried to send a value which could not be serialized: {e}"
+			))
+		})?;
 
-    // Include auth header so the server can authenticate the request and maintain
-    // session state. This is essential for token-based auth flows where the server
-    // extracts namespace/database from JWT claims during authenticate().
-    let http_req = client
-        .post(url)
-        .headers(headers.clone())
-        .auth(auth)
-        .body(body);
-    let response = http_req
-        .send()
-        .await
-        .map_err(crate::std_error_to_types_error)?
-        .error_for_status()
-        .map_err(crate::std_error_to_types_error)?;
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(crate::std_error_to_types_error)?;
+	// Include auth header so the server can authenticate the request and maintain
+	// session state. This is essential for token-based auth flows where the server
+	// extracts namespace/database from JWT claims during authenticate().
+	let http_req = client.post(url).headers(headers.clone()).auth(auth).body(body);
+	let response = http_req
+		.send()
+		.await
+		.map_err(crate::std_error_to_types_error)?
+		.error_for_status()
+		.map_err(crate::std_error_to_types_error)?;
+	let bytes = response.bytes().await.map_err(crate::std_error_to_types_error)?;
 
-    let response: DbResponse = surrealdb_types::decode(&bytes)
-        .map_err(|x| format!("Failed to deserialize flatbuffers payload: {x}"))
-        .map_err(|e| {
-            crate::Error::internal(format!("The server returned an unexpected response: {e}"))
-        })?;
+	let response: DbResponse = surrealdb_types::decode(&bytes)
+		.map_err(|x| format!("Failed to deserialize flatbuffers payload: {x}"))
+		.map_err(|e| {
+			crate::Error::internal(format!("The server returned an unexpected response: {e}"))
+		})?;
 
-    match response.result? {
-        DbResult::Query(results) => Ok(results),
-        DbResult::Other(value) => Ok(vec![
-            QueryResultBuilder::started_now().finish_with_result(Ok(value)),
-        ]),
-        DbResult::Live(notification) => Ok(vec![
-            QueryResultBuilder::started_now().finish_with_result(Ok(notification.into_value())),
-        ]),
-    }
+	match response.result? {
+		DbResult::Query(results) => Ok(results),
+		DbResult::Other(value) => {
+			Ok(vec![QueryResultBuilder::started_now().finish_with_result(Ok(value))])
+		}
+		DbResult::Live(notification) => Ok(vec![
+			QueryResultBuilder::started_now().finish_with_result(Ok(notification.into_value())),
+		]),
+	}
 }
 
 async fn refresh_token(
-    token: CoreToken,
-    base_url: &Url,
-    client: &reqwest::Client,
-    headers: &HeaderMap,
-    auth: &Option<Auth>,
-    session_id: Option<uuid::Uuid>,
+	token: CoreToken,
+	base_url: &Url,
+	client: &reqwest::Client,
+	headers: &HeaderMap,
+	auth: &Option<Auth>,
+	session_id: Option<uuid::Uuid>,
 ) -> Result<(Value, Vec<QueryResult>)> {
-    let req = Command::Refresh { token }
-        .into_router_request(None, session_id)
-        .expect("refresh should be a valid router request");
-    let results = send_request(req, base_url, client, headers, auth).await?;
-    let value = match results.first() {
-        Some(result) => result.clone().result?,
-        None => {
-            error!("received invalid result from server");
-            return Err(Error::internal(
-                "Received invalid result from server".to_string(),
-            ));
-        }
-    };
-    Ok((value, results))
+	let req = Command::Refresh {
+		token,
+	}
+	.into_router_request(None, session_id)
+	.expect("refresh should be a valid router request");
+	let results = send_request(req, base_url, client, headers, auth).await?;
+	let value = match results.first() {
+		Some(result) => result.clone().result?,
+		None => {
+			error!("received invalid result from server");
+			return Err(Error::internal("Received invalid result from server".to_string()));
+		}
+	};
+	Ok((value, results))
 }
 
 async fn router(
-    req: RequestData,
-    base_url: &Url,
-    client: &reqwest::Client,
-    session_state: &SessionState,
+	req: RequestData,
+	base_url: &Url,
+	client: &reqwest::Client,
+	session_state: &SessionState,
 ) -> Result<Vec<QueryResult>> {
-    let session_id = req.session_id;
-    match req.command {
-        Command::Use {
-            namespace,
-            database,
-        } => {
-            let req = Command::Use {
-                namespace: namespace.clone(),
-                database: database.clone(),
-            }
-            .into_router_request(None, Some(session_id))
-            .expect("USE command should convert to router request");
-            // Send the USE request to the server to update the session state
-            let out = send_request(
-                req,
-                base_url,
-                client,
-                &*session_state.headers.read().await,
-                &*session_state.auth.read().await,
-            )
-            .await?;
-            let mut headers = session_state.headers.write().await;
+	let session_id = req.session_id;
+	match req.command {
+		Command::Use {
+			namespace,
+			database,
+		} => {
+			let req = Command::Use {
+				namespace: namespace.clone(),
+				database: database.clone(),
+			}
+			.into_router_request(None, Some(session_id))
+			.expect("USE command should convert to router request");
+			// Send the USE request to the server to update the session state
+			let out = send_request(
+				req,
+				base_url,
+				client,
+				&*session_state.headers.read().await,
+				&*session_state.auth.read().await,
+			)
+			.await?;
+			let mut headers = session_state.headers.write().await;
 
-            // Synchronize local HTTP headers with the server's session state.
-            //
-            // This is critical for token-based authentication flows:
-            // 1. Client calls authenticate(token) - server extracts ns/db from JWT claims
-            // 2. Client calls use_defaults() (USE with no args) to sync local state
-            // 3. Server returns the session's ns/db (from token claims) in the response
-            // 4. Client updates local headers to match, ensuring subsequent requests are routed to
-            //    the correct namespace/database
-            //
-            // We use the server response rather than the original request parameters
-            // because the server may have resolved defaults or preserved token-derived values.
-            if let Some(result) = out.first()
-                && let Ok(Value::Object(ref obj)) = result.clone().result
-            {
-                match obj.get("namespace") {
-                    Some(Value::String(ns)) => {
-                        let header_value = HeaderValue::try_from(ns.as_str()).map_err(|_| {
-                            Error::internal(format!("Invalid namespace name: {ns:?}"))
-                        })?;
-                        headers.insert(&NS, header_value);
-                    }
-                    _ => {
-                        headers.remove(&NS);
-                    }
-                }
-                match obj.get("database") {
-                    Some(Value::String(db)) => {
-                        let header_value = HeaderValue::try_from(db.as_str()).map_err(|_| {
-                            Error::internal(format!("Invalid database name: {db:?}"))
-                        })?;
-                        headers.insert(&DB, header_value);
-                    }
-                    _ => {
-                        headers.remove(&DB);
-                    }
-                }
-            }
+			// Synchronize local HTTP headers with the server's session state.
+			//
+			// This is critical for token-based authentication flows:
+			// 1. Client calls authenticate(token) - server extracts ns/db from JWT claims
+			// 2. Client calls use_defaults() (USE with no args) to sync local state
+			// 3. Server returns the session's ns/db (from token claims) in the response
+			// 4. Client updates local headers to match, ensuring subsequent requests are routed to
+			//    the correct namespace/database
+			//
+			// We use the server response rather than the original request parameters
+			// because the server may have resolved defaults or preserved token-derived values.
+			if let Some(result) = out.first()
+				&& let Ok(Value::Object(ref obj)) = result.clone().result
+			{
+				match obj.get("namespace") {
+					Some(Value::String(ns)) => {
+						let header_value = HeaderValue::try_from(ns.as_str()).map_err(|_| {
+							Error::internal(format!("Invalid namespace name: {ns:?}"))
+						})?;
+						headers.insert(&NS, header_value);
+					}
+					_ => {
+						headers.remove(&NS);
+					}
+				}
+				match obj.get("database") {
+					Some(Value::String(db)) => {
+						let header_value = HeaderValue::try_from(db.as_str()).map_err(|_| {
+							Error::internal(format!("Invalid database name: {db:?}"))
+						})?;
+						headers.insert(&DB, header_value);
+					}
+					_ => {
+						headers.remove(&DB);
+					}
+				}
+			}
 
-            Ok(out)
-        }
-        Command::Signup { credentials } => {
-            let req = Command::Signup {
-                credentials: credentials.clone(),
-            }
-            .into_router_request(None, Some(session_id))
-            .expect("signup should be a valid router request");
+			Ok(out)
+		}
+		Command::Signup {
+			credentials,
+		} => {
+			let req = Command::Signup {
+				credentials: credentials.clone(),
+			}
+			.into_router_request(None, Some(session_id))
+			.expect("signup should be a valid router request");
 
-            let results = send_request(
-                req,
-                base_url,
-                client,
-                &*session_state.headers.read().await,
-                &*session_state.auth.read().await,
-            )
-            .await?;
+			let results = send_request(
+				req,
+				base_url,
+				client,
+				&*session_state.headers.read().await,
+				&*session_state.auth.read().await,
+			)
+			.await?;
 
-            // Stash the signup-issued bearer token so subsequent HTTP
-            // requests carry the new credentials and pass the
-            // per-session ownership gate added in
-            // `Http::verify_caller_for_session`. Without this the next
-            // auth call would arrive anonymous against a session that
-            // the server has already bound to the new record principal.
-            let value = match results.first() {
-                Some(result) => result.clone().result?,
-                None => {
-                    error!("received invalid result from server");
-                    return Err(Error::internal(
-                        "Received invalid result from server".to_string(),
-                    ));
-                }
-            };
+			// Stash the signup-issued bearer token so subsequent HTTP
+			// requests carry the new credentials and pass the
+			// per-session ownership gate added in
+			// `Http::verify_caller_for_session`. Without this the next
+			// auth call would arrive anonymous against a session that
+			// the server has already bound to the new record principal.
+			let value = match results.first() {
+				Some(result) => result.clone().result?,
+				None => {
+					error!("received invalid result from server");
+					return Err(Error::internal("Received invalid result from server".to_string()));
+				}
+			};
 
-            let token = Token::from_value(value).map_err(|e| Error::internal(e.to_string()))?;
-            *session_state.auth.write().await = Some(Auth::Bearer {
-                token: token.access,
-            });
+			let token = Token::from_value(value).map_err(|e| Error::internal(e.to_string()))?;
+			*session_state.auth.write().await = Some(Auth::Bearer {
+				token: token.access,
+			});
 
-            Ok(results)
-        }
-        Command::Signin { credentials } => {
-            let req = Command::Signin {
-                credentials: credentials.clone(),
-            }
-            .into_router_request(None, Some(session_id))
-            .expect("signin should be a valid router request");
+			Ok(results)
+		}
+		Command::Signin {
+			credentials,
+		} => {
+			let req = Command::Signin {
+				credentials: credentials.clone(),
+			}
+			.into_router_request(None, Some(session_id))
+			.expect("signin should be a valid router request");
 
-            let results = send_request(
-                req,
-                base_url,
-                client,
-                &*session_state.headers.read().await,
-                &*session_state.auth.read().await,
-            )
-            .await?;
+			let results = send_request(
+				req,
+				base_url,
+				client,
+				&*session_state.headers.read().await,
+				&*session_state.auth.read().await,
+			)
+			.await?;
 
-            let value = match results.first() {
-                Some(result) => result.clone().result?,
-                None => {
-                    error!("received invalid result from server");
-                    return Err(Error::internal(
-                        "Received invalid result from server".to_string(),
-                    ));
-                }
-            };
+			let value = match results.first() {
+				Some(result) => result.clone().result?,
+				None => {
+					error!("received invalid result from server");
+					return Err(Error::internal("Received invalid result from server".to_string()));
+				}
+			};
 
-            let mut auth = session_state.auth.write().await;
-            match Credentials::from_value(value.clone()) {
-                Ok(credentials) => {
-                    *auth = Some(Auth::Basic {
-                        user: credentials.user,
-                        pass: credentials.pass,
-                        ns: credentials.ns,
-                        db: credentials.db,
-                    });
-                }
-                Err(err) => {
-                    debug!("Error converting Value to Credentials: {err}");
-                    let token =
-                        Token::from_value(value).map_err(|e| Error::internal(e.to_string()))?;
-                    *auth = Some(Auth::Bearer {
-                        token: token.access,
-                    });
-                }
-            }
+			let mut auth = session_state.auth.write().await;
+			match Credentials::from_value(value.clone()) {
+				Ok(credentials) => {
+					*auth = Some(Auth::Basic {
+						user: credentials.user,
+						pass: credentials.pass,
+						ns: credentials.ns,
+						db: credentials.db,
+					});
+				}
+				Err(err) => {
+					debug!("Error converting Value to Credentials: {err}");
+					let token =
+						Token::from_value(value).map_err(|e| Error::internal(e.to_string()))?;
+					*auth = Some(Auth::Bearer {
+						token: token.access,
+					});
+				}
+			}
 
-            Ok(results)
-        }
-        Command::Authenticate { token } => {
-            let req = Command::Authenticate {
-                token: token.clone(),
-            }
-            .into_router_request(None, Some(session_id))
-            .expect("authenticate should be a valid router request");
-            let mut results = send_request(
-                req,
-                base_url,
-                client,
-                &*session_state.headers.read().await,
-                &*session_state.auth.read().await,
-            )
-            .await?;
-            if let Some(result) = results.first_mut() {
-                match &mut result.result {
-                    Ok(result) => {
-                        let value = token.into_value();
-                        *session_state.auth.write().await = Some(Auth::Bearer {
-                            token: Token::from_value(value.clone())
-                                .map_err(|e| Error::internal(e.to_string()))?
-                                .access,
-                        });
-                        *result = value;
-                    }
-                    Err(error) => {
-                        // Automatic refresh token handling:
-                        // If authentication fails with "token has expired" and we have a refresh
-                        // token, automatically attempt to refresh the authentication and
-                        // update the stored auth.
-                        if let CoreToken::WithRefresh { .. } = &token {
-                            // If the error is due to token expiration, attempt automatic refresh
-                            if error.not_allowed_details().is_some_and(|a| {
-                                matches!(a, NotAllowedError::Auth(AuthError::TokenExpired))
-                            }) {
-                                // Call the refresh_token helper to get new tokens
-                                let (value, refresh_results) = refresh_token(
-                                    token,
-                                    base_url,
-                                    client,
-                                    &*session_state.headers.read().await,
-                                    &*session_state.auth.read().await,
-                                    Some(session_id),
-                                )
-                                .await?;
-                                // Update the stored authentication with the new access token
-                                *session_state.auth.write().await = Some(Auth::Bearer {
-                                    token: Token::from_value(value)
-                                        .map_err(|e| Error::internal(e.to_string()))?
-                                        .access,
-                                });
-                                // Use the refresh results (which include the new token)
-                                results = refresh_results;
-                            }
-                        }
-                    }
-                }
-            }
-            Ok(results)
-        }
-        Command::Refresh { token } => {
-            let (value, results) = refresh_token(
-                token,
-                base_url,
-                client,
-                &*session_state.headers.read().await,
-                &*session_state.auth.read().await,
-                Some(session_id),
-            )
-            .await?;
-            *session_state.auth.write().await = Some(Auth::Bearer {
-                token: Token::from_value(value)
-                    .map_err(|e| Error::internal(e.to_string()))?
-                    .access,
-            });
-            Ok(results)
-        }
-        Command::Invalidate => {
-            // Send invalidate to server to clear stored session
-            let req = Command::Invalidate
-                .into_router_request(None, Some(session_id))
-                .expect("invalidate should be a valid router request");
-            let results = send_request(
-                req,
-                base_url,
-                client,
-                &*session_state.headers.read().await,
-                &*session_state.auth.read().await,
-            )
-            .await?;
-            // Then clear local auth so future requests don't include auth headers
-            *session_state.auth.write().await = None;
-            Ok(results)
-        }
-        Command::Set { key, value } => {
-            surrealdb_rpc::check_protected_param(&key)?;
-            let req = Command::Set { key, value }
-                .into_router_request(None, Some(session_id))
-                .expect("set should be a valid router request");
-            send_request(
-                req,
-                base_url,
-                client,
-                &*session_state.headers.read().await,
-                &*session_state.auth.read().await,
-            )
-            .await
-        }
-        Command::Unset { key } => {
-            let req = Command::Unset { key }
-                .into_router_request(None, Some(session_id))
-                .expect("unset should be a valid router request");
-            send_request(
-                req,
-                base_url,
-                client,
-                &*session_state.headers.read().await,
-                &*session_state.auth.read().await,
-            )
-            .await
-        }
-        #[cfg(target_family = "wasm")]
-        Command::ExportFile { .. }
-        | Command::ExportMl { .. }
-        | Command::ImportFile { .. }
-        | Command::ImportMl { .. } => Err(Error::internal(
-            "File-based export/import is not supported on this architecture. \
+			Ok(results)
+		}
+		Command::Authenticate {
+			token,
+		} => {
+			let req = Command::Authenticate {
+				token: token.clone(),
+			}
+			.into_router_request(None, Some(session_id))
+			.expect("authenticate should be a valid router request");
+			let mut results = send_request(
+				req,
+				base_url,
+				client,
+				&*session_state.headers.read().await,
+				&*session_state.auth.read().await,
+			)
+			.await?;
+			if let Some(result) = results.first_mut() {
+				match &mut result.result {
+					Ok(result) => {
+						let value = token.into_value();
+						*session_state.auth.write().await = Some(Auth::Bearer {
+							token: Token::from_value(value.clone())
+								.map_err(|e| Error::internal(e.to_string()))?
+								.access,
+						});
+						*result = value;
+					}
+					Err(error) => {
+						// Automatic refresh token handling:
+						// If authentication fails with "token has expired" and we have a refresh
+						// token, automatically attempt to refresh the authentication and
+						// update the stored auth.
+						if let CoreToken::WithRefresh {
+							..
+						} = &token
+						{
+							// If the error is due to token expiration, attempt automatic refresh
+							if error.not_allowed_details().is_some_and(|a| {
+								matches!(a, NotAllowedError::Auth(AuthError::TokenExpired))
+							}) {
+								// Call the refresh_token helper to get new tokens
+								let (value, refresh_results) = refresh_token(
+									token,
+									base_url,
+									client,
+									&*session_state.headers.read().await,
+									&*session_state.auth.read().await,
+									Some(session_id),
+								)
+								.await?;
+								// Update the stored authentication with the new access token
+								*session_state.auth.write().await = Some(Auth::Bearer {
+									token: Token::from_value(value)
+										.map_err(|e| Error::internal(e.to_string()))?
+										.access,
+								});
+								// Use the refresh results (which include the new token)
+								results = refresh_results;
+							}
+						}
+					}
+				}
+			}
+			Ok(results)
+		}
+		Command::Refresh {
+			token,
+		} => {
+			let (value, results) = refresh_token(
+				token,
+				base_url,
+				client,
+				&*session_state.headers.read().await,
+				&*session_state.auth.read().await,
+				Some(session_id),
+			)
+			.await?;
+			*session_state.auth.write().await = Some(Auth::Bearer {
+				token: Token::from_value(value).map_err(|e| Error::internal(e.to_string()))?.access,
+			});
+			Ok(results)
+		}
+		Command::Invalidate => {
+			// Send invalidate to server to clear stored session
+			let req = Command::Invalidate
+				.into_router_request(None, Some(session_id))
+				.expect("invalidate should be a valid router request");
+			let results = send_request(
+				req,
+				base_url,
+				client,
+				&*session_state.headers.read().await,
+				&*session_state.auth.read().await,
+			)
+			.await?;
+			// Then clear local auth so future requests don't include auth headers
+			*session_state.auth.write().await = None;
+			Ok(results)
+		}
+		Command::Set {
+			key,
+			value,
+		} => {
+			surrealdb_rpc::check_protected_param(&key)?;
+			let req = Command::Set {
+				key,
+				value,
+			}
+			.into_router_request(None, Some(session_id))
+			.expect("set should be a valid router request");
+			send_request(
+				req,
+				base_url,
+				client,
+				&*session_state.headers.read().await,
+				&*session_state.auth.read().await,
+			)
+			.await
+		}
+		Command::Unset {
+			key,
+		} => {
+			let req = Command::Unset {
+				key,
+			}
+			.into_router_request(None, Some(session_id))
+			.expect("unset should be a valid router request");
+			send_request(
+				req,
+				base_url,
+				client,
+				&*session_state.headers.read().await,
+				&*session_state.auth.read().await,
+			)
+			.await
+		}
+		#[cfg(target_family = "wasm")]
+		Command::ExportFile {
+			..
+		}
+		| Command::ExportMl {
+			..
+		}
+		| Command::ImportFile {
+			..
+		}
+		| Command::ImportMl {
+			..
+		} => Err(Error::internal(
+			"File-based export/import is not supported on this architecture. \
 				 Use the byte-stream variants (e.g. `db.export().await?`) instead."
-                .to_string(),
-        )),
+				.to_string(),
+		)),
 
-        #[cfg(not(target_family = "wasm"))]
-        Command::ExportFile { path, config } => {
-            let req_path = base_url
-                .join("export")
-                .map_err(crate::std_error_to_types_error)?;
-            let config = config.unwrap_or_default();
-            let config_value: Value = config.into_value();
-            let headers = session_state.headers.read().await;
-            let auth = session_state.auth.read().await;
-            let request = client
-                .post(req_path)
-                .body(json_encode_str(config_value))
-                .headers(headers.clone())
-                .auth(&auth)
-                .header(CONTENT_TYPE, "application/json")
-                .header(ACCEPT, "application/octet-stream");
-            export_file(request, path).await?;
-            Ok(vec![QueryResultBuilder::instant_none()])
-        }
-        Command::ExportBytes { bytes, config } => {
-            let req_path = base_url
-                .join("export")
-                .map_err(crate::std_error_to_types_error)?;
-            let config = config.unwrap_or_default();
-            let config_value = config.into_value();
-            let headers = session_state.headers.read().await;
-            let auth = session_state.auth.read().await;
-            let request = client
-                .post(req_path)
-                .body(json_encode_str(config_value))
-                .headers(headers.clone())
-                .auth(&auth)
-                .header(CONTENT_TYPE, "application/json")
-                .header(ACCEPT, "application/octet-stream");
-            export_bytes(request, bytes).await?;
-            Ok(vec![QueryResultBuilder::instant_none()])
-        }
-        #[cfg(not(target_family = "wasm"))]
-        Command::ExportMl { path, config } => {
-            let req_path = base_url
-                .join("ml")
-                .map_err(crate::std_error_to_types_error)?
-                .join("export")
-                .map_err(crate::std_error_to_types_error)?
-                .join(&config.name)
-                .map_err(crate::std_error_to_types_error)?
-                .join(&config.version)
-                .map_err(crate::std_error_to_types_error)?;
-            let headers = session_state.headers.read().await;
-            let auth = session_state.auth.read().await;
-            let request = client
-                .get(req_path)
-                .headers(headers.clone())
-                .auth(&auth)
-                .header(ACCEPT, "application/octet-stream");
-            export_file(request, path).await?;
-            Ok(vec![QueryResultBuilder::instant_none()])
-        }
-        Command::ExportBytesMl { bytes, config } => {
-            let req_path = base_url
-                .join("ml")
-                .map_err(crate::std_error_to_types_error)?
-                .join("export")
-                .map_err(crate::std_error_to_types_error)?
-                .join(&config.name)
-                .map_err(crate::std_error_to_types_error)?
-                .join(&config.version)
-                .map_err(crate::std_error_to_types_error)?;
-            let headers = session_state.headers.read().await;
-            let auth = session_state.auth.read().await;
-            let request = client
-                .get(req_path)
-                .headers(headers.clone())
-                .auth(&auth)
-                .header(ACCEPT, "application/octet-stream");
-            export_bytes(request, bytes).await?;
-            Ok(vec![QueryResultBuilder::instant_none()])
-        }
-        #[cfg(not(target_family = "wasm"))]
-        Command::ImportFile { path } => {
-            let req_path = base_url
-                .join("import")
-                .map_err(crate::std_error_to_types_error)?;
-            let headers = session_state.headers.read().await;
-            let auth = session_state.auth.read().await;
-            let request = client
-                .post(req_path)
-                .headers(headers.clone())
-                .auth(&auth)
-                .header(CONTENT_TYPE, "application/octet-stream");
-            import(request, path).await?;
-            Ok(vec![QueryResultBuilder::instant_none()])
-        }
-        #[cfg(not(target_family = "wasm"))]
-        Command::ImportMl { path } => {
-            let req_path = base_url
-                .join("ml")
-                .map_err(crate::std_error_to_types_error)?
-                .join("import")
-                .map_err(crate::std_error_to_types_error)?;
-            let headers = session_state.headers.read().await;
-            let auth = session_state.auth.read().await;
-            let request = client
-                .post(req_path)
-                .headers(headers.clone())
-                .auth(&auth)
-                .header(CONTENT_TYPE, "application/octet-stream");
-            import(request, path).await?;
-            Ok(vec![QueryResultBuilder::instant_none()])
-        }
-        Command::SubscribeLive { .. } => Err(Error::internal(
-            "The protocol or storage engine does not support live queries on this architecture"
-                .to_string(),
-        )),
-        Command::Query {
-            txn,
-            query,
-            variables,
-        } => {
-            let req = Command::Query {
-                txn,
-                query,
-                variables,
-            }
-            .into_router_request(None, Some(session_id))
-            .expect("command should convert to router request");
-            send_request(
-                req,
-                base_url,
-                client,
-                &*session_state.headers.read().await,
-                &*session_state.auth.read().await,
-            )
-            .await
-        }
-        cmd => {
-            let req = cmd
-                .into_router_request(None, Some(session_id))
-                .expect("command should convert to router request");
-            let res = send_request(
-                req,
-                base_url,
-                client,
-                &*session_state.headers.read().await,
-                &*session_state.auth.read().await,
-            )
-            .await?;
-            Ok(res)
-        }
-    }
+		#[cfg(not(target_family = "wasm"))]
+		Command::ExportFile {
+			path,
+			config,
+		} => {
+			let req_path = base_url.join("export").map_err(crate::std_error_to_types_error)?;
+			let config = config.unwrap_or_default();
+			let config_value: Value = config.into_value();
+			let headers = session_state.headers.read().await;
+			let auth = session_state.auth.read().await;
+			let request = client
+				.post(req_path)
+				.body(json_encode_str(config_value))
+				.headers(headers.clone())
+				.auth(&auth)
+				.header(CONTENT_TYPE, "application/json")
+				.header(ACCEPT, "application/octet-stream");
+			export_file(request, path).await?;
+			Ok(vec![QueryResultBuilder::instant_none()])
+		}
+		Command::ExportBytes {
+			bytes,
+			config,
+		} => {
+			let req_path = base_url.join("export").map_err(crate::std_error_to_types_error)?;
+			let config = config.unwrap_or_default();
+			let config_value = config.into_value();
+			let headers = session_state.headers.read().await;
+			let auth = session_state.auth.read().await;
+			let request = client
+				.post(req_path)
+				.body(json_encode_str(config_value))
+				.headers(headers.clone())
+				.auth(&auth)
+				.header(CONTENT_TYPE, "application/json")
+				.header(ACCEPT, "application/octet-stream");
+			export_bytes(request, bytes).await?;
+			Ok(vec![QueryResultBuilder::instant_none()])
+		}
+		#[cfg(not(target_family = "wasm"))]
+		Command::ExportMl {
+			path,
+			config,
+		} => {
+			let req_path = base_url
+				.join("ml")
+				.map_err(crate::std_error_to_types_error)?
+				.join("export")
+				.map_err(crate::std_error_to_types_error)?
+				.join(&config.name)
+				.map_err(crate::std_error_to_types_error)?
+				.join(&config.version)
+				.map_err(crate::std_error_to_types_error)?;
+			let headers = session_state.headers.read().await;
+			let auth = session_state.auth.read().await;
+			let request = client
+				.get(req_path)
+				.headers(headers.clone())
+				.auth(&auth)
+				.header(ACCEPT, "application/octet-stream");
+			export_file(request, path).await?;
+			Ok(vec![QueryResultBuilder::instant_none()])
+		}
+		Command::ExportBytesMl {
+			bytes,
+			config,
+		} => {
+			let req_path = base_url
+				.join("ml")
+				.map_err(crate::std_error_to_types_error)?
+				.join("export")
+				.map_err(crate::std_error_to_types_error)?
+				.join(&config.name)
+				.map_err(crate::std_error_to_types_error)?
+				.join(&config.version)
+				.map_err(crate::std_error_to_types_error)?;
+			let headers = session_state.headers.read().await;
+			let auth = session_state.auth.read().await;
+			let request = client
+				.get(req_path)
+				.headers(headers.clone())
+				.auth(&auth)
+				.header(ACCEPT, "application/octet-stream");
+			export_bytes(request, bytes).await?;
+			Ok(vec![QueryResultBuilder::instant_none()])
+		}
+		#[cfg(not(target_family = "wasm"))]
+		Command::ImportFile {
+			path,
+		} => {
+			let req_path = base_url.join("import").map_err(crate::std_error_to_types_error)?;
+			let headers = session_state.headers.read().await;
+			let auth = session_state.auth.read().await;
+			let request = client
+				.post(req_path)
+				.headers(headers.clone())
+				.auth(&auth)
+				.header(CONTENT_TYPE, "application/octet-stream");
+			import(request, path).await?;
+			Ok(vec![QueryResultBuilder::instant_none()])
+		}
+		#[cfg(not(target_family = "wasm"))]
+		Command::ImportMl {
+			path,
+		} => {
+			let req_path = base_url
+				.join("ml")
+				.map_err(crate::std_error_to_types_error)?
+				.join("import")
+				.map_err(crate::std_error_to_types_error)?;
+			let headers = session_state.headers.read().await;
+			let auth = session_state.auth.read().await;
+			let request = client
+				.post(req_path)
+				.headers(headers.clone())
+				.auth(&auth)
+				.header(CONTENT_TYPE, "application/octet-stream");
+			import(request, path).await?;
+			Ok(vec![QueryResultBuilder::instant_none()])
+		}
+		Command::SubscribeLive {
+			..
+		} => Err(Error::internal(
+			"The protocol or storage engine does not support live queries on this architecture"
+				.to_string(),
+		)),
+		Command::Query {
+			txn,
+			query,
+			variables,
+		} => {
+			let req = Command::Query {
+				txn,
+				query,
+				variables,
+			}
+			.into_router_request(None, Some(session_id))
+			.expect("command should convert to router request");
+			send_request(
+				req,
+				base_url,
+				client,
+				&*session_state.headers.read().await,
+				&*session_state.auth.read().await,
+			)
+			.await
+		}
+		cmd => {
+			let req = cmd
+				.into_router_request(None, Some(session_id))
+				.expect("command should convert to router request");
+			let res = send_request(
+				req,
+				base_url,
+				client,
+				&*session_state.headers.read().await,
+				&*session_state.auth.read().await,
+			)
+			.await?;
+			Ok(res)
+		}
+	}
 }

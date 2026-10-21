@@ -1,0 +1,302 @@
+diff --git a/surrealdb/server/src/ntw/grpc.rs b/surrealdb/server/src/ntw/grpc.rs
+index 4cde030..5776f12 100644
+--- a/surrealdb/server/src/ntw/grpc.rs
++++ b/surrealdb/server/src/ntw/grpc.rs
+@@ -69,6 +69,7 @@ pub fn router() -> Router<Arc<RpcState>> {
+ async fn handler(
+ 	Extension(state): Extension<AppState>,
+ 	Extension(session): Extension<Session>,
++	Extension(connection): Extension<Arc<super::owned_connection::ConnectionOwner>>,
+ 	State(rpc_state): State<Arc<RpcState>>,
+ 	request: Request,
+ ) -> Result<Response, NetError> {
+@@ -81,7 +82,7 @@ async fn handler(
+ 	// The service is built per request so it can carry that request's
+ 	// authenticated session, which is the principal the handler's ownership
+ 	// gate compares against the session a request names.
+-	let mut service = SurrealDbServiceServer::new(GrpcService::new(rpc_state, session))
++	let mut service = SurrealDbServiceServer::new(GrpcService::new(rpc_state, session).with_connection(connection))
+ 		// `Limits.max_message_bytes` is the largest message the server will
+ 		// "accept or emit", so both directions are bound to the same number
+ 		// the handshake reports. Bounding only the decode side would let the
+diff --git a/surrealdb/server/src/ntw/mod.rs b/surrealdb/server/src/ntw/mod.rs
+index f06af73..b5c346f 100644
+--- a/surrealdb/server/src/ntw/mod.rs
++++ b/surrealdb/server/src/ntw/mod.rs
+@@ -17,6 +17,7 @@ pub mod key;
+ pub mod mcp;
+ pub mod ml;
+ pub(crate) mod output;
++pub(crate) mod owned_connection;
+ mod params;
+ mod rate_limit;
+ mod ready;
+@@ -41,7 +42,7 @@ use axum::response::Redirect;
+ use axum::routing::get;
+ use axum::{Extension, Router, middleware};
+ use axum_server::Handle;
+-use axum_server::accept::NoDelayAcceptor;
++use self::owned_connection::OwnedAcceptor;
+ use axum_server::tls_rustls::{RustlsAcceptor, RustlsConfig};
+ use http::header;
+ use surrealdb::headers::{AUTH_DB, AUTH_NS, DB, ID, NS};
+@@ -727,6 +728,7 @@ pub async fn init_with_metrics<F: RouterFactory>(
+ 	surreal.spawn_notifications();
+ 
+ 	// Extract the router for serving
++	let connection_acceptor = OwnedAcceptor::new(Arc::clone(&surreal.rpc_state().grpc));
+ 	let axum_app = surreal.into_router();
+ 
+ 	// If a certificate and key are specified, then setup TLS
+@@ -734,7 +736,7 @@ pub async fn init_with_metrics<F: RouterFactory>(
+ 		// Configure certificate and private key used by https
+ 		let tls = RustlsConfig::from_pem_file(cert, key).await?;
+ 		// Disable Nagle's algorithm on the raw TCP stream before the TLS handshake
+-		let acceptor = RustlsAcceptor::new(tls).acceptor(NoDelayAcceptor::new());
++		let acceptor = RustlsAcceptor::new(tls).acceptor(connection_acceptor);
+ 		// Setup the Axum server with TLS
+ 		let server = axum_server::bind(opt.bind).acceptor(acceptor);
+ 		// Log the server startup to the CLI
+@@ -746,7 +748,7 @@ pub async fn init_with_metrics<F: RouterFactory>(
+ 			.await
+ 	} else {
+ 		// Setup the Axum server, disabling Nagle's algorithm on accepted connections
+-		let server = axum_server::bind(opt.bind).acceptor(NoDelayAcceptor::new());
++		let server = axum_server::bind(opt.bind).acceptor(connection_acceptor);
+ 		// Log the server startup to the CLI
+ 		info!(target: LOG, "Started web server on {}", &opt.bind);
+ 		// Start the server and listen for connections
+diff --git a/surrealdb/server/src/ntw/owned_connection.rs b/surrealdb/server/src/ntw/owned_connection.rs
+new file mode 100644
+index 0000000..b7c47fb
+--- /dev/null
++++ b/surrealdb/server/src/ntw/owned_connection.rs
+@@ -0,0 +1,110 @@
++//! Canonical sessions belong to an authentic accepted socket, including cleanup.
++
++use std::future::{Ready, ready};
++use std::io;
++use std::pin::Pin;
++use std::sync::Arc;
++use std::sync::atomic::{AtomicBool, Ordering};
++use std::task::{Context, Poll};
++
++use axum_server::accept::Accept;
++use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
++use tokio::net::TcpStream;
++use tokio::sync::{OwnedSemaphorePermit, Semaphore};
++use tower::Layer;
++use tower_http::add_extension::{AddExtension, AddExtensionLayer};
++use uuid::Uuid;
++
++use crate::cnf::GRPC_MAX_ATTACHED_SESSIONS;
++use crate::rpc::grpc::Grpc;
++
++/// Server-created identity; no request header can select or replace it.
++pub struct ConnectionOwner {
++	pub id: Uuid,
++	closed: AtomicBool,
++	rpc: Arc<Grpc>,
++	// Held through socket shutdown, request contexts, and native cleanup.
++	_permit: OwnedSemaphorePermit,
++}
++
++impl ConnectionOwner {
++	pub fn new(rpc: Arc<Grpc>, permit: OwnedSemaphorePermit) -> Arc<Self> {
++		Arc::new(Self {
++			id: Uuid::new_v4(), closed: AtomicBool::new(false), rpc, _permit: permit,
++		})
++	}
++
++	pub fn is_closed(&self) -> bool {
++		self.closed.load(Ordering::Acquire)
++	}
++
++	fn close(self: &Arc<Self>) {
++		if self.closed.swap(true, Ordering::AcqRel) { return; }
++		let owner = Arc::clone(self);
++		if let Ok(runtime) = tokio::runtime::Handle::try_current() {
++			runtime.spawn(async move {
++				owner.rpc.cleanup_connection(owner.id).await;
++			});
++		}
++	}
++}
++
++#[derive(Clone)]
++pub struct OwnedAcceptor {
++	rpc: Arc<Grpc>,
++	slots: Arc<Semaphore>,
++}
++
++impl OwnedAcceptor {
++	pub fn new(rpc: Arc<Grpc>) -> Self {
++		Self { rpc, slots: Arc::new(Semaphore::new(*GRPC_MAX_ATTACHED_SESSIONS)) }
++	}
++}
++
++impl<S> Accept<TcpStream, S> for OwnedAcceptor {
++	type Stream = OwnedStream;
++	type Service = AddExtension<S, Arc<ConnectionOwner>>;
++	type Future = Ready<io::Result<(Self::Stream, Self::Service)>>;
++
++	fn accept(&self, stream: TcpStream, service: S) -> Self::Future {
++		let permit = match Arc::clone(&self.slots).try_acquire_owned() {
++			Ok(permit) => permit,
++			Err(_) => return ready(Err(io::Error::other("Owned connection/cleanup capacity reached"))),
++		};
++		if let Err(error) = stream.set_nodelay(true) { return ready(Err(error)); }
++		let owner = ConnectionOwner::new(Arc::clone(&self.rpc), permit);
++		let service = AddExtensionLayer::new(Arc::clone(&owner)).layer(service);
++		ready(Ok((OwnedStream { inner: stream, owner }, service)))
++	}
++}
++
++pub struct OwnedStream {
++	inner: TcpStream,
++	owner: Arc<ConnectionOwner>,
++}
++
++impl Drop for OwnedStream {
++	fn drop(&mut self) { self.owner.close(); }
++}
++
++impl AsyncRead for OwnedStream {
++	fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
++		Pin::new(&mut self.inner).poll_read(cx, buf)
++	}
++}
++
++impl AsyncWrite for OwnedStream {
++	fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
++		Pin::new(&mut self.inner).poll_write(cx, buf)
++	}
++	fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
++		Pin::new(&mut self.inner).poll_flush(cx)
++	}
++	fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
++		Pin::new(&mut self.inner).poll_shutdown(cx)
++	}
++	fn is_write_vectored(&self) -> bool { self.inner.is_write_vectored() }
++	fn poll_write_vectored(mut self: Pin<&mut Self>, cx: &mut Context<'_>, bufs: &[io::IoSlice<'_>]) -> Poll<io::Result<usize>> {
++		Pin::new(&mut self.inner).poll_write_vectored(cx, bufs)
++	}
++}
+diff --git a/surrealdb/server/src/rpc/grpc.rs b/surrealdb/server/src/rpc/grpc.rs
+index b5e723b..e185c93 100644
+--- a/surrealdb/server/src/rpc/grpc.rs
++++ b/surrealdb/server/src/rpc/grpc.rs
+@@ -294,6 +294,7 @@ pub struct Grpc {
+ 	/// Sessions attached by `AttachSession`, plus the ephemeral ones minted
+ 	/// for requests that name no session.
+ 	sessions: HashMap<Uuid, Arc<RwLock<Session>>>,
++	connection_owners: DashMap<Uuid, Uuid>,
+ 	/// The subset of `sessions` created by the transport for a single
+ 	/// request. Tracked so they can never be targeted across requests.
+ 	ephemeral_sessions: HashMap<Uuid, ()>,
+@@ -337,6 +338,7 @@ impl Grpc {
+ 		Self {
+ 			kvs,
+ 			sessions: HashMap::new(),
++			connection_owners: DashMap::new(),
+ 			ephemeral_sessions: HashMap::new(),
+ 			transactions: DashMap::new(),
+ 			transaction_counts: DashMap::new(),
+@@ -346,6 +348,17 @@ impl Grpc {
+ 		}
+ 	}
+ 
++	/// Reclaim only sessions minted on this accepted physical connection.
++	pub(crate) async fn cleanup_connection(&self, connection: Uuid) {
++		let sessions: Vec<Uuid> = self.connection_owners.iter()
++			.filter(|entry| *entry.value() == connection).map(|entry| *entry.key()).collect();
++		for session in sessions {
++			if let Err(error) = self.del_session(&session).await {
++				warn!("Owned gRPC session cleanup failed: {error}");
++			}
++		}
++	}
++
+ 	/// Registers a session created by the transport for a single request.
+ 	///
+ 	/// The ephemeral marker is inserted *before* the session itself so a
+@@ -684,6 +697,14 @@ impl Grpc {
+ }
+ 
+ impl RpcProtocol for Grpc {
++	async fn del_session(&self, id: &Uuid) -> Result<(), TypesError> {
++		self.sessions.remove(id);
++		self.connection_owners.remove(id);
++		self.cleanup_lqs(id).await;
++		self.cleanup_txns(id).await;
++		Ok(())
++	}
++
+ 	fn kvs(&self) -> &Datastore {
+ 		&self.kvs
+ 	}
+@@ -921,6 +942,7 @@ pub struct GrpcService {
+ 	/// The caller's request-level session, as resolved from this request's
+ 	/// headers by the auth middleware.
+ 	caller: Session,
++	connection: Option<Arc<crate::ntw::owned_connection::ConnectionOwner>>,
+ }
+ 
+ impl GrpcService {
+@@ -928,6 +950,20 @@ impl GrpcService {
+ 		Self {
+ 			state,
+ 			caller,
++			connection: None,
++		}
++	}
++
++	pub(crate) fn with_connection(mut self, connection: Arc<crate::ntw::owned_connection::ConnectionOwner>) -> Self {
++		self.connection = Some(connection);
++		self
++	}
++
++	fn verify_connection(&self, session: Uuid) -> Result<(), Status> {
++		match &self.connection {
++			Some(connection) if !connection.is_closed() && self.rpc().connection_owners.get(&session).is_some_and(|owner| *owner == connection.id) => Ok(()),
++			None if cfg!(test) => Ok(()),
++			_ => Err(to_status(&session_not_found(session))),
+ 		}
+ 	}
+ 
+@@ -960,6 +996,7 @@ impl GrpcService {
+ 			Some(session) => {
+ 				let id = to_uuid(session)?;
+ 				if gate {
++					self.verify_connection(id)?;
+ 					self.rpc()
+ 						.verify_caller_for_session(&id, self.caller.au.as_ref())
+ 						.await
+@@ -1120,6 +1157,7 @@ impl SurrealDbService for GrpcService {
+ 		// and authentication are still in effect.
+ 		if let Some(session) = context.as_ref().and_then(|context| context.session.as_ref()) {
+ 			let id = to_uuid(session)?;
++			self.verify_connection(id)?;
+ 			// A named session is only ever adopted, never created. Creating
+ 			// one here would let a caller choose its own id, and an id a
+ 			// caller can choose is one it can squat, or pre-create so that it
+@@ -1141,7 +1179,19 @@ impl SurrealDbService for GrpcService {
+ 			transaction: None,
+ 			timeout: context.and_then(|context| context.timeout),
+ 		};
++		if self.connection.is_none() && !cfg!(test) {
++			return Err(Status::internal("Accepted connection owner missing"));
++		}
+ 		self.execute(Some(&context), Method::Attach, Array::new()).await?;
++		if let Some(connection) = &self.connection {
++			self.rpc().connection_owners.insert(id, connection.id);
++			// Close attach/disconnect: either the sweep sees the binding or
++			// the just-attached request observes its already closed socket.
++			if connection.is_closed() {
++				let _ = self.rpc().del_session(&id).await;
++				return Err(Status::unavailable("Accepted connection is closed"));
++			}
++		}
+ 		Ok(Response::new(checked_response(rpc::AttachSessionResponse {
+ 			session: Some(proto::Uuid::from_uuid(id)),
+ 			created: true,

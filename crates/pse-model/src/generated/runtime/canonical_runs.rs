@@ -36,7 +36,7 @@ pub struct RuntimeCanonicalRunsRow {
     ///terminal_attempt
     pub r#terminal_attempt: Option<String>,
     ///terminal_class
-    pub r#terminal_class: Option<String>,
+    pub r#terminal_class: Option<crate::generated::enums::CanonicalTerminalOutcome>,
 }
 impl crate::SemanticEq for RuntimeCanonicalRunsRow {
     fn semantic_eq(&self, other: &Self) -> bool {

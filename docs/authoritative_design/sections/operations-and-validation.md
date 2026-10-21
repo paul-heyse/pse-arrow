@@ -362,7 +362,7 @@ by miette (`authoring::parse::missing_id`).
 | `runtime.cancelled` | a cancellation token fired | — |
 | `runtime.timeout` | a wall-clock deadline was exhausted | — |
 | `runtime.resource_limit` | reservation, size, work or memory limit exceeded | — |
-| `runtime.infrastructure` | storage I/O, integrity failure, publication conflict or incompatibility | — |
+| `runtime.infrastructure` | storage I/O, integrity failure, publication conflict or incompatibility; proposed ADR-0214 keeps typed conflict exhaustion, poisoned store and uncertain dispatched effects distinct | — |
 | `config.invalid` | invalid engine or platform configuration | — |
 | `internal.invariant` | a postcondition failed; a platform bug | `BurntToast` |
 | `user.model` | an authored query or assertion failed | `UserModelError` |
@@ -454,6 +454,18 @@ exhaustion → `Limit` (`Memory`); invalid or panic → `Internal`; every other 
 cause, which the workflow classifies together with the block identity.
 
 **Canonical store failures.** `pse_operations::canonical::CanonicalError` retains typed SDK and codec causes, interpretation mismatch, reused operation identity, payload limits, quiesced admission, deadline expiry and missing statement completion. A transport success alone cannot establish absence, write success or a complete exported stream. Native SDK statement results and application result shape are checked before those conclusions.
+
+Generated guarded refusals have one declared code/class owner. Decoding first
+requires native `is_thrown()` and then an exact known prefix; unknown codes, ordinary
+schema errors and wrapped event failures stay fail-closed. Runtime policy consumes typed
+refusal/effect information, distinguishes acknowledged study cancellation from uncertain
+export, and records worker loss as infrastructure termination.
+
+The server preserves structured unary gRPC errors in bounded binary metadata, separately
+from its bounded human message. Native conflict details, rather than message text, permit
+conflict retry. MX capacity, transaction age, queue exhaustion, poison and corrupt-store
+failures retain distinct meanings; persistence failure may leave commit outcome unknown.
+A dispatched refusal is no universal proof that scientific effects were absent.
 
 Definite transaction conflicts retry the complete fresh guarded decision. Unknown acknowledgments settle the original immutable operation request; they cannot authorize new scientific effects. Initialization uses the existing longer bounded atomic-client timeout, while ordinary reads retain their shorter deadline. Reopening verifies interpretation and never installs schema. Codec domain/shape errors remain validation failures; workflow boundaries preserve resource, cancellation, incompatible and infrastructure distinctions. Messages do not supply lifecycle authority. A fixture's scientific execution policy remains authored with that fixture ([§6.10](schema-and-relations.md#section-6-10)).
 
@@ -788,6 +800,35 @@ native local tolerances do not themselves certify global physical-output error. 
 feature powerset, all-case campaign, new-platform or release/distribution qualification is
 claimed. Environment/provenance proof remains permanently eliminated. Other plans retain
 their independent scope and status.
+
+Selected Plan49a canonical-store acceptance of 2026-10-21 belongs to the
+[Plan49 store Outcome](../../plans/49-library-native-remediation.md#outcome--plan49a-canonical-store).
+**Implemented and Tested, selected scope:** source-built SurrealDB3.3.4 with exact
+SurrealMX1.0.0, explicit SSI and synchronous persistent AOL, the single bounded gRPC path,
+registry-generated physical lifecycle/refusals and native record/graph access operate through
+one supervised authority. Fresh data replaces the retired store; no historical import or
+old-AOL rollback is qualified. New-data restart, interrupted initialization, exact protected
+history and closed backup/restore remain tested obligations. Proposed ADR-0214 retains its
+formal status independently of implementation acceptance.
+
+Selected controls include sixteen actual native owners, independent workers and continuation
+after submitting-process exit, retained-client crash/reconnect without mutation replay,
+Python result/study consumers, and entered pull/analysis SIGINT with original exception/cause
+and physical drain. Native fsync EIO, process death, torn tails, interrupted snapshot
+replacement, finite memory refusal and corrupt framed-log startup have distinct fault models.
+Authenticated existing metrics expose held reader pins and drainage; anonymous metrics omit
+storage gauges. The Outcome owns exact commands, zero-baseline failures/repairs and static
+results. Composite affected reruns do not imply a fresh whole-suite pass. Default,
+no-default and linked-native/canonical/maintenance all-target Clippy, the repaired hygiene
+leaves, governance, 419 depth-two feature combinations, 33 no-default package checks and
+final Rust documentation pass against zero warnings/errors. These static checks do not
+supply unexercised scientific or performance qualification.
+
+Necessary source-creator/reclaimer and commit-order guards remain, as do attributed ENFORCED
+relations and high-degree fallback. Output-page bounds do not bound engine scans. No
+hardware power-loss, statistical speedup, whole scientific-model library, new-platform or
+release/distribution qualification is established. The historical full basis and independent
+Plan28/32/40 campaigns, other Plan49 packages and their proposed decisions retain their scope.
 
 ### 24.3 Benchmarks
 

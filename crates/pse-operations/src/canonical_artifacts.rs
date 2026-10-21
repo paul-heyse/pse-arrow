@@ -364,7 +364,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
             if kind.is_empty() || kind.len()>128 || provenance.len()>128*1024 || block_count==0 { return Err(CanonicalError::PayloadLimit); }
-            let mut response=bounded_query(self.db.metadata_query(MetadataResponse::Header,"LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $guard=NONE OR $guard.incarnation=NONE { THROW 'artifact source authority unavailable'; }; RETURN {authority:$guard.incarnation,now:time::micros()};").bind(("problem",revision.problem.clone()))).await?;
+            let mut response=bounded_query(self.db.metadata_query(MetadataResponse::Header,"LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $guard=NONE OR $guard.incarnation=NONE { THROW 'PSE_REFUSAL:artifact_source_authority_unavailable'; }; RETURN {authority:$guard.incarnation,now:time::micros()};").bind(("problem",revision.problem.clone()))).await?;
             let index=response.num_statements().saturating_sub(1);
             let mut row=response.take::<Option<Object>>(index)?.ok_or(CanonicalError::IncompleteResponse)?;
             let primary_authority=codec::decode_string(codec::required(&mut row,"authority")?)?;
@@ -833,6 +833,16 @@ mod canonical_artifact_tests {
             )
             .await
             .unwrap();
+        for (kind,code) in [
+            ("analysis",crate::canonical::RefusalCode::AnalysisInputReleaseRequiresExplicitAnalysisRetirement),
+            ("study",crate::canonical::RefusalCode::StudyInputReleaseRequiresExplicitStudyRetirement),
+        ] {
+            let error=store.release_artifact(&intent.key,kind,"absent-owner").await.unwrap_err();
+            assert!(matches!(error,CanonicalError::Refused { code:actual,.. } if actual==code));
+            let obligation=artifact_obligation(&intent.key,kind,"absent-owner");
+            let mut response=bounded_query(store.db.query("SELECT * FROM ONLY type::record('canonical_artifact_releases',$key);").bind(("key",obligation.key))).await.unwrap();
+            assert!(response.take::<Option<Object>>(0).unwrap().is_none(),"refused owner release must not mint a permanent receipt");
+        }
         store
             .retain_artifact(&intent.key, "user", "retain-first")
             .await

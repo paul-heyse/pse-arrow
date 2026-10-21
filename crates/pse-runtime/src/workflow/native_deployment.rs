@@ -173,8 +173,8 @@ impl NativeExecutionSelection {
             private_file(&service_path)?
         };
         let service: StorageIdentity = decode(&service_bytes)?;
-        if service.profile_version != 2
-            || initial.profile_version != 2
+        if service.profile_version != 3
+            || initial.profile_version != 3
             || service.endpoint != initial.endpoint
             || service.namespace != initial.namespace
         {
@@ -228,7 +228,7 @@ impl NativeExecutionSelection {
             let receiver_bytes = private_file(&receiver_path)?;
             let receiver_identity: StorageIdentity = decode(&receiver_bytes)?;
             let receiver_policy: NativePolicy = decode(&receiver_bytes)?;
-            if receiver_identity.profile_version != 2
+            if receiver_identity.profile_version != 3
                 || receiver_identity.database != database
                 || receiver_identity.namespace != service.namespace
                 || receiver_identity.endpoint != service.endpoint
@@ -475,7 +475,7 @@ mod native_selection_unit {
                 "observer_memory_bytes": 128}})
     }
     fn deployment(resources: Value, receiver: Value) -> Value {
-        json!({"profile_version": 2, "endpoint": "ws://127.0.0.1:8000",
+        json!({"profile_version": 3, "endpoint": "grpc://127.0.0.1:8000",
             "namespace": "canonical", "database": "selected",
             "resources": resources, "primary_receiver": receiver})
     }

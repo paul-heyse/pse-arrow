@@ -403,19 +403,22 @@ where
     // retry can acquire new write authority after the caller has cancelled.
     let deadline = crate::canonical::transport::original_deadline(timeout);
     let result = crate::canonical::transport::within_clock(deadline, async {
-        for attempt in 0..MUTATION_CONFLICT_ATTEMPTS {
+        let mut attempt = 0;
+        loop {
             match submit().await {
                 Err(error) if conflict(&error) && attempt + 1 < MUTATION_CONFLICT_ATTEMPTS => {
                     let jitter = u64::from(uuid::Uuid::new_v4().as_bytes()[0] % 64);
                     tokio::time::sleep(Duration::from_millis((10_u64 << attempt.min(4)) + jitter))
                         .await;
+                    attempt += 1;
                 }
-                result => return result,
+                result => {
+                    return result.map_err(|error| {
+                        error.exhaust_conflict(operation, MUTATION_CONFLICT_ATTEMPTS as u32)
+                    });
+                }
             }
         }
-        Err(CanonicalError::Configuration(
-            "staging mutation retries exhausted".into(),
-        ))
     })
     .await;
     if let Err(error) = &result {
@@ -896,7 +899,8 @@ impl CanonicalStore {
                 if operation.len() > IDENTITY_BYTES {
                     return Err(CanonicalError::PayloadLimit);
                 }
-                for attempt in 0..RETRIES {
+                let mut attempt = 0;
+                loop {
                     self.ensure_writes()?;
                     let result = self
                         .staging_query(
@@ -922,10 +926,14 @@ impl CanonicalStore {
                     match result {
                         Err(error) if retryable_stage(&error) && attempt + 1 < RETRIES => {
                             tokio::time::sleep(Duration::from_millis(10 << attempt.min(4))).await;
+                            attempt += 1;
                         }
                         Err(error) => {
                             operation_failed("canonical_staging::begin_stage_inner", &error);
-                            return Err(error);
+                            return Err(error.exhaust_conflict(
+                                "canonical_staging::begin_stage_inner",
+                                RETRIES as u32,
+                            ));
                         }
                         Ok(mut response) => {
                             let row = response
@@ -965,9 +973,6 @@ impl CanonicalStore {
                         }
                     }
                 }
-                Err(CanonicalError::Configuration(
-                    "staging lease retries exhausted".into(),
-                ))
             },
         )
         .await
@@ -1434,7 +1439,7 @@ impl CanonicalStore {
         // Inputs are only store-issued bounded manifests/block keys. Membership
         // validation is shared by the whole group, under one exact protection.
         let sql = format!(
-            "{PROTECTED_BEGIN}\nLET $members = SELECT VALUE version FROM canonical_memberships WHERE problem = $problem AND version IN $versions AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nIF array::len(array::distinct($members)) != array::len($versions) {{ THROW 'selected grouped membership unavailable'; }};\nLET $pse_rpc_result = SELECT * FROM $keys.map(|$key| type::record($table, $key)) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"
+            "{PROTECTED_BEGIN}\nLET $members = SELECT VALUE version FROM canonical_memberships WHERE problem = $problem AND version IN $versions AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nIF array::len(array::distinct($members)) != array::len($versions) {{ THROW 'PSE_REFUSAL:selected_grouped_membership_unavailable'; }};\nLET $pse_rpc_result = SELECT * FROM $keys.map(|$key| type::record($table, $key)) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"
         );
         let mut response = self
             .protected_query(
@@ -1638,7 +1643,7 @@ impl CanonicalStore {
                 CanonicalError::Configuration("product read requires protection".into())
             })?;
             let sql = format!(
-                "{PROTECTED_BEGIN}\nLET $saved=SELECT * FROM ONLY type::record('canonical_product_associations',$product.key);\nLET $root=SELECT * FROM ONLY type::record('canonical_roots',$product.key) FOR UPDATE;\nIF $saved=NONE OR $saved.key!=$product.key OR $saved.issuing_store!=$product.issuing_store OR $saved.problem!=$problem OR $saved.problem!=$product.problem OR $saved.revision!=$product.revision OR $saved.payload!=$product.payload OR $saved.dependencies!=$product.dependencies OR $saved.request!=$product.request OR $saved.content!=$product.content OR $saved.receipt!=$product.receipt OR $saved.descriptor!=$product.descriptor OR $saved.producer!=$product.producer OR $saved.interpretation!=$product.interpretation OR $root=NONE OR $root.problem!=$saved.problem OR $root.revision!=$saved.revision OR $root.owner_kind!='product' OR $root.owner!=$saved.key OR $version NOT IN [$saved.content,$saved.receipt] {{ THROW 'product physical authorization unavailable'; }};\nLET $pse_rpc_result=SELECT * FROM ONLY type::record($table,$key) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at<=time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $pse_rpc_result; COMMIT;"
+                "{PROTECTED_BEGIN}\nLET $saved=SELECT * FROM ONLY type::record('canonical_product_associations',$product.key);\nLET $root=SELECT * FROM ONLY type::record('canonical_roots',$product.key) FOR UPDATE;\nIF $saved=NONE OR $saved.key!=$product.key OR $saved.issuing_store!=$product.issuing_store OR $saved.problem!=$problem OR $saved.problem!=$product.problem OR $saved.revision!=$product.revision OR $saved.payload!=$product.payload OR $saved.dependencies!=$product.dependencies OR $saved.request!=$product.request OR $saved.content!=$product.content OR $saved.receipt!=$product.receipt OR $saved.descriptor!=$product.descriptor OR $saved.producer!=$product.producer OR $saved.interpretation!=$product.interpretation OR $root=NONE OR $root.problem!=$saved.problem OR $root.revision!=$saved.revision OR $root.owner_kind!='product' OR $root.owner!=$saved.key OR $version NOT IN [$saved.content,$saved.receipt] {{ THROW 'PSE_REFUSAL:product_physical_authorization_unavailable'; }};\nLET $pse_rpc_result=SELECT * FROM ONLY type::record($table,$key) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at<=time::micros() {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $pse_rpc_result; COMMIT;"
             );
             let mut response = self
                 .protected_query(
@@ -1671,7 +1676,7 @@ impl CanonicalStore {
             return Ok(response.take(response.num_statements().saturating_sub(2))?);
         }
         if let Some(selection) = selection {
-            let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_staging::authorized_record", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $members = SELECT key FROM canonical_memberships WHERE problem = $problem AND version = $version AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) LIMIT 1;\nLET $row = IF array::len($members) = 0 {{ RETURN NONE; }} ELSE {{ RETURN SELECT * FROM ONLY type::record($table, $key); }};\nLET $pse_rpc_result = $row;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"))
+            let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_staging::authorized_record", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $members = SELECT key FROM canonical_memberships WHERE problem = $problem AND version = $version AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) LIMIT 1;\nLET $row = IF array::len($members) = 0 {{ RETURN NONE; }} ELSE {{ RETURN SELECT * FROM ONLY type::record($table, $key); }};\nLET $pse_rpc_result = $row;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"))
                 .bind(("problem", selection.revision().problem.clone())).bind(("protection", selection.key().to_owned()))
                 .bind(("revision", selection.revision().key.clone())).bind(("sequence", canonical_codec::encode_uint(selection.revision().sequence)?))
                 .bind(("version", version.to_owned())).bind(("table", table.to_owned())).bind(("key", key.to_owned())))).await?;
@@ -1832,13 +1837,13 @@ SELECT * FROM $retention_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_r
 LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
 SELECT * FROM $stage_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $old = SELECT * FROM ONLY type::record('canonical_stages', $operation);
-IF $old != NONE AND ($old.problem != $problem OR ($old.expected_head ?? NONE) != $expected OR $old.request_digest != $request_digest) { THROW 'staged operation identity reused'; };
-IF $product_stage = false AND ($old.activated ?? false) { THROW 'staged operation already activated; settle immutable acknowledgement'; };
+IF $old != NONE AND ($old.problem != $problem OR ($old.expected_head ?? NONE) != $expected OR $old.request_digest != $request_digest) { THROW 'PSE_REFUSAL:staged_operation_identity_reused'; };
+IF $product_stage = false AND ($old.activated ?? false) { THROW 'PSE_REFUSAL:staged_operation_already_activated_settle_immutable_acknowledgement'; };
 // Production publishers never acquire or refresh another live writer's
 // generation, including a closed source manifest awaiting activation.
 LET $busy = $exclusive_stage AND $old != NONE AND (($product_stage AND ($old.activated ?? false)) OR (($old.abandoned ?? false) = false AND $old.expires_at > time::micros()));
 LET $head = SELECT * FROM ONLY type::record('canonical_problems', $problem);
-IF $product_stage = false AND ($head.head ?? NONE) != $expected { THROW 'head compare-and-set conflict before staging'; };
+IF $product_stage = false AND ($head.head ?? NONE) != $expected { THROW 'PSE_REFUSAL:head_compare_and_set_conflict_before_staging'; };
 IF $busy = false {
 UPSERT type::record('canonical_stages', $operation) SET key = $operation, problem = $problem, expected_head = $expected, request_digest = $request_digest,
     expires_at = time::micros() + $lifetime, closed = false, activated = false, edit_count = $edit_count,
@@ -1857,14 +1862,14 @@ SELECT * FROM $retention_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_r
 LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
 SELECT * FROM $stage_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $lease = SELECT * FROM ONLY type::record('canonical_stages', $operation);
-IF $lease = NONE OR $lease.problem != $problem OR $lease.generation != $generation OR ($lease.expected_head ?? NONE) != $expected OR $lease.request_digest != $request_digest OR $lease.activated OR $lease.abandoned OR $lease.closed OR $lease.expires_at <= time::micros() { THROW 'staging lease fenced or expired'; };"#;
+IF $lease = NONE OR $lease.problem != $problem OR $lease.generation != $generation OR ($lease.expected_head ?? NONE) != $expected OR $lease.request_digest != $request_digest OR $lease.activated OR $lease.abandoned OR $lease.closed OR $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_lease_fenced_or_expired'; };"#;
 
-const STAGE_END: &str = r#"IF $lease.expires_at <= time::micros() { THROW 'staging lease expired before renewal'; };
+const STAGE_END: &str = r#"IF $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_lease_expired_before_renewal'; };
 UPDATE type::record('canonical_stages', $operation) SET expires_at = time::micros() + $lifetime;
 UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
 fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-IF $lease.expires_at <= time::micros() { THROW 'staging lease expired before commit'; };
+IF $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_lease_expired_before_commit'; };
 COMMIT;"#;
 
 const CLOSE_STAGE_BEGIN: &str = r#"BEGIN;
@@ -1873,76 +1878,76 @@ SELECT * FROM $retention_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_r
 LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
 SELECT * FROM $stage_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $lease = SELECT * FROM ONLY type::record('canonical_stages', $operation);
-IF $lease = NONE OR $lease.problem != $problem OR $lease.generation != $generation OR ($lease.expected_head ?? NONE) != $expected OR $lease.request_digest != $request_digest OR $lease.activated OR $lease.abandoned OR ($lease.closed = false AND $lease.expires_at <= time::micros()) { THROW 'staging close fenced or expired'; };"#;
+IF $lease = NONE OR $lease.problem != $problem OR $lease.generation != $generation OR ($lease.expected_head ?? NONE) != $expected OR $lease.request_digest != $request_digest OR $lease.activated OR $lease.abandoned OR ($lease.closed = false AND $lease.expires_at <= time::micros()) { THROW 'PSE_REFUSAL:staging_close_fenced_or_expired'; };"#;
 
-const CLOSE_STAGE_END: &str = r#"IF $lease.closed = false AND $lease.expires_at <= time::micros() { THROW 'staging close lease expired'; };
+const CLOSE_STAGE_END: &str = r#"IF $lease.closed = false AND $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_close_lease_expired'; };
 IF $lease.closed = false {
     UPDATE type::record('canonical_stages', $operation) SET expires_at = time::micros() + $lifetime;
     UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
     fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-IF $lease.closed = false AND $lease.expires_at <= time::micros() { THROW 'staging close lease expired before commit'; };
+IF $lease.closed = false AND $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_close_lease_expired_before_commit'; };
 COMMIT;"#;
 
 const STAGE_METADATA_VERSION: &str = r#"LET $version_guard = type::record('canonical_guards', 'version:' + $manifest.key);
 SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $identity = SELECT * FROM ONLY type::record('canonical_version_receipts', $receipt.key);
-IF $identity != NONE AND $identity.content_digest != $receipt.content_digest { THROW 'immutable version identity reused'; };
+IF $identity != NONE AND $identity.content_digest != $receipt.content_digest { THROW 'PSE_REFUSAL:immutable_version_identity_reused'; };
 IF $identity = NONE { CREATE type::record('canonical_version_receipts', $receipt.key) CONTENT $receipt; };
 LET $header = SELECT * FROM ONLY type::record('canonical_version_manifests', $manifest.key);
 IF $header = NONE { CREATE type::record('canonical_version_manifests', $manifest.key) CONTENT $manifest; }
-ELSE IF $header.logical != $manifest.logical OR $header.kind != $manifest.kind OR $header.interpretation != $manifest.interpretation OR $header.payload_digest != $manifest.payload_digest OR $header.payload_len != $manifest.payload_len OR $header.block_count != $manifest.block_count OR $header.reference_count != $manifest.reference_count { THROW 'immutable source manifest reused'; };
+ELSE IF $header.logical != $manifest.logical OR $header.kind != $manifest.kind OR $header.interpretation != $manifest.interpretation OR $header.payload_digest != $manifest.payload_digest OR $header.payload_len != $manifest.payload_len OR $header.block_count != $manifest.block_count OR $header.reference_count != $manifest.reference_count { THROW 'PSE_REFUSAL:immutable_source_manifest_reused'; };
 LET $old_edit = SELECT * FROM ONLY type::record('canonical_staged_edits', $edit.key);
 IF $old_edit = NONE { CREATE type::record('canonical_staged_edits', $edit.key) CONTENT $edit; }
-ELSE IF $old_edit.stage != $edit.stage OR $old_edit.ordinal != $edit.ordinal OR $old_edit.logical != $edit.logical OR $old_edit.scope != $edit.scope OR $old_edit.name != $edit.name OR ($old_edit.version ?? NONE) != ($edit.version ?? NONE) { THROW 'immutable stage metadata reused'; };
+ELSE IF $old_edit.stage != $edit.stage OR $old_edit.ordinal != $edit.ordinal OR $old_edit.logical != $edit.logical OR $old_edit.scope != $edit.scope OR $old_edit.name != $edit.name OR ($old_edit.version ?? NONE) != ($edit.version ?? NONE) { THROW 'PSE_REFUSAL:immutable_stage_metadata_reused'; };
 UPSERT $version_guard SET key = 'version:' + $manifest.key, generation = (generation ?? 0dec) + 1dec;"#;
 
 const STAGE_METADATA_REMOVAL: &str = r#"LET $old_edit = SELECT * FROM ONLY type::record('canonical_staged_edits', $edit.key);
 IF $old_edit = NONE { CREATE type::record('canonical_staged_edits', $edit.key) CONTENT $edit; }
-ELSE IF $old_edit.stage != $edit.stage OR $old_edit.ordinal != $edit.ordinal OR $old_edit.logical != $edit.logical OR $old_edit.scope != $edit.scope OR $old_edit.name != $edit.name OR ($old_edit.version ?? NONE) != NONE { THROW 'immutable stage metadata reused'; };"#;
+ELSE IF $old_edit.stage != $edit.stage OR $old_edit.ordinal != $edit.ordinal OR $old_edit.logical != $edit.logical OR $old_edit.scope != $edit.scope OR $old_edit.name != $edit.name OR ($old_edit.version ?? NONE) != NONE { THROW 'PSE_REFUSAL:immutable_stage_metadata_reused'; };"#;
 
 const STAGE_BLOCK: &str = r#"LET $version_guard = type::record('canonical_guards', 'version:' + $block.version);
 SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $header = SELECT * FROM ONLY type::record('canonical_version_manifests', $block.version);
-IF $header = NONE OR $block.ordinal >= $header.block_count OR bytes::len($block.payload) != math::min([524288dec, $header.payload_len - $block.ordinal * 524288dec]) { THROW 'source block outside declared manifest'; };
+IF $header = NONE OR $block.ordinal >= $header.block_count OR bytes::len($block.payload) != math::min([524288dec, $header.payload_len - $block.ordinal * 524288dec]) { THROW 'PSE_REFUSAL:source_block_outside_declared_manifest'; };
 LET $old_block = SELECT * FROM ONLY type::record('canonical_payload_blocks', $block.key);
 IF $old_block = NONE {
-    IF $header.closed { THROW 'closed source block unavailable'; };
+    IF $header.closed { THROW 'PSE_REFUSAL:closed_source_block_unavailable'; };
     CREATE type::record('canonical_payload_blocks', $block.key) CONTENT $block RETURN NONE;
-} ELSE IF $old_block.version != $block.version OR $old_block.ordinal != $block.ordinal OR $old_block.digest != $block.digest OR $old_block.payload != $block.payload { THROW 'immutable source block reused'; };
+} ELSE IF $old_block.version != $block.version OR $old_block.ordinal != $block.ordinal OR $old_block.digest != $block.digest OR $old_block.payload != $block.payload { THROW 'PSE_REFUSAL:immutable_source_block_reused'; };
 UPSERT $version_guard SET key = 'version:' + $block.version, generation = (generation ?? 0dec) + 1dec;"#;
 
 const STAGE_EDGES: &str = r#"LET $version_guard = type::record('canonical_guards', 'version:' + $version);
 SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $header = SELECT * FROM ONLY type::record('canonical_version_manifests', $version);
-IF $header = NONE { THROW 'source manifest unavailable'; };
+IF $header = NONE { THROW 'PSE_REFUSAL:source_manifest_unavailable'; };
 FOR $edge IN $edges {
-    IF $edge.source_version != $version OR $edge.ordinal >= $header.reference_count { THROW 'reference outside declared manifest'; };
+    IF $edge.source_version != $version OR $edge.ordinal >= $header.reference_count { THROW 'PSE_REFUSAL:reference_outside_declared_manifest'; };
     LET $old_edge = SELECT * FROM ONLY type::record('canonical_edges', $edge.key);
     IF $old_edge = NONE {
-        IF $header.closed { THROW 'closed structural reference unavailable'; };
+        IF $header.closed { THROW 'PSE_REFUSAL:closed_structural_reference_unavailable'; };
         CREATE type::record('canonical_edges', $edge.key) CONTENT $edge;
-    } ELSE IF $old_edge.source_version != $edge.source_version OR $old_edge.ordinal != $edge.ordinal OR $old_edge.target_scope != $edge.target_scope OR $old_edge.target_name != $edge.target_name { THROW 'immutable structural reference reused'; };
+    } ELSE IF $old_edge.source_version != $edge.source_version OR $old_edge.ordinal != $edge.ordinal OR $old_edge.target_scope != $edge.target_scope OR $old_edge.target_name != $edge.target_name { THROW 'PSE_REFUSAL:immutable_structural_reference_reused'; };
 };
 UPSERT $version_guard SET key = 'version:' + $version, generation = (generation ?? 0dec) + 1dec;"#;
 
 const CLOSE_VERSION: &str = r#"LET $version_guard = type::record('canonical_guards', 'version:' + $version);
 SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $header = SELECT * FROM ONLY type::record('canonical_version_manifests', $version);
-IF $header = NONE { THROW 'source manifest unavailable'; };
+IF $header = NONE { THROW 'PSE_REFUSAL:source_manifest_unavailable'; };
 LET $blocks = SELECT count() AS n FROM canonical_payload_blocks WHERE version = $version GROUP ALL;
 LET $references = SELECT count() AS n FROM canonical_edges WHERE source_version = $version GROUP ALL;
-IF ($blocks[0].n ?? 0) != $header.block_count OR ($references[0].n ?? 0) != $header.reference_count { THROW 'immutable source manifest incomplete'; };
+IF ($blocks[0].n ?? 0) != $header.block_count OR ($references[0].n ?? 0) != $header.reference_count { THROW 'PSE_REFUSAL:immutable_source_manifest_incomplete'; };
 UPDATE type::record('canonical_version_manifests', $version) SET closed = true;
 UPSERT $version_guard SET key = 'version:' + $version, generation = (generation ?? 0dec) + 1dec;"#;
 
 const CLOSE_STAGE: &str = r#"LET $edits = SELECT * FROM canonical_staged_edits WHERE stage = $operation ORDER BY ordinal LIMIT /* EDIT_SCAN_LIMIT */;
-IF array::len($edits) != $lease.edit_count OR array::len($edits) > /* EDIT_LIMIT */ { THROW 'staged metadata manifest incomplete'; };
+IF array::len($edits) != $lease.edit_count OR array::len($edits) > /* EDIT_LIMIT */ { THROW 'PSE_REFUSAL:staged_metadata_manifest_incomplete'; };
 FOR $edit IN $edits {
     IF $edit.version != NONE {
         LET $header = SELECT * FROM ONLY type::record('canonical_version_manifests', $edit.version);
-        IF $header = NONE OR $header.closed = false { THROW 'staged source manifest incomplete'; };
+        IF $header = NONE OR $header.closed = false { THROW 'PSE_REFUSAL:staged_source_manifest_incomplete'; };
     };
 };
 IF $lease.closed = false { UPDATE type::record('canonical_stages', $operation) SET closed = true; };"#;
@@ -2082,7 +2087,8 @@ impl CanonicalStore {
         super::canonical::transport::within_clock(
             super::canonical::transport::original_deadline(REQUEST_TIMEOUT),
             async {
-                for attempt in 0..RETRIES {
+                let mut attempt = 0;
+                loop {
                     self.ensure_writes()?;
                     let result = bounded_query(
                         self.db
@@ -2095,8 +2101,13 @@ impl CanonicalStore {
                     match result {
                         Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
                             tokio::task::yield_now().await;
+                            attempt += 1;
                         }
                         Err(error) => {
+                            let error = error.exhaust_conflict(
+                                "canonical_staging::cleanup_stage_query",
+                                RETRIES as u32,
+                            );
                             operation_failed("canonical_staging::cleanup_stage_query", &error);
                             return Err(error);
                         }
@@ -2105,9 +2116,6 @@ impl CanonicalStore {
                         }
                     }
                 }
-                Err(CanonicalError::Configuration(
-                    "staging cleanup retries exhausted".into(),
-                ))
             },
         )
         .await
@@ -2209,7 +2217,10 @@ mod canonical_staging_unit {
                 Err(rejected_mutation())
             })
             .await;
-        assert!(matches!(result, Err(ref error) if conflict(error)));
+        assert!(matches!(
+            result,
+            Err(CanonicalError::ConflictExhausted { attempts: 32, .. })
+        ));
         assert_eq!(attempts.load(Ordering::SeqCst), MUTATION_CONFLICT_ATTEMPTS);
 
         attempts.store(0, Ordering::SeqCst);
@@ -2600,6 +2611,7 @@ mod canonical_server_unit {
             .query("UPDATE type::record('canonical_stages', $operation) SET expires_at = 0;")
             .bind(("operation", old.operation.clone()))
             .await
+            .map_err(CanonicalError::from)
             .and_then(checked)
             .unwrap();
         let reclaimed = store.reclaim_staging_page("problem", "").await.unwrap();
@@ -2664,6 +2676,7 @@ mod canonical_server_unit {
             .query("UPDATE type::record('canonical_stages', $operation) SET expires_at = 0;")
             .bind(("operation", old.operation.clone()))
             .await
+            .map_err(CanonicalError::from)
             .and_then(checked)
             .unwrap();
         let fresh_plan = plan("new-problem", None, &edits).unwrap();
@@ -2729,6 +2742,7 @@ mod canonical_server_unit {
             .query("UPDATE type::record('canonical_stages', $operation) SET expires_at = 0;")
             .bind(("operation", old.operation.clone()))
             .await
+            .map_err(CanonicalError::from)
             .and_then(checked)
             .unwrap();
 
@@ -2787,6 +2801,7 @@ mod canonical_server_unit {
             .query("UPDATE type::record('canonical_stages', $operation) SET expires_at = 0;")
             .bind(("operation", fresh.operation.clone()))
             .await
+            .map_err(CanonicalError::from)
             .and_then(checked)
             .unwrap();
         let new_retention_before = guard_generation(&peer, "retention:new-guarded").await;
@@ -2867,6 +2882,7 @@ mod canonical_server_unit {
                 ))
                 .bind(("operation", operation.clone()))
                 .await
+                .map_err(CanonicalError::from)
                 .and_then(checked)
                 .unwrap();
             let fresh = store
@@ -2903,6 +2919,7 @@ mod canonical_server_unit {
             .query("UPDATE type::record('canonical_stages', $operation) SET expires_at = 0;")
             .bind(("operation", "expired-stale".to_owned()))
             .await
+            .map_err(CanonicalError::from)
             .and_then(checked)
             .unwrap();
         let winner = store
@@ -3027,11 +3044,12 @@ mod canonical_server_unit {
             .query("UPDATE type::record('canonical_stages', $operation) SET expires_at = 0;")
             .bind(("operation", token.operation.clone()))
             .await
+            .map_err(CanonicalError::from)
             .and_then(checked)
             .unwrap();
         store.close_stage(&token).await.unwrap();
         let mut replay = store.db.query("LET $stage = SELECT * FROM ONLY type::record('canonical_stages', $operation); RETURN $stage.closed AND $stage.expires_at = 0;")
-            .bind(("operation", token.operation.clone())).await.and_then(checked).unwrap();
+            .bind(("operation", token.operation.clone())).await.map_err(CanonicalError::from).and_then(checked).unwrap();
         assert_eq!(replay.take::<Option<bool>>(1).unwrap(), Some(true));
         assert!(
             store
@@ -3070,6 +3088,7 @@ mod canonical_server_unit {
                 .db
                 .query("SELECT key FROM canonical_memberships WHERE problem = 'problem';")
                 .await
+                .map_err(CanonicalError::from)
                 .and_then(checked)
                 .unwrap();
             assert!(rows.take::<Vec<Object>>(0).unwrap().is_empty());
@@ -3101,7 +3120,7 @@ mod canonical_server_unit {
             assert_eq!(selected, *expected);
         }
         let mut traversal = store.db.query("SELECT VALUE ->canonical_memberships->canonical_version_manifests.key FROM ONLY canonical_problems:problem;")
-            .await.and_then(checked).unwrap();
+            .await.map_err(CanonicalError::from).and_then(checked).unwrap();
         let mut keys = traversal.take::<Vec<String>>(0).unwrap();
         keys.sort();
         assert_eq!(keys, ["large-x", "large-y"]);
@@ -3109,6 +3128,7 @@ mod canonical_server_unit {
             .db
             .query("SELECT key FROM canonical_versions;")
             .await
+            .map_err(CanonicalError::from)
             .and_then(checked)
             .unwrap();
         assert!(physical.take::<Vec<Object>>(0).unwrap().is_empty());
@@ -3161,6 +3181,7 @@ mod canonical_server_unit {
             .query("UPDATE type::record('canonical_payload_blocks', $key) SET digest = 'wrong';")
             .bind(("key", block))
             .await
+            .map_err(CanonicalError::from)
             .and_then(checked)
             .unwrap();
         assert!(store.selected_object(&pin, "huge-version").await.is_err());
@@ -3311,6 +3332,7 @@ mod canonical_server_unit {
             .query("UPDATE type::record('canonical_protections', $key) SET expires_at = 0dec;")
             .bind(("key", pin.key().to_owned()))
             .await
+            .map_err(CanonicalError::from)
             .and_then(checked)
             .unwrap();
         assert!(
@@ -3333,6 +3355,7 @@ mod canonical_server_unit {
             .query("UPDATE type::record('canonical_payload_blocks', $key) SET digest = 'wrong';")
             .bind(("key", block_key("grouped-0", 0)))
             .await
+            .map_err(CanonicalError::from)
             .and_then(checked)
             .unwrap();
         assert!(store.selected_object_blocks(&batch, 0, 0).await.is_err());

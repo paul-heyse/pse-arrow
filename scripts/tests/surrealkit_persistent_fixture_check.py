@@ -127,8 +127,6 @@ class Fixture:
                 str(state),
                 "--port",
                 str(self.port + len(self.states) - 1),
-                "--version",
-                "v3.3.0",
                 "--memory-mib",
                 "4096",
                 "--server-memory-mib",
@@ -141,10 +139,8 @@ class Fixture:
             ]
         )
         server.setup(options)
-        server.start(state, server.config_for(state))
         if initialize:
             self.initialize(state)
-        server.stop(state, server.config_for(state))
         config = server.config_for(state)
         cast("list[dict[str, object]]", self.report["profiles"])[-1].update(
             {
@@ -158,29 +154,7 @@ class Fixture:
         return state
 
     def initialize(self, state: Path) -> None:
-        environment = dict(os.environ)
-        environment.pop("PSE_CANONICAL_INITIALIZER", None)
-        result = subprocess.run(
-            [str(self.canonical), "canonical-init", str(state)],
-            env=environment,
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            timeout=120,
-            check=False,
-        )
-        server.write_json(
-            state / "fixture-initializer.json",
-            {
-                "exit_code": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-            },
-        )
-        if result.returncode:
-            raise RuntimeError(
-                "Actual canonical initializer failed; private diagnostic retained"
-            )
+        server.initialize(state, [str(self.canonical), "canonical-init", str(state)])
 
     def query(
         self,
@@ -620,6 +594,57 @@ class Fixture:
             "Arbitrary barrier cannot claim generated schema settlement",
         )
 
+    def interrupted_initialization(self) -> None:
+        """Lose the caller's success after actual initialization, then resume it."""
+        state = self.setup("interrupted-initialize")
+        original = server.config_for(state)
+        credentials = server.file_digest(state / "credentials.json")
+        # The native initializer really completes and physically exits. Only
+        # its wrapper acknowledgement is lost; no SQL outcome is fabricated.
+        wrapper = [
+            sys.executable,
+            "-c",
+            "import subprocess,sys; result=subprocess.run(sys.argv[1:],check=False); sys.exit(result.returncode or 23)",
+            str(self.canonical),
+            "canonical-init",
+            str(state),
+        ]
+        self.refuses(
+            lambda: server.initialize(state, wrapper),
+            "Lost initializer acknowledgement retains a closed pending target",
+        )
+        pending = server.object_mapping(
+            server.config_for(state)["derived_rebuild_pending"]
+        )
+        before = self.marker(state)
+        self.checked(
+            pending["kind"] == "initialize"
+            and pending["phase"] == "initializing"
+            and not server.active(state)
+            and not (state / ".maintenance-listener.json").exists(),
+            "Failed initialization physically drains while preserving its exact pending identity",
+        )
+        self.initialize(state)
+        current = server.config_for(state)
+        after = self.marker(state)
+        self.checked(
+            all(
+                current[key] == original[key]
+                for key in (
+                    "instance_id",
+                    "namespace",
+                    "database",
+                    "payload_incarnation",
+                )
+            )
+            and credentials == server.file_digest(state / "credentials.json")
+            and before["issuing_store"] == after["issuing_store"]
+            and current["admission"] == "quiesced"
+            and not current["accepting_writes"]
+            and "derived_rebuild_pending" not in current,
+            "Same initialized target resumes without replacing credentials or issuing identity",
+        )
+
     def run(self) -> None:
         schema, interpretation, digest = producer.declaration()
         folder = self.directory / "phased-chain"
@@ -627,6 +652,7 @@ class Fixture:
         self.phased(folder)
         self.forward_and_reset(schema, interpretation, digest)
         self.process_death(folder)
+        self.interrupted_initialization()
         self.report["complete"] = True
         self.checkpoint()
 
@@ -644,6 +670,7 @@ def main() -> int:
         help="Final current xtask with canonical-tools",
     )
     parser.add_argument("--port", type=int, default=18341)
+    parser.add_argument("--initialization-only", action="store_true")
     args = parser.parse_args()
     directory = args.directory.absolute()
     if (
@@ -673,7 +700,15 @@ def main() -> int:
     fixture.checkpoint()
     with resources.borrow(resource):
         try:
-            fixture.run()
+            if args.initialization_only:
+                fixture.report["scope"] = (
+                    "actual interrupted fresh initialization and exact target resumption"
+                )
+                fixture.interrupted_initialization()
+                fixture.report["complete"] = True
+                fixture.checkpoint()
+            else:
+                fixture.run()
         except BaseException as error:
             fixture.report["error"] = type(error).__name__ + ": " + str(error)
             fixture.checkpoint()

@@ -13,7 +13,7 @@ use std::{
     time::Duration,
 };
 use surrealdb::types::Object;
-use surrealdb::{Surreal, engine::remote::ws::Client, opt::RequestContext};
+use surrealdb::{Surreal, engine::remote::grpc::Client, opt::RequestContext};
 
 #[cfg(all(test, feature = "canonical-tests"))]
 #[path = "canonical_lifetime_peer_tests.rs"]

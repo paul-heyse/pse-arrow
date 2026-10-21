@@ -116,6 +116,14 @@ fn parse_definitions(input: &str) -> Result<Definitions, CanonicalError> {
                 index.kind = DefineKind::Default;
                 ("index".into(), index.what.to_sql(), index.name.to_sql())
             }
+            DefineStatement::Event(event) => {
+                event.kind = DefineKind::Default;
+                (
+                    "event".into(),
+                    event.target_table.to_sql(),
+                    event.name.to_sql(),
+                )
+            }
             DefineStatement::Function(function) => {
                 function.kind = DefineKind::Default;
                 (
@@ -328,14 +336,11 @@ impl CanonicalStore {
                         };
                         append_catalog(&mut observed, &catalog_map(&table_info, "fields")?)?;
                         append_catalog(&mut observed, &catalog_map(&table_info, "indexes")?)?;
-                        for category in ["events", "lives"] {
-                            if let Some(Value::Object(entries)) = table_info.get(category)
-                                && !entries.is_empty()
-                            {
-                                return Err(invalid(format!(
-                                    "unowned {category} on managed table {name}"
-                                )));
-                            }
+                        append_catalog(&mut observed, &catalog_map(&table_info, "events")?)?;
+                        if let Some(Value::Object(entries)) = table_info.get("lives")
+                            && !entries.is_empty()
+                        {
+                            return Err(invalid(format!("unowned lives on managed table {name}")));
                         }
                     }
                     compare(&expected, &observed)?;
@@ -436,7 +441,7 @@ impl CanonicalStore {
                 }
                 if self.maintenance_config()? != config { return Err(CanonicalError::Quiesced); }
                 let issuing = predecessor.as_ref().map(|marker| marker.issuing_store.clone()).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-                let query = "BEGIN; fn::pse_execution_v1::deadline($pse_rpc_expires_at); LET $old=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE; LET $receipt=SELECT * FROM ONLY type::record('canonical_maintenance_activations',$nonce) FOR UPDATE; IF $receipt!=NONE { THROW 'activation operation already exists; settle exact receipt'; }; IF ($predecessor=NONE AND $old!=NONE) OR ($predecessor!=NONE AND ($old.interpretation!=$predecessor.interpretation OR $old.schema_digest!=$predecessor.schema_digest OR $old.issuing_store!=$predecessor.issuing_store)) { THROW 'activation predecessor changed'; }; IF $old!=NONE AND $old.payload_incarnation!=$payload_incarnation { THROW 'activation payload incarnation differs'; }; LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; IF $gate!=NONE AND $gate.storage_incarnation!=$payload_incarnation { THROW 'activation file placement differs'; }; IF $gate=NONE { CREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false; }; UPSERT canonical_interpretations:current SET key='current', interpretation=$interpretation, schema_digest=$schema_digest, issuing_store=$issuing,payload_incarnation=$payload_incarnation; CREATE ONLY type::record('canonical_maintenance_activations',$nonce) SET key=$nonce,input_sha256=$input_sha256,predecessor=$predecessor_bytes,interpretation=$interpretation,schema_digest=$schema_digest,issuing_store=$issuing; fn::pse_execution_v1::deadline($pse_rpc_expires_at); COMMIT;";
+                let query = "BEGIN; fn::pse_execution_v1::deadline($pse_rpc_expires_at); LET $old=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE; LET $receipt=SELECT * FROM ONLY type::record('canonical_maintenance_activations',$nonce) FOR UPDATE; IF $receipt!=NONE { THROW 'PSE_REFUSAL:activation_operation_already_exists_settle_exact_receipt'; }; IF ($predecessor=NONE AND $old!=NONE) OR ($predecessor!=NONE AND ($old.interpretation!=$predecessor.interpretation OR $old.schema_digest!=$predecessor.schema_digest OR $old.issuing_store!=$predecessor.issuing_store)) { THROW 'PSE_REFUSAL:activation_predecessor_changed'; }; IF $old!=NONE AND $old.payload_incarnation!=$payload_incarnation { THROW 'PSE_REFUSAL:activation_payload_incarnation_differs'; }; LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; IF $gate!=NONE AND $gate.storage_incarnation!=$payload_incarnation { THROW 'PSE_REFUSAL:activation_file_placement_differs'; }; IF $gate=NONE { CREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false; }; UPSERT canonical_interpretations:current SET key='current', interpretation=$interpretation, schema_digest=$schema_digest, issuing_store=$issuing,payload_incarnation=$payload_incarnation; CREATE ONLY type::record('canonical_maintenance_activations',$nonce) SET key=$nonce,input_sha256=$input_sha256,predecessor=$predecessor_bytes,interpretation=$interpretation,schema_digest=$schema_digest,issuing_store=$issuing; fn::pse_execution_v1::deadline($pse_rpc_expires_at); COMMIT;";
                 let predecessor_value = match predecessor { Some(marker) => { let mut value=Object::new(); value.insert("interpretation", marker.interpretation); value.insert("schema_digest", marker.schema_digest); value.insert("issuing_store", marker.issuing_store); Value::Object(value) }, None => Value::None };
                 let response = bounded_query(self.activation_db.query(query).bind(("predecessor",predecessor_value)).bind(("interpretation",wire::INTERPRETATION)).bind(("schema_digest",wire::SCHEMA_DIGEST)).bind(("issuing",issuing)).bind(("payload_incarnation",self.files.incarnation.clone())).bind(("nonce",nonce.to_owned())).bind(("input_sha256",input_sha256.to_owned())).bind(("predecessor_bytes",surrealdb::types::Bytes::from(predecessor_bytes)))).await?;
                 super::complete_response(response)?;
@@ -454,7 +459,7 @@ mod tests {
     #[test]
     fn maintenance_authority_binds_original_connection_and_credentials() {
         let options = super::super::CanonicalOptions {
-            endpoint: "ws://127.0.0.1:12345".into(),
+            endpoint: "grpc://127.0.0.1:12345".into(),
             namespace: "selected".into(),
             database: "selected".into(),
             username: "owner".into(),
@@ -499,10 +504,119 @@ mod tests {
     }
     #[test]
     fn catalog_parser_refuses_data_effects_and_retains_function_semantics() {
-        assert!(parse_definitions("CREATE canonical_probe:one;").is_err());
+        for sql in [
+            "CREATE canonical_probe:one;",
+            "UPDATE canonical_probe SET value=1;",
+            "DELETE canonical_probe;",
+            "REMOVE EVENT probe ON canonical_probe;",
+            "DEFINE EVENT probe ON canonical_probe WHEN true THEN {}; CREATE canonical_probe:one;",
+        ] {
+            assert!(parse_definitions(sql).is_err());
+        }
         let original = parse_definitions("DEFINE FUNCTION fn::pse_probe() { RETURN 1; };").unwrap();
         let changed = parse_definitions("DEFINE FUNCTION fn::pse_probe() { RETURN 2; };").unwrap();
         assert!(compare(&original, &changed).is_err());
         assert!(!parse_definitions(wire::SCHEMA).unwrap().is_empty());
+    }
+
+    #[test]
+    fn catalog_event_comparison_retains_condition_body_scope_and_synchronous_mode() {
+        let source = "DEFINE EVENT terminal_seed ON canonical_probe WHEN $event='UPDATE' AND $before.seed!=$after.seed THEN { THROW 'immutable'; };";
+        let expected = parse_definitions(source).unwrap();
+        for equivalent in [
+            source.to_owned(),
+            source.replace("DEFINE EVENT ", "DEFINE EVENT OVERWRITE "),
+            source.replace("DEFINE EVENT ", "DEFINE EVENT IF NOT EXISTS "),
+        ] {
+            compare(&expected, &parse_definitions(&equivalent).unwrap()).unwrap();
+        }
+        for changed in [
+            source.replace("$event='UPDATE'", "$event='CREATE'"),
+            source.replace("THROW 'immutable'", "RETURN 'immutable'"),
+            source.replace("ON canonical_probe", "ON canonical_other"),
+            source.replace("terminal_seed", "other_seed"),
+            source.replace(" WHEN ", " ASYNC RETRY 1 MAXDEPTH 2 WHEN "),
+            source.replace("};", "} COMMENT 'different';"),
+        ] {
+            assert!(
+                compare(&expected, &parse_definitions(&changed).unwrap()).is_err(),
+                "event semantic drift must refuse: {changed}"
+            );
+        }
+        assert!(compare(&expected, &Definitions::new()).is_err());
+        let mut extra = expected.clone();
+        extra.extend(parse_definitions(&source.replace("terminal_seed", "unowned_event")).unwrap());
+        assert!(compare(&expected, &extra).is_err());
+    }
+
+    #[test]
+    fn installed_event_catalog_is_required_and_exactly_parsed() {
+        let sql = "DEFINE EVENT OVERWRITE terminal_seed ON canonical_probe WHEN $event='UPDATE' THEN { THROW 'immutable'; };";
+        let mut entries = Object::new();
+        entries.insert("terminal_seed", sql);
+        let mut table = Object::new();
+        table.insert("events", entries);
+        let mut observed = Definitions::new();
+        append_catalog(&mut observed, &catalog_map(&table, "events").unwrap()).unwrap();
+        compare(&parse_definitions(sql).unwrap(), &observed).unwrap();
+        assert!(catalog_map(&Object::new(), "events").is_err());
+        table.insert("events", true);
+        assert!(catalog_map(&table, "events").is_err());
+        let mut data_effect = Object::new();
+        data_effect.insert("terminal_seed", "CREATE canonical_probe:one;");
+        assert!(append_catalog(&mut Definitions::new(), &data_effect).is_err());
+    }
+
+    #[cfg(feature = "canonical-tests")]
+    #[tokio::test]
+    async fn native_maintenance_event_catalog_roundtrips_and_refuses_changed_or_extra_events() {
+        let state = std::env::var("PSE_SURREAL_STATE").unwrap();
+        let mut options = super::super::CanonicalOptions::from_state(Path::new(&state)).unwrap();
+        options.database = format!(
+            "canonical_test_event_catalog_{}",
+            uuid::Uuid::new_v4().simple()
+        );
+        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let expected: Definitions = parse_definitions(wire::SCHEMA)
+            .unwrap()
+            .into_iter()
+            .filter(|(key, _)| key.0 == "event")
+            .collect();
+        assert_eq!(
+            expected.len(),
+            1,
+            "the generated terminal publication backstop is declared once"
+        );
+        async fn observed(store: &CanonicalStore) -> Definitions {
+            let mut response = bounded_query(store.db.query("INFO FOR TABLE canonical_attempts;"))
+                .await
+                .unwrap();
+            let Value::Object(info) = response.take::<Value>(0).unwrap() else {
+                panic!("native table catalog must be an object")
+            };
+            let mut definitions = Definitions::new();
+            append_catalog(&mut definitions, &catalog_map(&info, "events").unwrap()).unwrap();
+            definitions
+        }
+        compare(&expected, &observed(&store).await).unwrap();
+        let mut original = expected.values().next().unwrap().clone();
+        let DefineStatement::Event(event) = &mut original else {
+            panic!("registered event must retain its AST family")
+        };
+        let event_name = event.name.to_sql();
+        event.kind = DefineKind::Overwrite;
+        bounded_query(store.db.query(format!("DEFINE EVENT OVERWRITE {event_name} ON canonical_attempts WHEN false THEN {{ RETURN true; }};"))).await.unwrap();
+        assert!(compare(&expected, &observed(&store).await).is_err());
+        bounded_query(store.db.query(format!("{};", original.to_sql())))
+            .await
+            .unwrap();
+        compare(&expected, &observed(&store).await).unwrap();
+        bounded_query(store.db.query(
+            "DEFINE EVENT unexpected_catalog_event ON canonical_attempts WHEN false THEN {}; ",
+        ))
+        .await
+        .unwrap();
+        assert!(compare(&expected, &observed(&store).await).is_err());
+        store.remove_isolated_fixture().await.unwrap();
     }
 }

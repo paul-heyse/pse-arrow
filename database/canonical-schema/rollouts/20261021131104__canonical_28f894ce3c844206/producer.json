@@ -1,0 +1,60 @@
+{
+  "id": "20261021131104__canonical_28f894ce3c844206",
+  "producer": "scripts/surreal_rollout_producer.py",
+  "tool_version": "1.0.0-beta.6",
+  "predecessor": null,
+  "interpretation": "pse.substrate.v7",
+  "schema_digest": "28f894ce3c8442063987fee2565a3c89de7371b59f1e9a326bcbeaa7050ab128",
+  "schema_sha256": "4f5136e22c91d13ceac190797f625859e7492bd1230151a1e7f56938811e6bc5",
+  "manifest_checksum": "0e79acc6f77e28910667d467bb4d66a768eccfd97f720b3181460bd2c59981b0",
+  "source_schema_hash": "ad301433f67ec7108b54797ac5d7a61df8c92f62fa52ae631da3f49731576ac3",
+  "target_schema_hash": "8c82108c743cd37e4a4f91e3ef40afa37a1651f5311ee09d9420402bb35a1aba",
+  "source_sql": "rollouts/20261021131104__canonical_28f894ce3c844206/source-schema.surql",
+  "target_sql": "rollouts/20261021131104__canonical_28f894ce3c844206/target-schema.surql",
+  "target_schema_snapshot": "rollouts/20261021131104__canonical_28f894ce3c844206/target-schema-snapshot.json",
+  "target_catalog_snapshot": "rollouts/20261021131104__canonical_28f894ce3c844206/target-catalog-snapshot.json",
+  "steps": [
+    {
+      "id": "apply_expand_schema",
+      "phase": "start",
+      "kind": "apply_files",
+      "checksum": "d92a8fd3d7d9ed20ff237885ff5add6e646b905f14bf4d9238ca045dae76e75f",
+      "postcondition": {
+        "mode": "layered_definitions_last_wins",
+        "sql": [
+          "rollouts/20261021131104__canonical_28f894ce3c844206/source-schema.surql",
+          "rollouts/20261021131104__canonical_28f894ce3c844206/target-schema.surql"
+        ]
+      }
+    },
+    {
+      "id": "rollback_expand_schema",
+      "phase": "rollback",
+      "kind": "remove_entities",
+      "checksum": "e0528d759230b5d6932eb5a4af607f1a7555c444fa7d1ef7a0d61ed34a861a2a",
+      "postcondition": {
+        "mode": "layered_definitions_last_wins",
+        "sql": [
+          "rollouts/20261021131104__canonical_28f894ce3c844206/source-schema.surql"
+        ]
+      }
+    }
+  ],
+  "release": {
+    "version": "1.0.0-beta.6",
+    "repository": "surrealdb/surrealkit",
+    "source_revision": "92ebc3cc89b99f00d21c7d2cbf5136d728367061",
+    "source_commit": "92ebc3cc89b99f00d21c7d2cbf5136d728367061",
+    "source_build": true,
+    "setup_sha256": "bbe359489ab56bae125825f661454e108a3345e1fc1093de103a004248cb374f",
+    "resolved_sdk": [
+      "3.3.4"
+    ],
+    "release_build_locked": true,
+    "lock_sha256": "61fdc2af305c7b5e8fe23ea5c383f6761fcc4ad02e0d43c4088c6be5d967e812",
+    "publication": "surrealkit-source-v1",
+    "artifact": "/home/paul/.local/share/pse-arrow/tools/surrealkit/v1.0.0-beta.6/grpc-x86_64/artifacts/261f7033e05997c63e07bc4dad4f3e485db5929fe6298c885bfdfcf94670b0a4/surrealkit",
+    "sdk_inputs_sha256": "261f7033e05997c63e07bc4dad4f3e485db5929fe6298c885bfdfcf94670b0a4",
+    "binary_sha256": "2d5e0a18f621b6eba927055674f58fdc879c7cd36af88f2e95ebf54d57f0bf71"
+  }
+}

@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    231u8, 166u8, 147u8, 151u8, 37u8, 163u8, 249u8, 179u8, 115u8, 141u8, 228u8, 50u8,
-    106u8, 182u8, 39u8, 109u8, 157u8, 120u8, 30u8, 188u8, 81u8, 57u8, 98u8, 19u8, 172u8,
-    55u8, 11u8, 144u8, 249u8, 109u8, 125u8, 58u8,
+    133u8, 27u8, 188u8, 145u8, 155u8, 182u8, 152u8, 249u8, 221u8, 233u8, 40u8, 233u8,
+    100u8, 100u8, 216u8, 2u8, 117u8, 173u8, 58u8, 233u8, 118u8, 163u8, 199u8, 147u8,
+    111u8, 73u8, 86u8, 72u8, 161u8, 198u8, 243u8, 186u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalAttemptsRow {
     fn append(
@@ -48,38 +48,27 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalAttemptsRow {
             &self.r#expires_at,
             children[6usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#ingestion_open,
-            children[7usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#closed, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#phase, children[7usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#close_generation,
-            children[9usize].as_mut(),
+            children[8usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#outcome, children[9usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#terminal,
+            &self.r#closed_manifest,
             children[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#outcome,
+            &self.r#completion,
             children[11usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#closed_manifest,
+            &self.r#seed_manifest,
             children[12usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#completion,
-            children[13usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#seed_manifest,
-            children[14usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
             &self.r#finalization_study,
-            children[15usize].as_mut(),
+            children[13usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -100,27 +89,27 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalAttemptsRow {
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <crate::generated::enums::CanonicalAttemptPhase as crate::columnar::ArrowValue>::append_null(
+            children[7usize].as_mut(),
+        )?;
         <Option<
             u64,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            crate::generated::enums::CanonicalTerminalOutcome,
         > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <Option<
             String,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <Option<
+            pse_model::Bytes,
         > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         <Option<
             String,
         > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         <Option<
-            pse_model::Bytes,
+            String,
         > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
-        <Option<
-            String,
-        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
-        <Option<
-            String,
-        > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -159,52 +148,44 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalAttemptsRow {
                 input.column(6usize).as_ref(),
                 index,
             )?,
-            r#ingestion_open: <bool as crate::columnar::ArrowValue>::read(
+            r#phase: <crate::generated::enums::CanonicalAttemptPhase as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
-                index,
-            )?,
-            r#closed: <bool as crate::columnar::ArrowValue>::read(
-                input.column(8usize).as_ref(),
                 index,
             )?,
             r#close_generation: <Option<
                 u64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(9usize).as_ref(),
-                index,
-            )?,
-            r#terminal: <bool as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
+                input.column(8usize).as_ref(),
                 index,
             )?,
             r#outcome: <Option<
-                String,
+                crate::generated::enums::CanonicalTerminalOutcome,
             > as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
+                input.column(9usize).as_ref(),
                 index,
             )?,
             r#closed_manifest: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(12usize).as_ref(),
+                input.column(10usize).as_ref(),
                 index,
             )?,
             r#completion: <Option<
                 pse_model::Bytes,
             > as crate::columnar::ArrowValue>::read(
-                input.column(13usize).as_ref(),
+                input.column(11usize).as_ref(),
                 index,
             )?,
             r#seed_manifest: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(14usize).as_ref(),
+                input.column(12usize).as_ref(),
                 index,
             )?,
             r#finalization_study: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(15usize).as_ref(),
+                input.column(13usize).as_ref(),
                 index,
             )?,
         })
@@ -279,35 +260,27 @@ impl crate::columnar::RelationRow for RuntimeCanonicalAttemptsRow {
             &self.r#expires_at,
             columns[6usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#ingestion_open,
-            columns[7usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#closed, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#phase, columns[7usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#close_generation,
-            columns[9usize].as_mut(),
+            columns[8usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#terminal,
-            columns[10usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#outcome, columns[11usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outcome, columns[9usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#closed_manifest,
-            columns[12usize].as_mut(),
+            columns[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#completion,
-            columns[13usize].as_mut(),
+            columns[11usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#seed_manifest,
-            columns[14usize].as_mut(),
+            columns[12usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#finalization_study,
-            columns[15usize].as_mut(),
+            columns[13usize].as_mut(),
         )?;
         Ok(())
     }
@@ -344,10 +317,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalAttemptsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        32_768_usize + size_of::<Self::Builder>()
+        28_672_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        256usize
+        224usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -381,11 +354,7 @@ impl crate::columnar::RelationRow for RuntimeCanonicalAttemptsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            Ok::<usize, crate::RelationError>(8usize)?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            Ok::<usize, crate::RelationError>(8usize)?,
+            crate::columnar::allocation_add(8, (self.r#phase).as_str().len())?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -400,14 +369,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalAttemptsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            Ok::<usize, crate::RelationError>(8usize)?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
             if let Some(value) = (self.r#outcome).as_ref() {
                 crate::columnar::allocation_add(
                     1,
-                    crate::columnar::allocation_add(8, (value).len())?,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
                 )
             } else {
                 Ok::<usize, crate::RelationError>(1)
@@ -467,7 +432,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 16usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 14usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -505,48 +470,38 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 16usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "ingestion_open",
+        name: "phase",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "closed",
+        name: "close_generation",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "close_generation",
+        name: "outcome",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "terminal",
+        name: "closed_manifest",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "outcome",
+        name: "completion",
         position: 11usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "closed_manifest",
+        name: "seed_manifest",
         position: 12usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "completion",
-        position: 13usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "seed_manifest",
-        position: 14usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
         name: "finalization_study",
-        position: 15usize,
+        position: 13usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -565,24 +520,20 @@ pub mod columns {
     pub const WORKER: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///expires_at
     pub const EXPIRES_AT: crate::columnar::ColumnReference = super::COLUMNS[6usize];
-    ///ingestion_open
-    pub const INGESTION_OPEN: crate::columnar::ColumnReference = super::COLUMNS[7usize];
-    ///closed
-    pub const CLOSED: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    ///phase
+    pub const PHASE: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///close_generation
-    pub const CLOSE_GENERATION: crate::columnar::ColumnReference = super::COLUMNS[9usize];
-    ///terminal
-    pub const TERMINAL: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const CLOSE_GENERATION: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///outcome
-    pub const OUTCOME: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const OUTCOME: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///closed_manifest
-    pub const CLOSED_MANIFEST: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    pub const CLOSED_MANIFEST: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///completion
-    pub const COMPLETION: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    pub const COMPLETION: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///seed_manifest
-    pub const SEED_MANIFEST: crate::columnar::ColumnReference = super::COLUMNS[14usize];
+    pub const SEED_MANIFEST: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///finalization_study
-    pub const FINALIZATION_STUDY: crate::columnar::ColumnReference = super::COLUMNS[15usize];
+    pub const FINALIZATION_STUDY: crate::columnar::ColumnReference = super::COLUMNS[13usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -597,10 +548,8 @@ pub struct RuntimeCanonicalAttemptsView<'a> {
     request_column: &'a arrow_array::BinaryArray,
     worker_column: &'a arrow_array::StringArray,
     expires_at_column: &'a arrow_array::TimestampMicrosecondArray,
-    ingestion_open_column: &'a arrow_array::BooleanArray,
-    closed_column: &'a arrow_array::BooleanArray,
+    phase_column: &'a arrow_array::StringArray,
     close_generation_column: &'a arrow_array::UInt64Array,
-    terminal_column: &'a arrow_array::BooleanArray,
     outcome_column: &'a arrow_array::StringArray,
     closed_manifest_column: &'a arrow_array::StringArray,
     completion_column: &'a arrow_array::BinaryArray,
@@ -671,33 +620,27 @@ impl<'a> RuntimeCanonicalAttemptsView<'a> {
             expires_at_column: crate::columnar::array::<
                 arrow_array::TimestampMicrosecondArray,
             >(batch.column(6usize).as_ref())?,
-            ingestion_open_column: crate::columnar::array::<
-                arrow_array::BooleanArray,
+            phase_column: crate::columnar::array::<
+                arrow_array::StringArray,
             >(batch.column(7usize).as_ref())?,
-            closed_column: crate::columnar::array::<
-                arrow_array::BooleanArray,
-            >(batch.column(8usize).as_ref())?,
             close_generation_column: crate::columnar::array::<
                 arrow_array::UInt64Array,
-            >(batch.column(9usize).as_ref())?,
-            terminal_column: crate::columnar::array::<
-                arrow_array::BooleanArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             outcome_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             closed_manifest_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(12usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             completion_column: crate::columnar::array::<
                 arrow_array::BinaryArray,
-            >(batch.column(13usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             seed_manifest_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(14usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
             finalization_study_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(15usize).as_ref())?,
+            >(batch.column(13usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -798,27 +741,15 @@ impl<'a> RuntimeCanonicalAttemptsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "ingestion_open",
+        "phase",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn ingestion_open_column(&self) -> &'a arrow_array::BooleanArray {
-        self.ingestion_open_column
+    pub const fn phase_column(&self) -> &'a arrow_array::StringArray {
+        self.phase_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "ingestion_open", "`.")]
-    pub fn ingestion_open_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "phase", "`.")]
+    pub fn phase_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[7usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "closed",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn closed_column(&self) -> &'a arrow_array::BooleanArray {
-        self.closed_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "closed", "`.")]
-    pub fn closed_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -830,19 +761,7 @@ impl<'a> RuntimeCanonicalAttemptsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "close_generation", "`.")]
     pub fn close_generation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "terminal",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn terminal_column(&self) -> &'a arrow_array::BooleanArray {
-        self.terminal_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "terminal", "`.")]
-    pub fn terminal_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -854,7 +773,7 @@ impl<'a> RuntimeCanonicalAttemptsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "outcome", "`.")]
     pub fn outcome_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -866,7 +785,7 @@ impl<'a> RuntimeCanonicalAttemptsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "closed_manifest", "`.")]
     pub fn closed_manifest_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[12usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -878,7 +797,7 @@ impl<'a> RuntimeCanonicalAttemptsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "completion", "`.")]
     pub fn completion_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[13usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -890,7 +809,7 @@ impl<'a> RuntimeCanonicalAttemptsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "seed_manifest", "`.")]
     pub fn seed_manifest_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[14usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -906,7 +825,7 @@ impl<'a> RuntimeCanonicalAttemptsView<'a> {
         "`.",
     )]
     pub fn finalization_study_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[15usize]
+        &self.batch.schema_ref().fields()[13usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -936,16 +855,11 @@ impl<'a> RuntimeCanonicalAttemptsView<'a> {
                 self.expires_at_column,
                 index,
             )?,
-            r#ingestion_open: crate::columnar::ArrowValue::read(
-                self.ingestion_open_column,
-                index,
-            )?,
-            r#closed: crate::columnar::ArrowValue::read(self.closed_column, index)?,
+            r#phase: crate::columnar::ArrowValue::read(self.phase_column, index)?,
             r#close_generation: crate::columnar::ArrowValue::read(
                 self.close_generation_column,
                 index,
             )?,
-            r#terminal: crate::columnar::ArrowValue::read(self.terminal_column, index)?,
             r#outcome: crate::columnar::ArrowValue::read(self.outcome_column, index)?,
             r#closed_manifest: crate::columnar::ArrowValue::read(
                 self.closed_manifest_column,

@@ -50,11 +50,16 @@ surrealdb-syn = { workspace = true, optional = true }
 surrealdb-sql = { workspace = true, optional = true }
 
 [dev-dependencies]
-flatbuffers.workspace = true
+base64.workspace = true
 surrealdb-protocol.workspace = true
 pse-columnar.workspace = true
+bytes.workspace = true
+http.workspace = true
+http-body.workspace = true
 futures-util.workspace = true
-tokio-tungstenite.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
 arrow-schema.workspace = true
 pse-codegen.workspace = true
 url.workspace = true

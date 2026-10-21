@@ -33,6 +33,8 @@ extend-exclude = [
 ]
 
 [default]
+# Git's abbreviated object hashes in source patches are immutable provenance.
+extend-ignore-re = ["(?m)^index [0-9a-f]+\\.\\.[0-9a-f]+(?: [0-7]+)?$"]
 # Native library C symbols (SCIPaddSol, SCIPreleaseCons, SCIPeventGetType, IDA_NO_BCK,
 # POUNCE's OT_String) split into fragments that look like misspellings.
 extend-ignore-identifiers-re = [
@@ -105,6 +107,10 @@ writeable = "writeable"
 INTEVAL = "INTEVAL"
 # The plural of the SQL keyword, not a truncation.
 CHECKs = "CHECKs"
+ASSERTs = "ASSERTs"   # Plural SQL keyword in generator and captured review evidence.
+infor = "infor"       # Exact retained SurrealQL probe function identifier.
+arro3 = "arro3"       # Exact Python Arrow interoperability package.
+to_arro3 = "to_arro3" # Exact upstream conversion method.
 # Deliberate misspellings in tests that assert a misspelled literal or key is refused.
 runing = "runing"
 methd = "methd"

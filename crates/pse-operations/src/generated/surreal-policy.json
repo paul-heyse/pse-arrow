@@ -1,6 +1,6 @@
 {
   "generated_by": "pse-schema",
-  "interpretation": "pse.substrate.v6",
+  "interpretation": "pse.substrate.v7",
   "result_block_bytes": 33554432,
   "result_file_target_bytes": 16777216,
   "result_index_bytes": 131072,

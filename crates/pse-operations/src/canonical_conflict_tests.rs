@@ -27,12 +27,12 @@ async fn fixture() -> (CanonicalStore, CanonicalOptions, Revision) {
 }
 async fn held(
     options: &CanonicalOptions,
-) -> surrealdb::method::Transaction<surrealdb::engine::remote::ws::Client> {
+) -> surrealdb::method::Transaction<surrealdb::engine::remote::grpc::Client> {
     let address = url::Url::parse(&options.endpoint)
         .unwrap()
         .socket_addrs(|| None)
         .unwrap()[0];
-    let db = surrealdb::Surreal::new::<surrealdb::engine::remote::ws::Ws>(address)
+    let db = surrealdb::Surreal::new::<surrealdb::engine::remote::grpc::Grpc>(address)
         .await
         .unwrap();
     db.signin(surrealdb::opt::auth::Root {
@@ -54,11 +54,10 @@ fn conflict(error: surrealdb::Error) {
     );
 }
 fn thrown(error: CanonicalError, message: &str) -> Result<(), CanonicalError> {
-    let CanonicalError::Driver(error) = error else {
+    let CanonicalError::Refused { code, .. } = error else {
         return Err(error);
     };
-    assert!(error.is_thrown(), "{error}");
-    assert!(error.message().ends_with(message), "{error}");
+    assert_eq!(code.message(), message);
     Ok(())
 }
 fn expiry() -> i64 {
@@ -164,6 +163,8 @@ fn study(revision: &Revision, key: &str, run: &str) -> crate::canonical_studies:
         interpretation: wire::INTERPRETATION.into(),
         point_count: 1,
         next_ordinal: 0,
+        dependency_count: 0,
+        installed_dependencies: 0,
         active: false,
         cancelled: false,
         generation: 0,
@@ -246,8 +247,11 @@ async fn exact_terminal_seal_and_unrelated_source_creator_commute_both_orders() 
             .await
             .unwrap()
             .unwrap();
-        assert!(terminal.terminal);
-        assert_eq!(terminal.outcome.as_deref(), Some("partial"));
+        assert!(terminal.terminal());
+        assert_eq!(
+            terminal.outcome.as_ref().map(|value| value.as_str()),
+            Some("partial")
+        );
         assert_eq!(terminal.completion.as_ref().unwrap().as_slice(), &[42]);
         let run = store.canonical_run(fence.run()).await.unwrap().unwrap();
         assert_eq!(run.terminal_attempt.as_deref(), Some(fence.attempt()));
@@ -370,7 +374,12 @@ async fn exact_terminal_root_release_and_source_collection_preserve_run_both_ord
             conflict(sealing.commit().await.unwrap_err());
         } else {
             sealing.commit().await.unwrap();
-            collector.commit().await.unwrap();
+            if let Err(error) = collector.commit().await {
+                // SSI also tracks the root read by this collector. Removing the
+                // active-attempt root may abort its old decision even though the
+                // independent run root still preserves the selected source.
+                conflict(error);
+            }
         }
         // A definite conflict rebuilds the same seal, never another scientific
         // attempt. A completed seal's same-identity replay is also unchanged.
@@ -388,6 +397,8 @@ async fn exact_terminal_root_release_and_source_collection_preserve_run_both_ord
                 .await
         }
         .unwrap();
+        // Rebuild every collector premise through the production path after a
+        // definite SSI abort; a committed collector receives the same recheck.
         let page = store.reclaim_page(&old.problem, "").await.unwrap();
         assert!(page.examined > 0);
         assert_eq!((page.memberships, page.versions), (0, 0));
@@ -770,7 +781,7 @@ async fn exact_terminal_summary_and_point_creators_retirement_both_orders() {
                     start: None,
                 };
                 creator
-                    .query("RETURN fn::pse_study_v1::append($expiry,'study',$points,[]);")
+                    .query("RETURN fn::pse_study_v1::append($expiry,'study',$points);")
                     .bind(("expiry", expiry()))
                     .bind((
                         "points",
@@ -933,21 +944,26 @@ async fn install_study(
     )
     .await
     .unwrap();
-    bounded_query(
-        store
-            .db
-            .query("RETURN fn::pse_study_v1::append($pse_rpc_expires_at,'study',$points,[]);")
-            .bind((
-                "points",
-                points
-                    .iter()
-                    .map(wire::encode_canonical_study_points)
-                    .collect::<Result<Vec<_>, _>>()
-                    .unwrap(),
-            )),
-    )
-    .await
-    .unwrap();
+    // Install every endpoint page before any dependency phase. These independent
+    // point fixtures declare no edges, so zero installed dependencies completes
+    // that phase without issuing an invalid empty append_dependencies request.
+    assert_eq!(row.dependency_count, 0);
+    for page in points.chunks(64) {
+        bounded_query(
+            store
+                .db
+                .query("RETURN fn::pse_study_v1::append($pse_rpc_expires_at,'study',$points);")
+                .bind((
+                    "points",
+                    page.iter()
+                        .map(wire::encode_canonical_study_points)
+                        .collect::<Result<Vec<_>, _>>()
+                        .unwrap(),
+                )),
+        )
+        .await
+        .unwrap();
+    }
     bounded_query(
         store
             .db
@@ -1014,7 +1030,10 @@ async fn exact_cancelled_study_finalizer_has_only_summary_publication_authority(
             .await
     }
     .unwrap();
-    assert_eq!(receipt.outcome.as_deref(), Some("cancelled"));
+    assert_eq!(
+        receipt.outcome.as_ref().map(|value| value.as_str()),
+        Some("cancelled")
+    );
     assert!(receipt.seed_manifest.is_none());
     assert!(
         store
@@ -1472,5 +1491,353 @@ async fn historical_source_grant_settlement_keeps_exact_receipt_and_fences_unkno
         .is_err()
     );
     assert_eq!(floor(&store, &revision.problem).await, 29);
+    store.remove_isolated_fixture().await.unwrap();
+}
+
+#[tokio::test]
+async fn commit_order_publication_never_appears_behind_an_advanced_page_cursor() {
+    let (store, options, revision) = fixture().await;
+    let initial = store
+        .begin_run(&RunRequest {
+            key: "publication-base".into(),
+            revision: revision.clone(),
+            sources: vec![],
+            request: vec![1],
+            source_selection: vec![2],
+            attestation: vec![3],
+        })
+        .await
+        .unwrap();
+    let early = held(&options).await;
+    let late = held(&options).await;
+    let mut early_row = initial.clone();
+    early_row.key = "publication-early-draw".into();
+    early_row.sequence = 0;
+    let mut late_row = early_row.clone();
+    late_row.key = "publication-late-draw".into();
+    // Both transactions draw from the same conflict-key version. Commit the later
+    // draw first; the earlier draw must abort rather than publish behind its cursor.
+    early
+        .query("RETURN fn::pse_execution_v1::begin_run($expiry,$row,[],NONE);")
+        .bind(("expiry", expiry()))
+        .bind(("row", wire::encode_canonical_runs(&early_row).unwrap()))
+        .await
+        .unwrap()
+        .check()
+        .unwrap();
+    late.query("RETURN fn::pse_execution_v1::begin_run($expiry,$row,[],NONE);")
+        .bind(("expiry", expiry()))
+        .bind(("row", wire::encode_canonical_runs(&late_row).unwrap()))
+        .await
+        .unwrap()
+        .check()
+        .unwrap();
+    late.commit().await.unwrap();
+    conflict(early.commit().await.unwrap_err());
+    let first = store
+        .execution_run_page(&revision.problem, Some(initial.sequence), 1)
+        .await
+        .unwrap();
+    assert_eq!(first.len(), 1);
+    assert_eq!(first[0].key, late_row.key);
+    let advanced = first[0].sequence;
+    let retried = store
+        .begin_run(&RunRequest {
+            key: early_row.key.clone(),
+            revision: revision.clone(),
+            sources: vec![],
+            request: vec![1],
+            source_selection: vec![2],
+            attestation: vec![3],
+        })
+        .await
+        .unwrap();
+    assert!(retried.sequence > advanced);
+    for index in 0..3 {
+        store
+            .begin_run(&RunRequest {
+                key: format!("publication-tail-{index}"),
+                revision: revision.clone(),
+                sources: vec![],
+                request: vec![1],
+                source_selection: vec![2],
+                attestation: vec![3],
+            })
+            .await
+            .unwrap();
+    }
+    let mut cursor = advanced;
+    let mut seen = Vec::new();
+    loop {
+        let page = store
+            .execution_run_page(&revision.problem, Some(cursor), 2)
+            .await
+            .unwrap();
+        if page.is_empty() {
+            break;
+        }
+        assert!(page.iter().all(|row| row.sequence > cursor));
+        cursor = page.last().unwrap().sequence;
+        seen.extend(page.into_iter().map(|row| row.key));
+    }
+    assert_eq!(seen.len(), 4);
+    assert_eq!(seen[0], early_row.key);
+    store.remove_isolated_fixture().await.unwrap();
+}
+
+#[tokio::test]
+async fn actual_native_conflict_rebuilds_the_complete_decision_under_original_clock() {
+    use crate::canonical::{QueryEffect, pacing_observation};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    let (store, options, _) = fixture().await;
+    bounded_query(store.db.query(
+        "CREATE canonical_guards:qualified_retry SET key='qualified_retry',generation=0dec;",
+    ))
+    .await
+    .unwrap();
+    let rival = held(&options).await;
+    rival
+        .query("UPDATE canonical_guards:qualified_retry SET generation+=1dec;")
+        .await
+        .unwrap()
+        .check()
+        .unwrap();
+    let reached = Arc::new(tokio::sync::Notify::new());
+    let committed = Arc::new(tokio::sync::Notify::new());
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let probe = pacing_observation::Probe::default();
+    let started = std::time::Instant::now();
+    let decision=probe.scope(crate::canonical::operation_scope(started+Duration::from_secs(20),store.protected_query("qualified-native-retry",QueryEffect::Mutation,"qualification::native_conflict_retry",|| {
+        let options=options.clone();
+        let reached=reached.clone();
+        let committed=committed.clone();
+        let ordinal=attempts.fetch_add(1,Ordering::SeqCst);
+        Ok(async move {
+            let transaction=held(&options).await;
+            let mut selected=transaction.query("SELECT VALUE generation FROM ONLY canonical_guards:qualified_retry FOR UPDATE;").await?.check()?;
+            let generation=selected.take::<Value>(0)?;
+            if ordinal==0 {
+                reached.notify_one();
+                committed.notified().await;
+            }
+            let response=transaction.query("UPDATE canonical_guards:qualified_retry SET generation=$generation+1dec;").bind(("generation",generation)).await?.check()?;
+            transaction.commit().await?;
+            Ok(response)
+        })
+    })));
+    let commit_first = async {
+        reached.notified().await;
+        rival.commit().await.unwrap();
+        committed.notify_one();
+    };
+    let (response, ()) = tokio::time::timeout(Duration::from_secs(25), async {
+        tokio::join!(decision, commit_first)
+    })
+    .await
+    .unwrap();
+    response.unwrap();
+    assert_eq!(
+        attempts.load(Ordering::SeqCst),
+        2,
+        "exactly the known conflict permits one complete rebuild"
+    );
+    assert_eq!(probe.snapshot()["qualified-native-retry"].conflicts, 1);
+    let mut result = bounded_query(
+        store
+            .db
+            .query("SELECT VALUE generation FROM ONLY canonical_guards:qualified_retry;"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        canonical_codec::decode_uint(result.take(0).unwrap()).unwrap(),
+        2
+    );
+    eprintln!(
+        "actual native conflict retry: elapsed={:?}, observations={:#?}",
+        started.elapsed(),
+        probe.snapshot()
+    );
+    store.remove_isolated_fixture().await.unwrap();
+}
+
+#[tokio::test]
+async fn native_sql_serializable_isolation_rejects_existing_row_write_skew_in_both_commit_orders() {
+    let (store, options, _) = fixture().await;
+    for reverse in [false, true] {
+        let left_key = format!("ssi-existing-{reverse}-left");
+        let right_key = format!("ssi-existing-{reverse}-right");
+        for key in [&left_key, &right_key] {
+            bounded_query(store.db.query("CREATE ONLY type::record('canonical_guards',$key) SET key=$key,generation=0dec;").bind(("key",key.clone()))).await.unwrap();
+        }
+        let left = held(&options).await;
+        let right = held(&options).await;
+        for transaction in [&left, &right] {
+            let mut selected=transaction.query("RETURN [type::record('canonical_guards',$left).generation,type::record('canonical_guards',$right).generation];")
+                .bind(("left",left_key.clone())).bind(("right",right_key.clone())).await.unwrap().check().unwrap();
+            let values = selected.take::<Vec<Value>>(0).unwrap();
+            assert_eq!(
+                values
+                    .into_iter()
+                    .map(|value| canonical_codec::decode_uint(value).unwrap())
+                    .collect::<Vec<_>>(),
+                vec![0, 0]
+            );
+        }
+        left.query("UPDATE ONLY type::record('canonical_guards',$key) SET generation=1dec;")
+            .bind(("key", left_key.clone()))
+            .await
+            .unwrap()
+            .check()
+            .unwrap();
+        right
+            .query("UPDATE ONLY type::record('canonical_guards',$key) SET generation=1dec;")
+            .bind(("key", right_key.clone()))
+            .await
+            .unwrap()
+            .check()
+            .unwrap();
+        if reverse {
+            right.commit().await.unwrap();
+            conflict(left.commit().await.unwrap_err());
+        } else {
+            left.commit().await.unwrap();
+            conflict(right.commit().await.unwrap_err());
+        }
+        let mut selected=bounded_query(store.db.query("RETURN [type::record('canonical_guards',$left).generation,type::record('canonical_guards',$right).generation];")
+            .bind(("left",left_key)).bind(("right",right_key))).await.unwrap();
+        let values = selected.take::<Vec<Value>>(0).unwrap();
+        assert_eq!(
+            values
+                .into_iter()
+                .map(|value| canonical_codec::decode_uint(value).unwrap())
+                .sum::<u64>(),
+            1
+        );
+    }
+    store.remove_isolated_fixture().await.unwrap();
+}
+
+#[tokio::test]
+async fn native_sql_serializable_isolation_rejects_absent_key_write_skew_in_both_commit_orders() {
+    let (store, options, _) = fixture().await;
+    for reverse in [false, true] {
+        let left_key = format!("ssi-absent-{reverse}-left");
+        let right_key = format!("ssi-absent-{reverse}-right");
+        let left = held(&options).await;
+        let right = held(&options).await;
+        for (transaction, key) in [(&left, &right_key), (&right, &left_key)] {
+            let mut selected = transaction
+                .query("SELECT * FROM ONLY type::record('canonical_guards',$key);")
+                .bind(("key", key.clone()))
+                .await
+                .unwrap()
+                .check()
+                .unwrap();
+            assert!(selected.take::<Option<Object>>(0).unwrap().is_none());
+        }
+        for (transaction, key) in [(&left, &left_key), (&right, &right_key)] {
+            transaction.query("CREATE ONLY type::record('canonical_guards',$key) SET key=$key,generation=1dec;").bind(("key",key.clone())).await.unwrap().check().unwrap();
+        }
+        if reverse {
+            right.commit().await.unwrap();
+            conflict(left.commit().await.unwrap_err());
+        } else {
+            left.commit().await.unwrap();
+            conflict(right.commit().await.unwrap_err());
+        }
+        let mut selected=bounded_query(store.db.query("RETURN [type::record('canonical_guards',$left).generation!=NONE,type::record('canonical_guards',$right).generation!=NONE];")
+            .bind(("left",left_key)).bind(("right",right_key))).await.unwrap();
+        let values = selected.take::<Vec<bool>>(0).unwrap();
+        assert_eq!(values.into_iter().filter(|exists| *exists).count(), 1);
+    }
+    store.remove_isolated_fixture().await.unwrap();
+}
+
+#[tokio::test]
+async fn native_sql_serializable_isolation_detects_empty_record_range_interference() {
+    let (store, options, _) = fixture().await;
+    let reader = held(&options).await;
+    let mut selected = reader
+        .query("SELECT * FROM $page ORDER BY id LIMIT 17;")
+        .bind((
+            "page",
+            canonical_codec::record_page("canonical_guards", "zz_ssi_range_"),
+        ))
+        .await
+        .unwrap()
+        .check()
+        .unwrap();
+    assert!(selected.take::<Vec<Object>>(0).unwrap().is_empty());
+    let writer = held(&options).await;
+    writer.query("CREATE canonical_guards:zz_ssi_range_inserted SET key='zz_ssi_range_inserted',generation=1dec;").await.unwrap().check().unwrap();
+    writer.commit().await.unwrap();
+    reader.query("CREATE canonical_guards:ssi_range_decision SET key='ssi_range_decision',generation=1dec;").await.unwrap().check().unwrap();
+    conflict(reader.commit().await.unwrap_err());
+    let mut selected = bounded_query(
+        store
+            .db
+            .query("SELECT * FROM ONLY canonical_guards:ssi_range_decision;"),
+    )
+    .await
+    .unwrap();
+    assert!(selected.take::<Option<Object>>(0).unwrap().is_none());
+    store.remove_isolated_fixture().await.unwrap();
+}
+
+#[tokio::test]
+async fn native_sql_snapshot_reader_remains_stable_until_cancel_then_new_reader_observes_commit() {
+    let (store, options, _) = fixture().await;
+    bounded_query(
+        store
+            .db
+            .query("CREATE canonical_guards:ssi_snapshot SET key='ssi_snapshot',generation=0dec;"),
+    )
+    .await
+    .unwrap();
+    let reader = held(&options).await;
+    let mut selected = reader
+        .query("SELECT VALUE generation FROM ONLY canonical_guards:ssi_snapshot;")
+        .await
+        .unwrap()
+        .check()
+        .unwrap();
+    assert_eq!(
+        canonical_codec::decode_uint(selected.take::<Value>(0).unwrap()).unwrap(),
+        0
+    );
+    bounded_query(
+        store
+            .db
+            .query("UPDATE canonical_guards:ssi_snapshot SET generation=1dec;"),
+    )
+    .await
+    .unwrap();
+    let mut selected = reader
+        .query("SELECT VALUE generation FROM ONLY canonical_guards:ssi_snapshot;")
+        .await
+        .unwrap()
+        .check()
+        .unwrap();
+    assert_eq!(
+        canonical_codec::decode_uint(selected.take::<Value>(0).unwrap()).unwrap(),
+        0
+    );
+    reader.cancel().await.unwrap();
+    let reader = held(&options).await;
+    let mut selected = reader
+        .query("SELECT VALUE generation FROM ONLY canonical_guards:ssi_snapshot;")
+        .await
+        .unwrap()
+        .check()
+        .unwrap();
+    assert_eq!(
+        canonical_codec::decode_uint(selected.take::<Value>(0).unwrap()).unwrap(),
+        1
+    );
+    reader.cancel().await.unwrap();
     store.remove_isolated_fixture().await.unwrap();
 }

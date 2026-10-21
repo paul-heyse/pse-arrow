@@ -1,0 +1,642 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index e9c9d37..38b8e17 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -44,7 +44,7 @@ dependencies = [
+  "crossbeam-utils",
+  "num_cpus",
+  "parking_lot",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -250,6 +250,17 @@ version = "0.7.6"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
+ 
++[[package]]
++name = "artmap"
++version = "0.6.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "1988e9f38713a233c5543c5b324d937b0a02a78462a03c1802cdd3927a320227"
++dependencies = [
++ "byteslice",
++ "crossbeam-epoch",
++ "loom",
++]
++
+ [[package]]
+ name = "as-slice"
+ version = "0.1.5"
+@@ -274,7 +285,7 @@ dependencies = [
+  "nom",
+  "num-traits",
+  "rusticata-macros",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "time",
+ ]
+ 
+@@ -377,7 +388,7 @@ dependencies = [
+  "serde_json",
+  "serde_urlencoded",
+  "static_assertions_next",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -411,7 +422,7 @@ dependencies = [
+  "quote",
+  "strum 0.27.2",
+  "syn 2.0.117",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -1000,6 +1011,16 @@ dependencies = [
+  "serde",
+ ]
+ 
++[[package]]
++name = "byteslice"
++version = "0.2.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "6eac0430a792a6df8f9bbb45667e9e6a6976beba6dad9fa2c0e98d86b6bde618"
++dependencies = [
++ "bytes",
++ "serde",
++]
++
+ [[package]]
+ name = "bzip2-sys"
+ version = "0.1.13+1.0.8"
+@@ -1223,7 +1244,7 @@ version = "0.3.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "0fa961b519f0b462e3a3b4a34b64d119eeaca1d59af726fe450bbba07a9fc0a1"
+ dependencies = [
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -1640,9 +1661,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "crossbeam-deque"
+-version = "0.8.7"
++version = "0.8.8"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "5181e0de7b61eb03a81e347d6dd8797bae9da5146707b51077e2d71a54ec0ceb"
++checksum = "622f3fc73690be383c7214310406f28a90e6edeadc3cea882f9d71e495b9711a"
+ dependencies = [
+  "crossbeam-epoch",
+  "crossbeam-utils",
+@@ -1650,18 +1671,18 @@ dependencies = [
+ 
+ [[package]]
+ name = "crossbeam-epoch"
+-version = "0.9.20"
++version = "0.9.21"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "2d6914041f254d6e9176c01941b21115dcfb7089e55135a35411081bd106ef3f"
++checksum = "dc74980687109a3b14c72fd458107bf0baa1da1a1a805e178d15501ba9b86d9d"
+ dependencies = [
+  "crossbeam-utils",
+ ]
+ 
+ [[package]]
+ name = "crossbeam-queue"
+-version = "0.3.13"
++version = "0.3.14"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "803d13fb3b09d88be9f4dbc29062c66b19bf7170867ceb746d2a8689bf6c7a26"
++checksum = "03e8bd762f7479489c70ed6c768ddca99d7296857de437a68dcb2a94365b3fae"
+ dependencies = [
+  "crossbeam-utils",
+ ]
+@@ -2138,7 +2159,7 @@ dependencies = [
+  "hashbrown 0.16.1",
+  "num-traits",
+  "rand 0.9.4",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+ ]
+ 
+@@ -2156,7 +2177,7 @@ dependencies = [
+  "rand 0.9.4",
+  "rand_distr",
+  "rayon",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -2727,6 +2748,21 @@ dependencies = [
+  "thread_local",
+ ]
+ 
++[[package]]
++name = "generator"
++version = "0.8.11"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "1be81b31c9ce4caf7f3178eeb90662bb1864d3ad363ec6bdada3201adff19c37"
++dependencies = [
++ "cc",
++ "cfg-if",
++ "libc",
++ "log",
++ "rustversion",
++ "windows-link 0.2.1",
++ "windows-result",
++]
++
+ [[package]]
+ name = "generic-array"
+ version = "0.12.4"
+@@ -3645,7 +3681,7 @@ dependencies = [
+  "jni-sys",
+  "log",
+  "simd_cesu8",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "walkdir",
+  "windows-link 0.2.1",
+ ]
+@@ -3889,7 +3925,7 @@ dependencies = [
+  "strum 0.28.0",
+  "strum_macros 0.28.0",
+  "tar",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "ureq",
+ ]
+ 
+@@ -3979,6 +4015,19 @@ dependencies = [
+  "logos-codegen",
+ ]
+ 
++[[package]]
++name = "loom"
++version = "0.7.2"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "419e0dc8046cb947daa77eb95ae174acfbddb7673b4151f56d1eed8e93fbfaca"
++dependencies = [
++ "cfg-if",
++ "generator",
++ "scoped-tls",
++ "tracing",
++ "tracing-subscriber",
++]
++
+ [[package]]
+ name = "lru-slab"
+ version = "0.1.2"
+@@ -4542,7 +4591,7 @@ dependencies = [
+  "serde",
+  "serde_json",
+  "serde_urlencoded",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "tracing",
+  "url",
+@@ -4631,7 +4680,7 @@ dependencies = [
+  "futures-sink",
+  "js-sys",
+  "pin-project-lite",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tracing",
+ ]
+ 
+@@ -4659,7 +4708,7 @@ dependencies = [
+  "opentelemetry-proto",
+  "opentelemetry_sdk",
+  "prost 0.14.3",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "tonic",
+  "tracing",
+@@ -4705,7 +4754,7 @@ dependencies = [
+  "opentelemetry",
+  "percent-encoding",
+  "rand 0.9.4",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "tokio-stream",
+ ]
+@@ -5223,7 +5272,7 @@ dependencies = [
+  "lazy_static",
+  "memchr",
+  "parking_lot",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -5401,7 +5450,7 @@ dependencies = [
+  "rustc-hash",
+  "rustls",
+  "socket2",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "tracing",
+  "web-time",
+@@ -5423,7 +5472,7 @@ dependencies = [
+  "rustls",
+  "rustls-pki-types",
+  "slab",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tinyvec",
+  "tracing",
+  "web-time",
+@@ -5637,7 +5686,7 @@ checksum = "a4e608c6638b9c18977b00b475ac1f28d14e84b27d8d42f70e0bf1e3dec127ac"
+ dependencies = [
+  "getrandom 0.2.17",
+  "libredox",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -5961,7 +6010,7 @@ dependencies = [
+  "serde",
+  "serde_json",
+  "sse-stream",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "tokio-stream",
+  "tokio-util",
+@@ -6443,6 +6492,12 @@ dependencies = [
+  "syn 2.0.117",
+ ]
+ 
++[[package]]
++name = "scoped-tls"
++version = "1.0.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "e1cf6437eb19a8f4a6cc0f7dca544973b0b78843adbfeb3683d1a94a0024a294"
++
+ [[package]]
+ name = "scopeguard"
+ version = "1.2.0"
+@@ -6782,7 +6837,7 @@ checksum = "0d585997b0ac10be3c5ee635f1bab02d512760d14b7c468801ac8a01d9ae5f1d"
+ dependencies = [
+  "num-bigint",
+  "num-traits",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "time",
+ ]
+ 
+@@ -7052,7 +7107,7 @@ dependencies = [
+  "surrealism-runtime",
+  "tempfile",
+  "test-log",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "tokio-postgres",
+  "tokio-stream",
+@@ -7156,7 +7211,7 @@ dependencies = [
+  "surrealdb-strand",
+  "surrealdb-syn",
+  "surrealdb-types",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tracing",
+  "uuid",
+ ]
+@@ -7194,7 +7249,7 @@ dependencies = [
+  "rust_decimal",
+  "surrealdb-types",
+  "sysinfo",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "unicase",
+  "wasmtimer",
+@@ -7291,7 +7346,7 @@ dependencies = [
+  "temp-dir",
+  "tempfile",
+  "test-log",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tikv-jemalloc-sys",
+  "tikv-jemallocator",
+  "time",
+@@ -7342,7 +7397,7 @@ dependencies = [
+  "surrealdb-strand",
+  "surrealdb-types",
+  "temp-dir",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "tokio-util",
+  "tracing",
+@@ -7452,7 +7507,7 @@ dependencies = [
+  "surrealdb-strand",
+  "surrealdb-syn",
+  "surrealdb-types",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "tracing",
+  "ulid",
+@@ -7490,7 +7545,7 @@ dependencies = [
+  "sha2 0.10.9",
+  "stringprep",
+  "subtle",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tracing",
+ ]
+ 
+@@ -7537,7 +7592,7 @@ dependencies = [
+  "temp-dir",
+  "tempfile",
+  "test-log",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "tracing",
+  "uuid",
+@@ -7567,7 +7622,7 @@ dependencies = [
+  "surrealdb-cnf",
+  "surrealdb-common",
+  "surrealdb-types",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tracing",
+  "web-time",
+ ]
+@@ -7709,7 +7764,7 @@ dependencies = [
+  "surrealdb-rpc",
+  "surrealdb-syn",
+  "surrealdb-types",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "tracing",
+  "tracing-subscriber",
+@@ -7825,7 +7880,7 @@ dependencies = [
+  "surrealdb-iam",
+  "surrealdb-types",
+  "test-log",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tracing",
+  "url",
+  "uuid",
+@@ -7941,7 +7996,7 @@ dependencies = [
+  "surrealml-core",
+  "tempfile",
+  "test-log",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "tokio-rustls",
+  "tokio-stream",
+@@ -8032,7 +8087,7 @@ dependencies = [
+  "surrealdb-sql",
+  "surrealdb-strand",
+  "surrealdb-types",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tracing",
+  "unicase",
+  "uuid",
+@@ -8060,7 +8115,7 @@ dependencies = [
+  "serde",
+  "serde_derive",
+  "take_mut",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "tonic",
+  "tonic-prost",
+@@ -8189,7 +8244,7 @@ version = "0.6.4"
+ dependencies = [
+  "anyhow",
+  "surrealdb-types",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "wasmtime",
+ ]
+ 
+@@ -8233,30 +8288,34 @@ dependencies = [
+  "ort",
+  "regex",
+  "serde",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+ ]
+ 
+ [[package]]
+ name = "surrealmx"
+-version = "0.27.0"
++version = "1.0.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "1b5f1002984c1c3918014d924435a7280a6de620dadd51d4db59de4f56e7202c"
++checksum = "da8b7b71c794d7219a061d3811d2264ad12c82229d033d8b24660a621af0e55d"
+ dependencies = [
+- "arc-swap",
++ "artmap",
+  "bincode",
+  "bytes",
++ "byteslice",
+  "crossbeam-deque",
++ "crossbeam-epoch",
+  "crossbeam-queue",
+- "crossbeam-skiplist",
++ "crossbeam-utils",
++ "loom",
+  "lz4",
+  "papaya",
+  "parking_lot",
+  "serde",
+- "smallvec",
+- "thiserror 2.0.20",
++ "thin-vec",
++ "thiserror 2.0.21",
+  "tracing",
+  "web-time",
++ "xxhash-rust",
+ ]
+ 
+ [[package]]
+@@ -8447,6 +8506,12 @@ dependencies = [
+  "test-log-core",
+ ]
+ 
++[[package]]
++name = "thin-vec"
++version = "0.2.21"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "d6a4b9ba8738cb4a4f399d37e266becfd475e75eb73425b87a05a2f2039ba63e"
++
+ [[package]]
+ name = "thiserror"
+ version = "1.0.69"
+@@ -8458,11 +8523,11 @@ dependencies = [
+ 
+ [[package]]
+ name = "thiserror"
+-version = "2.0.20"
++version = "2.0.21"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "ec86235f5fcc2a73650310756d2ac5b138a5780bbbdfae3eeccec992c435ba4f"
++checksum = "09e52cb86a36cede5cb101bf8908837b3e4c6e5e59fe7fd85c23fb56200d189e"
+ dependencies = [
+- "thiserror-impl 2.0.20",
++ "thiserror-impl 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -8478,9 +8543,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "thiserror-impl"
+-version = "2.0.20"
++version = "2.0.21"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "bc04cd3e1236dd4a98afca4569f2deb3f120e5422a4023be2cb683f8486292af"
++checksum = "fe5197923287db20a58125f0bc85c062f7f2c892de97b18c356f9efb14b28524"
+ dependencies = [
+  "proc-macro2",
+  "quote",
+@@ -8720,7 +8785,7 @@ dependencies = [
+  "http",
+  "httparse",
+  "js-sys",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "tokio-tungstenite 0.28.0",
+  "wasm-bindgen",
+@@ -8924,7 +8989,7 @@ checksum = "050686193eb999b4bb3bc2acfa891a13da00f79734704c4b8b4ef1a10b368a3c"
+ dependencies = [
+  "crossbeam-channel",
+  "symlink",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "time",
+  "tracing-subscriber",
+ ]
+@@ -9057,7 +9122,7 @@ dependencies = [
+  "rustls",
+  "rustls-pki-types",
+  "sha1",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "url",
+  "utf-8",
+ ]
+@@ -9075,7 +9140,7 @@ dependencies = [
+  "log",
+  "rand 0.9.4",
+  "sha1",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+ ]
+ 
+ [[package]]
+@@ -9764,7 +9829,7 @@ dependencies = [
+  "pulley-interpreter",
+  "smallvec",
+  "target-lexicon",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "wasmparser 0.254.2",
+  "wasmtime-environ",
+  "wasmtime-internal-core",
+@@ -9875,7 +9940,7 @@ dependencies = [
+  "rand 0.10.2",
+  "rustix",
+  "rustix-linux-procfs",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tokio",
+  "tracing",
+  "url",
+@@ -10022,7 +10087,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "314611904412397366e044ace02f657dc69db7fb419c630a319a843fe65afee4"
+ dependencies = [
+  "bitflags",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "tracing",
+  "wasmtime",
+  "wasmtime-environ",
+@@ -10098,7 +10163,7 @@ dependencies = [
+  "regalloc2",
+  "smallvec",
+  "target-lexicon",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "wasmparser 0.254.2",
+  "wasmtime-environ",
+  "wasmtime-internal-core",
+@@ -10608,7 +10673,7 @@ dependencies = [
+  "oid-registry",
+  "ring",
+  "rusticata-macros",
+- "thiserror 2.0.20",
++ "thiserror 2.0.21",
+  "time",
+ ]
+ 
+diff --git a/Cargo.toml b/Cargo.toml
+index 38ef0d9..42172ba 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -145,7 +145,7 @@ revision = { version = "0.30.0", features = [
+ 
+ storekey = { version = "0.11.0", features = ["bytes", "uuid"] }
+ surrealkv = "0.21.4"
+-surrealmx = "0.27.0"
++surrealmx = "=1.0.0"
+ web-time = "1.1.0"
+ ## Maintained by @Delskayn
+ js = { version = "0.11.0", package = "rquickjs", features = ["rust-alloc"] }
+diff --git a/surrealdb/kvs-mem/src/lib.rs b/surrealdb/kvs-mem/src/lib.rs
+index c96d7fc..13314ca 100644
+--- a/surrealdb/kvs-mem/src/lib.rs
++++ b/surrealdb/kvs-mem/src/lib.rs
+@@ -262,7 +262,7 @@ impl Transactable for Transaction {
+ 			// Get the key
+ 			let res = inner.get(key.into_inner()).map_err(kvs_error)?;
+ 			// Return result
+-			Ok(res.map(Val::from))
++			Ok(res.map(|value| value.to_vec()))
+ 		})
+ 	}
+ 
+@@ -290,7 +290,7 @@ impl Transactable for Transaction {
+ 			// Get the key, arming commit-time conflict detection
+ 			let res = inner.get_for_update(key.into_inner()).map_err(kvs_error)?;
+ 			// Return result
+-			Ok(res.map(Val::from))
++			Ok(res.map(|value| value.to_vec()))
+ 		})
+ 	}
+ 
+@@ -337,7 +337,7 @@ impl Transactable for Transaction {
+ 					opt.map(|v| {
+ 						records += 1;
+ 						value_bytes += v.len() as u64;
+-						Val::from(v)
++						v.to_vec()
+ 					})
+ 				})
+ 				.collect();

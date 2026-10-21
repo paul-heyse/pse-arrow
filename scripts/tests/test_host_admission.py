@@ -985,16 +985,20 @@ class HostAdmissionTests(unittest.TestCase):
         service.mkdir(mode=0o700, parents=True)
         config = {
             "owner": surreal_server.OWNER,
-            "profile_version": 2,
+            "profile_version": 3,
             "instance_id": "parked-reference",
+            "server": {
+                "inputs": surreal_server.surreal_source.inputs(),
+                "surrealmx_version": surreal_server.surreal_source.ENGINE,
+            },
             "payload_incarnation": "11111111-1111-4111-8111-111111111111",
             "port": 18240,
-            "endpoint": "ws://127.0.0.1:18240",
+            "endpoint": "grpc://127.0.0.1:18240",
             "namespace": "pse",
             "database": "canonical",
             "interpretation": surreal_server.SUBSTRATE_INTERPRETATION,
             "schema_interpretation": surreal_server.SUBSTRATE_INTERPRETATION,
-            "websocket_max_message_bytes": surreal_server.MESSAGE_BYTES,
+            "rpc_max_message_bytes": surreal_server.MESSAGE_BYTES,
             "max_message_bytes": surreal_server.MESSAGE_BYTES,
             "resources": surreal_server.reference_resources(),
             "unit_materialized": True,

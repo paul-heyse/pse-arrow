@@ -12,8 +12,8 @@ use wasmtimer::tokio as time;
 use wasmtimer::tokio::MissedTickBehavior;
 
 use super::{
-    HandleResult, PATH, PING_INTERVAL, SessionState, WsMessage, create_ping_message,
-    handle_response, handle_route, handle_session, replay_session, reset_sessions,
+	HandleResult, PATH, PING_INTERVAL, SessionState, WsMessage, create_ping_message,
+	handle_response, handle_route, handle_session, replay_session, reset_sessions,
 };
 use crate::conn::{self, Route, Router};
 use crate::engine::{IntervalStream, SessionError};
@@ -31,74 +31,63 @@ type Sessions = HashMap<uuid::Uuid, std::result::Result<Arc<SessionState>, Sessi
 // ============================================================================
 
 impl WsMessage for Message {
-    fn binary(payload: Vec<u8>) -> Self {
-        Message::Binary(payload.into())
-    }
+	fn binary(payload: Vec<u8>) -> Self {
+		Message::Binary(payload.into())
+	}
 
-    fn as_binary(&self) -> Option<&[u8]> {
-        match self {
-            Message::Binary(data) => Some(data),
-            _ => None,
-        }
-    }
+	fn as_binary(&self) -> Option<&[u8]> {
+		match self {
+			Message::Binary(data) => Some(data),
+			_ => None,
+		}
+	}
 
-    fn should_process(&self) -> bool {
-        matches!(self, Message::Binary(_))
-    }
+	fn should_process(&self) -> bool {
+		matches!(self, Message::Binary(_))
+	}
 
-    fn log_description(&self) -> &'static str {
-        match self {
-            Message::Text(_) => "text message",
-            Message::Binary(_) => "binary message",
-            Message::Close(_) => "close message",
-        }
-    }
+	fn log_description(&self) -> &'static str {
+		match self {
+			Message::Text(_) => "text message",
+			Message::Binary(_) => "binary message",
+			Message::Close(_) => "close message",
+		}
+	}
 }
 
 impl crate::Connection for super::Client {}
 impl conn::Sealed for super::Client {
-    #[allow(private_interfaces)]
-    fn connect(
-        mut address: Endpoint,
-        capacity: usize,
-        session_clone: Option<crate::SessionClone>,
-    ) -> BoxFuture<'static, Result<Surreal<Self>>> {
-        Box::pin(async move {
-            address.url = address
-                .url
-                .join(PATH)
-                .map_err(crate::std_error_to_types_error)?;
+	#[allow(private_interfaces)]
+	fn connect(
+		mut address: Endpoint,
+		capacity: usize,
+		session_clone: Option<crate::SessionClone>,
+	) -> BoxFuture<'static, Result<Surreal<Self>>> {
+		Box::pin(async move {
+			address.url = address.url.join(PATH).map_err(crate::std_error_to_types_error)?;
 
-            let (route_tx, route_rx) = match capacity {
-                0 => async_channel::unbounded(),
-                capacity => async_channel::bounded(capacity),
-            };
+			let (route_tx, route_rx) = match capacity {
+				0 => async_channel::unbounded(),
+				capacity => async_channel::bounded(capacity),
+			};
 
-            let (conn_tx, conn_rx) = async_channel::bounded(1);
-            let config = address.config.clone();
-            let session_clone = session_clone.unwrap_or_else(SessionClone::new);
+			let (conn_tx, conn_rx) = async_channel::bounded(1);
+			let config = address.config.clone();
+			let session_clone = session_clone.unwrap_or_else(SessionClone::new);
 
-            spawn_local(run_router(
-                address,
-                conn_tx,
-                route_rx,
-                session_clone.receiver.clone(),
-            ));
+			spawn_local(run_router(address, conn_tx, route_rx, session_clone.receiver.clone()));
 
-            conn_rx
-                .recv()
-                .await
-                .map_err(crate::std_error_to_types_error)??;
+			conn_rx.recv().await.map_err(crate::std_error_to_types_error)??;
 
-            let mut features = HashSet::new();
-            features.insert(ExtraFeatures::LiveQueries);
+			let mut features = HashSet::new();
+			features.insert(ExtraFeatures::LiveQueries);
 
-            let waiter = watch::channel(Some(WaitFor::Connection));
-            let router = Router::from_route_sender(route_tx, features, config);
+			let waiter = watch::channel(Some(WaitFor::Connection));
+			let router = Router::from_route_sender(route_tx, features, config);
 
-            Ok((router, waiter, session_clone).into())
-        })
-    }
+			Ok((router, waiter, session_clone).into())
+		})
+	}
 }
 
 // ============================================================================
@@ -107,28 +96,24 @@ impl conn::Sealed for super::Client {
 
 /// Router state for WASM WebSocket connections.
 struct RouterState {
-    sessions: Sessions,
-    sink: RwLock<MessageSink>,
-    stream: RwLock<MessageStream>,
+	sessions: Sessions,
+	sink: RwLock<MessageSink>,
+	stream: RwLock<MessageStream>,
 }
 
 impl RouterState {
-    fn new(sink: MessageSink, stream: MessageStream) -> Self {
-        RouterState {
-            sessions: HashMap::new(),
-            sink: RwLock::new(sink),
-            stream: RwLock::new(stream),
-        }
-    }
+	fn new(sink: MessageSink, stream: MessageStream) -> Self {
+		RouterState {
+			sessions: HashMap::new(),
+			sink: RwLock::new(sink),
+			stream: RwLock::new(stream),
+		}
+	}
 
-    async fn update_connection(&self, sink: MessageSink, stream: MessageStream) {
-        *self.sink.write().await = sink;
-        *self.stream.write().await = stream;
-        // The serial router has joined its old dispatch future. Both old
-        // split halves are now dropped, so their byte grants may drain before
-        // setup replay on this new physical connection.
-        reset_sessions(&self.sessions).await;
-    }
+	async fn update_connection(&self, sink: MessageSink, stream: MessageStream) {
+		*self.sink.write().await = sink;
+		*self.stream.write().await = stream;
+	}
 }
 
 // ============================================================================
@@ -136,169 +121,148 @@ impl RouterState {
 // ============================================================================
 
 async fn router_reconnect(state: &RouterState, endpoint: &Endpoint) {
-    loop {
-        trace!("Reconnecting...");
+	loop {
+		trace!("Reconnecting...");
 
-        // Build WebSocket URL with flatbuffers protocol negotiation
-        let ws_url = endpoint.url.as_str();
+		// Build WebSocket URL with flatbuffers protocol negotiation
+		let ws_url = endpoint.url.as_str();
 
-        match connect_with_protocols(ws_url, &["flatbuffers"]).await {
-            Ok(socket) => {
-                let (new_sink, new_stream) = socket.split();
-                state.update_connection(new_sink, new_stream).await;
+		match connect_with_protocols(ws_url, &["flatbuffers"]).await {
+			Ok(socket) => {
+				let (new_sink, new_stream) = socket.split();
+				state.update_connection(new_sink, new_stream).await;
 
-                // Replay state for ALL sessions
-                for (session_id, session_result) in state.sessions.to_vec() {
-                    if let Ok(session_state) = session_result {
-                        replay_session::<Message, _, _>(session_id, &session_state, &state.sink)
-                            .await
-                            .ok();
-                    }
-                }
-                trace!("Reconnected successfully");
-                break;
-            }
-            Err(error) => {
-                trace!("Failed to reconnect; {error}");
-                time::sleep(Duration::from_secs(1)).await;
-            }
-        }
-    }
+				// Replay state for ALL sessions
+				for (session_id, session_result) in state.sessions.to_vec() {
+					if let Ok(session_state) = session_result {
+						replay_session::<Message, _, _>(session_id, &session_state, &state.sink)
+							.await
+							.ok();
+					}
+				}
+				trace!("Reconnected successfully");
+				break;
+			}
+			Err(error) => {
+				trace!("Failed to reconnect; {error}");
+				time::sleep(Duration::from_secs(1)).await;
+			}
+		}
+	}
 }
 
 pub(crate) async fn run_router(
-    endpoint: Endpoint,
-    conn_tx: Sender<Result<()>>,
-    route_rx: Receiver<Route>,
-    session_rx: Receiver<SessionId>,
+	endpoint: Endpoint,
+	conn_tx: Sender<Result<()>>,
+	route_rx: Receiver<Route>,
+	session_rx: Receiver<SessionId>,
 ) {
-    // Connect to the WebSocket server with flatbuffers protocol negotiation
-    let ws_url = endpoint.url.as_str();
-    let socket = match connect_with_protocols(ws_url, &["flatbuffers"]).await {
-        Ok(socket) => socket,
-        Err(error) => {
-            conn_tx
-                .send(Err(Error::connection(
-                    format!("WebSocket error: {}", error),
-                    surrealdb_types::ConnectionError::ConnectionFailed,
-                )))
-                .await
-                .ok();
-            return;
-        }
-    };
+	// Connect to the WebSocket server with flatbuffers protocol negotiation
+	let ws_url = endpoint.url.as_str();
+	let socket = match connect_with_protocols(ws_url, &["flatbuffers"]).await {
+		Ok(socket) => socket,
+		Err(error) => {
+			conn_tx
+				.send(Err(Error::connection(
+					format!("WebSocket error: {}", error),
+					surrealdb_types::ConnectionError::ConnectionFailed,
+				)))
+				.await
+				.ok();
+			return;
+		}
+	};
 
-    let ping: Message = create_ping_message();
+	let ping: Message = create_ping_message();
 
-    // Signal successful connection
-    if conn_tx.send(Ok(())).await.is_err() {
-        return;
-    }
+	// Signal successful connection
+	if conn_tx.send(Ok(())).await.is_err() {
+		return;
+	}
 
-    let (socket_sink, socket_stream) = socket.split();
-    let state = RouterState::new(socket_sink, socket_stream);
+	let (socket_sink, socket_stream) = socket.split();
+	// The wasm socket halves are neither `Send` nor `Sync`, so this `Arc` buys no
+	// cross-thread sharing over an `Rc`. It mirrors the native router's shape,
+	// which shares the same state across genuinely concurrent tasks.
+	#[allow(clippy::arc_with_non_send_sync)]
+	let state = Arc::new(RouterState::new(socket_sink, socket_stream));
 
-    'router: loop {
-        let mut interval = time::interval(PING_INTERVAL);
-        interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
-        let mut pinger = IntervalStream::new(interval);
+	'router: loop {
+		let mut interval = time::interval(PING_INTERVAL);
+		interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+		let mut pinger = IntervalStream::new(interval);
 
-        loop {
-            futures::select! {
-                session = session_rx.recv().fuse() => {
-                    let Ok(session_id) = session else {
-                        break 'router
-                    };
-                    if matches!(handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await, HandleResult::Disconnected | HandleResult::Failed) {
-                        route_rx.close();
-                        break 'router;
-                    }
-                }
-                route = route_rx.recv().fuse() => {
-                    let Ok(route) = route else {
-                        if let Err(error) = state.sink.write().await.close().await {
-                            warn!("Failed to close database connection; {error}")
-                        }
-                        break 'router;
-                    };
+		reset_sessions(&state.sessions).await;
 
-                    // Apply any session-lifecycle events that were enqueued before this
-                    // query. The session channel is separate from the route channel, so a
-                    // freshly registered or cloned session may not have been processed yet;
-                    // receiving this route establishes a happens-before with the sender, so
-                    // those earlier events are now observable and one drain pass suffices.
-                    while let Ok(session_id) = session_rx.try_recv() {
-                        if matches!(handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await, HandleResult::Disconnected | HandleResult::Failed) {
-                            route_rx.close();
-                            super::refuse_undispatched_route(route, Error::connection("Physical connection closed".to_string(), surrealdb_types::ConnectionError::ConnectionFailed));
-                            break 'router;
-                        }
-                    }
+		loop {
+			futures::select! {
+				session = session_rx.recv().fuse() => {
+					let Ok(session_id) = session else {
+						break 'router
+					};
+					handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await;
+				}
+				route = route_rx.recv().fuse() => {
+					let Ok(route) = route else {
+						if let Err(error) = state.sink.write().await.close().await {
+							warn!("Failed to close database connection; {error}")
+						}
+						break 'router;
+					};
 
-                    match handle_route::<Message, _, _>(
-                        route, None, &state.sessions, &state.sink
-                    ).await {
-                        HandleResult::Ok => {}
-                        HandleResult::Failed => { route_rx.close(); break 'router; }
-                        HandleResult::Disconnected => {
-                            router_reconnect(&state, &endpoint).await;
-                            continue 'router;
-                        }
-                    }
-                }
-                result = async { state.stream.write().await.next().await }.fuse() => {
-                    match result {
-                        Some(Ok(message)) => {
-                            match handle_response::<Message, _, _>(
-                                &message, None, &state.sessions, &state.sink
-                            ).await {
-                                HandleResult::Ok => continue,
-                                HandleResult::Failed => { route_rx.close(); break 'router; }
-                                HandleResult::Disconnected => {
-                                    router_reconnect(&state, &endpoint).await;
-                                    continue 'router;
-                                }
-                            }
-                        }
-                        Some(Err(error)) => {
-                            trace!("WebSocket error: {error}");
-                            router_reconnect(&state, &endpoint).await;
-                            continue 'router;
-                        }
-                        None => {
-                            trace!("WebSocket stream ended");
-                            router_reconnect(&state, &endpoint).await;
-                            continue 'router;
-                        }
-                    }
-                }
-                _ = pinger.next().fuse() => {
-                    trace!("Pinging the server");
-                    if let Err(error) = state.sink.write().await.send(ping.clone()).await {
-                        trace!("failed to ping the server; {error:?}");
-                        router_reconnect(&state, &endpoint).await;
-                        continue 'router;
-                    }
-                }
-            }
-        }
-    }
-    let RouterState {
-        sessions,
-        sink,
-        stream,
-    } = state;
-    drop(sink);
-    drop(stream);
-    reset_sessions(&sessions).await;
-    route_rx.close();
-    while let Ok(route) = route_rx.try_recv() {
-        super::refuse_undispatched_route(
-            route,
-            Error::connection(
-                "Physical connection closed".to_string(),
-                surrealdb_types::ConnectionError::ConnectionFailed,
-            ),
-        );
-    }
+					// Apply any session-lifecycle events that were enqueued before this
+					// query. The session channel is separate from the route channel, so a
+					// freshly registered or cloned session may not have been processed yet;
+					// receiving this route establishes a happens-before with the sender, so
+					// those earlier events are now observable and one drain pass suffices.
+					while let Ok(session_id) = session_rx.try_recv() {
+						handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await;
+					}
+
+					match handle_route::<Message, _, _>(
+						route, None, &state.sessions, &state.sink
+					).await {
+						HandleResult::Ok => {}
+						HandleResult::Disconnected => {
+							router_reconnect(&state, &endpoint).await;
+							continue 'router;
+						}
+					}
+				}
+				result = async { state.stream.write().await.next().await }.fuse() => {
+					match result {
+						Some(Ok(message)) => {
+							match handle_response::<Message, _, _>(
+								&message, None, &state.sessions, &state.sink
+							).await {
+								HandleResult::Ok => continue,
+								HandleResult::Disconnected => {
+									router_reconnect(&state, &endpoint).await;
+									continue 'router;
+								}
+							}
+						}
+						Some(Err(error)) => {
+							trace!("WebSocket error: {error}");
+							router_reconnect(&state, &endpoint).await;
+							continue 'router;
+						}
+						None => {
+							trace!("WebSocket stream ended");
+							router_reconnect(&state, &endpoint).await;
+							continue 'router;
+						}
+					}
+				}
+				_ = pinger.next().fuse() => {
+					trace!("Pinging the server");
+					if let Err(error) = state.sink.write().await.send(ping.clone()).await {
+						trace!("failed to ping the server; {error:?}");
+						router_reconnect(&state, &endpoint).await;
+						continue 'router;
+					}
+				}
+			}
+		}
+	}
 }

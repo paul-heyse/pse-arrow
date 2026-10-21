@@ -198,7 +198,7 @@ pins live in `Cargo.toml`, rationale in [§3.3](workspace-and-dependencies.md#se
 |---|---|---|
 | Arrow | Columnar boundary, extension types, result tables, Python transfer through pyo3-arrow | `pse-columnar`, `pse-relations`, `pse-py` |
 | DataFusion | Admission and set-oriented queries, invariant checks, inspection, retained artifact cache | `pse-engine`, `pse-rules` |
-| SurrealDB, SurrealQL, supervised RocksDB | Canonical authored revisions, dependencies, portable products, lifecycle, results and analysis; bounded guarded structural operations | `pse-operations`, supervision tooling |
+| SurrealDB, SurrealQL, supervised persistent SurrealMX | Canonical authored revisions, dependencies, portable products, lifecycle, results and analysis; bounded guarded structural operations | `pse-operations`, supervision tooling |
 | Salsa | Pure semantic preparation and reuse | `pse-compiler` |
 | Symbolica, Numerica (GMP/MPFR) | Algebra, normalization, derivatives, evaluators, coefficient projection | `pse-math` |
 | faer | Sparse structure and products; fitting LU/SVD | `pse-math`, `pse-backend-native`, `pse-runtime` |

@@ -336,8 +336,8 @@ fn two_worker_fixture_state() -> TwoWorkerFixtureProfile {
     let status: serde_json::Value = serde_json::from_slice(&status.stdout).unwrap();
     let resources = &status["resources"];
     assert_eq!(status["interpretation"].as_str(), Some(interpretation));
-    assert_eq!(status["admission"].as_str(), Some("open"));
-    assert_eq!(status["accepting_writes"].as_bool(), Some(true));
+    assert_eq!(status["admission"].as_str(), Some("validation_required"));
+    assert_eq!(status["accepting_writes"].as_bool(), Some(false));
     assert_eq!(resources["total_memory_bytes"].as_u64(), Some(20_u64 << 30));
     assert_eq!(resources["server_memory_bytes"].as_u64(), Some(2_u64 << 30));
     assert_eq!(resources["native_workers"].as_u64(), Some(2));
@@ -349,6 +349,18 @@ fn two_worker_fixture_state() -> TwoWorkerFixtureProfile {
         resources.get("execution").is_none(),
         "two-slot fixture must be legacy"
     );
+    let initializer = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../target/debug/xtask")
+        .canonicalize()
+        .unwrap();
+    let initialize = supervisor_at(&state)
+        .args(["initialize", "--initializer-command"])
+        .arg(initializer)
+        .arg("canonical-init")
+        .arg(&state)
+        .status()
+        .unwrap();
+    assert!(initialize.success(), "fresh two-slot schema installation");
     let start = supervisor_at(&state).arg("start").status().unwrap();
     assert!(start.success());
     profile.started = true;
@@ -907,8 +919,11 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
             .await
             .unwrap()
             .unwrap();
-        assert!(stored.terminal);
-        assert_eq!(stored.outcome.as_deref(), Some("succeeded"));
+        assert!(stored.terminal());
+        assert_eq!(
+            stored.outcome.as_ref().map(|value| value.as_str()),
+            Some("succeeded")
+        );
         assert_eq!(stored.worker, name);
         assert_value(&local, &point.run, attempt, 2.).await;
         let identity = (
@@ -955,8 +970,11 @@ async fn worker_runs_authored_case_end_to_end() {
         .await
         .unwrap()
         .unwrap();
-    assert!(stored.terminal);
-    assert_eq!(stored.outcome.as_deref(), Some("succeeded"));
+    assert!(stored.terminal());
+    assert_eq!(
+        stored.outcome.as_ref().map(|value| value.as_str()),
+        Some("succeeded")
+    );
     assert_eq!(stored.worker, "worker-child");
     assert_value(&local, &point.run, attempt, 2.).await;
     let mut progress = local
@@ -1010,6 +1028,142 @@ async fn worker_runs_authored_case_end_to_end() {
     drop(handle);
     drop(package);
     local.clear_program_cache();
+    local
+        .canonical_store()
+        .unwrap()
+        .remove_isolated_fixture()
+        .await
+        .unwrap();
+}
+
+/// The child executes this same selected test only through the explicit branch.
+/// Its acknowledged submission survives process::exit, without runtime destructors
+/// or a worker already running in the submitting process.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[allow(
+    clippy::exit,
+    reason = "intentional submitting-process exit is the tested fault model"
+)]
+async fn durable_submission_survives_submitting_process_exit() {
+    const RECEIPT: &str = "PSE_STO_SUBMITTER_RECEIPT";
+    const DATABASE: &str = "PSE_STO_SUBMITTER_DATABASE";
+    if let Some(receipt) = std::env::var_os(RECEIPT) {
+        use std::io::Write;
+        use std::os::unix::fs::OpenOptionsExt;
+        let state = std::env::var_os("PSE_SURREAL_STATE").unwrap();
+        let mut options =
+            pse_operations::canonical::CanonicalOptions::from_state(Path::new(&state)).unwrap();
+        options.database = std::env::var(DATABASE).unwrap();
+        let store = pse_operations::canonical::CanonicalStore::connect(&options)
+            .await
+            .unwrap();
+        store.open().await.unwrap();
+        let (shared, local) = runtime_with_store(store);
+        let (local, _) = bind_operations(
+            &shared,
+            local,
+            "departing-submitter",
+            LeasePolicy::default(),
+        );
+        let (physical, modeling) = sources();
+        let (_, _, handle) =
+            submit_single(&shared, &local, physical, modeling, settings(), 1).await;
+        let status = handle.status().await.unwrap();
+        assert_ne!(status.state, StudyState::Concluded);
+        let payload = serde_json::to_vec(&serde_json::json!({
+            "database": options.database, "study": handle.study_id().to_string(),
+            "run": status.points[0].run, "pid": std::process::id(),
+        }))
+        .unwrap();
+        assert!(payload.len() < 4096);
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(receipt)
+            .unwrap();
+        file.write_all(&payload).unwrap();
+        file.sync_all().unwrap();
+        std::process::exit(0);
+    }
+
+    let mut managed = ManagedWorkerCase::acquire();
+    let (shared, local) = runtime();
+    let store = local.canonical_store().unwrap();
+    let database = store.database().to_owned();
+    let state = store.deployment_state().to_path_buf();
+    managed.bind_database(&database);
+    let directory = state.join(format!("submitter-exit-{}", uuid::Uuid::new_v4().simple()));
+    let controls =
+        pse_operations::testing::register_fixture_controls(&state, &database, &directory).unwrap();
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&directory)
+            .unwrap();
+    }
+    let receipt = directory.join("submitted.json");
+    let output = tokio::time::timeout(
+        Duration::from_secs(120),
+        tokio::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "durable_submission_survives_submitting_process_exit",
+                "--nocapture",
+            ])
+            .env(RECEIPT, &receipt)
+            .env(DATABASE, &database)
+            .kill_on_drop(true)
+            .output(),
+    )
+    .await
+    .expect("bounded submitting process")
+    .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let bytes = std::fs::read(&receipt).unwrap();
+    assert!(bytes.len() < 4096);
+    let submitted: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_ne!(
+        submitted["pid"].as_u64().unwrap(),
+        u64::from(std::process::id())
+    );
+    assert_eq!(submitted["database"], database);
+    let (local, operations) =
+        bind_operations(&shared, local, "surviving-observer", LeasePolicy::default());
+    let study = pse_model::generated::identities::StudyId::from_id(
+        pse_ids::SemanticId::parse_hex(submitted["study"].as_str().unwrap()).unwrap(),
+    );
+    let handle = local.study(study);
+    assert_ne!(handle.status().await.unwrap().state, StudyState::Concluded);
+    // The submitting process is reaped before this independent worker starts.
+    drain_worker("after-submitter-exit", &managed).await;
+    let status = handle.status().await.unwrap();
+    assert_eq!(status.state, StudyState::Concluded);
+    let point = &status.points[0];
+    assert_eq!(point.run, submitted["run"].as_str().unwrap());
+    assert!(point.outcome.as_ref().unwrap().scientific.usable);
+    assert_eq!(point.outcome.as_ref().unwrap().attempts.len(), 1);
+    let attempt = point.attempt.as_deref().unwrap();
+    let stored = operations
+        .store()
+        .canonical_attempt(attempt)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(stored.terminal());
+    assert_eq!(stored.worker, "after-submitter-exit");
+    assert_eq!(
+        stored.outcome.as_ref().map(|value| value.as_str()),
+        Some("succeeded")
+    );
+    assert_value(&local, &point.run, attempt, 2.).await;
+    drop(handle);
+    pse_operations::testing::record_fixture_controls_drain(&controls, &state, &database).unwrap();
     local
         .canonical_store()
         .unwrap()
@@ -1206,7 +1360,7 @@ async fn wait_study_assignment(
             .await
             .unwrap()
             .unwrap()
-            .terminal
+            .terminal()
     );
     // Preserve the fixed post-fence observation window before testing process
     // death/cancellation; the fence records assignment, not native solver entry.
@@ -1266,7 +1420,7 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
             .await
             .unwrap()
             .unwrap()
-            .terminal
+            .terminal()
     );
     tokio::time::sleep(Duration::from_secs(3)).await;
     drain_worker("worker-replacement", &managed).await;
@@ -1276,8 +1430,11 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
         .await
         .unwrap()
         .unwrap();
-    assert!(lost.terminal);
-    assert_eq!(lost.outcome.as_deref(), Some("failed"));
+    assert!(lost.terminal());
+    assert_eq!(
+        lost.outcome.as_ref().map(|value| value.as_str()),
+        Some("failed")
+    );
     let record = operations.record(&run, &first).await.unwrap();
     assert!(record.completion.as_ref().unwrap().completion.is_none());
     assert!(
@@ -1309,7 +1466,7 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
         .await
         .unwrap()
         .unwrap();
-    assert!(replacement.terminal);
+    assert!(replacement.terminal());
     assert!(replacement.generation > lost.generation);
     drop(events);
     drop(record);
@@ -1354,7 +1511,8 @@ async fn cross_process_cancel_stops_scip() {
             .unwrap()
             .unwrap()
             .outcome
-            .as_deref(),
+            .as_ref()
+            .map(|value| value.as_str()),
         Some("cancelled")
     );
     drop(handle);
@@ -1457,7 +1615,7 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
             .await
             .unwrap()
             .unwrap();
-        assert!(header.terminal);
+        assert!(header.terminal());
         workers.insert(header.worker);
         assert_value(&local, &point.run, attempt, (index + 2) as f64).await;
     }
@@ -1472,7 +1630,10 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(parent.outcome.as_deref(), Some("succeeded"));
+    assert_eq!(
+        parent.outcome.as_ref().map(|value| value.as_str()),
+        Some("succeeded")
+    );
     assert_eq!(
         handle.result().await.unwrap().unwrap().attempt,
         summary.attempt

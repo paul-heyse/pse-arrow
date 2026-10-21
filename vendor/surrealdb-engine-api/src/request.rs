@@ -40,36 +40,6 @@ mod lifecycle_tests {
         assert!(context.was_dispatched());
     }
 
-    #[tokio::test]
-    async fn completed_semaphore_does_not_release_live_payload_copies() {
-        let owner = Arc::new(vec![0u8; 4096]);
-        let weak = Arc::downgrade(&owner);
-        let context = RequestContext::new(Instant::now() + std::time::Duration::from_secs(30))
-            .with_payload_owner(owner.clone());
-        let semaphore = Arc::new(tokio::sync::Semaphore::new(1));
-        let permit = AdmissionPermit::new(
-            semaphore.clone().acquire_owned().await.unwrap(),
-            context.payload_owner(),
-        );
-        drop(owner);
-        context.mark_completed();
-        let retired = context.clone();
-        permit.release();
-        assert_eq!(semaphore.available_permits(), 1);
-        assert_eq!(
-            weak.upgrade().unwrap().len(),
-            4096,
-            "byte drain outlives semaphore completion"
-        );
-        context.release_payload_after_drain();
-        assert!(
-            weak.upgrade().is_none(),
-            "retired context and permit metadata cannot strand a drained grant"
-        );
-        retired.release_payload_after_drain(); // Explicit drain is idempotent.
-        drop(permit);
-    }
-
     #[test]
     fn response_retention_outlives_cleared_joined_metadata() {
         let first = Arc::new(vec![0u8; 2048]);
@@ -194,7 +164,7 @@ pub struct RequestContext(
 );
 
 /// Finite decoded metadata envelope for one actual request. Counts apply to
-/// occurrences, including repeated FlatBuffers offsets, before owned conversion.
+/// occurrences across response frames before owned conversion.
 #[derive(Debug, Clone, Copy)]
 pub struct ResponseLimits {
     pub wire_bytes: usize,
@@ -669,31 +639,5 @@ impl Drop for CancelOnDrop {
                 context.cancel();
             }
         }
-    }
-}
-
-/// Admission ownership with explicit completion, independent of concurrent-map
-/// epoch reclamation. Release is idempotent across temporary map snapshots.
-#[derive(Debug)]
-pub struct AdmissionPermit {
-    semaphore: std::sync::Mutex<Option<tokio::sync::OwnedSemaphorePermit>>,
-    // Semaphore completion and physical byte drain are distinct lifetimes.
-    _payload_owner: Option<PayloadOwnership>,
-}
-impl AdmissionPermit {
-    pub(crate) fn new(
-        permit: tokio::sync::OwnedSemaphorePermit,
-        owner: Option<PayloadOwnership>,
-    ) -> Self {
-        Self {
-            semaphore: std::sync::Mutex::new(Some(permit)),
-            _payload_owner: owner,
-        }
-    }
-    pub fn release(&self) {
-        self.semaphore
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .take();
     }
 }

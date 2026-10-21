@@ -287,24 +287,18 @@ class NamespaceTests(unittest.TestCase):
 
 
 class DispatchTests(unittest.TestCase):
-    def test_beta_clone_capacity_is_explicit_and_fixture_specific(self) -> None:
+    def test_tool_sessions_use_the_finite_server_global_capacity(self) -> None:
         config: dict[str, object] = {
             "resources": server.resources(4 * server.GIB, 2 * server.GIB, 2, server.GIB)
         }
+        allocation = server.object_mapping(config["resources"])
+        allocation["grpc_max_attached_sessions"] = 37
         credentials: dict[str, object] = {"username": "user", "password": "secret"}
-        self.assertEqual(
-            server.server_environment(config, credentials)[
-                "SURREAL_WEBSOCKET_MAX_ATTACHED_SESSIONS"
-            ],
-            "2",
-        )
-        config["tooling_fixture"] = True
-        self.assertEqual(
-            server.server_environment(config, credentials)[
-                "SURREAL_WEBSOCKET_MAX_ATTACHED_SESSIONS"
-            ],
-            "3",
-        )
+        for fixture in (False, True):
+            config["tooling_fixture"] = fixture
+            env = server.server_environment(config, credentials)
+            self.assertEqual(env["SURREAL_GRPC_MAX_ATTACHED_SESSIONS"], "37")
+            self.assertNotIn("SURREAL_WEBSOCKET_MAX_ATTACHED_SESSIONS", env)
 
     def test_environment_has_only_exact_namespace_credentials(self) -> None:
         with patch.dict(
@@ -316,7 +310,7 @@ class DispatchTests(unittest.TestCase):
             },
         ):
             env = tool.environment(
-                {"endpoint": "ws://127.0.0.1:1"},
+                {"endpoint": "grpc://127.0.0.1:1"},
                 {"namespace": "owned"},
                 {"username": "tool", "password": "ns-secret"},
                 Path("/owned/input"),

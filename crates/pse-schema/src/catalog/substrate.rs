@@ -11,7 +11,7 @@ use crate::{
 use arrow_schema::DataType;
 
 /// Exact schema/codec/structural-operation interpretation.
-pub const INTERPRETATION: &str = "pse.substrate.v6";
+pub const INTERPRETATION: &str = "pse.substrate.v7";
 
 /// Self-contained scientific IPC admission, independent of derived indexes.
 pub const RESULT_BLOCK_BYTES: usize = 32 * 1024 * 1024;
@@ -21,7 +21,7 @@ pub const RESULT_FILE_TARGET_BYTES: usize = 16 * 1024 * 1024;
 pub const RESULT_INDEX_BYTES: usize = 128 * 1024;
 /// Maximum metadata rows in one artifact attachment transaction.
 pub const ARTIFACT_APPEND_ROWS: usize = 64;
-/// Complete uncompressed native WebSocket message admission.
+/// Complete uncompressed native RPC message admission.
 pub const RESULT_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
 /// Maximum canonical metadata identity/string length at the response boundary.
 pub const METADATA_ID_BYTES: usize = 4096;
@@ -31,13 +31,72 @@ pub const METADATA_ID_BYTES: usize = 4096;
 pub const RESULT_INDEX_RECORDS: usize = RESULT_INDEX_BYTES / 7;
 
 /// Relations whose endpoints exist before insertion, including first publication.
-/// Study dependencies intentionally allow predecessors on later ingestion pages.
+/// Study dependencies are installed after every occurrence node exists.
 pub const ENFORCED_RELATIONS: &[&str] = &[
     "canonical_memberships",
     "canonical_analysis_edges",
     "canonical_analysis_inputs",
     "canonical_problem_runs",
     "canonical_run_sources",
+    "canonical_study_dependencies",
+];
+
+/// Bounded adjacency caches on reached vertex tables; high-degree records use native fallback.
+pub const INLINE_VERTICES: &[&str] = &[
+    "canonical_problems",
+    "canonical_runs",
+    "canonical_revisions",
+    "canonical_versions",
+    "canonical_study_points",
+    "canonical_analyses",
+    "canonical_analysis_nodes",
+    "canonical_artifacts",
+];
+/// Legal physical attempt phase changes; same-phase mutation is independently constrained.
+pub const ATTEMPT_TRANSITIONS: &[(&str, &str)] = &[
+    ("ingesting", "closed_awaiting_manifest"),
+    ("ingesting", "closed_with_manifest"),
+    ("closed_awaiting_manifest", "closed_with_manifest"),
+    ("closed_with_manifest", "terminal"),
+    ("terminal", "terminal_compacted"),
+];
+/// Immutable attempt identity, unlike mutable closure authority and compactable completion.
+pub const IMMUTABLE_ATTEMPT_FIELDS: &[&str] = &[
+    "run",
+    "generation",
+    "claim_operation",
+    "request",
+    "worker",
+    "finalization_study",
+];
+/// Publication fields whose final value, including absence, is fixed at terminal seal.
+/// The synchronous event owns full before/after comparison, including optional NONE.
+pub const TERMINAL_IMMUTABLE_ATTEMPT_FIELDS: &[&str] = &["seed_manifest"];
+/// Immutable study authoring identity; staging progress and cancellation stay mutable.
+pub const IMMUTABLE_STUDY_FIELDS: &[&str] = &[
+    "run",
+    "problem",
+    "revision",
+    "metadata",
+    "interpretation",
+    "point_count",
+    "dependency_count",
+];
+/// Artifact holder kinds and their shared attach/release fencing behavior.
+pub const ARTIFACT_HOLDERS: &[(&str, &str, &str)] = &[
+    (
+        "study",
+        "fn::pse_execution_v1::register($rpc_expiry,'study:'+$obligation.owner); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$obligation.owner))!=NONE { THROW 'PSE_REFUSAL:study_artifact_owner_retired'; };",
+        "fn::pse_execution_v1::register($rpc_expiry,'study:'+$obligation.owner); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$obligation.owner))=NONE { THROW 'PSE_REFUSAL:study_input_release_requires_explicit_study_retirement'; };",
+    ),
+    (
+        "analysis",
+        "LET $analysis=SELECT * FROM ONLY type::record('canonical_analyses',$obligation.owner) FOR UPDATE; IF $analysis=NONE OR $analysis.retiring { THROW 'PSE_REFUSAL:analysis_artifact_owner_retired'; };",
+        "LET $analysis=SELECT * FROM ONLY type::record('canonical_analyses',$obligation.owner) FOR UPDATE; IF $analysis=NONE OR !$analysis.retiring { THROW 'PSE_REFUSAL:analysis_input_release_requires_explicit_analysis_retirement'; };",
+    ),
+    ("user", "", ""),
+    ("project", "", ""),
+    ("audit", "", ""),
 ];
 
 /// Physical access path owned by the canonical declaration route.
@@ -103,7 +162,7 @@ indexes! {
     run_revision: canonical_runs [problem, revision, sequence] false,
     run_terminal_selection: canonical_runs [problem, terminal_class, sequence] false,
     attempt_run: canonical_attempts [run, generation] true,
-    attempt_live: canonical_attempts [run, terminal, generation] false,
+    attempt_live: canonical_attempts [run, phase, generation] false,
     result_set_attempt: canonical_result_sets [attempt, name] true,
     result_batch_order: canonical_result_batches [result_set, ordinal] true,
     execution_operation_run: canonical_execution_operations [run, kind] false,
@@ -521,7 +580,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("current_attempt", text()).optional(),
                 column("cancelled", flag()),
                 column("terminal_attempt", text()).optional(),
-                column("terminal_class", text()).optional(),
+                column(
+                    "terminal_class",
+                    FieldContract::enumeration("CanonicalTerminalOutcome"),
+                )
+                .optional(),
             ],
             "One semantic execution, exact input selection and executable provenance; retry attempts retain this run identity.",
         ),
@@ -535,11 +598,13 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("request", bytes()),
                 column("worker", text()),
                 column("expires_at", timestamp()),
-                column("ingestion_open", flag()),
-                column("closed", flag()),
+                column("phase", FieldContract::enumeration("CanonicalAttemptPhase")),
                 column("close_generation", uint()).optional(),
-                column("terminal", flag()),
-                column("outcome", text()).optional(),
+                column(
+                    "outcome",
+                    FieldContract::enumeration("CanonicalTerminalOutcome"),
+                )
+                .optional(),
                 column("closed_manifest", text()).optional(),
                 column("completion", bytes()).optional(),
                 column("seed_manifest", text()).optional(),
@@ -949,6 +1014,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("interpretation", text()),
                 column("point_count", uint()),
                 column("next_ordinal", uint()),
+                column("dependency_count", uint()),
+                column("installed_dependencies", uint()),
                 column("active", flag()),
                 column("cancelled", flag()),
                 column("generation", uint()),

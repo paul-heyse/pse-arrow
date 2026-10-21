@@ -1,9 +1,10 @@
 # Local SurrealDB substrate
 
 The [current-work index](../plans/README.md) routes to active owners. Blueprint §20.5–§20.6,
-ADR-0164 and the maintainer-selected ADR-0187 target describe the substrate and sealed-payload
-contracts. [Plan39d's Outcome](../plans/39d-qualification-and-plan38-cutover.md#outcome-recorded-after-implementation)
-records completed selected qualification; Plan37 and other plans retain their own evidence limits.
+ADR-0214 and the maintainer-selected ADR-0187 target describe the substrate and sealed-payload
+contracts. [Plan49a](../plans/49a-surrealmx-canonical-store.md) owns the persistent MX1.0/gRPC
+implementation and acceptance. Earlier deployment results retain their original engine and
+transport conditions; they do not qualify this replacement.
 This page describes the local server operator surface implemented by
 `scripts/surreal_server.py`; its bounded controls do not qualify all scientific operations,
 remote deployment, returned physical disk space or physical power-loss survival.
@@ -14,7 +15,9 @@ Use `just surreal <command>` and the focused test recipes in `just --list`.
 The underlying tool commands are:
 
 ```bash
-.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v6
+scripts/pse-env --resource-class compile -- .venv/bin/python scripts/surreal_server.py build-server
+.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v7
+.venv/bin/python scripts/surreal_server.py initialize --initializer-command target/debug/xtask canonical-init "$PSE_SURREAL_STATE"
 .venv/bin/python scripts/surreal_server.py start
 .venv/bin/python scripts/surreal_server.py status
 ```
@@ -26,16 +29,17 @@ through symlinks. Repeated setup of an owned compatible state preserves its chos
 release, credentials and allocation; it is not a reconfiguration or upgrade command.
 No legacy import, cleanup or deletion of other application state occurs.
 
-The current generated interpretation is `pse.substrate.v6`, including independent
+The current generated interpretation is `pse.substrate.v7`, including native physical
+attempt phases, typed refusals, immutable record identities, independent
 scientific artifacts, copied study inputs and releasable detail history with permanent
 identity fences, sealed payload descriptors and nonexpiring exact manifest tickets. Fresh stores and evidence replace earlier design-phase data. These commands
 do not authorize activation, migration or deletion of an existing deployment;
 an existing interpretation mismatch still refuses ordinary startup/admission.
 
-Fresh setup selects the pinned released SurrealDB 3.3.0 binary; an explicit release
-selection remains an administrative choice. It verifies the release asset SHA256,
-extracts only the executable, checks the reported version and records archive and
-binary digests. Existing state retains its exact binary. The private tool root is
+Fresh setup selects the source-built SurrealDB3.3.4/MX1.0 executable. Its
+[source integration](../../scripts/surrealdb-source/source-build.md) pins the upstream
+revision, adapter/connection patches, compiler inputs and resolved engine; installation
+checks source and executable digests. There is no released-binary fallback. The private tool root is
 `$XDG_DATA_HOME/pse-arrow/tools/surreal`, with the usual home fallback. No application
 engine is embedded in Cargo and setup does not modify `PATH`.
 
@@ -45,7 +49,7 @@ The owned state contains:
 |---|---|
 | `config.json` | Endpoint, namespace/database, interpretation, admission state, server receipt and finite resource allocation |
 | `credentials.json` | Owner and read-only selection credentials; mode 0600 |
-| `database/` | RocksDB catalog files, including recovery logs and committed state |
+| `database/` | MX append-only logs and snapshots of the resident catalog |
 | `payloads/<payload_incarnation>/<database>/` | Private sealed IPC/opaque files, unresolved staging and persistent per-instance locks |
 | `tmp/` | Server temporary-file location; not included in an offline backup |
 | `server.log`, `.log.1`, `.log.2` | Private supervisor-captured server logs, at most 8 MiB each |
@@ -65,9 +69,11 @@ profile, not an isolation boundary against the account that owns it.
 ## Endpoint and allocation
 
 Fresh functional setup binds `127.0.0.1:18240` by default (`setup --port PORT`).
-Application RPC uses authenticated native binary WebSocket at `ws://127.0.0.1:PORT`,
-with a 4 MiB complete encoded-message bound. There is one SDK application session
-plus the server's implicit connection session. Guest queries, outbound networking
+Application RPC uses authenticated gRPC at `grpc://127.0.0.1:PORT`,
+with a 4 MiB encoded-frame bound and separate aggregate response ownership.
+Finite application and reserved control admission retain the original operation clock.
+Server sessions belong to their actual TCP connection and are reclaimed on disconnect;
+replacement connections restore acknowledged setup using fresh sessions. Guest queries, outbound networking
 and scripting are denied. Query and transaction backstops are finite; canonical
 operations carry their original clocks through admission, dispatch and settlement.
 A local timeout does not establish server abort or absence of committed effects.
@@ -77,7 +83,7 @@ selects the exact namespace/database without implicit DDL, probes one interpreta
 record, then restores the owner account for explicit writes. Ordinary selection does
 not enumerate root or namespace catalogs. `canonical-init` is the explicit schema
 initialization route. Administrative startup defines the read-only account and checks
-authenticated WebSocket readiness; process/listener readiness and interpretation/
+authenticated gRPC readiness; process/listener readiness and interpretation/
 receiver admission remain separate.
 
 Storage construction reads only the authenticated storage projection. Runtime/worker
@@ -96,7 +102,13 @@ SurrealDB 3.3. It uses a fresh unselected administrative connection under the or
 transport clock and finite server backstops. A lost submitted DDL response remains
 an unknown outcome; only acknowledged creation admits subsequent selection.
 
-The persistent store is `rocksdb://<state>/database?sync=every&versioned=false`.
+The persistent store is `mem://<state>/database?aol=sync&sync=every&versioned=false`,
+with explicit finite memory/transaction-age controls and a 60-second snapshot interval.
+The source adapter refuses settings that disable synchronous persistence or periodic snapshots.
+The existing HTTP `/metrics` endpoint exposes the native MX gauges to root-authenticated
+scrapers; anonymous responses contain only public process/build metrics. Active readers and
+the oldest pinned version explain retained snapshots. Aggregate version and commit-ring
+counts can fall during reclamation, so they are not monotonic publication counters.
 Functional services use owned user-manager units and admitted immutable supervisor
 closures. They can survive agent exit; continuous logout/reboot availability depends
 on the account's verified user-manager/linger setup. Scientific work never starts at
@@ -180,7 +192,7 @@ Timing uses a dedicated state and endpoint. With an already built linked worker:
 ```bash
 timing_state="${XDG_STATE_HOME:-$HOME/.local/state}/pse-arrow/surreal-timing-v2"
 scripts/pse-env --resource-class timing -- just surreal setup --state "$timing_state" \
-  --port 18242 --interpretation pse.substrate.v6 --execution-profile timing \
+  --port 18242 --interpretation pse.substrate.v7 --execution-profile timing \
   --worker-executable "$PWD/target/debug/pse-worker"
 scripts/pse-env --resource-class timing -- just surreal start --state "$timing_state"
 ```
@@ -218,18 +230,16 @@ cleans up the owned launcher under its cleanup clock. If ownership or drain rema
 the reservation stays closed. A later `drain`, `stop` or stopped-profile `readmit` retries
 reconciliation against that same launch; missing allocation metadata alone cannot release it.
 
-RocksDB's block cache is one quarter of the allocated server memory. Each write buffer
-is `min(32 MiB, allocation / 64)`, with two buffers per column family. The tracked-memory
-threshold is three quarters of the server allocation. Compaction read-ahead is 4 MiB,
-background thread count is two, background job count is four, and subcompactions are two.
+MX's key/value memory limit is half of the allocated server memory, reserving the
+remainder for pinned versions, RPCs, snapshots and engine overhead. Transactions have
+a finite 90-second maximum age. The synchronous production profile also records finite
+asynchronous queue limits for explicit alternative-mode controls; it does not enable that mode.
 `SURREAL_RUNTIME_WORKER_THREADS=4` bounds the server's custom Tokio runtime; setting only
 `TOKIO_WORKER_THREADS` would leave its host-CPU default. These overrides prevent the
 initial host-RAM/CPU defaults from defining this application allocation. The threshold
 is not a total-RSS cap; systemd supplies that cap.
 
-Supervisor logs have fixed rotation and private ownership. RocksDB additionally owns
-its internal `database/LOG`: this release exposes retained-file count (set to two)
-and log level (set to `error`), but no current-file byte limit. Temporary files and
+Supervisor logs have fixed rotation and private ownership. Append-only logs, snapshots, temporary files and
 database growth likewise need operator disk provisioning/monitoring; the memory cap
 does not impose a disk quota. No universal disk or spill qualification is claimed.
 
@@ -274,7 +284,7 @@ for the service to become inactive, its cgroup to be empty, and the recorded PID
 lifetime to disappear. An unreaped zombie still retains its allocation; host reconciliation
 uses the same exact affiliated process premise before reclaiming capacity.
 The configured deadline can end shutdown forcibly;
-RocksDB recovery then occurs at next open. Restart explicitly reopens admission once
+MX snapshot/log recovery then occurs at next open. Restart explicitly reopens admission once
 the server is ready, except for an unvalidated restore.
 
 For the initial supported backup route, quiesce and drain, then:
@@ -337,9 +347,9 @@ Restore into a new or empty owned target, never over an existing application:
 
 ```bash
 .venv/bin/python scripts/surreal_server.py restore --state /path/to/restored-state \
-  --source /path/to/new-backup --interpretation pse.substrate.v6
+  --source /path/to/new-backup --interpretation pse.substrate.v7
 .venv/bin/python scripts/surreal_server.py validate --state /path/to/restored-state \
-  --interpretation pse.substrate.v6 --check-command <typed-semantic-validator> <arguments>
+  --interpretation pse.substrate.v7 --check-command <typed-semantic-validator> <arguments>
 .venv/bin/python scripts/surreal_server.py start --state /path/to/restored-state
 ```
 
@@ -364,7 +374,7 @@ recovery compares complete schema metadata and exact float/binary bits while dis
 metadata map order and transport chunk boundaries.
 
 `validate` starts the gated server, authenticates against `pse/canonical`, and requires
-`canonical_interpretations:current.interpretation` to match `pse.substrate.v6`. It then
+`canonical_interpretations:current.interpretation` to match `pse.substrate.v7`. It then
 runs the supplied semantic validator with `PSE_SURREAL_STATE` selecting the restore.
 Under the exact restored incarnation, validation atomically admits protected file readers
 while keeping GC frozen and application writes closed. Every exit refreezes file admission
@@ -387,12 +397,15 @@ quiesced, ready for explicit normal start. Direct privileged access can bypass t
 application admission contract and is not a supported normal writer.
 
 Maintenance uses a temporary loopback server with ordinary admission closed, declared
-RocksDB resources and no autonomous restart or scientific workers. Native CLI SQL/export/import
-connect remotely because embedded CLI operations do not carry the server's RocksDB configuration.
+MX resources and no autonomous restart or scientific workers. Native CLI SQL/export/import
+connect remotely to that exact server and never open its persistence directory independently.
 Its live lifecycle owner must stop and drain the exact invocation before filesystem copies,
 initializer handoff or normal start. Pending ownership or uncertain shutdown stays closed.
 Credential recovery probes recorded ROOT candidates with fresh unselected connections; it never
-creates an account or missing database to make recovery succeed.
+creates an account or missing database to make recovery succeed. Fresh `initialize` is
+the distinct bootstrap operation: under its exact pending lifecycle owner it creates
+ROOT/VIEWER credentials, invokes the already-built initializer and validates interpretation
+before physical listener drain. Success leaves admission quiesced for explicit activation.
 
 ## Explicit design-phase reconstruction and recovery
 
@@ -410,7 +423,8 @@ version stays unchanged. Ordinary opening refuses an old digest. Adopt the curre
 through explicit regeneration or supported current-version restore and semantic validation;
 neither supervisor readmission nor successful server startup upgrades canonical schema.
 Memberships, analysis edges/inputs, problem runs and run sources enforce existing endpoints.
-Study dependency ingestion permits valid references to predecessors in later pages. Native
+Study ingestion first installs all point nodes, then bounded ENFORCED dependency pages,
+and activates only after the complete declared dependency count is installed. Native
 import bypasses endpoint admission, so post-restore integrity checks remain required.
 
 Startup configuration references the private maintenance payload record described in blueprint
@@ -470,23 +484,26 @@ validation of that exact record. `kill --state PATH` also supports a root-owned 
 fixture; it deliberately bypasses graceful drain.
 
 This helper journey's data control uses authenticated HTTP on the same server port.
-It does not replace Rust native WebSocket exact-codec, operation-identity or transaction controls.
+It does not replace Rust gRPC exact-codec, operation-identity or transaction controls.
 An acknowledged process-restart survival result also does not establish survival of
 physical device/filesystem power loss.
 
 The profile follows the official [start command](https://surrealdb.com/docs/reference/cli/surrealdb-cli/commands/start),
 [environment variables](https://surrealdb.com/docs/reference/cli/surrealdb-cli/environment-variables)
-and [WebSocket connection contract](https://surrealdb.com/docs/reference/rust/methods/connect).
-Source and actual released-binary startup take precedence over unsupported documentation
-values: 3.3.0 rejected RocksDB storage log level `none`; this profile uses `error`.
+and the tagged source integration linked above. Actual patched-source controls establish
+the selected profile's behavior; a stock release's result does not qualify these patches.
 
 ## Standalone beta tooling fixtures
 
 `just surrealkit` acquires the standalone version declared in
-`.config/surrealkit.toml` under the owned tools directory. Its release receipt records
-archive/executable checksums, exact source commit, committed lockfile and official
-locked-build workflow. This is provenance, not a reproducible-build attestation.
-The production SDK/server and its transport patch remain separately selected.
+`.config/surrealkit.toml` under the owned tools directory. The source build selects this
+checkout's exact gRPC SDK integration without an embedded engine. Its receipt records
+the exact upstream commit, resolved SDK, lockfile, setup SQL, SDK inputs and executable
+digests. Changed SDK inputs select a new immutable artifact directory. Ordinary
+execution requires current inputs; recovery first authenticates the pending nonce and
+then requires its exact saved executable/receipt tuple. Keep that artifact while the
+pending owner needs it. A source update cannot replace the executable beneath an
+unsettled operation. The production server has its own source receipt.
 
 Use a fresh disposable service created with `just surreal setup --state PATH
 --tooling-fixture ...` for the beta parity journey. This explicit profile permits the
@@ -526,7 +543,7 @@ completion share one pending nonce; completion requires an independently settled
 Settlement retains the selected pending record and phase evidence until explicit canonical
 activation. Metadata repair refuses unsettled SQL, including beta's `running_complete`
 shortcut. Beta TTL, CLI success and catalog parity alone cannot supply settlement.
-The fixed `settle` route loads the immutable publication from `database/canonical-rollout`,
+The fixed `settle` route loads the immutable publication from `database/canonical-schema`,
 checks beta's exact manifest/step identities and acknowledgements, and invokes
 `canonical-validate-definitions` under this reservation's live initializer nonce.
 Whole-chain submission captures the pinned beta's validated source-to-target order before
@@ -546,16 +563,13 @@ The `up`, `start`, `complete`, `status` and `repair` commands use `--binary` for
 beta executable. `settle` and `activate` use it for the compiled `canonical-tools` xtask;
 all commands require the exact `--state` and `--folder`, and continuation/recovery requires
 `--pending-nonce`. Production publication is append-only through its producer; normal
-code generation does not rewrite frozen steps. The production v6 publication and current
-generated schema remain separate from beta's manifest and step checksums. The explicit
-producer `--design-phase-v6-cutover` route freezes a single native schema-only release
-from the immutable v5 predecessor to the exact generated v6 target. Native beta snapshots,
-hashes, actions and lint own the publication; older frozen releases stay unchanged. This
-route requires an uninitialized, row-empty application target before any native SQL
-submission (only beta's exact bookkeeping tables are exempt). An initialized v5 database
-refuses even if its application rows are empty. It provides no backfill or preserved-data
-upgrade; explicit design-phase reconstruction remains the ordinary cutover route. Plan37 owns the
-current acceptance disposition and any remaining assembled scientific qualification.
+code generation does not rewrite frozen steps. The fresh v7 baseline starts with no
+historical predecessor; subsequent compatible changes append forward publications.
+Native beta snapshots, hashes, actions and lint own the publication, while the generated
+DDL-plus-codec digest owns interpretation. Modified frozen SQL refuses publication.
+The old v5/v6 design-phase cutover producer is removed. `fresh-engine --drained` retires
+the old generated engine state and publishes a closed target with fresh identities;
+current initialization and exact maintenance settlement precede ordinary admission.
 
 The bounded actual persistent journey is
 `scripts/tests/surrealkit_persistent_fixture_check.py`. Under the coordinator's
@@ -594,11 +608,11 @@ block the retained artifact, history, caller or fixture lifecycles. These decisi
 claim neither capability absence nor representative performance.
 
 - **I1 — Structural references and guards.** Retain typed endpoints and ENFORCED
-  relations where both endpoints exist at insertion, with explicit attributed
-  obligations and lifecycle guards. Study dependencies may name a predecessor on
-  a later ingestion page; immediate enforcement is therefore selective. REFERENCE
+  relations with explicit attributed obligations and lifecycle guards. Two-phase
+  study ingestion installs every node before dependency edges, permitting immediate
+  endpoint enforcement without ingestion-order restrictions. REFERENCE
   deletion actions and custom cascades are not selected. Revisit for a concrete
-  relationship that removes existing machinery, with owned RocksDB controls for
+  relationship that removes existing machinery, with owned MX controls for
   both insertion/deletion orders and permissions. Native cascades cannot become
   scientific release authority.
 
@@ -612,12 +626,12 @@ claim neither capability absence nor representative performance.
   subscription and still discover every eligible point. ASYNC needs its separate
   effect owner; database feeds cannot establish process or physical drain.
 
-- **I3 — Transport and protected reads.** Retain the
-  [patched WS integration](https://github.com/paul-heyse/pse-arrow/blob/main/vendor/surrealdb/PATCH.md) and finite protected
-  page/block reads as the comparator. No alternative transport or streaming path
-  is selected. Revisit when a representative read exceeds an agreed memory/latency
-  requirement despite finite admission, or a consumer needs rows before a page
-  completes. Compare the same scientific selection through the complete consumer
+- **I3 — Transport and protected reads.** Select the
+  [bounded gRPC integration](../../vendor/surrealdb/PATCH.md) and finite protected
+  page/block reads. Incremental rows remain provisional through statement and
+  transaction completion. Assess additional streaming consumers when a representative
+  read exceeds an agreed memory/latency requirement despite finite admission, or
+  needs rows before a page completes. Compare the same selection through the complete consumer
   journey, including peak resident memory, cancellation/rollback, statement and
   transaction finality, protection through returned buffers, original clocks,
   unknown-write settlement and physical drain. Use an independently owned fixture;
@@ -630,15 +644,16 @@ claim neither capability absence nor representative performance.
   engine VERSION disabled remain. Experimental server files/buckets and routine per-run
   compaction are not selected. Revisit physical recovery if capacity admission
   needs a reclaimed-byte promise: measure exact owned logical REMOVE acknowledgement,
-  queued engine reclamation and later RocksDB file-space return separately.
+  queued engine reclamation and later MX snapshot/log file-space return separately.
   Logical disposal does not establish returned disk space; TTLs, timers and
   compaction supply no deletion authority. Artifact/history correctness remains
   independent of these optional facilities.
 
-- **I5 — Query paths and graph capabilities.** Retain registry-owned indexes,
-  native functions and attributed relations. Obligations/evidence carry owner,
-  role, provenance or settlement, so no blanket LIGHTWEIGHT/INLINE conversion is
-  selected. Revisit a concrete query after an inappropriate native scan/sort,
+- **I5 — Query paths and graph capabilities.** Retain registry-owned compound indexes,
+  native record identities/ranges, functions and attributed ENFORCED relations.
+  Bounded inline adjacency caches retain high-degree fallback; paging occurs within
+  native graph traversal. Obligations carry provenance or settlement, so no current
+  relation is eligible for LIGHTWEIGHT representation. Revisit a concrete query after an inappropriate native scan/sort,
   measured work beyond intended scaling, or a genuinely property-free endpoint
   relationship. Changes belong to the declaration/query generator and need exact
   selection, ordering and cursor equivalence across ordinary, explicit-index and
@@ -654,7 +669,7 @@ claim neither capability absence nor representative performance.
   gap in host binary/network isolation, a named operator domain action, an unresolved
   SQL/session/reclaim diagnosis, or eligible deferred cleanup repeatedly exceeding
   an explicit responsiveness requirement. Containers would need an exact image,
-  selected RocksDB profile, credentials, schema-aware readiness and checked cleanup;
+  selected persistent MX profile, credentials, schema-aware readiness and checked cleanup;
   domain actions must use the canonical owner. Diagnostic export needs an actual
   owner outcome; a timer may wake cleanup but cannot change eligibility or restart
   another owner's service. Studio remains an optional inspection client.

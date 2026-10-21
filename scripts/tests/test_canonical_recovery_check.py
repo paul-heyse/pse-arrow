@@ -457,7 +457,9 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
                 server,
                 "install",
                 return_value={
-                    "version": "3.3.0",
+                    "version": server.surreal_source.VERSION,
+                    "surrealmx_version": server.surreal_source.ENGINE,
+                    "inputs": server.surreal_source.inputs(),
                     "binary": "/unused",
                     "archive_sha256": "fixture",
                 },
@@ -477,6 +479,9 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
                 )
             )
         config = server.config_for(self.state)
+        # The profile fixture models an established, authenticated catalog.
+        config.pop("fresh_root_bootstrap", None)
+        server.write_json(self.state / "config.json", config)
         config["admission"] = "quiesced"
         config["accepting_writes"] = False
         server.write_json(self.state / "config.json", config)
@@ -493,7 +498,7 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
             str(selected.worker_executable),
             config["primary_receiver"]["worker_executable"],
         )
-        self.assertEqual(selected.version, "v3.3.0")
+        self.assertEqual(selected.version, "v" + server.surreal_source.VERSION)
         self.assertTrue(
             all(
                 value is None
@@ -513,7 +518,7 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
         ):
             recovery.profile_arguments(self.state)
 
-    def test_numeric_profile_selection_retains_legacy_allocations_and_version(
+    def test_numeric_profile_selection_retains_allocations_and_version(
         self,
     ) -> None:
         config = self.initialized(False)
@@ -522,7 +527,7 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
         )
         self.assertIsNone(selected.execution_profile)
         self.assertIsNone(selected.worker_executable)
-        self.assertEqual(selected.version, "v3.3.0")
+        self.assertEqual(selected.version, "v" + server.surreal_source.VERSION)
         allocation = server.resources(
             selected.memory_mib * server.MIB,
             selected.server_memory_mib * server.MIB,

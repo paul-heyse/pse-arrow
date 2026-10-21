@@ -88,9 +88,25 @@ fn declared(spec: &crate::model::EnumSpec) -> TokenStream {
             }
         })
         .collect::<Vec<_>>();
+    let projection = if spec.name == "CanonicalTerminalOutcome" {
+        quote! { impl #name {
+            /// Observational attempt state; physical closure remains independent.
+            pub const fn attempt_state(self) -> AttemptState {
+                match self { Self::Succeeded => AttemptState::Completed, Self::Failed => AttemptState::Failed, Self::Partial => AttemptState::Partial, Self::Cancelled => AttemptState::Cancelled }
+            }
+            /// Point lifecycle additionally needs the scientific owner's admitted
+            /// usability for partial coverage; storage does not invent that fact.
+            pub const fn study_point_state(self, partial_usable: bool) -> StudyPointState {
+                match self { Self::Succeeded => StudyPointState::Completed, Self::Failed => StudyPointState::Failed, Self::Cancelled => StudyPointState::Cancelled, Self::Partial => if partial_usable { StudyPointState::Completed } else { StudyPointState::Failed } }
+            }
+        } }
+    } else {
+        quote!()
+    };
     let length = variants.len();
     let ordinals = (0..variants.len()).collect::<Vec<_>>();
     quote! {
+        #projection
         /// A string enumeration projected from the registry.
         #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, strum::EnumString, strum::Display, strum::VariantArray, strum::IntoStaticStr, serde::Serialize, serde::Deserialize)]
         #default_derive

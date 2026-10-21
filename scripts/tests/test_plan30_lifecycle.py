@@ -54,11 +54,11 @@ class Plan30LifecycleTests(unittest.TestCase):
         self.state.mkdir()
         self.config = {
             "owner": server.OWNER,
-            "profile_version": 2,
+            "profile_version": 3,
             "instance_id": "owned",
             "payload_incarnation": "da1483f4-e88f-47b5-b2be-67a358f795bb",
             "port": 18240,
-            "endpoint": "ws://127.0.0.1:18240",
+            "endpoint": "grpc://127.0.0.1:18240",
             "namespace": "pse",
             "database": "canonical",
             "interpretation": "test",
@@ -66,12 +66,17 @@ class Plan30LifecycleTests(unittest.TestCase):
             "credentials_file": str(self.state / "credentials.json"),
             "admission": "open",
             "accepting_writes": True,
-            "websocket_max_message_bytes": server.MESSAGE_BYTES,
+            "rpc_max_message_bytes": server.MESSAGE_BYTES,
             "max_message_bytes": server.MESSAGE_BYTES,
             "resources": server.resources(
                 4 * server.GIB, 2 * server.GIB, 1, 2 * server.GIB
             ),
-            "server": {"binary": str(self.root / "surreal"), "binary_sha256": "test"},
+            "server": {
+                "binary": str(self.root / "surreal"),
+                "binary_sha256": "test",
+                "inputs": server.surreal_source.inputs(),
+                "surrealmx_version": "1.0.0",
+            },
             "unit_materialized": True,
         }
         server.write_json(self.state / "config.json", self.config)

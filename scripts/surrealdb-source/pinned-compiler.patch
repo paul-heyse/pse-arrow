@@ -1,0 +1,642 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 17255b9..fefe21c 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -1093,9 +1093,9 @@ checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
+ 
+ [[package]]
+ name = "cfg_aliases"
+-version = "0.2.1"
++version = "0.2.2"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
++checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
+ 
+ [[package]]
+ name = "chacha20"
+diff --git a/profiling/Cargo.toml b/profiling/Cargo.toml
+index e0ae503..1752022 100644
+--- a/profiling/Cargo.toml
++++ b/profiling/Cargo.toml
+@@ -6,7 +6,6 @@ version.workspace = true
+ authors.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ license-file.workspace = true
+diff --git a/surrealdb/Cargo.toml b/surrealdb/Cargo.toml
+index 8772acf..b89e6bc 100644
+--- a/surrealdb/Cargo.toml
++++ b/surrealdb/Cargo.toml
+@@ -8,7 +8,6 @@ version.workspace = true
+ authors.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ license-file.workspace = true
+diff --git a/surrealdb/ast/Cargo.toml b/surrealdb/ast/Cargo.toml
+index 28f17da..3e123a0 100644
+--- a/surrealdb/ast/Cargo.toml
++++ b/surrealdb/ast/Cargo.toml
+@@ -7,7 +7,6 @@ publish = true
+ version.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/catalog/Cargo.toml b/surrealdb/catalog/Cargo.toml
+index dfb237c..05d4701 100644
+--- a/surrealdb/catalog/Cargo.toml
++++ b/surrealdb/catalog/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/cnf/Cargo.toml b/surrealdb/cnf/Cargo.toml
+index 46018f4..f8e2f08 100644
+--- a/surrealdb/cnf/Cargo.toml
++++ b/surrealdb/cnf/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/collections/Cargo.toml b/surrealdb/collections/Cargo.toml
+index ecbfaac..7a5a112 100644
+--- a/surrealdb/collections/Cargo.toml
++++ b/surrealdb/collections/Cargo.toml
+@@ -7,7 +7,6 @@ publish = true
+ version.workspace = true
+ description = "Sorted vec-backed map and set types for SurrealDB (internal API)."
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ readme = "README.md"
+diff --git a/surrealdb/common/Cargo.toml b/surrealdb/common/Cargo.toml
+index 7506cf9..5dfd443 100644
+--- a/surrealdb/common/Cargo.toml
++++ b/surrealdb/common/Cargo.toml
+@@ -6,7 +6,6 @@ authors.workspace = true
+ publish = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ license-file.workspace = true
+diff --git a/surrealdb/core/Cargo.toml b/surrealdb/core/Cargo.toml
+index eaabc58..8bcebcb 100644
+--- a/surrealdb/core/Cargo.toml
++++ b/surrealdb/core/Cargo.toml
+@@ -8,7 +8,6 @@ version.workspace = true
+ authors.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ license-file.workspace = true
+diff --git a/surrealdb/core/src/dbs/group.rs b/surrealdb/core/src/dbs/group.rs
+index 09eefdc..3bfc19a 100644
+--- a/surrealdb/core/src/dbs/group.rs
++++ b/surrealdb/core/src/dbs/group.rs
+@@ -1,4 +1,3 @@
+-use core::f64;
+ use std::collections::BTreeMap;
+ 
+ use anyhow::Result;
+diff --git a/surrealdb/datastore/Cargo.toml b/surrealdb/datastore/Cargo.toml
+index f545a8d..cc7d13f 100644
+--- a/surrealdb/datastore/Cargo.toml
++++ b/surrealdb/datastore/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/datastore/src/tx.rs b/surrealdb/datastore/src/tx.rs
+index f03c8b2..613fce2 100644
+--- a/surrealdb/datastore/src/tx.rs
++++ b/surrealdb/datastore/src/tx.rs
+@@ -1005,7 +1005,7 @@ impl Transaction {
+ 		if let Some(limit) = self.write_keys_limit.get()
+ 			&& self
+ 				.guarded_writes
+-				.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| {
++				.try_update(Ordering::Relaxed, Ordering::Relaxed, |n| {
+ 					(n < limit.get()).then_some(n + 1)
+ 				})
+ 				.is_err()
+diff --git a/surrealdb/engine-api/Cargo.toml b/surrealdb/engine-api/Cargo.toml
+index 29b493e..469a2c9 100644
+--- a/surrealdb/engine-api/Cargo.toml
++++ b/surrealdb/engine-api/Cargo.toml
+@@ -8,7 +8,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/engine-local/Cargo.toml b/surrealdb/engine-local/Cargo.toml
+index cf05393..c4140da 100644
+--- a/surrealdb/engine-local/Cargo.toml
++++ b/surrealdb/engine-local/Cargo.toml
+@@ -8,7 +8,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/expr/Cargo.toml b/surrealdb/expr/Cargo.toml
+index 663d069..93c1147 100644
+--- a/surrealdb/expr/Cargo.toml
++++ b/surrealdb/expr/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/gql/Cargo.toml b/surrealdb/gql/Cargo.toml
+index 1124b49..67fcfdb 100644
+--- a/surrealdb/gql/Cargo.toml
++++ b/surrealdb/gql/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/iam/Cargo.toml b/surrealdb/iam/Cargo.toml
+index 5ffe212..e66da89 100644
+--- a/surrealdb/iam/Cargo.toml
++++ b/surrealdb/iam/Cargo.toml
+@@ -7,7 +7,6 @@ authors.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/idx/Cargo.toml b/surrealdb/idx/Cargo.toml
+index 14b3b26..6f6aa3a 100644
+--- a/surrealdb/idx/Cargo.toml
++++ b/surrealdb/idx/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/keyspace-macro/Cargo.toml b/surrealdb/keyspace-macro/Cargo.toml
+index 004df72..418dc0d 100644
+--- a/surrealdb/keyspace-macro/Cargo.toml
++++ b/surrealdb/keyspace-macro/Cargo.toml
+@@ -7,7 +7,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/kvs-any/Cargo.toml b/surrealdb/kvs-any/Cargo.toml
+index 0eb1e3a..f41058f 100644
+--- a/surrealdb/kvs-any/Cargo.toml
++++ b/surrealdb/kvs-any/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/kvs-indxdb/Cargo.toml b/surrealdb/kvs-indxdb/Cargo.toml
+index adbf1ca..7275313 100644
+--- a/surrealdb/kvs-indxdb/Cargo.toml
++++ b/surrealdb/kvs-indxdb/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/kvs-mem/Cargo.toml b/surrealdb/kvs-mem/Cargo.toml
+index fa95e35..6ad5ea0 100644
+--- a/surrealdb/kvs-mem/Cargo.toml
++++ b/surrealdb/kvs-mem/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/kvs-rocksdb/Cargo.toml b/surrealdb/kvs-rocksdb/Cargo.toml
+index 16db79a..f9633b1 100644
+--- a/surrealdb/kvs-rocksdb/Cargo.toml
++++ b/surrealdb/kvs-rocksdb/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/kvs-surrealkv/Cargo.toml b/surrealdb/kvs-surrealkv/Cargo.toml
+index d1fe039..ce6c7a4 100644
+--- a/surrealdb/kvs-surrealkv/Cargo.toml
++++ b/surrealdb/kvs-surrealkv/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/kvs-test/Cargo.toml b/surrealdb/kvs-test/Cargo.toml
+index ff57334..51d9bef 100644
+--- a/surrealdb/kvs-test/Cargo.toml
++++ b/surrealdb/kvs-test/Cargo.toml
+@@ -8,7 +8,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/kvs-tikv/Cargo.toml b/surrealdb/kvs-tikv/Cargo.toml
+index 7aa9bc0..9db6c56 100644
+--- a/surrealdb/kvs-tikv/Cargo.toml
++++ b/surrealdb/kvs-tikv/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/kvs/Cargo.toml b/surrealdb/kvs/Cargo.toml
+index de2b50e..1a01d66 100644
+--- a/surrealdb/kvs/Cargo.toml
++++ b/surrealdb/kvs/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/observe/Cargo.toml b/surrealdb/observe/Cargo.toml
+index 80731b2..b8d8f4f 100644
+--- a/surrealdb/observe/Cargo.toml
++++ b/surrealdb/observe/Cargo.toml
+@@ -7,7 +7,6 @@ authors.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/parse-common/Cargo.toml b/surrealdb/parse-common/Cargo.toml
+index 38285e8..c468abb 100644
+--- a/surrealdb/parse-common/Cargo.toml
++++ b/surrealdb/parse-common/Cargo.toml
+@@ -8,7 +8,6 @@ version.workspace = true
+ #rust-version.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/parser/Cargo.toml b/surrealdb/parser/Cargo.toml
+index b82e38a..6234c8a 100644
+--- a/surrealdb/parser/Cargo.toml
++++ b/surrealdb/parser/Cargo.toml
+@@ -8,7 +8,6 @@ version.workspace = true
+ #rust-version.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/rpc/Cargo.toml b/surrealdb/rpc/Cargo.toml
+index efa0a9f..9440781 100644
+--- a/surrealdb/rpc/Cargo.toml
++++ b/surrealdb/rpc/Cargo.toml
+@@ -7,7 +7,6 @@ authors.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/runtime/Cargo.toml b/surrealdb/runtime/Cargo.toml
+index cec9fa3..3da2684 100644
+--- a/surrealdb/runtime/Cargo.toml
++++ b/surrealdb/runtime/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/runtime/src/math.rs b/surrealdb/runtime/src/math.rs
+index 426763a..8634e18 100644
+--- a/surrealdb/runtime/src/math.rs
++++ b/surrealdb/runtime/src/math.rs
+@@ -1,4 +1,3 @@
+-use core::f64;
+ 
+ use anyhow::{Result, bail, ensure};
+ use surrealdb_cnf::GENERATION_ALLOCATION_LIMIT;
+diff --git a/surrealdb/runtime/src/util/math/mod.rs b/surrealdb/runtime/src/util/math/mod.rs
+index 3521bc4..83b77cc 100644
+--- a/surrealdb/runtime/src/util/math/mod.rs
++++ b/surrealdb/runtime/src/util/math/mod.rs
+@@ -1,4 +1,3 @@
+-use core::f64;
+ 
+ use anyhow::Result;
+ use rust_decimal::{Decimal, MathematicalOps};
+diff --git a/surrealdb/server/Cargo.toml b/surrealdb/server/Cargo.toml
+index 3fd9b78..597cf97 100644
+--- a/surrealdb/server/Cargo.toml
++++ b/surrealdb/server/Cargo.toml
+@@ -8,7 +8,6 @@ license-file.workspace = true
+ version.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/sql/Cargo.toml b/surrealdb/sql/Cargo.toml
+index fc5f281..bd2db1a 100644
+--- a/surrealdb/sql/Cargo.toml
++++ b/surrealdb/sql/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/sqon/Cargo.toml b/surrealdb/sqon/Cargo.toml
+index f65695b..3d2aefe 100644
+--- a/surrealdb/sqon/Cargo.toml
++++ b/surrealdb/sqon/Cargo.toml
+@@ -8,7 +8,6 @@ version.workspace = true
+ #rust-version.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/strand/Cargo.toml b/surrealdb/strand/Cargo.toml
+index d14daa8..9887cf8 100644
+--- a/surrealdb/strand/Cargo.toml
++++ b/surrealdb/strand/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/syn/Cargo.toml b/surrealdb/syn/Cargo.toml
+index b08ad3f..d2f4359 100644
+--- a/surrealdb/syn/Cargo.toml
++++ b/surrealdb/syn/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/syn/src/parser/basic/number.rs b/surrealdb/syn/src/parser/basic/number.rs
+index 5988e8a..ffadf0c 100644
+--- a/surrealdb/syn/src/parser/basic/number.rs
++++ b/surrealdb/syn/src/parser/basic/number.rs
+@@ -1,4 +1,3 @@
+-use core::f64;
+ use std::num::ParseIntError;
+ use std::str::FromStr;
+ 
+diff --git a/surrealdb/token/Cargo.toml b/surrealdb/token/Cargo.toml
+index d57f975..9ddc66f 100644
+--- a/surrealdb/token/Cargo.toml
++++ b/surrealdb/token/Cargo.toml
+@@ -8,7 +8,6 @@ version.workspace = true
+ #rust-version.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/types/Cargo.toml b/surrealdb/types/Cargo.toml
+index 1cfd52e..caa2dc6 100644
+--- a/surrealdb/types/Cargo.toml
++++ b/surrealdb/types/Cargo.toml
+@@ -9,7 +9,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+diff --git a/surrealdb/types/derive/Cargo.toml b/surrealdb/types/derive/Cargo.toml
+index b023a6e..fee0ab7 100644
+--- a/surrealdb/types/derive/Cargo.toml
++++ b/surrealdb/types/derive/Cargo.toml
+@@ -7,7 +7,6 @@ edition.workspace = true
+ license-file.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ 
+@@ -24,3 +23,6 @@ syn = { version = "2.0", features = ["full", "extra-traits"] }
+ quote = "1.0"
+ proc-macro2 = "1.0"
+ heck = "0.4"
++
++[lints]
++workspace = true
+diff --git a/surrealism/Cargo.toml b/surrealism/Cargo.toml
+index 65bee99..892fdaa 100644
+--- a/surrealism/Cargo.toml
++++ b/surrealism/Cargo.toml
+@@ -5,7 +5,6 @@ edition.workspace = true
+ authors.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ license-file.workspace = true
+diff --git a/surrealism/demo/Cargo.toml b/surrealism/demo/Cargo.toml
+index d24e21e..d4ccded 100644
+--- a/surrealism/demo/Cargo.toml
++++ b/surrealism/demo/Cargo.toml
+@@ -6,7 +6,6 @@ publish = false
+ edition.workspace = true
+ authors.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ license-file.workspace = true
+diff --git a/surrealism/macros/Cargo.toml b/surrealism/macros/Cargo.toml
+index 25d8769..d0ca6e2 100644
+--- a/surrealism/macros/Cargo.toml
++++ b/surrealism/macros/Cargo.toml
+@@ -5,7 +5,6 @@ description = "Macros for Surrealism"
+ edition.workspace = true
+ authors.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ license-file.workspace = true
+diff --git a/surrealism/runtime/Cargo.toml b/surrealism/runtime/Cargo.toml
+index f009383..7100e6f 100644
+--- a/surrealism/runtime/Cargo.toml
++++ b/surrealism/runtime/Cargo.toml
+@@ -5,7 +5,6 @@ description = "Runtime for Surrealism"
+ edition.workspace = true
+ authors.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ license-file.workspace = true
+diff --git a/surrealism/types/Cargo.toml b/surrealism/types/Cargo.toml
+index 3bbfaba..6b2e05f 100644
+--- a/surrealism/types/Cargo.toml
++++ b/surrealism/types/Cargo.toml
+@@ -5,7 +5,6 @@ description = "Types for Surrealism"
+ edition.workspace = true
+ authors.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ license-file.workspace = true
+diff --git a/surrealml/core/Cargo.toml b/surrealml/core/Cargo.toml
+index 8e45564..6c07cdf 100644
+--- a/surrealml/core/Cargo.toml
++++ b/surrealml/core/Cargo.toml
+@@ -4,7 +4,6 @@ version = "0.3.4"
+ edition.workspace = true
+ description = "The core machine learning library for SurrealML that enables SurrealDB to store and load ML models"
+ repository.workspace = true
+-homepage.workspace = true
+ license-file.workspace = true
+ 
+ [features]
+@@ -31,3 +30,6 @@ tokio = { workspace = true, features = ["full"] }
+ [lib]
+ name = "surrealml_core"
+ path = "src/lib.rs"
++
++[lints]
++workspace = true
+diff --git a/Cargo.toml b/Cargo.toml
+index dcff584..ec0c608 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -60,11 +60,9 @@ members = [
+ authors = ["Tobie Morgan Hitchcock <tobie@surrealdb.com>"]
+ edition = "2024"
+ license-file = "LICENSE"
+-publish = false
+ version = "3.3.4"
+ description = "A scalable, distributed, collaborative, document-graph database, for the realtime web"
+ repository = "https://github.com/surrealdb/surrealdb"
+-homepage = "https://github.com/surrealdb/surrealdb"
+ keywords = [
+     "database",
+     "embedded-database",
+@@ -96,7 +94,6 @@ ast = { version = "3.3.4", package = "surrealdb-ast", path = "surrealdb/ast" }
+ token = { version = "3.3.4", package = "surrealdb-token", path = "surrealdb/token" }
+ parser = { version = "3.3.4", package = "surrealdb-parser", path = "surrealdb/parser" }
+ parse-common = { version = "3.3.4", package = "surrealdb-parse-common", path = "surrealdb/parse-common" }
+-sqon = { version = "3.3.4", package = "surrealdb-sqon", path = "surrealdb/sqon" }
+ common = { version = "3.3.4", package = "surrealdb-common", path = "surrealdb/common" }
+ surrealdb-cnf = { version = "3.3.4", path = "surrealdb/cnf" }
+ surrealdb-runtime = { version = "3.3.4", path = "surrealdb/runtime" }
+@@ -264,7 +261,6 @@ serde_json = "1.0.149"
+ serde-wasm-bindgen = "0.6.5"
+ sha1 = "0.10.6"
+ sha2 = "0.10.9"
+-snap = "1.1.1"
+ stringprep = "0.1"
+ strsim = "0.11.1"
+ subtle = "2.6"
+@@ -325,7 +321,6 @@ version.workspace = true
+ authors.workspace = true
+ description.workspace = true
+ repository.workspace = true
+-homepage.workspace = true
+ keywords.workspace = true
+ categories.workspace = true
+ license-file.workspace = true
+@@ -704,3 +699,6 @@ codegen-units = 16
+ 
+ [patch.crates-io]
+ diskann = { path = ".pse-deps/diskann" }
++
++[lints]
++workspace = true

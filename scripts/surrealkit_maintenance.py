@@ -127,7 +127,7 @@ def environment(
         if not key.startswith(("SURREAL", "DATABASE_"))
     }
     result.update(
-        SURREALDB_HOST=endpoint,
+        SURREALDB_HOST=surrealkit.grpc_endpoint(endpoint),
         SURREALDB_NAMESPACE=str(config["namespace"]),
         SURREALDB_NAME=str(config["database"]),
         SURREALDB_USER=str(credentials["username"]),
@@ -280,53 +280,6 @@ def predecessor_marker(state: Path, config: dict[str, object]) -> object:
     return marker
 
 
-def require_empty_cutover_target(
-    state: Path,
-    config: dict[str, object],
-    folder: Path,
-    selected_rollouts: list[str],
-    previous_marker: object,
-) -> None:
-    """Explicit design-phase schema replacement cannot operate on retained data.
-
-    An empty uninitialized target can carry only beta's exact bookkeeping rows.
-    Lifecycle exclusion and the authenticated maintenance listener already hold.
-    """
-    if not (folder / surreal_rollout_producer.REGISTER).exists():
-        if any((folder / "rollouts").glob("*/producer.json")):
-            raise MaintenanceError("Producer rollout requires immutable registration")
-        return
-    publication = surreal_rollout_producer.load(folder)
-    releases = cast("list[dict[str, object]]", publication["rollouts"])
-    if not any(
-        release["id"] in selected_rollouts and "cutover" in release
-        for release in releases
-    ):
-        return
-    if previous_marker is not None or predecessor_marker(state, config) is not None:
-        raise MaintenanceError(
-            "Design-phase v6 cutover requires a fresh empty uninitialized target; retained-data upgrade refused"
-        )
-    credentials = surreal_server.read_json(state / "credentials.json")
-    catalog = surreal_server.maintenance_catalog(state, config, credentials, "DB")
-    for table in sorted(surreal_server.object_mapping(catalog["tables"])):
-        if table in {"__entity", "__rollout"}:
-            continue
-        result = surreal_server.maintenance_query(
-            state,
-            config,
-            credentials,
-            # sql_identifier validates and quotes each catalog table name.
-            "LET $rows=(SELECT id FROM "  # noqa: S608
-            + surreal_server.sql_identifier(table)
-            + " LIMIT 1);",
-        )
-        if result.get("rows") != []:
-            raise MaintenanceError(
-                "Design-phase v6 cutover target has retained or unknown application rows; regenerate a fresh disposable target"
-            )
-
-
 def execute(
     binary: Path,
     state: Path,
@@ -341,7 +294,6 @@ def execute(
     if not math.isfinite(timeout) or timeout <= 0:
         raise MaintenanceError("Tool execution needs a finite positive clock")
     args = command(mode, rollout_id)
-    provenance = surrealkit.verify(binary)
     files, input_digest = inputs(folder)
     rollout_inventory = sorted(
         Path(name).stem
@@ -352,10 +304,15 @@ def execute(
         config = selected(state)
         owner = surreal_server.read_json(state / "lifecycle-owner.json")
         continuing = mode == "complete" and pending_nonce is not None
-        if mode in {"status", "repair"} or continuing:
+        resuming_prepared = mode in {"up", "start"} and pending_nonce is not None
+        if mode in {"status", "repair"} or continuing or resuming_prepared:
             if pending_nonce is None:
                 raise MaintenanceError("Recovery requires the exact pending nonce")
             value = pending(state, pending_nonce)
+            saved_tool = value.get("tool")
+            if not isinstance(saved_tool, dict):
+                raise MaintenanceError("Pending rollout tool provenance is absent")
+            provenance = surrealkit.verify_saved(binary, saved_tool)
             if value["tool"] != provenance:
                 raise MaintenanceError(
                     "Recovery tool provenance differs from submitted rollout"
@@ -365,6 +322,24 @@ def execute(
                 raise MaintenanceError(
                     "Recovery frozen input differs from submitted rollout"
                 )
+            if resuming_prepared and (
+                value.get("phase") != "prepared"
+                or value.get("sql_outcome") != "not_submitted"
+                or value.get("command") != args
+            ):
+                raise MaintenanceError(
+                    "Only the exact prepared, unsubmitted command may resume"
+                )
+            if (
+                value.get("phase") == "prepared"
+                and value.get("sql_outcome") == "not_submitted"
+            ):
+                # No toolkit SQL was dispatched. Transfer only this same nonce
+                # after the prior physical listener/children are authenticated
+                # drained; this is not permission to replay unknown SQL.
+                surreal_server.drain_maintenance_listener(state)
+                value["owner"] = owner
+                update(state, value)
             if mode == "repair":
                 if rollout_id not in cast("list[str]", value["rollouts"]):
                     raise MaintenanceError("Repair does not name a submitted rollout")
@@ -401,6 +376,7 @@ def execute(
                 raise MaintenanceError(
                     "Pending SQL requires exact settlement; blind replay refused"
                 )
+            provenance = surrealkit.verify(binary)
             nonce = uuid.uuid4().hex
             value: dict[str, object] = {
                 "kind": VERSION,
@@ -485,14 +461,6 @@ def execute(
                         "Original predecessor marker unavailable; activation refused"
                     )
                 value["previous_marker"] = predecessor_marker(state, config)
-            if mode not in {"status", "repair"}:
-                require_empty_cutover_target(
-                    state,
-                    config,
-                    snapshot,
-                    cast("list[str]", value["rollouts"]),
-                    value["previous_marker"],
-                )
             value["initializer"] = owner
             update(state, value)
             record["phase"] = "submitted"
@@ -561,7 +529,10 @@ def execute(
                 error=f"{type(error).__name__}: {error}",
                 child=observation,
             )
-            if mode not in {"status", "repair"}:
+            if (
+                mode not in {"status", "repair"}
+                and value.get("sql_outcome") != "not_submitted"
+            ):
                 value["phase"] = "unknown"
             raise
         finally:
@@ -945,7 +916,7 @@ def canonical_tool(
             ],
             {
                 **os.environ,
-                "SURREALDB_HOST": endpoint,
+                "SURREALDB_HOST": surrealkit.grpc_endpoint(endpoint),
                 "PSE_CANONICAL_INITIALIZER": str(owner["nonce"]),
             },
             cwd=surrealkit.ROOT,
@@ -1089,7 +1060,8 @@ def owned_child(
             surreal_server.read_json(state / ".maintenance-listener.json")
             != authority["listener"]
             or authority["endpoint"] != "http://127.0.0.1:" + str(config["port"])
-            or os.environ.get("SURREALDB_HOST") != authority["endpoint"]
+            or os.environ.get("SURREALDB_HOST")
+            != surrealkit.grpc_endpoint(str(authority["endpoint"]))
         ):
             raise MaintenanceError("Original maintenance listener binding changed")
 

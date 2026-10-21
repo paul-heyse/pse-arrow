@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    53u8, 191u8, 118u8, 243u8, 116u8, 175u8, 50u8, 78u8, 58u8, 179u8, 220u8, 60u8, 15u8,
-    246u8, 61u8, 33u8, 57u8, 88u8, 23u8, 140u8, 174u8, 126u8, 234u8, 122u8, 91u8, 9u8,
-    35u8, 163u8, 103u8, 238u8, 103u8, 95u8,
+    144u8, 168u8, 230u8, 68u8, 10u8, 5u8, 46u8, 60u8, 98u8, 147u8, 63u8, 66u8, 68u8,
+    17u8, 161u8, 113u8, 191u8, 70u8, 62u8, 66u8, 151u8, 250u8, 33u8, 207u8, 45u8, 52u8,
+    58u8, 175u8, 146u8, 58u8, 144u8, 42u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalRunsRow {
     fn append(
@@ -113,7 +113,7 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalRunsRow {
             String,
         > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         <Option<
-            String,
+            crate::generated::enums::CanonicalTerminalOutcome,
         > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
         output.append(false);
         Ok(())
@@ -182,7 +182,7 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalRunsRow {
                 index,
             )?,
             r#terminal_class: <Option<
-                String,
+                crate::generated::enums::CanonicalTerminalOutcome,
             > as crate::columnar::ArrowValue>::read(
                 input.column(13usize).as_ref(),
                 index,
@@ -397,7 +397,7 @@ impl crate::columnar::RelationRow for RuntimeCanonicalRunsRow {
             if let Some(value) = (self.r#terminal_class).as_ref() {
                 crate::columnar::allocation_add(
                     1,
-                    crate::columnar::allocation_add(8, (value).len())?,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
                 )
             } else {
                 Ok::<usize, crate::RelationError>(1)

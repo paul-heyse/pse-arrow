@@ -37,6 +37,24 @@ SPDX-FileCopyrightText = [
 SPDX-License-Identifier = "LicenseRef-SurrealDB-BSL-3.0"
 
 [[annotations]]
+path = ["scripts/surrealdb-source/*.patch"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2025 SurrealDB Limited",
+  "2026 Paul Heyse (canonical server integration additions)",
+]
+SPDX-License-Identifier = "LicenseRef-SurrealDB-BSL-3.0"
+
+[[annotations]]
+path = ["scripts/surrealdb-source/diskann-0.56.0.patch"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "Microsoft Corporation",
+  "2026 Paul Heyse (compiler compatibility integration)",
+]
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = ["docker/solvers/uno-pse.patch"]
 precedence = "override"
 SPDX-FileCopyrightText = [
@@ -83,7 +101,7 @@ path = [
   ".agents/**",
   "docs/**",
   "packages/**",
-  "database/canonical-rollout/**",
+  "database/canonical-schema/**",
   "tests/golden/**",
   "tests/fixtures/**",
   "tests/conformance/fixtures/**",

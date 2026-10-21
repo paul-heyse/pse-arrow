@@ -463,6 +463,26 @@ impl Operations {
         reason = "current recovery authority records truthful worker loss; never promotes arbitrary rows to scientific success"
     )]
     pub async fn recover(&self, run: &str, operation: &str) -> Result<Recovery, WorkflowError> {
+        self.recover_with_study_point(run, operation, None).await
+    }
+
+    /// Admit occurrence-specific absence only from its refreshed post-fence dispatch facts.
+    pub(super) async fn recover_study_point(
+        &self,
+        run: &str,
+        operation: &str,
+        point: &str,
+    ) -> Result<Recovery, WorkflowError> {
+        self.recover_with_study_point(run, operation, Some(point))
+            .await
+    }
+
+    async fn recover_with_study_point(
+        &self,
+        run: &str,
+        operation: &str,
+        point_key: Option<&str>,
+    ) -> Result<Recovery, WorkflowError> {
         let activity = self.store().admit_activity()?;
         activity
             .scope(async {
@@ -492,20 +512,30 @@ impl Operations {
                 )
                 .await?
                 .ok_or_else(|| contract("recovery attempt header absent"))?;
-                if actual.terminal {
+                if actual.terminal() {
                     return Ok(Recovery {
                         recovered: vec![actual.key],
                     });
                 }
                 let closed = self.store.recover_closed_attempt(run, operation).await?;
+                if closed.fence().run() != run
+                    || closed.fence().attempt() != actual.key.as_str()
+                    || closed.fence().generation() != actual.generation
+                {
+                    return Err(contract(
+                        "recovered writer differs from the observed exact attempt",
+                    ));
+                }
                 let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
                 hash.str("scientific.attempt.lineage.v1")
                     .str(closed.fence().attempt());
                 let attempt_id = AttemptId::from_id(hash.finish_id());
                 let error = WorkflowError::Canonical(
-                    pse_operations::canonical::CanonicalError::Configuration(
-                        "worker authority expired before durable scientific completion".into(),
-                    ),
+                    pse_operations::canonical::CanonicalError::WorkerLost {
+                        run: run.to_owned(),
+                        attempt: actual.key.clone(),
+                        generation: actual.generation,
+                    },
                 );
                 let response = pooled_response_owner(
                     &self.pool,
@@ -518,22 +548,62 @@ impl Operations {
                 )
                 .await?
                 .ok_or_else(|| contract("recovered run absent"))?;
-                let cancelled = if current.cancelled {
-                    true
-                } else {
+                let response = pooled_response_owner(
+                    &self.pool,
+                    "canonical:recovery-study-response",
+                    pse_operations::canonical::MetadataResponse::Selection,
+                )?;
+                let summary = pse_operations::canonical::response_ownership_scope(
+                    response,
+                    self.store.canonical_study_for_run(run),
+                )
+                .await?;
+                let cancelled =
+                    current.cancelled || summary.as_ref().is_some_and(|study| study.cancelled);
+                let mut outcome = failure(&error, cancelled);
+                if let Some(owner) = actual.finalization_study.as_deref() {
+                    if !summary
+                        .as_ref()
+                        .is_some_and(|study| study.key == owner && study.run == run)
+                    {
+                        return Err(contract("recovery summary authority association differs"));
+                    }
+                    // This immutable capability admits only summary publication,
+                    // never a scientific dispatch. Its recovery fence is now closed.
+                    outcome.detail.effect = pse_model::study::EffectState::Absent;
+                } else if let Some(point_key) = point_key {
                     let response = pooled_response_owner(
                         &self.pool,
-                        "canonical:recovery-study-response",
+                        "canonical:recovery-point-response",
                         pse_operations::canonical::MetadataResponse::Selection,
                     )?;
-                    pse_operations::canonical::response_ownership_scope(
-                        response,
-                        self.store.canonical_study_for_run(run),
-                    )
-                    .await?
-                    .is_some_and(|study| study.cancelled)
-                };
-                let mut outcome = failure(&error, cancelled);
+                    let (point, frozen, _study, owner) =
+                        pse_operations::canonical::response_ownership_scope(
+                            response,
+                            self.store.recovery_snapshot(point_key),
+                        )
+                        .await?;
+                    if point.run != run
+                        || point.attempt.as_deref() != Some(actual.key.as_str())
+                        || frozen.key != actual.key
+                        || frozen.run != run
+                        || frozen.generation != actual.generation
+                        || frozen.ingestion_open()
+                        || owner.current_attempt.as_deref() != Some(actual.key.as_str())
+                        || frozen.close_generation != Some(owner.current_generation)
+                        || owner.current_generation <= actual.generation
+                    {
+                        return Err(contract(
+                            "recovery point does not name the exact fenced attempt",
+                        ));
+                    }
+                    // Refresh after freezing the writer: a native-start transaction
+                    // racing before the fence must be visible here; one racing after
+                    // it cannot commit under the old execution-run generation.
+                    if !pse_operations::canonical_studies::point_facts(&point)?.native_started {
+                        outcome.detail.effect = pse_model::study::EffectState::Absent;
+                    }
+                }
                 outcome.retryable = true;
                 outcome.detail.retry_failure = Some(pse_model::study::RetryFailure::Transient);
                 let stored = StoredCompletion {
@@ -1713,7 +1783,7 @@ impl DurableAttempt {
                 super::diagnostics::operation_context(error.into(), "durable.terminate.attempt")
             })?
             .ok_or_else(|| contract("completion attempt absent"))?;
-        if current.terminal {
+        if current.terminal() {
             let _ = self.stop_heartbeat().await;
             return self
                 .operations
@@ -1743,7 +1813,7 @@ impl DurableAttempt {
             None => completion_copy_owner(&self.operations.pool, &stored)?,
         };
         let bytes = serde_json::to_vec(&stored).map_err(|e| contract(e.to_string()))?;
-        let mut receipt = if stored.state == AttemptState::Cancelled || !current.ingestion_open {
+        let mut receipt = if stored.state == AttemptState::Cancelled || !current.ingestion_open() {
             inline_completion(stored.clone())
         } else {
             #[cfg(all(test, feature = "canonical-tests"))]
@@ -2078,23 +2148,36 @@ fn failure(error: &WorkflowError, cancelled: bool) -> Outcome {
             error,
             WorkflowError::Math(crate::math::MathRuntimeError::Cancelled)
         );
-    let retryable = matches!(
-        error,
-        WorkflowError::Canonical(_)
-            | WorkflowError::Math(crate::math::MathRuntimeError::Infrastructure(_))
-    );
+    let retryable = matches!(error, WorkflowError::Canonical(error) if error.retryable())
+        || matches!(
+            error,
+            WorkflowError::Math(crate::math::MathRuntimeError::Infrastructure(_))
+        );
+    let infrastructure = matches!(error, WorkflowError::Canonical(error) if error.is_infrastructure())
+        || matches!(
+            error,
+            WorkflowError::Math(crate::math::MathRuntimeError::Infrastructure(_))
+        );
+    let cause = if infrastructure {
+        TerminationCause::Infrastructure {
+            diagnostic: error.boundary_diagnostic(),
+        }
+    } else {
+        TerminationCause::Error {
+            diagnostic: error.boundary_diagnostic(),
+        }
+    };
+    let mut detail = detail(cause, retryable);
+    if matches!(error, WorkflowError::Canonical(_)) {
+        detail.effect = pse_model::study::EffectState::Unknown;
+    }
     Outcome {
         state: if cancelled {
             AttemptState::Cancelled
         } else {
             AttemptState::Failed
         },
-        detail: detail(
-            TerminationCause::Error {
-                diagnostic: error.boundary_diagnostic(),
-            },
-            retryable,
-        ),
+        detail,
         retryable,
     }
 }
@@ -4337,7 +4420,7 @@ mod canonical_durable_codec {
             let started = std::time::Instant::now();
             let record = attempt.finish(&result, false).await;
             let export_us = started.elapsed().as_micros();
-            assert!(record.attempt.as_ref().unwrap().terminal && record.manifest.is_some());
+            assert!(record.attempt.as_ref().unwrap().terminal() && record.manifest.is_some());
             assert!(record.completion.as_ref().unwrap().completion.is_some());
             samples.push((native_us, export_us));
             retained = Some(result);
@@ -4416,11 +4499,11 @@ mod canonical_durable_codec {
                 "useful native work can finish while another joined export waits"
             );
             assert!(
-                !pending.unwrap().unwrap().terminal,
+                !pending.unwrap().unwrap().terminal(),
                 "a gated export is not an acknowledged terminal attempt"
             );
             if index == 0 {
-                assert!(record.attempt.as_ref().unwrap().terminal);
+                assert!(record.attempt.as_ref().unwrap().terminal());
             } else {
                 assert!(record.attempt.is_err() && record.manifest.is_none());
             }
@@ -4619,7 +4702,7 @@ mod canonical_durable_codec {
                 .unwrap()
                 .unwrap();
             assert_eq!(retained.generation, fence.generation());
-            assert!(retained.closed && !retained.ingestion_open);
+            assert!(retained.closed() && !retained.ingestion_open());
             assert!(
                 operations.store.mark_study_started(&claim).await.is_err(),
                 "cancellation cannot redispatch this native start"
@@ -4641,7 +4724,9 @@ mod canonical_durable_codec {
                 };
                 assert!(Arc::ptr_eq(cause, &unrelated));
                 assert!(
-                    !retained.terminal && record.manifest.is_none() && record.completion.is_none()
+                    !retained.terminal()
+                        && record.manifest.is_none()
+                        && record.completion.is_none()
                 );
                 assert!(record.solutions.is_empty());
                 let error = point_runtime
@@ -4669,13 +4754,19 @@ mod canonical_durable_codec {
                 );
             } else {
                 assert!(
-                    retained.terminal,
+                    retained.terminal(),
                     "case {index}, phase {phase:?}: {:?}",
                     record.attempt
                 );
                 assert_eq!(record.attempt.as_ref().unwrap().key, fence.attempt());
                 assert_eq!(
-                    record.attempt.as_ref().unwrap().outcome.as_deref(),
+                    record
+                        .attempt
+                        .as_ref()
+                        .unwrap()
+                        .outcome
+                        .as_ref()
+                        .map(|value| value.as_str()),
                     Some("cancelled")
                 );
                 let stored = record.completion.as_ref().unwrap();
@@ -4941,7 +5032,13 @@ mod canonical_durable_codec {
         let record = attempt.terminate(stored.clone()).await.unwrap();
         assert_eq!(record.attempt_id, attempt_id);
         assert_eq!(
-            record.attempt.as_ref().unwrap().outcome.as_deref(),
+            record
+                .attempt
+                .as_ref()
+                .unwrap()
+                .outcome
+                .as_ref()
+                .map(|value| value.as_str()),
             Some("cancelled")
         );
         assert!(record.completion.as_ref().unwrap().completion.is_none());
@@ -5133,8 +5230,11 @@ mod canonical_durable_codec {
         let record = attempt.abandon(&Arc::new(refusal.into())).await;
         let terminal = record.attempt.as_ref().unwrap();
         assert_eq!(terminal.key, fence.attempt());
-        assert!(terminal.terminal && terminal.closed && !terminal.ingestion_open);
-        assert_eq!(terminal.outcome.as_deref(), Some("cancelled"));
+        assert!(terminal.terminal() && terminal.closed() && !terminal.ingestion_open());
+        assert_eq!(
+            terminal.outcome.as_ref().map(|value| value.as_str()),
+            Some("cancelled")
+        );
         assert_eq!(record.attempt_id, attempt_id);
         assert!(record.completion.as_ref().unwrap().completion.is_none());
         assert!(record.solutions.is_empty());
@@ -5220,7 +5320,7 @@ mod canonical_durable_codec {
                 .await
                 .unwrap()
                 .unwrap()
-                .terminal
+                .terminal()
         );
     }
     #[tokio::test]
@@ -5265,7 +5365,7 @@ mod canonical_durable_codec {
                     .await
                     .unwrap()
                     .unwrap();
-                assert!(actual.closed && !actual.ingestion_open && !actual.terminal);
+                assert!(actual.closed() && !actual.ingestion_open() && !actual.terminal());
                 assert!(actual.closed_manifest.is_some());
                 if final_failure != 0 {
                     final_operations
@@ -5302,7 +5402,7 @@ mod canonical_durable_codec {
                         .await
                         .unwrap()
                         .unwrap()
-                        .terminal
+                        .terminal()
                 );
             } else {
                 let record = settled.unwrap();
@@ -5311,7 +5411,7 @@ mod canonical_durable_codec {
                     record.attempt.as_ref().unwrap().generation,
                     fence.generation()
                 );
-                assert!(record.attempt.as_ref().unwrap().terminal);
+                assert!(record.attempt.as_ref().unwrap().terminal());
                 assert!(record.completion.as_ref().unwrap().completion.is_some());
                 assert_eq!(
                     serde_json::to_value(&record.completion.as_ref().unwrap().completion).unwrap(),
@@ -5423,7 +5523,7 @@ mod canonical_durable_codec {
             .unwrap()
             .unwrap();
         assert!(
-            !retained.terminal
+            !retained.terminal()
                 && retained.closed_manifest.is_none()
                 && retained.seed_manifest.is_none()
         );
@@ -5505,7 +5605,7 @@ mod canonical_durable_codec {
             .unwrap()
             .unwrap();
         assert!(
-            !retained.terminal
+            !retained.terminal()
                 && retained.closed_manifest.is_none()
                 && retained.seed_manifest.is_none()
         );
@@ -5606,8 +5706,8 @@ mod canonical_durable_codec {
             .await
             .unwrap()
             .unwrap();
-        assert!(!retained.ingestion_open);
-        assert!(!retained.terminal);
+        assert!(!retained.ingestion_open());
+        assert!(!retained.terminal());
         assert!(retained.closed_manifest.is_none());
         assert!(
             operations
@@ -6406,5 +6506,60 @@ mod seed_allocation_tests {
                 serde_json::to_value(&document.warm).unwrap()
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod typed_store_failure_unit {
+    use super::*;
+    #[test]
+    fn lost_worker_is_infrastructure_and_never_fabricates_effect_absence() {
+        let error =
+            WorkflowError::Canonical(pse_operations::canonical::CanonicalError::WorkerLost {
+                run: "run".into(),
+                attempt: "attempt".into(),
+                generation: 7,
+            });
+        for cancelled in [false, true] {
+            let outcome = failure(&error, cancelled);
+            assert_eq!(
+                outcome.state,
+                if cancelled {
+                    AttemptState::Cancelled
+                } else {
+                    AttemptState::Failed
+                }
+            );
+            assert!(matches!(
+                outcome.detail.cause,
+                TerminationCause::Infrastructure { .. }
+            ));
+            assert!(outcome.retryable);
+            assert_eq!(
+                outcome.detail.effect,
+                pse_model::study::EffectState::Unknown
+            );
+        }
+    }
+    #[test]
+    fn a_refused_store_statement_does_not_prove_global_scientific_effect_absence() {
+        use pse_operations::canonical::{CanonicalError, FailureEffect, RefusalCode};
+        let code = RefusalCode::ExecutionAttemptFenceRevoked;
+        let error = WorkflowError::Canonical(CanonicalError::Refused {
+            code,
+            class: code.class(),
+            stage: "seal",
+            effect: FailureEffect::StatementRefused,
+        });
+        let outcome = failure(&error, false);
+        assert!(matches!(
+            outcome.detail.cause,
+            TerminationCause::Error { .. }
+        ));
+        assert!(!outcome.retryable);
+        assert_eq!(
+            outcome.detail.effect,
+            pse_model::study::EffectState::Unknown
+        );
     }
 }

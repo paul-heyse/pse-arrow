@@ -12,7 +12,7 @@
 [package]
 edition = "2024"
 name = "surrealdb"
-version = "3.3.0"
+version = "3.3.4"
 authors = ["Tobie Morgan Hitchcock <tobie@surrealdb.com>"]
 build = "build.rs"
 publish = true
@@ -22,7 +22,6 @@ autoexamples = false
 autotests = false
 autobenches = false
 description = "A scalable, distributed, collaborative, document-graph database, for the realtime web"
-homepage = "https://github.com/surrealdb/surrealdb"
 documentation = "https://docs.rs/surrealdb/"
 readme = "CARGO.md"
 keywords = [
@@ -117,10 +116,12 @@ protocol-grpc = [
     "tokio/time",
 ]
 protocol-http = [
+    "dep:boxcar",
     "dep:reqwest",
     "surrealdb-types/reqwest",
 ]
 protocol-ws = [
+    "dep:boxcar",
     "dep:tokio-tungstenite",
     "tokio/time",
 ]
@@ -178,10 +179,14 @@ harness = false
 [dependencies.anyhow]
 version = "=1.0.104"
 
+[dependencies.bytes]
+version = "=1.12.1"
+
 [dependencies.async-channel]
 version = "=2.5.0"
 
 [dependencies.boxcar]
+optional = true
 version = "=0.2.14"
 
 [dependencies.chrono]
@@ -225,34 +230,34 @@ features = ["derive"]
 version = "=1.0.151"
 
 [dependencies.surrealdb-engine-api]
-version = "=3.3.0"
+version = "=3.3.4"
 path = "../surrealdb-engine-api"
 
 [dependencies.surrealdb-engine-local]
-version = "3.3.0"
+version = "3.3.4"
 optional = true
 default-features = false
 
 [dependencies.surrealdb-iam]
-version = "=3.3.0"
+version = "=3.3.4"
 
 [dependencies.surrealdb-kvs]
-version = "3.3.0"
+version = "3.3.4"
 optional = true
 
 [dependencies.surrealdb-rpc]
-version = "=3.3.0"
+version = "=3.3.4"
 
 [dependencies.surrealdb-syn]
-version = "3.3.0"
+version = "3.3.4"
 optional = true
 
 [dependencies.surrealdb-types]
-version = "=3.3.0"
+version = "=3.3.4"
 features = ["convert"]
 
 [dependencies.surrealdb-types-derive]
-version = "=3.3.0"
+version = "=3.3.4"
 features = ["sdk-path"]
 
 [dependencies.tokio-util]
@@ -298,10 +303,10 @@ version = "0.26"
 version = "3.4"
 
 [dev-dependencies.surrealdb-cnf]
-version = "3.3.0"
+version = "3.3.4"
 
 [dev-dependencies.surrealdb-syn]
-version = "3.3.0"
+version = "3.3.4"
 
 [dev-dependencies.temp-dir]
 version = "0.2"
@@ -354,6 +359,7 @@ version = "=1.53.2"
 features = [
     "macros",
     "io-util",
+    "net",
     "io-std",
     "fs",
     "rt-multi-thread",
@@ -366,6 +372,23 @@ default-features = false
 version = "=0.28.0"
 features = ["url"]
 optional = true
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies.http]
+version = "=1.5.0"
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies.http-body]
+version = "=1.1.0"
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies.hyper]
+version = "=1.11.1"
+features = ["client", "http2"]
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies.hyper-util]
+version = "=0.1.21"
+features = ["tokio"]
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies.tower-service]
+version = "=0.3.3"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies.tonic]
 version = "0.14.5"
@@ -481,6 +504,3 @@ check-cfg = [
 ]
 
 [workspace]
-
-[dependencies.flatbuffers]
-version = "=25.12.19"

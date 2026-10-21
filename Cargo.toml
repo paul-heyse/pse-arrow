@@ -153,10 +153,10 @@ pyo3-introspection = "=0.29.2"
 surrealdb-protocol = { version = "=0.13.1", default-features = false, features = [
   "flatbuffers",
 ] }
-surrealdb-syn = "=3.3.0"
-surrealdb-sql = "=3.3.0"
-surrealdb = { version = "=3.3.0", path = "vendor/surrealdb", default-features = false, features = [
-  "protocol-ws",
+surrealdb-syn = "=3.3.4"
+surrealdb-sql = "=3.3.4"
+surrealdb = { version = "=3.3.4", path = "vendor/surrealdb", default-features = false, features = [
+  "protocol-grpc",
   "rustls",
 ] }
 tokio = { version = "=1.53.2", default-features = false, features = [
@@ -170,7 +170,6 @@ tokio = { version = "=1.53.2", default-features = false, features = [
 tokio-util = { version = "=0.7.19", default-features = false, features = [
   "rt",
 ] }
-tokio-tungstenite = "=0.28.0"
 tracing = "=0.1.44"
 datafusion-tracing = "=55.0.0"
 instrumented-object-store = "=55.0.0"
@@ -191,6 +190,13 @@ schemars = "=1.2.2"
 # cannot be constructed or decoded. `derive_unchecked` carries the schemars 1.x derive,
 # whose field attribute states the constraint in the schema.
 nutype = { version = "=0.8.0", features = ["serde", "derive_unchecked"] }
+# Owned HTTP/2 peer and byte-body lifecycle integration.
+http = "=1.5.0"
+http-body = "=1.1.0"
+http-body-util = "=0.1.5"
+hyper = { version = "=1.11.1", features = ["client", "server", "http2"] }
+hyper-util = { version = "=0.1.21", features = ["tokio"] }
+base64 = "=0.22.1"
 bytes = "=1.12.1"
 chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 serde-saphyr = "=1.3.0"

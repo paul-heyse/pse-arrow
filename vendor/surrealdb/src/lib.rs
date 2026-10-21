@@ -236,6 +236,7 @@ struct Inner {
     router: OnceLock<Router>,
     waiter: Waiter,
     session_clone: SessionClone,
+    bounded_session: OnceLock<Uuid>,
 }
 
 impl Inner {
@@ -245,6 +246,7 @@ impl Inner {
             .get()
             .is_some_and(|router| router.config.bounded_requests)
         {
+            let _ = self.bounded_session.set(old);
             return;
         }
         self.session_clone
@@ -272,6 +274,9 @@ where
 {
     fn from(inner: Arc<Inner>) -> Self {
         let session_id = Uuid::new_v4();
+        if inner.router.get().is_some_and(|router| router.config.bounded_requests) {
+            let _ = inner.bounded_session.set(session_id);
+        }
         inner
             .session_clone
             .sender
@@ -295,6 +300,7 @@ where
             router,
             waiter,
             session_clone,
+            bounded_session: OnceLock::new(),
         })
         .into()
     }
@@ -383,6 +389,10 @@ where
     C: Connection,
 {
     fn drop(&mut self) {
+        if self.inner.router.get().is_some_and(|router| router.config.bounded_requests)
+            && self.inner.bounded_session.get().is_some_and(|owner| *owner != self.session_id) {
+            return;
+        }
         self.inner
             .session_clone
             .sender

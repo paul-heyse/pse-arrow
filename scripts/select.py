@@ -8,6 +8,8 @@ intersected with ``package(...)`` over the requested package set. A filter that 
 bare test-path word (``numerics``, ``a::b``) becomes
 ``test(word)``; every other expression passes through unchanged. ``workspace`` selects
 across the workspace's libraries with the same filter rule and no package intersection.
+``integration <package> <target> [args...]`` retains one named integration binary and
+uses the same runner, test stack policy and terminal ownership as unit execution.
 
 The effective command is printed before it runs. An empty selection still fails, as
 nextest decides. ``PSE_NEXTEST_ACTION`` (default ``run --no-fail-fast``) chooses the
@@ -81,6 +83,23 @@ def workspace(
     ]
 
 
+def integration(
+    package: str, target: str, args: Sequence[str], *, features: Sequence[str] = ()
+) -> list[str]:
+    return [
+        "cargo",
+        "nextest",
+        *nextest_action(),
+        "-p",
+        package,
+        "--test",
+        target,
+        "--locked",
+        *(["--features", ",".join(features)] if features else []),
+        *args,
+    ]
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     effects = "canonical"
@@ -108,10 +127,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         command = unit(argv[1], argv[2], argv[3:], features=features)
     elif argv[:1] == ["workspace"] and len(argv) >= 2:
         command = workspace(argv[1], argv[2:], features=features)
+    elif argv[:1] == ["integration"] and len(argv) >= 3:
+        command = integration(argv[1], argv[2], argv[3:], features=features)
     else:
         print(
             "usage: select.py [--features F] unit <package> <filter> [args...] | "
-            "workspace <filter> [args...]",
+            "workspace <filter> [args...] | integration <package> <target> [args...]",
             file=sys.stderr,
         )
         return 2

@@ -801,7 +801,13 @@ async fn horizon_records_one_durable_attempt() {
         panic!("ephemeral horizon")
     };
     assert_eq!(
-        record.attempt.as_ref().unwrap().outcome.as_deref(),
+        record
+            .attempt
+            .as_ref()
+            .unwrap()
+            .outcome
+            .as_ref()
+            .map(|value| value.as_str()),
         Some("succeeded")
     );
     assert_eq!(
@@ -2025,7 +2031,13 @@ async fn compact_multi_step_horizon_seals_one_original_completion_and_seed_inven
         panic!("durable horizon required")
     };
     assert_eq!(
-        record.attempt.as_ref().unwrap().outcome.as_deref(),
+        record
+            .attempt
+            .as_ref()
+            .unwrap()
+            .outcome
+            .as_ref()
+            .map(|value| value.as_str()),
         Some("succeeded")
     );
     assert_eq!(

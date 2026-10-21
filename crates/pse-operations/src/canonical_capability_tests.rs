@@ -100,6 +100,10 @@ impl Endpoint {
             "canonical_attempts" => {
                 row.insert("run", Value::String(key.into()));
             }
+            "canonical_study_points" => {
+                row.insert("study", Value::String(key.into()));
+                row.insert("run", Value::String(key.into()));
+            }
             _ => {}
         }
         row
@@ -224,6 +228,32 @@ async fn selected_enforced_relations_refuse_each_missing_endpoint_and_accept_sam
         )
         .await
         .unwrap();
+    let points = (0..2)
+        .map(|key| NewOccurrence {
+            policy: PointPolicy {
+                key: OccurrenceKey(key),
+                dependencies: vec![],
+                start: StartPolicy::Fresh,
+                seed_need: SeedNeed::NotNeeded,
+                attempt_limit: 1,
+            },
+            descriptor: vec![42],
+            run: request(&revision, &format!("endpoint-point-{key}")),
+        })
+        .collect::<Vec<_>>();
+    store
+        .create_study(
+            "endpoint-study",
+            &request(&revision, "endpoint-parent"),
+            &[9],
+            &points,
+            &|| false,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let dependent = point_key("endpoint-study", OccurrenceKey(0));
+    let predecessor = point_key("endpoint-study", OccurrenceKey(1));
     let cases = [
         RelationCase {
             table: "canonical_memberships",
@@ -288,6 +318,23 @@ async fn selected_enforced_relations_refuse_each_missing_endpoint_and_accept_sam
                 run: "run".into(),
                 revision: revision.key.clone(),
             })
+            .unwrap(),
+        },
+        RelationCase {
+            table: "canonical_study_dependencies",
+            source_field: "dependent",
+            target_field: "predecessor",
+            source: endpoint(&store, "canonical_study_points", &dependent).await,
+            target: endpoint(&store, "canonical_study_points", &predecessor).await,
+            row: wire::encode_canonical_study_dependencies(
+                &pse_model::generated::runtime::canonical_study_dependencies::Row {
+                    key: "control".into(),
+                    study: "endpoint-study".into(),
+                    dependent: dependent.clone(),
+                    predecessor: predecessor.clone(),
+                    kind: "ordering".into(),
+                },
+            )
             .unwrap(),
         },
     ];
@@ -359,11 +406,11 @@ async fn selected_enforced_relations_refuse_each_missing_endpoint_and_accept_sam
 }
 
 #[tokio::test]
-async fn reverse_study_dag_crosses_native_ingestion_page_without_requiring_future_endpoints() {
+async fn reverse_study_dag_installs_all_endpoints_before_enforced_edges() {
     let store = fixture().await;
     let revision = store.edit("problem", None, "source", &[]).await.unwrap();
-    // Authoring order is independent of dependency order. The first transaction
-    // stores a dependency on an occurrence whose endpoint arrives in page two.
+    // Authoring order is independent of dependency order. Occurrence nodes in
+    // both pages precede installation of enforced cross-page dependency edges.
     let points = (0..65)
         .map(|key| NewOccurrence {
             policy: PointPolicy {
@@ -390,6 +437,8 @@ async fn reverse_study_dag_crosses_native_ingestion_page_without_requiring_futur
     assert!(study.active && !study.cancelled);
     assert_eq!(study.point_count, 65);
     assert_eq!(study.next_ordinal, 65);
+    assert_eq!(study.dependency_count, 64);
+    assert_eq!(study.installed_dependencies, 64);
     let first = store.study_point_page("reverse", None).await.unwrap();
     assert_eq!(first.len(), 64);
     let second = store
@@ -753,5 +802,97 @@ async fn native_canonical_interval_dereference_and_supplier_plans_report_access_
             full.to_sql()
         );
     }
+    store.remove_isolated_fixture().await.unwrap();
+}
+
+#[tokio::test]
+async fn native_record_id_pages_preserve_exclusive_cursor_and_exact_identity() {
+    let store = fixture().await;
+    let expected = (0..70)
+        .map(|index| format!("record-page-{index:04}"))
+        .collect::<Vec<_>>();
+    for key in &expected {
+        bounded_query(store.db.query("CREATE ONLY type::record('canonical_guards',$key) SET key=$key,generation=0dec;").bind(("key",key.clone()))).await.unwrap();
+    }
+    for suffix in ["EXPLAIN", "EXPLAIN FULL"] {
+        let mut response = bounded_query(
+            store
+                .db
+                .query(format!(
+                    "SELECT key FROM $page ORDER BY id LIMIT 17 {suffix};"
+                ))
+                .bind((
+                    "page",
+                    codec::record_page("canonical_guards", "record-page-0016"),
+                )),
+        )
+        .await
+        .unwrap();
+        eprintln!(
+            "native-record-range-{suffix}: {}",
+            response.take::<Value>(0).unwrap().to_sql()
+        );
+    }
+    let mut cursor = String::new();
+    let mut actual = Vec::new();
+    loop {
+        let mut result = bounded_query(
+            store
+                .db
+                .query("SELECT key FROM $page ORDER BY id LIMIT 17;")
+                .bind(("page", codec::record_page("canonical_guards", &cursor))),
+        )
+        .await
+        .unwrap();
+        let rows = result.take::<Vec<Object>>(0).unwrap();
+        if rows.is_empty() {
+            break;
+        }
+        assert!(rows.len() <= 17);
+        for mut row in rows {
+            let key = codec::decode_string(codec::required(&mut row, "key").unwrap()).unwrap();
+            assert!(key > cursor);
+            cursor = key.clone();
+            actual.push(key);
+        }
+    }
+    assert_eq!(actual, expected);
+    for sql in [
+        "CREATE canonical_guards:wrong SET key='other',generation=0dec;",
+        "UPSERT canonical_guards:wrong SET key='other',generation=0dec;",
+        "INSERT INTO canonical_guards {id:canonical_guards:wrong,key:'other',generation:0dec};",
+    ] {
+        let mismatched = bounded_query(store.db.query(sql)).await.unwrap_err();
+        assert!(matches!(mismatched, CanonicalError::Driver(_)));
+    }
+    bounded_query(store.db.query(
+        "CREATE canonical_guards:exact SET key='exact',generation=18446744073709551615dec;",
+    ))
+    .await
+    .unwrap();
+    let mut exact = bounded_query(
+        store
+            .db
+            .query("SELECT VALUE generation FROM ONLY canonical_guards:exact;"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        codec::decode_uint(exact.take::<Value>(0).unwrap()).unwrap(),
+        u64::MAX
+    );
+    let duplicate=bounded_query(store.db.query("INSERT INTO canonical_guards {id:canonical_guards:exact,key:'exact',generation:0dec} ON DUPLICATE KEY UPDATE key='other';")).await.unwrap_err();
+    assert!(matches!(duplicate, CanonicalError::Driver(_)));
+    let mut exact = bounded_query(
+        store
+            .db
+            .query("SELECT VALUE generation FROM ONLY canonical_guards:exact;"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        codec::decode_uint(exact.take::<Value>(0).unwrap()).unwrap(),
+        u64::MAX
+    );
     store.remove_isolated_fixture().await.unwrap();
 }

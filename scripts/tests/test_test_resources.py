@@ -132,7 +132,7 @@ class TestResourceTests(unittest.TestCase):
         for change in (
             {"instance_id": "new-generation"},
             {"namespace": "new_namespace"},
-            {"endpoint": "ws://127.0.0.1:2"},
+            {"endpoint": "grpc://127.0.0.1:2"},
         ):
             updated = {**self.config, **change}
             with (
@@ -189,7 +189,7 @@ class TestResourceTests(unittest.TestCase):
 
     def test_demand_startup_precedes_borrow_publication_and_service_gate(self) -> None:
 
-        self.config.update(profile_version=2, parked=False)
+        self.config.update(profile_version=3, parked=False)
 
         def startup(state: Path, _config: dict[str, object]) -> None:
             self.assertEqual(resources.resource_status(), {})
@@ -211,7 +211,7 @@ class TestResourceTests(unittest.TestCase):
 
     def test_parked_demand_without_actual_owner_never_publishes_borrow(self) -> None:
 
-        self.config.update(profile_version=2, parked=True)
+        self.config.update(profile_version=3, parked=True)
         with (
             patch.object(surreal_server, "unpark_service") as unpark,
             self.assertRaisesRegex(resources.ResourceError, "actual admitted owner"),
@@ -469,7 +469,7 @@ class TestResourceTests(unittest.TestCase):
         config = {
             "credentials_file": str(credentials),
             "server": {"binary": "/unused/control-cli"},
-            "endpoint": "ws://127.0.0.1:1",
+            "endpoint": "grpc://127.0.0.1:1",
             "namespace": "pse",
         }
         record = {"state": str(self.state), "database": "canonical_test_" + "a" * 32}
@@ -1288,6 +1288,26 @@ class TestResourceTests(unittest.TestCase):
             self.assertEqual(resources.reclaim_reports(), [])
             self.assertFalse((directory / "run.log").exists())
         self.assertTrue((directory / "checks.json").exists())
+
+    def test_cleanup_sweep_retains_rejected_service_and_continues(self) -> None:
+        first, _ = self.report("retired-service")
+        second, _ = self.report("next-report")
+        with patch.object(
+            resources,
+            "reclaim",
+            side_effect=[
+                surreal_server.SupervisorError("retired service profile"),
+                "removed",
+            ],
+        ) as reclaim:
+            errors = resources.reclaim_reports()
+        self.assertEqual(reclaim.call_count, 2)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("retired service profile", errors[0])
+        self.assertEqual(
+            {call.args[0] for call in reclaim.call_args_list}, {first, second}
+        )
+        self.assertNotEqual(resources.resource_status(first).get("cleanup"), "removed")
 
     def report(self, name: str) -> tuple[str, Path]:
         directory = self.root / "build" / name

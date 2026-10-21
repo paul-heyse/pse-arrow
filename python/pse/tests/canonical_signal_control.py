@@ -95,7 +95,7 @@ def analysis_signal_control(
     # and cached programs before admitting a separate analysis working set.
     del result, package
     runtime.clear_program_cache()
-    consumer = "canonical:result-analysis-selection-response"
+    consumer = "canonical:scientific-selection-response"
 
     def reserved() -> int:
         return sum(
@@ -158,6 +158,9 @@ def analysis_signal_control(
             interruption = error
         finally:
             returned.set()
+        peer.join(timeout=15)
+        assert not peer.is_alive()
+        assert not errors, errors
         assert interruption is not None, "entered result analysis ignored SIGINT"
         assert interruption is original
         assert interruption.__cause__ is cause
@@ -166,9 +169,6 @@ def analysis_signal_control(
         if isinstance(key, str):
             assert runtime.analysis(key).key == key
         interruption.__traceback__ = None
-        peer.join(timeout=15)
-        assert not peer.is_alive()
-        assert not errors, errors
         deadline = time.monotonic() + 10
         while reserved() > before:
             assert time.monotonic() < deadline, "analysis response did not drain"

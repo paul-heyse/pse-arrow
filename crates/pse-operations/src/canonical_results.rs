@@ -671,7 +671,7 @@ impl CanonicalStore {
         };
         let order = if dense { "start" } else { "row" };
         let query = format!(
-            "{PROTECTED_BEGIN}\nLET $indexes=SELECT * FROM {table} WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}{bounds}{residual_cursor} ORDER BY {order} LIMIT {PAGE};\nLET $blocks=SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND key IN $indexes.batch ORDER BY ordinal LIMIT 65;\nLET $pse_rpc_result = {{indexes:$indexes,blocks:$blocks}};\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'immutable selection protection expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"
+            "{PROTECTED_BEGIN}\nLET $indexes=SELECT * FROM {table} WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}{bounds}{residual_cursor} ORDER BY {order} LIMIT {PAGE};\nLET $blocks=SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND key IN $indexes.batch ORDER BY ordinal LIMIT 65;\nLET $pse_rpc_result = {{indexes:$indexes,blocks:$blocks}};\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"
         );
         let finite = |value: Option<f64>| {
             value
@@ -850,7 +850,7 @@ impl CanonicalStore {
                     .attempt
                     .outcome
                     .as_ref()
-                    .is_some_and(|class| classes.contains(class)))
+                    .is_some_and(|class| classes.iter().any(|selected| selected == class.as_str())))
         {
             return Err(invalid("latest result selection changed meaning"));
         }
@@ -883,12 +883,10 @@ impl CanonicalStore {
         if run.key != run_key
             || attempt.key != attempt_key
             || attempt.run != run.key
-            || !attempt.terminal
-            || !attempt.closed
-            || attempt.ingestion_open
-            || !attempt.outcome.as_deref().is_some_and(|class| {
-                matches!(class, "succeeded" | "failed" | "partial" | "cancelled")
-            })
+            || !attempt.terminal()
+            || !attempt.closed()
+            || attempt.ingestion_open()
+            || attempt.outcome.is_none()
             || run.interpretation != wire::INTERPRETATION
         {
             return Err(invalid("attempt is not an admitted terminal selection"));
@@ -979,7 +977,7 @@ impl CanonicalStore {
         let mut response = self.protected_query(
             &format!("result-creators:{}", run.key), crate::canonical::QueryEffect::Mutation,
             "canonical_results::read_completion",
-            || Ok(self.db.query(format!("{PROTECTED_BEGIN}\n{RESULT_ADMISSION}\nIF $attempt_record.generation != $generation {{ THROW 'terminal completion generation changed'; }};\nSELECT * FROM ONLY type::record('canonical_result_sets',$set);\nCOMMIT;"))
+            || Ok(self.db.query(format!("{PROTECTED_BEGIN}\n{RESULT_ADMISSION}\nIF $attempt_record.generation != $generation {{ THROW 'PSE_REFUSAL:terminal_completion_generation_changed'; }};\nSELECT * FROM ONLY type::record('canonical_result_sets',$set);\nCOMMIT;"))
                 .bind(("problem", owner.selection.revision().problem.clone()))
                 .bind(("revision", owner.selection.revision().key.clone()))
                 .bind(("sequence", canonical_codec::encode_uint(owner.selection.revision().sequence)?))
@@ -1075,7 +1073,7 @@ impl CanonicalStore {
         } else {
             ""
         };
-        let mut response=self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_block_page", ||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::BlockPage, format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT {PAGE} TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let mut response=self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_block_page", ||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::BlockPage, format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT {PAGE} TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
             .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
             .bind(("protection",read.owner.selection.key().to_owned()))
@@ -1248,7 +1246,7 @@ impl CanonicalStore {
             return Err(invalid("payload outside admitted descriptor"));
         }
         let key = result_batch_key(&attempt.key, result_set, ordinal);
-        let mut response=self.protected_query(&run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_payload", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM ONLY type::record('canonical_result_batches',$batch) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let mut response=self.protected_query(&run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_payload", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM ONLY type::record('canonical_result_batches',$batch) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem",run.problem.clone())).bind(("revision",run.revision.clone()))
             .bind(("sequence",canonical_codec::encode_uint(owner.selection.revision().sequence)?))
             .bind(("protection",owner.selection.key().to_owned())).bind(("batch",key.clone())))).await?;
@@ -1275,7 +1273,7 @@ impl CanonicalStore {
     }
 
     /// Fetch one named admitted blob. Successful checked RPC completion precedes
-    /// exposing any bytes; native WebSocket completion is required before a result is exposed.
+    /// exposing any bytes; native gRPC completion is required before a result is exposed.
     pub async fn result_block(
         &self,
         read: &ResultRead,
@@ -1293,7 +1291,7 @@ impl CanonicalStore {
         {
             return Err(invalid("block outside admitted descriptor"));
         }
-        let mut response=self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_block", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $pse_rpc_result = {{metadata:(SELECT * FROM ONLY type::record('canonical_result_blocks',$key)),batch:(SELECT * FROM ONLY type::record('canonical_result_batches',$batch))}};\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'immutable selection protection expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"))
+        let mut response=self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_block", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $pse_rpc_result = {{metadata:(SELECT * FROM ONLY type::record('canonical_result_blocks',$key)),batch:(SELECT * FROM ONLY type::record('canonical_result_batches',$batch))}};\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"))
             .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
             .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
             .bind(("protection",read.owner.selection.key().to_owned())).bind(("key",metadata.key.clone())).bind(("batch",metadata.batch.clone())))).await?;
@@ -1786,7 +1784,10 @@ mod canonical_results_server_unit {
                 expected
             );
         }
-        assert_eq!(read.attempt().outcome.as_deref(), Some("partial"));
+        assert_eq!(
+            read.attempt().outcome.as_ref().map(|value| value.as_str()),
+            Some("partial")
+        );
         assert!(store.result_payload(&read, &set, 1).await.is_err());
         assert!(!read.sets().is_empty());
         let second = store
@@ -1834,7 +1835,14 @@ mod canonical_results_server_unit {
         );
         let failed = store.read_results("run", second.attempt()).await.unwrap();
         assert!(failed.sets().is_empty());
-        assert_eq!(failed.attempt().outcome.as_deref(), Some("failed"));
+        assert_eq!(
+            failed
+                .attempt()
+                .outcome
+                .as_ref()
+                .map(|value| value.as_str()),
+            Some("failed")
+        );
         let latest = store.latest_results("problem", &[]).await.unwrap();
         assert_eq!(latest.attempt().key, second.attempt());
         assert!(
@@ -2050,13 +2058,13 @@ mod canonical_results_server_unit {
 pub(crate) const RESULT_ADMISSION: &str = r#"fn::pse_execution_v1::available($pse_rpc_expires_at, $run);
 LET $attempt_record=SELECT * FROM ONLY type::record('canonical_attempts',$attempt);
 LET $manifest_record=SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);
-IF $attempt_record=NONE OR $attempt_record.run!=$run OR !$attempt_record.terminal OR !$attempt_record.closed OR $attempt_record.ingestion_open OR $attempt_record.closed_manifest!=$manifest OR $manifest_record=NONE OR $manifest_record.attempt!=$attempt OR $manifest_record.generation!=$attempt_record.generation { THROW 'terminal result selection unavailable'; };
+IF $attempt_record=NONE OR $attempt_record.run!=$run OR ($attempt_record.phase NOT IN ['terminal','terminal_compacted']) OR $attempt_record.closed_manifest!=$manifest OR $manifest_record=NONE OR $manifest_record.attempt!=$attempt OR $manifest_record.generation!=$attempt_record.generation { THROW 'PSE_REFUSAL:terminal_result_selection_unavailable'; };
 LET $selected_pin=SELECT * FROM ONLY type::record('canonical_result_protections',$protection) FOR UPDATE;
-IF $selected_pin!=NONE AND ($selected_pin.run!=$run OR $selected_pin.attempt!=$attempt OR $selected_pin.manifest!=$manifest) { THROW 'immutable result protection identity reused'; };
+IF $selected_pin!=NONE AND ($selected_pin.run!=$run OR $selected_pin.attempt!=$attempt OR $selected_pin.manifest!=$manifest) { THROW 'PSE_REFUSAL:immutable_result_protection_identity_reused'; };
 UPSERT type::record('canonical_result_protections',$protection) SET key=$protection,run=$run,attempt=$attempt,manifest=$manifest;
 fn::pse_execution_v1::result_creator($pse_rpc_expires_at,$run);"#;
 
 // Renewal preserves exact live pin, result manifest and retirement registration.
 pub(crate) const RENEW_PROTECTION: &str = r#"UPDATE type::record('canonical_protections',$protection) SET expires_at=time::micros()+$lifetime;
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-IF $pin.expires_at <= time::micros() { THROW 'immutable selection protection expired'; };"#;
+IF $pin.expires_at <= time::micros() { THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; };"#;

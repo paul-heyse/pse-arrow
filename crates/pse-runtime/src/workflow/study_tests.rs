@@ -376,7 +376,7 @@ async fn same_worker_publication_handoff_refills_and_bounds_actual_unacknowledge
                     .count(),
                 2
             );
-            assert!(record.attempt.as_ref().unwrap().terminal);
+            assert!(record.attempt.as_ref().unwrap().terminal());
             assert_eq!(
                 record.completion.as_ref().unwrap().state,
                 pse_model::generated::enums::AttemptState::Cancelled
@@ -734,7 +734,10 @@ async fn canonical_study_cancel_preserves_distinct_unattempted_outcomes() {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(run.terminal_class.as_deref(), Some("cancelled"));
+    assert_eq!(
+        run.terminal_class.as_ref().map(|value| value.as_str()),
+        Some("cancelled")
+    );
     let restarted = runtime.study(handle.study_id());
     assert_eq!(
         restarted.result().await.unwrap().unwrap().attempt,
@@ -991,7 +994,10 @@ async fn canonical_study_equal_bindings_and_failed_usable_dependency() {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(run.terminal_class.as_deref(), Some("partial"));
+    assert_eq!(
+        run.terminal_class.as_ref().map(|value| value.as_str()),
+        Some("partial")
+    );
     assert_ne!(status.points[0].attempt, status.points[1].attempt);
     let cache = pse_engine::cache_service::CacheComponent::report(runtime.physical_cache.as_ref());
     assert!(
@@ -1007,7 +1013,7 @@ async fn canonical_study_equal_bindings_and_failed_usable_dependency() {
 #[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
-    for attempt_limit in [1, 2] {
+    for (attempt_limit, native_started) in [(1, false), (2, false), (2, true)] {
         let runtime = durable_runtime();
         let (_, mut definition) = admitted(&runtime, |_, _, fixed| {
             vec![point(fixed, 5, vec![], StartPolicy::Fresh)]
@@ -1040,6 +1046,14 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
             )
             .await
             .unwrap();
+        if native_started {
+            runtime
+                .canonical_store()
+                .unwrap()
+                .mark_study_started(&claim)
+                .await
+                .unwrap();
+        }
         pse_operations::testing::expire_acknowledged_attempt(
             runtime.canonical_store().unwrap(),
             &claim.fence,
@@ -1068,8 +1082,11 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
             .await
             .unwrap()
             .unwrap();
-        assert!(actual.terminal);
-        assert_eq!(actual.outcome.as_deref(), Some("failed"));
+        assert!(actual.terminal());
+        assert_eq!(
+            actual.outcome.as_ref().map(|value| value.as_str()),
+            Some("failed")
+        );
         let after = runtime
             .canonical_store()
             .unwrap()
@@ -1078,9 +1095,28 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
             .unwrap()
             .unwrap();
         assert!(!after.assigned);
-        assert_eq!(after.settled, attempt_limit == 1);
+        assert_eq!(after.settled, native_started || attempt_limit == 1);
         let facts = pse_operations::canonical_studies::point_facts(&after).unwrap();
-        assert!(!facts.native_started && !facts.scientific.usable);
+        assert_eq!(facts.native_started, native_started);
+        assert!(!facts.scientific.usable);
+        let effect = if native_started {
+            EffectState::Unknown
+        } else {
+            EffectState::Absent
+        };
+        assert_eq!(
+            facts.effect, effect,
+            "only an exact fenced pre-dispatch occurrence proves absence"
+        );
+        let record = runtime
+            .operations()
+            .unwrap()
+            .record(&point.run, claim.fence.attempt())
+            .await
+            .unwrap();
+        let stored = record.completion.as_ref().unwrap();
+        assert!(stored.completion.is_none());
+        assert_eq!(stored.termination.effect, effect);
         assert_eq!(facts.attempt_count, 1);
         // A delayed assigned-page hint must not project this attempt twice, whether
         // normal policy has concluded it or may claim a genuinely new retry next.
@@ -2041,7 +2077,7 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
         .begin_study_finalization(
             &StudySummary::from(&header),
             "crashed-summary",
-            Duration::from_millis(250),
+            Duration::from_secs(60),
         )
         .await
         .unwrap()
@@ -2076,7 +2112,9 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
         .await
         .unwrap()
         .unwrap();
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    pse_operations::testing::expire_acknowledged_attempt(store, &fence)
+        .await
+        .unwrap();
     assert!(runtime.finalize_canonical_study(&key).await.unwrap());
     let after = store
         .canonical_study_point(&before.key)
@@ -2094,14 +2132,33 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
         .await
         .unwrap()
         .unwrap();
-    assert!(previous.terminal);
-    assert_eq!(previous.outcome.as_deref(), Some("failed"));
+    assert!(previous.terminal());
+    assert_eq!(
+        previous.outcome.as_ref().map(|value| value.as_str()),
+        Some("failed")
+    );
+    let recovered = runtime
+        .operations()
+        .unwrap()
+        .record(&header.run, fence.attempt())
+        .await
+        .unwrap();
+    let stored = recovered.completion.as_ref().unwrap();
+    assert!(stored.completion.is_none());
+    assert_eq!(
+        stored.termination.effect,
+        EffectState::Absent,
+        "immutable summary-only authority grants no native dispatch capability"
+    );
     let final_attempt = store
         .canonical_attempt(status.result_attempt.as_ref().unwrap())
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(final_attempt.outcome.as_deref(), Some("succeeded"));
+    assert_eq!(
+        final_attempt.outcome.as_ref().map(|value| value.as_str()),
+        Some("succeeded")
+    );
     let results = handle.result().await.unwrap().unwrap();
     assert_eq!(results.attempt, status.result_attempt.unwrap());
     assert_eq!(results.points.len(), 1);
@@ -2137,7 +2194,7 @@ async fn canonical_study_cancellation_after_summary_close_fences_success() {
         .begin_study_finalization(
             &StudySummary::from(&study),
             "summary-before-cancel",
-            Duration::from_millis(300),
+            Duration::from_secs(60),
         )
         .await
         .unwrap()
@@ -2148,39 +2205,53 @@ async fn canonical_study_cancellation_after_summary_close_fences_success() {
         .unwrap();
     let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
     handle.cancel().await.unwrap();
+    // SAFETY: this isolated negative fixture deliberately presents a stale success;
+    // cancellation must fence it before any scientific publication can be admitted.
+    let rejected_parent = unsafe {
+        store
+            .seal_attempt(
+                &manifest,
+                "stale-parent-success",
+                pse_operations::canonical_execution::TerminalClass::Succeeded,
+                &[1],
+                pse_operations::canonical_execution::SeedEligibility::Unavailable,
+            )
+            .await
+    }
+    .unwrap_err();
     assert!(
-        // SAFETY: this isolated negative fixture deliberately presents a stale success;
-        // cancellation must fence it before any scientific publication can be admitted.
-        unsafe {
-            store
-                .seal_attempt(
-                    &manifest,
-                    "stale-parent-success",
-                    pse_operations::canonical_execution::TerminalClass::Succeeded,
-                    &[1],
-                    pse_operations::canonical_execution::SeedEligibility::Unavailable,
-                )
-                .await
-        }
-        .is_err()
+        matches!(rejected_parent,pse_operations::canonical::CanonicalError::Refused {
+        code:pse_operations::canonical::RefusalCode::ExecutionSummaryCancellationWinsTerminalSeal,..
+    }),
+        "the acknowledged cancellation, not a transport error, must refuse success"
     );
+    // SAFETY: the same cancelled summary fixture must refuse the stale owner's
+    // success assertion before admitting a study conclusion or exposing results.
+    let rejected_summary = unsafe {
+        store
+            .seal_study_summary(
+                &key,
+                &manifest,
+                "stale-owned-summary",
+                pse_operations::canonical_execution::TerminalClass::Succeeded,
+                &[1],
+            )
+            .await
+    }
+    .unwrap_err();
     assert!(
-        // SAFETY: the same cancelled summary fixture must refuse the stale owner's
-        // success assertion before admitting a study conclusion or exposing results.
-        unsafe {
-            store
-                .seal_study_summary(
-                    &key,
-                    &manifest,
-                    "stale-owned-summary",
-                    pse_operations::canonical_execution::TerminalClass::Succeeded,
-                    &[1],
-                )
-                .await
-        }
-        .is_err()
+        matches!(
+            rejected_summary,
+            pse_operations::canonical::CanonicalError::Refused {
+                code: pse_operations::canonical::RefusalCode::StudySummaryCancellationWinsAdmission,
+                ..
+            }
+        ),
+        "summary admission must retain the exact cancellation refusal"
     );
-    tokio::time::sleep(Duration::from_millis(350)).await;
+    pse_operations::testing::expire_acknowledged_attempt(store, &fence)
+        .await
+        .unwrap();
     assert!(runtime.finalize_canonical_study(&key).await.unwrap());
     let status = handle.status().await.unwrap();
     assert_eq!(status.state, StudyState::Concluded);
@@ -2190,7 +2261,27 @@ async fn canonical_study_cancellation_after_summary_close_fences_success() {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(parent.outcome.as_deref(), Some("cancelled"));
+    assert_eq!(
+        parent.outcome.as_ref().map(|value| value.as_str()),
+        Some("cancelled")
+    );
+    let recovered = runtime
+        .operations()
+        .unwrap()
+        .record(&study.run, fence.attempt())
+        .await
+        .unwrap();
+    let stored = recovered.completion.as_ref().unwrap();
+    assert_eq!(
+        stored.state,
+        pse_model::generated::enums::AttemptState::Cancelled
+    );
+    assert!(stored.completion.is_none());
+    assert_eq!(
+        stored.termination.effect,
+        EffectState::Absent,
+        "acknowledged cancellation retains the exact summary-only absence proof"
+    );
     assert!(handle.cancel().await.unwrap().already_concluded);
 }
 
@@ -4276,11 +4367,21 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
         assert_eq!(current.selection().attempt().key, attempts[1]);
         assert_eq!(historical.selection().attempt().key, attempts[0]);
         assert_eq!(
-            current.selection().attempt().outcome.as_deref(),
+            current
+                .selection()
+                .attempt()
+                .outcome
+                .as_ref()
+                .map(|value| value.as_str()),
             Some("partial")
         );
         assert_eq!(
-            historical.selection().attempt().outcome.as_deref(),
+            historical
+                .selection()
+                .attempt()
+                .outcome
+                .as_ref()
+                .map(|value| value.as_str()),
             Some("partial")
         );
         let current_batch = current.next_batch().await.unwrap().unwrap();
@@ -4638,7 +4739,12 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
             .await
             .unwrap();
         assert_eq!(
-            reader.selection().attempt().outcome.as_deref(),
+            reader
+                .selection()
+                .attempt()
+                .outcome
+                .as_ref()
+                .map(|value| value.as_str()),
             Some("succeeded")
         );
         let mut roots = 0;

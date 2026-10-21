@@ -3,3 +3,4 @@
 # Standalone tooling only; the production Rust SDK/server have separate owners.
 version = "1.0.0-beta.6"
 repository = "surrealdb/surrealkit"
+source_revision = "92ebc3cc89b99f00d21c7d2cbf5136d728367061"

@@ -25,6 +25,10 @@ pub struct RuntimeCanonicalStudiesRow {
     pub r#point_count: u64,
     ///next_ordinal
     pub r#next_ordinal: u64,
+    ///dependency_count
+    pub r#dependency_count: u64,
+    ///installed_dependencies
+    pub r#installed_dependencies: u64,
     ///active
     pub r#active: bool,
     ///cancelled
@@ -49,6 +53,14 @@ impl crate::SemanticEq for RuntimeCanonicalStudiesRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#next_ordinal,
                 &other.r#next_ordinal,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#dependency_count,
+                &other.r#dependency_count,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#installed_dependencies,
+                &other.r#installed_dependencies,
             ) && crate::SemanticEq::semantic_eq(&self.r#active, &other.r#active)
             && crate::SemanticEq::semantic_eq(&self.r#cancelled, &other.r#cancelled)
             && crate::SemanticEq::semantic_eq(&self.r#generation, &other.r#generation)
@@ -80,6 +92,10 @@ impl crate::SemanticFrame for RuntimeCanonicalStudiesRow {
         crate::SemanticFrame::frame(&self.r#point_count, hash);
         hash.str(stringify!(r#next_ordinal));
         crate::SemanticFrame::frame(&self.r#next_ordinal, hash);
+        hash.str(stringify!(r#dependency_count));
+        crate::SemanticFrame::frame(&self.r#dependency_count, hash);
+        hash.str(stringify!(r#installed_dependencies));
+        crate::SemanticFrame::frame(&self.r#installed_dependencies, hash);
         hash.str(stringify!(r#active));
         crate::SemanticFrame::frame(&self.r#active, hash);
         hash.str(stringify!(r#cancelled));
@@ -101,6 +117,8 @@ impl crate::HeapUsage for RuntimeCanonicalStudiesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#interpretation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#point_count))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#next_ordinal))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#dependency_count))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#installed_dependencies))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#active))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#cancelled))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#generation))

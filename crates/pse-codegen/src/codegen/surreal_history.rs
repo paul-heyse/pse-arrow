@@ -9,7 +9,7 @@ pub(super) fn append(ddl: &mut String) {
 
 const FUNCTIONS: &str = r#"
 DEFINE FUNCTION fn::pse_history_v1::owner_key($kind:string,$owner:string) -> string {
-    IF $kind NOT IN ['run','study'] OR $owner='' { THROW 'history owner must identify a run or study'; };
+    IF $kind NOT IN ['run','study'] OR $owner='' { THROW 'PSE_REFUSAL:history_owner_must_identify_a_run_or_study'; };
     RETURN $kind+':'+$owner;
 };
 
@@ -17,14 +17,14 @@ DEFINE FUNCTION fn::pse_history_v1::owner_key($kind:string,$owner:string) -> str
 DEFINE FUNCTION fn::pse_history_v1::check_owner($rpc_expiry:int,$kind:string,$owner:string) -> bool {
     LET $key=fn::pse_history_v1::owner_key($kind,$owner);
     fn::pse_execution_v1::register($rpc_expiry,'history:'+$key);
-    IF (SELECT * FROM ONLY type::record('canonical_history_retirements',$key) FOR UPDATE)!=NONE { THROW 'history explicitly retired; detailed response unavailable'; };
+    IF (SELECT * FROM ONLY type::record('canonical_history_retirements',$key) FOR UPDATE)!=NONE { THROW 'PSE_REFUSAL:history_explicitly_retired_detailed_response_unavailable'; };
     RETURN true;
 };
 
 DEFINE FUNCTION fn::pse_history_v1::run($rpc_expiry:int,$run:string) -> bool {
     fn::pse_history_v1::check_owner($rpc_expiry,'run',$run);
     LET $parents=SELECT study FROM canonical_history_locators WHERE run=$run LIMIT 3;
-    IF array::len($parents)>2 { THROW 'history run association bound exceeded'; };
+    IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_run_association_bound_exceeded'; };
     FOR $parent IN $parents { fn::pse_history_v1::check_owner($rpc_expiry,'study',$parent.study); };
     RETURN true;
 };
@@ -32,7 +32,7 @@ DEFINE FUNCTION fn::pse_history_v1::run($rpc_expiry:int,$run:string) -> bool {
 DEFINE FUNCTION fn::pse_history_v1::point($rpc_expiry:int,$point:string) -> option<object> {
     LET $locator=SELECT * FROM ONLY type::record('canonical_history_locators','point:'+$point);
     IF $locator!=NONE {
-        IF $locator.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'history locator issuing authority differs'; };
+        IF $locator.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:history_locator_issuing_authority_differs'; };
         fn::pse_history_v1::check_owner($rpc_expiry,'study',$locator.study);
         fn::pse_history_v1::run($rpc_expiry,$locator.run);
     };
@@ -49,7 +49,7 @@ DEFINE FUNCTION fn::pse_history_v1::associate($rpc_expiry:int,$study:string,$run
     LET $old=SELECT * FROM ONLY type::record('canonical_history_locators',$key) FOR UPDATE;
     LET $issuing=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;
     IF $old!=NONE {
-        IF $old.study!=$study OR $old.run!=$run OR $old.point!=$point OR $old.issuing_store!=$issuing { THROW 'history membership locator reused'; };
+        IF $old.study!=$study OR $old.run!=$run OR $old.point!=$point OR $old.issuing_store!=$issuing { THROW 'PSE_REFUSAL:history_membership_locator_reused'; };
     } ELSE {
         CREATE ONLY type::record('canonical_history_locators',$key) SET key=$key,study=$study,run=$run,point=$point,issuing_store=$issuing;
     };
@@ -61,26 +61,26 @@ DEFINE FUNCTION fn::pse_history_v1::operation($rpc_expiry:int,$key:string,$expec
     LET $old=SELECT * FROM ONLY type::record('canonical_execution_operations',$key) FOR UPDATE;
     IF $old!=NONE {
         fn::pse_history_v1::run($rpc_expiry,$old.run);
-        IF (SELECT * FROM ONLY type::record('canonical_result_retirements',$old.run) FOR UPDATE)!=NONE { THROW 'execution results explicitly retired'; };
-        IF $old.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'operation issuing authority differs'; };
-        IF $old.minimal { THROW 'operation history unavailable; minimal settled attribution only'; };
-        IF $expected_run!=NONE AND $old.run!=$expected_run { THROW 'execution operation owner reused'; };
+        IF (SELECT * FROM ONLY type::record('canonical_result_retirements',$old.run) FOR UPDATE)!=NONE { THROW 'PSE_REFUSAL:execution_results_explicitly_retired'; };
+        IF $old.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:operation_issuing_authority_differs'; };
+        IF $old.minimal { THROW 'PSE_REFUSAL:operation_history_unavailable_minimal_settled_attribution_only'; };
+        IF $expected_run!=NONE AND $old.run!=$expected_run { THROW 'PSE_REFUSAL:execution_operation_owner_reused'; };
     };
-    IF $expected_run!=NONE { fn::pse_history_v1::run($rpc_expiry,$expected_run); IF (SELECT * FROM ONLY type::record('canonical_result_retirements',$expected_run) FOR UPDATE)!=NONE { THROW 'execution results explicitly retired'; }; };
+    IF $expected_run!=NONE { fn::pse_history_v1::run($rpc_expiry,$expected_run); IF (SELECT * FROM ONLY type::record('canonical_result_retirements',$expected_run) FOR UPDATE)!=NONE { THROW 'PSE_REFUSAL:execution_results_explicitly_retired'; }; };
     RETURN $old;
 };
 
 DEFINE FUNCTION fn::pse_history_v1::record_operation($rpc_expiry:int,$key:string,$run:string,$attempt:option<string>,$kind:string,$request:bytes,$result:bytes,$study:option<string>,$point:option<string>) -> bool {
     fn::pse_history_v1::run($rpc_expiry,$run);
     LET $parents=SELECT study,point FROM canonical_history_locators WHERE run=$run LIMIT 3;
-    IF array::len($parents)>2 { THROW 'operation association bound exceeded'; };
+    IF array::len($parents)>2 { THROW 'PSE_REFUSAL:operation_association_bound_exceeded'; };
     LET $finalization=IF $attempt=NONE {NONE} ELSE {(SELECT finalization_study FROM ONLY type::record('canonical_attempts',$attempt)).finalization_study};
     LET $selected_study=$study ?? $finalization;
     LET $applicable=IF $point!=NONE {$parents.filter(|$parent|$parent.study=$selected_study AND $parent.point=$point)} ELSE IF $selected_study!=NONE {$parents.filter(|$parent|$parent.study=$selected_study AND $parent.point=NONE)} ELSE {
         LET $points=$parents.filter(|$parent|$parent.point!=NONE);
         IF array::len($points)!=0 {$points} ELSE {$parents}
     };
-    IF array::len($applicable)>1 OR (($study!=NONE OR $point!=NONE OR $finalization!=NONE) AND array::len($applicable)!=1) { THROW 'operation exact study/point attribution differs'; };
+    IF array::len($applicable)>1 OR (($study!=NONE OR $point!=NONE OR $finalization!=NONE) AND array::len($applicable)!=1) { THROW 'PSE_REFUSAL:operation_exact_study_point_attribution_differs'; };
     LET $parent=IF array::len($applicable)=0 {NONE} ELSE {$applicable[0]};
     CREATE ONLY type::record('canonical_execution_operations',$key) SET key=$key,run=$run,attempt=$attempt,kind=$kind,request=$request,result=$result,
         issuing_store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store,
@@ -95,7 +95,7 @@ DEFINE FUNCTION fn::pse_history_v1::identity($rpc_expiry:int,$category:string,$i
     LET $old=SELECT * FROM ONLY type::record('canonical_history_identities',$key) FOR UPDATE;
     LET $issuing=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;
     IF $old!=NONE {
-        IF $old.run!=$run OR $old.issuing_store!=$issuing { THROW 'history identity owner reused'; };
+        IF $old.run!=$run OR $old.issuing_store!=$issuing { THROW 'PSE_REFUSAL:history_identity_owner_reused'; };
     } ELSE {
         CREATE ONLY type::record('canonical_history_identities',$key) SET key=$key,category=$category,identity=$identity,run=$run,issuing_store=$issuing;
     };
@@ -105,7 +105,7 @@ DEFINE FUNCTION fn::pse_history_v1::identity($rpc_expiry:int,$category:string,$i
 DEFINE FUNCTION fn::pse_history_v1::check_identity($rpc_expiry:int,$category:string,$identity:string) -> bool {
     LET $old=SELECT * FROM ONLY type::record('canonical_history_identities',$category+':'+$identity);
     IF $old!=NONE {
-        IF $old.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'history identity issuing authority differs'; };
+        IF $old.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:history_identity_issuing_authority_differs'; };
         fn::pse_history_v1::run($rpc_expiry,$old.run);
     };
     RETURN true;
@@ -115,7 +115,7 @@ DEFINE FUNCTION fn::pse_history_v1::effect_free($rpc_expiry:int,$point:object) -
     fn::pse_history_v1::run($rpc_expiry,$point.run);
     fn::pse_execution_v1::touch($rpc_expiry,'execution-run:'+$point.run);
     LET $run=SELECT * FROM ONLY type::record('canonical_runs',$point.run) FOR UPDATE;
-    IF !$point.settled OR $point.assigned OR $point.attempt!=NONE OR $run=NONE OR $run.current_attempt!=NONE OR $run.current_generation!=0dec { THROW 'effect-free settlement requires original unclaimed occurrence'; };
+    IF !$point.settled OR $point.assigned OR $point.attempt!=NONE OR $run=NONE OR $run.current_attempt!=NONE OR $run.current_generation!=0dec { THROW 'PSE_REFUSAL:effect_free_settlement_requires_original_unclaimed_occurrence'; };
     fn::pse_history_v1::identity($rpc_expiry,'effect-free-run',$point.run,$point.run);
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
@@ -125,7 +125,7 @@ DEFINE FUNCTION fn::pse_history_v1::visible_run($rpc_expiry:int,$run:string) -> 
     fn::pse_execution_v1::register($rpc_expiry,'history:run:'+$run);
     IF (SELECT * FROM ONLY type::record('canonical_history_retirements','run:'+$run) FOR UPDATE)!=NONE { RETURN false; };
     LET $parents=SELECT study FROM canonical_history_locators WHERE run=$run LIMIT 3;
-    IF array::len($parents)>2 { THROW 'history inventory association bound'; };
+    IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_inventory_association_bound'; };
     FOR $parent IN $parents {
         fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$parent.study);
         IF (SELECT * FROM ONLY type::record('canonical_history_retirements','study:'+$parent.study) FOR UPDATE)!=NONE { RETURN false; };
@@ -136,7 +136,7 @@ DEFINE FUNCTION fn::pse_history_v1::visible_run($rpc_expiry:int,$run:string) -> 
 // A release must not invalidate a shared child's other parent's audit.
 DEFINE FUNCTION fn::pse_history_v1::parent_obligated($rpc_expiry:int,$run:string) -> bool {
     LET $parents=SELECT study FROM canonical_history_locators WHERE run=$run LIMIT 3;
-    IF array::len($parents)>2 { THROW 'history obligation association bound'; };
+    IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_obligation_association_bound'; };
     FOR $parent IN $parents {
         fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$parent.study);
         LET $count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts','study:'+$parent.study) FOR UPDATE;
@@ -170,26 +170,26 @@ DEFINE FUNCTION fn::pse_history_v1::read_manifest($rpc_expiry:int,$key:string) -
 };
 
 DEFINE FUNCTION fn::pse_history_v1::retain($rpc_expiry:int,$key:string,$kind:string,$owner:string,$purpose:string,$attribution:string) -> bool {
-    IF $key='' OR $purpose NOT IN ['audit','unsettled'] OR $attribution='' { THROW 'history obligation requires exact owner and attribution'; };
+    IF $key='' OR $purpose NOT IN ['audit','unsettled'] OR $attribution='' { THROW 'PSE_REFUSAL:history_obligation_requires_exact_owner_and_attribution'; };
     LET $scope=fn::pse_history_v1::owner_key($kind,$owner);
     fn::pse_history_v1::check_owner($rpc_expiry,$kind,$owner);
     IF $kind='run' {
         fn::pse_history_v1::run($rpc_expiry,$owner);
         LET $parents=SELECT study FROM canonical_history_locators WHERE run=$owner LIMIT 3;
-        IF array::len($parents)>2 { THROW 'history obligation association bound'; };
+        IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_obligation_association_bound'; };
         FOR $parent IN $parents { fn::pse_execution_v1::touch($rpc_expiry,'history:study:'+$parent.study); };
     };
     fn::pse_execution_v1::touch($rpc_expiry,'history:'+$scope);
     LET $header=IF $kind='run' {SELECT key FROM ONLY type::record('canonical_runs',$owner)} ELSE {SELECT key FROM ONLY type::record('canonical_studies',$owner)};
-    IF $header=NONE { THROW 'history obligation owner unavailable'; };
+    IF $header=NONE { THROW 'PSE_REFUSAL:history_obligation_owner_unavailable'; };
     IF $kind='study' {
         LET $retired=SELECT key FROM canonical_history_locators WHERE study=$owner AND !fn::pse_history_v1::visible_run($rpc_expiry,run) LIMIT 1;
-        IF array::len($retired)!=0 { THROW 'study audit cannot restore retired member history'; };
+        IF array::len($retired)!=0 { THROW 'PSE_REFUSAL:study_audit_cannot_restore_retired_member_history'; };
     };
     LET $old=SELECT * FROM ONLY type::record('canonical_history_obligations',$key) FOR UPDATE;
     IF $old!=NONE {
-        IF $old.owner_kind!=$kind OR $old.owner!=$owner OR $old.purpose!=$purpose OR $old.attribution!=$attribution { THROW 'history obligation identity reused'; };
-        IF $old.released { THROW 'history obligation explicitly released'; };
+        IF $old.owner_kind!=$kind OR $old.owner!=$owner OR $old.purpose!=$purpose OR $old.attribution!=$attribution { THROW 'PSE_REFUSAL:history_obligation_identity_reused'; };
+        IF $old.released { THROW 'PSE_REFUSAL:history_obligation_explicitly_released'; };
         fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
     };
     CREATE ONLY type::record('canonical_history_obligations',$key) SET key=$key,owner_kind=$kind,owner=$owner,purpose=$purpose,attribution=$attribution,released=false,issuing_store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;
@@ -206,10 +206,10 @@ DEFINE FUNCTION fn::pse_history_v1::drop_obligation($rpc_expiry:int,$key:string,
         CREATE ONLY type::record('canonical_history_obligations',$key) SET key=$key,owner_kind=$kind,owner=$owner,purpose=$purpose,attribution=$attribution,released=true,issuing_store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;
         fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
     };
-    IF $old.owner_kind!=$kind OR $old.owner!=$owner OR $old.purpose!=$purpose OR $old.attribution!=$attribution OR $old.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'history obligation release differs'; };
+    IF $old.owner_kind!=$kind OR $old.owner!=$owner OR $old.purpose!=$purpose OR $old.attribution!=$attribution OR $old.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:history_obligation_release_differs'; };
     IF $old.released { fn::pse_execution_v1::deadline($rpc_expiry); RETURN true; };
     LET $count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts',$scope) FOR UPDATE;
-    IF $count=NONE OR $count.count<1dec { THROW 'history obligation count unavailable'; };
+    IF $count=NONE OR $count.count<1dec { THROW 'PSE_REFUSAL:history_obligation_count_unavailable'; };
     UPDATE ONLY type::record('canonical_history_obligations',$key) SET released=true;
     UPDATE ONLY type::record('canonical_history_obligation_counts',$scope) SET count-=1dec;
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
@@ -221,29 +221,29 @@ DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:
     LET $old=SELECT * FROM ONLY type::record('canonical_history_retirements',$key) FOR UPDATE;
     IF $old!=NONE { fn::pse_execution_v1::deadline($rpc_expiry); RETURN $old; };
     LET $count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts',$key) FOR UPDATE;
-    IF ($count.count ?? 0dec)!=0dec { THROW 'selected audit or unsettled history obligation remains'; };
+    IF ($count.count ?? 0dec)!=0dec { THROW 'PSE_REFUSAL:selected_audit_or_unsettled_history_obligation_remains'; };
     LET $header=IF $kind='run' {SELECT * FROM ONLY type::record('canonical_runs',$owner)} ELSE {SELECT * FROM ONLY type::record('canonical_studies',$owner)};
-    IF $header=NONE { THROW 'history release requires its original owner'; };
+    IF $header=NONE { THROW 'PSE_REFUSAL:history_release_requires_its_original_owner'; };
     IF $kind='run' {
         fn::pse_execution_v1::touch($rpc_expiry,'execution-run:'+$owner);
         LET $retired=SELECT * FROM ONLY type::record('canonical_result_retirements',$owner) FOR UPDATE;
-        IF $retired=NONE OR !$retired.complete OR ($header.terminal_attempt=NONE AND (SELECT * FROM ONLY type::record('canonical_history_identities','effect-free-run:'+$owner))=NONE) { THROW 'history release requires settled retired run payloads'; };
+        IF $retired=NONE OR !$retired.complete OR ($header.terminal_attempt=NONE AND (SELECT * FROM ONLY type::record('canonical_history_identities','effect-free-run:'+$owner))=NONE) { THROW 'PSE_REFUSAL:history_release_requires_settled_retired_run_payloads'; };
         LET $parents=SELECT study FROM canonical_history_locators WHERE run=$owner LIMIT 3;
-        IF array::len($parents)>2 { THROW 'history release association bound'; };
+        IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_release_association_bound'; };
         FOR $parent IN $parents {
             fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$parent.study);
             LET $parent_count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts','study:'+$parent.study) FOR UPDATE;
-            IF ($parent_count.count ?? 0dec)!=0dec { THROW 'study audit retains run history'; };
+            IF ($parent_count.count ?? 0dec)!=0dec { THROW 'PSE_REFUSAL:study_audit_retains_run_history'; };
         };
     } ELSE {
         fn::pse_execution_v1::touch($rpc_expiry,'study:'+$owner);
-        IF !$header.terminal OR (SELECT * FROM ONLY type::record('canonical_study_retirements',$owner) FOR UPDATE)=NONE { THROW 'history release requires terminal retired study'; };
+        IF !$header.terminal OR (SELECT * FROM ONLY type::record('canonical_study_retirements',$owner) FOR UPDATE)=NONE { THROW 'PSE_REFUSAL:history_release_requires_terminal_retired_study'; };
         LET $protected=SELECT key FROM canonical_history_locators WHERE study=$owner AND (type::record('canonical_history_obligation_counts','run:'+run).count ?? 0dec)>0dec LIMIT 1;
-        IF array::len($protected)!=0 { THROW 'point or summary audit retains study history'; };
+        IF array::len($protected)!=0 { THROW 'PSE_REFUSAL:point_or_summary_audit_retains_study_history'; };
         LET $shared=SELECT key FROM canonical_history_locators WHERE study=$owner AND fn::pse_history_v1::parent_obligated($rpc_expiry,run) LIMIT 1;
-        IF array::len($shared)!=0 { THROW 'another parent study audit retains shared run history'; };
+        IF array::len($shared)!=0 { THROW 'PSE_REFUSAL:another_parent_study_audit_retains_shared_run_history'; };
         LET $unsettled=SELECT key FROM canonical_history_locators WHERE study=$owner AND (type::record('canonical_result_retirements',run).complete ?? false)=false LIMIT 1;
-        IF array::len($unsettled)!=0 { THROW 'study history requires all linked run payloads settled'; };
+        IF array::len($unsettled)!=0 { THROW 'PSE_REFUSAL:study_history_requires_all_linked_run_payloads_settled'; };
     };
     LET $outcome=IF $kind='run' {$header.terminal_class ?? 'not-executed'} ELSE {IF $header.cancelled {'cancelled'} ELSE {'terminal'}};
     LET $result=CREATE ONLY type::record('canonical_history_retirements',$key) SET key=$key,owner_kind=$kind,owner=$owner,issuing_store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store,outcome=$outcome,complete=false,after_locator=NONE;
@@ -255,8 +255,8 @@ DEFINE FUNCTION fn::pse_history_v1::collect($rpc_expiry:int,$kind:string,$owner:
     LET $key=fn::pse_history_v1::owner_key($kind,$owner);
     fn::pse_execution_v1::touch($rpc_expiry,'history:'+$key);
     LET $fence=SELECT * FROM ONLY type::record('canonical_history_retirements',$key) FOR UPDATE;
-    IF $fence=NONE { THROW 'explicit history release required'; };
-    IF $fence.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'history collector issuing authority differs'; };
+    IF $fence=NONE { THROW 'PSE_REFUSAL:explicit_history_release_required'; };
+    IF $fence.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:history_collector_issuing_authority_differs'; };
     IF $fence.complete { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:true,removed:0dec,compacted:0dec}; };
     IF $kind='run' {
         LET $operations=SELECT key FROM canonical_execution_operations WHERE run=$owner AND minimal=false ORDER BY key LIMIT 64;

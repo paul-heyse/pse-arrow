@@ -232,7 +232,13 @@ async fn canonical_durable_constant_completion_reopens_exact_manifest() {
         panic!("ephemeral result")
     };
     assert_eq!(
-        record.attempt.as_ref().unwrap().outcome.as_deref(),
+        record
+            .attempt
+            .as_ref()
+            .unwrap()
+            .outcome
+            .as_ref()
+            .map(|value| value.as_str()),
         Some("succeeded")
     );
     let Durability::Durable(operations) = runtime.durability() else {

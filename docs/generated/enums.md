@@ -234,6 +234,25 @@ Member names are canonical string values; declaration order is presentation only
 | `diagnostic_only` | `` | false |
 | `unusable` | `` | false |
 
+## `CanonicalAttemptPhase`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `ingesting` | `` | false |
+| `closed_awaiting_manifest` | `` | false |
+| `closed_with_manifest` | `` | false |
+| `terminal` | `` | false |
+| `terminal_compacted` | `` | false |
+
+## `CanonicalTerminalOutcome`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `succeeded` | `` | false |
+| `failed` | `` | false |
+| `partial` | `` | false |
+| `cancelled` | `` | false |
+
 ## `CaptureKind`
 
 | Member | IDAES name | Deprecated |

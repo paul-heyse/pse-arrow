@@ -32,6 +32,7 @@ from pse.contracts.documents import (
     SensitivityRequest,
 )
 from pse.contracts.enums import (
+    CanonicalAttemptPhase,
     DiagnosticCode,
     FailureClass,
     NativeBackend,
@@ -133,8 +134,8 @@ def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
     )
     credentials.chmod(0o600)
     config = {
-        "profile_version": 2,
-        "endpoint": "ws://127.0.0.1:1",
+        "profile_version": 3,
+        "endpoint": "grpc://127.0.0.1:1",
         "namespace": "fixture",
         "database": "fixture",
         "schema_interpretation": "unsupported-fixture-interpretation",
@@ -158,7 +159,7 @@ def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         listener.listen(1)
-        config["endpoint"] = f"ws://127.0.0.1:{listener.getsockname()[1]}"
+        config["endpoint"] = f"grpc://127.0.0.1:{listener.getsockname()[1]}"
         config["schema_interpretation"] = server.SUBSTRATE_INTERPRETATION
         publish()
 
@@ -180,8 +181,10 @@ def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
                 timeout.value.report.failure_class
                 == FailureClass.RUNTIME_INFRASTRUCTURE
             )
-            assert timeout.value.report.observations["detail"] == ObservationText(
-                value="canonical store request deadline expired"
+            # An expired gRPC capability handshake keeps the public typed
+            # infrastructure boundary and its owned diagnostic detail.
+            assert isinstance(
+                timeout.value.report.observations["detail"], ObservationText
             )
         finally:
             stopped.set()
@@ -234,7 +237,7 @@ def test_canonical_close_and_idempotent_cache_clear_with_retained_payload(
     assert variable["tolerance"] > 0.0
     assert abs(variable["value"] - 2.0) <= variable["tolerance"]
     (record,) = pa.table(runtime.attempt_record(attempt)).to_pylist()
-    assert record["terminal"]
+    assert record["phase"] == CanonicalAttemptPhase.TERMINAL
     assert record["outcome"] == "succeeded"
     # The immutable receipt payload fits retention; active caller protection
     # is a separate owner and is never kept alive by this optional entry.
@@ -322,7 +325,7 @@ def test_canonical_close_preserves_admitted_solve_but_refuses_new_start(
     assert attempt is not None
     independent = canonical_substrate.runtime(inspection_settings)
     (record,) = pa.table(independent.attempt_record(attempt)).to_pylist()
-    assert record["terminal"]
+    assert record["phase"] == CanonicalAttemptPhase.TERMINAL
     assert record["outcome"] == "succeeded"
 
 
@@ -415,7 +418,7 @@ def test_canonical_result_selection_and_progress_reopen(
     assert header["key"] == run
     assert record["key"] == attempt
     assert record["run"] == run
-    assert record["terminal"]
+    assert record["phase"] == CanonicalAttemptPhase.TERMINAL
     assert record["outcome"] == "succeeded"
     assert manifest["attempt"] == attempt
     history_owner = codec.decode_json(

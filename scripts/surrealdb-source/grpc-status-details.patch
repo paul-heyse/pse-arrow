@@ -1,0 +1,87 @@
+--- a/surrealdb/server/src/rpc/grpc.rs
++++ b/surrealdb/server/src/rpc/grpc.rs
+@@ -3480,17 +3480,9 @@
+ 	out
+ }
+ 
+-/// Maps an error onto the gRPC status that terminates a unary call.
+-///
+-/// A status carries a code and a message but no structured error, so the
+-/// reason and the retry hint an [`Error`](TypesError) holds survive only where
+-/// the protocol has a frame to put them in -- a query batch, or a stream's
+-/// error frame. A `BEGIN ... COMMIT` block inside a query reports its conflict
+-/// on the failing statement, and so keeps both; the standalone
+-/// `CommitTransaction` RPC has an empty response message and can only fail as a
+-/// status, so a conflict there reaches the client as `ABORTED` and its message.
+-/// The codes chosen here are the ones the SDK's engine maps back onto the
+-/// matching error kind.
++/// Unary calls preserve the same native error taxonomy as streamed queries.
++/// The binary metadata is bounded independently of the human-readable message;
++/// clients must validate its encoded and decoded envelopes before allocation.
+ /// The most bytes of message a gRPC status carries.
+ ///
+ /// A status travels as the `grpc-message` trailer, so what bounds it is the
+@@ -3518,8 +3510,12 @@
+ }
+ 
+ fn to_status(error: &TypesError) -> Status {
++	use surrealdb_types::prost::Message;
+ 	let message = bounded_status_message(error.message());
+-	if error.is_validation() {
++	let mut structured = proto_error(error);
++	structured.message = message.clone();
++	let payload = bounded_error(structured, 8 << 10).encode_to_vec();
++	let mut status = if error.is_validation() {
+ 		Status::invalid_argument(message)
+ 	} else if error.is_configuration() {
+ 		Status::unimplemented(message)
+@@ -3535,7 +3531,12 @@
+ 		Status::unavailable(message)
+ 	} else {
+ 		Status::internal(message)
+-	}
++	};
++	status.metadata_mut().insert_bin(
++		"surreal-error-bin",
++		tonic::metadata::MetadataValue::from_bytes(&payload),
++	);
++	status
+ }
+ 
+ /// The status reporting the statements an import could not apply, or `None`
+@@ -5159,3 +5160,35 @@
+ 		assert!(verify_trailer(&wrong, 5, digest).is_err());
+ 	}
+ }
++
++
++#[cfg(test)]
++mod canonical_status_tests {
++    use super::*;
++    use surrealdb_types::{QueryError, prost::Message};
++
++    #[test]
++    fn unary_conflict_keeps_native_details_in_bounded_metadata() {
++        let native = TypesError::query("conflict".to_string(), QueryError::TransactionConflict);
++        let status = to_status(&native);
++        assert_eq!(status.code(), tonic::Code::Aborted);
++        let bytes = status.metadata().get_bin("surreal-error-bin").unwrap().to_bytes().unwrap();
++        assert!(bytes.len() <= 8 << 10);
++        let decoded = proto::SurrealError::decode(bytes).unwrap();
++        assert_eq!(decoded.detail_kind(), Some("TransactionConflict"));
++        assert!(decoded.is_retryable());
++    }
++
++    #[test]
++    fn long_unary_message_keeps_conflict_details_and_internal_stays_nonretryable() {
++        let native = TypesError::query("a".repeat(64 << 10), QueryError::TransactionConflict);
++        let status = to_status(&native);
++        assert!(status.message().len() <= STATUS_MESSAGE_BYTES);
++        let bytes = status.metadata().get_bin("surreal-error-bin").unwrap().to_bytes().unwrap();
++        assert!(bytes.len() <= 8 << 10);
++        assert!(proto::SurrealError::decode(bytes).unwrap().is_retryable());
++        let status = to_status(&TypesError::internal("native failure".to_string()));
++        let bytes = status.metadata().get_bin("surreal-error-bin").unwrap().to_bytes().unwrap();
++        assert!(!proto::SurrealError::decode(bytes).unwrap().is_retryable());
++    }
++}

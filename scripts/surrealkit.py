@@ -11,20 +11,18 @@ from __future__ import annotations
 import argparse
 import contextlib
 import hashlib
-import io
 import json
 import os
 import platform
 import secrets
 import subprocess
-import tarfile
 import tomllib
-import urllib.request
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
+from urllib.parse import urlsplit
 
-from scripts import native_operation, surreal_server, test_resources
+from scripts import native_operation, surreal_server, surrealkit_source, test_resources
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
@@ -33,7 +31,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GENERATED_SCHEMA = Path("crates/pse-operations/src/generated/surreal.surql")
 # Exact server rejection signatures qualified against the generated contracts.
 REJECTION_SIGNATURES = {
-    "original canonical RPC deadline expired",
+    "PSE_REFUSAL:original_canonical_rpc_deadline_expired",
     "but field must conform to:",
     "The record 'canonical_analysis_nodes:absent' does not exist",
 }
@@ -43,11 +41,30 @@ class ToolError(RuntimeError):
     """Tool selection or authenticated fixture operation was refused."""
 
 
+def grpc_endpoint(endpoint: str) -> str:
+    """Use gRPC on the exact loopback listener owned by the supervisor."""
+    value = urlsplit(endpoint)
+    if (
+        value.scheme not in {"http", "grpc"}
+        or value.hostname != "127.0.0.1"
+        or value.port is None
+        or value.username is not None
+        or value.password is not None
+        or value.path not in {"", "/"}
+        or value.query
+        or value.fragment
+    ):
+        raise ToolError("Toolkit requires the exact owned loopback gRPC listener")
+    return "grpc://127.0.0.1:" + str(value.port)
+
+
 def selection() -> dict[str, str]:
     value = tomllib.loads((ROOT / ".config/surrealkit.toml").read_text())
     if (
-        set(value) != {"version", "repository"}
+        set(value) != {"version", "repository", "source_revision"}
         or value["repository"] != "surrealdb/surrealkit"
+        or len(value["source_revision"]) != 40
+        or any(c not in "0123456789abcdef" for c in value["source_revision"])
     ):
         raise ToolError("Invalid standalone tooling declaration")
     return value
@@ -58,154 +75,71 @@ def digest(path: Path) -> str:
         return hashlib.file_digest(source, "sha256").hexdigest()
 
 
-def release_sources(declared: Mapping[str, str]) -> dict[str, object]:
-    """Record exact-tag source and its locked official build basis, not an attestation."""
-    repository, tag = declared["repository"], "v" + declared["version"]
-    with urllib.request.urlopen(
-        "https://api.github.com/repos/" + repository + "/git/ref/tags/" + tag,
-        timeout=30,
-    ) as response:
-        target = json.load(response)["object"]
-    while target["type"] == "tag":
-        with urllib.request.urlopen(target["url"], timeout=30) as response:  # noqa: S310 -- official GitHub tag metadata
-            target = json.load(response)["object"]
-    if target["type"] != "commit" or len(target["sha"]) != 40:
-        raise ToolError("Exact release source commit unavailable")
-    commit = target["sha"]
-    base = "https://raw.githubusercontent.com/" + repository + "/" + commit + "/"
-    sources = {}
-    for name in (
-        "Cargo.lock",
-        ".github/workflows/release-binaries.yml",
-        "crates/surrealkit/src/scaffold.rs",
-    ):
-        with urllib.request.urlopen(base + name, timeout=30) as response:  # noqa: S310 -- fixed HTTPS source origin
-            sources[name] = response.read()
-    packages = tomllib.loads(sources["Cargo.lock"].decode())["package"]
-    sdk = [package["version"] for package in packages if package["name"] == "surrealdb"]
-    scaffold = sources["crates/surrealkit/src/scaffold.rs"].decode()
-    setup = scaffold.split('pub const DEFAULT_SETUP: &str = r#"', 1)[1].split('"#;', 1)[
-        0
-    ]
-    return {
-        "source_commit": commit,
-        "source_sha256": {
-            name: hashlib.sha256(data).hexdigest() for name, data in sources.items()
-        },
-        "resolved_sdk": sdk,
-        "release_build_locked": any(
-            "cargo build " in line and "--locked" in line and "--release" in line
-            for line in sources[".github/workflows/release-binaries.yml"]
-            .decode()
-            .splitlines()
-        ),
-        "setup_sha256": hashlib.sha256(setup.encode()).hexdigest(),
-    }
-
-
 def acquire(tool_root: Path) -> Path:
+    """The selected toolkit uses the same patched gRPC SDK as canonical clients."""
     declared = selection()
     if platform.system() != "Linux" or platform.machine() not in {"x86_64", "aarch64"}:
-        raise ToolError("No qualified beta executable for this platform")
-    tag = "v" + declared["version"]
-    target = platform.machine() + "-unknown-linux-gnu"
-    directory = surreal_server.checked_directory(tool_root / tag / target)
-    binary, receipt = directory / "surrealkit", directory / "release.json"
+        raise ToolError("No qualified source toolkit for this platform")
+    directory = surreal_server.checked_directory(
+        tool_root / ("v" + declared["version"]) / ("grpc-" + platform.machine())
+    )
     with surreal_server.state_lock(directory):
-        if binary.exists() or receipt.exists():
+        identity = surrealkit_source.inputs(declared)
+        binary = directory / "artifacts" / identity / "surrealkit"
+        if binary.parent.exists():
             verify(binary)
-            stored = surreal_server.read_json(receipt)
-            if (
-                "source_commit" not in stored
-                or stored.get("release_build_locked") is not True
-            ):
-                surreal_server.write_json(
-                    receipt, {**stored, **release_sources(declared)}
-                )
+            # Complete a prior publication whose post-rename parent sync may
+            # have failed before its caller received an acquisition ACK.
+            surrealkit_source.sync_directory(binary.parent.parent)
             return binary
-        with urllib.request.urlopen(
-            "https://api.github.com/repos/"
-            + declared["repository"]
-            + "/releases/tags/"
-            + tag,
-            timeout=30,
-        ) as response:
-            release = json.load(response)
-        if not isinstance(release, dict):
-            raise ToolError("Invalid official release metadata")
-        if release.get("tag_name") != tag or release.get("draft"):
-            raise ToolError("Release identity differs from exact tooling selection")
-        name = "surrealkit-" + tag + "-" + target + ".tar.gz"
-        assets = release.get("assets")
-        if not isinstance(assets, list):
-            raise ToolError("Missing official executable assets")
-        asset = next(
-            (a for a in assets if isinstance(a, dict) and a.get("name") == name), None
-        )
-        if not isinstance(asset, dict):
-            raise ToolError("Missing exact executable asset")
-        sha = str(asset.get("digest", ""))
-        origin = (
-            "https://github.com/"
-            + declared["repository"]
-            + "/releases/download/"
-            + tag
-            + "/"
-        )
-        if (
-            not sha.startswith("sha256:")
-            or len(sha) != 71
-            or not str(asset.get("browser_download_url", "")).startswith(origin)
-        ):
-            raise ToolError("Official checksum or origin unavailable")
-        with urllib.request.urlopen(  # noqa: S310 -- exact HTTPS release origin checked above
-            str(asset["browser_download_url"]), timeout=60
-        ) as response:
-            raw = response.read()
-        if "sha256:" + hashlib.sha256(raw).hexdigest() != sha:
-            raise ToolError("Downloaded beta archive digest differs")
-        with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
-            members = [
-                m
-                for m in archive.getmembers()
-                if m.isfile() and Path(m.name).name == "surrealkit"
-            ]
-            if len(members) != 1:
-                raise ToolError("Archive has no unique executable")
-            source = archive.extractfile(members[0])
-            if source is None:
-                raise ToolError("Archive executable unavailable")
-            payload = source.read()
-        with binary.open("xb") as target_file:
-            target_file.write(payload)
-        binary.chmod(0o700)
-        receipt.write_text(
-            json.dumps(
-                {
-                    **declared,
-                    **release_sources(declared),
-                    "archive_sha256": sha[7:],
-                    "binary_sha256": digest(binary),
-                    "asset": asset["browser_download_url"],
-                },
-                indent=2,
+        try:
+            built = surrealkit_source.build(
+                directory, declared, expected_inputs=identity
             )
-            + "\n"
-        )
-        receipt.chmod(0o600)
+        except surrealkit_source.BuildError as error:
+            raise ToolError(str(error)) from error
+        if built != binary:
+            raise ToolError("Toolkit build published a different input identity")
         verify(binary)
     return binary
 
 
-def verify(binary: Path) -> dict[str, object]:
-    if binary.is_symlink() or binary.parent.is_symlink() or not binary.is_file():
-        raise ToolError("Executable is not an owned regular file")
-    receipt = surreal_server.read_json(binary.parent / "release.json")
-    declared = selection()
-    if any(receipt.get(k) != v for k, v in declared.items()) or receipt.get(
-        "binary_sha256"
-    ) != digest(binary):
-        raise ToolError("Executable provenance differs from declared release")
+def _artifact_receipt(binary: Path) -> dict[str, object]:
+    receipt_path = binary.parent / "release.json"
+    if (
+        not binary.is_absolute()
+        or binary != surreal_server.lexical_absolute(binary)
+        or any(path.is_symlink() for path in (binary, *binary.parents))
+        or not binary.is_file()
+        or binary.stat().st_uid != os.getuid()
+        or receipt_path.is_symlink()
+        or not receipt_path.is_file()
+        or receipt_path.stat().st_uid != os.getuid()
+    ):
+        raise ToolError("Executable is not an owned regular immutable artifact")
+    receipt = surreal_server.read_json(receipt_path)
+    identity = receipt.get("sdk_inputs_sha256")
+    if (
+        not isinstance(identity, str)
+        or len(identity) != 64
+        or any(c not in "0123456789abcdef" for c in identity)
+        or binary.name != "surrealkit"
+        or binary.parent.name != identity
+        or binary.parent.parent.name != "artifacts"
+        or receipt.get("artifact") != str(binary)
+        or receipt.get("publication") != "surrealkit-source-v1"
+        or receipt.get("binary_sha256") != digest(binary)
+        or receipt.get("source_build") is not True
+        or receipt.get("release_build_locked") is not True
+    ):
+        raise ToolError("Executable provenance differs from immutable publication")
+    return receipt
+
+
+def _verify_version(binary: Path, receipt: Mapping[str, object]) -> None:
+    version = receipt.get("version")
+    if not isinstance(version, str):
+        raise ToolError("Executable release version is absent")
     result = subprocess.run(
         [str(binary), "--version"],
         capture_output=True,
@@ -213,11 +147,28 @@ def verify(binary: Path) -> dict[str, object]:
         timeout=10,
         check=False,
     )
-    if (
-        result.returncode
-        or result.stdout.strip() != "surrealkit " + declared["version"]
-    ):
+    if result.returncode or result.stdout.strip() != "surrealkit " + version:
         raise ToolError("Executable version differs from declared release")
+
+
+def verify(binary: Path) -> dict[str, object]:
+    """Ordinary execution always requires this checkout's current inputs."""
+    receipt = _artifact_receipt(binary)
+    declared = selection()
+    if any(receipt.get(k) != v for k, v in declared.items()) or receipt.get(
+        "sdk_inputs_sha256"
+    ) != surrealkit_source.inputs(declared):
+        raise ToolError("Executable provenance differs from declared release")
+    _verify_version(binary, receipt)
+    return receipt
+
+
+def verify_saved(binary: Path, expected: Mapping[str, object]) -> dict[str, object]:
+    """Verify only the exact tool tuple loaded from authenticated pending state."""
+    receipt = _artifact_receipt(binary)
+    if receipt != dict(expected):
+        raise ToolError("Recovery tool provenance differs from submitted rollout")
+    _verify_version(binary, receipt)
     return receipt
 
 
@@ -334,7 +285,7 @@ def environment(
         if not k.startswith(("SURREAL", "DATABASE_"))
     }
     result.update(
-        SURREALDB_HOST=str(config["endpoint"]),
+        SURREALDB_HOST=grpc_endpoint(str(config["endpoint"])),
         SURREALDB_NAMESPACE=str(record["namespace"]),
         SURREALDB_NAME="tooling",
         SURREALDB_USER=str(credentials["username"]),

@@ -299,18 +299,16 @@ class RuntimeCanonicalAttemptsRow:
     request: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
     worker: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     expires_at: datetime = attrs.field(validator=v.utc_timestamp)
-    ingestion_open: b.bool = attrs.field(validator=v.exact_type(b.bool))
-    closed: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    phase: e.CanonicalAttemptPhase = attrs.field(validator=attrs.validators.instance_of(e.CanonicalAttemptPhase))
     close_generation: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
-    terminal: b.bool = attrs.field(validator=v.exact_type(b.bool))
-    outcome: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    outcome: e.CanonicalTerminalOutcome | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.CanonicalTerminalOutcome)))
     closed_manifest: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     completion: b.bytes | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.bytes)))
     seed_manifest: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     finalization_study: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.run), v.scalar_key(self.generation), v.scalar_key(self.claim_operation), v.scalar_key(self.request), v.scalar_key(self.worker), v.scalar_key(self.expires_at), v.scalar_key(self.ingestion_open), v.scalar_key(self.closed), v.optional_key(v.scalar_key)(self.close_generation), v.scalar_key(self.terminal), v.optional_key(v.scalar_key)(self.outcome), v.optional_key(v.scalar_key)(self.closed_manifest), v.optional_key(v.scalar_key)(self.completion), v.optional_key(v.scalar_key)(self.seed_manifest), v.optional_key(v.scalar_key)(self.finalization_study),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.run), v.scalar_key(self.generation), v.scalar_key(self.claim_operation), v.scalar_key(self.request), v.scalar_key(self.worker), v.scalar_key(self.expires_at), v.scalar_key(self.phase), v.optional_key(v.scalar_key)(self.close_generation), v.optional_key(v.scalar_key)(self.outcome), v.optional_key(v.scalar_key)(self.closed_manifest), v.optional_key(v.scalar_key)(self.completion), v.optional_key(v.scalar_key)(self.seed_manifest), v.optional_key(v.scalar_key)(self.finalization_study),))
 
 
 @attrs.frozen(kw_only=True)
@@ -941,7 +939,7 @@ class RuntimeCanonicalRunsRow:
     current_attempt: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     cancelled: b.bool = attrs.field(validator=v.exact_type(b.bool))
     terminal_attempt: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    terminal_class: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    terminal_class: e.CanonicalTerminalOutcome | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.CanonicalTerminalOutcome)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.key), v.scalar_key(self.problem), v.scalar_key(self.revision), v.scalar_key(self.source_sequence), v.scalar_key(self.sequence), v.scalar_key(self.request), v.scalar_key(self.source_selection), v.scalar_key(self.attestation), v.scalar_key(self.interpretation), v.scalar_key(self.current_generation), v.optional_key(v.scalar_key)(self.current_attempt), v.scalar_key(self.cancelled), v.optional_key(v.scalar_key)(self.terminal_attempt), v.optional_key(v.scalar_key)(self.terminal_class),))
@@ -1010,13 +1008,15 @@ class RuntimeCanonicalStudiesRow:
     interpretation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     point_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
     next_ordinal: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    dependency_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    installed_dependencies: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
     active: b.bool = attrs.field(validator=v.exact_type(b.bool))
     cancelled: b.bool = attrs.field(validator=v.exact_type(b.bool))
     generation: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
     terminal: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.run), v.scalar_key(self.problem), v.scalar_key(self.revision), v.scalar_key(self.metadata), v.scalar_key(self.interpretation), v.scalar_key(self.point_count), v.scalar_key(self.next_ordinal), v.scalar_key(self.active), v.scalar_key(self.cancelled), v.scalar_key(self.generation), v.scalar_key(self.terminal),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.run), v.scalar_key(self.problem), v.scalar_key(self.revision), v.scalar_key(self.metadata), v.scalar_key(self.interpretation), v.scalar_key(self.point_count), v.scalar_key(self.next_ordinal), v.scalar_key(self.dependency_count), v.scalar_key(self.installed_dependencies), v.scalar_key(self.active), v.scalar_key(self.cancelled), v.scalar_key(self.generation), v.scalar_key(self.terminal),))
 
 
 @attrs.frozen(kw_only=True)

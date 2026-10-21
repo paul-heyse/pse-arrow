@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 238
-date: 2026-10-20
+revision: 240
+date: 2026-10-21
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,8 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 240 | 2026-10-21 | Publish selected Plan49a canonical-store implementation and composed durability/native/Python/interruption acceptance with explicit limits (§24.2). | Maintainer-authorized STO08 publication; PSE_DESIGN_EDIT=1; exact composite results and limits at Plan49 Outcome, proposed ADR-0214 unchanged. |
+| 239 | 2026-10-21 | Proposed ADR-0214 selects persistent MX1.0/SurrealDB3.3.4, SSI, bounded gRPC, generated lifecycle/refusals and fresh activation (§3.3/§20/§20.5/§20.6/§23.2). | Maintainer-authorized full Plan49a hard pivot; PSE_DESIGN_EDIT=1; implementation/qualification remain STO01–STO08. |
 | 238 | 2026-10-20 | Publish selected Plan48 implementation/qualification and retained native, scientific and platform limits (§24.2); enduring contracts remain with their existing owners. | Maintainer-authorized Plan48 H04 publication; PSE_DESIGN_EDIT=1; proposed ADR-0201–0212 statuses unchanged. |
 | 237 | 2026-10-20 | ADR-0213: add broad diagnostic, recommendation and completion audit boundaries (§24.4), operator-selected review focus and overview-led research; retain only the active native solver skill and remove library-catalog tooling. Preserve existing standard/profile criteria and plan ownership. | Maintainer-approved process rollout; PSE_DESIGN_EDIT=1; record remains proposed; no product qualification claimed. |
 | 236 | 2026-10-20 | Include parallel profile-chain roots and nested experiment populations in actual prepaid foreign coverage (§18.8), retaining opaque passive token representation and before-effect width fallback. | Maintainer-authorized Plan48 E01/E07 completeness correction; proposed ADR-0205 amended before dependent profile-chain migration, PSE_DESIGN_EDIT=1; qualification remains Plan48e/48h. |

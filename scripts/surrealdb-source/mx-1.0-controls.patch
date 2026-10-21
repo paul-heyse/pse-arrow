@@ -1,0 +1,295 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 38b8e17..17255b9 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -2140,14 +2140,12 @@ dependencies = [
+  "libc",
+  "option-ext",
+  "redox_users",
+  "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+ name = "diskann"
+ version = "0.56.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "3ead115d8a4f3917c1ae9c3db0aa4dd56251841864ef8637329969f8e5145dd3"
+ dependencies = [
+  "anyhow",
+  "bytemuck",
+diff --git a/Cargo.toml b/Cargo.toml
+index 42172ba..dcff584 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -701,3 +701,6 @@ panic = 'unwind'
+ # rustc. Worth it for an iterative profiling loop.
+ lto = "thin"
+ codegen-units = 16
++
++[patch.crates-io]
++diskann = { path = ".pse-deps/diskann" }
+diff --git a/surrealdb/core/src/err/to_types.rs b/surrealdb/core/src/err/to_types.rs
+index 5dc43eb..be97047 100644
+--- a/surrealdb/core/src/err/to_types.rs
++++ b/surrealdb/core/src/err/to_types.rs
+@@ -109,7 +109,12 @@ fn into_types_error_inner(error: Error, message: String) -> TypesError {
+ 			KvsError::UnsupportedVersionedQueries | KvsError::UnsupportedLockedReads => {
+ 				TypesError::configuration(message, None)
+ 			}
+-			KvsError::Datastore(_)
++			KvsError::MemoryLimit
++			| KvsError::TransactionTooOld
++			| KvsError::DatabasePoisoned(_)
++			| KvsError::AsyncQueueFull
++			| KvsError::DatastoreCorrupted(_)
++			| KvsError::Datastore(_)
+ 			| KvsError::Transaction(_)
+ 			| KvsError::NoSavepoint
+ 			| KvsError::TimestampInvalid(_)
+diff --git a/surrealdb/kvs-mem/src/cnf.rs b/surrealdb/kvs-mem/src/cnf.rs
+index 2af30eb..8a7a627 100644
+--- a/surrealdb/kvs-mem/src/cnf.rs
++++ b/surrealdb/kvs-mem/src/cnf.rs
+@@ -6,6 +6,13 @@ use surrealdb_kvs::config::{AolMode, SnapshotMode, SyncMode};
+ /// Configuration for the in-memory storage engine, parsed from query parameters.
+ #[derive(Debug, Clone)]
+ pub struct MemoryConfig {
++	/// Finite resident key/value allowance; the supervisor reserves process headroom separately.
++	pub memory_limit: usize,
++	/// Maximum lifetime of a pinned transaction snapshot.
++	pub max_transaction_age: Duration,
++	/// Finite asynchronous queue bounds, including when used by explicit tests.
++	pub max_async_queue_depth: usize,
++	pub max_async_queue_bytes: usize,
+ 	/// Path for persistence files (from URL path, e.g. `mem:///tmp/data`). If set, enables disk
+ 	/// persistence.
+ 	pub persist_path: Option<String>,
+@@ -31,6 +38,10 @@ pub struct MemoryConfig {
+ impl Default for MemoryConfig {
+ 	fn default() -> Self {
+ 		Self {
++			memory_limit: 1024 * 1024 * 1024,
++			max_transaction_age: Duration::from_secs(90),
++			max_async_queue_depth: 32,
++			max_async_queue_bytes: 64 * 1024 * 1024,
+ 			persist_path: None,
+ 			sync_mode: SyncMode::Never,
+ 			aol_mode: AolMode::Never,
+@@ -51,6 +62,10 @@ impl Config for MemoryConfig {
+ 				Some(Some(x.to_owned()))
+ 			}
+ 		})
++		.parse_key("datastore_memory_limit", &mut self.memory_limit)
++		.parse_key_with("datastore_max_transaction_age", &mut self.max_transaction_age, |x| parse_duration(x).ok())
++		.parse_key("datastore_max_async_queue_depth", &mut self.max_async_queue_depth)
++		.parse_key("datastore_max_async_queue_bytes", &mut self.max_async_queue_bytes)
+ 		.parse_key("datastore_aol", &mut self.aol_mode)
+ 		.parse_key("datastore_snapshot", &mut self.snapshot_mode)
+ 		.parse_key("datastore_versioned", &mut self.versioned)
+diff --git a/surrealdb/kvs-mem/src/lib.rs b/surrealdb/kvs-mem/src/lib.rs
+index 13314ca..08c51a3 100644
+--- a/surrealdb/kvs-mem/src/lib.rs
++++ b/surrealdb/kvs-mem/src/lib.rs
+@@ -26,7 +26,7 @@ use surrealdb_kvs::err::{Error, Result};
+ use surrealdb_kvs::timestamp::{
+ 	BoxTimeStamp, BoxTimeStampImpl, MAX_TIMESTAMP_BYTES, TimeStamp, TimeStampImpl,
+ };
+-use surrealdb_kvs::{Direction, Key, KeyRange, Metrics, TransactionBuilder, TransactionType, Val};
++use surrealdb_kvs::{Direction, Key, KeyRange, Metric, Metrics, TransactionBuilder, TransactionType, Val};
+ 
+ /// Convert a SurrealMX engine error into the generic KVS error type.
+ #[expect(
+@@ -42,7 +42,11 @@ fn kvs_error(e: surrealmx::Error) -> Error {
+ 		surrealmx::Error::KeyReadConflict => Error::TransactionConflict(e.to_string()),
+ 		surrealmx::Error::KeyWriteConflict => Error::TransactionConflict(e.to_string()),
+ 		surrealmx::Error::NoSavepoint => Error::NoSavepoint,
+-		_ => Error::Transaction(e.to_string()),
++		surrealmx::Error::MemoryLimit => Error::MemoryLimit,
++		surrealmx::Error::TxTooOld => Error::TransactionTooOld,
++		surrealmx::Error::DatabasePoisoned(reason) => Error::DatabasePoisoned(reason),
++		surrealmx::Error::AsyncQueueFull => Error::AsyncQueueFull,
++		surrealmx::Error::TxCommitNotPersisted(reason) => Error::CommitOutcomeUnknown(format!("PSE_MX_COMMIT_UNKNOWN: {reason}")),
+ 	}
+ }
+ 
+@@ -83,7 +87,13 @@ impl Datastore {
+ 		// Create new configuration options. surrealmx reclaims superseded MVCC
+ 		// versions inline at commit time and sweeps the tracked leftovers on the
+ 		// background GC worker, so both workers run with their default intervals.
++		if config.memory_limit == 0 || config.max_transaction_age.is_zero()
++			|| config.max_async_queue_depth == 0 || config.max_async_queue_bytes == 0 {
++			return Err(Error::Datastore("MX requires finite positive memory, transaction age and queue bounds".into()));
++		}
+ 		let opts = DatabaseOptions {
++			memory_limit: Some(config.memory_limit),
++			max_transaction_age: Some(config.max_transaction_age),
+ 			enable_gc: true,
+ 			enable_cleanup: true,
+ 			..Default::default()
+@@ -93,6 +103,8 @@ impl Datastore {
+ 		let db = if let Some(ref persist_path) = config.persist_path {
+ 			// Build persistence options from config
+ 			let mut persistence_opts = surrealmx::PersistenceOptions::new(persist_path);
++			persistence_opts.max_async_queue_depth = Some(config.max_async_queue_depth);
++			persistence_opts.max_async_queue_bytes = Some(config.max_async_queue_bytes);
+ 			// Map AOL mode
+ 			persistence_opts.aol_mode = match config.aol_mode {
+ 				AolMode::Never => surrealmx::AolMode::Never,
+@@ -112,7 +124,10 @@ impl Datastore {
+ 			};
+ 			// Create a persistent database
+ 			Database::new_with_persistence(opts, persistence_opts)
+-				.map_err(|e| Error::Datastore(e.to_string()))?
++				.map_err(|e| match e {
++					_ if e.get_ref().and_then(|source| source.downcast_ref::<surrealmx::PersistenceError>()).is_some_and(|source| matches!(source, surrealmx::PersistenceError::Corrupted(_))) => Error::DatastoreCorrupted(e.to_string()),
++					other => Error::Datastore(other.to_string()),
++				})?
+ 		} else {
+ 			// Create a non-persistent database
+ 			Database::new_with_options(opts)
+@@ -135,7 +150,7 @@ impl Datastore {
+ 	pub async fn transaction(&self, write: TransactionType) -> Result<Box<dyn Transactable>> {
+ 		let write = matches!(write, TransactionType::Write);
+ 		// Create a new transactio
+-		let txn = self.db.transaction(write).with_snapshot_isolation();
++		let txn = self.db.transaction(write).with_serializable_snapshot_isolation();
+ 		// Return the new transaction
+ 		Ok(Box::new(Transaction {
+ 			done: AtomicBool::new(false),
+@@ -163,11 +178,40 @@ impl TransactionBuilder for Datastore {
+ 	}
+ 
+ 	fn register_metrics(&self) -> Option<Metrics> {
+-		None
++		Some(Metrics {
++			name: "surrealdb.surrealmx",
++			u64_metrics: vec![
++				Metric { name: "surrealmx.live_keys", description: "Live resident keys" },
++				Metric { name: "surrealmx.live_versions", description: "Live committed versions" },
++				Metric { name: "surrealmx.approx_data_bytes", description: "Estimated resident key/value bytes" },
++				Metric { name: "surrealmx.active_readers", description: "Transactions pinning a snapshot" },
++				Metric { name: "surrealmx.oldest_pinned_version", description: "Oldest active snapshot; absent with no reader" },
++				Metric { name: "surrealmx.gc_candidate_keys", description: "Keys awaiting reader release and reclamation" },
++				Metric { name: "surrealmx.commit_ring_occupancy", description: "Unretired commits" },
++				Metric { name: "surrealmx.async_queue_depth", description: "Asynchronous persistence batches" },
++				Metric { name: "surrealmx.async_queue_bytes", description: "Asynchronous persistence bytes" },
++				Metric { name: "surrealmx.async_dropped_batches", description: "Failed asynchronous batches" },
++				Metric { name: "surrealmx.poisoned", description: "One while engine is stopped by a failure" },
++			],
++		})
+ 	}
+ 
+-	fn collect_u64_metric(&self, _metric: &str) -> Option<u64> {
+-		None
++	fn collect_u64_metric(&self, metric: &str) -> Option<u64> {
++		let stats = self.db.stats();
++		Some(match metric {
++			"surrealmx.live_keys" => stats.live_keys as u64,
++			"surrealmx.live_versions" => stats.live_versions as u64,
++			"surrealmx.approx_data_bytes" => stats.approx_data_bytes as u64,
++			"surrealmx.active_readers" => stats.active_readers as u64,
++			"surrealmx.oldest_pinned_version" => return stats.oldest_pinned_version,
++			"surrealmx.gc_candidate_keys" => stats.gc_candidate_keys as u64,
++			"surrealmx.commit_ring_occupancy" => stats.commit_ring_occupancy as u64,
++			"surrealmx.async_queue_depth" => stats.async_queue_depth as u64,
++			"surrealmx.async_queue_bytes" => stats.async_queue_bytes as u64,
++			"surrealmx.async_dropped_batches" => stats.async_dropped_batches,
++			"surrealmx.poisoned" => u64::from(stats.is_poisoned),
++			_ => return None,
++		})
+ 	}
+ }
+ 
+@@ -1269,4 +1313,71 @@ mod tests {
+ 			Some(Error::UnsupportedVersionedQueries)
+ 		));
+ 	}
++	#[tokio::test]
++	async fn ssi_rejects_write_skew_and_missing_key_interference() {
++		let ds = Datastore::new(MemoryConfig::default()).await.unwrap();
++		let left = ds.transaction(TransactionType::Write).await.unwrap();
++		let right = ds.transaction(TransactionType::Write).await.unwrap();
++		assert_eq!(left.get(Key::from(b"right".as_slice()), None).await.unwrap(), None);
++		assert_eq!(right.get(Key::from(b"left".as_slice()), None).await.unwrap(), None);
++		left.set(Key::from(b"left".as_slice()), b"active".to_vec()).await.unwrap();
++		right.set(Key::from(b"right".as_slice()), b"active".to_vec()).await.unwrap();
++		left.commit().await.unwrap();
++		assert!(matches!(right.commit().await, Err(Error::TransactionConflict(_))));
++	}
++
++	#[tokio::test]
++	async fn ssi_rejects_phantom_in_an_empty_scanned_range() {
++		let ds = Datastore::new(MemoryConfig::default()).await.unwrap();
++		let reader = ds.transaction(TransactionType::Write).await.unwrap();
++		let range = KeyRange { start: Key::from(b"a".as_slice()), end: Key::from(b"z".as_slice()) };
++		assert!(reader.scan(range, 10, 0, None).await.unwrap().values.is_empty());
++		let writer = ds.transaction(TransactionType::Write).await.unwrap();
++		writer.set(Key::from(b"m".as_slice()), b"inserted".to_vec()).await.unwrap();
++		writer.commit().await.unwrap();
++		reader.set(Key::from(b"outside".as_slice()), b"decision".to_vec()).await.unwrap();
++		assert!(matches!(reader.commit().await, Err(Error::TransactionConflict(_))));
++	}
++
++	#[tokio::test]
++	async fn owned_reads_multi_order_conditionals_and_reverse_cursor() {
++		let ds = Datastore::new(MemoryConfig::default()).await.unwrap();
++		let tx = ds.transaction(TransactionType::Write).await.unwrap();
++		tx.set(Key::from(b"a".as_slice()), b"one".to_vec()).await.unwrap();
++		tx.set(Key::from(b"b".as_slice()), b"two".to_vec()).await.unwrap();
++		tx.commit().await.unwrap();
++		let tx = ds.transaction(TransactionType::Write).await.unwrap();
++		let owned = tx.getu(Key::from(b"a".as_slice())).await.unwrap().unwrap();
++		let keys = [Key::from(b"b".as_slice()), Key::from(b"missing".as_slice()), Key::from(b"a".as_slice())];
++		let multi = tx.getm(&keys, None).await.unwrap();
++		assert_eq!(multi.values, vec![Some(b"two".to_vec()), None, Some(b"one".to_vec())]);
++		tx.new_save_point().await.unwrap();
++		tx.putc(Key::from(b"a".as_slice()), b"changed".to_vec(), Some(b"one".to_vec())).await.unwrap();
++		tx.rollback_to_save_point().await.unwrap();
++		tx.delc(Key::from(b"b".as_slice()), Some(b"two".as_slice())).await.unwrap();
++		let range = KeyRange { start: Key::from(b"a".as_slice()), end: Key::from(b"z".as_slice()) };
++		let rows = tx.scanr(range, 10, 0, None).await.unwrap();
++		assert_eq!(rows.values.len(), 1);
++		tx.commit().await.unwrap();
++		drop(tx);
++		drop(ds);
++		assert_eq!(owned, b"one".to_vec());
++	}
++
++	#[tokio::test]
++	async fn finite_age_releases_reader_and_memory_failure_is_not_conflict() {
++		let ds = Datastore::new(MemoryConfig { max_transaction_age: Duration::from_millis(1), ..Default::default() }).await.unwrap();
++		let tx = ds.transaction(TransactionType::Write).await.unwrap();
++		assert_eq!(ds.collect_u64_metric("surrealmx.active_readers"), Some(1));
++		tokio::time::sleep(Duration::from_millis(5)).await;
++		assert!(matches!(tx.get(Key::from(b"x".as_slice()), None).await, Err(Error::TransactionTooOld)));
++		assert_eq!(ds.collect_u64_metric("surrealmx.active_readers"), Some(0));
++		let ds = Datastore::new(MemoryConfig { memory_limit: 1, ..Default::default() }).await.unwrap();
++		let tx = ds.transaction(TransactionType::Write).await.unwrap();
++		tx.set(Key::from(b"key".as_slice()), vec![1; 4096]).await.unwrap();
++		assert!(matches!(tx.commit().await, Err(Error::MemoryLimit)));
++		let reader = ds.transaction(TransactionType::Read).await.unwrap();
++		assert_eq!(reader.get(Key::from(b"key".as_slice()), None).await.unwrap(), None);
++	}
++
+ }
+diff --git a/surrealdb/kvs/src/err.rs b/surrealdb/kvs/src/err.rs
+index 33f87a2..87987be 100644
+--- a/surrealdb/kvs/src/err.rs
++++ b/surrealdb/kvs/src/err.rs
+@@ -12,6 +12,16 @@ pub type Result<T> = std::result::Result<T, Error>;
+ #[allow(dead_code, reason = "Some variants are only used by specific KV stores")]
+ #[derive(Error, Debug)]
+ pub enum Error {
++	#[error("PSE_MX_MEMORY_LIMIT: finite resident allowance reached")]
++	MemoryLimit,
++	#[error("PSE_MX_TX_TOO_OLD: transaction snapshot exceeded its lifetime")]
++	TransactionTooOld,
++	#[error("PSE_MX_DATABASE_POISONED: {0}")]
++	DatabasePoisoned(String),
++	#[error("PSE_MX_ASYNC_QUEUE_FULL: finite persistence queue reached")]
++	AsyncQueueFull,
++	#[error("PSE_MX_CORRUPTED: {0}")]
++	DatastoreCorrupted(String),
+ 	/// There was a problem with the underlying datastore
+ 	#[error("There was a problem with the datastore: {0}")]
+ 	Datastore(String),

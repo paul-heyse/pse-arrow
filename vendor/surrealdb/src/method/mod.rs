@@ -221,6 +221,7 @@ where
             router: OnceLock::new(),
             waiter: watch::channel(None),
             session_clone: SessionClone::new(),
+            bounded_session: std::sync::OnceLock::new(),
         })
         .into()
     }

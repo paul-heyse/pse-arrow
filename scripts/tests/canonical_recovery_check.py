@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Released-server recovery with generated native schema and protected source/products."""
+"""Source-built server recovery with native schema and protected source/products."""
 
 from __future__ import annotations
 
@@ -270,7 +270,7 @@ def recovery_equivalence(
         "schema_interpretation",
         "interpretation",
         "max_message_bytes",
-        "websocket_max_message_bytes",
+        "rpc_max_message_bytes",
         "tooling_fixture",
         "log_max_bytes",
         "log_backups",
@@ -502,6 +502,32 @@ def journey(
         credentials = (state / "credentials.json").read_bytes()
         command = [str(binary.resolve())]
         try:
+            # Fresh schema and fixture creation borrow the exact supervisor
+            # initializer owner before ordinary admission is opened.
+            server.initialize(
+                state,
+                [*command, str(state), "--seed", "--creation-intent", str(intent)],
+            )
+            config = server.config_for(state)
+            if (
+                "fresh_root_bootstrap" in config
+                or any(
+                    config[key] != identity[key]
+                    for key in (
+                        "instance_id",
+                        "namespace",
+                        "database",
+                        "payload_incarnation",
+                    )
+                )
+                or (state / "credentials.json").read_bytes() != credentials
+            ):
+                raise server.SupervisorError(
+                    "Fresh initialization changed selected authority or retained bootstrap permission"
+                )
+            # Recovery compares an established catalog. The one-use empty-engine
+            # bootstrap selection has been authenticated and consumed above.
+            identity = dict(config)
             server.start(state, config)
             if reference:
                 group = server.systemctl(
@@ -515,10 +541,6 @@ def journey(
                         "Started recovery server has no populated owned cgroup"
                     )
                 verify_server_placement(state, allocation, group)
-            run_effect(
-                [*command, str(state), "--seed", "--creation-intent", str(intent)],
-                timeout=120,
-            )
             if scientific:
                 run_effect(science_command(state, inputs, receipt, "seed"))
             with server.lifecycle_reservation(state):

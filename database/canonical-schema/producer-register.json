@@ -1,0 +1,26 @@
+{
+  "version": "canonical-frozen-rollout-v1",
+  "producer": "scripts/surreal_rollout_producer.py",
+  "tool_version": "1.0.0-beta.6",
+  "releases": [
+    {
+      "id": "20261021131104__canonical_28f894ce3c844206",
+      "files": {
+        "rollouts/20261021131104__canonical_28f894ce3c844206.toml": "0e79acc6f77e28910667d467bb4d66a768eccfd97f720b3181460bd2c59981b0",
+        "rollouts/20261021131104__canonical_28f894ce3c844206/producer.json": "a29c147d2f962ee3e9da5e5b8dc8c29e6bf697b937a8c378ae8d238f43be37d7",
+        "rollouts/20261021131104__canonical_28f894ce3c844206/schema/canonical.surql": "4f5136e22c91d13ceac190797f625859e7492bd1230151a1e7f56938811e6bc5",
+        "rollouts/20261021131104__canonical_28f894ce3c844206/snapshots/catalog_snapshot.json": "99c9edb082499afe5921f8d10e89dca7c3e228f22d6f2f8217691f08f5014049",
+        "rollouts/20261021131104__canonical_28f894ce3c844206/snapshots/schema_snapshot.json": "647f0db030e82206dde99041bb11e4dc0bee202fc39d88f3ba80e149c6167878",
+        "rollouts/20261021131104__canonical_28f894ce3c844206/source-schema.surql": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "rollouts/20261021131104__canonical_28f894ce3c844206/target-catalog-snapshot.json": "e2c07418e49fe1e94c6694364ff85c41b6a7c40421f4177624f3d2ae246d15e0",
+        "rollouts/20261021131104__canonical_28f894ce3c844206/target-schema-snapshot.json": "51f05a2c60e7f504293e2568ce0008acd3cd8d7cf0efc9fd6e7b7e13df367eb3",
+        "rollouts/20261021131104__canonical_28f894ce3c844206/target-schema.surql": "4f5136e22c91d13ceac190797f625859e7492bd1230151a1e7f56938811e6bc5"
+      }
+    }
+  ],
+  "head_files": {
+    "schema/canonical.surql": "4f5136e22c91d13ceac190797f625859e7492bd1230151a1e7f56938811e6bc5",
+    "snapshots/catalog_snapshot.json": "e2c07418e49fe1e94c6694364ff85c41b6a7c40421f4177624f3d2ae246d15e0",
+    "snapshots/schema_snapshot.json": "51f05a2c60e7f504293e2568ce0008acd3cd8d7cf0efc9fd6e7b7e13df367eb3"
+  }
+}

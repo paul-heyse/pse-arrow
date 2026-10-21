@@ -236,6 +236,25 @@ class CandidateUse(StrEnum):
     UNUSABLE = "unusable"
 
 
+class CanonicalAttemptPhase(StrEnum):
+    """The declared CanonicalAttemptPhase enumeration."""
+
+    INGESTING = "ingesting"
+    CLOSED_AWAITING_MANIFEST = "closed_awaiting_manifest"
+    CLOSED_WITH_MANIFEST = "closed_with_manifest"
+    TERMINAL = "terminal"
+    TERMINAL_COMPACTED = "terminal_compacted"
+
+
+class CanonicalTerminalOutcome(StrEnum):
+    """The declared CanonicalTerminalOutcome enumeration."""
+
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    PARTIAL = "partial"
+    CANCELLED = "cancelled"
+
+
 class CaptureKind(StrEnum):
     """The declared CaptureKind enumeration."""
 

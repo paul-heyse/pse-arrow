@@ -1,5 +1,15 @@
 # Current work and plans
 
+[Plan49: Library-native remediation and SurrealMX integration](49-library-native-remediation.md)
+is the series consuming the revised in-use-library review, recommendation audit
+and new SurrealDB/Symbolica capability assessment. Its coordinator owns DA-001–DA-032,
+F01–F10, R1–R22 routes, bounded inquiries and rule decisions; companions develop the
+selected target and implementation packages. SurrealMX 1.0 integration is explicitly
+selected; all rule decisions are recorded at the coordinator. The maintainer authorized full Plan49a execution with fresh generated data on 2026-10-21;
+STO01–STO08 are complete with a fresh active MX1.0/gRPC store and selected assembled
+qualification. The [store Outcome](49-library-native-remediation.md#outcome--plan49a-canonical-store)
+owns exact results and limits; other companions remain proposed. The coordinator owns progress.
+
 Plans own the execution status of work that is actually active; packets may own their own
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.

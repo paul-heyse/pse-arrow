@@ -425,7 +425,7 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
     units = payload.get("units", [])
     if not isinstance(units, list):
         raise ResourceError("Invalid drain owners")
-    if config.get("profile_version") == 2:
+    if config.get("profile_version") == 3:
         if config.get("parked"):
             allocation = host.inherit(os.environ)
             if allocation is None or not allocation.profile.exclusive:
@@ -1139,6 +1139,8 @@ def finish_report(
 
 def reclaim_reports() -> list[str]:
     """Explicit bounded retry of eligible reports and deferred database cleanup."""
+    from scripts import surreal_server  # noqa: PLC0415 -- service cycle
+
     deadline = resource_store.clock()
     store = storage()
     store.ensure(deadline)
@@ -1178,7 +1180,12 @@ def reclaim_reports() -> list[str]:
             ):
                 continue
             reclaim(resource, deadline=deadline)
-        except (OSError, ValueError, subprocess.SubprocessError) as error:
+        except (
+            OSError,
+            ValueError,
+            subprocess.SubprocessError,
+            surreal_server.SupervisorError,
+        ) as error:
             errors.append(f"{resource}: {error}")
     return errors
 

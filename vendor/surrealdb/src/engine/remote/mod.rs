@@ -92,6 +92,12 @@
 #[cfg(all(feature = "protocol-grpc", not(target_family = "wasm")))]
 #[cfg_attr(docsrs, doc(cfg(feature = "protocol-grpc")))]
 pub mod grpc;
+#[cfg(all(feature = "protocol-grpc", not(target_family = "wasm")))]
+mod grpc_lifecycle;
+#[cfg(all(feature = "protocol-grpc", not(target_family = "wasm")))]
+mod grpc_wire;
+#[cfg(all(feature = "protocol-grpc", not(target_family = "wasm")))]
+mod grpc_wire_schema;
 
 #[cfg(feature = "protocol-http")]
 #[cfg_attr(docsrs, doc(cfg(feature = "protocol-http")))]

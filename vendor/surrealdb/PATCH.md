@@ -1,77 +1,91 @@
-# Pinned native request lifecycle patch
+# Pinned native gRPC request lifecycle patch
 
-Base: crates.io `surrealdb==3.3.0` and `surrealdb-engine-api==3.3.0`.
-The copied upstream licenses and `.cargo-vcs-info.json` identify the original
-source. Version numbers and RPC/types/server dependencies stay at 3.3.0.
+Base: crates.io `surrealdb==3.3.4` and `surrealdb-engine-api==3.3.4`.
+The copied upstream licenses and `.cargo_vcs_info.json` identify the original
+sources. The workspace selects `protocol-grpc`; canonical clients use
+`Config::bounded_requests()` and an explicit original `RequestContext`.
 
-The patch adds optional request-local deadline/cancellation and dispatch state to
-query/select/signin/set/version/namespace/database builders and the engine route. Native
-`Config::bounded_requests()` enables 32 application plus two reserved control
-admissions, 34 queued/deferred routes, one application session and 64 ordered
-replay entries including automatic attachment and prospective setup commands.
-The driver retains dispatched correlation/admission while draining an abandoned
-request and physically drops both socket halves before releasing correlations.
-`disconnect()` awaits that physical driver boundary. It does not establish that
-the server or a native scientific task stopped. Normal queries do not use the
-streaming query cancellation RPC.
+## Admission, sessions and original clocks
 
-The unmodified profile remains the SDK default. The finite profile is for the
-direct native WebSocket client; its request builders require an original
-`RequestContext`. Reconnect replays acknowledged setup only, never application
-queries. Replay order is preserved. An explicit final-Owner `selection_checkpoint`
-request context carries one opaque identity per client and selected database.
-After its successful acknowledgment, the driver may replace only an adjacent
-previous completed same-identity authentication / exact namespace-and-database
-USE / authentication triple. Intervening variable/settings setup, different
-selections, partial or failed authentication, and unmarked setup are retained.
-The checkpoint replaces storage rather than growing a hidden history; all
-remaining setup and prospective requests remain subject to the 64-entry limit.
+The bounded engine owns 32 application and two reserved control admissions, with
+32 application and 32 control waiting slots. Available active slots are
+acquired before waiting capacity; original-clock waiters never occupy an active
+slot. The separate two-slot control execution reserve remains intact. A refused clone cannot create a
+second application session or grow an unknown-session registry. Acknowledged
+session history has 64 entries including attachment and prospective setup.
+Setup is ordered, recorded only after acknowledgment, and never coalesced across
+intervening setup. A final owner `selection_checkpoint` can replace only adjacent
+completed same-identity authentication / exact namespace-and-database USE /
+authentication triples. Credentials and values are never formatted into logs.
 
-Connection version verification uses a finite five-second reserved control
-lifecycle. Bounded acknowledged session restoration has one absolute five-second
-deadline spanning initial sends, every ACK and refresh. Explicit sent/ready/failed
-outcomes prevent partial setup dispatch; timeout/send failure closes new admission
-and physically drains instead of repeatedly restarting restoration. Admission is released explicitly at acknowledged completion, malformed nonpayload
-terminal completion or physical invalidation, independent of concurrent-map epoch
-reclamation. Terminal completion remains cancellation-safe and idempotent. Malformed
-payload responses retain correlation/byte ownership until physical socket drain. Dropping
-a request future cancels admission; dropping the final application session closes
-the physical driver. The bounded root-authentication profile returns expired
-refresh-token setup errors to its owner instead of starting an unbounded automatic
-refresh; the default profile retains upstream refresh behavior.
+Every native operation retains its original absolute deadline through admission,
+session readiness, restoration, dispatch, conversion and delivery. Dispatch is
+recorded at the HTTP/2 send seam. Dropping a waiting caller cancels admission;
+abandoning dispatched work retains its actual driver, payload and activity
+owners until late completion or the original deadline. It does not revoke
+independent callers. An expired dispatched operation physically drains its failed
+connection generation and reports uncertainty.
 
-Bounded session setup retains remote typed error domains even after setup has
-failed before a caller queues its route. Version verification suppresses only
-a denial naming the `version` method, never a rejected automatic attachment.
+A retained client can recover for a *new undispatched operation*: it first joins
+the failed physical generation, creates a new socket and server session, then
+restores only the complete acknowledged setup snapshot. One restoration deadline
+is the minimum of the new operation's original deadline and five seconds. A
+partially failed restore cannot replace that snapshot. No application query,
+mutation or explicit transaction is automatically replayed. An explicit
+`disconnect()` permanently seals admission, awaits bounded session detach, joins
+the physical socket task, and drains all admitted local request tasks. Final SDK
+owner drop follows the same physical ownership route.
 
-Native WebSocket response-channel and setup/transport failure logs use fixed
-labels instead of response or frame Debug output. A dropped signin receiver may
-still receive a late token acknowledgment internally; no token, binding or queued
-frame is formatted into those logs. Typed failures remain available to callers.
+## Owned HTTP/2 and response envelopes
 
-RequestContext also carries a separate clearable lifetime owner, composed across
-builder/context replacement and inherited by query/select/live paths. It does not
-classify a request as payload or alter replay eligibility. Actual terminal/drain
-paths release this nonbyte activity independently of held context/map aliases;
-unpolled builders retain lexical ownership. The canonical adapter uses this seam
-to account for physical connection activity through real request completion.
+The generated tonic service client remains the RPC implementation. The bounded
+profile supplies an owned hyper HTTP/2 connection with an abort-and-join handle;
+a dropped tonic request is not substituted for physical socket completion.
+HTTP/2 frame, header and flow-control buffers are finite, and server-initiated
+streams are refused. The generic unbounded SDK profile retains upstream tonic
+transport behavior; it is not the canonical production path.
 
-Plan 41c adds optional endpoint `ResponseLimits` to the same RequestContext.
-Native response ingress verifies the borrowed FlatBuffers envelope and installed
-request/replay/LIVE recipient before owned conversion, then enforces endpoint
-node, depth, container, string and blob occurrence limits. Repeated wire offsets
-count as repeated owned copies. Unknown addressed recipients and malformed
-correlations refuse before owned decoding; pending owners remain until physical
-socket drain. Sessionless frames follow upstream's ignored-response behavior and
-are discarded before owned decoding. Installed generic pending requests preserve
-their ordinary decoder contract; installed LIVE queries use finite expanded
-verification and the pinned RPC decoder's CREATE/UPDATE/DELETE grammar. The
-pinned RPC decoder does not support KILLED despite its types/stream vocabulary.
+The bounded response body recognizes its installed RPC recipient and validates
+complete borrowed protobuf messages before yielding them to prost. Encoded wire,
+node/depth, repeated-container, UTF8/string and blob occurrence allowances are
+cumulative across the whole operation, including individually legal frames and
+packed scalar fields. Nodes charge each owned protobuf message and repeated
+inline vector slot once; wire tags and ordinary inline fields are not separate
+owned allocations. Protocol UUID envelopes are validated as exactly 16
+bytes and charged as wire/nodes; application byte values retain their separate
+blob budgets. The bounded profile does not advertise response
+compression, so no decompression can precede this preflight. An endpoint's
+`ResponseLimits` and actual prepaid owners travel through spawned native work,
+codec ingress, owned conversion, delivery and physical drain. Clearable ownership
+cells do not depend on retired context aliases disappearing.
 
-The actual frame drops before owned response delivery can wake its consumer.
-Nested canonical response scopes compose their actual allocation owners, including
-retained protected metadata and the separately bounded cleanup response allowance.
-A late SDK borrower prevents a consumer from shrinking the original allowance;
-failed retained admission carries that original grant through protected cleanup.
-Payload-free refusal warnings expose the reason, correlation and frame extent;
-they never print response values or credentials.
+Statement counts are checked against the submitted script length, endpoint
+allocation ceiling and original node/container/byte allowance before allocating
+result slots. Batch indices cannot exceed the advertised count, and repeated
+Begin frames cannot erase provisional results.
+
+Unary RPC failures preserve typed native protobuf errors and their cause chains
+through the explicit `surreal-error-bin` trailer. Encoded and decoded metadata
+are bounded to 8 KiB, and borrowed validation precedes owned decoding. A bare
+status code or human message never manufactures a typed conflict reason.
+
+Buffered canonical results require ordered batches, terminal statement results,
+authoritative QueryEnd and successful HTTP/2 trailers. Rows from a late failing
+or incomplete transaction cannot become successful IndexedResults. The bounded
+streaming trait uses this completed buffered result before emitting items;
+canonical metadata and protected-result operations remain bounded page requests.
+
+## Maintaining the pinned wire boundary
+
+`src/engine/remote/grpc_wire_schema.rs` contains structural field shapes extracted
+from the exact protocol `0.13.1` prost declarations. Reproduce it with:
+
+```sh
+python tools/update_grpc_wire_schema.py /path/to/surrealdb-protocol-0.13.1
+```
+
+The extraction script reads source only. It declares no catalog meaning, performs
+no owned Value decode, and must move with a deliberate protocol pin change.
+Actual HTTP/2/protobuf fault, capacity, restoration and lifetime controls live in
+the canonical transport test owner. The owning implementation plan records their
+qualification state; this file does not claim assembled product qualification.

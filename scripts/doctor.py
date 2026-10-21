@@ -540,14 +540,14 @@ def check_solvers() -> Check:
 def _canonical_profile_check(state: Path) -> Check:
     config = json.loads((state / "config.json").read_text(encoding="utf-8"))
     server = config["server"]
-    if config["owner"] != "pse-arrow-surreal-v1" or config["profile_version"] != 2:
+    if config["owner"] != "pse-arrow-surreal-v1" or config["profile_version"] != 3:
         raise ValueError("unsupported owned profile")
     if not Path(server["binary"]).is_file():
         raise ValueError("configured server executable is absent")
     return Check(
         "canonical",
         True,
-        f"SurrealDB {server['version']}; configured {config['admission']} profile",
+        f"SurrealDB {server['version']} / SurrealMX {server.get('surrealmx_version', 'unknown')}; configured {config['admission']} profile",
         blocking=False,
     )
 

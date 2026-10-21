@@ -1,13 +1,12 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Disposable released-server lifecycle check; no existing application state is used.
+"""Disposable source-built server lifecycle check; no existing application state is used.
 
 Run `python -m scripts.tests.surreal_fixture_check` for the journey or add
 `--validate-only` to check the state passed in PSE_SURREAL_STATE during restore.
-This administrative HTTP control exercises lifecycle; Rust owns native WebSocket checks.
-Every non-MCP journey requires a current `target/debug/xtask` built with
+This administrative HTTP control exercises lifecycle; Rust owns native gRPC checks.
+Every fresh-profile journey requires a current `target/debug/xtask` built with
 `canonical-tools`; it installs the production canonical schema before toy writes.
-MCP-only controls do not require that initializer.
 """
 
 from __future__ import annotations
@@ -226,30 +225,9 @@ def initialize_canonical(state: Path) -> None:
     xtask = ROOT / "target/debug/xtask"
     if not xtask.is_file() or not os.access(xtask, os.X_OK):
         raise server.SupervisorError(
-            "Non-MCP fixture requires current target/debug/xtask built with canonical-tools"
+            "Fixture requires current target/debug/xtask built with canonical-tools"
         )
-    environment = dict(os.environ)
-    environment.pop("PSE_CANONICAL_INITIALIZER", None)
-    environment["PSE_SURREAL_STATE"] = str(state)
-    result = subprocess.run(
-        [str(xtask), "canonical-init", str(state)],
-        cwd=ROOT,
-        env=environment,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    # Keep initializer diagnostics private with the retained fixture, including
-    # failures from an outdated binary lacking the canonical-tools command.
-    diagnostic = state / "canonical-initializer.log"
-    descriptor = os.open(diagnostic, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(descriptor, "w") as stream:
-        stream.write(result.stdout + "\n" + result.stderr)
-    if result.returncode:
-        raise server.SupervisorError(
-            "Production canonical initializer failed; private diagnostic "
-            + str(diagnostic)
-        )
+    server.initialize(state, [str(xtask), "canonical-init", str(state)])
 
 
 def check(state: Path) -> None:
@@ -775,11 +753,11 @@ def journey(
                 "512",
             ]
         )
-        if mcp_only:
-            args.version = "v3.3.0"
         server.setup(args)
         config = server.config_for(state)
         try:
+            initialize_canonical(state)
+            config = server.config_for(state)
             server.start(state, config)
             record_ownership(directory, server.unit_name(state))
             if mcp_only:
@@ -796,7 +774,6 @@ def journey(
                     flush=True,
                 )
                 return
-            initialize_canonical(state)
             query(
                 state,
                 "DEFINE TABLE IF NOT EXISTS supervisor_probe SCHEMALESS; "
@@ -881,7 +858,7 @@ def journey(
         finally:
             server.stop(state, config)
         print(
-            "released server lifecycle: authenticated native-WS readiness, fixed acknowledgment/unknown-outcome readback, SIGKILL/reopen, bounded automatic restart, offline backup/restore and validation gate passed"
+            "released server lifecycle: authenticated native-gRPC readiness, fixed acknowledgment/unknown-outcome readback, SIGKILL/reopen, bounded automatic restart, offline backup/restore and validation gate passed"
         )
 
 

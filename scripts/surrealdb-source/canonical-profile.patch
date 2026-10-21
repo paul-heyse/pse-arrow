@@ -1,0 +1,39 @@
+diff --git a/surrealdb/kvs-mem/src/lib.rs b/surrealdb/kvs-mem/src/lib.rs
+--- a/surrealdb/kvs-mem/src/lib.rs
++++ b/surrealdb/kvs-mem/src/lib.rs
+@@ -71,6 +71,17 @@
+ 		// ignores them and then rejects every versioned query it is given.
+ 		if config.versioned || !config.retention.is_zero() {
+ 			return Err(Error::UnsupportedVersionedQueries);
++		}
++		// This source integration admits one persistent canonical profile.
++		// ConfigMap deliberately ignores invalid values; refuse the resulting
++		// disabled/default persistence settings rather than silently degrading.
++		#[cfg(not(target_family = "wasm"))]
++		if config.persist_path.is_some() && (
++			!matches!(config.aol_mode, AolMode::Sync)
++			|| !matches!(config.sync_mode, SyncMode::Every)
++			|| !matches!(config.snapshot_mode, SnapshotMode::Interval(interval) if interval.as_secs() > 30)
++		) {
++			return Err(Error::Datastore("Canonical MX persistence requires synchronous AOL, every-append fsync and a snapshot interval larger than 30s".into()));
+ 		}
+ 		// Create the shared blocking threadpool (idempotent)
+ 		surrealdb_kvs::threadpool::initialise();
+@@ -1380,4 +1391,16 @@
+ 		assert_eq!(reader.get(Key::from(b"key".as_slice()), None).await.unwrap(), None);
+ 	}
+ 
+-}
++	#[tokio::test]
++	async fn invalid_persistent_snapshot_and_durability_refused_before_open() {
++		use surrealdb_cnf::ConfigMap;
++		for parameters in ["aol=sync&sync=every&snapshot=1s", "aol=never&sync=every&snapshot=60s", "aol=sync&sync=never&snapshot=60s"] {
++			let config = ConfigMap::from_config_string(parameters)
++				.with_key_value("persist", "/unopened-canonical-profile-control")
++				.map_keys(|key| format!("datastore_{key}"))
++				.load::<MemoryConfig>();
++			assert!(matches!(Datastore::new(config).await, Err(Error::Datastore(_))));
++		}
++	}
++
++}

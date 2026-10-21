@@ -300,7 +300,7 @@ class SurrealMcpTests(unittest.TestCase):
         )
         self.config: dict[str, object] = {
             "port": 18240,
-            "endpoint": "ws://127.0.0.1:18240",
+            "endpoint": "grpc://127.0.0.1:18240",
             "instance_id": "server-instance",
             "credentials_file": str(self.state / "credentials.json"),
             "server": {"binary_sha256": "binary-sha256"},
@@ -313,7 +313,7 @@ class SurrealMcpTests(unittest.TestCase):
         }
         self.write("credentials.json", self.credentials)
         self.proof = {
-            "schema": "native-ws-readiness-v1",
+            "schema": "native-grpc-readiness-v1",
             "instance_id": "server-instance",
             "invocation": "b" * 32,
             "binary_sha256": "binary-sha256",

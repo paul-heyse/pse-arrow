@@ -294,11 +294,9 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `request` | `Binary` | false | `payload` | — | — |
 | `worker` | `Utf8` | false | `payload` | — | — |
 | `expires_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
-| `ingestion_open` | `Boolean` | false | `payload` | — | — |
-| `closed` | `Boolean` | false | `payload` | — | — |
+| `phase` | `enum:CanonicalAttemptPhase` | false | `payload` | — | — |
 | `close_generation` | `UInt64` | true | `payload` | — | — |
-| `terminal` | `Boolean` | false | `payload` | — | — |
-| `outcome` | `Utf8` | true | `payload` | — | — |
+| `outcome` | `enum:CanonicalTerminalOutcome` | true | `payload` | — | — |
 | `closed_manifest` | `Utf8` | true | `payload` | — | — |
 | `completion` | `Binary` | true | `payload` | — | — |
 | `seed_manifest` | `Utf8` | true | `payload` | — | — |
@@ -936,7 +934,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `current_attempt` | `Utf8` | true | `payload` | — | — |
 | `cancelled` | `Boolean` | false | `payload` | — | — |
 | `terminal_attempt` | `Utf8` | true | `payload` | — | — |
-| `terminal_class` | `Utf8` | true | `payload` | — | — |
+| `terminal_class` | `enum:CanonicalTerminalOutcome` | true | `payload` | — | — |
 
 ## `canonical_selection_receipts`
 
@@ -1005,6 +1003,8 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 | `point_count` | `UInt64` | false | `payload` | — | — |
 | `next_ordinal` | `UInt64` | false | `payload` | — | — |
+| `dependency_count` | `UInt64` | false | `payload` | — | — |
+| `installed_dependencies` | `UInt64` | false | `payload` | — | — |
 | `active` | `Boolean` | false | `payload` | — | — |
 | `cancelled` | `Boolean` | false | `payload` | — | — |
 | `generation` | `UInt64` | false | `payload` | — | — |

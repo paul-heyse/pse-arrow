@@ -1885,7 +1885,7 @@ def measurement_context(env: Mapping[str, str] | None = None) -> dict[str, objec
             "receiver": config.get("primary_receiver"),
             "execution_profile": source.get("PSE_TEST_EXECUTION_PROFILE"),
             "filesystem_cache": "uncontrolled",
-            "rocksdb_cache": "not independently measured",
+            "surrealmx_memory": "not independently measured",
             "schema_provisioning_timed": "declared by selected journey",
         }
     return {

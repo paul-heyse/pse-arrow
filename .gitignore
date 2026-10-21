@@ -107,4 +107,4 @@ lcov.info
 rustc-ice-*.txt
 
 # Local publisher synchronization; frozen publications themselves are committed.
-/database/.canonical-rollout.publish.lock
+/database/.canonical-schema.publish.lock

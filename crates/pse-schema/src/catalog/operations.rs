@@ -8,6 +8,22 @@ use crate::RegistryBuilder;
 pub(super) fn declare(builder: &mut RegistryBuilder) {
     enumeration(
         builder,
+        "CanonicalTerminalOutcome",
+        ["succeeded", "failed", "partial", "cancelled"],
+    );
+    enumeration(
+        builder,
+        "CanonicalAttemptPhase",
+        [
+            "ingesting",
+            "closed_awaiting_manifest",
+            "closed_with_manifest",
+            "terminal",
+            "terminal_compacted",
+        ],
+    );
+    enumeration(
+        builder,
         "AttemptState",
         [
             "planned",

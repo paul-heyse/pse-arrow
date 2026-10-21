@@ -27,7 +27,6 @@ import signal
 import stat
 import subprocess
 import sys
-import tarfile
 import tempfile
 import threading
 import time
@@ -55,6 +54,7 @@ from scripts import (
     host_admission,
     native_operation,
     payload_files,
+    surreal_source,
     test_resources,
 )
 
@@ -72,7 +72,6 @@ _POLICY = json.loads(_POLICY_PATH.read_text())
 MESSAGE_BYTES = _POLICY["max_message_bytes"]
 SUBSTRATE_INTERPRETATION = _POLICY["interpretation"]
 OWNER = "pse-arrow-surreal-v1"
-RELEASE_API = "https://api.github.com/repos/surrealdb/surrealdb/releases"
 SCRIPT = Path(__file__).resolve()
 _STARTUP = threading.local()
 _LIFECYCLE = threading.local()
@@ -249,7 +248,11 @@ def publish_generation(
 ) -> dict[str, str]:
     """Freeze the complete owned Python/configuration closure before launch."""
     root = SCRIPT.parents[1]
-    sources = [*sorted((root / "scripts").glob("*.py")), root / "scripts/sccache"]
+    sources = [
+        *sorted((root / "scripts").glob("*.py")),
+        root / "scripts/sccache",
+        *sorted((root / "scripts/surrealdb-source").glob("*.patch")),
+    ]
     for relative in (
         ".config/agent-capacity.toml",
         ".config/build.toml",
@@ -525,8 +528,6 @@ def require_borrowers_drained(state: Path) -> None:
         selected = Path(record.get("state", ""))
         if selected != owner and owner / ".receivers" not in selected.parents:
             continue
-        if selected != owner and service_directory(selected) != owner:
-            raise SupervisorError("Live context has an unresolved service association")
         if record.get("creation_borrower"):
             raise SupervisorError(
                 "An accepted fixture creation still borrows this storage service; actual settlement and drain are unobserved"
@@ -544,6 +545,17 @@ def require_borrowers_drained(state: Path) -> None:
             raise SupervisorError(
                 "A live context cleanup still borrows this storage service"
             )
+        # A fresh-engine pivot may retire the old receiver directory while its
+        # failed-report evidence remains pinned. An explicitly drained, dead
+        # owner with no outstanding borrowers needs no live service association.
+        if (
+            record.get("drained") is True
+            and not record.get("borrows")
+            and not test_resources.borrower_alive(record)
+        ):
+            continue
+        if selected != owner and service_directory(selected) != owner:
+            raise SupervisorError("Live context has an unresolved service association")
         if not record.get("drained") and test_resources.borrower_alive(record):
             raise SupervisorError(
                 "A live test context still borrows this storage service"
@@ -1016,59 +1028,6 @@ def service_directory(state: Path, *, deadline: float | None = None) -> Path:
     return result
 
 
-def upgrade_profile(state: Path) -> dict[str, object]:
-    """Explicit selected v1 readmission; leave every other saved profile untouched."""
-    state = checked_directory(state)
-    with state_lock(state):
-        old = read_json(state / "config.json")
-        if old.get("owner") != OWNER or old.get("profile_version") != 1:
-            raise SupervisorError("upgrade selects one owned revision1 profile")
-        if (
-            active(state)
-            or old.get("admission") != "quiesced"
-            or old.get("accepting_writes")
-        ):
-            raise SupervisorError(
-                "Upgrade requires the selected profile stopped, quiesced and drained"
-            )
-        workers_drained(state, old)
-        allocation = old["resources"]
-        if not isinstance(allocation, dict):
-            raise SupervisorError("Missing revision1 allocation")
-        expected = resources(
-            integer(allocation["total_memory_bytes"]),
-            integer(allocation["server_memory_bytes"]),
-            integer(allocation["native_workers"]),
-            integer(allocation["native_worker_memory_bytes"]),
-            allocation.get("execution"),
-        )
-        if (
-            expected != allocation
-            or old.get("grpc_max_message_bytes") != MESSAGE_BYTES
-            or old.get("endpoint") != f"grpc://127.0.0.1:{old['port']}"
-        ):
-            raise SupervisorError(
-                "Revision1 profile does not match its exact admission"
-            )
-        write_json(state / "profile-v1-preserved.json", old)
-        updated = dict(old)
-        updated.update(
-            profile_version=2,
-            endpoint=f"ws://127.0.0.1:{old['port']}",
-            websocket_max_message_bytes=MESSAGE_BYTES,
-        )
-        updated.pop("grpc_max_message_bytes", None)
-        receiver = old.get("primary_receiver")
-        if isinstance(receiver, dict):
-            updated["primary_receiver"] = publish_generation(
-                state, Path(str(receiver["worker_executable"]))
-            )
-        updated["service_supervisor"] = publish_generation(state)
-        updated["resident"] = False
-        write_json(state / "config.json", updated)
-    return public_status(state, config_for(state))
-
-
 def config_for(state: Path, *, deadline: float | None = None) -> dict[str, object]:
     if (
         any(path.is_symlink() for path in (state, *state.parents))
@@ -1076,14 +1035,35 @@ def config_for(state: Path, *, deadline: float | None = None) -> dict[str, objec
     ):
         raise SupervisorError("Owned state must not traverse symlinks")
     config = read_json(state / "config.json", deadline=deadline)
-    if config.get("owner") != OWNER or config.get("profile_version") != 2:
-        raise SupervisorError("Not an owned, supported SurrealDB state directory")
-    if config.get("websocket_max_message_bytes") != MESSAGE_BYTES:
-        raise SupervisorError("Unsupported native WebSocket message profile")
-    try:
-        payload_files.incarnation(config.get("payload_incarnation"))
-    except payload_files.PayloadError as error:
-        raise SupervisorError(str(error)) from error
+    retiring = config.get("profile_version") == 2 and getattr(
+        _LIFECYCLE, "retire_engine", False
+    )
+    if config.get("owner") != OWNER or (
+        config.get("profile_version") != 3 and not retiring
+    ):
+        raise SupervisorError(
+            "Unsupported server profile; retire it with fresh-engine before ordinary use"
+        )
+    if (state / "fresh-engine-pending.json").exists() and not getattr(
+        _LIFECYCLE, "retire_engine", False
+    ):
+        raise SupervisorError(
+            "Fresh-engine initialization is incomplete; resume that exact closed operation"
+        )
+    if (
+        config.get(
+            "websocket_max_message_bytes" if retiring else "rpc_max_message_bytes"
+        )
+        != MESSAGE_BYTES
+    ):
+        raise SupervisorError("Unsupported native RPC message profile")
+    # A retired profile can predate payload incarnations. This owner only
+    # verifies drain and discards its generated files; it never opens them.
+    if not retiring:
+        try:
+            payload_files.incarnation(config.get("payload_incarnation"))
+        except payload_files.PayloadError as error:
+            raise SupervisorError(str(error)) from error
     budget = config.get("resources")
     if not isinstance(budget, dict):
         raise SupervisorError("Missing resource allocation")
@@ -1097,15 +1077,38 @@ def config_for(state: Path, *, deadline: float | None = None) -> dict[str, objec
         integer(budget["native_worker_memory_bytes"]),
         execution,
     )
+    if retiring:
+        expected = {
+            key: value
+            for key, value in expected.items()
+            if not key.startswith("surrealmx_") and key != "grpc_max_attached_sessions"
+        }
+        expected.update(
+            rocksdb_block_cache_bytes=integer(budget["server_memory_bytes"]) // 4,
+            rocksdb_write_buffer_bytes=min(
+                32 * MIB, integer(budget["server_memory_bytes"]) // 64
+            ),
+            rocksdb_write_buffers=2,
+        )
     if budget != expected:
         raise SupervisorError(
             "Resource overrides do not match the allocated server budget"
         )
     port = integer(config["port"])
-    if not 1 <= port <= 65535 or config["endpoint"] != f"ws://127.0.0.1:{port}":
+    scheme = "ws" if retiring else "grpc"
+    if not 1 <= port <= 65535 or config["endpoint"] != f"{scheme}://127.0.0.1:{port}":
         raise SupervisorError(
             "Only the recorded authenticated loopback endpoint is supported"
         )
+    if not retiring and not getattr(_LIFECYCLE, "retire_engine", False):
+        receipt = object_mapping(config["server"])
+        if (
+            receipt.get("inputs") != surreal_source.inputs()
+            or receipt.get("surrealmx_version") != surreal_source.ENGINE
+        ):
+            raise SupervisorError(
+                "Server is not the admitted source-built MX generation"
+            )
     if (
         config["max_message_bytes"] != MESSAGE_BYTES
         or config["schema_interpretation"] != config["interpretation"]
@@ -1158,9 +1161,12 @@ def resources(
         "server_memory_bytes": server,
         "native_workers": workers,
         "native_worker_memory_bytes": worker,
-        "rocksdb_block_cache_bytes": server // 4,
-        "rocksdb_write_buffer_bytes": min(32 * MIB, server // 64),
-        "rocksdb_write_buffers": 2,
+        "surrealmx_memory_limit_bytes": server // 2,
+        "surrealmx_max_transaction_age_seconds": 90,
+        "surrealmx_snapshot_interval_seconds": 60,
+        "surrealmx_max_async_queue_depth": 32,
+        "grpc_max_attached_sessions": 256,
+        "surrealmx_max_async_queue_bytes": min(64 * MIB, server // 16),
         "memory_threshold_bytes": server * 3 // 4,
     }
     if execution is not None:
@@ -1239,130 +1245,29 @@ def primary_receiver(executable: Path | None) -> dict[str, str]:
     }
 
 
-def fetched_json(url: str) -> dict[str, object]:
-    if not url.startswith(f"{RELEASE_API}/"):
-        raise SupervisorError(
-            "Release metadata is outside the official HTTPS API origin"
-        )
-    request = urllib.request.Request(  # noqa: S310 -- Validated official HTTPS API origin above.
-        url, headers={"User-Agent": "pse-arrow-local-supervisor"}
+def default_tool_root() -> Path:
+    return (
+        Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share")))
+        / "pse-arrow/tools/surreal"
     )
-    with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310 -- Only the validated official HTTPS API request is opened.
-        value = json.load(response)
-    if not isinstance(value, dict):
-        raise SupervisorError("Release metadata is not an object")
-    return value
 
 
-def install(version: str | None, tool_root: Path) -> dict[str, str]:
+def install(version: str | None, tool_root: Path) -> dict[str, object]:
+    """Install only the exact source-built server and admitted MX adapter."""
+    if version not in {None, "v" + surreal_source.VERSION}:
+        raise SupervisorError(
+            "Canonical storage requires pinned SurrealDB 3.3.4 with MX 1.0.0"
+        )
     if platform.system() != "Linux" or platform.machine() not in {"x86_64", "aarch64"}:
-        raise SupervisorError("Initial supervisor supports Linux amd64/arm64 only")
-    arch = "amd64" if platform.machine() == "x86_64" else "arm64"
-    if version is not None and (
-        not version.startswith("v")
-        or not all(c.isdigit() or c in "v.-" for c in version)
-    ):
         raise SupervisorError(
-            "Server version must be an official stable vX.Y.Z release"
+            "The managed source server supports Linux amd64/arm64 only"
         )
-    release = fetched_json(
-        f"{RELEASE_API}/latest" if version is None else f"{RELEASE_API}/tags/{version}"
-    )
-    tag = str(release["tag_name"])
-    if release.get("prerelease") or release.get("draft"):
-        raise SupervisorError("Only stable official releases are supported")
-    filename = f"surreal-{tag}.linux-{arch}.tgz"
-    assets = release["assets"]
-    if not isinstance(assets, list):
-        raise SupervisorError("Release has no assets")
-    asset = next(
-        (a for a in assets if isinstance(a, dict) and a.get("name") == filename), None
-    )
-    if not isinstance(asset, dict):
-        raise SupervisorError("Official release has no binary for this platform")
-    digest = str(asset.get("digest", ""))
-    if not digest.startswith("sha256:") or len(digest) != 71:
-        raise SupervisorError(
-            "Official asset lacks a SHA256 digest; refusing an unchecked install"
-        )
-    url = str(asset["browser_download_url"])
-    if not url.startswith("https://github.com/surrealdb/surrealdb/releases/download/"):
-        raise SupervisorError("Release asset is outside the official download origin")
-    directory = checked_directory(tool_root / tag / f"linux-{arch}")
-    binary = directory / "surreal"
-    receipt = directory / "release.json"
+    directory = checked_directory(tool_root / surreal_source.installation_name())
     with state_lock(directory):
-        if receipt.exists() or binary.exists():
-            if not receipt.exists() or not binary.exists():
-                raise SupervisorError(
-                    "Installed release is incomplete; use a new tool directory"
-                )
-            prior = read_json(receipt)
-            if prior.get("archive_sha256") == digest.removeprefix(
-                "sha256:"
-            ) and prior.get("binary_sha256") == file_digest(binary):
-                return {
-                    "version": tag.removeprefix("v"),
-                    "binary": str(binary),
-                    "binary_sha256": file_digest(binary),
-                    "archive_sha256": digest.removeprefix("sha256:"),
-                }
-            raise SupervisorError(
-                "Installed binary or release receipt changed; use a new tool directory"
-            )
-        with tempfile.TemporaryDirectory(dir=directory) as scratch:
-            archive = Path(scratch) / filename
-            request = urllib.request.Request(  # noqa: S310 -- Official HTTPS asset origin validated above; content SHA256 verified below.
-                url, headers={"User-Agent": "pse-arrow-local-supervisor"}
-            )
-            with (
-                urllib.request.urlopen(request, timeout=60) as response,  # noqa: S310 -- Validated official HTTPS asset; bytes verified below.
-                archive.open("wb") as output,
-            ):
-                shutil.copyfileobj(response, output)
-            if file_digest(archive) != digest.removeprefix("sha256:"):
-                raise SupervisorError(
-                    "Official release archive failed SHA256 verification"
-                )
-            with tarfile.open(archive) as bundle:
-                candidates = [
-                    m
-                    for m in bundle.getmembers()
-                    if m.isfile() and Path(m.name).name == "surreal"
-                ]
-                if len(candidates) != 1:
-                    raise SupervisorError(
-                        "Official archive must contain exactly one server binary"
-                    )
-                source = bundle.extractfile(candidates[0])
-                if source is None:
-                    raise SupervisorError("Cannot extract official server binary")
-                with source, binary.open("xb") as output:
-                    shutil.copyfileobj(source, output)
-            binary.chmod(0o700)
-        actual = subprocess.run(
-            [str(binary), "version"], capture_output=True, text=True, check=True
-        ).stdout.strip()
-        if tag.removeprefix("v") not in actual:
-            raise SupervisorError(
-                "Official binary version does not match release metadata"
-            )
-        write_json(
-            receipt,
-            {
-                "version": tag.removeprefix("v"),
-                "platform": f"linux-{arch}",
-                "url": url,
-                "archive_sha256": digest.removeprefix("sha256:"),
-                "binary_sha256": file_digest(binary),
-            },
-        )
-    return {
-        "version": tag.removeprefix("v"),
-        "binary": str(binary),
-        "binary_sha256": file_digest(binary),
-        "archive_sha256": digest.removeprefix("sha256:"),
-    }
+        try:
+            return surreal_source.install(directory)
+        except (surreal_source.BuildError, OSError, ValueError) as error:
+            raise SupervisorError(str(error)) from error
 
 
 def file_digest(path: Path) -> str:
@@ -1450,11 +1355,8 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
         )
     tool_root = args.tool_root
     if tool_root is None:
-        tool_root = (
-            Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share")))
-            / "pse-arrow/tools/surreal"
-        )
-    server = install(args.version or "v3.3.0", tool_root)
+        tool_root = default_tool_root()
+    server = install(args.version, tool_root)
     state = checked_directory(args.state, empty=True)
     with state_lock(state):
         if any(path.name != ".supervisor.lock" for path in state.iterdir()):
@@ -1463,21 +1365,21 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
             )
         config: dict[str, object] = {
             "owner": OWNER,
-            "profile_version": 2,
+            "profile_version": 3,
             "instance_id": str(uuid.uuid4()),
             "payload_incarnation": str(uuid.uuid4()),
             "server": server,
             "port": port,
             "namespace": "pse",
             "database": "canonical",
-            "endpoint": f"ws://127.0.0.1:{port}",
+            "endpoint": f"grpc://127.0.0.1:{port}",
             "credentials_file": str(state / "credentials.json"),
             "schema_interpretation": args.interpretation,
-            "accepting_writes": True,
+            "accepting_writes": False,
             "interpretation": args.interpretation,
-            "admission": "open",
+            "admission": "validation_required",
             "max_message_bytes": MESSAGE_BYTES,
-            "websocket_max_message_bytes": MESSAGE_BYTES,
+            "rpc_max_message_bytes": MESSAGE_BYTES,
             "tooling_fixture": args.tooling_fixture,
             "resources": allocation,
             "log_max_bytes": 8 * MIB,
@@ -1495,6 +1397,11 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
                 "selection_password": secrets.token_urlsafe(36),
             },
         )
+        config["fresh_root_bootstrap"] = {
+            "instance_id": config["instance_id"],
+            "credentials_sha256": file_digest(state / "credentials.json"),
+            "nonce": uuid.uuid4().hex,
+        }
         if args.payload_verifier is not None:
             config["payload_verifier"] = payload_verifier(args.payload_verifier)
         if receiver is not None:
@@ -4088,7 +3995,7 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
         "state": str(state),
         "active": is_active,
         "listener_owned": listener_owned,
-        "authenticated_websocket_ready": observed.protocol_ready,
+        "authenticated_grpc_ready": observed.protocol_ready,
         "lifecycle": {
             "phase": observed.phase.value,
             "cause": observed.cause,
@@ -4104,7 +4011,7 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
         "tooling_fixture": config.get("tooling_fixture") is True,
         "unit": unit_name(state),
         "endpoint": f"127.0.0.1:{port}",
-        "websocket_endpoint": config["endpoint"],
+        "grpc_endpoint": config["endpoint"],
         "credentials_file": str(state / "credentials.json"),
         "config_file": str(state / "config.json"),
         "server": config["server"],
@@ -4113,7 +4020,7 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
         "resources": config["resources"],
         "execution_placement": placement_observation(state),
         "accepting_writes": config["accepting_writes"],
-        "websocket_max_message_bytes": MESSAGE_BYTES,
+        "rpc_max_message_bytes": MESSAGE_BYTES,
         "worker_units": [
             worker_unit(state, slot)
             for slot in range(integer(allocation["native_workers"]))
@@ -4162,7 +4069,8 @@ def protocol_ready(
     if observed.returncode:
         raise SupervisorError("Protocol invocation observation is unavailable")
     return (
-        proof.get("schema") == "native-ws-readiness-v1"
+        proof.get("schema") == "native-grpc-readiness-v1"
+        and proof.get("datastore") == database_endpoint(state)
         and proof.get("instance_id") == config["instance_id"]
         and proof.get("invocation") == observed.stdout.strip()
         and proof.get("binary_sha256")
@@ -4172,9 +4080,13 @@ def protocol_ready(
 
 
 def establish_protocol_readiness(
-    state: Path, config: dict[str, object], deadline: float
+    state: Path,
+    config: dict[str, object],
+    deadline: float,
+    *,
+    record_readiness: bool = True,
 ) -> None:
-    """Authenticate native WS under the startup clock without installing schema."""
+    """Authenticate native gRPC under the startup clock without installing schema."""
     state = checked_directory(state)
     credentials = read_json(state / "credentials.json")
     if (
@@ -4227,15 +4139,18 @@ def establish_protocol_readiness(
         valid = False
     if result.returncode or not valid:
         raise SupervisorError(
-            "Authenticated native WebSocket readiness failed; admission remains closed"
+            "Authenticated native gRPC readiness failed; admission remains closed"
         )
+    if not record_readiness:
+        return
     invocation = systemctl(
         "show", "--property=InvocationID", "--value", unit_name(state)
     ).stdout.strip()
     write_json(
         state / "protocol-readiness.json",
         {
-            "schema": "native-ws-readiness-v1",
+            "schema": "native-grpc-readiness-v1",
+            "datastore": database_endpoint(state),
             "instance_id": config["instance_id"],
             "invocation": invocation,
             "binary_sha256": object_mapping(config["server"]).get("binary_sha256"),
@@ -5080,7 +4995,11 @@ def _start(
                     write_json(state / "config.json", config)
             if not validation:
                 open_context_admission(state)
-                config.update(config_for(state))
+                # Admission consumes the acknowledged payload freeze. Replace
+                # the caller's snapshot so a later stop cannot republish it.
+                current = dict(config_for(state))
+                config.clear()
+                config.update(current)
             resumed = True
             return None
         systemctl("show-environment")
@@ -5124,7 +5043,9 @@ def _start(
                     establish_protocol_readiness(state, config, deadline)
                 if not validation:
                     open_context_admission(state)
-                    config.update(config_for(state))
+                    current = dict(config_for(state))
+                    config.clear()
+                    config.update(current)
                 resumed = True
                 return None
             if observed.phase is Readiness.ACTIONABLE_ABSENT:
@@ -5145,7 +5066,9 @@ def _start(
             # Keep any partial lifetime charged through its existing owner. Closing
             # admission and retaining parking intent does not prove a service drain.
             with state_lock(state, cleanup=True):
-                config.update(config_for(state))
+                current = dict(config_for(state))
+                config.clear()
+                config.update(current)
                 config["parked"] = True
                 write_json(state / "config.json", config)
             close_context_admission(state, cleanup=True)
@@ -5363,29 +5286,11 @@ def server_environment(
         {
             "SURREAL_USER": str(credentials["username"]),
             "SURREAL_PASS": str(credentials["password"]),
-            "SURREAL_WEBSOCKET_MAX_MESSAGE_SIZE": str(MESSAGE_BYTES),
-            "SURREAL_WEBSOCKET_MAX_WRITE_BUFFER_SIZE": str(8 * MIB),
-            # SurrealDB counts its implicit connection session against this cap.
-            # Two permits exactly one SDK application session on each socket.
-            # Beta parity retains one independently authenticated SDK clone.
-            # Only an explicitly declared disposable tooling service needs it.
-            "SURREAL_WEBSOCKET_MAX_ATTACHED_SESSIONS": "3"
-            if config.get("tooling_fixture") is True
-            else "2",
+            "SURREAL_GRPC_MAX_MESSAGE_SIZE": str(MESSAGE_BYTES),
+            "SURREAL_GRPC_MAX_ATTACHED_SESSIONS": str(
+                allocation["grpc_max_attached_sessions"]
+            ),
             "SURREAL_MEMORY_THRESHOLD": str(allocation["memory_threshold_bytes"]),
-            "SURREAL_ROCKSDB_BLOCK_CACHE_SIZE": str(
-                allocation["rocksdb_block_cache_bytes"]
-            ),
-            "SURREAL_ROCKSDB_WRITE_BUFFER_SIZE": str(
-                allocation["rocksdb_write_buffer_bytes"]
-            ),
-            "SURREAL_ROCKSDB_MAX_WRITE_BUFFER_NUMBER": "2",
-            "SURREAL_ROCKSDB_THREAD_COUNT": "2",
-            "SURREAL_ROCKSDB_JOBS_COUNT": "4",
-            "SURREAL_ROCKSDB_MAX_CONCURRENT_SUBCOMPACTIONS": "2",
-            "SURREAL_ROCKSDB_COMPACTION_READAHEAD_SIZE": str(4 * MIB),
-            "SURREAL_ROCKSDB_KEEP_LOG_FILE_NUM": "2",
-            "SURREAL_ROCKSDB_STORAGE_LOG_LEVEL": "error",
             "SURREAL_RUNTIME_WORKER_THREADS": "4",
             "TOKIO_WORKER_THREADS": "4",
             "RAYON_NUM_THREADS": "4",
@@ -5522,7 +5427,6 @@ def _serve(state: Path) -> int:
         "--no-defaults",
         "--deny-guests",
         "--deny-net",
-        "--deny-scripting",
         "--bind",
         f"127.0.0.1:{config['port']}",
         "--query-timeout=90s",
@@ -5539,7 +5443,20 @@ def _serve(state: Path) -> int:
     )
     # A recovery listener observes existing ROOT authorities; it must never
     # bootstrap a supplied candidate into an empty or unknown catalog.
-    environment = server_environment(config, credentials, bootstrap=not maintenance)
+    bootstrap = False
+    if maintenance:
+        require_maintenance_owner(state, config)
+        listener = read_json(state / ".maintenance-listener.json")
+        authority = listener.get("root_bootstrap")
+        if authority is not None:
+            if authority != fresh_root_authority(state, config):
+                raise SupervisorError("Fresh ROOT bootstrap authority changed")
+            bootstrap = True
+    environment = server_environment(
+        config,
+        credentials,
+        bootstrap=not maintenance or bootstrap,
+    )
     remaining(_STARTUP.deadline)
     child = subprocess.Popen(
         command,
@@ -6218,7 +6135,17 @@ def private_offline_state(state: Path, config: dict[str, object]) -> None:
 
 
 def database_endpoint(state: Path) -> str:
-    return f"rocksdb://{state / 'database'}?sync=every&versioned=false"
+    allocation = object_mapping(config_for(state)["resources"])
+    # Synchronous append and fsync are explicit. MX's key/value allowance is
+    # smaller than the process envelope to reserve snapshots, RPC and overhead.
+    return (
+        f"mem://{state / 'database'}?aol=sync&sync=every&versioned=false"
+        f"&snapshot={allocation['surrealmx_snapshot_interval_seconds']}s"
+        f"&memory_limit={allocation['surrealmx_memory_limit_bytes']}"
+        f"&max_transaction_age={allocation['surrealmx_max_transaction_age_seconds']}s"
+        f"&max_async_queue_depth={allocation['surrealmx_max_async_queue_depth']}"
+        f"&max_async_queue_bytes={allocation['surrealmx_max_async_queue_bytes']}"
+    )
 
 
 def sql_identifier(value: object) -> str:
@@ -6325,6 +6252,54 @@ def drain_maintenance_listener(state: Path) -> None:
         os.close(descriptor)
 
 
+def fresh_root_authority(
+    state: Path, config: dict[str, object]
+) -> dict[str, object] | None:
+    """Fresh creation alone can mint bootstrap authority; recovery cannot infer it."""
+    authority = config.get("fresh_root_bootstrap")
+    if authority is None:
+        return None
+    authority = object_mapping(authority)
+    nonce = authority.get("nonce")
+    if (
+        config.get("accepting_writes") is not False
+        or config.get("admission") != "validation_required"
+        or authority.get("instance_id") != config.get("instance_id")
+        or authority.get("credentials_sha256")
+        != file_digest(state / "credentials.json")
+        or not isinstance(nonce, str)
+        or re.fullmatch(r"[a-f0-9]{32}", nonce) is None
+    ):
+        raise SupervisorError(
+            "Fresh ROOT bootstrap authority does not match this closed target"
+        )
+    initialization = object_mapping(config.get("derived_rebuild_pending", {}))
+    rollout = object_mapping(config.get("surrealkit_rollout_pending", {}))
+    if initialization and rollout:
+        raise SupervisorError("Competing fresh bootstrap operations")
+    owner = read_json(state / "lifecycle-owner.json")
+    permitted = (
+        initialization.get("kind") == "initialize"
+        and initialization.get("phase") == "initializing"
+        and initialization.get("initializer") == owner
+        and (
+            initialization.get("target_namespace"),
+            initialization.get("target_database"),
+        )
+        == (config.get("namespace"), config.get("database"))
+    ) or (
+        rollout.get("phase") == "prepared"
+        and rollout.get("sql_outcome") == "not_submitted"
+        and rollout.get("instance_id") == config.get("instance_id")
+        and rollout.get("owner") == owner
+    )
+    if not permitted:
+        raise SupervisorError(
+            "Fresh ROOT bootstrap requires its explicit initialization or rollout owner"
+        )
+    return authority
+
+
 def maintenance_endpoint(state: Path) -> str:
     if getattr(_LIFECYCLE, "state", None) != state:
         raise SupervisorError("Maintenance requires a reserved lifecycle owner")
@@ -6337,6 +6312,7 @@ def maintenance_endpoint(state: Path) -> str:
             )
     else:
         private_offline_state(state, config)
+        bootstrap = fresh_root_authority(state, config)
         config["service_supervisor"] = publish_generation(state)
         write_json(state / "config.json", config)
         write_json(
@@ -6348,9 +6324,25 @@ def maintenance_endpoint(state: Path) -> str:
                 "resources": config["resources"],
                 "supervisor": config["service_supervisor"],
                 "credentials_sha256": file_digest(state / "credentials.json"),
+                "root_bootstrap": bootstrap,
             },
         )
         start(state, config, validation=True)
+        if bootstrap is not None:
+            # Authenticate ROOT and install the bounded selection account, with
+            # no schema/context creation or ordinary readiness publication.
+            establish_protocol_readiness(
+                state,
+                config,
+                getattr(_STARTUP, "deadline", None) or time.monotonic() + 40,
+                record_readiness=False,
+            )
+            current = config_for(state)
+            require_maintenance_owner(state, current)
+            if current.get("fresh_root_bootstrap") != bootstrap:
+                raise SupervisorError("Fresh ROOT acknowledgment changed authority")
+            current.pop("fresh_root_bootstrap")
+            write_json(state / "config.json", current)
     return "http://127.0.0.1:" + str(config["port"])
 
 
@@ -6604,6 +6596,9 @@ def rotate_source_authorities(
 
 def fresh_database_identity(config: dict[str, object]) -> dict[str, object]:
     selected = dict(config)
+    # Fresh ROOT authority is minted only for an empty engine, never inherited
+    # by database reconstruction or restore of an existing account catalog.
+    selected.pop("fresh_root_bootstrap", None)
     identity = uuid.uuid4().hex
     selected.update(
         namespace="pse_" + identity,
@@ -7304,6 +7299,245 @@ def rehome_restored_payloads(
     write_json(state / "config.json", config)
 
 
+def initialize(state: Path, initializer: list[str]) -> dict[str, object]:
+    """Install current schema under the existing exact maintenance authority."""
+    if not initializer:
+        raise SupervisorError(
+            "initialize requires an explicit current initializer command"
+        )
+    with (
+        lifecycle_deadline(time.monotonic() + 90) as deadline,
+        lifecycle_reservation(state, deadline=deadline),
+    ):
+        selected = config_for(state)
+        pending = selected.get("derived_rebuild_pending")
+        if selected.get("accepting_writes") is not False or selected.get(
+            "surrealkit_rollout_pending"
+        ):
+            raise SupervisorError(
+                "Initialization requires closed independent application admission"
+            )
+        if pending is None:
+            if selected.get("admission") != "validation_required":
+                raise SupervisorError(
+                    "Initialization selects only a fresh closed target"
+                )
+            pending = {
+                "kind": "initialize",
+                "phase": "initializing",
+                "nonce": uuid.uuid4().hex,
+                "target_namespace": selected["namespace"],
+                "target_database": selected["database"],
+            }
+        pending = object_mapping(pending)
+        if (
+            pending.get("kind") != "initialize"
+            or pending.get("phase") not in {"initializing", "validated"}
+            or (pending.get("target_namespace"), pending.get("target_database"))
+            != (selected["namespace"], selected["database"])
+        ):
+            raise SupervisorError(
+                "Initialization pending identity does not match this exact target"
+            )
+        private_offline_state(state, selected)
+        selected["derived_rebuild_pending"] = pending
+        write_json(state / "config.json", selected)
+        initialize_rebuild(state, selected, initializer)
+        drain_maintenance_listener(state)
+        selected.update(config_for(state))
+        completed = object_mapping(selected.get("derived_rebuild_pending"))
+        if (
+            completed.get("nonce") != pending["nonce"]
+            or completed.get("phase") != "validated"
+        ):
+            raise SupervisorError(
+                "Initialization settlement changed; admission remains closed"
+            )
+        selected.pop("derived_rebuild_pending")
+        selected.update(admission="quiesced", accepting_writes=False)
+        write_json(state / "config.json", selected)
+        return public_status(state, selected)
+
+
+def discard_generated_tree(state: Path, relative: str) -> None:
+    """Discard only a fixed, private, drained design-phase generated subtree."""
+    if relative not in {"database", "payloads", "tmp", ".contexts", ".receivers"}:
+        raise SupervisorError(
+            "Fresh-engine disposal escaped its fixed generated owners"
+        )
+    target = state / relative
+    if not target.exists() and not target.is_symlink():
+        return
+    entries = [target, *target.rglob("*")] if target.is_dir() else [target]
+    for path in entries:
+        observed = path.lstat()
+        if (
+            path.is_symlink()
+            or observed.st_uid != os.getuid()
+            or not (stat.S_ISREG(observed.st_mode) or stat.S_ISDIR(observed.st_mode))
+        ):
+            raise SupervisorError(
+                "Fresh-engine disposal requires private ordinary owned files"
+            )
+    if not target.is_dir():
+        raise SupervisorError("Fresh-engine generated subtree is not a directory")
+    shutil.rmtree(target)
+
+
+def fresh_engine(state: Path, tool_root: Path | None = None) -> dict[str, object]:
+    """Retire the stopped old engine and publish one fresh, closed MX identity.
+
+    Acceptance of an old profile exists only inside this retirement owner. No
+    query, import, old-engine reopen or data-preservation step occurs here.
+    """
+    state = checked_directory(state)
+    previous = getattr(_LIFECYCLE, "retire_engine", False)
+    _LIFECYCLE.retire_engine = True
+    try:
+        with lifecycle_reservation(state):
+            old = config_for(state)
+            if old.get("accepting_writes") is not False or old.get("admission") not in {
+                "quiesced",
+                "validation_required",
+            }:
+                raise SupervisorError(
+                    "Fresh-engine requires already closed application admission"
+                )
+            if old.get("derived_rebuild_pending") or old.get(
+                "surrealkit_rollout_pending"
+            ):
+                raise SupervisorError(
+                    "Settle the exact existing maintenance owner before fresh-engine"
+                )
+            # Caller acknowledgment does not discharge any actual process owner.
+            all_contexts_drained(state)
+            if active(state):
+                raise SupervisorError(
+                    "Fresh-engine requires the selected listener already stopped"
+                )
+            stop(state, old)
+            pending_path = state / "fresh-engine-pending.json"
+            if pending_path.exists():
+                pending = read_json(pending_path)
+                target = object_mapping(pending.get("target"))
+                if (
+                    pending.get("owner") != OWNER
+                    or pending.get("phase") not in {"discarding", "publishing"}
+                    or old["instance_id"]
+                    not in {pending.get("predecessor"), target.get("instance_id")}
+                    or object_mapping(target.get("server")).get("inputs")
+                    != surreal_source.inputs()
+                ):
+                    raise SupervisorError(
+                        "Fresh-engine pending identity does not match this exact target"
+                    )
+                credentials = object_mapping(pending.get("credentials"))
+            else:
+                if tool_root is None:
+                    tool_root = default_tool_root()
+                server = install(None, tool_root)
+                budget = object_mapping(old["resources"])
+                allocation = resources(
+                    integer(budget["total_memory_bytes"]),
+                    integer(budget["server_memory_bytes"]),
+                    integer(budget["native_workers"]),
+                    integer(budget["native_worker_memory_bytes"]),
+                    budget.get("execution"),
+                )
+                target = {
+                    key: old[key]
+                    for key in (
+                        "owner",
+                        "port",
+                        "credentials_file",
+                        "log_max_bytes",
+                        "log_backups",
+                        "service_class",
+                        "resident",
+                        "tooling_fixture",
+                    )
+                    if key in old
+                }
+                target = fresh_database_identity(target)
+                # The state-path service file remains this authenticated,
+                # physically drained owner's materialization. Rebinding its
+                # immutable generation must not turn it into an unknown unit.
+                target["unit_materialized"] = old.get("unit_materialized", False)
+                target.update(
+                    profile_version=3,
+                    server=server,
+                    resources=allocation,
+                    endpoint=f"grpc://127.0.0.1:{old['port']}",
+                    interpretation=SUBSTRATE_INTERPRETATION,
+                    schema_interpretation=SUBSTRATE_INTERPRETATION,
+                    max_message_bytes=MESSAGE_BYTES,
+                    rpc_max_message_bytes=MESSAGE_BYTES,
+                    service_supervisor=publish_generation(state),
+                )
+                # Receiver and verifier executables are explicitly readmitted
+                # from current builds; the retired generation cannot execute.
+                credentials = fresh_credentials()
+                target["fresh_root_bootstrap"] = {
+                    "instance_id": target["instance_id"],
+                    "credentials_sha256": hashlib.sha256(
+                        (
+                            json.dumps(credentials, sort_keys=True, indent=2) + "\n"
+                        ).encode()
+                    ).hexdigest(),
+                    "nonce": uuid.uuid4().hex,
+                }
+                pending = {
+                    "owner": OWNER,
+                    "nonce": uuid.uuid4().hex,
+                    "predecessor": old["instance_id"],
+                    "phase": "discarding",
+                    "target": target,
+                    "credentials": credentials,
+                }
+                write_json(pending_path, pending)
+            if pending["phase"] == "discarding":
+                for relative in (
+                    "database",
+                    "payloads",
+                    "tmp",
+                    ".contexts",
+                    ".receivers",
+                ):
+                    discard_generated_tree(state, relative)
+                for relative in (
+                    "protocol-readiness.json",
+                    "recovery-qualification.json",
+                    "server-process.json",
+                    "service-launch.json",
+                    ".maintenance-payloads.json",
+                ):
+                    path = state / relative
+                    if path.is_symlink():
+                        raise SupervisorError(
+                            "Fresh-engine receipt must not be a symlink"
+                        )
+                    path.unlink(missing_ok=True)
+                pending["phase"] = "publishing"
+                write_json(pending_path, pending)
+            write_json(state / "credentials.json", credentials)
+            write_json(state / "config.json", target)
+            (state / "tmp").mkdir(mode=0o700, exist_ok=True)
+            payload_files.root(state, target).mkdir(
+                mode=0o700, parents=True, exist_ok=True
+            )
+            # The config remains closed after the pending fence is removed.
+            # Schema installation and admission are distinct explicit owners.
+            pending_path.unlink()
+            descriptor = os.open(state, os.O_DIRECTORY)
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+            return public_status(state, config_for(state))
+    finally:
+        _LIFECYCLE.retire_engine = previous
+
+
 def rebuild(state: Path, initializer: list[str]) -> dict[str, object]:
     """Regenerate owned design-phase state from current sources, without retaining old data."""
     if not initializer:
@@ -7367,22 +7601,39 @@ def initialize_rebuild(
     maintenance_phase(state, selected, "initializing")
     # Credentials and fresh target are durable before any listener can start.
     try:
-        start(state, selected, validation=True)
+        maintenance_endpoint(state)
+        selected.pop("fresh_root_bootstrap", None)
+        selected.update(config_for(state))
+        if pending.get("kind") == "initialize":
+            # A fresh catalog has no bootstrap root or VIEWER account yet.
+            # The exact closed maintenance owner authorizes their installation.
+            establish_protocol_readiness(
+                state,
+                selected,
+                getattr(_STARTUP, "deadline", None) or time.monotonic() + 90,
+            )
         # Ordinary admission stays closed, including after owner death. Only
         # this explicit child can borrow the exact live lifecycle authority.
-        status = run_file_effect(
-            initializer,
-            {
-                **os.environ,
-                "PSE_SURREAL_STATE": str(state),
-                "PSE_CANONICAL_INITIALIZER": str(initializer_owner["nonce"]),
-            },
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        diagnostic = state / ("canonical-initializer-" + uuid.uuid4().hex + ".log")
+        descriptor = os.open(diagnostic, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "wb") as output:
+            status = run_file_effect(
+                initializer,
+                {
+                    **os.environ,
+                    "PSE_SURREAL_STATE": str(state),
+                    "PSE_CANONICAL_INITIALIZER": str(initializer_owner["nonce"]),
+                },
+                **native_operation.deadline_options(
+                    getattr(_STARTUP, "deadline", None)
+                ),
+                stdout=output.fileno(),
+                stderr=output.fileno(),
+            )
         if status:
             raise SupervisorError(
-                "Current initializer failed; admission closed and exact target retained"
+                "Current initializer failed; admission closed and exact target retained; private diagnostic "
+                + str(diagnostic)
             )
         validate_interpretation(state, selected, SUBSTRATE_INTERPRETATION)
         if read_json(
@@ -7393,7 +7644,10 @@ def initialize_rebuild(
     finally:
         selected["accepting_writes"] = False
         write_json(state / "config.json", selected)
-        stop(state, selected)
+        # Settle the listener's ownership as well as its physical process. A
+        # later maintenance phase must start a new listener under this owner,
+        # rather than find a retained marker for an already stopped process.
+        drain_maintenance_listener(state)
 
 
 def recover_credentials(
@@ -8010,8 +8264,12 @@ def validate_interpretation(
             "surreal-db": str(config["database"]),
         },
     )
-    with urllib.request.urlopen(request, timeout=10) as response:  # noqa: S310 -- Literal authenticated loopback HTTP endpoint from owned configuration.
+    deadline = getattr(_STARTUP, "deadline", None)
+    timeout = 10 if deadline is None else min(10, remaining(deadline))
+    with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 -- Literal authenticated loopback HTTP endpoint from owned configuration.
         result = json.load(response)
+    if deadline is not None:
+        remaining(deadline)
     if (
         not isinstance(result, list)
         or len(result) != 1
@@ -8053,7 +8311,7 @@ def recovery_generation(state: Path, config: dict[str, object]) -> str:
             "database",
             "endpoint",
             "schema_interpretation",
-            "websocket_max_message_bytes",
+            "rpc_max_message_bytes",
         )
     }
     selected["credentials_sha256"] = file_digest(state / "credentials.json")
@@ -8435,7 +8693,7 @@ def mcp_authorization(state: Path, endpoint: str, deadline: float) -> dict[str, 
     proof, _ = mcp_private_record(state / "protocol-readiness.json", deadline)
     observed = storage_unit_observation(state, deadline=deadline)
     if (
-        proof.get("schema") != "native-ws-readiness-v1"
+        proof.get("schema") != "native-grpc-readiness-v1"
         or proof.get("instance_id") != config["instance_id"]
         or proof.get("invocation") != observed.get("InvocationID")
         or proof.get("binary_sha256")
@@ -8543,7 +8801,9 @@ def parser() -> argparse.ArgumentParser:
         "command",
         choices=[
             "setup",
-            "upgrade",
+            "build-server",
+            "initialize",
+            "fresh-engine",
             "readmit",
             "ensure",
             "recover",
@@ -8593,7 +8853,7 @@ def parser() -> argparse.ArgumentParser:
         type=Path,
     )
     result.add_argument(
-        "--version", help="Official release vX.Y.Z; omitted selects current stable"
+        "--version", help="Pinned source release v3.3.4; other versions are refused"
     )
     result.add_argument("--port", type=int)
     result.add_argument(
@@ -8672,8 +8932,16 @@ def _dispatch(args: argparse.Namespace) -> int:
         raise SupervisorError(
             "Qualification control is only available with ensure-primary"
         )
-    if args.command == "upgrade":
-        output = upgrade_profile(args.state.absolute())
+    if args.command == "build-server":
+        output = install(args.version, args.tool_root or default_tool_root())
+    elif args.command == "initialize":
+        output = initialize(args.state.absolute(), args.initializer_command or [])
+    elif args.command == "fresh-engine":
+        if not args.drained:
+            raise SupervisorError(
+                "fresh-engine requires --drained plus actual owned process drain"
+            )
+        output = fresh_engine(args.state.absolute(), args.tool_root)
     elif args.command == "setup":
         output = setup(args)
     elif args.command == "rebuild":

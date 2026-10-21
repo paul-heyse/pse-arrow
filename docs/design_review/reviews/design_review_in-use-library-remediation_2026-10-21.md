@@ -2,14 +2,14 @@
 
 | Field | Content |
 |---|---|
-| Subject and boundary | The whole pse-arrow simulator core at source `a791c533e` (HEAD `0530dcaa1` = source + audit pages): canonical store (`pse-operations`, SurrealDB 3.3), result storage and selection (`pse-runtime` result owners, Arrow IPC, DataFusion 55.1), preparation (`pse-modeling`, `pse-compiler`/Salsa 0.28.4, `pse-math`/Symbolica 3.0.1), native seam (`pse-backend-native`), runtime orchestration (`pse-runtime`), Python boundary (`pse-py`, `python/pse`). Suppliers and consumers are included where a correction depends on them. |
+| Subject and boundary | The whole pse-arrow simulator core at source `a791c533e` (diagnostic publication `0530dcaa1`; recommendation-audit input `e08b1f1dd`): canonical store (`pse-operations`, SurrealDB 3.3), result storage and selection (`pse-runtime` result owners, Arrow IPC, DataFusion 55.1), preparation (`pse-modeling`, `pse-compiler`/Salsa 0.28.4, `pse-math`/Symbolica 3.0.1), native seam (`pse-backend-native`), runtime orchestration (`pse-runtime`), Python boundary (`pse-py`, `python/pse`). Suppliers and consumers are included where a correction depends on them. |
 | Standard | Core principles and template 3.4 with Heuristics for Efficient Architecture 1.0; process-simulator profile 1.5; binding `pse-arrow` (selected by [`standard.toml`](../design_principles/standard.toml)). |
 | Tier / purpose | Design tier; target purpose (best-in-class design for the functional target). |
 | Focus | **Library-targeted, in-use libraries only** (maintainer selection, 2026-10-21): direct workspace dependencies at their pins, all their cargo features, and already-resolved sibling crates. Principle scope covers every audit finding DA-001–DA-032. New third-party libraries are out of scope. |
 | Audit input | [Design principle audit](../audit/README.md), publication `0530dcaa1`, source baseline `a791c533e`. The diagnoses are challengeable input. |
-| Reviewer / date | Principal reviewer (independent `design-reviewer` agent), 2026-10-21. Coordinator-supplied inventories and probes were used as leads and as executed evidence; every material claim below was re-read at source or library source by the reviewer unless it is marked as resting on a probe report or an inventory citation. |
+| Reviewer / date | Revised judgment: independent recommendation auditor, 2026-10-21, continuing the same engagement. Exact input: `e08b1f1dd9b89484ab7471f32b66f8e9c2a59a05` at this path. The original principal reviewer did not author or approve this revision. See the [net-change companion](audits/design_review_in-use-library-remediation_2026-10-21_audit.md) and [new evidence](../evidence/in-use-library-remediation-2026-10-21/recommendation-audit/README.md). Original receipts retain their original scope and date; new source checks and the selective codec probe are distinguished below. |
 | Decisions | Behavioural adequacy: **Revise**. Architectural fitness: **Revise**. Overall: **Revise** ([§14](#14-decision)). |
-| Disposition owner | Future plan creation. Until a plan adopts the findings, this review names proposed work owners only; no work is scheduled. |
+| Disposition owner | [Proposed Plan49](../../plans/49-library-native-remediation.md) owns current finding/inquiry routes and rule decisions. Its implementation packages remain proposed; authoring and audit dispositions do not establish implementation or execution approval. |
 | Intended path | `docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md` |
 
 ## Summary
@@ -39,7 +39,7 @@ re-reading and constrain every recommendation below:
   membership, atomic seal, cancellation wins);
 - value changes rebind instead of rebuilding.
 
-**Where it falls short.** The 32 audit findings and nine additional ones reduce to seven
+**Where it falls short.** The 32 audit findings and ten additional ones reduce to seven
 structural causes. In most of them a library the repository already links owns the missing
 responsibility, but the repository either restates that responsibility beside the library or
 switches the library's mechanism off.
@@ -71,8 +71,10 @@ switches the library's mechanism off.
    ([§4.4](#44-c4-preparation-repeats-and-then-discards-its-own-work)).
    - At default limits, every publish of the reference package rotates the whole Salsa
      workspace. The package's retained footprint exceeds the limits (*Measured*, F09).
-   - The correction redefines the retention criterion around value-holding memos and bytes.
-     Salsa's per-query LRU then evicts values, and memos that downstream backdating relies on
+   - The correction separates the admitted live working set from disposable query results and
+     bounds the metadata, inputs, interned roots and retained values that remain. Salsa already
+     applies count-based LRU to granular queries. Its public memory report does not expose a
+     value-holding memo count or a byte-weighted eviction policy; memos needed for backdating
      stay resident.
    - Body evaluation should extend the existing symbolic product routes region by region over
      the guarded stage program. Probe A's savings are an upper bound measured on a guard-free
@@ -169,7 +171,9 @@ Scope rules from the brief:
 **Excluded, per the brief.** Earlier reviews, review evidence, plans, the discarded earlier review
 attempt, capability maps and the library catalog.
 
-**Executed evidence used.** These are the only *Tested* and *Measured* claims in this review.
+**Original executed evidence retained.** The following receipts belong to the first review;
+they were not rerun by this recommendation audit. Their *Tested* and *Measured* claims apply
+only to the named cases and original conditions.
 - **probe-worktree** (profile `test`, pinned nightly, private test-resource state, sequential runs):
   - **A**, *Measured*: Symbolica operation counts on `bt_pr_flash_nested`, 19 instance groups,
     118 outputs; test `probe_a_body_granularity_pr_flash`.
@@ -185,6 +189,16 @@ attempt, capability maps and the library catalog.
   and the CLI. Q4 timings are *Measured* (indicative).
 - **probe-pruning**, *Tested*: a standalone crate pinned to arrow 59.3.0 and datafusion 55.1.0,
   running probes 2, 4 and 8; in-memory batches with one Float64 column.
+
+**Recommendation-audit evidence, 2026-10-21.** Source and pinned upstream re-reading supports
+the remedy corrections and F10 below. The coordinator's selective
+[`identity-hook-probe.py`](../evidence/in-use-library-remediation-2026-10-21/recommendation-audit/identity-hook-probe.py)
+ran through `scripts/pse-env -- .venv/bin/python` on Python 3.14.8/msgspec 0.21.1,
+exit 0 against a zero-failure baseline. Both the existing bytes-subclass identity and a non-bytes
+alternative invoked `enc_hook` and `dec_hook` and round-tripped hex. This settles that codec
+mechanism, not assembled product decoding. No product build, native solver, store service or
+comprehensive qualification was run for this recommendation audit. Context7's Salsa API account
+was checked against the pinned 0.28.4 source for the consequential retention claims.
 
 Everything else is *Interface-checked* (library source or API read), *Implemented* (repository
 path read) or *Proposed* (recommendation). No speed or capacity claim is made without one of the
@@ -270,7 +284,7 @@ No row was invented; cells marked "not examined" are unresolved, not passes.
 | <a id="s02"></a>S02 | Edit → re-solve with no edit | No re-execution | 79 `semantic_body` re-run (LRU 64 < 143 bodies) (*Measured*, probe B2) | R8 |
 | <a id="s03"></a>S03 | Cancel a local study while it runs horizon points ([PSE-S07](../design_principles/binding/pse-arrow.md#pse-s07), interrupt) | The running point stops promptly; native work drains | Ignored: 20 of 20 steps complete (*Tested*, probe C) | F01 one-line fix (*Tested*); R10 makes it structural |
 | <a id="s04"></a>S04 | Add a lifecycle state or an owner kind ([PSE-S04](../design_principles/binding/pse-arrow.md#pse-s04), [PSE-S06](../design_principles/binding/pse-arrow.md#pse-s06)) | One registry declaration; store, Rust and Python follow | Hand edits across substrate text columns, template literals, Rust enums and Python literals; projections default silently ([DA-007](../audit/structure-and-invariants.md#da-007)) | R1, R17; acceptance: one declaration plus regeneration |
-| <a id="s05"></a>S05 | Durable study, 16 lanes over one problem ([PSE-S07](../design_principles/binding/pse-arrow.md#pse-s07)) | Run starts proceed in parallel apart from necessary ordering | Every point's `begin_run` takes the problem's exclusive in-process turn and writes one guard key (F03) | Remedy open pending the 16-lane conflict probe ([§12](#12-verification-and-settling-evidence)) |
+| <a id="s05"></a>S05 | Durable study, 16 lanes over one problem ([PSE-S07](../design_principles/binding/pse-arrow.md#pse-s07)) | Run starts proceed in parallel apart from necessary ordering | Every point's `begin_run` takes the problem's exclusive in-process turn and writes one guard key (F03) | Necessary sequence order retained; breadth of local pacing unresolved pending the 16-lane probe ([§12](#12-verification-and-settling-evidence)) |
 | <a id="s06"></a>S06 | Select results by owner, field and partition for a large solve; append its results ([PSE-S04](../design_principles/binding/pse-arrow.md#pse-s04)) | Write work scales with payload blocks; reads prune by key | One transactional locator per scalar row, plus three index entries each ([DA-026](../audit/execution-fit.md#da-026)) | R4 |
 | <a id="s07"></a>S07 | Serve declared recycles with another library, or give another NLP backend the recovery ladder ([PSE-S02](../design_principles/binding/pse-arrow.md#pse-s02), mechanism substitution) | One adapter plus capability record | Runtime initialization, conditional strategies, solves, paths and the binding change ([DA-016](../audit/boundaries-and-composition.md#da-016)) | R14 |
 | <a id="s08"></a>S08 | Python sweep supplying starts and per-state tolerances (boundary round trip) | Units and identities carried; no solver order | Bare floats and positional tolerances ([DA-005](../audit/semantic-model-and-authority.md#da-005)) | R18 |
@@ -349,13 +363,24 @@ Two inventory claims did not survive re-reading:
       $value = $before + 1dec`;
     - an owner rewrite is admitted only from a recovery state;
     - compaction may go only to empty bytes with `minimal = true`;
-  - one **tagged-union lifecycle field** per state machine in place of flag bags, for example
-    attempts: `{phase:'ingesting'} | {phase:'closed', close_generation:int, manifest:string} |
-    {phase:'terminal', outcome:'completed'|'partial'|'failed'|'cancelled', completion:bytes}`;
-  - allowed transitions declared once in the registry and emitted as a field
-    `ASSERT $before = NONE OR [$before.phase, $value.phase] IN [...]`.
-- **Registry.** Retarget the registry's `AttemptState` and `StudyPointState` at these columns, and
-  generate the Rust store enums from the same declaration.
+  - one **tagged-union lifecycle field** per state machine in place of flag bags, with the
+    states derived from all supported transitions rather than an illustrative three-state
+    simplification. Attempts must distinguish ingestion, closed-awaiting-manifest,
+    closed-with-manifest and terminal, or represent the manifest's optionality explicitly.
+    `close`, `cancel` and `recover` close ingestion before `manifest` installs the descriptor
+    (`pse-codegen/src/codegen/surreal_execution.rs`, functions `close`, `cancel`, `recover`,
+    `manifest`). The generation remains the existing u64-compatible decimal domain; a
+    SurrealQL `int` must not narrow its range;
+  - allowed transitions declared once in the registry and emitted as field assertions.
+    A phase-pair assertion is only one part: same-phase changes, generation/fence ownership,
+    immutable payloads and cancellation/recovery transitions keep their existing checks.
+    A schema backstop never replaces the guarded cross-record protocol.
+- **Registry.** Declare the store's physical lifecycle phases separately from observational
+  scientific states. Existing `AttemptState` includes planned/queued/running/stale/superseded
+  (`pse-schema/src/catalog/operations.rs`) and is not the ingestion/closed/terminal phase set;
+  store `succeeded` also projects to observational `completed`. Generate store types and
+  explicit projections from their respective declarations rather than retargeting or merging
+  these different vocabularies. Apply the same distinction to `StudyPointState`.
 - **Owner kinds.** These become either a literal union or typed `record<canonical_studies |
   canonical_analyses>` holders. In both cases, one generated release guard covers every holder
   table, which closes the `analysis` gap by construction.
@@ -401,8 +426,11 @@ Two inventory claims did not survive re-reading:
   build. The object form (`THROW {refusal, class, …}`) is equally stable and round-trips through
   `surrealdb_syn::value`, but that parser sits behind `canonical-maintenance` today. It is the
   alternative where structured detail is needed.
-- **Remaining Rust work.** Carrying the operation stage and a truthful `effect` with the error
-  stays ordinary Rust work.
+- **Remaining Rust work.** Carry operation identity/stage and truthful effect state. Unknown
+  refusal codes fail closed. A stable class does not establish that effects are absent after
+  transport loss or timeout, and retryability is not automatic replay permission. Preserve the
+  server's exact acknowledged study-cancellation distinction and the worker's fresh-premise
+  reread; do not synthesize acknowledgment from an incidental cancellation/fence shape.
 
 *R3, use the store's own keys and adjacency (candidate).*
 - **Keys.** Every row's id is `type::record(table, key)`, and the decoder checks this only
@@ -437,10 +465,15 @@ Two inventory claims did not survive re-reading:
 | Simplest viable | Literal unions per column without the tagged union: removes unknown values but keeps undefined flag combinations. Acceptable first step; weaker than R1. |
 | `REFERENCE … ON DELETE REJECT` for owners | **Rejected as a replacement** for guard rows. REJECT is checked only at delete time. A racing reference insert left a dangling owner even with `FOR UPDATE` on the referrer side, and a dangling owner reads as "not retired" (*Tested*, probe-surreal Q3). Only a referrer write that changes the target protected both orders, which is today's guard-row discipline. Typed `record<…>` holders remain useful for typing (R1). |
 | `DEFINE EVENT` for readiness fan-out | **Remedy open.** Asynchronous events delete the queued work with only a warning when retries are exhausted (core `doc/event.rs:483-503`), which violates DP-19. Synchronous events put sibling fan-out into every settle transaction and would add conflicts under P1. |
-| `DEFINE SEQUENCE` for run sequence | **Remedy open** (F03). Values are batch-allocated outside commit order and are i64 (surrealdb-datastore 3.3.0 `sequences.rs:3-19`, `:114-121`), while keyset paging needs commit order and the registry declares u64. |
+| `DEFINE SEQUENCE` for run sequence | **Remedy open** (F03). The user-facing `sequence::nextval` promises consecutive values while its node stays up,
+  but its durable cursor allocation is separate from the caller's run-publication commit
+  (surrealdb-datastore 3.3.0 `sequences.rs`, `nextval`/cursor commit). It does not establish
+  commit order for the visible-run paging contract, and its i64 extent narrows the current
+  u64 domain. Internal allocator batch comments alone are not the decisive premise. |
 | gRPC engine of the same SDK | **Not recommended.** It would bypass the vendored WebSocket integration (bounded admission, deadlines, replay checkpoints, response limits) that P4 makes legitimate, and its equivalents are unverified. |
 
-**Preserved.** Guarded functions stay the only lifecycle authority. Claim, close, seal and fence
+**Preserved.** Generated guarded functions remain the runtime lifecycle mutation owner; privileged
+installation/restore/activation keeps its explicit maintenance owner (R21). Claim, close, seal and fence
 order are unchanged, guard rows stay, and SCHEMAFULL stays.
 
 **Consumers stop interpreting:**
@@ -493,20 +526,34 @@ the payload.
    - Within each IPC record batch, order rows by the **sort key the registry declares per
      relation**, using `lexsort_to_indices` and `take` (both already used,
      `pse-schema/src/builder/native.rs:108`):
-     - step-major `(run_id, step, symbol_id)` for scalar solve and fit rows;
+     - solve variables: `(run_id, step, symbol_id)`;
+     - solve constraints: `(run_id, step, row_id)`;
+     - fit parameters: `(run_id, parameter_id)`;
+     - fit observations: `(run_id, experiment_id, observation_id)`;
+       these are the existing supported key shapes in `selected_scalar_row`
+       (`pse-runtime/src/workflow/result_projection.rs`), not a universal `symbol_id`;
      - symbol-major for dense trajectories, whose projection is symbol-major and refuses
        non-contiguous symbols (`result_projection.rs:1195-1218`). Trajectories keep their dense
        path; R4's locator removal concerns the scalar relations.
    - Each canonical result batch is one IPC record batch of a packed file (`file_batch_index`),
      and `canonical_result_blocks` holds one row per batch (surql `:1044`).
    - Commit that record batch's key statistics, in the same guarded append, on its **existing**
-     block row: `step` and `symbol_id` min/max, an exact row count and exact null counts.
+     block row: min/max for that relation's declared owner and partition keys, an exact row
+     count and exact null counts. Optional `step` and experiment keys retain their meaning.
    - These are `Precision::Exact` facts, which is what `PrunableStatistics` reads
      (datafusion-common `pruning.rs:342`, `:377-415`). Missing-value (`IS NULL`) pruning needs the
      exact null counts.
    - The append contract states that the statistics are exact, and the existing block-row
      equality check on replay (surql `:1026-1031`) covers them.
-   - Stop writing per-row locators. A row's coordinate is `(batch, offset)`.
+   - Stop writing per-row locators after all four scalar relations and their portable
+     selection consumers have a replacement. A row's coordinate remains `(batch, offset)`;
+     deterministic sorting happens before authoritative row positions are assigned, or an
+     explicit mapping preserves them. Existing snapshots/review packs record row ranges and
+     must never be silently reinterpreted in a new sort order (`connected_results.rs`,
+     `pack_selection`, selected-row reconstruction).
+   - Derive exact statistics from the admitted original batch and bind them to its schema,
+     digest and interpretation in the guarded append. Replay equality proves that supplied
+     metadata is unchanged, not that it was originally true of the payload.
 2. **Snapshot.** SurrealDB still returns the committed, fenced set of batches with their
    statistics. It stays the authority on what exists (P1, P3).
 3. **Provider.**
@@ -515,29 +562,44 @@ the payload.
      (datafusion-common `pruning.rs:314-330`) from the store's statistics, and prunes with
      `PruningPredicateBuilder::new().with_file_schema(..).try_build(expr)` (datafusion-pruning
      `pruning_predicate.rs:413-483`; `PruningPredicate::try_new` is deprecated at `:597`).
-   - The scan physically plans the pushed filters.
+   - The scan physically plans pushed filters, retaining required key/predicate columns.
+     `Inexact` leaves residual filtering to the engine; a scan limit must not truncate
+     false-positive batches before that filter can fulfill the requested limit. Unknown or
+     unsupported statistics retain the batch conservatively, never mean an empty answer.
    - It decodes only surviving record batches **inside the existing single protected decoder**.
      That decoder is already a `FileReader<ProtectedFile>` (`result_snapshot.rs:89`), so it uses
      `FileReader::set_index` (arrow-ipc `reader.rs:1417`; already called at
-     `result_snapshot.rs:390`) with a `FileReaderBuilder::with_projection` projection (`:1183`).
-     `FileDecoder` is not needed.
+     `result_snapshot.rs:390`); a `FileReaderBuilder::with_projection` projection (`:1183`)
+     is used only after defining a sound
+     projected-read admission boundary. Today the decoder checks equality with the full
+     relation schema and returns a fully `FieldCheckedBatch`-admitted value
+     (`result_snapshot.rs`, `ProtectedResultDecode::decode`). A projected batch cannot pass
+     that full-schema check or masquerade as a fully checked relation. The simplest selected
+     step retains full decode/admission and applies output projection afterward; input
+     projection remains a candidate where required validation columns and trust guarantees
+     can be preserved. `FileDecoder` is not needed.
    - Arrow IPC decodes whole record batches. Decoding is saved only when a whole record batch is
      pruned. Pruning a sub-batch range (`canonical_result_block_outputs`) saves filter work, not
      decoding.
-4. **Canonical predicate.** `output_results(field, minimum, maximum, missing)` lowers to a plain
-   DataFusion `Expr`:
-   - `col > -inf AND col < +inf`;
-   - `col >= m`, `col <= M`, with signed-zero literals at zero bounds;
-   - `col IS NULL` for `missing`.
+4. **Canonical predicate.** `output_results(field, minimum, maximum, missing)` lowers to a
+   plain DataFusion `Expr` matching all existing modes in `scalar_predicate`:
+   - no `missing`, minimum or maximum: `TRUE`, retaining nulls, NaNs and infinities;
+   - `missing = true`: `col IS NULL`; combining this with bounds stays invalid;
+   - `missing = false` or either bound: `col > -inf AND col < +inf`, then the requested
+     `col >= minimum` / `col <= maximum` comparisons;
+   - signed zeros compare numerically equally while original payload bits remain unchanged.
 
-   It runs under the full optimizer.
+   It runs under the full optimizer. The finite guard is conditional; applying it to an
+   unfiltered selection would silently remove supported rows.
 5. **Declared fields.** Which fields are indexable is declared in the registry instead of the
    hand lists at `result_projection.rs:28-140` and `canonical_execution.rs:2345-2356`.
 
 **Library facts** (*Tested*, probe-pruning, standalone crate on the pins):
-- **Equivalence.** The lowering is filter-equivalent to the repository's `scalar_predicate` on
-  63/63 grid combinations. Exact bits through `DataFrame::filter` matched the reference's selected
-  rows on 63/63.
+- **Equivalence receipt.** The original standalone lowering/reference probe agreed on 63/63
+  grid combinations and retained selected bits through `DataFrame::filter`. This is not a
+  differential test against every production mode: production's all-None predicate returns
+  all rows. Adoption must compare the revised conditional lowering directly with production
+  `scalar_predicate`, including all-None and `missing = true` cases.
 - **Soundness.** There were zero soundness violations over 3,391 containers and 20,107 rows,
   covering ±NaN with payloads, ±0, ±∞, subnormals and nulls.
 - **Zeros.** DataFusion 55.1 normalizes ±0 in comparisons (`normalize_float_zero` in `apply_cmp`,
@@ -547,7 +609,12 @@ the payload.
 - **Key pruning works.** With `step` given, a lookup kept exactly one container (probe 8).
 - **Value pruning mostly does not.** It pruned 0% of containers for unordered values at 16 rows
   per batch or more.
-- **Absent ids.** A missing `symbol_id` cannot be rejected by min/max.
+- **Absent ids.** Min/max cannot reject every absent owner id. Pinned DataFusion also exposes
+  `PruningStatistics::contained` for literal guarantees (`datafusion-pruning-55.1.0`,
+  `pruning_predicate.rs`); `PrunableStatistics` itself returns unknown. **Conditional omitted
+  opportunity:** if an existing exact block-owner summary is cheap to reuse, a custom adapter
+  could reject absent ids. Do not build another per-row membership index or unbounded owner
+  set merely to realize this capability.
 
 So the benefit of R4 is the removal of per-row locators and their index writes, plus key pruning.
 "Every Float64 column becomes prunable" is sound but is not claimed as a benefit.
@@ -566,18 +633,18 @@ So the benefit of R4 is the removal of per-row locators and their index writes, 
 |---|---|
 | Current baseline | Correct and bounded; write work and guarded round trips scale with variables × constraints × steps rather than with payload blocks. |
 | Array record ids `[result_set, output, partition, row]` with range scans | Keeps per-row writes; secondary. Useful only if some per-row locator must survive. |
-| Parquet result payloads (page index, bloom filter on `symbol_id`, `ParquetAccessPlan`) | **Not recommended.** Parquet float statistics skip NaN yet are reported `Exact`, and the ±0 widening is conservative but not exact (inv-data, *Interface-checked*). It also changes the live-sample format and adds decode copies. The bloom filter is the only way to reject an absent id; that is a remedy-open gain, not a clear win. |
+| Parquet result payloads (page index, bloom filters on declared owner keys, `ParquetAccessPlan`) | **Not selected.** The selected locator-removal benefit does not require a format change; replacing live-sample IPC adds an unqualified storage/decoder transition. Parquet float-statistic NaN/zero handling needs an explicitly conservative pruning contract, not an assumption that an `Exact` label proves IEEE selection equivalence. Native page/bloom access remains a credible alternative if later workload evidence warrants that transition. Bloom filters are not the only possible absent-id mechanism; see `PruningStatistics::contained` above. |
 | Simplest viable | Keep the locators, lower the predicate to DataFusion and set `Inexact`. This removes the bespoke predicate but none of the write volume. A partial step. |
 
 **Preserved.** Exact bits, missingness and signed-zero semantics are kept. SurrealDB remains the
 membership and commit authority. The protected file, ticket and preflight are unchanged.
 
 **Consumers stop:** maintaining locators; replay comparison over locators; the 18,724-row extent
-caps; the hand-built Arrow predicate kernels; the SurrealDB refusal branch for scalar predicates.
+caps; the hand-built Arrow predicate kernels; the SurrealDB refusal branch for scalar predicates once all replacement consumers are verified.
 
 **Reverse check.**
-- **P1.** Guarded append transactions shrink from O(rows) to O(blocks) inserts, which improves
-  16-lane write contention. The size of that improvement is unmeasured.
+- **P1.** Guarded append transactions remove O(rows) locator and index writes in favor of O(blocks)
+  metadata. The effect on 16-lane contention and throughput is unmeasured.
 - **P3.** IPC stays a tactical payload referenced from SurrealDB.
 - **DP-19.** Unchanged.
 
@@ -613,23 +680,35 @@ own a pre-admission resolved representation:
 *R5, a resolved, identity-typed specialization representation.*
 - **Representation.** Typed variants for resolved symbol reference, binder, parameter and literal,
   over a `typed-index-collections` `TiVec<SymbolIx, Symbol>` symbol table.
-- **Typing environment.** An `rpds` persistent typing environment behind the existing `TypeLookup`
-  trait (`crates/pse-modeling/src/types/environment.rs:8-16`; the checker already uses rpds this
-  way, `check/phases.rs:10`, `:589`). This replaces the per-site rebuild of
-  `BTreeMap<String, Type>`.
+- **Typing environment.** Use an identity-aware lookup behind the existing `TypeLookup`
+  contract (`crates/pse-modeling/src/types/environment.rs`). A borrowed view over the
+  authoritative symbol table is the simplest candidate; an `rpds` persistent environment is
+  appropriate if snapshots/overlays need persistence (the checker already uses it in
+  `check/phases.rs`). Both remove per-site `BTreeMap<String, Type>` rebuilding. Container
+  choice is implementation design, not a second type authority.
 - **Dependency edges.** The compiler's petgraph member graph is built from identities rather than
   parsed names.
-- **Body identity.** It frames this resolved form rather than `render_expr` text. Once identity no
-  longer depends on rendering, a presentation change stops re-keying bodies.
+- **Body identity.** Frame the canonical resolved form rather than `render_expr` text,
+  preserving binder scope, coordinate/parameter roles, physical/refinement contracts,
+  consumed functions, guards, validity and premises. Use scope-local positional roles for
+  cross-instance sharing and bind actual instance identities separately; hashing each
+  instance's global SymbolIds into the shared program would destroy that sharing. A pure
+  renderer change then stops re-keying mathematical bodies.
 - **Derived identities (DA-002).** Each derivation gets its own catalogued `pse_ids` frame variant,
   as §5.3 already asks, instead of `named_id(parent, "<literal>")`. The specialized model records
   the relationships consumers now re-derive (closure → conservation row), so the
   `let … else { continue; }` at `workflow/modeling/cases.rs:2695-2700` can tell "not a numerical
   target" from "lookup failed".
 - **Expression fields (DA-003).** The registry's existing `pse.expr_dsl` field extension
-  (`crates/pse-schema/src/model/extension.rs:151-153`) carries grammar and role as Arrow field
-  extension metadata (arrow `canonical_extension_types`, `try_extension_type`, already used). The
-  collector, the selector inventory and the binding rule are then generated from it.
+  (`crates/pse-schema/src/model/extension.rs`) is extended to carry grammar and role as Arrow
+  field extension metadata (arrow `canonical_extension_types`, `try_extension_type`, already
+  used). Today `pse.expr_dsl` is `VersionOnly`, not a grammar/role schema. Its metadata contract
+  and generated consumers therefore evolve explicitly; merely attaching the existing marker
+  does not establish those distinctions. The collector, selector inventory and binding rule
+  are then generated from the new declaration.
+- **Identity evolution.** New `pse_ids` frame variants and resolved body framing need explicit
+  version/domain separation. Existing durable artifacts must retain their recorded interpretation
+  or become explicitly incompatible; no current frame silently acquires new meaning.
 
 *R6, generated relation handles and declared membership.*
 - Relation membership, scalar indexing, serde lists and analysis dispatch use the generated
@@ -734,10 +813,17 @@ A joint evaluator built over flattened expressions would therefore lose guard se
     pairs only.
 
   Today these are restricted to all-`Block` or `is_flat_arithmetic` bodies (`execution.rs:2270-2274`,
-  `:1638`). R7 extends them **region by region**:
-  - within each arithmetic region of a dispatch-group instance, build the requested product
-    symbolically (Symbolica `derivative`) and one joint `AtomCore::evaluator_multiple`
+  `:1638`), and `SelectedFirstRegion` requires every region input to be an original scalar
+  (`execution.rs`, `inputs.iter().all(|&slot| slot < allowance.scalar_inputs)`). R7 is a
+  **proposed region-by-region extension**, not a mechanical removal of these restrictions:
+  - within an eligible arithmetic region of a dispatch-group instance, build the requested
+    product symbolically (Symbolica `derivative`) and one joint `AtomCore::evaluator_multiple`
     (symbolica-3.0.1 `atom/core.rs:1042`) over the region's demanded outputs;
+  - downstream of a provider, branch or intermediate-slot boundary, preserve existing
+    Taylor/reverse chain propagation, or build local symbolic jets/actions with respect to
+    region inputs and compose them through the existing derivative layouts and host stages.
+    Treating intermediate slots as independent constants when differentiating with respect
+    to original coordinates would lose first and mixed second derivatives;
   - host stages keep splitting regions and run before anything that depends on them;
   - `Require` is evaluated at the requested order;
   - the consumed-pair restriction and the product kinds are kept unchanged.
@@ -745,14 +831,18 @@ A joint evaluator built over flattened expressions would therefore lose guard se
   existing `EvaluationLimits`, so observation-only outputs (terms, contributions) are not folded
   into solver-iteration programs, and residual/Jacobian programs are partitioned from
   observation programs.
-- **Route choice.** The choice of symbolic or Taylor route is a deterministic function of the
-  limits carried in the product identity, so replay is bit-identical (DP-11).
-- **Admission before differentiation.** The symbolic route is admitted under the existing
-  pre-differentiation allowances (`selected_partial_calls`, `construction::additional`, the
-  flattening bound at `products.rs:70-83`). The per-output Taylor path is chosen up front when
-  those allowances refuse; it is not a fallback after the budget is exceeded. Expression swell on
-  deep expressions is the known risk of symbolic differentiation and was not probed beyond this
-  fixture.
+- **Route choice.** Choose symbolic versus Taylor from deterministic eligibility and
+  conservative work bounds before differentiation, and record the choice and its relevant
+  premises in product identity. This is a prerequisite for reproducibility, not evidence of
+  bit identity between different numerical routes.
+- **Admission before differentiation.** Add the deterministic preflight needed for that choice;
+  the current APIs do not already supply it. `SelectedFirstRegion::new` decrements
+  `selected_partial_calls` inside its differentiation loop, while `construction::additional`
+  calls a thread-local owner's `try_grow` (`pse-math/src/construction.rs`), which can refuse
+  because of transient capacity. Transient capacity, cancellation, or a construction failure
+  remains a typed refusal and never selects a different retained program. Preserve the existing
+  operation, scratch and flattening limits (`products.rs:70-83`). Expression swell on deep
+  expressions is unprobed beyond the original fixture.
 - **Shared-program identity.** One program shared across the instances of a dispatch group must
   carry each instance's validity and closure `Require` stages and consumed physical premises in its
   identity, or take the bounds as instance parameters while keeping the stages.
@@ -776,7 +866,11 @@ A joint evaluator built over flattened expressions would therefore lose guard se
   - Registering intermediate slots through `FunctionMap::add_aliases` (`function_map.rs:156`; the
     aliases "always inline in the scope where they are used"), with
     `EvaluatorBuilder::direct_translation(true)` (`:457`), would let Horner and CSE cross those
-    boundaries while every host stage still splits regions.
+    boundaries while every host stage still splits regions. Aliases inline for evaluator
+    construction; they do not automatically make `derivative(expression, x)` expand alias
+    definitions. The candidate must establish derivative-chain handling and retain source-check
+    attribution for eliminated producers. Direct translation is already the pinned builder's
+    default; the opportunity is safe fusion, not merely setting that option.
   - Never use `InliningPolicy::Never`: a sub-evaluator cannot be vectorized
     (`library/admission.rs:1048`).
   - This targets where the cost actually is, but needs the alias probe before adoption.
@@ -784,57 +878,71 @@ A joint evaluator built over flattened expressions would therefore lose guard se
     Horner search on cancellation without refusing the result (`library.rs:272-296`). A truncated
     evaluator must never be retained.
 
-*R8, library-owned bounded retention and a firewall for the catalog.*
-- **Why LRU alone is not enough.** Two Salsa facts mean per-query LRU cannot stop rotation by
-  itself:
-  - **Evicted memos still count.** An evicted memo still appears in `memory_usage` with its
-    metadata and revisions; only its heap becomes 0 (`salsa-0.28.4/src/function/memo.rs:354-367`;
-    `database.rs:446`). `retention_exceeded` compares **total entries** against 16,384
-    (`workspace.rs:1749-1751`), so the ≈54.5k-entry footprint would keep rotating. Probe B2
-    already shows this: `query_values` 2²⁰ with default retention still rotated, reusing 0/143.
-  - **Evicted memos cannot backdate.** Backdating needs the old value
-    (`function/backdate.rs:22-25`, `old_memo.value().is_some_and(..)`). An evicted memo whose
-    inputs changed re-executes and its dependents re-run. An unchanged evicted memo is still
-    deep-verified through its kept edges.
-- **Retention criterion.** R8 therefore changes the criterion as well as the mechanism:
-  - count value-holding memos and bytes, not total memos;
-  - size the non-evictable part (granular inputs, interned values) from the package's memo count;
-  - keep rotation only as a last resort for non-evictable growth.
-- **LRU coverage.** Within that budget, put Salsa's per-query LRU on the heavy granular queries
-  (`parsed`, `typed`, the checker phase queries). Today LRU covers only `selected`, `specialized`,
-  `document_table`, `projection`, `admitted`, `semantic_body` and `provider_query`, all at one
-  shared capacity (`modeling.rs:703-705`, `executable.rs:2210-2211`, `grouped.rs:276`,
-  `workspace.rs:1801`). Each query's capacity is sized separately through the generated
-  `set_lru_capacity` (which needs an `lru=` attribute).
-- **Resident memos.** Memos that downstream backdating relies on stay resident: the firewall
-  accessors, `specialized` and the live root's bodies. They get no LRU, or a capacity that never
-  evicts the live set.
-- **Defaults.** Size the defaults to the admitted package footprint, with `semantic_body` capacity
-  at least the live root's distinct bodies, rather than a fixed 64.
-- **Measurement.** Declare `heap_size` on the `#[salsa::input]`s (`salsa-macros` `input.rs`
-  `HEAP_SIZE`) so `memory_usage()` is the one aggregation path. The `heap_size` callbacks remain
-  project-written functions, so the size models themselves stay project-owned (DA-022, in part).
-- **Catalog firewall.** Route `projection`'s two direct `catalog.checked(db)` reads through tracked
-  accessors keyed by the selected package (`physical_scope(selected)`,
-  `function_contracts(selected)`). Equal results backdate, so `projection` stops re-running for
-  unrelated edits (confirmed with limits lifted, probe B2).
-- **Demand.** Move observation demand of **existing** symbols out of `Request`. Probe B1 showed it
-  is bookkeeping only. Demand of a **new** `let` member legitimately changes the dispatch group
-  (coordinates 42→44), so it stays in the specialization identity.
-- **Acceptance.** Probe B2 at the redefined defaults reuses 143/143 bodies after an unrelated edit,
-  `specialized` backdates, and there is no rotation on publish.
-- **Second stage (Proposed, contingent on scale measurement).** Per-instance specialization through
-  Salsa tracked structs with `#[tracked]` fields would make a structural edit re-specialize only
-  the affected instances. It is the costlier design change, because accumulators and closure must
-  become root-level assembly over instance outputs, and it is not needed to fix F09.
-  - Reverse check: root-level assembly must still assess closure from original terms
-    (`specialize.rs:3015-3083`), so conservation by construction is kept.
+*R8, truthful bounded retention and a firewall for the catalog.*
+- **Pinned mechanism and its limits.** Salsa 0.28.4 already has LRU on heavy granular queries:
+  `parsed`, `signature_syntax`, `resolved`, `typed`, `complete`, `occurrence` and the checker
+  phase queries (`pse-compiler/src/workspace/modeling/granular.rs`, tracked declarations and
+  `configure`). They currently share `query_values` with the other query families.
+  - Eviction removes values but keeps dependency metadata and revisions; `memory_usage` still
+    counts the memo (`salsa/src/function/memo.rs`, `Memo::memory_usage`).
+  - `IngredientInfo` exposes aggregate counts and bytes, not a public value-present memo
+    count (`salsa/src/database.rs`, `memory_usage`, `IngredientInfo`). Zero reported heap is
+    not a reliable value-presence test.
+  - `set_lru_capacity` is count-based, not byte-weighted (`function/eviction/lru.rs`).
+  - Changed evicted values cannot backdate without the previous value
+    (`function/backdate.rs`, `old_memo.value()`); unchanged evicted memos keep their
+    dependency verification behavior.
+- **Retention policy.** Keep finite bounds on actual retained input/interned roots, memo
+  metadata and known value bytes. Use the existing aggregate byte report plus the generation's
+  project-owned shared-input census; do not replace real metadata growth with an unavailable
+  value-only counter. Separate live-root/firewall retention from disposable results and give
+  query families appropriate count capacities. Deriving capacities from a byte allowance
+  needs conservative per-family sizing or adaptation; Salsa itself does not supply that policy.
+- **Resident memos.** Accessors needed for backdating, `specialized`, and the admitted live
+  root's semantic bodies stay resident under that root's retention allowance. An oversized
+  live set still needs an explicit refusal/rotation policy; setting an unbounded LRU or retaining
+  arbitrarily many roots is not bounded retention.
+- **Immediate defaults.** Adjust documented defaults to cover the admitted reference workload
+  and its live-root body set, subject to the enclosing memory budget. This fixes the demonstrated
+  default mismatch but does not establish a scalable eviction policy for every admitted package.
+  Rotation remains an honest last resort for finite non-evictable or metadata growth; it must
+  stop being routine for the supported ordinary workload.
+- **Measurement candidate.** `heap_size` on `#[salsa::input]` can contribute to the library's
+  aggregate report, but replacing the shared `RetainedInputs` census requires explicit
+  accounting ownership. Independent callbacks receive one input's fields and can double-count
+  shared `Arc` roots or omit generation-owned maps/environment. Keep the existing census until
+  equivalence or a deliberately conservative bound is established; callbacks stay project-written.
+- **Catalog firewall.** Route `projection`'s two direct `catalog.checked(db)` reads through
+  tracked accessors keyed by the selected package (`physical_scope(selected)`,
+  `function_contracts(selected)`). Equal results backdate, provided the firewall values remain
+  resident, so unrelated edits stop propagating into projection (original probe B2 with limits lifted).
+- **Demand.** Move observation demand of **existing** symbols out of `Request`. Original probe
+  B1 found it bookkeeping-only. Demand of a **new** `let` member changes the dispatch group
+  (42→44 coordinates) and remains in specialization identity.
+- **Acceptance.** At the explicitly selected new defaults, rerun probe B2: no routine publish
+  rotation, 143/143 live bodies reused after the unrelated edit, and resident `specialized`
+  backdating. Also exercise retained generations/membership growth and an oversized live root
+  to show that metadata and values remain bounded without stale reuse. Do not label the old
+  ≈606 MB estimator as resident memory or assume the new policy has already passed.
+- **Second stage (Proposed, contingent on scale measurement).** Per-instance specialization
+  through Salsa tracked structs with `#[tracked]` fields could localize structural edits.
+  Accumulators and closure must still assemble at the root from original terms
+  (`specialize.rs:3015-3083`), preserving conservation by construction. This larger change is
+  unnecessary for the immediate F09 default mismatch.
 
 *R9, index-based preparation scans.*
-- Replace the dynamic-row fixed point with one `Bfs`/`Dfs` over `Reversed` from derivative-rate
-  nodes (petgraph `visit`), or with the existing `MemberReads` index (`executable.rs:1276+`).
-- Replace `iter().find`/`position` with the identity indexes R5 provides, and the per-site
-  symbol-table rebuild with R5's persistent environment.
+- Build a dependency index including derivative-rate symbols, free inputs, expression members
+  and affected rows, then traverse consumers forward from rate symbols with petgraph `Bfs`/`Dfs`.
+  The existing graph has dependency→consumer edges and only expression-valued symbol nodes
+  (`pse-compiler/src/workspace/modeling/executable.rs`, graph construction); rates can have no
+  node. `Reversed` traversal from rates on that graph is therefore not a drop-in replacement.
+  A reverse search from each row is an alternative only with the corresponding explicit edge
+  orientation. Keep raw numerical dependency distinct from validity/guard dependency in
+  `MemberReads` (`executable.rs:1276+`).
+- Replace repeated `iter().find`/`position` with local indexes built from existing identity
+  maps once per projection; these local improvements can precede R5. R5 supplies the final
+  resolved representation and an authoritative lookup that removes symbol-table rebuilding.
+  Preserve cancellation, topological ordering, guard dependencies and diagnostic lineage.
 
 **Cross-lane caches (DA-030's second half).**
 - **Same-lineage lanes.** These lanes serialize on one `Arc<Mutex<CompilerWorkspace>>`. Salsa
@@ -856,13 +964,14 @@ A joint evaluator built over flattened expressions would therefore lose guard se
 |---|---|
 | Current baseline | Correct and conservative; rotates on every publish at defaults; reuse depends on hand-keyed runtime caches. |
 | Simplest viable | Raise `WorkspaceLimits` defaults above the footprint. That removes F09 at once but scales memory with library size rather than with use, and leaves rotation as the eviction policy. Acceptable as an interim setting. |
-| Salsa `persistence` | **Not recommended.** It would be a second reuse store beside the durable record (P3), and it needs serde on Symbolica-holding values. |
+| Salsa `persistence` | **Not selected for the immediate remedy.** P3 forbids a second state/commit/lifecycle authority, not a reconstructible cache whose premises remain canonical. Persistence would still need a justified reuse benefit, serialization for Symbolica-holding values, version/invalidation and retention ownership; no such simplification was established here. |
 
 **Preserved.** Values stay out of Salsa (rebind). Persisted dependencies remain the durable reuse
 authority (§14.4). Premise-checked retention reuse is kept, and so is the cancellation drain.
 
-**Consumers stop:** depending on rotation for memory bounds; the hand census; demand in the
-specialization key for existing symbols.
+**Consumers stop:** relying on routine whole-generation rotation for ordinary reuse;
+observation-only demand in specialization identity for existing symbols. Shared-input accounting
+stays until a sound replacement is established.
 
 **Reverse check.**
 - **P1.** Unaffected; the shared-database variant is gated as above.
@@ -951,7 +1060,9 @@ construction.*
   - Adding Shooting to `OperationRequest` would change that persisted format and make Shooting a
     study operation, which it is not today. That is a **maintainer decision**. If it is taken, it
     needs a version bump with a stated replay or regeneration path ([RC12](#rc12)). The
-    in-process request can include Shooting without entering the study set.
+    in-process superset may wrap shared request structs plus host-only Shooting, with an
+    explicit typed projection/refusal into the study-admitted set. Adding Shooting directly to
+    the serialized `OperationRequest` does change the persisted operation format.
 - **Runtime entry.** A runtime entry composes `declared_execution` and the operation under
   `PreparationSettings`. The binding's chains, hard-coded defaults, deadline rule, synthesized
   progress event and KINSOL recycle route move into testable runtime code; the route is read from
@@ -1029,7 +1140,7 @@ defaults; re-implementing predicted-start fallback.
 - **P2.** Durable work started through the durable route belongs to the worker lane's token tree
   (`stop` → `drain`), not to the caller's lease, so a dropped caller handle still does not cancel
   durable work.
-- **Value rebind.** Strengthened: one operation request serves in-process runs and studies, while `StudyOperation` stays the study-owned persisted record (P2 replay unchanged unless the operator takes the Shooting decision).
+- **Value rebind.** Strengthened: shared request/preparation semantics serve common in-process and study modes through explicit admission, while `StudyOperation` stays the study-owned persisted record (P2 replay unchanged unless the operator takes the Shooting decision).
 
 ### 4.6 C6. Solver capability and composition knowledge sit outside the adapter seam
 
@@ -1148,13 +1259,19 @@ the record nor the architecture.
     continues to cover POUNCE-internal FERAL ([RC15](#rc15)).
   - A stricter pre-admission could refuse cases admitted today, so it is not a clear win.
 - **Candidates** (each needs its probe):
-  - PETSc `PetscMallocSet` before `PetscInitialize`, for exact accounting and a hard limit. The
-    hook is process-global, so under P1 several lanes in one process must attribute allocations
-    to the current owner through a thread-local, so that one lane's growth cannot refuse
-    another's. Without exact attribution, a process-wide limit would couple lanes, regress P1 and
-    is not recommended.
-  - SuiteSparse `SuiteSparse_config_*_func_set` for KLU, if KLU allocates only through it. The
-    same attribution condition applies.
+  - PETSc `PetscMallocSet` before `PetscInitialize` can track the `PetscMalloc`/`PetscFree`
+    allocator domain (PETSc 3.24.0 `src/sys/memory/mal.c`), not automatically the entire foreign
+    heap. Current `petsc.rs` already serializes PETSc through `PROCESS`, and process/init
+    allocations can outlive attempts. Each tracked allocation must retain its original owner
+    and size, so later free/realloc updates that owner even on another thread or after a
+    different lane becomes current. Thread-local current-owner lookup alone is insufficient;
+    process/init allocations need a separate process owner. MKL/BLAS and any bypassing
+    allocations remain under the existing envelope until their coverage is established.
+  - SuiteSparse `SuiteSparse_config_*_func_set` for KLU remains a candidate only if the actual
+    allocation route is covered. The same original-owner provenance and lifetime rules apply.
+  - Do not replace structural admission or the complete foreign envelope with allocator-domain
+    accounting before bypass and attribution coverage is established. Cross-lane charging or
+    premature release would regress P1/DP-20 and is not recommended.
 - **Lead.** The project-structure size models have no in-use derive-based sizer (DA-022). A
   derive-based sizer would be a new library, out of scope.
 
@@ -1213,20 +1330,31 @@ capabilities the record overstates.
   that keyword to the generated `identities.<Role>` NewTypes.
 - **Codec and binding.** The codec registers msgspec `dec_hook`/`enc_hook` for `SemanticId`, and an
   `Identity<R>` `FromPyObject` accepts the Python `SemanticId` with a width check.
-- **Open representation question.** If msgspec encodes `bytes` subclasses natively (base64) without
-  calling `enc_hook`, use a non-`bytes` value class (inventory option (a)); the msgspec hook probe
-  settles this.
+- **Representation.** Retain the existing bytes-subclass `SemanticId` for this mechanism. The
+  recommendation-audit codec probe on msgspec 0.21.1 invoked both hooks and round-tripped hex
+  for it and a non-bytes alternative. That removes the proposed need for a replacement value
+  class; assembled generated-document decoding still needs its own integration check.
+  `NewType` aliases provide static role distinctions only: they return the same runtime object.
+  A width check establishes 128-bit identity shape, not runtime proof of its semantic role.
 - **Clear win.** Cache the type lookups through pyo3 `PyOnceLock::import` (`sync/once_lock.rs:158`). A `static` inside the generic `EnumValue<T>` impl would be shared by every `T`, so each `RegistryEnum` impl gets its own cell, emitted by the `vocabularies!` macro (`crates/pse-py/src/enums.rs:27`).
 
 *R18, physical meaning on bulk inputs and outputs through Arrow.*
 - **Inputs.** Accept `pyo3_arrow::AnyRecordBatch` (`input.rs:24`; any `__arrow_c_stream__`/`__arrow_c_array__`
   producer) for starts, initialization stages, sample diagnosis and per-state tolerances, keyed by
   state identity. Validate against a registry relation contract whose value columns are
-  `pse.quantity_value` and whose keys are `pse.semantic_id`.
+  `pse.quantity_value` and whose keys are `pse.semantic_id`. Validate expected-key membership,
+  uniqueness and required coverage for each operation; transport metadata alone does not establish
+  units or completeness. Establish an owned immutable numeric snapshot before asynchronous/native
+  use of externally supplied Arrow buffers. The full C metadata journey remains adoption evidence.
 - **Outputs.** Return native attempt primals as an exported `PyRecordBatch` instead of
   `list[tuple[str, float]]`.
-- **Times.** Seconds cross as `std::time::Duration` ↔ `datetime.timedelta`, which is abi3-safe in
-  pyo3.
+- **Time semantics.** Distinguish positive wall-clock budgets from physical time coordinates
+  and integration steps. `std::time::Duration` ↔ `datetime.timedelta` is a candidate only for
+  budgets whose range and precision meet that contract. Pinned PyO3's conversion rejects
+  negative timedeltas and exports microsecond precision (`pyo3-0.29.2/src/conversions/std/time.rs`).
+  It is not a faithful blanket replacement for Float64 physical times: signed time origins and
+  sub-microsecond increments are legitimate. Keep those values in the declared quantity/time
+  contract with their existing precision, admitting any representation change explicitly.
 - **Stubs.** pyo3-arrow types declare no `INPUT_TYPE`, so a thin local wrapper supplies the stub
   hint.
 - **Remedy open, partly.** A Python-side unit and quantity resolver depends on whether units can be
@@ -1235,22 +1363,45 @@ capabilities the record overstates.
 *R19, one boundary document catalogue with schema-set identity.*
 - **Catalogue.** A library-crate catalogue of `(type, slug, direction)` is consumed by both `xtask`
   and `pse-py`, with a `Version<N>` bound at every root, so `Completion` gains a version.
-- **Schema generation.** One schemars `SchemaGenerator` covers the set:
-  `SchemaSettings::for_serialize()` for outputs, which makes always-emitted fields required, and
-  `for_deserialize()` for inputs.
+- **Schema generation.** One catalogue/aggregation owns the set, with separate schemars
+  generator contexts for input and output contracts. `SchemaSettings::for_serialize()` for
+  outputs and `for_deserialize()` for inputs are selected before `into_generator()`;
+  schemars 1.2.2 does not expose a mutable per-root contract switch on a constructed generator
+  (`src/generate.rs`, `SchemaSettings`, `SchemaGenerator`). Direction participates in canonical
+  schema-set identity, so a type used both ways cannot collide or lose required/default behavior.
 - **Import check.** The set's fingerprint is computed through a `pse_ids` frame (blake3 is confined
   to `pse-ids` by governance) and generated into Python. The extension computes the same
   fingerprint from its compiled types, and the import check compares the two.
 - **Typed returns.** Bytes-returning methods become `DocumentValue<T>`.
-- **Feature-dependent schemas.** The Shooting variant is behind `solver-diffsol`. That is why the
-  extension computes its fingerprint at runtime rather than from a generated constant.
+- **Compiled-catalogue identity.** Compute the extension's fingerprint from its actual compiled
+  catalogue, including declared direction and any verified feature-dependent membership/shape.
+  The observed feature-gated Shooting `RunRequest`/`RunReport` variants are not themselves
+  `JsonSchema` roots; their presence alone does not prove a serialized schema difference.
+  Trace or generate the real catalogue under relevant features before selecting P6's exact
+  fingerprint policy. Do not treat an unresolved feature variation as an established cause.
 
-*R20, covariance provenance (project-owned).*
-- Resolve `ParameterCovariance.run_id` against the in-process or canonical fit record, using an
-  existing store read.
-- Otherwise, label the propagated result's validity as derived from an external, uncertified
-  covariance (§19.8, PS-12).
-- No library supplies this; a blake3 stamp is weaker and is not recommended.
+*R20, covariance content, provenance and mathematical validity (project-owned; F10).*
+- Hydrate the covariance and its availability/local-validity conditions from the actual
+  in-process or canonical fit result named by `ParameterCovariance.run_id`, or compare the
+  caller-supplied ordered parameters and complete matrix against that record with its
+  dependency/unit/interpretation conditions. Resolving a real run id alone does not certify
+  altered values bearing that id.
+- Legitimate external covariances remain supported, but their origin is explicitly external and
+  uncertified (§19.8, PS-12); a caller-provided id cannot impersonate a certified fit record.
+  Mathematical admission is separate from provenance: finite symmetry and a nonnegative
+  diagonal do not establish positive semidefiniteness. Use an in-use linear algebra factor or
+  eigensolver to reject/withhold an invalid covariance under a declared numerical tolerance,
+  preserving legitimate singular positive-semidefinite covariance. A positive-definite-only
+  Cholesky gate would reject valid inputs and is not the recommendation.
+- Derived validity states which upstream statistical/local assumptions remain unverified; it
+  never promotes an external input to certified merely because propagation succeeded.
+- No new library, stamp, or bespoke numerical factorization is needed. The in-use faer family
+  supplies `self_adjoint_eigenvalues(Side)` in pinned faer 0.24.4
+  (`src/linalg/solvers.rs`), returning sorted eigenvalues or `EvdError` without eigenvectors.
+  After square/symmetry admission, a declared triangle and scale-aware tolerance can establish
+  PSD while accepting zero eigenvalues. Scratch/working allocation, parallelism, finite
+  results and decomposition failure remain under existing admission and truthful withholding.
+  Exact tolerance and integration remain Proposed numerical design, not an implemented pass.
 
 *R21, operator and developer tooling consume Rust owners.*
 - A versioned Rust `ConformanceManifest` document is parsed with `toml` in Rust and with
@@ -1261,8 +1412,14 @@ capabilities the record overstates.
     `:5905`, `:6565-6600`, `:7266-7300`, `:7924-7929`) move into generated, guarded
     `fn::pse_*` maintenance functions. This is the same in-use mechanism the runtime uses, and the
     script becomes a caller.
-  - The guarded functions then stay the only lifecycle authority, and R1's table types and
-    transition rules are a backstop for every writer.
+  - Preserve privileged maintenance authentication, bounded/replayable pages, frozen-placement
+    gates and historical restore/bootstrap activation (`canonical_maintenance.rs`, connection,
+    installation and activation owners). Ordinary current-writer guards cannot simply be
+    required before an old schema is restored or a new definition installed.
+  - Bound the single-writer claim honestly: runtime lifecycle and the migrated supervisor
+    meanings have generated guarded mutation owners; schema installation/restore/activation
+    remains an explicitly scoped maintenance owner. R1's table checks are a backstop wherever
+    installed, not proof that every maintenance path uses the ordinary writer.
   - The script reads generated contracts rather than literals.
 
 **Alternatives.** The baseline fails closed through strict decoding and version-first checks, but
@@ -1284,10 +1441,17 @@ order.
 
 - **[DA-020](../audit/boundaries-and-composition.md#da-020), placement of the performance
   toolkit.** *R22.*
-  - **Placement (clear and project-owned).** Move the capture, review-pack, review-query and
-    inspection-comparison modules out of the orchestration root into a separate tooling crate that
-    keeps the shared interpreter §23.1 asks for. That is a crate addition, which needs an ADR
-    ([RC09](#rc09)).
+  - **Placement (project-owned direction).** Separate capture orchestration, review/export and
+    inspection-comparison tooling from the runtime's orchestration responsibility. A tooling
+    crate is the selected organizational candidate, requiring an ADR ([RC09](#rc09)), but the
+    dependency split must come first. Product workflows already consume `capture::DetailSession`
+    (`worker.rs`, `study_diagnostics.rs`), and canonical result APIs consume
+    `review_pack::PackResultSelection` (`connected_results.rs`, `pack_selection`/selection restore).
+    Moving these whole modules into a crate that depends on runtime would create a cycle or
+    make tooling a product foundation. Keep product-owned observation/detail and canonical
+    result-selection contracts with their semantic owners, and let tooling consume those
+    contracts. Export-specific packing/analysis then moves without a runtime→tooling dependency.
+    A module boundary is a viable simpler first step if crate extraction adds no further benefit.
     - The observation hub is **not** moved there. Eleven product crates use it, so a tooling crate
       holding it would just become a new foundation dependency.
     - The hub's disposition is the substrate half below.
@@ -1320,31 +1484,35 @@ Each was re-read by the reviewer.
 |---|---|---|---|---|---|---|
 | <a id="f01"></a>F01 | Horizon runs ignore caller cancellation after admission (lineage: split from [DA-012](../audit/boundaries-and-composition.md#da-012) as an independently fixable defect) | DP-19, DP-20; G5; [S03](#s03) | *Tested*: probe C, `probe_c_caller_cancel_after_admission_stops_horizon` (20-step antiwindup NMPC). Before the fix: 20/20 steps, usable result. After `driver.rs:142` → `cancel.child_with_deadline(None)`: cancelled after 1 step, join +0.5 ms; two existing horizon controls pass | A cancelled local study keeps solving horizon points to completion | The one-line child token now; R10 structurally | The probe test kept as a regression control. It must still show release only after the native join, which needs a gated native stage not shown by probe C. Add a deadline-expiry horizon: a typed TimeLimit and a trajectory marked partial |
 | <a id="f02"></a>F02 | Uno's small-step stall while infeasible is published as a local infeasibility | PS-10; PS-G3 | *Tested* (synthetic): probe D, `probe_d_bridge_latch_and_native_status_mapping`: `(0,5)` → `Infeasible`. *Interface-checked*: `Uno_C_API.h:56-57`; `quality.rs:558-570` labels Infeasible-with-candidate as least-infeasible | Recovery and users read "locally infeasible" for a numerical stall | R15: map 5 to `Numerical`; named constants with `static_assert` | Mapping unit test over every `UNO_*` pair |
-| <a id="f03"></a>F03 | Durable run starts serialize per problem, and exhausted conflict retries are untyped | AP-07, H22, H24; DP-21; [S05](#s05) | *Implemented*: `begin_run` touches `canonical_guards:'execution-sequence:'+problem` (surql `:947`) under an exclusive in-process `ProblemTurns` write turn (`canonical.rs:722-786`, call `canonical_execution.rs:3346`), once per durable point (`workflow/study.rs:983`). Retry loops return the last raw `TransactionConflict` (the post-loop `Configuration("… retries exhausted")` is unreachable) | Run starts of one study's 16 lanes queue behind each other in-process and conflict across processes; same-problem selection reads wait behind them; exhaustion is indistinguishable from other infrastructure faults | Typed exhaustion via R2. The serialization itself is **remedy open**: a commit-ordered run sequence needs a serialized allocator, and `DEFINE SEQUENCE` breaks commit order | The 16-lane study probe: conflict retries and turn wait per point |
-| <a id="f04"></a>F04 | The retained-surrogate rayon pool is dropped without joining its workers; the global rayon pool is never pinned | DP-20; H21 | *Interface-checked*: rayon-core 1.13.0 `ThreadPool::drop` only calls `registry.terminate()` (`thread_pool/mod.rs:399-402`). *Implemented*: `math/surrogate/library.rs:807-815`, `:830-835`; no `build_global` anywhere (the child process uses `RAYON_NUM_THREADS=1`) | Worker threads and stacks charged as `(threads+1) × stack` can outlive the charge; any library reaching the global pool would run uncounted threads (reach unresolved) | `ThreadPoolBuilder::spawn_handler` with retained `JoinHandle`s joined after drop (or `build_scoped`); pin the global pool at deployment construction, recording a typed fact if already initialized | Thread census before and after drop; the global-pool reach probe |
+| <a id="f03"></a>F03 | Durable run starts require commit-order serialization; broad local pacing and untyped exhausted conflicts remain concerns | AP-07, H22, H24; DP-21; [S05](#s05) | *Implemented*: `begin_run` touches `canonical_guards:'execution-sequence:'+problem` (surql `:947`) under an exclusive in-process `ProblemTurns` write turn (`canonical.rs:722-786`, call `canonical_execution.rs:3346`), once per durable point (`workflow/study.rs:983`). Retry loops return the last raw `TransactionConflict` (the post-loop `Configuration("… retries exhausted")` is unreachable) | One shared sequence commit is necessary for no-lost-page visible-run paging. The local problem-wide mutation turn also queues independent operations and selection reads; its avoidable effect on 16 lanes is unresolved. Exhaustion is indistinguishable from other infrastructure faults | Typed exhaustion via R2. Keep necessary sequence serialization. Whether the broader local mutation turn can narrow without regressing guards, cancellation fairness or paging is unresolved; `DEFINE SEQUENCE` is not a commit-order-preserving drop-in | The 16-lane study probe: conflict retries and turn wait per point |
+| <a id="f04"></a>F04 | The retained-surrogate rayon pool is dropped without joining its workers; the global rayon pool is never pinned | DP-20; H21 | *Interface-checked*: rayon-core 1.13.0 `ThreadPool::drop` only calls `registry.terminate()` (`thread_pool/mod.rs:399-402`). *Implemented*: `math/surrogate/library.rs:807-815`, `:830-835`; no `build_global` anywhere (the child process uses `RAYON_NUM_THREADS=1`) | Worker threads and stacks charged as `(threads+1) × stack` can outlive the charge; any library reaching the global pool would run uncounted threads (reach unresolved) | `ThreadPoolBuilder::spawn_handler` with retained `JoinHandle`s joined after pool drop (or `build_scoped`), with the handles retained for the pool's full charged lifetime. Global-pool reach stays unresolved: establish a real consumer before configuring one process-owned global pool or routing work into the admitted pool. Embedded hosts may have initialized the global pool already; record a typed incompatibility rather than claiming a per-deployment budget controls it | Thread census before and after drop; the global-pool reach probe |
 | <a id="f05"></a>F05 | The LM fitting route disables the library's stationarity test | PS-07 (tolerance contract), DP-11 | *Interface-checked*: levenberg-marquardt `e67066c` `with_tol` sets `ftol = xtol = tol, gtol = 0` (`lm.rs:200-216`); `residual.rs:356-360` calls `.with_tol(p.accuracy.stationarity)` | Termination is driven by relative reduction and step tests standing in for a stationarity request. The independent original-space re-check (`residual.rs:380-407`) and covariance withholding keep outcomes truthful, so the cost is spurious non-convergence or extra iterations, unmeasured | **Candidate.** The library's `gtol` is MINPACK's scale-free cosine test, \|(Jᵀr)ᵢ\| / (‖Jeᵢ‖‖r‖) (`lm.rs:177-182`, `:461-468`), not the repository's scaled absolute gradient, so the request cannot be passed through. Use a separately declared, small `gtol` plus explicit `with_ftol`/`with_xtol`, and keep the independent check | The LM probe over existing `lm_inquiry.rs` cases must show no newly unqualified fits or withheld covariances |
-| <a id="f06"></a>F06 | DataFusion's file caches are wrapped and then disabled for every session | DP-16, H27 (related to [DA-024](../audit/local-reasoning-and-assurance.md#da-024)) | *Implemented*: `NativeCacheService::unbound_config()` sets metadata, statistics and listing limits to 0 (`pse-engine/src/cache_service/mod.rs:356-361`), installed at `resources.rs:242`; `bind_state*` has no caller outside `cache_service/`. Counterevidence: the unbound default is deliberate ("Unqualified stores cannot safely use native Path-keyed caches", `cache_service/mod.rs:355`), and `bind_state*` exists to give each actual registered store a stable namespace (`:362`). The gap is the missing binding, not the safe default. | A bespoke wrapper with no effect in production; no DataFusion-native cache is active for any registered store, including immutable content-addressed payloads where reuse is safe | Bind it where the session factory registers stores (native over bespoke), or remove the wrapper; library eligibility is unaffected either way | Session inspection shows non-zero limits on a bound store, or the wrapper is gone |
+| <a id="f06"></a>F06 | DataFusion's file caches are wrapped and then disabled for every session | DP-16, H27 (related to [DA-024](../audit/local-reasoning-and-assurance.md#da-024)) | *Implemented*: `NativeCacheService::unbound_config()` sets metadata, statistics and listing limits to 0 (`pse-engine/src/cache_service/mod.rs:356-361`), installed at `resources.rs:242`; `bind_state*` has no caller outside `cache_service/`. Counterevidence: the unbound default is deliberate ("Unqualified stores cannot safely use native Path-keyed caches", `cache_service/mod.rs:355`), and `bind_state*` exists to give each actual registered store a stable namespace (`:362`). The gap is the missing binding, not the safe default. | The native file-cache adapters have no reached binding in the inspected production paths. Other NativeCacheService preparation/analysis consumers remain active. A reached file-source reuse benefit is not established; protected canonical IPC decoding bypasses these DataFusion file caches | Bind bounded scan state at the actual source/session operation using `bind_state_with_generation` and the source's immutable identity or actual lifecycle generation, or remove only the unused native-file-cache adapters. A stable `ObjectStore` Arc/registration does not establish immutable content, and the session factory is not the registration owner. Keep unqualified stores unbound; library eligibility is unaffected | Reached file-source inspection shows generation-correct limits/hits under the same path across source generations, or only the unused file-cache adapters are removed |
 | <a id="f07"></a>F07 | Every canonical table carries a redundant `key` UNIQUE index, while the server never asserts key–id agreement | DP-03, H14, H27; P1 | *Implemented*: 62 `<t>_key … UNIQUE` (`codegen/surreal.rs:135`); `key` is a plain `TYPE string`; agreement is checked only client-side (`check_record_identity`, `:148`); `canonical_study_dependencies` lacks `ENFORCED` | One extra index entry per canonical row in every guarded transaction; an invariant held by convention | R3 (candidate). Whole-table `key` paging in the supervisor script and the `WHERE key =` reads move to record-id access first | Generated DDL diff; `EXPLAIN` of the rewritten paging on RocksDB; a probe of the UPSERT and `INSERT … ON DUPLICATE KEY` assertion forms |
 | <a id="f08"></a>F08 | statrs default features are unified on through egobox-moe, so `nalgebra 0.33.3` resolves beside `0.35.0`, and the pin note says the opposite | DP-24 | *Implemented*: `Cargo.lock` (`nalgebra` 0.33.3 and 0.35.0); pin note at `Cargo.toml:287-288` ("default features off: its nalgebra 0.33 and rand would split the pinned graph") | A stale pin reason; no type crosses between the two nalgebra majors in repository code (statrs distributions only) | Correct the pin note; no in-family fix short of an egobox feature change | `cargo tree -i nalgebra@0.33` matches the note |
-| <a id="f09"></a>F09 | Default compiler retention limits are below the reference package's retained footprint, so every publish rotates the workspace | AP-07, DP-09, PS-11; H12, H13; [S01](#s01), [S02](#s02) | *Measured*: probe B2 (reference `ThreeUnits`; defaults 16,384 entries / 256 MiB / `query_values` 64). With limits lifted, the estimator reports ≈54.5k entries / ≈606 MB after publish. At defaults the generation rotates on publish, 0/143 bodies are reused after an unrelated edit, and 79 bodies re-run on a no-edit re-prepare. *Implemented*: `workspace.rs:1737-1752` | Edit → re-solve repeats whole-package checking and whole-root preparation at defaults | R8 | Probe B2 at defaults shows 143/143 reuse and backdating |
+| <a id="f09"></a>F09 | Default compiler retention limits are below the reference package's retained footprint, so every publish rotates the workspace | AP-07, DP-09, PS-11; H12, H13; [S01](#s01), [S02](#s02) | *Measured*: probe B2 (reference `ThreeUnits`; defaults 16,384 entries / 256 MiB / `query_values` 64). With limits lifted, the estimator reports ≈54.5k entries / ≈606 MB after publish. At defaults the generation rotates on publish, 0/143 bodies are reused after an unrelated edit, and 79 bodies re-run on a no-edit re-prepare. *Implemented*: `workspace.rs:1737-1752` | Edit → re-solve repeats whole-package checking and whole-root preparation at defaults | R8 | Rerun probe B2 at the selected new defaults for 143/143 live-body reuse/backdating, plus bounded churn and explicit oversized-live-set outcome |
+| <a id="f10"></a>F10 | Covariance admission accepts an indefinite matrix as a covariance | PS-12, DP-03, DP-21; G3 and PS-G3 for certified derived results; lineage: DA-010, R20 | *Implemented*, source-derived: `ParameterCovariance::admit` checks square/symmetric/nonnegative diagonal only (`pse-runtime/src/math/settings.rs`); `uncertainty::propagate_checked` computes `JΣJᵀ` and rejects only non-finite outputs. The symmetric matrix `[[1,2],[2,1]]` passes admission, yet `J=[1,-1]` yields variance `-2`. This counterexample was not executed through Rust | Invalid external or altered covariance can produce finite negative variance under a result described as certified | R20: hydrate or fully reconcile qualified content; separately admit external covariance as positive semidefinite under a declared tolerance, with honest external validity | A negative-eigenvalue covariance is rejected/withheld, singular PSD covariance remains accepted, and a valid fit id with altered matrix values cannot obtain certified provenance |
 
 ## 6. Under-used capabilities (clear wins)
 
-These are minor improvements to existing functionality that need no new library and no tradeoff
-against P1–P4 or the preserved strengths. Larger candidates are in §4 with their conditions.
+These are bounded improvements to existing functionality using in-use libraries. Their stated
+conditions preserve P1–P4 and the scientific/lifecycle strengths; live-set retention still consumes
+its explicit finite memory allowance. Larger candidates are in §4 with their conditions.
 
 | Capability already linked | Improves | Why it is a clear win | Evidence |
 |---|---|---|---|
 | tokio-util `CancellationToken::child_token` through `CancelSource::child_with_deadline` | Horizon caller cancellation (F01) | One line; fixes a correctness defect; existing controls pass | *Tested* (probe C) |
 | Uno C API `UNO_*` constants | Status mapping (F02) | Removes literal drift; corrects iterate 5 | *Interface-checked*; mapping *Tested* |
 | SUNDIALS `SUNContext_ClearErrHandlers` then `SUNContext_PushErrHandler` (vendored `sundials_context.h:38-44`) | KINSOL/IDAS diagnostics: `NativeTermination.message` is `None` today (`kinsol.rs:2198`; `dynamics/idas.rs:519`) | Captures native error text. Handlers chain: every handler on the stack runs, and the default stderr logger is installed at context creation (`src/sundials/sundials_context.c:90`; `priv/sundials_errors_impl.h:156-161`). Clearing first is what stops stderr logging. No ABI change; diagnostics only | *Interface-checked* |
-| Salsa `heap_size` on `#[salsa::input]` | Retention measurement (`granular.rs:183-260` hand census) | One aggregation path through `memory_usage()`; the callbacks stay project-written; needed for R8 anyway | *Interface-checked* |
-| Salsa `semantic_body::set_lru_capacity` at least the live root's distinct bodies | No-edit re-prepare re-runs 79 bodies (F09) | Configuration of an existing mechanism. It does not by itself stop rotation, which needs R8's criterion change | *Measured* (probe B2) |
+| Salsa `semantic_body::set_lru_capacity` at least the live root's distinct bodies | No-edit re-prepare re-runs 79 bodies (F09) | Configuration of an existing mechanism within a finite admitted live-root memory allowance. It does not by itself stop whole-generation rotation, which needs R8's policy/default correction | *Measured* (probe B2) |
 | SurrealDB `ENFORCED` on `canonical_study_dependencies` | Relation endpoint existence, as on the other five relation tables | One keyword; existing writers relate existing points | *Interface-checked* |
 | rayon `ThreadPoolBuilder::spawn_handler` | Surrogate pool drain (F04) | Joins workers before the charge ends | *Interface-checked* |
 | pyo3 `PyOnceLock::import`, one cell per `RegistryEnum` and document type | Per-value `py.import(…).getattr(NAME)` in `EnumValue`/`DocumentValue` | Removes repeated module lookups; no semantic change | *Interface-checked*; speed *Proposed* |
 
 **Candidates, not clear wins.** Each has a stated condition:
+- Salsa input `heap_size` callbacks as a replacement aggregation path (R8): preserve shared-Arc
+  accounting and generation-owned roots before removing the existing shared census. Callback
+  availability alone does not establish footprint equivalence.
 - SurrealDB `record::id` key assertion with the `<t>_key` index dropped (F07, R3). It needs the
   script paging and `WHERE key =` reads moved to record-id access, plus the UPSERT probe.
 - FERAL `work_estimate().peak_bytes` as pre-numeric admission on the direct KKT path (R16). It is
@@ -1380,13 +1548,13 @@ against P1–P4 or the preserved strengths. Larger candidates are in §4 with th
 |---|---|---|---|---|---|
 | Typed lifecycle columns | `pse-codegen` SurrealQL generator; `pse-schema` registry | SurrealQL literal/tagged-union `TYPE`, `READONLY` on verified-immutable columns only, `$before` transition `ASSERT`s for fence, recovery and compaction rewrites (R1) | Enforced on all write paths (*Tested*, memory engine); refusals are `Internal` prose; UPSERT names the wrong field | Generator change; one migration of stored rows; RocksDB re-check | Hand enums, template literals, string sets, 14 `IN [...]` asserts |
 | Typed refusals | `pse-operations` | `THROW 'pse.refusal:<code>'` + `is_thrown()` (R2) | Byte-stable (*Tested*); no detail channel | Registry vocabulary; one decoder | Prose matching; `RuntimeInfrastructure` collapse |
-| Result pruning | `pse-runtime` result provider | `PruningPredicateBuilder`, `PrunableStatistics` over exact per-record-batch statistics, `FileReader::set_index` with projection, `Inexact` pushdown (R4) | Sound and filter-equivalent (*Tested*); key pruning effective, value pruning not; decode saved only per whole record batch | Provider rewrite; exact statistics in the append contract; per-relation sort keys | `canonical_result_rows`, `scalar_predicate`, locator replay |
+| Result pruning | `pse-runtime` result provider | `PruningPredicateBuilder`, `PrunableStatistics` over exact per-record-batch statistics, `FileReader::set_index`, full surviving-batch admission then output projection, conditional projected-decode design, `Inexact` pushdown (R4) | Historical standalone pruning soundness *Tested*; complete production-mode equivalence remains adoption evidence. Key pruning effective in original probe, value pruning not; decode saved only per whole record batch | Provider rewrite; exact statistics in the append contract; per-relation sort keys | `canonical_result_rows`, `scalar_predicate`, locator replay |
 | Joint evaluation | `pse-math`, `pse-compiler` | Existing symbolic product routes extended per stage-program region, with `AtomCore::evaluator_multiple` over the demanded closure (R7); candidate `FunctionMap::add_aliases` + `EvaluatorBuilder::direct_translation` | Upper bound only (guard-free *Measured* variants on BT_PR); expression swell unprobed elsewhere | Admit-before-differentiation; route choice in the identity; per-instance validity and premises in the shared-program identity | `bound_bodies` re-expansion, per-output re-normalization |
-| Bounded retention | `pse-compiler` workspace | A retention criterion over value-holding memos and bytes; Salsa `lru` + `set_lru_capacity`; resident firewall memos; `heap_size`; tracked accessors (R8) | Eviction keeps edges but evicted memos still count as entries and cannot backdate (*Interface-checked*) | Criterion change plus configuration plus two accessors | Rotation as routine policy; the census as a separate path |
+| Bounded retention | `pse-compiler` workspace | Aggregate known-byte plus metadata/input accounting; existing Salsa count-based `lru` + per-query `set_lru_capacity`; finite resident live-root/firewall allowance; tracked accessors; input `heap_size` is a conditional census replacement (R8) | Eviction keeps edges but evicted memos still count as entries and cannot backdate (*Interface-checked*) | Explicit metadata/value policy and defaults plus configuration and two accessors | Routine rotation for ordinary supported work; observation-only specialization invalidation |
 | Cancellation tree | `pse-runtime` supervisor | tokio-util `child_token`, `drop_guard` + one flat-leaf bridge (R10) | `is_cancelled` takes a mutex, so the flat leaf stays | One skeleton | Four lifecycle copies and forwarding closures |
 | Capability truth | `pse-backend-native` | `capability_for(settings)`; `Problem::FixedPoint`; POUNCE `second_opinion_rungs` (R14) | Library iterates; seam owns admission | Registry and codegen for the representation | Runtime `Backend::` gates |
-| Native memory | adapters | Candidates: FERAL `work_estimate().peak_bytes` pre-admission; PETSc `PetscMallocSet`; SuiteSparse allocator hooks (R16) | A-priori figures; process-global hooks need per-owner attribution under P1; MKL bypasses PETSc's | Bridge-level | Some shape models |
-| Boundary types | `pse-py`, generators | pyo3 `INPUT_TYPE`, pyo3-arrow `AnyRecordBatch`, schemars keyword, msgspec hooks, `PyOnceLock` (R17–R19) | pyo3-arrow lacks stub hints; msgspec `bytes`-subclass behaviour unresolved | Local wrappers | Hand parsing, hand pairing, `settings::named` |
+| Native memory | adapters | Candidates: FERAL `work_estimate().peak_bytes` pre-admission; PETSc `PetscMallocSet`; SuiteSparse allocator hooks (R16) | A-priori figures; process-global hooks need retained allocation-owner provenance under P1; allocator-domain coverage excludes MKL/BLAS bypasses | Bridge-level | Some shape models |
+| Boundary types | `pse-py`, generators | pyo3 `INPUT_TYPE`, pyo3-arrow `AnyRecordBatch`, schemars keyword, msgspec hooks, `PyOnceLock` (R17–R19) | pyo3-arrow lacks stub hints; msgspec bytes-subclass hooks *Tested* by selective audit probe, NewType role aliases remain static | Local wrappers | Hand parsing, hand pairing, `settings::named` |
 
 ## 9. Foundations and gates (slot 6)
 
@@ -1402,9 +1570,9 @@ against P1–P4 or the preserved strengths. Larger candidates are in §4 with th
 
 | Gate | Result | Evidence or scope reason | Required action |
 |---|---|---|---|
-| G1 Authority | **Fail** | Registry `AttemptState` vs store outcomes disagree ([DA-007](../audit/structure-and-invariants.md#da-007)); vocabularies spelled five ways ([DA-004](../audit/semantic-model-and-authority.md#da-004)); two start-policy copies ([DA-013](../audit/boundaries-and-composition.md#da-013)); Python second writer ([DA-019](../audit/boundaries-and-composition.md#da-019)) | R1, R13, R17, R21 |
+| G1 Authority | **Fail** | Store value sets and projections are independently hand-spelled rather than derived from their scoped declarations ([DA-007](../audit/structure-and-invariants.md#da-007)); observational and physical phase vocabularies are distinct, so differing spellings alone are not disagreement; vocabularies spelled five ways ([DA-004](../audit/semantic-model-and-authority.md#da-004)); two start-policy copies ([DA-013](../audit/boundaries-and-composition.md#da-013)); Python second writer ([DA-019](../audit/boundaries-and-composition.md#da-019)) | R1, R13, R17, R21 |
 | G2 Semantic fidelity | **Fail** | Identity kinds and units lost on side routes ([DA-005](../audit/semantic-model-and-authority.md#da-005)); refusal cause lost to prose ([DA-008](../audit/structure-and-invariants.md#da-008)); string relation names skip coverage silently ([DA-032](../audit/semantic-model-and-authority.md#da-032)) | R2, R6, R17, R18 |
-| G3 Validity | **Fail** | The `analysis` artifact owner can be released unguarded (source-established; [DA-007](../audit/structure-and-invariants.md#da-007)); invariants enforced only in an adapter ([DA-015](../audit/boundaries-and-composition.md#da-015)); covariance `run_id` never resolved ([DA-010](../audit/structure-and-invariants.md#da-010)) | R1, R11, R20 |
+| G3 Validity | **Fail** | The `analysis` artifact owner can be released unguarded (source-established; [DA-007](../audit/structure-and-invariants.md#da-007)); invariants enforced only in an adapter ([DA-015](../audit/boundaries-and-composition.md#da-015)); covariance provenance never reconciled ([DA-010](../audit/structure-and-invariants.md#da-010)); indefinite covariance accepted (F10) | R1, R11, R20 |
 | G4 Hidden behaviour | **Unresolved** | Effects are reachable from every domain value by convention ([DA-021](../audit/local-reasoning-and-assurance.md#da-021)), but no undeclared effect or meaning change was demonstrated | Settled by R11's explicit inputs |
 | G5 Consistency and recovery | **Fail** | Retry permission rests on prose and incidental fields, and worker loss is recorded as an error ([DA-008](../audit/structure-and-invariants.md#da-008)); caller cancellation of a running horizon ignored (F01 *Tested*) | R2, R10 |
 | G6 Transformation and reuse | **Unresolved** | Hand-keyed cross-lane keys, some with process-pointer addresses ([DA-030](../audit/execution-fit.md#da-030)); no stale reuse demonstrated | R8; key audit in plan |
@@ -1413,7 +1581,7 @@ against P1–P4 or the preserved strengths. Larger candidates are in §4 with th
 | G9 Architectural fitness | **Fail** | Follows AP-01–AP-07, all violated | All |
 | PS-G1 Physical consistency | **Unresolved** | Property envelopes (PS-02) were not examined. On the examined paths, physical typing and closure hold, and DA-005's side-route unit convention does not reach published results unqualified. It is a PS-01 deviation carried under G2 | R18; examine PS-02 separately |
 | PS-G2 Well-posedness | **Unresolved** (scope) | Structural analysis is library-owned (pounce-presolve); diagnostic naming not examined; the runtime-built KINSOL path's admission coverage unresolved ([§2.3](#23-well-posedness-statement-slot-3-profile)) | R14 closes the path structurally |
-| PS-G3 Numerical integrity | **Fail** | A solver status is misclassified: Uno iterate 5 → `Infeasible` (F02 *Tested*). Otherwise typed mapping and independent qualification hold | R15 |
+| PS-G3 Numerical integrity | **Fail** | A solver status is misclassified: Uno iterate 5 → `Infeasible` (F02 *Tested*). F10 also admits mathematically invalid covariance to a finite derived result. Other inspected solver mappings retain independent qualification | R15, R20 |
 
 ## 10. Disposition index (DA-001–DA-032)
 
@@ -1436,7 +1604,7 @@ against P1–P4 or the preserved strengths. Larger candidates are in §4 with th
 | [DA-007](../audit/structure-and-invariants.md#da-007) | Addressed by **R1** | Includes the unguarded `analysis` release; guard rows kept; `READONLY` only on immutable columns |
 | [DA-008](../audit/structure-and-invariants.md#da-008) | Addressed by **R2** | Covers `worker.rs:1697`, `durable.rs:2062-2099` and `study.rs:1694-1700`. Corrected detail: exhausted retries surface as raw conflicts, and the second prose match is test code |
 | [DA-009](../audit/structure-and-invariants.md#da-009) | Addressed by **R11** | Paired outcome enum; a discriminant-owned operation set (strum + enum-map) |
-| [DA-010](../audit/structure-and-invariants.md#da-010) | Addressed by **R20** | Project-owned provenance resolution |
+| [DA-010](../audit/structure-and-invariants.md#da-010) | Addressed by **R20** | Full content/validity reconciliation; external provenance explicit; F10 adds PSD admission without rejecting singular valid covariance |
 | [DA-011](../audit/structure-and-invariants.md#da-011) | Addressed by **R19** | Catalogue and schema-set fingerprint |
 | [DA-012](../audit/boundaries-and-composition.md#da-012) | Addressed by **R10** and **R11** | Supervisor and cancellation tree (R10); one declared-procedure dispatch (R11). The explicit-strategy family is declared as a stated exception ([RC13](#rc13)); running strategies as supervised runs is a **maintainer decision**. Divergence now *Tested*; split defect F01 |
 | [DA-013](../audit/boundaries-and-composition.md#da-013) | Addressed by **R13** | Project-owned |
@@ -1446,9 +1614,9 @@ against P1–P4 or the preserved strengths. Larger candidates are in §4 with th
 | [DA-017](../audit/boundaries-and-composition.md#da-017) | Addressed by **R14** | Its architecture-text half is carried by [RC07](#rc07) |
 | [DA-018](../audit/boundaries-and-composition.md#da-018) | **Diagnosis challenged in part** | Most patch hunks are P4 integration. The four numerics hunks are retained and declared by R15. Relocating them is **remedy open**: no in-use route keeps SQP-LBFGS, and Uno-IPM would be a major addition |
 | [DA-019](../audit/boundaries-and-composition.md#da-019) | Addressed by **R21** and **R1** | Operator mutations move into generated guarded maintenance functions; table types back them up |
-| [DA-020](../audit/boundaries-and-composition.md#da-020) | Addressed by **R22**, in part | Capture, review, pack and comparison modules move to a tooling crate. The hub's tracing-substrate half is a **candidate** pending the cost probe (tracing is in use) |
+| [DA-020](../audit/boundaries-and-composition.md#da-020) | Addressed by **R22**, in part | Separate product observation/detail and result-selection contracts before extracting tooling; no runtime→tooling cycle. Tracing substrate and crate extraction remain conditional candidates |
 | [DA-021](../audit/local-reasoning-and-assurance.md#da-021) | Addressed by **R11** | Explicit policy inputs; composition leaves values |
-| [DA-022](../audit/local-reasoning-and-assurance.md#da-022) | Addressed by **R16** and **R8**, in part | Native candidates and one Salsa aggregation path. Size models for the project's own structures are a **lead**: no in-use derive sizer |
+| [DA-022](../audit/local-reasoning-and-assurance.md#da-022) | Addressed by **R16** and **R8**, in part | Native accounting candidates; Salsa input callbacks replace the shared census only after accounting ownership is settled. Size models for the project's own structures are a **lead**: no in-use derive sizer |
 | [DA-023](../audit/local-reasoning-and-assurance.md#da-023) | **Diagnosis retained — outside focus** | Documentation owner; follows adopted remedies and RCs |
 | [DA-024](../audit/local-reasoning-and-assurance.md#da-024) | **Diagnosis retained — maintainer decision** | Exploration purpose of the native child lane and `pse.canon.v2`; no in-use library owns either |
 | [DA-025](../audit/execution-fit.md#da-025) | **Diagnosis challenged in part** | Challenged: the participants are real (P1, P2); the SDK patch is P4 integration; owner-identity binding is sized to P2's multi-process workspaces and already uses in-use Linux primitives (rustix `pidfd`/`waitid`), so no simplification was found. Retained: result write volume (→ **R4**), redundant indexes (→ **R3**). Retained as a **maintainer decision**: the unconsumed online collector and possible unbounded payload growth. A collector could run on an existing trigger, such as `forget_*`/`reclaim_*` or on-demand primary activation, without a daemon (P2) |
@@ -1473,7 +1641,7 @@ against P1–P4 or the preserved strengths. Larger candidates are in §4 with th
 | Priority | Change | Findings / scenarios | Acceptance evidence | Proposed owner |
 |---|---|---|---|---|
 | 1 | F01 child token; R15 mapping and constants | F01, F02, [S03](#s03) | Probe C and D tests as controls | Future plan |
-| 2 | R8 retention criterion, bounded retention and catalog firewall | F09, DA-030, [S01](#s01), [S02](#s02) | Probe B2 at the redefined defaults: no rotation on publish, 143/143 bodies reused, `specialized` backdates | Future plan |
+| 2 | R8 bounded live-set/default policy, metadata/value accounting and catalog firewall | F09, DA-030, [S01](#s01), [S02](#s02) | Probe B2 at the redefined defaults: no rotation on publish, 143/143 bodies reused, `specialized` backdates | Future plan |
 | 3 | R1, R2 typed store lifecycle and refusals | DA-007, DA-008, F03 (typed half), [S04](#s04) | Generated DDL; refusal decoding tests; RocksDB re-run of probe-surreal Q1/Q2 | Future plan |
 | 4 | R10 single supervisor | DA-012 | Horizon and existing lifecycle controls through one skeleton | Future plan |
 | 5 | R4 pruned result selection (locator removal, statistics, lowered predicate); R3 candidate | DA-026, F07, [S06](#s06) | Grid equivalence kept; locator count and append-transaction count before and after on one large solve. The declared-field step waits for R6 (row 10) | Future plan |
@@ -1481,13 +1649,15 @@ against P1–P4 or the preserved strengths. Larger candidates are in §4 with th
 | 7 | R11, R12, R13: operation request, parameter-valued binding, single owners | DA-009, DA-013–DA-015, DA-021, DA-006, DA-031, [S09](#s09), [S10](#s10) | Policy tests without a runtime; a fit sweep that binds parameter values with recorded starts | Future plan |
 | 8 | R17–R21 boundary | DA-004, DA-005, DA-010, DA-011, DA-019, [S08](#s08) | Stubs typed; import check covers the schema set | Future plan |
 | 9 | R7 evaluation granularity over the stage program (re-expansion removal and joint regional products). Its identity re-framing waits for R5 (row 10) | DA-027, DA-028 | Probe A re-run with obligations, per `ProductKind`; evaluation timing on wider fixtures; derivative-consistency conformance | Future plan |
-| 10 | R5, R6, R9 resolved representation, handles, scans | DA-001–DA-003, DA-029, DA-032 | Body identity unchanged by a renderer change; projection-harness timings at 500, 2,000 and 8,000 cells | Future plan, after RC01 |
+| 10 | R5, R6, R9 resolved representation, handles, scans | DA-001–DA-003, DA-029, DA-032 | Body identity unchanged by a renderer change; projection-harness timings at 500, 2,000 and 8,000 cells | Future plan; R5 and R9's resolved-identity stage follow RC01. R6 and current-identity lookup indexes can precede it |
 | — | R22 tooling placement; DA-023, DA-024 | — | ADR for the crate; maintainer decisions | Future plan |
 
 **Prerequisite order** (distinct from priority). Each dependency is stated as the meaning it needs:
-- **R1 before R17.** The registry enumerations R1 introduces for artifact kind, owner kind and
+- **R1 before R17.** The registry enumerations R1/R17 share for artifact kind, owner kind and
   terminal class are the same declarations R17 projects into Python.
-- **R2 after R1's registry work.** R2 needs the refusal vocabulary declared in the same registry.
+- **R1/R2 share registry ownership, not a mandatory lifecycle migration order.** R2 can
+  introduce refusal codes and typed decoding independently; it does not need tagged lifecycle
+  migration to land first.
 - **R6 before R4's declared-field step.** R4's declared indexable fields need R6's generated
   relation handles.
 - **R10 before R11's paired outcome.** The paired request/report enum lives in the supervisor's
@@ -1495,9 +1665,10 @@ against P1–P4 or the preserved strengths. Larger candidates are in §4 with th
 - **R11's operation request before R12.** Value binding for dynamics and fits is carried by the
   request.
 - **R14's fixed-point representation before removing `pse-py`'s KINSOL route** (part of R11).
-- **R5 before R7's identity step and R9.** Body identity over the resolved form and index-based
-  scans need R5's representation. R7's regional joint products can land first over today's stage
-  programs.
+- **R5 before R7's identity step and R9's final resolved-identity step.** Body identity over the resolved form and index-based
+  scans can use existing indexes before that representation is complete. R7's regional joint
+  products can be investigated over today's stage programs, retaining existing chain propagation
+  until a replacement is qualified.
 - **R8 is independent and should land first.** It is also the condition for measuring the other
   preparation changes at defaults.
 
@@ -1511,24 +1682,29 @@ Settling evidence is discretionary. Each item names the decision it affects.
 | `$this.id` is available to a field `ASSERT` on every write form | *Interface-checked* (production DDL already uses `$this.…`; core `doc/field.rs:613-619`, `:655`) | Probe the UPSERT and `INSERT … ON DUPLICATE KEY` forms; `EXPLAIN` the record-id rewrite of the script's key paging on RocksDB | R3 key assertion |
 | F03 throttles 16 lanes | *Implemented*; magnitude unknown | 16-lane study with `QueryStatisticsObserver`: conflict retries and `ProblemTurns` wait per point (existing `canonical_joined_publication_progress_and_ordinary_cost_probe`, `workflow/durable.rs:4309`) | Priority of F03; whether its remedy matters |
 | R4 write reduction | Structural only | Locator inserts and append transactions for one large solve, before and after | R4 priority |
-| R4 inside the single decoder | *Proposed* | Decoded bytes per selection with `FileReader::set_index` + projection over pruned record batches; record-batch row-count sweep | R4 design |
-| R7 on the stage program | Upper bound *Measured* on guard-free variants of one fixture | Re-run probe A with obligations counted and `probe_stage_kinds()` logged. Measure `SelectedPartials`, `WeightedHessian` and the action products separately against today's routes. Add evaluation timing, wider and deeper fixtures, nested implicit bodies and the frequency of the up-front Taylor choice | R7 adoption; [RC02](#rc02) |
+| R4 inside the single decoder | *Proposed* | Decoded bytes with `FileReader::set_index` over pruned record batches and full surviving-batch admission; all four scalar keys, original coordinates, unfiltered null/NaN/∞, residual-before-limit and predicate-column retention. Projected decoding requires a separate sound admission boundary | R4 design |
+| R7 on the stage program | Upper bound *Measured* on guard-free variants of one fixture; revised composition *Proposed* | Provider→arithmetic and branch→arithmetic first/mixed-second derivatives, local-action/adjoint composition, deterministic preflight and cancellation with no retained truncated program; re-run probe A with obligations counted and `probe_stage_kinds()` logged. Measure `SelectedPartials`, `WeightedHessian` and the action products separately against today's routes. Add evaluation timing, wider and deeper fixtures, nested implicit bodies and the frequency of the up-front Taylor choice | R7 adoption; [RC02](#rc02) |
 | Alias-fused let chains on non-substitutable bodies | Unprobed | Inventory Q2: tree path vs `direct_translation(true)` vs today; `export_cpp` acceptance | R7 candidate |
-| R8 keeps retention under limits without rotation | *Interface-checked* (evicted memos still counted; no backdating after eviction) | Probe B2 with the value-holding-memo criterion, LRU on granular queries and resident firewall memos at defaults | R8; [RC03](#rc03) |
+| R8 fits finite admitted live set while bounding all actual retained state | *Proposed* policy; aggregate APIs and existing LRU *Interface-checked* | Probe B2 at the chosen defaults plus edit/deletion/root-switch churn; separate metadata/input and value bytes, retain resident backdating memos, exercise explicit oversized-live-set outcome | R8; [RC03](#rc03) |
 | Tracing Layer cost | Unresolved | Hub vs tracing Layer vs no layer on a steady solve and a fit | R22 substrate half |
 | Global rayon pool reach | Unresolved | Counting `start_handler` under `build_global` across journeys | F04 second half |
 | LM `gtol` mapping | *Interface-checked* (cosine test, not a gradient tolerance) | `lm_inquiry.rs` cases with a declared `gtol`: `TerminationReason`, evaluations, and no newly unqualified fits or withheld covariances | F05 |
 | PETSc / KLU allocator hooks | *Interface-checked* | Inventory P4/P5 | R16 candidates |
-| msgspec `bytes`-subclass hooks | Unresolved | Inventory P1 | R17 representation |
+| msgspec `bytes`-subclass hooks | *Tested*, selective audit probe on msgspec 0.21.1, zero failures | Product generated nested/version-first codec integration remains | R17 representation retained |
 | Feature-dependent schema set | Unresolved | Inventory P6 | R19 fingerprint form |
 | pyarrow extension metadata through `PyRecordBatch` | Unresolved | Inventory P8 | R18 |
 | F01 under an inherited deadline | Unresolved | Horizon whose caller deadline expires mid-run: typed TimeLimit, partial trajectory, release after the native join | F01 acceptance |
-| PETSc or KLU hook with several lanes in one process | Unresolved | Thread-local owner attribution under concurrent lanes: one lane's refusal never charged to another | R16, P1 |
+| PETSc or KLU hook with several lanes in one process | Unresolved | Retained allocation owner/size across allocate/free/realloc, process-init lifetime and bypasses; current-thread attribution alone is insufficient | R16, P1 |
 
 **Conformance-suite status (PS-13).** No unit or property model is changed by these
 recommendations. R5 and R7 change body construction for every model, so the plan must rerun the
 derivative-consistency and closure conformance checks after R7. Their current status was not
 examined.
+
+Adoption evidence also needs R20's altered-content/genuine-id case, negative-eigenvalue
+rejection, singular PSD acceptance and explicit external validity, plus R22's dependency-direction
+check. These are future implementing checks, not current qualification requirements for publishing
+this review.
 
 ## 13. Rule impacts (slot 11)
 
@@ -1537,23 +1713,24 @@ confirms them in plan creation; this review edits none of them.
 
 | ID | Rule and location | Proposed change | Depends on it | If the rule is kept |
 |---|---|---|---|---|
-| <a id="rc01"></a>review#RC01 | Blueprint §7.1 *Design constraints*: "no intermediate IR is produced or stored" | Permit a resolved, identity-typed specialization representation between authored syntax and library algebra, with body identity framed over it | R5 (DA-001, DA-002, DA-003, DA-027 identity), R9 | R5 becomes remedy open; identity stays framed over rendered text, and re-derivation remains |
-| <a id="rc02"></a>review#RC02 | Blueprint §7.1 *Specialization-local bodies*: "A body covers one definition and its consumed finite membership" | State the evaluation unit: per arithmetic region of the guarded stage program, a joint evaluator over the demanded output closure of each `ProductKind`, with derivatives built symbolically. Host stages keep splitting regions. The route choice is made before differentiation and carried in the identity, with per-output Taylor programs where pre-differentiation allowances refuse. A program shared across instances carries their validity and premises. No whole-group Dualizer | R7 | The text stays ambiguous; R7 can still land as an implementation choice under §7.1's current wording |
-| <a id="rc03"></a>review#RC03 | Blueprint §14.3.2 limits table (`WorkspaceLimits`: 16,384 entries, 256 MiB, LRU 64) and §14.4 "rebuilds a fresh generation" | A retention criterion over value-holding memos and bytes, not total memos. Salsa per-query LRU sized from a byte budget, with firewall accessors, `specialized` and live-root bodies resident. Defaults sized to the admitted package footprint. Rotation only for non-evictable growth | R8, F09 | F09 persists at defaults; edit → re-solve repeats whole-package work |
+| <a id="rc01"></a>review#RC01 | Blueprint §7.1 *Design constraints*: "no intermediate IR is produced or stored" | Permit a resolved, identity-typed specialization representation between authored syntax and library algebra, with canonical local-slot body framing; extend expression metadata and version/domain-separate changed body/derived identity contracts under §5.3 | R5 (DA-001, DA-002, DA-003, DA-027 identity), R9 | R5 becomes remedy open; identity stays framed over rendered text, and re-derivation remains |
+| <a id="rc02"></a>review#RC02 | Blueprint §7.1 *Specialization-local bodies*: "A body covers one definition and its consumed finite membership" | State the evaluation unit: per arithmetic region of the guarded stage program, a joint evaluator over the demanded output closure of each `ProductKind`, with eligible derivatives built symbolically and existing Taylor/reverse propagation retained or correctly composed across intermediate/provider/branch barriers. Host stages keep splitting regions. The route choice is made from deterministic preflight before differentiation and carried in identity, with the existing Taylor route for deterministically ineligible cases; transient capacity/cancellation remains a refusal, never an arithmetic fallback. A program shared across instances carries their validity and premises. No whole-group Dualizer | R7 | The text stays ambiguous; R7 can still land as an implementation choice under §7.1's current wording |
+| <a id="rc03"></a>review#RC03 | Blueprint §14.3.2 limits table (`WorkspaceLimits`: 16,384 entries, 256 MiB, LRU 64) and §14.4 "rebuilds a fresh generation" | Separate actual metadata/input/interned growth from disposable values; retain aggregate known-byte accounting and finite live-root/backdating allowances; configure per-query count capacities and defaults for admitted workloads. No unavailable value-holding counter or library byte-weighted LRU. Rotation/refusal remains explicit when actual bounded state cannot fit | R8, F09 | F09 persists at defaults; edit → re-solve repeats whole-package work |
 | <a id="rc04"></a>review#RC04 | Blueprint §19.2 "Scalar indexing currently covers supported fields…" and the §20 append protocol (`row_indexes`; generated `fn::pse_execution_v1::append`) | Exact per-record-batch key statistics (min/max, row and null counts) committed in the append on the existing block row, under a per-relation declared sort key; DataFusion pruning and a lowered canonical predicate; per-row locators retired. The §20 single protected decoder (ADR-0180/0186) stays unchanged | R4 | DA-026 remains; only the predicate-lowering partial step is possible |
 | <a id="rc05"></a>review#RC05 | Substrate catalog conventions (`crates/pse-schema/src/catalog/substrate.rs` `text()`/`flag()` lifecycle columns; the generator's Arrow-only SurrealQL type mapping; the `key` + `<t>_key UNIQUE` convention) and §20.1/§20.6's canonical relation description | Registry enumerations and lifecycle unions generated into SurrealQL types and transition assertions. `READONLY` only on verified-immutable columns; fence, recovery and compaction rewrites governed by transition rules. Candidate: `key` asserted equal to the record id, with the redundant index dropped once key-paging readers move to record ids | R1, R3, F07 | DA-007 remains; R2 can still land on its own |
 | <a id="rc06"></a>review#RC06 | Generated SurrealQL refusal convention (`THROW '<prose>'` in `pse-codegen` templates). §23.2 itself is unchanged; the code then meets it | Refusals name generated registry codes | R2 | DA-008 remains; retry stays prose-dependent |
 | <a id="rc07"></a>review#RC07 | Blueprint §18.1 (problem representations), §18.7 (one static capability record per backend; "no workflow edits" claim) and §18.9 matrix | Settings-dependent capability rows; `FixedPoint`/`Picard` representations; recovery profiles and corrector suitability as adapter capability; Uno and PETSc entered in §0.5/§18.9 | R14 | DA-016/DA-017 remain; the seam claim stays untrue |
 | <a id="rc08"></a>review#RC08 | ADR-0157 (proposed) "scoped binding" for Uno | Record the patch as integration hunks plus four named numerics hunks; declare the dense SQP size scope and per-profile curvature | R15 | The binding's numerical content stays undeclared |
-| <a id="rc09"></a>review#RC09 | §23.1 placement of capture, review-pack, review-query and inspection-comparison tooling in `pse-runtime`; AGENTS.md crate-addition rule. §1.1's placement of the observation hub in `pse-diagnostics` changes only if the tracing-substrate lead is adopted | A separate tooling crate (requires an ADR) | R22 | DA-020's placement half remains |
+| <a id="rc09"></a>review#RC09 | §23.1 placement of capture, review-pack, review-query and inspection-comparison tooling in `pse-runtime`; AGENTS.md crate-addition rule. §1.1's placement of the observation hub in `pse-diagnostics` changes only if the tracing-substrate lead is adopted | A product/tooling dependency split with canonical selection/detail contracts below tooling; a separate tooling crate is conditional and requires an ADR | R22 | DA-020's placement half remains |
 | <a id="rc10"></a>review#RC10 | Blueprint §13.5 table row "`PreparedSimulation::rebind`…" | State the value-binding route R12 actually provides for simulation and fit studies | R12 | G7 text claim stays untrue |
 | <a id="rc11"></a>review#RC11 | Pin note for `statrs` (`Cargo.toml:287-288`) | State that egobox-moe unifies statrs defaults and that nalgebra 0.33 resolves | F08 | A stale pin reason |
-| <a id="rc12"></a>review#RC12 | §19.3 study operation set and the persisted `StudyOperation` (`Version<7>`) | Hosts share `OperationRequest` + `PreparationSettings`; `StudyOperation` stays the study-owned record. *If* the operator makes Shooting a study operation, that is a version bump with a stated replay or regeneration path; parameter-valued Fit and Simulation points become admitted study bindings | R11, R12 | Hosts keep separate operation enums; dynamic and fit sweeps stay structural |
+| <a id="rc12"></a>review#RC12 | §19.3 study operation set and the persisted `StudyOperation` (`Version<7>`) | Hosts share common request structs/preparation semantics; host-only variants use an explicit superset and typed study projection. `StudyOperation` stays the study-owned record. *If* the operator makes Shooting a study operation, that is a version bump with a stated replay or regeneration path; parameter-valued Fit and Simulation points become admitted study bindings | R11, R12 | Hosts keep separate operation enums; dynamic and fit sweeps stay structural |
 | <a id="rc13"></a>review#RC13 | §17/§19.2 run lifecycle: the explicit strategies (conic, recycle, block initialization) return through `SolveHandle` without run, attempt, completion or replay, an exception neither section states | State the exception, or (maintainer decision) bring strategies under the supervisor | R10 | The unstated exception persists; G7 text gap |
-| <a id="rc14"></a>review#RC14 | §21 public side-route API (`with_primal_start(Mapping[SemanticId, float])`, block-initialization stages, `diagnose_samples`, positional `SimulationSettings` tolerances, seconds as float) | Keyed Arrow inputs validated against registry contracts; per-state tolerances keyed by identity; `timedelta` for durations | R18 | DA-005's side routes stay convention-typed |
+| <a id="rc14"></a>review#RC14 | §21 public side-route API (`with_primal_start(Mapping[SemanticId, float])`, block-initialization stages, `diagnose_samples`, positional `SimulationSettings` tolerances, seconds as float) | Keyed Arrow inputs validated against registry contracts; per-state tolerances keyed by identity; precision-preserving physical times; `timedelta` only where budget range/precision fit | R18 | DA-005's side routes stay convention-typed |
 | <a id="rc15"></a>review#RC15 | §18.8 "source-owned bounded FERAL profile" | For the direct KKT path, pre-numeric admission from FERAL `work_estimate().peak_bytes` beside post-factor accounting; the profile keeps covering POUNCE-internal FERAL | R16 | The direct path keeps its after-the-fact accounting |
 | <a id="rc16"></a>review#RC16 | §16.2 sources and precedence (authored annotations as `ModelHint`) and the steady view-choice rule as realized in orchestration | The compiler publishes one numerical-annotation lowering per analysis mode, with deliberate per-mode differences recorded, and one view choice, consumed by steady, implicit and dynamic orchestration | R13 | DA-006 and DA-031 remain |
-| <a id="rc17"></a>review#RC17 | The operator-supervisor protocol (`scripts/surreal_server.py` performing rotation, rehoming, freezing and protection checks by direct table writes), wherever §20.6 or ADR-0164 assign it | Operator mutations become generated guarded `fn::pse_*` maintenance functions called by the script | R21 | A second canonical writer remains (DA-019) |
+| <a id="rc17"></a>review#RC17 | The operator-supervisor protocol (`scripts/surreal_server.py` performing rotation, rehoming, freezing and protection checks by direct table writes), wherever §20.6 or ADR-0164 assign it | Operator mutations become generated guarded maintenance functions called by the script, retaining privileged/version-specific bootstrap, restore and activation ownership | R21 | A second canonical writer remains (DA-019) |
+| <a id="rc18"></a>review#RC18 | §19.8 propagation input/validity and `ParameterCovariance::admit`'s accepted external-input contract | Distinguish certified fit content from external covariance; require complete content/validity reconciliation for the former and PSD admission plus honest upstream assumptions for the latter, preserving singular covariance | R20, F10 | Naming a run continues to imply provenance without reconciliation; finite indefinite inputs can produce negative variance |
 
 **No change is needed to:**
 - §23.2's failure taxonomy, whose stated contract R2 meets;
@@ -1568,81 +1745,88 @@ hooks that §18 and ADR-0200 record. Under P4 this review does not raise that as
 
 ## 14. Decision
 
-**Behavioural / semantic adequacy: Revise.**
-- **Failed gates:** G1, G2, G3, G5, G7 and PS-G3.
-- **Strongest evidence:**
-  - F01, caller cancellation ignored (*Tested*);
-  - F02, a misclassified solver status (*Tested*);
-  - the source-established unguarded `analysis` release (DA-007);
-  - the production retry decision made on rendered prose (DA-008).
-- **What holds:** truthful typed outcomes and original-space qualification hold everywhere else
-  examined.
+**Behavioural / semantic adequacy: Revise.** G1, G2, G3, G5, G7 and PS-G3 fail.
+Original probe C tests the horizon caller-cancellation divergence (F01), and original probe D
+tests Uno's status misclassification (F02). Source independently establishes the unguarded
+`analysis` release precondition, retry-by-prose/class collapse, and the added covariance-validity
+counterexample F10. These claims keep their different evidence scopes. G4, G6, PS-G1 and
+PS-G2 remain unresolved; no strength or proposed remedy closes them.
 
-**Architectural fitness: Revise.** G9 fails, with all seven foundations violated in scope. The
-strongest evidence is:
-- F09: whole-workspace rotation at defaults (*Measured*);
-- five lifecycle copies with a *Tested* divergence;
-- per-row transactional locators beside a DataFusion engine that a filter-equivalent lowering can
-  serve (*Tested*);
-- a specialized model whose identities are spelled names.
+**Architectural fitness: Revise.** G9 fails through all seven foundations in §9; G8 also fails.
+The strongest executed architectural evidence remains the original default workspace rotation
+and no-edit/unrelated-edit reruns (F09), together with the tested lifecycle divergence. Source
+shows avoidable locator writes, reconstructed names/identities, policy copies and exposed
+implementation knowledge. New remedy corrections do not make the current implementation pass.
 
-**Overall: Revise.** The recommended target is *Proposed*. Its enabling library facts are
-*Interface-checked*, and *Tested*/*Measured* where a probe is named.
+**Overall: Revise.** The target remains **Proposed**, with **Interface-checked** enablers and
+the bounded original **Tested/Measured** receipts plus the selective audit codec probe.
+No production repair, rule confirmation, implementation-plan adoption or product qualification
+is implied by this recommendation audit.
 
-The corrections are compatible with each other:
-- R1 and R17 share one registry declaration.
-- R4's declared-field step depends on R6's handles.
-- R7 and R8 together make preparation measurable at defaults.
-- None regresses lane parallelism, daemonless durability, value rebind, guard survival,
-  library-owned derivatives, typed outcomes, original-space qualification or DP-19 truthfulness,
-  **under the conditions this revision makes explicit**:
-  - R1 uses `READONLY` only on immutable columns, with transition rules for fence, cancellation,
-    recovery and compaction rewrites;
-  - R7 is defined over the guarded stage program and carries per-instance validity and premises
-    in shared-program identity;
-  - R8 keeps backdating memos resident;
-  - R10 returns `Cancelled` after the drain;
-  - R14 passes start permission in and keeps maps free of derivative claims;
-  - R16's process-global hooks attribute allocations per owner.
+The coherent target keeps the existing physical/scientific owners, canonical fenced state,
+durable lane independence, cancellation drain, original-space qualification, library-owned
+derivatives and value rebinding:
+- R1 models actual physical persistence phases, separately projecting observational states,
+  retaining u64 generation extent and legitimate close-before-manifest/recovery/cancel transitions.
+- R2 owns code decoding and diagnostics without inferring effects or replay permission from a
+  class alone. R21 retains privileged restore/bootstrap/activation meaning.
+- R4 lowers the complete existing selection contract, including unfiltered exceptional values,
+  four relation key shapes, stable row coordinates and residual filtering before limits. It
+  prunes record batches and fully admits surviving batches; projected decode is conditional.
+- R5/R6/R9 remove name reconstruction and repeated scans while preserving positional sharing,
+  physical/refinement/guard contracts, and explicit durable identity interpretation.
+- R7 fuses only eligible demanded arithmetic and preserves chain terms through provider/branch
+  barriers. Deterministic preflight selects a route; transient refusal does not select arithmetic.
+- R8 bounds metadata, inputs and values with APIs that pinned Salsa actually exposes, keeping
+  the admitted live set and backdating values resident. New defaults are not a claim of general
+  byte-weighted LRU or measured resident memory.
+- R10/R11 share lifecycle and preparation semantics while keeping durable work on the worker's
+  cancellation tree and host-only operations outside the unchanged persisted study set.
+- R14/R15 preserve authorized starts, fresh map sessions, typed outcomes and every legitimate
+  vendored hook. R16 cannot trade allocator-domain counters for complete foreign admission.
+- R17 retains the bytes identity representation supported by the selective hook probe; R18
+  preserves signed/precision-bearing physical time rather than replacing it unconditionally.
+- R20 reconciles actual covariance content and admits semidefinite mathematical validity, with
+  external assumptions explicit. R22 separates product contracts before moving toolkit code.
 
-  Without those conditions, R1, R7 and R16 would regress P1/P2/DP-19, guard survival and P1
-  respectively.
+**Remedy-open conflicts.** Uno numerical patch removal would lose SQP-LBFGS; asynchronous
+readiness events can lose work; one mutable Salsa head shared with pinned durable lanes would
+cancel valid work. Those routes are not selected. Necessary commit-order sequencing is retained;
+the breadth of local pacing remains an investigation, not an excuse to remove that guarantee.
 
-Several remedy-open items are open precisely because the only in-use routes would regress one of
-these properties:
-- removing the Uno numerics hunks would lose SQP-LBFGS;
-- asynchronous `DEFINE EVENT` readiness would weaken DP-19;
-- one Salsa database shared with pinned durable lanes would weaken P1;
-- `DEFINE SEQUENCE` would break commit order.
+**Leads and decisions remain distinct.** Non-parameter study bindings, deeper structural
+specialization and project-structure sizing remain leads/candidates. Collector triggers,
+supervising explicit strategies, Shooting as a study operation and DA-024 purpose remain
+maintainer decisions. R3, native allocator hooks, LM tolerance changes, alias fusion,
+projected IPC decode and tracing substrate each retain their settling conditions.
 
-Items that do not fit that definition carry other labels:
-- **leads:** project-structure sizing, the unit resolver, and non-parameter study bindings;
-- **maintainer decisions:** the collector trigger, supervising the explicit strategies, Shooting as
-  a study operation, and the DA-024 machinery;
-- **candidates awaiting a probe:** the tracing substrate, R3 and R16.
+**Material uncertainties.** Guarded regional product feasibility/benefit, revised bounded
+retention under repeated edits, production RocksDB assertions/plans, 16-lane pacing magnitude,
+native allocator bypass/ownership, schema-set features and tracing cost remain unresolved.
+They constrain remedy adoption; none changes the current Revise verdict.
 
-**Current uncertainty that could change a recommendation:**
-- R7's real benefit once guards and obligations are counted; probe A's figures are a guard-free
-  upper bound;
-- the RocksDB-engine behaviour of R1 and R2;
-- F03's real effect on 16 lanes;
-- the tracing Layer's cost.
+**Next consequential decision.** In plan creation, confirm the desired resolved-representation
+rule impact RC01 and bounded retention/default policy RC03. R2's refusal vocabulary and the
+independent F01/F02 correctness repairs do not need to wait for either redesign. R20/F10 now
+needs an explicit covariance validity/provenance contract (RC18) before its implementation.
 
-None of these changes the decision.
+<a id="15-challenge-dispositions"></a>
 
-**Next consequential decision.** The operator's confirmation, in plan creation, of RC01 (§7.1
-resolved representation) and RC03 (§14 retention policy). RC01 governs the largest remedy and RC03
-the most urgent one. F01 and F02 need no rule change and can proceed independently.
+## 15. Historical first-review challenge dispositions
 
-## 15. Challenge dispositions
+This section preserves the first review's dated challenge account and receipts. Its judgments
+belong to the original reviewer at input revision `e08b1f1dd9b89484ab7471f32b66f8e9c2a59a05`;
+they are not endorsements of the revised remedies or new tests. The independent recommendation
+auditor's net changes are in the linked companion; §§1–14 above carry the integrated judgment.
 
 Three independent challenges of the first draft were assessed:
 - **C1:** omission, preservation and enablers.
 - **C2:** numerical and scientific guarantees.
 - **C3:** library-claim verification.
 
-The reviewer re-read the decisive source for each high item before accepting it. The first draft
-is preserved separately by the coordinator.
+The original reviewer reported re-reading the decisive source for each high item before
+accepting it. The first draft was preserved separately by the coordinator. The exact audited
+principal input is recoverable at the revision recorded in the companion.
 
 | Challenge item | Severity | Disposition | Reason |
 |---|---|---|---|
@@ -1679,7 +1863,7 @@ is preserved separately by the coordinator.
 
 **Net effect.**
 - **Decision.** Unchanged: Revise.
-- **Verdicts.** No foundation or gate verdict changed.
+- **Verdicts (at that historical challenge boundary).** No foundation or gate verdict changed.
 - **R1, R7, R8.** Corrected so they no longer carry a latent regression or rest on a mistaken
   library premise.
 - **R3 and the FERAL pre-admission.** Downgraded to candidates.

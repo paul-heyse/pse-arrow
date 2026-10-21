@@ -21,7 +21,7 @@ name = "deadline_function_expired"
 kind = "sql_expect"
 sql = "RETURN fn::pse_execution_v1::deadline(0);"
 allow = false
-error_contains = "original canonical RPC deadline expired"
+error_contains = "PSE_REFUSAL:original_canonical_rpc_deadline_expired"
 
 [[cases]]
 name = "decimal_u64_exact"

@@ -71,7 +71,7 @@ class BuildMeasurementTests(unittest.TestCase):
             "accepting_writes": False,
             "resources": surreal_server.execution_resources("wide"),
             "instance_id": "selected-instance",
-            "endpoint": "ws://127.0.0.1:18244",
+            "endpoint": "grpc://127.0.0.1:18244",
         }
         receiver = {"worker_sha256": surreal_server.file_digest(worker)}
         return environment, config, receiver

@@ -52,7 +52,14 @@ pub(crate) async fn creation_authority(state: &Path, intent: &Path, seed: bool) 
             .err()
             .context("stale physical creation intent was accepted")?;
         ensure!(
-            format!("{error:?}").contains("analysis primary authority unavailable"),
+            matches!(&error, pse_operations::canonical::CanonicalError::AnalysisUnsettled { intent, source }
+            if intent.as_ref() == &stale && matches!(source.as_ref(),
+                pse_operations::canonical::CanonicalError::Refused {
+                    code: pse_operations::canonical::RefusalCode::AnalysisPrimaryAuthorityUnavailable,
+                    class: pse_operations::canonical::RefusalClass::Fence,
+                    effect: pse_operations::canonical::FailureEffect::StatementRefused,
+                    ..
+                })),
             "stale creation refused for a different reason: {error}"
         );
         let admitted = store
@@ -207,7 +214,15 @@ async fn seed_retained_science(
         .err()
         .context("analysis future artifact input had no retained obligation")?;
     ensure!(
-        format!("{refusal:?}").contains("artifact has retained obligations"),
+        matches!(
+            refusal,
+            pse_operations::canonical::CanonicalError::Refused {
+                code: pse_operations::canonical::RefusalCode::ArtifactHasRetainedObligations,
+                class: pse_operations::canonical::RefusalClass::Invariant,
+                effect: pse_operations::canonical::FailureEffect::StatementRefused,
+                ..
+            }
+        ),
         "artifact collection refused for a different reason: {refusal}"
     );
     Ok(serde_json::to_vec(&RetainedScience {

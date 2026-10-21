@@ -58,9 +58,10 @@ no silent fallback, approximate substitute or compatibility route.
 | Durable execution | Durable execution by default; fenced registration/claim before native effects, bounded progress ingestion, exact accepted seeds, current-authority recovery and cancellation; authored study occurrences claimed by finite workers under shared scientific policy, with effect-free summary recovery | Distributing one solve across processes; late ingestion by expired/revoked writers; retry without explicit scientific policy/effect knowledge; unsupported interpretation/schema; remote deployment; a queued-priority or independent global retry-policy API | [§20.6](identity-and-publication.md#section-20-6), [§19.3](workflows-and-results.md#section-19-3) |
 | Python | Registry-generated declarations and typed ids, generated boundary documents, blocking/async native operations, exact canonical run/attempt handles, typed Arrow result/output/analysis selectors, local export, studies and retained progress; explicit ephemeral execution may use admitted local scientific sources without a canonical store; recording those sources is a separate explicit effect | Mathematics in Python; production Pyomo or NL routes; retired SQL/publication/catalog APIs | [§21](workflows-and-results.md#section-21) |
 
-**Current storage evidence.** The implemented profile is authenticated loopback gRPC
-with a thin native SDK client and one RocksDB graph/relational database
-([§20.6](identity-and-publication.md#section-20-6)). *Tested*: the named
+**Current storage evidence.** ADR-0214 selects authenticated loopback gRPC
+with a thin native SDK client and one persistent SurrealMX graph/relational database
+([§20.6](identity-and-publication.md#section-20-6)); Plan49a owns its implementation acceptance.
+*Historical tested evidence on RocksDB/WS*: the named
 `just canonical-recovery-test --profile-state <configured-state>` journey passed
 on 2026-10-06 using the selected local deployment profile in an isolated fixture. It
 exercises server SIGKILL/reopen, exact historical source/product and bit preservation,
@@ -254,7 +255,7 @@ Relation, enumeration and extension-type detail is generated from the registry; 
 | Nonexecuting data | Stored declarations retained with a selected model but not executed; never execution evidence |
 | Numerical policy | Resolved tolerances, nominals and scaling with recorded precedence; a separate input, never an adapter default |
 | Operating envelope | A provider's declared valid input window; not a statement of empirical accuracy |
-| Canonical substrate | One authenticated local SurrealDB graph/relational database over RocksDB for immutable sources/products, guarded execution and exact results/analyses; registry declarations generate its typed contracts |
+| Canonical substrate | One authenticated local SurrealDB graph/relational database over persistent SurrealMX for immutable sources/products, guarded execution and exact results/analyses; registry declarations generate its typed contracts |
 | Canonical lookup key | The complete opaque native record address for an exact revision, attempt or manifest; distinct from scientific semantic IDs and content/request hashes |
 | Ordinal, coordinate | A position within one prepared layout; never identity |
 | Overlay | An immutable case binding layered on another, such as an initialization stage |

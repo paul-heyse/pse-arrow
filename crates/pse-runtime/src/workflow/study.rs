@@ -1552,13 +1552,14 @@ impl Runtime {
                 // A live owner receives typed cancellation, drains, and settles its own
                 // original completion. An independent recovery worker cannot infer that
                 // physical handoff from the cancellation bit alone.
-                if !actual.terminal && actual.expires_at > chrono::Utc::now().timestamp_micros() {
+                if !actual.terminal() && actual.expires_at > chrono::Utc::now().timestamp_micros() {
                     return Ok(false);
                 }
                 self.operations()?
-                    .recover(
+                    .recover_study_point(
                         &point.run,
                         &format!("study-recover:{}:{}", point.key, actual.generation),
+                        &point.key,
                     )
                     .await?;
                 let record = self.operations()?.record(&point.run, attempt_key).await?;
@@ -1658,7 +1659,7 @@ impl Runtime {
                         .canonical_attempt(attempt)
                         .await?
                         .ok_or_else(|| contract("parent attempt absent"))?;
-                    if !actual.terminal {
+                    if !actual.terminal() {
                         if actual.expires_at > chrono::Utc::now().timestamp_micros() {
                             return Ok(false);
                         }

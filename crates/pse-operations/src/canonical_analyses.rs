@@ -157,7 +157,7 @@ impl CanonicalStore {
     ) -> Result<Analysis, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
-        let mut response = bounded_query(self.db.query("LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $guard=NONE OR $guard.incarnation=NONE { THROW 'analysis source authority unavailable'; }; RETURN {authority:$guard.incarnation,now:time::micros()};").bind(("problem",revision.problem.clone()))).await?;
+        let mut response = bounded_query(self.db.query("LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $guard=NONE OR $guard.incarnation=NONE { THROW 'PSE_REFUSAL:analysis_source_authority_unavailable'; }; RETURN {authority:$guard.incarnation,now:time::micros()};").bind(("problem",revision.problem.clone()))).await?;
         let index = response.num_statements().saturating_sub(1);
         let mut row = response
             .take::<Option<Object>>(index)?
@@ -401,7 +401,7 @@ impl CanonicalStore {
         activity.scope(async {
         within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
             identity(key)?;
-            let mut result=protected_query("canonical_analyses::analysis", ||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Header, "BEGIN; LET $row=fn::pse_analysis_v1::available($pse_rpc_expires_at, $key); IF !$row.active { THROW 'analysis graph incomplete'; }; RETURN $row; COMMIT;").bind(("key",key.to_owned())))).await?;
+            let mut result=protected_query("canonical_analyses::analysis", ||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Header, "BEGIN; LET $row=fn::pse_analysis_v1::available($pse_rpc_expires_at, $key); IF !$row.active { THROW 'PSE_REFUSAL:analysis_graph_incomplete'; }; RETURN $row; COMMIT;").bind(("key",key.to_owned())))).await?;
             let index = result.num_statements().saturating_sub(2);
             Ok(wire::decode_canonical_analyses(
                 result

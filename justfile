@@ -106,7 +106,7 @@ fetch-external:
     ./scripts/fetch-external.sh
 
 [group('env')]
-[doc('Set up or control the supervised authenticated native WebSocket canonical substrate')]
+[doc('Set up or control the supervised persistent SurrealMX and authenticated gRPC substrate')]
 [positional-arguments]
 surreal command *args:
     "{{ py }}" scripts/surreal_server.py "$1" "${@:2}"
@@ -121,7 +121,8 @@ surrealkit *args:
 [group('env')]
 [doc('Initialize a clean canonical database; ordinary runtime opening never installs schema')]
 canonical-init state:
-    scripts/pse-env --native= -- cargo run -p xtask --no-default-features --features canonical-tools --locked -- canonical-init {{ quote(state) }}
+    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin xtask --no-default-features --features canonical-tools --locked
+    "{{ py }}" scripts/surreal_server.py initialize --state {{ quote(state) }} --initializer-command "{{ justfile_directory() }}/target/debug/xtask" canonical-init {{ quote(state) }}
 
 [group('local')]
 [doc('Targeted canonical server supervisor mechanism controls')]
@@ -134,14 +135,14 @@ surreal-fixture-test:
     "{{ py }}" -m scripts.tests.surreal_fixture_check
 
 [group('local')]
-[doc('Released-server native canonical schema, source/product and gated offline recovery control')]
+[doc('Source-built canonical schema, source/product and gated offline recovery control')]
 [positional-arguments]
 canonical-recovery-test *args:
     scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin pse-canonical-recovery --no-default-features --features canonical-tools --locked
     "{{ py }}" -m scripts.tests.canonical_recovery_check target/debug/pse-canonical-recovery "$@"
 
 [group('local')]
-[doc('Native WebSocket exact codec and guarded revision controls against a supervised server state')]
+[doc('Native gRPC exact codec and guarded revision controls against a supervised server state')]
 canonical-test state:
     PSE_SURREAL_STATE={{ quote(state) }} scripts/pse-env --store -- just unit-package pse-operations 'test(canonical_server_unit) | test(canonical_codec_unit)' --features pse-operations/canonical-tests
 
@@ -222,8 +223,8 @@ pse-worker *args:
 [script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 worker-test *args:
-    scripts/pse-env --native -- cargo build -p xtask --bin pse-worker --locked --features native-solvers
-    PSE_WORKER_BINARY="$PWD/target/debug/pse-worker" scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p pse-runtime --test worker --locked --features pse-runtime/native-solvers "$@"
+    scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin pse-worker --bin xtask --locked --no-default-features --features native-solvers,canonical-tools
+    PSE_WORKER_BINARY="$PWD/target/debug/pse-worker" scripts/pse-env --native --store -- "{{ py }}" scripts/select.py --features pse-runtime/native-solvers integration pse-runtime worker "$@"
 
 # ---------------------------------------------------------------- discovery --
 

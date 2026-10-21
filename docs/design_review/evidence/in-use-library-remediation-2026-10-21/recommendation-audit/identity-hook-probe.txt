@@ -1,0 +1,14 @@
+Command: scripts/pse-env -- .venv/bin/python docs/design_review/evidence/in-use-library-remediation-2026-10-21/recommendation-audit/identity-hook-probe.py
+Date: 2026-10-21
+Exit: 0
+Failure baseline: 0
+Failures: 0
+
+Python 3.14.8; msgspec 0.21.1
+BytesIdentity: wire=b'"000102030405060708090a0b0c0d0e0f"'; enc_hook=['BytesIdentity']; dec_hook=['BytesIdentity']
+ValueIdentity: wire=b'"000102030405060708090a0b0c0d0e0f"'; enc_hook=['ValueIdentity']; dec_hook=['ValueIdentity']
+NewType role aliases preserve the same runtime object; runtime role checking is not supplied
+Nested Struct and NewType: both hexadecimal hooks round-trip
+BytesIdentity: malformed width refused
+ValueIdentity: malformed width refused
+PASS: direct and nested hook round trips; invalid widths refused

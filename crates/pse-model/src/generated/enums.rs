@@ -2348,6 +2348,269 @@ impl CandidateUse {
         }
     }
 }
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum CanonicalAttemptPhase {
+    ///ingesting
+    #[serde(rename = "ingesting")]
+    #[strum(serialize = "ingesting")]
+    Ingesting,
+    ///closed_awaiting_manifest
+    #[serde(rename = "closed_awaiting_manifest")]
+    #[strum(serialize = "closed_awaiting_manifest")]
+    ClosedAwaitingManifest,
+    ///closed_with_manifest
+    #[serde(rename = "closed_with_manifest")]
+    #[strum(serialize = "closed_with_manifest")]
+    ClosedWithManifest,
+    ///terminal
+    #[serde(rename = "terminal")]
+    #[strum(serialize = "terminal")]
+    Terminal,
+    ///terminal_compacted
+    #[serde(rename = "terminal_compacted")]
+    #[strum(serialize = "terminal_compacted")]
+    TerminalCompacted,
+}
+impl crate::SemanticEq for CanonicalAttemptPhase {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl CanonicalAttemptPhase {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Ingesting => 0usize,
+            Self::ClosedAwaitingManifest => 1usize,
+            Self::ClosedWithManifest => 2usize,
+            Self::Terminal => 3usize,
+            Self::TerminalCompacted => 4usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Ingesting => None,
+            Self::ClosedAwaitingManifest => None,
+            Self::ClosedWithManifest => None,
+            Self::Terminal => None,
+            Self::TerminalCompacted => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for CanonicalAttemptPhase {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(CanonicalAttemptPhase))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(CanonicalAttemptPhase)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["ingesting", "closed_awaiting_manifest",
+            "closed_with_manifest", "terminal", "terminal_compacted"] }
+        )
+    }
+}
+impl CanonicalAttemptPhase {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(CanonicalAttemptPhase),
+            value: value.to_owned(),
+        }
+    }
+}
+impl CanonicalTerminalOutcome {
+    /// Observational attempt state; physical closure remains independent.
+    pub const fn attempt_state(self) -> AttemptState {
+        match self {
+            Self::Succeeded => AttemptState::Completed,
+            Self::Failed => AttemptState::Failed,
+            Self::Partial => AttemptState::Partial,
+            Self::Cancelled => AttemptState::Cancelled,
+        }
+    }
+    /// Point lifecycle additionally needs the scientific owner's admitted
+    /// usability for partial coverage; storage does not invent that fact.
+    pub const fn study_point_state(self, partial_usable: bool) -> StudyPointState {
+        match self {
+            Self::Succeeded => StudyPointState::Completed,
+            Self::Failed => StudyPointState::Failed,
+            Self::Cancelled => StudyPointState::Cancelled,
+            Self::Partial => {
+                if partial_usable {
+                    StudyPointState::Completed
+                } else {
+                    StudyPointState::Failed
+                }
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum CanonicalTerminalOutcome {
+    ///succeeded
+    #[serde(rename = "succeeded")]
+    #[strum(serialize = "succeeded")]
+    Succeeded,
+    ///failed
+    #[serde(rename = "failed")]
+    #[strum(serialize = "failed")]
+    Failed,
+    ///partial
+    #[serde(rename = "partial")]
+    #[strum(serialize = "partial")]
+    Partial,
+    ///cancelled
+    #[serde(rename = "cancelled")]
+    #[strum(serialize = "cancelled")]
+    Cancelled,
+}
+impl crate::SemanticEq for CanonicalTerminalOutcome {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl CanonicalTerminalOutcome {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<4usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Succeeded => 0usize,
+            Self::Failed => 1usize,
+            Self::Partial => 2usize,
+            Self::Cancelled => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Succeeded => None,
+            Self::Failed => None,
+            Self::Partial => None,
+            Self::Cancelled => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for CanonicalTerminalOutcome {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(CanonicalTerminalOutcome))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(CanonicalTerminalOutcome)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["succeeded", "failed", "partial", "cancelled"]
+            }
+        )
+    }
+}
+impl CanonicalTerminalOutcome {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(CanonicalTerminalOutcome),
+            value: value.to_owned(),
+        }
+    }
+}
 /// A vocabulary owned by its source type; the registry declares its members.
 pub type CaptureKind = pse_diagnostics::CaptureKind;
 impl crate::SemanticEq for CaptureKind {
@@ -23899,6 +24162,26 @@ impl crate::HeapUsage for CandidateUse {
     }
 }
 impl crate::SemanticFrame for CandidateUse {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for CanonicalAttemptPhase {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for CanonicalAttemptPhase {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for CanonicalTerminalOutcome {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for CanonicalTerminalOutcome {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

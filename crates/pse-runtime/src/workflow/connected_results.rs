@@ -533,7 +533,7 @@ impl ResultReader {
                 .read
                 .attempt()
                 .outcome
-                .clone()
+                .map(|outcome| outcome.as_str().to_owned())
                 .ok_or_else(|| contract("terminal class absent"))?,
             predicate: self
                 .output
@@ -641,7 +641,7 @@ impl ResultReader {
             self.read
                 .attempt()
                 .outcome
-                .clone()
+                .map(|outcome| outcome.as_str().to_owned())
                 .ok_or_else(|| contract("terminal result class absent"))?,
         );
         metadata.insert(
@@ -1292,7 +1292,7 @@ impl Runtime {
                 let class = read
                     .attempt()
                     .outcome
-                    .clone()
+                    .map(|outcome| outcome.as_str().to_owned())
                     .ok_or_else(|| contract("review requires an exact terminal attempt"))?;
                 let copied_metadata = read
                     .sets()
@@ -3682,7 +3682,12 @@ mod canonical_connected_results_server_unit {
             .await
             .unwrap();
         assert_eq!(
-            reader.selection().attempt().outcome.as_deref(),
+            reader
+                .selection()
+                .attempt()
+                .outcome
+                .as_ref()
+                .map(|value| value.as_str()),
             Some("partial")
         );
         let batch = reader.next_batch().await.unwrap().unwrap();

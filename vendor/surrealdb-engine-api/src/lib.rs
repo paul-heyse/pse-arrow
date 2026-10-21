@@ -62,8 +62,6 @@ pub struct RequestData {
 /// A request paired with the channel its response must be sent on.
 #[derive(Debug)]
 pub struct Route {
-    /// Admission remains owned until response or physical driver drain.
-    pub admission: Option<std::sync::Arc<request::AdmissionPermit>>,
     /// The request to execute.
     pub request: RequestData,
     /// Where the engine sends the outcome. Exactly one message is expected.
@@ -608,9 +606,6 @@ pub fn single_result(mut results: Vec<QueryResult>) -> Result<Value, Error> {
 #[derive(Debug, Clone)]
 pub struct RouteChannelEngine {
     sender: Sender<Route>,
-    shutdown: Option<async_channel::Receiver<()>>,
-    application: Option<std::sync::Arc<tokio::sync::Semaphore>>,
-    control: Option<std::sync::Arc<tokio::sync::Semaphore>>,
 }
 
 /// The response queue is actual byte ownership, unlike retired sender metadata.
@@ -631,23 +626,10 @@ impl<T> Drop for ResponseReceiver<T> {
 }
 
 impl RouteChannelEngine {
-    /// Construct a driver with an observable physical shutdown boundary.
-    pub fn with_shutdown(sender: Sender<Route>, shutdown: async_channel::Receiver<()>) -> Self {
-        Self {
-            sender,
-            shutdown: Some(shutdown),
-            application: Some(std::sync::Arc::new(tokio::sync::Semaphore::new(32))),
-            control: Some(std::sync::Arc::new(tokio::sync::Semaphore::new(2))),
-        }
-    }
-
     /// Wraps a route sender as a [`SurrealEngine`].
     pub fn new(sender: Sender<Route>) -> Self {
         Self {
             sender,
-            shutdown: None,
-            application: None,
-            control: None,
         }
     }
 
@@ -683,30 +665,6 @@ impl RouteChannelEngine {
             // Locals drop in reverse order: move bytes after the drain guard.
             let command = std::mem::replace(&mut command, Command::Health);
             let _lifetime = request::CancelOnDrop(ctx.request_context.clone());
-            let admission = if let Some(application) = &self.application {
-                let context = ctx.request_context.as_ref().ok_or_else(|| {
-                    Error::configuration(
-                        "Bounded requests require an original lifecycle".to_string(),
-                        None,
-                    )
-                })?;
-                let semaphore = if context.is_control() {
-                    self.control.as_ref().unwrap_or(application)
-                } else {
-                    application
-                };
-                let acquire = std::sync::Arc::clone(semaphore).acquire_owned();
-                let permit = tokio::select! { biased;
-                    _ = context.interrupted() => return Err(context.interruption_error()),
-                    result = acquire => result.map_err(|_| Error::internal("Connection admission closed".to_string()))?,
-                };
-                Some(std::sync::Arc::new(request::AdmissionPermit::new(
-                    permit,
-                    context.payload_owner(),
-                )))
-            } else {
-                None
-            };
             let retained = ctx
                 .request_context
                 .as_ref()
@@ -718,7 +676,6 @@ impl RouteChannelEngine {
                 _retained: retained,
             };
             let route = Route {
-                admission,
                 request: RequestData {
                     command,
                     session_id: ctx.session,
@@ -817,22 +774,6 @@ fn value_to_token(value: Value) -> Result<Token, Error> {
 }
 
 impl SurrealEngine for RouteChannelEngine {
-    fn disconnect(&self) -> EngineFuture<'_, ()> {
-        Box::pin(async move {
-            self.sender.close();
-            if let Some(application) = &self.application {
-                application.close();
-            }
-            if let Some(control) = &self.control {
-                control.close();
-            }
-            if let Some(shutdown) = &self.shutdown {
-                let _ = shutdown.recv().await;
-            }
-            Ok(())
-        })
-    }
-
     fn query(
         &self,
         ctx: EngineContext,
@@ -1315,17 +1256,13 @@ mod tests {
 
     #[tokio::test]
     async fn never_enqueued_payload_restores_capacity_with_live_context() {
-        for mode in 0..3 {
-            let blocked_admission = mode == 1;
+        for mode in [0, 2] {
             let (sender, routes) = async_channel::bounded(1);
-            let mut engine = RouteChannelEngine::new(sender.clone());
-            if blocked_admission {
-                engine.application = Some(Arc::new(tokio::sync::Semaphore::new(0)));
-            } else if mode == 0 {
+            let engine = RouteChannelEngine::new(sender.clone());
+            if mode == 0 {
                 let (response, _receiver) = async_channel::bounded(1);
                 sender
                     .send(Route {
-                        admission: None,
                         request: RequestData {
                             command: Command::Health,
                             session_id: Uuid::nil(),

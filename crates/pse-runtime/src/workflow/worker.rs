@@ -1052,7 +1052,7 @@ mod lane_tests {
             .await
             .unwrap()
             .unwrap();
-        assert!(!before.terminal && !before.closed);
+        assert!(!before.terminal() && !before.closed());
         let run = store
             .canonical_run(claim.fence.run())
             .await
@@ -1082,7 +1082,7 @@ mod lane_tests {
                 .await
                 .unwrap()
                 .unwrap()
-                .closed
+                .closed()
         );
         assert_eq!(
             store
@@ -1110,7 +1110,7 @@ mod lane_tests {
                 .await
                 .unwrap()
                 .unwrap()
-                .closed
+                .closed()
         );
         // The real worker drops this turn only after its issued native owner and
         // finish/observation have joined. A departed owner then permits recovery.
@@ -1125,8 +1125,11 @@ mod lane_tests {
             .await
             .unwrap()
             .unwrap();
-        assert!(terminal.terminal);
-        assert_eq!(terminal.outcome.as_deref(), Some("cancelled"));
+        assert!(terminal.terminal());
+        assert_eq!(
+            terminal.outcome.as_ref().map(|value| value.as_str()),
+            Some("cancelled")
+        );
         let point = store.canonical_study_point(&key).await.unwrap().unwrap();
         assert!(point.settled && !point.assigned);
         let facts = pse_operations::canonical_studies::point_facts(&point).unwrap();
@@ -1694,7 +1697,7 @@ impl Runtime {
             match self.settle_study_candidate(scope, action, None).await {
                 Ok(point) => Ok(Some(point)),
                 Err(error) => {
-                    if !matches!(&error, WorkflowError::Canonical(pse_operations::canonical::CanonicalError::Driver(driver)) if driver.details().is_thrown() && matches!(driver.message().strip_prefix("An error occurred: ").unwrap_or(driver.message()), "study decision generation changed" | "study candidate not available" | "study decision premise changed")) {
+                    if !matches!(&error, WorkflowError::Canonical(error) if error.needs_fresh_premise()) {
                         return Err(error);
                     }
                     let current = self.canonical_store()?.study_scope(&scope.point().key).await?;

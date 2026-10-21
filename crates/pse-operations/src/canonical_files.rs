@@ -377,7 +377,7 @@ impl FileSession {
             owner: tokio::sync::Mutex::new(None),
         })
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "canonical-tests"))]
     pub(crate) fn wire_control() -> Result<Self, CanonicalError> {
         Ok(Self {
             incarnation: uuid::Uuid::new_v4().to_string(),
@@ -940,7 +940,7 @@ impl CanonicalStore {
     ) -> Result<FileDescriptor, CanonicalError> {
         crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
         self.files.require_current()?;
-        let mut response=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Header, "BEGIN; LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE; IF $file=NONE OR $file.storage_incarnation!=$incarnation OR $file.state!='attached' { THROW 'admitted file physical instance unavailable'; }; RETURN $file; COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
+        let mut response=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Header, "BEGIN; LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE; IF $file=NONE OR $file.storage_incarnation!=$incarnation OR $file.state!='attached' { THROW 'PSE_REFUSAL:admitted_file_physical_instance_unavailable'; }; RETURN $file; COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let mut row = last_object(&mut response)?;
         let descriptor = FileDescriptor {
             instance: text(&mut row, "key")?,
@@ -1009,7 +1009,7 @@ mod tests {
         std::fs::create_dir_all(&receiver).unwrap();
         let mut config = serde_json::json!({
             "payload_incarnation": uuid::Uuid::new_v4().to_string(),
-            "endpoint": "ws://127.0.0.1:8000", "namespace": "canonical",
+            "endpoint": "grpc://127.0.0.1:8000", "namespace": "canonical",
         });
         std::fs::write(
             state.join("config.json"),
@@ -1466,8 +1466,10 @@ mod catalog_controls {
         assert_eq!(observed, bytes);
         assert!(matches!(
             store.forget_run_results(fence.run()).await,
-            Err(CanonicalError::Driver(error))
-                if error.is_thrown() && error.message().ends_with("run results have protected readers")
+            Err(CanonicalError::Refused {
+                code: crate::canonical::RefusalCode::RunResultsHaveProtectedReaders,
+                ..
+            })
         ));
         assert!(
             store
