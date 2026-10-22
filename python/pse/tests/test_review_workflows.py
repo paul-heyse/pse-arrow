@@ -46,7 +46,7 @@ def saved() -> tuple[d.FrozenEvidenceSet, d.AnalysisRequest, d.FrozenInspectionR
     )
     assert source.operation is not None
     evidence = d.FrozenEvidenceSet(
-        version=2, checkpoints=(), operations=(source.operation,)
+        version=3, checkpoints=(), operations=(source.operation,)
     )
     request = codec.decode_json(
         b'{"version":2,"operation":'

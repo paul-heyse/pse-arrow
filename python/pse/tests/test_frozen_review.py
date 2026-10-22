@@ -51,7 +51,7 @@ def test_frozen_review_public_ingress_is_recorded_and_relocatable(
         threads=(),
         threads_partial=False,
     )
-    supplied = documents.FrozenEvidenceSet(version=2, checkpoints=(image,))
+    supplied = documents.FrozenEvidenceSet(version=3, checkpoints=(image,))
     request = codec.decode_json(
         b'{"version":1,"inspection":'
         + codec.encode_json(original.request)

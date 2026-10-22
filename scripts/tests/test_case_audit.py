@@ -1246,7 +1246,7 @@ class AuditTests(unittest.TestCase):
                 if terminal:
                     observer.diagnostic_double.inspect_image.assert_not_called()
                     requests = observer.diagnostic_double.inspect_frozen.call_args_list
-                    self.assertTrue(all(call.args[0].version == 2 for call in requests))
+                    self.assertTrue(all(call.args[0].version == 3 for call in requests))
                     self.assertEqual(
                         [call.args[1].inspection["operation"] for call in requests],
                         [completed.id, child_operation.id],

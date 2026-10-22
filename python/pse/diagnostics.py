@@ -19,7 +19,8 @@ from typing import TYPE_CHECKING, Self, TypeVar
 
 import attrs
 import pyarrow as pa
-from msgspec import convert, json as msgspec_json
+from msgspec import convert
+from msgspec import json as msgspec_json
 from msgspec.structs import replace
 
 import pse
@@ -78,12 +79,9 @@ from pse.contracts.documents import (
     DetailRecordPageOutput,
     DetailRequest,
     DiagnosticCommandRequest,
-    DiagnosticRuntimeSettings,
-    ReproducerCommandRequest,
-    ReproducerCommandRequestOutput,
-    ReproducerExtractionRequest,
     DiagnosticListRequest,
     DiagnosticProcessPageOutput,
+    DiagnosticRuntimeSettings,
     FrozenEvidenceSet,
     FrozenEvidenceSetOutput,
     FrozenInspectionDocumentOutput,
@@ -105,6 +103,9 @@ from pse.contracts.documents import (
     ProcessCheckpoint,
     ProcessCheckpointOutput,
     ProcessLocatorOutput,
+    ReproducerCommandRequest,
+    ReproducerCommandRequestOutput,
+    ReproducerExtractionRequest,
     ReviewContextDocument,
     ReviewContextDocumentOutput,
     ReviewExportDeployment,
@@ -910,14 +911,25 @@ def _add_review_commands(commands: argparse._SubParsersAction) -> None:
     reviewing.add_argument("subject", type=Path)
     reviewing.add_argument("--json", action="store_true")
     extracting = commands.add_parser(
-        "extract-reproducer", help="OFFLINE transformation of complete recorded text or frozen source codecs"
+        "extract-reproducer",
+        help="OFFLINE transformation of recorded text or frozen source codecs",
     )
-    extracting.add_argument("--request", required=True, type=Path, help="ReproducerExtractionRequest JSON; no Runtime is constructed")
-    extracting.add_argument("--output", required=True, type=Path, help="New readable ReproducerCommandRequest driver")
+    extracting.add_argument(
+        "--request", required=True, type=Path,
+        help="ReproducerExtractionRequest JSON; no Runtime is constructed",
+    )
+    extracting.add_argument(
+        "--output", required=True, type=Path,
+        help="New readable ReproducerCommandRequest driver",
+    )
     reproducing = commands.add_parser(
-        "reproduce", help="NEW WORK: explicitly reconstruct, admit and execute an extracted reproducer"
+        "reproduce",
+        help="NEW WORK: reconstruct, admit and execute an extracted reproducer",
     )
-    reproducing.add_argument("--request", required=True, type=Path, help="Extracted ReproducerCommandRequest JSON")
+    reproducing.add_argument(
+        "--request", required=True, type=Path,
+        help="Extracted ReproducerCommandRequest JSON",
+    )
     reproducing.add_argument("--json", action="store_true")
     diagnosing = commands.add_parser(
         "diagnose",
@@ -957,7 +969,7 @@ def _subject(
         evidence = read_handoff(path)
     elif source == "live":
         evidence = FrozenEvidenceSetOutput(
-            version=2, checkpoints=(read_checkpoint(path),)
+            version=3, checkpoints=(read_checkpoint(path),)
         )
     else:
         evidence = (
@@ -1049,8 +1061,10 @@ def record_launch(
     return launch(request)
 
 
-def extract_reproducer(request: ReproducerExtractionRequest) -> ReproducerCommandRequestOutput:
-    """Transform supported recorded codecs without constructing a runtime or running science."""
+def extract_reproducer(
+    request: ReproducerExtractionRequest,
+) -> ReproducerCommandRequestOutput:
+    """Transform recorded codecs without constructing a runtime or running science."""
     return _diagnostic_extract_reproducer(request)
 
 
@@ -1129,11 +1143,15 @@ def _review_command(args: argparse.Namespace) -> int:
             else 1
         )
     elif args.command == "extract-reproducer":
-        result = extract_reproducer(_read_review_request(args.request, ReproducerExtractionRequest))
+        result = extract_reproducer(
+            _read_review_request(args.request, ReproducerExtractionRequest)
+        )
         with args.output.open("xb") as destination:
             destination.write(msgspec_json.format(codec.encode_json(result)))
-        print(f"Extracted {args.output}; required environment: {result.reproducer.required_environment}")
-        print(f"Explicit new run: python -m pse.diagnostics reproduce --request {shlex.quote(str(args.output))} --json")
+        print(f"Extracted {args.output}; required environment: "
+              f"{result.reproducer.required_environment}")
+        print("Explicit new run: python -m pse.diagnostics reproduce --request "
+              f"{shlex.quote(str(args.output))} --json")
         return 0
     elif args.command == "reproduce":
         command = _read_review_request(args.request, ReproducerCommandRequest)
@@ -1143,7 +1161,10 @@ def _review_command(args: argparse.Namespace) -> int:
         finally:
             runtime.close()
         print(codec.encode_json(reproduction).decode())
-        return 0 if reproduction.status in ("original_failure_reproduced", "related_diagnostic_reproduced") else 1
+        reproduced = reproduction.status in (
+            "original_failure_reproduced", "related_diagnostic_reproduced"
+        )
+        return 0 if reproduced else 1
     elif args.command == "diagnose":
         command = _read_review_request(args.request, DiagnosticCommandRequest)
         runtime = _diagnostic_runtime(command.runtime)

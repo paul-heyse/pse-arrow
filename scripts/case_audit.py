@@ -125,7 +125,7 @@ class Observer:
                 for operation in image.operations
             }
             supplied = self.evidence_type(
-                version=2,
+                version=3,
                 checkpoints=(image,),
                 operations=tuple(
                     operation

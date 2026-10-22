@@ -18,7 +18,6 @@ import pytest
 import pse
 from pse import codec, diagnostics
 from pse.contracts import documents
-from pse.contracts.values import SemanticId
 from pse.contracts.documents import (
     CaptureBudget,
     CaptureDocumentOutput,
@@ -60,6 +59,7 @@ from pse.contracts.enums import (
     PresolvePolicyKind,
     StatementKind,
 )
+from pse.contracts.values import SemanticId
 from pse.tests.test_local_runtime import physical_documents
 from pse.tests.test_native_workflow import declaration, package_documents, revision
 
@@ -1084,17 +1084,26 @@ def test_launch_capture_cli_requires_explicit_executable(tmp_path: Path) -> None
     assert not (tmp_path / "unused").exists()
 
 
-def _reproducer_text_request(settings: pse.EngineSettings) -> documents.ReproducerExtractionRequest:
+def _reproducer_text_request(
+    settings: pse.EngineSettings,
+) -> documents.ReproducerExtractionRequest:
     policy = codec.decode_json(
-        (Path(__file__).resolve().parents[3] / "packages/reference/diagnostics/idaes-2.13.json").read_bytes(),
+        (Path(__file__).resolve().parents[3]
+         / "packages/reference/diagnostics/idaes-2.13.json").read_bytes(),
         documents.ModelingDiagnosticPolicy,
     )
     operation = documents.DiagnosticExecutionRequest(
         physical_documents={"package.toml": "[package]\nnot a valid manifest"},
-        model_documents=({"models/original.pse": "package original {def Root {var x:Scalar;eq e:x==1;}}"},),
+        model_documents=({
+            "models/original.pse": (
+                "package original {def Root {var x:Scalar;eq e:x==1;}}"
+            )
+        },),
         case_id=SemanticId.from_hex("ab" * 16),
         settings=pse.SolveSettings(),
-        diagnostics=msgspec.convert(policy, type=documents.ModelingDiagnosticPolicyBody, from_attributes=True),
+        diagnostics=msgspec.convert(
+            policy, type=documents.ModelingDiagnosticPolicyBody, from_attributes=True
+        ),
         origin=None,
         allowance=ClosedDuration(secs=10, nanos=0),
         maximum_source_bytes=4 << 20,
@@ -1133,16 +1142,24 @@ def test_reproducer_cli_extraction_is_offline_and_keeps_actual_source_text(
         pytest.fail("offline extraction must not construct or execute a runtime")
 
     monkeypatch.setattr(diagnostics, "_diagnostic_runtime", no_runtime)
-    assert diagnostics.main(["extract-reproducer", "--request", str(source), "--output", str(destination)]) == 0
-    extracted = codec.decode_json(destination.read_bytes(), documents.ReproducerCommandRequest)
-    assert isinstance(extracted.reproducer.input, documents.ReproducerInputBodyOriginalText)
-    assert extracted.reproducer.input.request.physical_documents["package.toml"] == "[package]\nnot a valid manifest"
+    assert diagnostics.main([
+        "extract-reproducer", "--request", str(source), "--output", str(destination)
+    ]) == 0
+    extracted = codec.decode_json(
+        destination.read_bytes(), documents.ReproducerCommandRequest
+    )
+    assert isinstance(
+        extracted.reproducer.input, documents.ReproducerInputBodyOriginalText
+    )
+    physical_documents = extracted.reproducer.input.request.physical_documents
+    original_text = physical_documents["package.toml"]
+    assert original_text == "[package]\nnot a valid manifest"
     assert extracted.reproducer.predicate is None
     assert "Explicit new run:" in capsys.readouterr().out
 
 
 @pytest.mark.unit
-def test_reproducer_explicit_runner_retains_fresh_operation_and_strict_original_comparison(
+def test_reproducer_explicit_runner_retains_fresh_operation_and_strict_comparison(
     inspection_settings: pse.EngineSettings,
     tmp_path: Path,
 ) -> None:
@@ -1157,7 +1174,13 @@ def test_reproducer_explicit_runner_retains_fresh_operation_and_strict_original_
         assert first.status == "reproduction_unavailable"
         assert first.original.original_failure_text is None
         # Only the selected typed actual failure supplies the strict original predicate.
-        typed = msgspec.structs.replace(request, original_diagnostic=codec.decode_json(codec.encode_json(first.failure), documents.BoundaryDiagnosticBody), original_operation=first.operation)
+        typed = msgspec.structs.replace(
+            request,
+            original_diagnostic=codec.decode_json(
+                codec.encode_json(first.failure), documents.BoundaryDiagnosticBody
+            ),
+            original_operation=first.operation,
+        )
         selected = diagnostics.extract_reproducer(typed)
         second = runtime.run_reproducer(selected.reproducer)
         assert second.operation != first.operation
@@ -1171,7 +1194,8 @@ def test_reproducer_explicit_runner_retains_fresh_operation_and_strict_original_
     # The driver is an explicit new process; its deployment defaults must not be
     # mixed with this fixture's already configured process-wide resource owner.
     completed = subprocess.run(
-        [sys.executable, "-m", "pse.diagnostics", "reproduce", "--request", str(driver), "--json"],
+        [sys.executable, "-m", "pse.diagnostics", "reproduce",
+         "--request", str(driver), "--json"],
         check=False, capture_output=True, timeout=30,
     )
     assert completed.returncode == 0, completed.stderr.decode()

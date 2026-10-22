@@ -40,12 +40,9 @@ from pse.contracts.documents import (
     BackendSettings,
     ConicRequest,
     DiagnosticExecutionDocumentOutput,
-    TaskDumpRequest,
-    TaskDumpDocumentOutput,
     DiagnosticExecutionRequest,
     DiagnosticReproducer,
     DiagnosticReproducerOutput,
-    ReproductionDocumentOutput,
     FrozenEvidenceSet,
     FrozenEvidenceSetOutput,
     HistoryObligation,
@@ -54,6 +51,7 @@ from pse.contracts.documents import (
     PackExportRequest,
     PackIndexOutput,
     ParameterCovarianceOutput,
+    ReproductionDocumentOutput,
     ResourceReportOutput,
     ResultReclamationPage,
     RunControls,
@@ -64,6 +62,8 @@ from pse.contracts.documents import (
     StudyDefinition,
     StudyDefinitionOutput,
     StudyRunControls,
+    TaskDumpDocumentOutput,
+    TaskDumpRequest,
 )
 from pse.contracts.enums import (
     CanonicalTerminalOutcome,
@@ -134,7 +134,9 @@ class Runtime:
         """
         self._handle.close()
 
-    def run_reproducer(self, request: DiagnosticReproducer | DiagnosticReproducerOutput) -> ReproductionDocumentOutput:
+    def run_reproducer(
+        self, request: DiagnosticReproducer | DiagnosticReproducerOutput
+    ) -> ReproductionDocumentOutput:
         """Execute a selected reproducer under one fresh operation and deadline."""
         return self._handle.run_reproducer(request)
 
@@ -145,7 +147,7 @@ class Runtime:
         return self._handle.diagnose_documents(request)
 
     def task_dump(self, request: TaskDumpRequest) -> TaskDumpDocumentOutput:
-        """Explicitly pause/re-poll the actual executor; timeout does not cancel its dump."""
+        """Re-poll the actual executor; timeout does not cancel its issued dump."""
         return self._handle.task_dump(request)
 
     def task_dump_status(self) -> TaskDumpDocumentOutput | None:
