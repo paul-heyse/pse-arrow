@@ -35,7 +35,10 @@ struct ModuleLimits {
 struct ModuleDeclaration {abi:u32,sdk:String,limits:ModuleLimits}
 impl ModuleDeclaration {
     fn read()->Result<Self,CanonicalError> {
-        let manifest:toml::Value=toml::from_str(include_str!("../../pse-study-module/surrealism.toml")).map_err(invalid)?;
+        Self::from_manifest(include_str!("../../pse-study-module/surrealism.toml"))
+    }
+    fn from_manifest(source:&str)->Result<Self,CanonicalError> {
+        let manifest:toml::Value=toml::from_str(source).map_err(invalid)?;
         let abi=manifest.get("abi").and_then(toml::Value::as_integer).and_then(|value|u32::try_from(value).ok()).ok_or_else(||invalid("declared ABI absent"))?;
         let mut capabilities=manifest.get("capabilities").and_then(toml::Value::as_table).cloned().ok_or_else(||invalid("declared capabilities absent"))?;
         for name in ["allow_scripting","allow_arbitrary_queries"] {
@@ -72,17 +75,23 @@ impl StudyModuleReceipt {
         let bytes=std::fs::read(state.join("config.json")).map_err(invalid)?;
         let receipt:Selection=serde_json::from_slice(&bytes).map_err(invalid)?;
         let receipt=receipt.study_module_qualification;
-        if receipt.inputs.get("features")!=Some(&serde_json::json!(["module-qualification"])) {
-            return Err(invalid("separate qualification feature receipt required"));
-        }
-        receipt.validate_kind(state,"pse-study-module-qualification-v1")?;
+        let (kind,declared)=if receipt.inputs.get("features")==Some(&serde_json::json!(["module-qualification"])) {
+            ("pse-study-module-qualification-v1",ModuleDeclaration::read()?)
+        } else if receipt.inputs.get("features")==Some(&serde_json::json!(["module-qualification-long-hold"])) {
+            ("pse-study-module-qualification-long-hold-v1",ModuleDeclaration::from_manifest(include_str!("../../pse-study-module/surrealism-qualification-long-hold.toml"))?)
+        } else {
+            return Err(invalid("exact separate qualification feature receipt required"));
+        };
+        receipt.validate_declared(state,kind,&declared)?;
         Ok(receipt)
     }
     fn validate(&self,state:&Path)->Result<(),CanonicalError> {
         self.validate_kind(state,"pse-study-module-v1")
     }
     fn validate_kind(&self,state:&Path,kind:&str)->Result<(),CanonicalError> {
-        let declared=ModuleDeclaration::read()?;
+        self.validate_declared(state,kind,&ModuleDeclaration::read()?)
+    }
+    fn validate_declared(&self,state:&Path,kind:&str,declared:&ModuleDeclaration)->Result<(),CanonicalError> {
         if self.kind!=kind || self.sdk_version!=declared.sdk || self.abi!=declared.abi
             || self.inputs.is_empty() || self.sha256.len()!=64
             || !self.sha256.bytes().all(|byte|byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
@@ -213,6 +222,24 @@ pub(super) mod tests {
         assert!(fixture.receipt.declarations(true).contains("DEFINE MODULE OVERWRITE mod::pse"));
         std::fs::set_permissions(&fixture.receipt.artifact,std::fs::Permissions::from_mode(0o600)).unwrap();
         assert!(fixture.receipt.validate(&fixture.state).is_err());
+    }
+    #[cfg(feature="canonical-tests")]
+    #[test]
+    fn study_module_receipt_qualification_variants_bind_exact_features_and_declared_limits() {
+        let fixture=Fixture::new();
+        for (kind,features,declared) in [
+            ("pse-study-module-qualification-v1",serde_json::json!(["module-qualification"]),ModuleDeclaration::read().unwrap()),
+            ("pse-study-module-qualification-long-hold-v1",serde_json::json!(["module-qualification-long-hold"]),ModuleDeclaration::from_manifest(include_str!("../../pse-study-module/surrealism-qualification-long-hold.toml")).unwrap()),
+        ] {
+            let mut receipt=fixture.receipt.clone();receipt.kind=kind.into();receipt.limits=declared.limits;
+            receipt.inputs.insert("features".into(),features);
+            let write=|receipt:&StudyModuleReceipt|std::fs::write(fixture.state.join("config.json"),serde_json::to_vec(&serde_json::json!({"study_module_qualification":receipt})).unwrap()).unwrap();
+            write(&receipt);StudyModuleReceipt::read_qualification(&fixture.state).unwrap();
+            let mut wrong=receipt.clone();wrong.limits.max_execution_time_ms+=1;write(&wrong);assert!(StudyModuleReceipt::read_qualification(&fixture.state).is_err());
+            let mut wrong=receipt.clone();wrong.kind="pse-study-module-v1".into();write(&wrong);assert!(StudyModuleReceipt::read_qualification(&fixture.state).is_err());
+            let mut wrong=receipt.clone();wrong.inputs.insert("features".into(),serde_json::json!(["module-qualification","module-qualification-long-hold"]));write(&wrong);assert!(StudyModuleReceipt::read_qualification(&fixture.state).is_err());
+            assert!(receipt.validate(&fixture.state).is_err(),"qualification artifact never admits as production");
+        }
     }
     #[test]
     fn study_module_receipt_rejects_symlink_hardlink_and_shared_directory() {

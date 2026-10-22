@@ -253,33 +253,45 @@ mod surrealism_qualification {
         assert_eq!(qualification.pool,4);
         assert!((8..=16).contains(&qualification.controllers));
         let runtime_count=qualification.controllers.div_ceil(qualification.pool);
-        let count=qualification.controllers+qualification.pool;
+        assert_eq!(qualification.execution_time,Duration::from_secs(6),"select the explicit long-hold qualification profile for this capacity control");
+        let churn_count=1;
+        let count=qualification.controllers+churn_count;
         let points=(0..count).map(|key|occurrence(&revision,u32::try_from(key).unwrap(),vec![])).collect::<Vec<_>>();
         store.create_study(study,&request(&revision,"qualification-global-parent"),&[],&points,&||false).await.unwrap();
         let cursor=store.readiness_cursor(study).await.unwrap().revision;
         let peers=(0..count).map(|_|peer(&store)).collect::<Vec<_>>();
-        for index in 0..runtime_count+qualification.pool {qualification.install(&store,index).await;}
+        for index in 0..runtime_count+churn_count {qualification.install(&store,index).await;}
         warm_pool(&peers[..qualification.controllers],qualification.pool).await;
         let start=Arc::new(tokio::sync::Barrier::new(qualification.controllers+1));
         let mut calls=tokio::task::JoinSet::new();
         for (ordinal,peer) in peers.iter().take(qualification.controllers).cloned().enumerate() {
             let start=start.clone();let index=ordinal/qualification.pool;
             let point=point_key(study,OccurrenceKey(u32::try_from(ordinal).unwrap()));
-            calls.spawn(async move {start.wait().await;(ordinal,bounded_query(peer.db.query(hold_query(index)).bind(("point",point))).await)});
+            calls.spawn(async move {
+                start.wait().await;
+                let result=bounded_query(peer.db.query(hold_query(index)).bind(("point",point))).await;
+                (ordinal,result,utc_micros())
+            });
         }
         start.wait().await;tokio::time::sleep(Duration::from_millis(50)).await;
         let churn_started=utc_micros();
         for (offset,peer) in peers.iter().skip(qualification.controllers).cloned().enumerate() {
             let index=runtime_count+offset;let ordinal=qualification.controllers+offset;
             let point=point_key(study,OccurrenceKey(u32::try_from(ordinal).unwrap()));
-            calls.spawn(async move {(ordinal,bounded_query(peer.db.query(hold_query(index)).bind(("point",point))).await)});
+            calls.spawn(async move {
+                let result=bounded_query(peer.db.query(hold_query(index)).bind(("point",point))).await;
+                (ordinal,result,utc_micros())
+            });
         }
-        let mut capacity_refusals=0;let mut intervals=Vec::new();let mut committed=vec![false;count];
+        let mut refusal_received=None;let mut intervals=Vec::new();let mut committed=vec![false;count];
         while let Some(result)=calls.join_next().await {
-            let (ordinal,result)=result.unwrap();
+            let (ordinal,result,received)=result.unwrap();
             match result {
                 Ok(response)=>{committed[ordinal]=true;intervals.push((ordinal,HoldInterval::decoded(response)));},
-                Err(CanonicalError::Refused{code:pse_schema::catalog::canonical_refusals::RefusalCode::SurrealismControllerCapacityExceeded,..})=>capacity_refusals+=1,
+                Err(CanonicalError::Refused{code:pse_schema::catalog::canonical_refusals::RefusalCode::SurrealismControllerCapacityExceeded,..})=>{
+                    assert_eq!(ordinal,qualification.controllers,"only the extra cold runtime may encounter the saturated process budget");
+                    assert!(refusal_received.replace(received).is_none(),"one exact extra acquisition is under qualification");
+                },
                 Err(error)=>panic!("unexpected native controller outcome for {ordinal}: {error}"),
             }
         }
@@ -287,10 +299,10 @@ mod surrealism_qualification {
         assert_canaries(&store,study,&committed,cursor).await;
         let initial=intervals.iter().filter(|(ordinal,_)|*ordinal<qualification.controllers).map(|(_,interval)|*interval).collect::<Vec<_>>();
         assert_eq!(initial.len(),qualification.controllers,"all prewarmed initial holders must acquire their actual controller");
-        assert!(initial.iter().all(|interval|interval.covers(churn_started,churn_started)),"guest intervals must certify physical controller ownership while new cache keys enter: {initial:?}");
+        let refusal_received=refusal_received.expect("no typed process-wide capacity refusal observed; saturation remains unqualified");
+        assert!(initial.iter().all(|interval|interval.end>=interval.start+4_999_000 && interval.covers(churn_started,refusal_received)),"all16 actual guest intervals must certify physical controller ownership through the entire extra acquisition and received native refusal: {initial:?}, submitted={churn_started}, received={refusal_received}");
         assert_eq!(peak_overlap(&initial),qualification.controllers,"actual guest intervals, not launch arithmetic, must establish cooperative overlap beyond the four host workers");
-        assert!(capacity_refusals>0,"no typed process-wide capacity refusal observed; saturation remains unqualified");
-        for index in 0..runtime_count+qualification.pool {qualification.memory_refused(&store,index).await;}
+        for index in 0..runtime_count+churn_count {qualification.memory_refused(&store,index).await;}
         store.remove_isolated_fixture().await.unwrap();
     }
 }
