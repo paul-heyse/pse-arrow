@@ -79,7 +79,7 @@ DEFINE FUNCTION fn::pse_history_v1::study_repair_operation($rpc_expiry:int,$key:
     IF $locator=NONE OR $locator.study!=$study OR $locator.run!=$run OR $locator.point!=NONE OR $locator.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:study_readiness_receipt_owner_differs'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_execution_operations',$key) FOR UPDATE;
     IF $old!=NONE {
-        IF $old.minimal AND NOT ($old.disposition='no-effect' AND $request=NONE) { THROW 'PSE_REFUSAL:operation_history_unavailable_minimal_settled_attribution_only'; };
+        IF $old.minimal AND NOT ($old.disposition IN ['no-effect','refused'] AND $request=NONE) { THROW 'PSE_REFUSAL:operation_history_unavailable_minimal_settled_attribution_only'; };
         IF $old.kind!='study-readiness-repair-page' OR $old.run!=$run OR $old.study!=$study OR $old.point!=NONE OR $old.attempt!=NONE OR ($request!=NONE AND $old.request!=$request) OR $old.issuing_store!=$locator.issuing_store { THROW 'PSE_REFUSAL:study_readiness_receipt_request_differs'; };
     };
     RETURN $old;

@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    228u8, 247u8, 201u8, 212u8, 179u8, 160u8, 220u8, 5u8, 68u8, 12u8, 152u8, 132u8,
-    248u8, 129u8, 98u8, 225u8, 53u8, 61u8, 228u8, 236u8, 174u8, 95u8, 93u8, 61u8, 160u8,
-    114u8, 155u8, 124u8, 174u8, 181u8, 98u8, 208u8,
+    88u8, 153u8, 57u8, 118u8, 59u8, 182u8, 82u8, 139u8, 112u8, 56u8, 118u8, 63u8, 195u8,
+    112u8, 176u8, 20u8, 26u8, 186u8, 10u8, 10u8, 61u8, 7u8, 2u8, 185u8, 14u8, 162u8,
+    191u8, 239u8, 177u8, 212u8, 160u8, 255u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalInterpretationsRow {
     fn append(
@@ -44,12 +44,16 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalInterpretationsRow {
             children[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#issuing_store,
+            &self.r#study_module_sha256,
             children[3usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#payload_incarnation,
+            &self.r#issuing_store,
             children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#payload_incarnation,
+            children[5usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -66,6 +70,7 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalInterpretationsRow {
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -88,12 +93,16 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalInterpretationsRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#issuing_store: <String as crate::columnar::ArrowValue>::read(
+            r#study_module_sha256: <String as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#payload_incarnation: <String as crate::columnar::ArrowValue>::read(
+            r#issuing_store: <String as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#payload_incarnation: <String as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
                 index,
             )?,
         })
@@ -162,12 +171,16 @@ impl crate::columnar::RelationRow for RuntimeCanonicalInterpretationsRow {
             columns[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#issuing_store,
+            &self.r#study_module_sha256,
             columns[3usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#payload_incarnation,
+            &self.r#issuing_store,
             columns[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#payload_incarnation,
+            columns[5usize].as_mut(),
         )?;
         Ok(())
     }
@@ -208,10 +221,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalInterpretationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        10_240_usize + size_of::<Self::Builder>()
+        12_288_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        80usize
+        96usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -226,6 +239,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalInterpretationsRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             crate::columnar::allocation_add(8, (self.r#schema_digest).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#study_module_sha256).len())?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -245,7 +262,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -263,13 +280,18 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "issuing_store",
+        name: "study_module_sha256",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "payload_incarnation",
+        name: "issuing_store",
         position: 4usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "payload_incarnation",
+        position: 5usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -280,10 +302,12 @@ pub mod columns {
     pub const INTERPRETATION: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///schema_digest
     pub const SCHEMA_DIGEST: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    ///study_module_sha256
+    pub const STUDY_MODULE_SHA256: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///issuing_store
-    pub const ISSUING_STORE: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    pub const ISSUING_STORE: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///payload_incarnation
-    pub const PAYLOAD_INCARNATION: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const PAYLOAD_INCARNATION: crate::columnar::ColumnReference = super::COLUMNS[5usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -294,6 +318,7 @@ pub struct RuntimeCanonicalInterpretationsView<'a> {
     key_column: &'a arrow_array::StringArray,
     interpretation_column: &'a arrow_array::StringArray,
     schema_digest_column: &'a arrow_array::StringArray,
+    study_module_sha256_column: &'a arrow_array::StringArray,
     issuing_store_column: &'a arrow_array::StringArray,
     payload_incarnation_column: &'a arrow_array::StringArray,
 }
@@ -349,12 +374,15 @@ impl<'a> RuntimeCanonicalInterpretationsView<'a> {
             schema_digest_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(2usize).as_ref())?,
-            issuing_store_column: crate::columnar::array::<
+            study_module_sha256_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(3usize).as_ref())?,
-            payload_incarnation_column: crate::columnar::array::<
+            issuing_store_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(4usize).as_ref())?,
+            payload_incarnation_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(5usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -407,6 +435,22 @@ impl<'a> RuntimeCanonicalInterpretationsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "study_module_sha256",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn study_module_sha256_column(&self) -> &'a arrow_array::StringArray {
+        self.study_module_sha256_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "study_module_sha256",
+        "`.",
+    )]
+    pub fn study_module_sha256_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[3usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "issuing_store",
         "`, including its offsets and validity bitmap.",
     )]
@@ -415,7 +459,7 @@ impl<'a> RuntimeCanonicalInterpretationsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "issuing_store", "`.")]
     pub fn issuing_store_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
+        &self.batch.schema_ref().fields()[4usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -431,7 +475,7 @@ impl<'a> RuntimeCanonicalInterpretationsView<'a> {
         "`.",
     )]
     pub fn payload_incarnation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[5usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -452,6 +496,10 @@ impl<'a> RuntimeCanonicalInterpretationsView<'a> {
             )?,
             r#schema_digest: crate::columnar::ArrowValue::read(
                 self.schema_digest_column,
+                index,
+            )?,
+            r#study_module_sha256: crate::columnar::ArrowValue::read(
+                self.study_module_sha256_column,
                 index,
             )?,
             r#issuing_store: crate::columnar::ArrowValue::read(

@@ -15,7 +15,7 @@ pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
 pub const INTERPRETATION: &str = "pse.substrate.v8";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "52cc3a346959f9bca37da9b60996434ecbed5535002083e3f3935ff2f851463d";
+pub const SCHEMA_DIGEST: &str = "c695efdb1eb61e3580cb6e63d8df0c932873615507e7fd79c4747bfae809e4f6";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.
@@ -1945,6 +1945,11 @@ pub fn encode_canonical_interpretations(
         );
     object
         .insert(
+            "study_module_sha256",
+            crate::canonical_codec::encode_string(row.r#study_module_sha256.clone())?,
+        );
+    object
+        .insert(
             "issuing_store",
             crate::canonical_codec::encode_string(row.r#issuing_store.clone())?,
         );
@@ -1972,6 +1977,9 @@ pub fn decode_canonical_interpretations(
         )?,
         r#schema_digest: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "schema_digest")?,
+        )?,
+        r#study_module_sha256: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "study_module_sha256")?,
         )?,
         r#issuing_store: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "issuing_store")?,
@@ -2020,6 +2028,11 @@ pub fn encode_canonical_maintenance_activations(
         );
     object
         .insert(
+            "study_module_sha256",
+            crate::canonical_codec::encode_string(row.r#study_module_sha256.clone())?,
+        );
+    object
+        .insert(
             "issuing_store",
             crate::canonical_codec::encode_string(row.r#issuing_store.clone())?,
         );
@@ -2048,6 +2061,9 @@ pub fn decode_canonical_maintenance_activations(
         )?,
         r#schema_digest: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "schema_digest")?,
+        )?,
+        r#study_module_sha256: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "study_module_sha256")?,
         )?,
         r#issuing_store: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "issuing_store")?,

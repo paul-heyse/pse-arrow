@@ -26,6 +26,8 @@ use surrealdb::{
     opt::{Config, GrpcConfig},
     types::{Object, Value},
 };
+#[path = "canonical_study_module.rs"]
+pub(crate) mod study_module;
 #[path = "canonical_metadata.rs"]
 mod metadata;
 pub use metadata::MetadataResponse;
@@ -656,6 +658,7 @@ impl CanonicalOptions {
                 "unsupported protocol bound".into(),
             ));
         }
+        study_module::StudyModuleReceipt::read(state)?;
         let credentials: Credentials =
             serde_json::from_slice(&read(Path::new(&deployment.credentials_file))?)
                 .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
@@ -1416,9 +1419,12 @@ impl CanonicalStore {
         self.ensure_writes()?;
         // Installing the complete schema is an atomic structural transition.
         // Its client deadline must match that role, rather than an ordinary read.
+        let module=study_module::StudyModuleReceipt::read(&self.state_path)?;
         let query = self
             .activation_db
-            .query(initialization_statement())
+            .query(initialization_statement(&module))
+            .bind(("study_module_backend",module.backend()?))
+            .bind(("study_module_sha256",module.sha256.clone()))
             .bind(("interpretation", wire::INTERPRETATION))
             .bind(("schema_digest", wire::SCHEMA_DIGEST))
             .bind(("payload_incarnation", self.files.incarnation.clone()));
@@ -1463,6 +1469,11 @@ impl CanonicalStore {
                     observed: marker.interpretation,
                 });
             }
+            let module=study_module::StudyModuleReceipt::read(&self.state_path)?;
+            if marker.study_module_sha256!=module.sha256 {
+                return Err(CanonicalError::Configuration("installed study module identity differs; explicit coordinated activation is required".into()));
+            }
+            self.validate_study_module(&module).await?;
             if marker.schema_digest != wire::SCHEMA_DIGEST {
                 return Err(CanonicalError::Interpretation {
                     expected: wire::SCHEMA_DIGEST,
@@ -2246,10 +2257,10 @@ impl CanonicalStore {
     }
 }
 
-fn initialization_statement() -> String {
+fn initialization_statement(module:&study_module::StudyModuleReceipt) -> String {
     format!(
-        "BEGIN;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'PSE_REFUSAL:original_schema_installation_deadline_expired'; }};\n{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, issuing_store = <string>rand::uuid::v4(), payload_incarnation = $payload_incarnation;\nCREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'PSE_REFUSAL:original_schema_installation_deadline_expired'; }};\nCOMMIT;",
-        wire::SCHEMA
+        "BEGIN;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'PSE_REFUSAL:original_schema_installation_deadline_expired'; }};\n{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, study_module_sha256 = $study_module_sha256, issuing_store = <string>rand::uuid::v4(), payload_incarnation = $payload_incarnation;\nCREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'PSE_REFUSAL:original_schema_installation_deadline_expired'; }};\nCOMMIT;",
+        format!("{}{}",module.declarations(false),wire::SCHEMA)
     )
 }
 
@@ -4937,7 +4948,8 @@ mod canonical_server_unit {
         let selected = connect_client(address, &options, REQUEST_TIMEOUT, true)
             .await
             .unwrap();
-        let delayed = initialization_statement().replacen("BEGIN;", "BEGIN; SLEEP 1s;", 1);
+        let module=study_module::StudyModuleReceipt::read(&store.state_path).unwrap();
+        let delayed = initialization_statement(&module).replacen("BEGIN;", "BEGIN; SLEEP 1s;", 1);
         let attempts = std::sync::atomic::AtomicUsize::new(0);
         let response = store
             .initialize_with(|| {
@@ -4950,6 +4962,8 @@ mod canonical_server_unit {
                         request(
                             selected
                                 .query(delayed.clone())
+                                .bind(("study_module_backend",module.backend().unwrap()))
+                                .bind(("study_module_sha256",module.sha256.clone()))
                                 .bind(("interpretation", wire::INTERPRETATION))
                                 .bind(("schema_digest", wire::SCHEMA_DIGEST)),
                         )

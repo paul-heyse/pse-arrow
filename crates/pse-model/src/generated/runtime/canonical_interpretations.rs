@@ -15,6 +15,8 @@ pub struct RuntimeCanonicalInterpretationsRow {
     pub r#interpretation: String,
     ///schema_digest
     pub r#schema_digest: String,
+    ///study_module_sha256
+    pub r#study_module_sha256: String,
     ///issuing_store
     pub r#issuing_store: String,
     ///payload_incarnation
@@ -30,6 +32,10 @@ impl crate::SemanticEq for RuntimeCanonicalInterpretationsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#schema_digest,
                 &other.r#schema_digest,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#study_module_sha256,
+                &other.r#study_module_sha256,
             )
             && crate::SemanticEq::semantic_eq(
                 &self.r#issuing_store,
@@ -56,6 +62,8 @@ impl crate::SemanticFrame for RuntimeCanonicalInterpretationsRow {
         crate::SemanticFrame::frame(&self.r#interpretation, hash);
         hash.str(stringify!(r#schema_digest));
         crate::SemanticFrame::frame(&self.r#schema_digest, hash);
+        hash.str(stringify!(r#study_module_sha256));
+        crate::SemanticFrame::frame(&self.r#study_module_sha256, hash);
         hash.str(stringify!(r#issuing_store));
         crate::SemanticFrame::frame(&self.r#issuing_store, hash);
         hash.str(stringify!(r#payload_incarnation));
@@ -68,6 +76,7 @@ impl crate::HeapUsage for RuntimeCanonicalInterpretationsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#key))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#interpretation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#schema_digest))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#study_module_sha256))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#issuing_store))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#payload_incarnation))
     }

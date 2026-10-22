@@ -23,6 +23,8 @@ pub struct Marker {
     pub interpretation: String,
     /// Original repository schema plus codec digest.
     pub schema_digest: String,
+    /// Exact deployed pure-policy artifact.
+    pub study_module_sha256: String,
     /// Issuing authority retained only by compatible forward activation.
     pub issuing_store: String,
 }
@@ -38,6 +40,8 @@ pub struct DefinitionWitness {
     pub interpretation: String,
     /// Current generated declaration plus codec digest.
     pub schema_digest: String,
+    /// Exact deployed pure-policy artifact.
+    pub study_module_sha256: String,
     /// Exact selected namespace.
     pub namespace: String,
     /// Exact selected database.
@@ -186,7 +190,7 @@ fn compare(expected: &Definitions, observed: &Definitions) -> Result<(), Canonic
 }
 
 impl CanonicalStore {
-    fn maintenance_config(&self) -> Result<serde_json::Value, CanonicalError> {
+    pub(crate) fn maintenance_config(&self) -> Result<serde_json::Value, CanonicalError> {
         let admission = WriteAdmission::read(&self.state_path)?;
         admission.require_initializer(
             &self.state_path,
@@ -251,6 +255,7 @@ impl CanonicalStore {
                 Ok(Some(Marker {
                     interpretation: marker.interpretation,
                     schema_digest: marker.schema_digest,
+                    study_module_sha256: marker.study_module_sha256,
                     issuing_store: marker.issuing_store,
                 }))
             }
@@ -298,6 +303,8 @@ impl CanonicalStore {
             .scope(async {
                 within_clock(original_deadline(ACTIVATION_REQUEST_TIMEOUT), async {
                     let config = self.maintenance_config()?;
+                    let module = crate::canonical::study_module::StudyModuleReceipt::read(&self.state_path)?;
+                    self.validate_study_module(&module).await?;
                     let mut expected = BTreeMap::new();
                     for input in inputs {
                         expected.extend(parse_definitions(input)?);
@@ -356,6 +363,7 @@ impl CanonicalStore {
                             .collect(),
                         interpretation: wire::INTERPRETATION.into(),
                         schema_digest: wire::SCHEMA_DIGEST.into(),
+                        study_module_sha256: module.sha256,
                         namespace: self.namespace.clone(),
                         database: self.database.clone(),
                         instance_id: config
@@ -405,7 +413,7 @@ impl CanonicalStore {
                 if evidence.get("outcome").and_then(serde_json::Value::as_str) != Some("settled") || evidence.get("nonce").and_then(serde_json::Value::as_str) != Some(nonce) || evidence.get("input_sha256") != pending.get("input_sha256") { return Err(invalid("actual operation settlement required")); }
                 let recorded: DefinitionWitness = serde_json::from_value(evidence.get("canonical").cloned().ok_or_else(|| invalid("canonical definition witness absent"))?).map_err(|error| invalid(error.to_string()))?;
                 let witness = self.validate_definitions().await?;
-                if recorded.scope != "generated-target" || recorded.definition_inputs != witness.definition_inputs || recorded.interpretation != witness.interpretation || recorded.schema_digest != witness.schema_digest || recorded.namespace != witness.namespace || recorded.database != witness.database || recorded.instance_id != witness.instance_id || recorded.catalog_definition_count != witness.catalog_definition_count { return Err(invalid("settled target differs from actual installed target")); }
+                if recorded.scope != "generated-target" || recorded.definition_inputs != witness.definition_inputs || recorded.interpretation != witness.interpretation || recorded.schema_digest != witness.schema_digest || recorded.study_module_sha256 != witness.study_module_sha256 || recorded.namespace != witness.namespace || recorded.database != witness.database || recorded.instance_id != witness.instance_id || recorded.catalog_definition_count != witness.catalog_definition_count { return Err(invalid("settled target differs from actual installed target")); }
                 let predecessor: Option<Marker> = serde_json::from_value(pending.get("previous_marker").cloned().ok_or_else(|| invalid("original predecessor absent"))?).map_err(|error| invalid(error.to_string()))?;
                 let predecessor_bytes = serde_json::to_vec(&predecessor).map_err(|error| invalid(error.to_string()))?;
                 let input_sha256 = pending.get("input_sha256").and_then(serde_json::Value::as_str).ok_or_else(|| invalid("pending input identity absent"))?;
@@ -419,8 +427,9 @@ impl CanonicalStore {
                         || crate::canonical_codec::decode_bytes(field(&mut receipt,"predecessor")?)?.as_slice() != predecessor_bytes.as_slice()
                         || crate::canonical_codec::decode_string(field(&mut receipt,"interpretation")?)? != wire::INTERPRETATION
                         || crate::canonical_codec::decode_string(field(&mut receipt,"schema_digest")?)? != wire::SCHEMA_DIGEST
+                        || crate::canonical_codec::decode_string(field(&mut receipt,"study_module_sha256")?)? != witness.study_module_sha256
                         || !receipt.is_empty()
-                        || witness.previous_marker != Some(Marker { interpretation: wire::INTERPRETATION.into(), schema_digest: wire::SCHEMA_DIGEST.into(), issuing_store: issuing }) {
+                        || witness.previous_marker != Some(Marker { interpretation: wire::INTERPRETATION.into(), schema_digest: wire::SCHEMA_DIGEST.into(), study_module_sha256: witness.study_module_sha256.clone(), issuing_store: issuing }) {
                         return Err(invalid("immutable activation receipt differs"));
                     }
                     self.maintenance_config()?;
@@ -441,9 +450,9 @@ impl CanonicalStore {
                 }
                 if self.maintenance_config()? != config { return Err(CanonicalError::Quiesced); }
                 let issuing = predecessor.as_ref().map(|marker| marker.issuing_store.clone()).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-                let query = "BEGIN; RETURN fn::pse_maintenance_v1::activate($pse_rpc_expires_at,$predecessor,$interpretation,$schema_digest,$issuing,$payload_incarnation,$nonce,$input_sha256,$predecessor_bytes); COMMIT;";
-                let predecessor_value = match predecessor { Some(marker) => { let mut value=Object::new(); value.insert("interpretation", marker.interpretation); value.insert("schema_digest", marker.schema_digest); value.insert("issuing_store", marker.issuing_store); Value::Object(value) }, None => Value::None };
-                let response = bounded_query(self.activation_db.query(query).bind(("predecessor",predecessor_value)).bind(("interpretation",wire::INTERPRETATION)).bind(("schema_digest",wire::SCHEMA_DIGEST)).bind(("issuing",issuing)).bind(("payload_incarnation",self.files.incarnation.clone())).bind(("nonce",nonce.to_owned())).bind(("input_sha256",input_sha256.to_owned())).bind(("predecessor_bytes",surrealdb::types::Bytes::from(predecessor_bytes)))).await?;
+                let query = "BEGIN; RETURN fn::pse_maintenance_v1::activate($pse_rpc_expires_at,$predecessor,$interpretation,$schema_digest,$study_module_sha256,$issuing,$payload_incarnation,$nonce,$input_sha256,$predecessor_bytes); COMMIT;";
+                let predecessor_value = match predecessor { Some(marker) => { let mut value=Object::new(); value.insert("interpretation", marker.interpretation); value.insert("schema_digest", marker.schema_digest); value.insert("study_module_sha256", marker.study_module_sha256); value.insert("issuing_store", marker.issuing_store); Value::Object(value) }, None => Value::None };
+                let response = bounded_query(self.activation_db.query(query).bind(("predecessor",predecessor_value)).bind(("interpretation",wire::INTERPRETATION)).bind(("schema_digest",wire::SCHEMA_DIGEST)).bind(("study_module_sha256",witness.study_module_sha256.clone())).bind(("issuing",issuing)).bind(("payload_incarnation",self.files.incarnation.clone())).bind(("nonce",nonce.to_owned())).bind(("input_sha256",input_sha256.to_owned())).bind(("predecessor_bytes",surrealdb::types::Bytes::from(predecessor_bytes)))).await?;
                 super::complete_response(response)?;
                 self.maintenance_config()?;
                 self.open().await?;
