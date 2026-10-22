@@ -272,7 +272,11 @@ mod tests {
                 out[0] = 0.5 * x[0] + 0.5;
                 Ok(())
             }
-            fn original_residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            fn original_residual(
+                &mut self,
+                x: &[f64],
+                out: &mut [f64],
+            ) -> Result<(), ProblemError> {
                 out[0] = x[0] - 1.;
                 Ok(())
             }
@@ -307,7 +311,10 @@ mod tests {
             source.c.derivatives = pse_kernels::DerivativeOrder::Value;
             let report = map(MapInput {
                 problem: super::super::Problem::FixedPoint {
-                    oracle: Box::new(AffineMap { source, calls: calls.clone() }),
+                    oracle: Box::new(AffineMap {
+                        source,
+                        calls: calls.clone(),
+                    }),
                     initial: &[0.],
                     settings: &settings,
                     restarts: Some(&schedule),
@@ -324,19 +331,31 @@ mod tests {
             });
             if hidden_start {
                 assert!(matches!(report, Err(ProblemError::Unsupported(_))));
-                assert!(calls.lock().unwrap().is_empty(), "no native evaluation before start admission");
+                assert!(
+                    calls.lock().unwrap().is_empty(),
+                    "no native evaluation before start admission"
+                );
                 continue;
             }
             let report = report.unwrap();
-            assert_eq!(report.metrics["recycle.native_attempts"], crate::solve::Metric::Integer(2));
+            assert_eq!(
+                report.metrics["recycle.native_attempts"],
+                crate::solve::Metric::Integer(2)
+            );
             assert!(report.evidence.work.iterations.unwrap() <= 2);
             assert!(report.quality.as_ref().unwrap().feasible());
             assert_eq!(report.candidate.unwrap().primal, vec![1.]);
             assert!(report.warm_start.is_none());
             let calls = calls.lock().unwrap();
             assert_eq!(calls[0], 0.);
-            assert!(calls.contains(&1.), "the explicitly authorized restart was consumed");
-            assert!(!calls.contains(&42.), "accepted restart must not consume a successor start");
+            assert!(
+                calls.contains(&1.),
+                "the explicitly authorized restart was consumed"
+            );
+            assert!(
+                !calls.contains(&42.),
+                "accepted restart must not consume a successor start"
+            );
         }
     }
     #[test]

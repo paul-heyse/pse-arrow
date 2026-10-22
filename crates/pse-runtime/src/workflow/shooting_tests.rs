@@ -619,13 +619,28 @@ async fn host_shooting_study_projection_refuses_without_native_or_durable_effect
         problem: problem.clone(),
         initial: None,
     };
-    for error in [host.into_study().unwrap_err(), prepared.into_study().unwrap_err()] {
+    for error in [
+        host.into_study().unwrap_err(),
+        prepared.into_study().unwrap_err(),
+    ] {
         let diagnostic = error.boundary_diagnostic();
-        assert_eq!(diagnostic.class, pse_model::diagnostic::BoundaryClass::Unsupported);
-        assert_eq!(diagnostic.rule, pse_diagnostics::DiagnosticRule::StudyOperationUnsupported);
+        assert_eq!(
+            diagnostic.class,
+            pse_model::diagnostic::BoundaryClass::Unsupported
+        );
+        assert_eq!(
+            diagnostic.rule,
+            pse_diagnostics::DiagnosticRule::StudyOperationUnsupported
+        );
     }
-    assert_eq!(problem.runtime.shared.math().test_admission_snapshot(), baseline);
-    assert!(matches!(problem.runtime.durability(), Durability::Ephemeral));
+    assert_eq!(
+        problem.runtime.shared.math().test_admission_snapshot(),
+        baseline
+    );
+    assert!(matches!(
+        problem.runtime.durability(),
+        Durability::Ephemeral
+    ));
 }
 
 #[tokio::test]

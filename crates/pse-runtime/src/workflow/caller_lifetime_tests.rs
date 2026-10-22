@@ -397,15 +397,19 @@ async fn prepared_simulation_original_deadline_retains_native_drain_without_canc
         .await
         .unwrap()
         .unwrap();
-    assert!(matches!(
-        result.error().map(AsRef::as_ref),
-        Some(WorkflowError::Math(MathRuntimeError::Solve(
-            pse_backend_native::ProblemError::Limit {
-                kind: pse_backend_native::LimitKind::Time,
-                ..
-            }
-        )))
-    ), "original deadline must retain its typed time limit: {:?}", result.report());
+    assert!(
+        matches!(
+            result.error().map(AsRef::as_ref),
+            Some(WorkflowError::Math(MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Time,
+                    ..
+                }
+            )))
+        ),
+        "original deadline must retain its typed time limit: {:?}",
+        result.report()
+    );
     assert!(!result.usable());
     let drained = runtime.shared.math().test_admission_snapshot();
     assert_eq!((drained.1, drained.2), (baseline.1, baseline.2));

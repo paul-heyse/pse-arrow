@@ -609,7 +609,7 @@ check-solver-contracts:
 
 [group('local')]
 [doc('Static lint of the linked native workspace, conformance and benchmark consumers')]
-[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 lint-solver-contracts:
     "{{ py }}" -m scripts.arrow_validation clippy --keep-going --no-deps --workspace --all-targets --locked --features pse-py/native-solvers,pse-tests-conformance/native-acceptance,pse-benches/native-process -- -D warnings
 

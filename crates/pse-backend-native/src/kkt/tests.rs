@@ -213,17 +213,33 @@ fn retained_kkt_envelope_refuses_after_successful_numeric_factorization() {
         &observation,
         &normalization,
         &tolerances(1, rows.len()),
-        Budget { bytes: allowance, ..budget(1000) },
+        Budget {
+            bytes: allowance,
+            ..budget(1000)
+        },
     );
-    assert!(matches!(&result, Err(Unavailable::Failed(cause)) if matches!(cause.as_ref(),
+    assert!(
+        matches!(&result, Err(Unavailable::Failed(cause)) if matches!(cause.as_ref(),
         ProblemError::Limit { kind: crate::LimitKind::Memory, detail }
-            if detail == "KKT factor exceeds admitted storage allowance")), "{result:?}");
-    let snapshot = operation.reader().snapshot(std::time::Duration::from_secs(60));
-    assert_eq!(snapshot.children.len(), 1);
-    let factor = hub.reader(snapshot.children[0].id).unwrap()
+            if detail == "KKT factor exceeds admitted storage allowance")),
+        "{result:?}"
+    );
+    let snapshot = operation
+        .reader()
         .snapshot(std::time::Duration::from_secs(60));
-    assert!(factor.metrics.iter().any(|metric| metric.name == "factor.valid"
-        && matches!(metric.latest, Value::Boolean(true))), "numeric factorization completed before retained-envelope refusal");
+    assert_eq!(snapshot.children.len(), 1);
+    let factor = hub
+        .reader(snapshot.children[0].id)
+        .unwrap()
+        .snapshot(std::time::Duration::from_secs(60));
+    assert!(
+        factor
+            .metrics
+            .iter()
+            .any(|metric| metric.name == "factor.valid"
+                && matches!(metric.latest, Value::Boolean(true))),
+        "numeric factorization completed before retained-envelope refusal"
+    );
 }
 
 /// The analysis of `½ xᵀ diag(q) x` over two variables and the inactive row `x₀ + x₁`, at

@@ -948,7 +948,8 @@ mod native {
                         .unwrap();
                     let stdout = String::from_utf8_lossy(&output.stdout);
                     assert!(
-                        output.status.success() && stdout.contains("test result: ok. 1 passed; 0 failed;"),
+                        output.status.success()
+                            && stdout.contains("test result: ok. 1 passed; 0 failed;"),
                         "{mode} pool control did not execute exactly one passing test:\n{stdout}\n{}",
                         String::from_utf8_lossy(&output.stderr)
                     );
