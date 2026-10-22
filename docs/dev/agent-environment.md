@@ -131,6 +131,11 @@ lane's existing `store_gib` in `.config/agent-capacity.toml`. Each admitted stor
 its complete finite charge. An unknown prior owner still occupies its slot; admitting
 another deployment never settles or frees the first deployment's effects.
 
+Compile-heavy aggregate recipes (`clippy`, `hygiene`, `quality`, `governance` and
+`features-powerset`) select the compile default at their entry. Their nested commands
+retain that admitted owner, so an ordinary functional parent does not restrict a later
+compiler leaf. Explicit caller resource selections retain precedence.
+
 Run separate Clippy feature graphs sequentially: concurrent default/native Clippy runs
 have formed a read/write artifact-lock upgrade cycle on the pinned Cargo implementation.
 Independent ordinary builds and functional work may still overlap. Native provider

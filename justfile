@@ -475,6 +475,7 @@ functional-test-target pkg target filter *args:
 
 [group('local')]
 [doc('clippy with -D warnings, workspace, all targets (default and --no-default-features)')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 clippy:
     python3 -m scripts.validation --group clippy
 
@@ -646,6 +647,7 @@ family-check:
 
 [group('local')]
 [doc('Governance tests + codegen-check + family-check')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 governance:
     python3 -m scripts.validation --group governance
 
@@ -790,6 +792,7 @@ ready *args:
 [group('manual')]
 [doc('Scope end: every non-functional check; keeps going and lists failures; fix them and re-run one with just <id>')]
 [positional-arguments]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 hygiene *args:
     python3 -m scripts.validation --group hygiene "$@"
 
@@ -800,6 +803,7 @@ lint-agents:
 
 [group('local')]
 [doc('Python and repository quality gate')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 quality:
     python3 -m scripts.validation --group quality
 
@@ -888,6 +892,7 @@ ci-pr:
 
 [group('manual')]
 [doc('cargo hack feature powerset (depth 2) and --no-default-features')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 features-powerset:
     python3 -m scripts.validation --group features-powerset
 
