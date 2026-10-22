@@ -800,6 +800,31 @@ passed, zero failures. The initial columnar test compilation refused an ambiguou
 schema fixture, repaired before its passing retry. Actual protected-provider pruning,
 locator retirement and assembled result qualification remain open.
 
+The current integration checkpoint carries an explicit standalone wire selection for all
+143 exported owners, including the source-reclamation page. Native versioned domain roots
+keep their own encoding; the other roots use actual flat or scalar versioned wire owners.
+Nested domain values keep their original meanings. Native header admission and Python
+original-slice traversal share serde version checks. Full publication, generated consumer
+migration and native/Python acceptance of this cutover remain open; the earlier five wire
+foundation controls do not qualify all exported roots.
+
+RUN09 now records fixed independent library-relative cost, step and cosine criteria,
+effective work caps, FitProfileV6 and ReplayDocument3. Production comparison, limits,
+replay and covariance controls remain pending for that source checkpoint. Proposed
+ADR-0215 and blueprint242 reconcile the target's physical study request8/stored
+definition12 and standalone wire versions without asserting assembled acceptance.
+
+TOOL04 now has one canonical source cursor and shared physical source deletion, one
+bounded foreground page plus explicit continuation, and public Rust/Python continuation
+without caller cursor authority. Cleanup follows the completed mutation timeout owner
+under the same original deadline; a deferred page cannot replace its immutable receipt.
+Protected-first-page progress, peer reopening, replay and deadline controls are authored.
+The first canonical acceptance build exposed stale tooling imports and a native scalar
+test decode; their source repairs precede the pending test retry. Result locator deletion
+still waits for the replacement provider's actual protected pruning controls. PRE04's
+direct production rewrite and its compiler/portable consumers remain the larger open
+functional dependency; producer-only checks do not close it.
+
 ### Bounded native inquiry dispositions
 
 I14 adopts the one-thread Pounce caller path and retains its admitted local pool for

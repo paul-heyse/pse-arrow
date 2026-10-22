@@ -8,7 +8,8 @@ selected target and implementation packages. SurrealMX 1.0 integration is explic
 selected; all rule decisions are recorded at the coordinator. The maintainer authorized full Plan49a execution with fresh generated data on 2026-10-21;
 STO01–STO08 are complete with a fresh active MX1.0/gRPC store and selected assembled
 qualification. The [store Outcome](49-library-native-remediation.md#outcome--plan49a-canonical-store)
-owns exact results and limits; other companions remain proposed. The coordinator owns progress.
+owns exact results and limits. The maintainer also authorized full 49b–49h execution;
+the coordinator owns remaining package progress and acceptance.
 
 Plans own the execution status of work that is actually active; packets may own their own
 progress. The current architecture and its supported scope live in the
