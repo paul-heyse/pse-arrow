@@ -840,6 +840,24 @@ fn path_for(request: &CaptureRequest, id: OperationId) -> Option<PathBuf> {
         id.process_instance[0], id.process_instance[1]
     )))
 }
+fn checkpoint_partial(image: &ProcessCheckpoint, selected: &[OperationId]) -> bool {
+    super::source_partial(image, selected)
+        || image.operations.iter().any(|operation| {
+            selected.contains(&operation.id)
+                && (operation.interval_partial
+                    || operation.detail_partial
+                    || operation.coverage.sampled
+                    || operation.coverage.dropped_detail > 0
+                    || operation.producers.iter().any(|producer| {
+                        producer.coverage.partial
+                            || producer.coverage.refused > 0
+                            || producer.coverage.history_dropped > 0
+                    })
+                    || operation.metrics.iter().any(|metric| {
+                        metric.history_partial || metric.history_dropped > 0
+                    }))
+        })
+}
 pub(super) fn run(
     request: &CaptureRequest,
     initial: ProcessCheckpoint,
@@ -847,6 +865,9 @@ pub(super) fn run(
     state: &Shared,
     receiver: ReceiverState,
 ) -> Result<(), CaptureError> {
+    // The initial checkpoint is already known, independently of whether the first
+    // bounded output packet can be written.
+    document(state).loss.source_partial |= checkpoint_partial(&initial, &[request.operation]);
     let path = request.output.join("timeline.pftrace");
     let file = std::fs::OpenOptions::new()
         .write(true)
@@ -912,22 +933,7 @@ pub(super) fn run(
                     }
                     // Preserve every known source gap before fallible packet output can stop
                     // projection. Source loss and writer/output loss are independent facts.
-                    document(state).loss.source_partial |= super::source_partial(&image, &selected)
-                        || image.operations.iter().any(|operation| {
-                            selected.contains(&operation.id)
-                                && (operation.interval_partial
-                                    || operation.detail_partial
-                                    || operation.coverage.sampled
-                                    || operation.coverage.dropped_detail > 0
-                                    || operation.producers.iter().any(|producer| {
-                                        producer.coverage.partial
-                                            || producer.coverage.refused > 0
-                                            || producer.coverage.history_dropped > 0
-                                    })
-                                    || operation.metrics.iter().any(|metric| {
-                                        metric.history_partial || metric.history_dropped > 0
-                                    }))
-                        });
+                    document(state).loss.source_partial |= checkpoint_partial(&image, &selected);
                     for operation in &image.operations {
                         if !selected.contains(&operation.id) {
                             continue;

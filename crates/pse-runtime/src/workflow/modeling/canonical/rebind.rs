@@ -269,6 +269,7 @@ mod tests {
         let future = actual.for_scope(
             pse_relations::validate::AdmissionScope::from_execution_props(&future_properties),
         );
+        let physical = crate::workflow::tests::physical();
         let make_physical = |timestamp| {
             let raw = RecordBatch::try_new(
                 pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap(),
@@ -283,7 +284,7 @@ mod tests {
                 &crate::CancelSource::new().token(),
             )
             .unwrap();
-            let mut physical = crate::workflow::tests::physical();
+            let mut physical = physical.clone();
             physical.sources.insert(spec.key, checked);
             physical
         };

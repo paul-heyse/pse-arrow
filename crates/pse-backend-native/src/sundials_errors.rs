@@ -169,16 +169,14 @@ mod tests {
         // SAFETY: the out pointer is valid and the serial communicator is null.
         assert_eq!(unsafe { ffi::SUNContext_Create(0, &mut context) }, 0);
         // SAFETY: context is live and previous_calls outlives the handler stack.
-        assert_eq!(
-            unsafe {
-                ffi::SUNContext_PushErrHandler(
-                    context,
-                    Some(previous),
-                    std::ptr::from_ref(&previous_calls).cast_mut().cast(),
-                )
-            },
-            0
-        );
+        let pushed = unsafe {
+            ffi::SUNContext_PushErrHandler(
+                context,
+                Some(previous),
+                std::ptr::from_ref(&previous_calls).cast_mut().cast(),
+            )
+        };
+        assert_eq!(pushed, 0);
         // SAFETY: this test exclusively owns the live context.
         unsafe { install(context) }.unwrap();
         // SAFETY: context remains live until after this KINSOL object is freed.

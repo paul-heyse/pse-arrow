@@ -4639,7 +4639,7 @@ mod tests {
             .await
             .unwrap();
         let prepared = package
-            .prepare_solve(
+            .resolve_case(
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings {
@@ -4652,6 +4652,8 @@ mod tests {
                 fixture::compiler_profile(),
                 fixture::profile(),
                 NumericalInputs::default(),
+                CaseOverrides::default(),
+                false,
                 &crate::CancelSource::new(),
             )
             .await
@@ -4666,8 +4668,7 @@ mod tests {
             .unwrap()
             .id;
         let row = prepared
-            .solve
-            .numerics()
+            .numerics
             .targets
             .iter()
             .find(|target| target.kind == NumericalTarget::Row && target.id == balance)
@@ -4677,8 +4678,7 @@ mod tests {
         assert_eq!(prepared.model.values.scalars[&x], 2.);
         assert_eq!(
             prepared
-                .solve
-                .numerics()
+                .numerics
                 .targets
                 .iter()
                 .find(|target| target.id == x && target.kind == NumericalTarget::Variable)

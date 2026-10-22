@@ -1137,6 +1137,7 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
     }
 }
 
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn related_case_study_uses_secant_then_original_correction() {
     let runtime = tests::runtime_with_workspace(64 << 20);

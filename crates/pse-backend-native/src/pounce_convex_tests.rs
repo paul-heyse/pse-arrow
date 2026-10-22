@@ -239,6 +239,7 @@ fn pounce_convex_batch_matches_single_solves() {
 }
 
 #[test]
+#[cfg(feature = "pounce")]
 fn pounce_convex_changed_qps_stay_cold_and_required_reuse_refuses() {
     let snapshot = execution::Snapshot::observe(&execution::LINKED);
     let settings = pounce_convex();

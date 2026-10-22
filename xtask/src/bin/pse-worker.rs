@@ -405,8 +405,10 @@ async fn runtime(
     let policy = LeasePolicy::new(
         Duration::from_secs(cli.lease_seconds),
         Duration::from_millis(cli.heartbeat_ms),
-        defaults.batch(), defaults.flush(),
-    ).map_err(|error| error.to_string())?;
+        defaults.batch(),
+        defaults.flush(),
+    )
+    .map_err(|error| error.to_string())?;
     let worker = cli
         .name
         .clone()

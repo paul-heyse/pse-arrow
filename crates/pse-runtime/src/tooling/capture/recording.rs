@@ -528,7 +528,7 @@ mod tests {
         let child = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "capture::recording::tests::short_cooperating_child",
+                "tooling::capture::recording::tests::short_cooperating_child",
                 "--nocapture",
             ])
             .env("PSE_TEST_SOURCE_COOPERATOR", "1")
