@@ -273,6 +273,30 @@ MINPACK's scale-free cosine test, not the repository's scaled absolute gradient.
 require no newly unqualified fits or withheld covariance. If that condition fails, retain the
 existing behavior with an explicit coordinator disposition rather than inventing a false mapping.
 
+**Selected during execution, 2026-10-21:** I18 selects the pinned non-minpack library's
+three independent default criteria explicitly: `ftol=xtol=gtol=30*f64::EPSILON`.
+This is a library-relative cost/step/cosine policy, not a conversion from physical
+stationarity. Preserve the original-space qualification and covariance gates. The
+implementation must record the actual policy, effective work caps and exact profile/
+replay identity, and remove the production `with_tol(stationarity)` mapping. Actual
+baseline comparisons, a deliberate cosine/stationarity disagreement, low-cap and
+cancellation controls remain required before RUN09 closes. This may change bounded
+work; no speed benefit or new public tuning surface is selected.
+
+**Interface-checked, I22:** no additional non-parameter overlay, wider history reuse or
+deeper structural companion is selected. Current typed point replacement has no declared
+meaning for replacing IC constraints, schedule topology or observation provenance.
+Authored parameters, schedules and immutable source revisions retain their actual roles.
+Existing IDAS restart and bounded neutral-storage paths already consume `IDAReInit` and
+`IDASensReInit`; fresh construction remains required outside their exact admitted key.
+The [SUNDIALS reset contract](https://github.com/llnl/sundials/blob/main/doc/idas/guide/source/Usage/SIM.rst)
+retains options while resetting solution history; sensitivity count and adjoint history
+have additional requirements. Existing whole/independent/conditional structural scopes
+already serve the examined consumers. Revisit a named missing input meaning or measured
+compatible setup burden, with explicit input/identity/history decisions and fresh state,
+sensitivity, callback, error, cancellation and custody controls. This static disposition
+does not add tests or claim universal bit equality or a performance improvement.
+
 ## Verification and integration contract
 
 All acceptance below is **Proposed**. Historical probe C tests F01's caller-cancellation

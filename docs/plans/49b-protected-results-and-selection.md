@@ -283,6 +283,35 @@ at the coordinator. None blocks the selected IPC locator removal unless implemen
 reveals it is required for supported behavior. Do not introduce a replacement membership
 index or parallel decoder merely to obtain an apparent free win.
 
+### Inquiry dispositions during execution
+
+**Interface-checked, 2026-10-21:** I02–I05 and I16 have source-based no-additional-adoption
+dispositions at the coordinator. The production-source census found no DataFusion listing,
+Arrow or Parquet file-source consumer of the unused adapter. Protected results use their
+own permission-bound IPC reader cache; the reached Parquet authoring importer uses a
+direct Parquet reader. The unused adapter is removed; surviving preparation/analysis
+cache acceptance remains part of RES05. This establishes neither cache hits nor a speedup.
+
+The pinned [DataFusion55.1 pruning contract](https://github.com/apache/datafusion/blob/55.1.0/datafusion/common/src/pruning.rs)
+requires complete literal containment; existing min/max/null/row facts do not supply an
+exact multi-value set. The [Arrow59.3 IPC reader](https://github.com/apache/arrow-rs/blob/59.3.0/arrow-ipc/src/reader.rs)
+projects by omitting unselected fields, so footer schema equality alone cannot admit
+their omitted batch contents. Keep unknown containment, full protected admission and
+engine residual/projection. Parquet's actual [access-plan mechanism](https://github.com/apache/datafusion/blob/55.1.0/datafusion/datasource-parquet/src/access_plan.rs)
+does not itself justify replacing the current protected format. Revisit only the concrete
+consumer and evidence triggers recorded in I03–I05; no format or projection experiment
+was run for these dispositions.
+
+For I16, Arrow59.3 [buffer ownership](https://github.com/apache/arrow-rs/blob/59.3.0/arrow-buffer/src/bytes.rs)
+and [pool reservations](https://github.com/apache/arrow-rs/blob/59.3.0/arrow-buffer/src/pool.rs)
+track allocated backing with infallible reservations, while DataFusion's
+[Arrow adapter](https://github.com/apache/datafusion/blob/55.1.0/datafusion/execution/src/memory_pool/arrow.rs)
+uses growing reservations. These cannot replace fallible pre-allocation admission or
+imported lease custody; adding them over current charges would duplicate accounting.
+Existing generated HeapUsage and shared result-fact owners remain selected. The inquiry
+does not establish a universal Arrow overhead cost or reject future native ownership
+integration; a concrete compatible lifecycle and an actual comparison must justify it.
+
 ## Verification and handoff
 
 **Proposed verification:** implementing packages use focused `just check-package` and
