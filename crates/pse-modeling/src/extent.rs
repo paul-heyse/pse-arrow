@@ -559,6 +559,10 @@ impl SpecializedModel {
                 crate::specialize::Realization::Accelerated(id) => id.capacity(),
                 _ => 0,
             })
+            + map(&self.exchanges, |_, pair| [&pair.first,&pair.second].into_iter().map(|boundary|match boundary {
+                crate::contextual::BoundaryRef::Declared(_)=>0,
+                crate::contextual::BoundaryRef::Bound{coordinates,..}=>coordinates.capacity()*size_of::<Value>()+coordinates.iter().map(Value::retained_bytes).sum::<usize>(),
+            }).sum::<usize>())
             + map(&self.meshes, |_, m| {
                 m.points.capacity() * size_of::<Value>()
                     + m.points.iter().map(Value::retained_bytes).sum::<usize>()

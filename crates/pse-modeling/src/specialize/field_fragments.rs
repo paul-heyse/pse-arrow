@@ -144,7 +144,7 @@ pub fn derive(input: &FieldFragmentInput, fragments: Option<&dyn prelude::Fragme
     let mut new_symbols=Symbols::default();
     for symbol in engine.model.symbols.slots() {if !recipe.foreign.symbols.contains_key(&symbol.id) {new_symbols.push(symbol.clone());}}
     engine.model.symbols=new_symbols;
-    engine.model.integrated.clear();engine.model.meshes.clear();engine.model.closures.clear();
+    engine.model.integrated.clear();engine.model.meshes.clear();engine.model.closures.clear();engine.model.exchanges.clear();
     engine.model.derivatives.retain(|id,_|!recipe.context.derivatives.contains_key(id));
     engine.model.integrals.retain(|id,_|!recipe.context.integrals.contains_key(id));
     let states=engine.states.into_iter().filter_map(|(id,state)|{
@@ -209,12 +209,12 @@ impl Engine<'_, '_> {
         let package=loop {
             self.checkpoint()?;
             let previous=(dependencies.len(),instances.len());
-            // Parameter aliases can live at a shared temporal owner. Keep its actual
-            // context and ancestry rather than every instance of its declaration.
+            // Only actual instances own lexical contexts. Temporal parameter owners
+            // are logical identities, not necessarily instantiated State entries.
             let mut owners=instances.iter().copied().collect::<Vec<_>>();
             while let Some(id)=owners.pop() {
                 dependencies.insert(self.states[&id].definition);
-                for owner in self.states[&id].parent.into_iter().chain(self.temporal_owners.get(&id).copied()) {
+                if let Some(owner)=self.states[&id].parent {
                     if instances.insert(owner) {owners.push(owner);}
                 }
             }
@@ -258,8 +258,11 @@ impl Engine<'_, '_> {
         // Preserve lexical ancestry and complete namespaces, including failed lookups.
         let mut owner = Some(instance);
         while let Some(id)=owner { let state=&self.states[&id]; states.entry(id).or_insert_with(||state.clone()); owner=state.parent; }
-        let mut selected = self.model.symbols.slots().iter_enumerated().filter(|(_,symbol)|states.contains_key(&symbol.lineage.instance)
-            && package.declarations.contains_key(&symbol.lineage.declaration)).map(|(slot,_)|slot).collect::<BTreeSet<_>>();
+        let referenced=states.values().flat_map(|state|state.symbols.values().copied()).collect::<BTreeSet<_>>();
+        let temporal_parameters=states.iter().filter_map(|(id,state)|self.temporal_owners.get(id).map(|owner|(*owner,state)))
+            .flat_map(|(owner,state)|state.member_kinds.iter().filter(|(_,kind)|**kind==Kind::Parameter).map(move |(member,_)|member_id(owner,*member,&[]))).collect::<BTreeSet<_>>();
+        let mut selected = self.model.symbols.slots().iter_enumerated().filter(|(_,symbol)|package.declarations.contains_key(&symbol.lineage.declaration)
+            && (states.contains_key(&symbol.lineage.instance)||referenced.contains(&symbol.id)||temporal_parameters.contains(&symbol.id))).map(|(slot,_)|slot).collect::<BTreeSet<_>>();
         // Derived-coordinate facts carry actual scalar edges too. Keep their
         // complete existing owner closure without realizing a new coordinate.
         loop {
@@ -288,6 +291,9 @@ impl Engine<'_, '_> {
         context.integrals = self.model.integrals.iter().filter(|(_,value)|foreign.symbols.contains_key(&value.result)).map(|(id,value)|(*id,value.clone())).collect();
         context.meshes = self.model.meshes.clone();
         context.closures = self.model.closures.iter().filter(|(_,value)|states.contains_key(&value.lineage.instance)&&package.declarations.contains_key(&value.lineage.declaration)).map(|(id,value)|{let mut value=value.clone();value.terms.clear();(*id,value)}).collect();
+        context.exchanges=self.model.exchanges.iter().filter(|(_,pair)| {
+            package.declarations.contains_key(&pair.declaration) && [&pair.first,&pair.second].into_iter().all(|boundary|matches!(boundary,crate::contextual::BoundaryRef::Bound{instance,..} if states.contains_key(instance)))
+        }).map(|(id,pair)|(*id,pair.clone())).collect();
         let temporal_owners=self.temporal_owners.iter().filter(|(id,_)|states.contains_key(id)).map(|(id,owner)|(*id,*owner)).collect();
         let existing_rows=self.model.equations.iter().filter(|row|states.contains_key(&row.lineage.instance)&&package.declarations.contains_key(&row.lineage.declaration)).map(|row|row.id).collect::<BTreeSet<_>>();
         let continuity_done=self.model.derivations.iter().filter_map(|(relationship,row)|match relationship {

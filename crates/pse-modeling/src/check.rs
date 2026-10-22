@@ -1913,6 +1913,12 @@ impl CheckedPackage {
                 continue;
             }
             let row = &self.declarations[&id];
+            // A lifted child carries an analysis-owned coordinate in its checked
+            // binding. Keep that coordinate's policy and axis with the child;
+            // authored field inventories deliberately omit the synthetic index.
+            if let Some((policy,axis,_))=self.temporal.get(&id) {
+                pending.extend([*policy,*axis]);
+            }
             pending.extend(
                 self.occurrences_of(id)
                     .flat_map(|(_, expression)| expression.dependencies.iter().copied()),

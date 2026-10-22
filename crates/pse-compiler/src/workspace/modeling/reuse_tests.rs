@@ -1653,3 +1653,48 @@ fn ordinary_field_premises_follow_actual_instances_and_forwarded_sources() {
     assert_eq!(counts[1]-counts[0],2,"another instance of the same definition is not this field's premise");
     assert_eq!(counts[2],counts[1],"A/B/A retains each actual instance's original source product");
 }
+
+#[test]
+fn typed_fields_keep_actual_exchange_premises_and_refuse_changed_endpoints() {
+    let mut workspace=CompilerWorkspace::new(crate::authored_transfer_tests::context(),WorkspaceLimits::default()).unwrap();
+    let original="package p {def Cell {boundary surface;var heat:Transfer<EnergyTransferRate,surface,Into>;} def Root {child hot:Cell=Cell();child cold:Cell=Cell();child warm:Cell=Cell();exchange pair between hot.surface and cold.surface;eq e:hot.heat==reflect(pair,cold.heat,Into);}}";
+    for source in [original.to_owned(),original.replace("and cold.surface", "and warm.surface"),original.to_owned()] {
+        let declarations=rows(&source);
+        let root=declarations.iter().find(|row|row.name=="Root").unwrap().declaration_id;
+        let revision=workspace.publish_modeling(declarations,PhysicalScope::default()).unwrap();
+        let instance=pse_modeling::specialize::root_instance(root);
+        let incremental=workspace.specialize_modeling(root,instance,Bindings::default(),Limits::default());
+        let clean=pse_modeling::specialize::specialize_with_discretizer(revision.checked(),root,instance,&Bindings::default(),Limits::default(),&||false,&LibraryDiscretizer);
+        if source==original {
+            assert_eq!(incremental.unwrap().as_ref(),&clean.unwrap());
+        } else {
+            assert!(incremental.is_err(),"reflection cannot reuse an exchange that no longer contains its actual source boundary");
+            assert!(clean.is_err());
+        }
+    }
+}
+
+#[test]
+fn typed_fields_keep_logical_temporal_parameters_across_actual_replicas() {
+    let mut workspace=CompilerWorkspace::new(crate::authored_transfer_tests::context(),WorkspaceLimits::default()).unwrap();
+    let original="package p {difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0,1);def Cell(times:Set<Time>={}) {param gain:Scalar=2;var x:Time;when analysis.dynamic {eq ode[i in times]:d(x)/di==gain;}when not analysis.dynamic {eq stationary:x==gain*1{s};}port out:Time=x;}def Root {domain t:Time from 0{s} to 2{s};when analysis.route==analysis.steady {discretize mesh on t using stationary(elements=1,order=1);}when analysis.route==analysis.integrated {discretize mesh on t using integrated(elements=1,order=1);}when analysis.route==analysis.simultaneous {discretize mesh on t using backward(elements=2,order=1);}child cell:Cell=Cell();evolve time_state on cell using t bind times;when analysis.dynamic {eq initial:cell[0{s}].x==0{s};}}}";
+    let declarations=rows(original);
+    let root=declarations.iter().find(|row|row.name=="Root").unwrap().declaration_id;
+    let revision=workspace.publish_modeling(declarations,PhysicalScope::default()).unwrap();
+    let instance=pse_modeling::specialize::root_instance(root);
+    use pse_modeling::analysis::Route;
+    for route in [Route::Steady,Route::Integrated,Route::Simultaneous,Route::Integrated,Route::Steady] {
+        let bindings=Bindings::default().with_analysis(route);
+        let incremental=workspace.specialize_modeling(root,instance,bindings.clone(),Limits::default()).unwrap();
+        let clean=pse_modeling::specialize::specialize_with_discretizer(revision.checked(),root,instance,&bindings,Limits::default(),&||false,&LibraryDiscretizer).unwrap();
+        assert_eq!(incremental.as_ref(),&clean);
+        assert_eq!(incremental.symbols.values().filter(|symbol|symbol.lineage.path.ends_with(".gain")).count(),1);
+    }
+    let varying=original.replace("param gain:Scalar=2", "param gain:Scalar=sum(i in times | i/1{s})");
+    let revision=workspace.publish_modeling(rows(&varying),PhysicalScope::default()).unwrap();
+    let bindings=Bindings::default().with_analysis(Route::Simultaneous);
+    let incremental=workspace.specialize_modeling(root,instance,bindings.clone(),Limits::default()).unwrap_err();
+    let clean=pse_modeling::specialize::specialize_with_discretizer(revision.checked(),root,instance,&bindings,Limits::default(),&||false,&LibraryDiscretizer).unwrap_err();
+    assert!(incremental.to_string().contains("scalar temporal parameter defaults must agree"),"{incremental}");
+    assert!(clean.to_string().contains("scalar temporal parameter defaults must agree"),"{clean}");
+}
