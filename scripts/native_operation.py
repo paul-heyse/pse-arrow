@@ -27,6 +27,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Mapping
     from types import FrameType, TracebackType
 
+    from scripts import host_admission
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -1848,6 +1850,57 @@ def cancel_foreground(
     return deadline, signum
 
 
+def require_command_parent(
+    allocation: host_admission.Allocation, *, deadline: float | None = None
+) -> None:
+    """Authenticate a bound ordinary command without granting native reuse."""
+    from scripts import host_admission  # noqa: PLC0415 -- reciprocal ownership
+
+    if deadline is None:
+        with host_admission.allocation_metadata(allocation.directory) as ledger:
+            registered = ledger["owners"].get(allocation.nonce)
+    else:
+        registered = host_admission.readonly_snapshot(
+            allocation.directory, deadline=deadline
+        )["owners"].get(allocation.nonce)
+    if not isinstance(registered, dict) or registered.get("boot") != host_admission.boot():
+        raise ValueError("selected workload lost its registered command allocation")
+    group = process_group(os.getpid())
+    unit = next(
+        (
+            part for part in reversed(Path(group).parts)
+            if re.fullmatch(r"pse-cmd-[a-f0-9]{32}\.scope", part)
+        ),
+        None,
+    )
+    binding = registered["units"].get(unit) if unit is not None else None
+    if not isinstance(binding, dict) or not binding.get("group"):
+        raise ValueError("selected workload requires a bound command parent")
+    control = binding["group"]
+    inode = binding.get("inode")
+    if (
+        not control.startswith("/")
+        or ".." in Path(control).parts
+        or Path(control).name != unit
+        or not (group == control or group.startswith(control + "/"))
+        or type(inode) is not int
+        or inode <= 0
+        or not re.fullmatch(r"[a-f0-9]{32}", binding.get("invocation", ""))
+    ):
+        raise ValueError("selected workload has contradictory command ownership")
+    observed = host_admission.control_unit_observation(unit, deadline)
+    if (
+        observed.get("LoadState") != "loaded"
+        or observed.get("ActiveState") != "active"
+        or observed.get("ControlGroup") != control
+        or observed.get("InvocationID") != binding["invocation"]
+        or host_admission.group_identity(control) != inode
+    ):
+        raise ValueError("selected workload command parent identity changed")
+    if deadline is not None:
+        admission_remaining(deadline)
+
+
 def run_child_scope(
     command: list[str],
     env: dict[str, str],
@@ -1870,15 +1923,41 @@ def run_child_scope(
         if time.monotonic() >= deadline:
             raise subprocess.TimeoutExpired(command, 0)
     from scripts import host_admission  # noqa: PLC0415 -- reciprocal ownership
-    from scripts.pse_env import (  # noqa: PLC0415 -- reciprocal ownership
-        current_memory_ceiling,
-    )
+    allocation = host_admission.inherit(env, **deadline_options(deadline))
+    if allocation is None:
+        raise ValueError("selected native workload requires its admitted parent")
+    with contextlib.ExitStack() as lifetime:
+        if scope_owner(**deadline_options(deadline)) is None:
+            require_command_parent(allocation, **deadline_options(deadline))
+            if owner_record(**deadline_options(deadline)) is None:
+                if os.environ.get(MARKER) or env.get(MARKER):
+                    raise ValueError("selected workload has a contradictory operation parent")
+                from scripts import native_cache as cache  # noqa: PLC0415 -- owner cycle
+
+                # PID ownership is sufficient for foreground supervision, but
+                # scope=None deliberately cannot authorize native setup reuse.
+                lifetime.enter_context(Operation(cache.cache_root(env)))
+        return _run_child_scope(
+            command, env, allocation, cwd=cwd, observation=observation,
+            deadline=deadline, stdout=stdout, stderr=stderr,
+        )
+
+
+def _run_child_scope(
+    command: list[str],
+    env: dict[str, str],
+    allocation: host_admission.Allocation,
+    *,
+    cwd: Path | None,
+    observation: dict[str, object] | None,
+    deadline: float | None,
+    stdout: int | None,
+    stderr: int | None,
+) -> int:
+    from scripts import host_admission  # noqa: PLC0415 -- reciprocal ownership
+    from scripts.pse_env import current_memory_ceiling  # noqa: PLC0415 -- placement owner
 
     process_observation = observation if observation is not None else {}
-
-    allocation = host_admission.inherit(env, **deadline_options(deadline))
-    if allocation is None or scope_owner(**deadline_options(deadline)) is None:
-        raise ValueError("selected native workload requires its admitted parent")
     role_memory = current_memory_ceiling()
     if allocation.profile.unbounded:
         from scripts.pse_env import require_unbounded_slice  # noqa: PLC0415 -- placement owner

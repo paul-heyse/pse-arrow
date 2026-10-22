@@ -2402,6 +2402,160 @@ class NativeOperationTests(unittest.TestCase):
                         finally:
                             log.close()
 
+    def test_command_parent_requires_exact_registered_kernel_binding(self) -> None:
+        unit = "pse-cmd-" + "a" * 32 + ".scope"
+        group = "/allocation/" + unit
+        allocation = MagicMock(spec=host_admission.Allocation)
+        allocation.directory = Path("/owned/admission")
+        allocation.nonce = "c" * 32
+        binding = {"group": group, "invocation": "b" * 32, "inode": 17}
+        for mode in (
+            "bound", "descendant", "unbound-own-pid", "missing", "stale-boot",
+            "wrong-group", "wrong-invocation", "wrong-inode", "missing-inode",
+            "inactive", "unloaded", "unregistered-unit",
+        ):
+            with self.subTest(mode=mode):
+                selected = dict(binding)
+                owner = {
+                    "boot": host_admission.boot(),
+                    "pid": os.getpid(),
+                    "start": operation.start_identity(os.getpid()),
+                    "units": {unit: selected},
+                }
+                observed = {
+                    "LoadState": "loaded", "ActiveState": "active",
+                    "ControlGroup": group, "InvocationID": "b" * 32,
+                }
+                if mode == "unbound-own-pid":
+                    selected.clear()
+                if mode == "missing-inode":
+                    selected.pop("inode")
+                if mode == "stale-boot":
+                    owner["boot"] = "old-boot"
+                if mode == "wrong-group":
+                    observed["ControlGroup"] = "/other/" + unit
+                if mode == "wrong-invocation":
+                    observed["InvocationID"] = "d" * 32
+                if mode == "inactive":
+                    observed["ActiveState"] = "inactive"
+                if mode == "unloaded":
+                    observed["LoadState"] = "not-found"
+                ledger = {"owners": {} if mode == "missing" else {allocation.nonce: owner}}
+                actual = (
+                    group + "/nested" if mode == "descendant" else
+                    "/other/pse-cmd-" + "e" * 32 + ".scope" if mode == "unregistered-unit" else group
+                )
+                with (
+                    patch.object(host_admission, "allocation_metadata", return_value=contextlib.nullcontext(ledger)),
+                    patch.object(host_admission, "readonly_snapshot", return_value=ledger),
+                    patch.object(operation, "process_group", return_value=actual),
+                    patch.object(host_admission, "control_unit_observation", return_value=observed),
+                    patch.object(host_admission, "group_identity", return_value=18 if mode == "wrong-inode" else 17),
+                ):
+                    for deadline in (None, time.monotonic() + 5):
+                        if mode in {"bound", "descendant"}:
+                            operation.require_command_parent(allocation, deadline=deadline)
+                        else:
+                            with self.assertRaises(ValueError):
+                                operation.require_command_parent(allocation, deadline=deadline)
+
+    def test_command_parent_foreground_record_does_not_grant_native_reuse(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            allocation = MagicMock(spec=host_admission.Allocation)
+            records = []
+            deadline = time.monotonic() + 5
+
+            def selected(*_args: object, **options: object) -> int:
+                record = operation.owner_record()
+                self.assertIsNotNone(record)
+                assert record is not None
+                records.append(record)
+                self.assertIsNone(operation.current())
+                self.assertIsNone(operation._record(record)["scope"])
+                self.assertEqual(options["deadline"], deadline)
+                return 37
+
+            with (
+                patch.object(host_admission, "inherit", return_value=allocation),
+                patch.object(operation, "scope_owner", return_value=None),
+                patch.object(operation, "require_command_parent") as proof,
+                patch.object(operation, "_run_child_scope", side_effect=selected) as payload,
+            ):
+                self.assertEqual(operation.run_child_scope(
+                    ["payload"], {"PSE_NATIVE_CACHE": str(base)}, deadline=deadline,
+                ), 37)
+                proof.assert_called_once_with(allocation, deadline=deadline)
+                self.assertIsNone(operation.owner_record())
+                self.assertTrue(operation._record(records[0])["cancelled"])
+                with patch.dict(os.environ, {operation.MARKER: str(base / "forged.json")}):
+                    with self.assertRaisesRegex(ValueError, "contradictory operation parent"):
+                        operation.run_child_scope(["payload"], {"PSE_NATIVE_CACHE": str(base)})
+                self.assertEqual(payload.call_count, 1)
+
+    def test_real_command_parent_file_effect_handoff_drains_descendants(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            environment = self.fixture_environment(base)
+            (base / "payload.py").write_text("""import subprocess, sys
+from pathlib import Path
+from scripts import native_operation as n
+child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(.4)'])
+n.write_json(Path(sys.argv[1])/'child.json',{'scope':n.scope_owner(),'pid':child.pid})
+""")
+            program = """import os, subprocess, sys, time
+from pathlib import Path
+from scripts import native_operation as n, surreal_server as s
+base=Path(sys.argv[1]); group=n.process_group(os.getpid())
+assert n.scope_owner() is None and n.owner_record() is None
+status=s.run_file_effect([sys.executable,'-c',(base/'payload.py').read_text(),str(base)],dict(os.environ),deadline=time.monotonic()+20)
+assert n.process_group(os.getpid())==group and n.scope_owner() is None and n.owner_record() is None
+expired=False
+try:
+ s.run_file_effect([sys.executable,'-c','import time; time.sleep(30)'],dict(os.environ),deadline=time.monotonic()+.4)
+except subprocess.TimeoutExpired:
+ expired=True
+assert expired and n.scope_owner() is None and n.owner_record() is None
+records=[n._record(p) for p in (base/'.operations').glob('handoff-*.json')]
+assert len(records)==2 and all(n.drained(record).complete for record in records)
+n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs':records})
+"""
+            command = self.fixture_command(
+                [sys.executable, "-c", program, str(base)], environment,
+                native=False, cleanup=False,
+            )
+            allocation = host_admission.inherit(environment)
+            assert allocation is not None
+            try:
+                result = subprocess.run(
+                    command, cwd=cache.ROOT, env=environment, capture_output=True,
+                    text=True, timeout=35, check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                observed = json.loads((base / "result.json").read_text())
+                self.assertEqual(observed["status"], 0)
+                self.assertIn("pse-cmd-", observed["parent_group"])
+                for handoff in observed["handoffs"]:
+                    self.assertNotEqual(handoff["scope"]["group"], observed["parent_group"])
+                    self.assertTrue(operation.drained(handoff).complete)
+                    self.assertIsNone(operation._record(Path(handoff["parent"]))["scope"])
+                self.assertEqual(sum("cancel_deadline" in handoff for handoff in observed["handoffs"]), 1)
+                child = json.loads((base / "child.json").read_text())
+                self.assertFalse(Path(f"/proc/{child['pid']}").exists())
+            finally:
+                deadline = time.monotonic() + 20
+                ledger = host_admission.readonly_snapshot(allocation.directory, deadline=deadline)
+                owner = ledger["owners"].get(allocation.nonce)
+                if owner is not None:
+                    for unit, binding in owner["units"].items():
+                        if binding:
+                            self.settle_fixture_scope({
+                                "scope": {"unit": unit, "group": binding["group"], "invocation": binding["invocation"]},
+                                "scope_inode": binding["inode"],
+                            }, deadline=deadline)
+                self.assertTrue(allocation.release(deadline=deadline))
+            self.assert_parent_scope_unchanged()
+
     def test_selected_workload_preserves_observer_cap_without_environment_authority(
         self,
     ) -> None:
