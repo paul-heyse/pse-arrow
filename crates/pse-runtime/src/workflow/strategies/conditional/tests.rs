@@ -160,20 +160,37 @@ async fn recycle_short_controls_compare_same_map_and_preserve_original_accuracy(
                 let table = physical.table(&reordered).unwrap();
                 let rows = primal_values::Row::rows(&table).unwrap();
                 assert_eq!(rows.len(), reordered.variables.len());
-                for ((row, id), value) in rows.iter().zip(&reordered.variables)
-                    .zip(&reordered.candidate.as_ref().unwrap().primal) {
-                    let port = prepared.graph.declaration().nodes.iter()
-                        .flat_map(|node| &node.ports).find(|port| port.id == *id).unwrap();
+                for ((row, id), value) in rows
+                    .iter()
+                    .zip(&reordered.variables)
+                    .zip(&reordered.candidate.as_ref().unwrap().primal)
+                {
+                    let port = prepared
+                        .graph
+                        .declaration()
+                        .nodes
+                        .iter()
+                        .flat_map(|node| &node.ports)
+                        .find(|port| port.id == *id)
+                        .unwrap();
                     assert_eq!(row.coordinate_id, *id);
                     assert_eq!(row.value.value.to_bits(), value.to_bits());
                     assert_eq!(row.value.quantity_type_id, port.quantity.as_id());
                     assert_eq!(row.value.unit_id, port.unit.as_id());
-                    assert_eq!(row.coordinate_role, pse_model::generated::enums::NativePrimalCoordinateRole::Original);
+                    assert_eq!(
+                        row.coordinate_role,
+                        pse_model::generated::enums::NativePrimalCoordinateRole::Original
+                    );
                 }
                 let mut missing = prepared.clone();
                 missing.contract.variables[0].id = id(200);
-                assert!(missing.primal_coordinates().unwrap_err().to_string()
-                    .contains("recycle tear lacks admitted physical port meaning"));
+                assert!(
+                    missing
+                        .primal_coordinates()
+                        .unwrap_err()
+                        .to_string()
+                        .contains("recycle tear lacks admitted physical port meaning")
+                );
                 reordered.variables[0] = id(200);
                 assert!(physical.table(&reordered).is_err());
             }

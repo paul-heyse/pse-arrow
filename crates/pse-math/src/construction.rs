@@ -49,7 +49,10 @@ pub(crate) fn additional(bytes: usize) -> Result<(), MathError> {
         let site = std::panic::Location::caller();
         owner.try_grow(bytes).inspect_err(|_| {
             if let Some(context) = pse_diagnostics::observation::current() {
-                context.text("math.constructor_refusal_site", &format!("{}:{}", site.file(), site.line()));
+                context.text(
+                    "math.constructor_refusal_site",
+                    &format!("{}:{}", site.file(), site.line()),
+                );
                 context.count("math.constructor_refused_bytes", "bytes", bytes as u64);
             }
         })?;
@@ -84,12 +87,22 @@ mod tests {
         let _entered = context.enter();
         let call_line = line!() + 1;
         let outcome = scoped(Arc::new(Refuse), || additional(17));
-        assert!(matches!(outcome, Err(MathError::Limit("test constructor refusal"))));
-        let snapshot = context.reader().snapshot(std::time::Duration::from_secs(60));
+        assert!(matches!(
+            outcome,
+            Err(MathError::Limit("test constructor refusal"))
+        ));
+        let snapshot = context
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
         assert!(snapshot.metrics.iter().any(|metric| metric.name == "math.constructor_refusal_site"
             && matches!(&metric.latest, pse_diagnostics::observation::Value::Text(site) if site.ends_with(&format!("construction.rs:{call_line}")))));
-        assert!(snapshot.metrics.iter().any(|metric| metric.name == "math.constructor_refused_bytes"
-            && metric.cumulative == pse_diagnostics::observation::Value::Count(17)));
+        assert!(
+            snapshot
+                .metrics
+                .iter()
+                .any(|metric| metric.name == "math.constructor_refused_bytes"
+                    && metric.cumulative == pse_diagnostics::observation::Value::Count(17))
+        );
     }
     #[test]
     fn construction_owner_is_restored_after_nested_scope_and_panic() {

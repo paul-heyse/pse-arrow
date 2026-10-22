@@ -226,8 +226,14 @@ async fn authored_physical_nlp_flash_preserves_native_routes_and_original_qualif
         let context = operation.context();
         let prepared = pse_diagnostics::observation::scope(
             Some(context.clone()),
-            seed_prepare(&package, flash, profile(backend, false), &CancelSource::new()),
-        ).await;
+            seed_prepare(
+                &package,
+                flash,
+                profile(backend, false),
+                &CancelSource::new(),
+            ),
+        )
+        .await;
         let mut pending = vec![context.reader()];
         let mut visited = std::collections::HashSet::new();
         while let Some(reader) = pending.pop() {
@@ -235,10 +241,21 @@ async fn authored_physical_nlp_flash_preserves_native_routes_and_original_qualif
             if !visited.insert(snapshot.id) {
                 continue;
             }
-            for metric in snapshot.metrics.iter().filter(|metric| metric.name.starts_with("math.scalar_") || metric.name.starts_with("math.constructor_")) {
-                eprintln!("flash {backend:?} operation {:?}: {} cumulative={:?} latest={:?}", snapshot.id, metric.name, metric.cumulative, metric.latest);
+            for metric in snapshot.metrics.iter().filter(|metric| {
+                metric.name.starts_with("math.scalar_")
+                    || metric.name.starts_with("math.constructor_")
+            }) {
+                eprintln!(
+                    "flash {backend:?} operation {:?}: {} cumulative={:?} latest={:?}",
+                    snapshot.id, metric.name, metric.cumulative, metric.latest
+                );
             }
-            pending.extend(snapshot.children.iter().filter_map(|child| hub.reader(child.id)));
+            pending.extend(
+                snapshot
+                    .children
+                    .iter()
+                    .filter_map(|child| hub.reader(child.id)),
+            );
         }
         let result = prepared.unwrap().start().unwrap().wait().await.unwrap();
         native_failure_context(&result, flash, backend, &Default::default());

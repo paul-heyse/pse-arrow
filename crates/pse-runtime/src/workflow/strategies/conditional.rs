@@ -418,13 +418,24 @@ pub struct PreparedRecycle {
 impl PreparedRecycle {
     /// Actual tear-port meanings retained by the admitted physical flow graph.
     pub fn primal_coordinates(&self) -> Result<crate::workflow::PrimalCoordinates, WorkflowError> {
-        let ports: BTreeMap<_, _> = self.graph.declaration().nodes.iter()
+        let ports: BTreeMap<_, _> = self
+            .graph
+            .declaration()
+            .nodes
+            .iter()
             .flat_map(|node| node.ports.iter().map(|port| (port.id, port)))
             .collect();
-        let original = self.contract.variables.iter().map(|variable| {
-            ports.get(&variable.id).map(|port| (*port).clone())
-                .ok_or_else(|| contract("recycle tear lacks admitted physical port meaning"))
-        }).collect::<Result<Vec<_>, _>>()?;
+        let original = self
+            .contract
+            .variables
+            .iter()
+            .map(|variable| {
+                ports
+                    .get(&variable.id)
+                    .map(|port| (*port).clone())
+                    .ok_or_else(|| contract("recycle tear lacks admitted physical port meaning"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         crate::workflow::PrimalCoordinates::original(&self.runtime, original)
     }
 

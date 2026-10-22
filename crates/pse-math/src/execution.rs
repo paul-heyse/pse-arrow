@@ -5458,20 +5458,36 @@ impl PreparedStages {
         let overflow = || MathError::Limit("prepared arithmetic references");
         stages.iter().try_fold(0usize, |total, stage| {
             let references = match stage {
-                Stage::Block { expressions, .. } => expressions.iter().try_fold(0usize, |n, atom| {
-                    n.checked_add(atom.as_view().get_byte_size()).ok_or_else(overflow)
-                })?,
-                Stage::Branch { then, otherwise, .. } => Self::reference_bound(then)?
+                Stage::Block { expressions, .. } => {
+                    expressions.iter().try_fold(0usize, |n, atom| {
+                        n.checked_add(atom.as_view().get_byte_size())
+                            .ok_or_else(overflow)
+                    })?
+                }
+                Stage::Branch {
+                    then, otherwise, ..
+                } => Self::reference_bound(then)?
                     .checked_add(Self::reference_bound(otherwise)?)
                     .and_then(|n| n.checked_add(2))
                     .ok_or_else(overflow)?,
                 Stage::Domain { stages, .. } => Self::reference_bound(stages)?
-                    .checked_add(1).ok_or_else(overflow)?,
-                Stage::Applicability { stages, predicates, inputs, .. } => Self::reference_bound(stages)?
+                    .checked_add(1)
+                    .ok_or_else(overflow)?,
+                Stage::Applicability {
+                    stages,
+                    predicates,
+                    inputs,
+                    ..
+                } => Self::reference_bound(stages)?
                     .checked_add(predicates.len())
                     .and_then(|n| n.checked_add(inputs.len()))
                     .ok_or_else(overflow)?,
-                Stage::Provider { inputs, outputs, .. } => inputs.len().checked_add(outputs.len()).ok_or_else(overflow)?,
+                Stage::Provider {
+                    inputs, outputs, ..
+                } => inputs
+                    .len()
+                    .checked_add(outputs.len())
+                    .ok_or_else(overflow)?,
                 Stage::Require { .. } => 1,
             };
             total.checked_add(references).ok_or_else(overflow)
@@ -5526,9 +5542,11 @@ impl PreparedStages {
             })
             .ok_or(MathError::Limit("prepared arithmetic parameters"))?;
         let references = Self::reference_bound(stages)?;
-        let reference_bytes = parameters.iter()
+        let reference_bytes = parameters
+            .iter()
             .map(|atom| atom.as_view().get_byte_size())
-            .max().unwrap_or(0)
+            .max()
+            .unwrap_or(0)
             .checked_add(size_of::<Atom>() + 128)
             .and_then(|bytes| bytes.checked_mul(references))
             .ok_or(MathError::Limit("prepared arithmetic references"))?;
@@ -10789,17 +10807,33 @@ mod compact_tests {
         }
         crate::initialize().unwrap();
         let demand = |depth: usize| {
-            let stages = (0..depth).map(|slot| Stage::Block {
-                expressions: vec![library::formal(slot).unwrap() + 1],
-                outputs: vec![slot + 1],
-                source: pse_ids::named_id(SemanticId::NIL, &format!("linear definition {slot}")),
-            }).collect();
-            let body = PreparedBody::new(1, depth + 1, vec![depth], stages, DerivativeOrder::Second).unwrap();
-            let envelope = Arc::new(Envelope { reported: AtomicUsize::new(0), capacity: 65536 + depth * 16384 });
+            let stages = (0..depth)
+                .map(|slot| Stage::Block {
+                    expressions: vec![library::formal(slot).unwrap() + 1],
+                    outputs: vec![slot + 1],
+                    source: pse_ids::named_id(
+                        SemanticId::NIL,
+                        &format!("linear definition {slot}"),
+                    ),
+                })
+                .collect();
+            let body =
+                PreparedBody::new(1, depth + 1, vec![depth], stages, DerivativeOrder::Second)
+                    .unwrap();
+            let envelope = Arc::new(Envelope {
+                reported: AtomicUsize::new(0),
+                capacity: 65536 + depth * 16384,
+            });
             let cancel = pse_diagnostics::Cancellation::default();
-            let support = crate::construction::scoped(envelope.clone(), || body.prepare_support(&[0], &[0], DerivativeOrder::Second, &cancel)).unwrap();
+            let support = crate::construction::scoped(envelope.clone(), || {
+                body.prepare_support(&[0], &[0], DerivativeOrder::Second, &cancel)
+            })
+            .unwrap();
             let reported = envelope.reported.load(Ordering::Relaxed);
-            assert!(reported >= support.program.retained_bytes(), "retained descriptions remain prepaid");
+            assert!(
+                reported >= support.program.retained_bytes(),
+                "retained descriptions remain prepaid"
+            );
             let values = support.program.values.as_deref().unwrap();
             assert_eq!(values.stages.len(), 1);
             let region = values.stages[0].region.as_ref().unwrap();
@@ -10810,7 +10844,10 @@ mod compact_tests {
         let small = demand(128);
         let large = demand(256);
         assert!(large > small);
-        assert!(large * 2 < small * 5, "doubling a sparse definition DAG must not quadruple constructor demand: {small} -> {large}");
+        assert!(
+            large * 2 < small * 5,
+            "doubling a sparse definition DAG must not quadruple constructor demand: {small} -> {large}"
+        );
     }
 
     #[test]

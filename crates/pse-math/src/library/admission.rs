@@ -111,10 +111,16 @@ fn source_shape<'a>(
                 let (operands, operations) = match node {
                     AtomView::Add(a) => (a.get_nargs(), a.get_nargs().saturating_sub(1)),
                     AtomView::Mul(a) => (a.get_nargs(), a.get_nargs().saturating_sub(1)),
-                    AtomView::Pow(p) => (2, match isize::try_from(p.get_exp()) {
-                        Ok(exponent) => add(exponent.unsigned_abs().saturating_sub(1), usize::from(exponent < 0))?,
-                        Err(_) => 1,
-                    }),
+                    AtomView::Pow(p) => (
+                        2,
+                        match isize::try_from(p.get_exp()) {
+                            Ok(exponent) => add(
+                                exponent.unsigned_abs().saturating_sub(1),
+                                usize::from(exponent < 0),
+                            )?,
+                            Err(_) => 1,
+                        },
+                    ),
                     // Function nodes retain their operands and the evaluator call
                     // independently of the encoding of their symbol or arguments.
                     AtomView::Fun(f) => (f.get_nargs(), 1),
@@ -201,7 +207,10 @@ fn construction_shape(
     }
     let operations = source.operations;
     let expanded = mul(operations, per_operation)?;
-    let scalar_instructions = add(add(add(source.nodes, source.operands)?, operations)?, outputs)?;
+    let scalar_instructions = add(
+        add(add(source.nodes, source.operands)?, operations)?,
+        outputs,
+    )?;
     let vectors = add(
         add(mul(2, parameters)?, outputs)?,
         add(
@@ -504,7 +513,11 @@ impl ScalarCache {
                     context.count("math.scalar_constructions", "count", 1);
                     context.phase("math.scalar_construction")
                 });
-                let source = source_shape(expressions.iter().chain(definitions.iter().map(|(_, rhs)| rhs)))?;
+                let source = source_shape(
+                    expressions
+                        .iter()
+                        .chain(definitions.iter().map(|(_, rhs)| rhs)),
+                )?;
                 let source_atom_operations = expressions
                     .iter()
                     .chain(definitions.iter().map(|(_, rhs)| rhs))
@@ -539,13 +552,24 @@ impl ScalarCache {
                 // stack entry per encoding byte of a literal or formal symbol.
                 let constructor_bytes = add(
                     mul(initial.entries, 2 * size_of::<Complex<Rational>>())?,
-                    add(initial.instructions, add(initial.coefficient_payload, add(atoms, key_bytes)?)?)?,
+                    add(
+                        initial.instructions,
+                        add(initial.coefficient_payload, add(atoms, key_bytes)?)?,
+                    )?,
                 )?;
                 if let Some(context) = pse_diagnostics::observation::current() {
                     context.count("math.scalar_source_nodes", "count", source.nodes as u64);
                     context.count("math.scalar_source_bytes", "bytes", source.bytes as u64);
-                    context.count("math.scalar_literal_bytes", "bytes", source.literal_bytes as u64);
-                    context.count("math.scalar_constructor_bytes", "bytes", constructor_bytes as u64);
+                    context.count(
+                        "math.scalar_literal_bytes",
+                        "bytes",
+                        source.literal_bytes as u64,
+                    );
+                    context.count(
+                        "math.scalar_constructor_bytes",
+                        "bytes",
+                        constructor_bytes as u64,
+                    );
                 }
                 crate::construction::additional(constructor_bytes)?;
                 let evaluator =
@@ -798,42 +822,76 @@ mod tests {
         let wide = source_shape([&wide]).unwrap();
         assert_eq!((small.nodes, small.operands, small.operations), (1, 0, 0));
         assert_eq!((wide.nodes, wide.operands, wide.operations), (1, 0, 0));
-        let bound = |source| construction_shape(source, 1, 1, pse_kernels::DerivativeOrder::Value, 1, 1).unwrap();
+        let bound = |source| {
+            construction_shape(source, 1, 1, pse_kernels::DerivativeOrder::Value, 1, 1).unwrap()
+        };
         let a = bound(small);
         let b = bound(wide);
-        assert_eq!(a.entries, b.entries, "formal encoding width does not add numeric slots");
+        assert_eq!(
+            a.entries, b.entries,
+            "formal encoding width does not add numeric slots"
+        );
         assert_eq!(a.instructions + wide.bytes, b.instructions + small.bytes);
 
         let small = Atom::num(1);
-        let large = symbolica::parse!("123456789012345678901234567890123456789/100000000000000000000000000000000000003");
+        let large = symbolica::parse!(
+            "123456789012345678901234567890123456789/100000000000000000000000000000000000003"
+        );
         let small_shape = source_shape([&small]).unwrap();
         let large_shape = source_shape([&large]).unwrap();
         assert!(large_shape.bytes > small_shape.bytes);
         assert!(large_shape.literal_bytes > small_shape.literal_bytes);
         let a = bound(small_shape);
         let b = bound(large_shape);
-        assert_eq!(a.entries, b.entries, "literal digits are payload bytes, not stack entries");
+        assert_eq!(
+            a.entries, b.entries,
+            "literal digits are payload bytes, not stack entries"
+        );
         assert!(b.coefficient_payload > a.coefficient_payload);
-        let second = construction_shape(large_shape, 1, 1, pse_kernels::DerivativeOrder::Second, 3, 5).unwrap();
-        assert_eq!(second.coefficient_payload, 3 * b.coefficient_payload, "Taylor coefficient copies retain their width-scaled byte charge");
+        let second = construction_shape(
+            large_shape,
+            1,
+            1,
+            pse_kernels::DerivativeOrder::Second,
+            3,
+            5,
+        )
+        .unwrap();
+        assert_eq!(
+            second.coefficient_payload,
+            3 * b.coefficient_payload,
+            "Taylor coefficient copies retain their width-scaled byte charge"
+        );
 
         #[derive(Debug)]
         struct Reports(std::sync::atomic::AtomicUsize);
         impl crate::construction::ConstructionAdmission for Reports {
             fn try_grow(&self, bytes: usize) -> Result<(), MathError> {
-                self.0.fetch_add(bytes, std::sync::atomic::Ordering::Relaxed);
+                self.0
+                    .fetch_add(bytes, std::sync::atomic::Ordering::Relaxed);
                 Ok(())
             }
         }
         let prepare = |literal: Atom| {
             let reports = Arc::new(Reports(std::sync::atomic::AtomicUsize::new(0)));
             let prepared = crate::construction::scoped(reports.clone(), || {
-                bounded_scalar_evaluator(&[literal], &[], Optimization::default(), &Arc::new(AtomicBool::new(false)), EvaluationLimits::default(), &mut ScalarCache::default()).unwrap()
+                bounded_scalar_evaluator(
+                    &[literal],
+                    &[],
+                    Optimization::default(),
+                    &Arc::new(AtomicBool::new(false)),
+                    EvaluationLimits::default(),
+                    &mut ScalarCache::default(),
+                )
+                .unwrap()
             });
             assert!(prepared.facts.storage.numeric_entries > 0);
             reports.0.load(std::sync::atomic::Ordering::Relaxed)
         };
-        assert!(prepare(large) > prepare(small), "actual constructor admission retains the larger literal payload");
+        assert!(
+            prepare(large) > prepare(small),
+            "actual constructor admission retains the larger literal payload"
+        );
     }
 
     #[test]
@@ -842,18 +900,32 @@ mod tests {
         let x = formal(0).unwrap();
         let a = formal(1).unwrap();
         let b = formal(2).unwrap();
-        let sine = symbolica::atom::FunctionBuilder::new(Symbol::SIN).add_arg(&a).finish();
-        let exponential = symbolica::atom::FunctionBuilder::new(Symbol::EXP).add_arg(&a).finish();
+        let sine = symbolica::atom::FunctionBuilder::new(Symbol::SIN)
+            .add_arg(&a)
+            .finish();
+        let exponential = symbolica::atom::FunctionBuilder::new(Symbol::EXP)
+            .add_arg(&a)
+            .finish();
         let outputs = [b.clone()];
         let definitions = [(a, x.pow(2)), (b, sine + exponential)];
-        let shape = source_shape(outputs.iter().chain(definitions.iter().map(|(_, rhs)| rhs))).unwrap();
+        let shape =
+            source_shape(outputs.iter().chain(definitions.iter().map(|(_, rhs)| rhs))).unwrap();
         // Symbolica normalizes exp(a) to E^a: one additional leaf and
         // operand beyond the sin(a) function node. Both alias bodies count.
         assert_eq!(shape.nodes, 10);
         assert_eq!(shape.operands, 7);
         assert_eq!(shape.operations, 4);
         assert!(shape.literal_bytes > 0);
-        let mut prepared = bounded_defined_scalar_evaluator(&outputs, &[x], &definitions, Optimization::default(), &Arc::new(AtomicBool::new(false)), EvaluationLimits::default(), &mut ScalarCache::default()).unwrap();
+        let mut prepared = bounded_defined_scalar_evaluator(
+            &outputs,
+            &[x],
+            &definitions,
+            Optimization::default(),
+            &Arc::new(AtomicBool::new(false)),
+            EvaluationLimits::default(),
+            &mut ScalarCache::default(),
+        )
+        .unwrap();
         let expected = 4_f64.sin() + 4_f64.exp();
         assert!((prepared.evaluator.evaluate_single(&[2.]) - expected).abs() < 1e-12);
     }
@@ -1279,7 +1351,9 @@ mod tests {
             .add_arg(&x)
             .finish();
         assert_eq!(
-            source_shape(std::slice::from_ref(&expression)).unwrap().operations,
+            source_shape(std::slice::from_ref(&expression))
+                .unwrap()
+                .operations,
             1
         );
         let value = evaluator_construction(
