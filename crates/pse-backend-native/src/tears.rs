@@ -278,8 +278,11 @@ pub fn solve(
     graph: &FlowGraph,
     controls: &Controls,
     execution: Execution,
-) -> Result<(Option<TearReport>, SolveReport), ProblemError> {
+) -> Result<(Option<TearReport>, SolveReport, Vec<SemanticId>), ProblemError> {
     let p = compile(graph)?;
+    // This construction declares dimensionless topological ranks and binary decisions.
+    // Carry that declaration separately from the report's numerical ID list.
+    let dimensionless_coordinates = p.problem.contract.variables.iter().map(|variable| variable.id).collect();
     let compatibility = Compatibility {
         layout: graph.key(),
         profile: graph.key(),
@@ -310,14 +313,14 @@ pub fn solve(
         None,
     )?;
     let Some(candidate) = &report.candidate else {
-        return Ok((None, report));
+        return Ok((None, report, dimensionless_coordinates));
     };
     if !report
         .quality
         .as_ref()
         .is_some_and(crate::quality::Quality::feasible)
     {
-        return Ok((None, report));
+        return Ok((None, report, dimensionless_coordinates));
     }
     let selected = p
         .decisions
@@ -330,7 +333,7 @@ pub fn solve(
         selected,
         "HiGHS weighted feedback-edge MILP; native optimality/limit status retained",
     )?;
-    Ok((Some(tears), report))
+    Ok((Some(tears), report, dimensionless_coordinates))
 }
 
 #[cfg(test)]
@@ -671,7 +674,8 @@ mod tests {
         });
         let mut execution = Execution::new(tap.cancel.clone(), &controls);
         execution.progress = Arc::new(Progress::tapped(controls.history, tap.clone()));
-        let (selected, report) = solve(&g, &controls, execution).unwrap();
+        let (selected, report, coordinates) = solve(&g, &controls, execution).unwrap();
+        assert_eq!(coordinates, report.variables);
         assert!(
             tap.entered.load(Ordering::Acquire),
             "actual linked callback must run"

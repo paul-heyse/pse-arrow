@@ -230,7 +230,7 @@ settings = pse.EngineSettings(
     memory_limit_bytes=int(sys.argv[1]), threads=2, target_partitions=1,
     spill_dir=sys.argv[2], max_spill_bytes=1 << 30, batch_size=7,
     cache=pse.CacheSettings(
-        working_bytes=16 << 30, metadata_bytes=8 << 20, concurrent_loads=2,
+        working_bytes=16 << 30, concurrent_loads=2,
         inflight_bytes=64 << 20, inspection_bytes=4 << 20,
     ),
 )

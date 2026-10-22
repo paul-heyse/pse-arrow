@@ -3,6 +3,8 @@
 """Isolated native boundary admission; no publication, compiler or store fixture."""
 
 from pathlib import Path
+import subprocess
+import sys
 from typing import cast
 
 import msgspec
@@ -11,9 +13,11 @@ import pytest
 import pse
 from pse import codec
 from pse.conformance import RunSettings, run_once
-from pse.contracts import documents, values
+from pse.contracts import documents, identities, values
 from pse.contracts.enums import (
     AttemptState,
+    DynamicSensitivity,
+    DynamicsMethod,
     DiagnosticCode,
     FailureClass,
     NativeBoundaryClass,
@@ -25,8 +29,40 @@ from pse.contracts.enums import (
     StudyLifecycle,
     TearPolicy,
     TrajectoryTermination,
+    TrialPolicy,
 )
 from pse.contracts.values import ContentHash, SemanticId
+from pse.tests.physical_input_fixture import coordinate_batch
+
+
+class IdentityDocumentControl(msgspec.Struct, forbid_unknown_fields=True):
+    run: identities.RunId
+    declarations: tuple[identities.DeclarationId, ...]
+
+
+@pytest.mark.unit
+def test_document_identity_hooks_preserve_hex_width_and_nested_values() -> None:
+    run = SemanticId(bytes([7]) * 16)
+    declaration = SemanticId(bytes([8]) * 16)
+    value = IdentityDocumentControl(identities.RunId(run), (identities.DeclarationId(declaration),))
+    encoded = codec.encode_json(value)
+    assert codec.decode_json(encoded, IdentityDocumentControl) == value
+    assert codec.decode_json(encoded, IdentityDocumentControl).run is not run
+    assert type(codec.decode_json(encoded, IdentityDocumentControl).run) is SemanticId
+    assert run.to_hex().encode() in encoded
+    assert declaration.to_hex().encode() in encoded
+    for invalid in ('"00"', '"zz"', '7', 'null'):
+        with pytest.raises(msgspec.ValidationError):
+            codec.decode_json('{"run":' + invalid + ',"declarations":[]}', IdentityDocumentControl)
+
+
+@pytest.mark.unit
+def test_generated_result_document_uses_the_registry_identity_value() -> None:
+    fixture = Path(__file__).parent / "fixtures/generated-native-boundaries/products.json"
+    products = codec.decode_json(fixture.read_bytes(), dict[str, msgspec.Raw])
+    result = codec.decode_json(bytes(products["qualified_incumbent"]), documents.Completion)
+    assert type(result.solves[0].run_id) is SemanticId
+    assert codec.decode_json(codec.encode_json(result), documents.Completion) == result
 
 
 def _mutate(instance: object, field: str, value: object) -> None:
@@ -34,26 +70,79 @@ def _mutate(instance: object, field: str, value: object) -> None:
 
 
 @pytest.mark.unit
+def test_simulation_vocabulary_inputs_require_their_generated_enum_class(inspection_settings: pse.EngineSettings) -> None:
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
+    settings = pse.SimulationSettings(
+        runtime=runtime,
+        start=0.0,
+        end=1.0,
+        samples=[0.0, 1.0],
+        atol=coordinate_batch(runtime),
+        parameter_scales=coordinate_batch(runtime),
+        sensitivity=DynamicSensitivity.NONE,
+        method=DynamicsMethod.IDAS,
+        trial_failures=TrialPolicy.TERMINAL,
+    )
+    document = settings.document.controls
+    assert document.sensitivity is DynamicSensitivity.NONE
+    assert document.method is DynamicsMethod.IDAS
+    assert document.trial_failures is TrialPolicy.TERMINAL
+    for wrong in ("none", DynamicSensitivity.NONE):
+        with pytest.raises(TypeError, match="DynamicsMethod"):
+            pse.SimulationSettings(
+                runtime=runtime,
+                start=0.0,
+                end=1.0,
+                samples=[0.0],
+                atol=coordinate_batch(runtime),
+                parameter_scales=coordinate_batch(runtime),
+                method=cast("DynamicsMethod", wrong),
+            )
+    with pytest.raises(TypeError, match="DynamicSensitivity"):
+        pse.SimulationSettings(
+            runtime=runtime,
+            start=0.0,
+            end=1.0,
+            samples=[0.0],
+            atol=coordinate_batch(runtime),
+            parameter_scales=coordinate_batch(runtime),
+            sensitivity=cast("DynamicSensitivity", "none"),
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("first", ["method", "sensitivity"])
+def test_vocabulary_cells_are_independent_in_cold_interpreter_orders(first: str) -> None:
+    # Each process starts a supported fresh interpreter/extension lifecycle; reinitializing
+    # CPython underneath a live PyO3 extension is not a supported extra lifecycle.
+    script = """
+import sys
+import pse
+from pse.contracts.enums import DynamicSensitivity, DynamicsMethod
+from pse.tests.physical_input_fixture import coordinate_batch
+runtime = pse.Runtime(pse.EngineSettings(memory_limit_bytes=64 << 30), ephemeral=True)
+base = dict(runtime=runtime,start=0.0,end=1.0,samples=[0.0],atol=coordinate_batch(runtime),parameter_scales=coordinate_batch(runtime))
+values = {'method': DynamicsMethod.IDAS, 'sensitivity': DynamicSensitivity.NONE}
+first = sys.argv[1]
+second = 'sensitivity' if first == 'method' else 'method'
+for key in (first, second, first):
+    pse.SimulationSettings(**base, **{key: values[key]})
+for key, wrong in [('method', DynamicSensitivity.NONE), ('sensitivity', DynamicsMethod.IDAS)]:
+    try:
+        pse.SimulationSettings(**base, **{key: wrong})
+    except TypeError:
+        pass
+    else:
+        raise AssertionError('a different vocabulary was accepted')
+"""
+    subprocess.run([sys.executable, "-c", script, first], check=True, timeout=30)
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize("value", [True, False, 1.5, -1, 1 << 65])
 def test_native_cache_integer_boundary_rejects_coercion(value: object) -> None:
     with pytest.raises((TypeError, OverflowError)):
         pse.CacheSettings(working_bytes=cast("int", value))
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("value", [True, 1.5, -1, 1 << 64])
-def test_unsigned_millisecond_boundary_rejects_coercion(value: object) -> None:
-    with pytest.raises((TypeError, OverflowError)):
-        pse.CacheSettings(working_bytes=1024, listing_ttl_ms=cast("int", value))
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("value", [None, 0, 1, (1 << 64) - 1])
-def test_milliseconds_round_trip_without_truncation(value: int | None) -> None:
-    settings = pse.CacheSettings(working_bytes=1024, listing_ttl_ms=value)
-    assert settings.listing_ttl_ms == value
-    with pytest.raises(AttributeError):
-        _mutate(settings, "listing_ttl_ms", 2)
 
 
 @pytest.mark.unit

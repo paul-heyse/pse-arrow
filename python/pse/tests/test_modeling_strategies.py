@@ -17,6 +17,7 @@ from pse.contracts.enums import (
     TearMethod,
 )
 from pse.tests.canonical_fixture import CanonicalFixture
+from pse.tests.physical_input_fixture import primitive_quantity
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
@@ -145,6 +146,10 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
     assert attempt is not None
     assert row.failure is None
     assert attempt.qualification == "feasible"
-    assert dict(attempt.primal())[inlet.id] == pytest.approx(
+    primal = codec.structure_rows(pa.table(attempt.primal()).to_pylist(), result_contracts.RuntimePrimalValuesRow)
+    coordinate = next(value for value in primal if value.coordinate_id == inlet.id)
+    assert (coordinate.value.quantity_type_id, coordinate.value.unit_id) == primitive_quantity("Scalar")
+    assert coordinate.coordinate_role.value == "original"
+    assert coordinate.value.value == pytest.approx(
         4.0, rel=settings.numerics.engineering_relative_fraction, abs=0.0
     )

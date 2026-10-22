@@ -48,31 +48,9 @@ impl NativeCacheService {
                 _owner: owner,
             });
         }
-        let stores = self
-            .stores
-            .lock()
-            .map_err(|_| DataFusionError::Internal("store identity lock poisoned".into()))?;
-        let store_bytes = stores
-            .iter()
-            .try_fold(0usize, |sum, binding| {
-                sum.checked_add(binding.reservation.size())
-            })
-            .ok_or_else(|| {
-                DataFusionError::ResourcesExhausted("inspection identity extent overflow".into())
-            })?;
-        let budget = self.policy.inspection_bytes.saturating_sub(store_bytes);
+        let budget = self.policy.inspection_bytes;
         let mut rows = Vec::new();
         envelope_rows(&self.syntax, &mut rows, limit, &owner, budget)?;
-        let files = self.file_caches();
-        if let Some(cache) = &files.metadata {
-            envelope_rows(cache, &mut rows, limit, &owner, budget)?;
-        }
-        if let Some(cache) = &files.statistics {
-            envelope_rows(cache, &mut rows, limit, &owner, budget)?;
-        }
-        if let Some(cache) = &files.listing {
-            envelope_rows(cache, &mut rows, limit, &owner, budget)?;
-        }
         for component in self.components() {
             component.details(&mut rows, limit, &owner, budget)?;
         }

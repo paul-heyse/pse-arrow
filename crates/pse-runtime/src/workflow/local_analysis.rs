@@ -223,35 +223,12 @@ impl<'a> Rows<'a> {
                 .await
                 .map_err(relation)?;
         }
-        if self.request.wants(validity::RELATION_ID) && step.request.propagation.is_some() {
-            let outcome = sensitivity
-                .as_ref()
-                .map(|_| ())
-                .map_err(|(reason, detail)| {
-                    (
-                        WithheldReason::UpstreamWithheld,
-                        Upstream {
-                            quantity: DerivedQuantity::ParametricSensitivity,
-                            reason: *reason,
-                            detail: detail.clone(),
-                        }
-                        .to_string(),
-                    )
-                });
-            observe_quantity("covariance", &outcome);
-            self.validity
-                .push(validity::Row {
-                    run_id: step.run_id,
-                    step: step.step,
-                    quantity: DerivedQuantity::PropagatedCovariance,
-                    validity: record(outcome.as_ref().map_err(Clone::clone), point, conditional),
-                })
-                .await
-                .map_err(relation)?;
-        }
         // The requested propagation holds while the sensitivities it reads do (S4).
-        if self.request.wants(propagated::RELATION_ID)
-            && !self.propagated.skip_next()
+        // A validity-only request must execute the same matrix admission/product:
+        // available derivatives alone cannot certify a covariance.
+        let publish_propagation = self.request.wants(propagated::RELATION_ID)
+            && !self.propagated.skip_next();
+        if (self.request.wants(validity::RELATION_ID) || publish_propagation)
             && let Some(propagation) = &step.request.propagation
         {
             let n = evidence.map_or(0, |e| e.parameters.len());
@@ -277,13 +254,13 @@ impl<'a> Rows<'a> {
                 }),
                 (Ok(_), ..) => return Err(contract("certified sensitivities without a report")),
             };
-            let (result, _derived) = uncertainty::propagate_reserved(
+            let (result, _derived) = uncertainty::propagate(
                 Ok(&propagation.covariance),
                 jacobian.as_ref().map_err(Clone::clone),
                 &self.propagated.pool(),
                 &self.request.cancel,
             )?;
-            self.propagate(step, result, point, conditional).await?;
+            self.propagate(step, result, point, conditional, publish_propagation).await?;
         }
         let (Some(report), Some(parametric)) = (step.report, evidence) else {
             return Ok(());
@@ -493,6 +470,7 @@ impl<'a> Rows<'a> {
         result: Result<Propagated, Upstream>,
         point: Option<&KktPoint>,
         conditional: bool,
+        publish: bool,
     ) -> Result<(), WorkflowError> {
         let _phase = pse_diagnostics::observation::phase("local.covariance.publication");
         observe_quantity(
@@ -501,22 +479,23 @@ impl<'a> Rows<'a> {
                 .as_ref()
                 .map_err(|upstream| (WithheldReason::UpstreamWithheld, upstream.to_string())),
         );
+        let external = matches!(&result, Ok(product) if matches!(product.origin, uncertainty::CovarianceOrigin::External { .. }));
+        let mut validity_record = record(result.as_ref()
+            .map_err(|upstream| (WithheldReason::UpstreamWithheld, upstream.to_string())),
+            point, conditional || external);
+        if external {
+            validity_record.detail = Some("mathematical propagation is conditional on the explicit external covariance assumptions; statistical fit provenance is uncertified".into());
+        }
         self.validity
             .push(validity::Row {
                 run_id: step.run_id,
                 step: step.step,
                 quantity: DerivedQuantity::PropagatedCovariance,
-                validity: record(
-                    result
-                        .as_ref()
-                        .map_err(|u| (WithheldReason::UpstreamWithheld, u.to_string())),
-                    point,
-                    conditional,
-                ),
+                validity: validity_record,
             })
             .await
             .map_err(relation)?;
-        if let Ok(propagated) = result {
+        if publish && let Ok(propagated) = result {
             let units = Units::of(step)?;
             let output_units = propagated
                 .outputs
@@ -524,15 +503,7 @@ impl<'a> Rows<'a> {
                 .map(|id| units.variable(*id))
                 .collect::<Result<_, _>>()?;
             self.propagated
-                .push(propagated::Row {
-                    run_id: step.run_id,
-                    step: step.step,
-                    covariance_run_id: propagated.covariance_run,
-                    parameters: propagated.parameters,
-                    outputs: propagated.outputs,
-                    output_units,
-                    values: propagated.values,
-                })
+                .push(propagated.into_row(step.run_id, step.step, output_units))
                 .await
                 .map_err(relation)?;
         }

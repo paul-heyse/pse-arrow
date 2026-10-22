@@ -13,15 +13,17 @@ pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "units";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "normalized.units";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Normalized;
 /// The schema generation.
 pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    223u8, 31u8, 44u8, 236u8, 222u8, 65u8, 124u8, 141u8, 34u8, 219u8, 112u8, 41u8, 12u8,
-    110u8, 76u8, 190u8, 59u8, 211u8, 226u8, 72u8, 56u8, 217u8, 229u8, 119u8, 185u8, 91u8,
-    229u8, 80u8, 178u8, 25u8, 80u8, 206u8,
+    214u8, 179u8, 190u8, 183u8, 149u8, 76u8, 180u8, 23u8, 144u8, 92u8, 190u8, 110u8,
+    55u8, 18u8, 166u8, 185u8, 138u8, 102u8, 109u8, 224u8, 84u8, 85u8, 206u8, 146u8,
+    156u8, 105u8, 44u8, 103u8, 148u8, 217u8, 177u8, 125u8,
 ]);
 impl crate::columnar::ArrowValue for NormalizedUnitsFieldDefinitionItem {
     fn append(

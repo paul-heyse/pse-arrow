@@ -155,6 +155,10 @@ observations; it does not constitute a separate publication or certify numerical
 
 ### 5.3 Canonical framing and hashing
 
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+Resolved body/derived identities use explicit version/domain frames and canonical local roles, with instance bindings separate. Plan49 retires the unconsumed relation canonicalizer and its dedicated API, while retaining shared allocation/admission helpers, canonical float bits, framing and surviving content/encoding identities.
+
 > Supplement: [ADR-0171](../../adr/0171-body-relative-physical-occurrences.md)
 > (proposed; scoped target review Accept at Proposed strength).
 
@@ -409,41 +413,21 @@ refuses floating-point and quantity primary-key columns (`pse-schema::checks`), 
 analytics that group on floats accept that collapse
 ([§19](workflows-and-results.md#section-19)).
 
-**Relation content (`pse.canon.v2`).** `pse-columnar::canon` computes the logical
-identity of a complete relation under its declared contract:
+**Relation canonicalization retired (Plan49 I24, ADR-0215).** The unconsumed
+`pse.canon.v2` engine and dedicated API/tests were removed. No production publication
+or reuse path consumed its logical hashes. Runtime identities retain the named
+projections in §5.2; canonical admission names exact immutable versions and result
+manifests (§20.2). Encoding checksums still identify exact stored bytes without
+claiming logical relation equivalence. Source documents retain their text checksums.
 
-1. Admit the batch schema exactly, including metadata; undeclared contextual keys are
-   refused. Sort unique primary keys with explicit nulls-first order; a null or
-   duplicate key is invalid. Batch boundaries and dictionary codes carry no identity.
-2. Build a normalized hashing copy: decode dictionaries after domain checks; zero hidden
-   null payload recursively through nested and masked children; omit an all-valid
-   bitmap; drop unreferenced capacity. Unknown layouts are refused.
-3. Carry declared semantic metadata as a separate sorted `(field_path, key, value)`
-   relation.
-4. Write metadata and data as two separately framed, finished Arrow IPC streams
-   (metadata V5, 64-byte alignment, uncompressed), preceded by the version string,
-   relation ID, schema version and registry fingerprint. Apply the floating-point rule.
-5. `logical_hash` is BLAKE3 of that preimage. `encoding_checksum` is BLAKE3 of one
-   stored object's finished bytes. The `LogicalHash` and `EncodingChecksum` role types
-   prevent either standing in for the other.
-
-Construction limits are explicit configurable reservations checked before allocation;
-exhaustion is `runtime.resource_limit`, never a partial result. Raising a limit never
-changes identity bytes. Changing framing or the one-batch representation requires a new
-version string. Equal declared content hashes identically across batch layout, hidden
-null payload, dictionary encoding and supported file round trips; property and
-metamorphic tests live in `crates/pse-columnar/tests` and `tests/conformance`.
+Shared allocation/admission envelopes, canonical float bits and framing remain at their
+actual consumers. The reserved `pse.snapshot.v2` frame still has no aggregate snapshot
+implementation. A future relation equivalence capability requires an explicit owner and
+versioned contract; stored-byte hashing is not an equivalent replacement.
 
 A hash identifies input; it does not establish admission, validity, applicability or
-equivalence. Keys, references and domain invariants are established by the relation and
-catalog boundary before publication or reuse.
-
-**Limits.** `pse.canon.v2` is implemented and tested, but no current production
-publication or reuse path consumes relation logical hashes: runtime identities use the
-named projections in [§5.2](#section-5-2), and canonical admissions name exact immutable versions and result manifests
-([§20.2](#section-20-2)). The unkeyed frame reserves `pse.snapshot.v2` for an aggregate
-snapshot identity; no implementation computes it. Source documents are identified by
-the encoding checksum of their text.
+scientific equivalence. Package invariants and receiving permission retain their own owners.
+Removal is Implemented; survivor qualification remains with Plan49 TOOL07/QUAL.
 
 ### 5.4 Exact relation selection and the provider catalog
 
@@ -891,6 +875,10 @@ must receive explicit current readmission or a typed refusal without invented fi
 qualification or policy. Generated contracts remain declarations, never inferred layouts.
 
 ### 20.6 Operational store and durable execution
+
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+Generated guarded functions own operator domain mutations and bounded resumable reclamation. Privileged install/restore/activation remains a separate phase; existing generated data can be regenerated, while new data retains protected references, durable receipts and recovery.
 
 > Decision: [ADR-0211](../../adr/0211-bounded-worker-publication.md) (proposed; bounded publication ownership target).
 

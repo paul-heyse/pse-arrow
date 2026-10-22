@@ -39,9 +39,9 @@ fn flat_expressions(
     body: &PreparedBody,
     limits: EvaluationLimits,
     cancel: &Arc<AtomicBool>,
-) -> Result<Option<Vec<Atom>>, MathError> {
+) -> Result<Vec<Atom>, MathError> {
     if !body.is_flat_arithmetic() {
-        return Ok(None);
+        return Err(MathError::Contract("direct product preflight/source mismatch".into()));
     }
     let parameters = body.parameters()?;
     let symbols = symbol_map(&parameters);
@@ -69,7 +69,7 @@ fn flat_expressions(
                         .checked_mul(replacement.as_view().get_byte_size().saturating_add(1));
                     let Some(bound) = bound.filter(|n| *n <= limits.scratch_bytes.min(1024 * 1024))
                     else {
-                        return Ok(None);
+                        return Err(MathError::Limit("direct product flattening bytes"));
                     };
                     crate::construction::additional(bound)?;
                     value = value
@@ -79,14 +79,14 @@ fn flat_expressions(
                         .checked_add(operation_count(value.count_operations()))
                         .ok_or(MathError::Limit("weighted flattening operations"))?;
                     if work > limits.operations {
-                        return Ok(None);
+                        return Err(MathError::Limit("direct product flattening operations"));
                     }
                 }
             }
             expressions.insert(output, value);
         }
     }
-    Ok(Some(
+    Ok(
         body.outputs
             .iter()
             .map(|slot| {
@@ -96,7 +96,7 @@ fn flat_expressions(
                     .unwrap_or_else(|| parameters[*slot].clone())
             })
             .collect(),
-    ))
+    )
 }
 
 impl PreparedSupport {
@@ -134,43 +134,26 @@ impl PreparedSupport {
     ) -> Result<CompiledBody, MathError> {
         scope.check().map_err(crate::error::scope_error)?;
         let cancel = scope.cancellation();
-        let required = match kind {
-            ProductKind::SelectedPartials => self.order(),
-            ProductKind::JacobianAction | ProductKind::TransposeJacobianAction => {
-                DerivativeOrder::First
+        // The immutable source/profile decision precedes substitutions, derivatives,
+        // native optimization and transient construction admission. Errors after this
+        // point are terminal for this selected arithmetic implementation.
+        let preflight = self.preflight_product(kind, options, limits)?;
+        let support = preflight.support();
+        let kind = preflight.kind;
+        let options = preflight.options;
+        let limits = preflight.limits;
+        let required = support.order();
+        let outputs = (0..support.outputs().len()).collect::<Vec<_>>();
+        let coordinates = support.dense_coordinates()?;
+        match preflight.route() {
+            ProductRoute::Direct => {
+                let expressions = flat_expressions(support.body(), limits, cancel)?;
+                return support.compile_direct_product(kind, expressions, options, limits, scope, retained);
             }
-            ProductKind::WeightedHessian | ProductKind::WeightedHessianAction => {
-                DerivativeOrder::Second
-            }
-        };
-        if self.order() != required {
-            return Err(MathError::Contract("product support order mismatch".into()));
+            ProductRoute::Reverse => return support.compile_reverse_product(kind, options, limits, scope, retained),
+            ProductRoute::Regional => {}
         }
-        let outputs = (0..self.outputs().len()).collect::<Vec<_>>();
-        let coordinates = self.dense_coordinates()?;
-        if matches!(
-            kind,
-            ProductKind::WeightedHessian
-                | ProductKind::WeightedHessianAction
-                | ProductKind::TransposeJacobianAction
-        ) && let Some(expressions) = flat_expressions(self.body(), limits, cancel)?
-        {
-            return self.compile_direct_product(
-                kind,
-                expressions,
-                options,
-                limits,
-                scope,
-                retained,
-            );
-        }
-        if matches!(
-            kind,
-            ProductKind::TransposeJacobianAction | ProductKind::WeightedHessianAction
-        ) {
-            return self.compile_reverse_product(kind, options, limits, scope, retained);
-        }
-        self.body().compile_scope(
+        support.body().compile_scope(
             &outputs,
             &coordinates,
             required,
@@ -179,8 +162,9 @@ impl PreparedSupport {
             scope,
             false,
             kind,
-            self,
+            support,
             retained,
+            RegionStrategy::Forward,
         )
     }
     fn compile_direct_product(
@@ -457,6 +441,7 @@ impl PreparedSupport {
             ProductKind::SelectedPartials,
             self,
             Some(&direct_scalars),
+            RegionStrategy::Forward,
         )?;
         // Derivative-order obligations retain their original execution position and are
         // checked even though this semantic route carries only values through the stages.

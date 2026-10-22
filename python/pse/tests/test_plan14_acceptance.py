@@ -13,11 +13,13 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.tests.physical_input_fixture import coordinate_batch, member
 from pse import codec
 from pse.contracts import authored
 from pse.contracts import runtime as runtime_contracts
-from pse.contracts.documents import NumericalPolicy, Profile
+from pse.contracts.documents import NumericalPolicy
 from pse.contracts.enums import (
+    DynamicSensitivity,
     DynamicsMethod,
     HessianMode,
     NativeBackend,
@@ -200,14 +202,15 @@ def test_public_dynamic_and_transient_fit(
     )
     numerics = NumericalPolicy()
     settings = pse.SimulationSettings(
+        runtime=runtime,
         method=DynamicsMethod.DIFFSOL,
         start=0.0,
         end=1.0,
         samples=[0.0, 0.5, 1.0],
-        atol=[numerics.engineering_relative_fraction],
+        atol=coordinate_batch(runtime, [(member(package, case, "total"), numerics.engineering_relative_fraction, "Time")]),
         rtol=numerics.engineering_relative_fraction,
-        parameter_scales=[1.0],
-        sensitivity="forward",
+        parameter_scales=coordinate_batch(runtime, [(member(package, case, "rate"), 1.0, "Scalar")]),
+        sensitivity=DynamicSensitivity.FORWARD,
     )
     simulation = package.simulate(case, settings)
     assert simulation.accepted
@@ -318,7 +321,7 @@ def test_public_dynamic_and_transient_fit(
         authored.AuthoredFitCasesRow,
     )
     package = package.with_fit_declarations((fit,))
-    simulation_profile = codec.decode_json(settings.to_json(), Profile)
+    simulation_profile = settings.document
     fit_settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT,
         intent=NativeSolveIntent.OPTIMIZE,
@@ -329,11 +332,12 @@ def test_public_dynamic_and_transient_fit(
     result = (
         package.prepare_fit(
             fit.fit_id,
-            pse.FitPreparationDocument(
-                solver=fit_settings,
-                simulations={
-                    fit.experiments[0].experiment_id.to_hex(): simulation_profile
-                },
+            codec.decode_json(
+                codec.encode_json({"version": 1, "settings": {
+                    "solver": fit_settings,
+                    "simulations": {fit.experiments[0].experiment_id.to_hex(): simulation_profile},
+                }}),
+                pse.PhysicalFitRequest,
             ),
         )
         .start()

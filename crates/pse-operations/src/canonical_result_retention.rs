@@ -424,6 +424,7 @@ mod canonical_result_retention_server_unit {
                 coordinate_max: Some(ordinal as f64),
                 payload_bytes: payload.len() as u64,
                 payload_digest: result_payload_digest(&payload),
+                statistics: None,
                 interpretation: wire::INTERPRETATION.into(),
             };
             store

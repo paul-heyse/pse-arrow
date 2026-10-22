@@ -38,6 +38,7 @@ pub(super) fn emit(
     let mut model_traits = Vec::new();
     let mut codecs = Vec::new();
     let mut names = Vec::new();
+    let mut semantic_names = Vec::new();
     for identity in reg.identities() {
         let name = format_ident!("{}", type_name(identity.name));
         let doc = format!(
@@ -46,9 +47,9 @@ pub(super) fn emit(
             identity.name
         );
         let (declaration, base) = match identity.base {
-            IdentityBase::SemanticId => (quote!(#[doc = #doc] #name), quote!(pse_ids::SemanticId)),
+            IdentityBase::SemanticId => (quote!(#[doc = #doc] #name: RegistrySemanticId), quote!(pse_ids::SemanticId)),
             IdentityBase::ContentHash => (
-                quote!(#[doc = #doc] #name: ContentHash),
+                quote!(#[doc = #doc] #name: RegistryContentHash),
                 quote!(pse_ids::ContentHash),
             ),
         };
@@ -79,6 +80,9 @@ pub(super) fn emit(
                 }
             }
         });
+        if matches!(identity.base, IdentityBase::SemanticId) {
+            semantic_names.push(name.clone());
+        }
         names.push(name);
     }
     super::emit(
@@ -87,6 +91,11 @@ pub(super) fn emit(
         quote! {
             #(#declarations)*
             #(#model_traits)*
+            /// Visit each registry role backed by a semantic identity.
+            #[macro_export]
+            macro_rules! for_each_semantic_identity {
+                ($callback:ident) => { $callback!(#(#semantic_names),*); };
+            }
         },
     )?;
     super::emit(

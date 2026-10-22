@@ -92,7 +92,7 @@ pub(in crate::workflow) async fn solve(
     text: &str,
     selection: SolverSelection,
 ) -> (Arc<crate::workflow::RunResult>, [SemanticId; 3]) {
-    let (result, ids) = solve_propagating(text, selection, &["x"], |_, _| None).await;
+    let (result, ids) = solve_propagating(text, selection, &["x"], |_, _, _| None).await;
     (result, [ids[0], ids[1], ids[2]])
 }
 /// Solve `text` with a sensitivity request over its parameters `a` and `b` and the
@@ -102,7 +102,7 @@ pub(in crate::workflow) async fn solve_propagating(
     text: &str,
     selection: SolverSelection,
     outputs: &[&str],
-    propagation: impl FnOnce(&[SemanticId], &[SemanticId]) -> Option<crate::math::settings::Propagation>,
+    propagation: impl FnOnce(&[SemanticId], &[SemanticId], &[pse_kernels::Port]) -> Option<crate::math::settings::Propagation>,
 ) -> (Arc<crate::workflow::RunResult>, Vec<SemanticId>) {
     let (package, root) = package(text).await;
     let cancel = crate::CancelSource::new();
@@ -122,7 +122,7 @@ pub(in crate::workflow) async fn solve_propagating(
     analysis.solver.sensitivity = Some(SensitivityRequest {
         parameters: vec![ids[0], ids[1]],
         reduced_hessian: true,
-        propagation: propagation(&ids[..2], &ids[2..]),
+        propagation: propagation(&ids[..2], &ids[2..], plain.model.case.compiled().plan.structure().parameters()),
     });
     let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     let result = prepared.start().unwrap().wait().await.unwrap();
@@ -141,7 +141,7 @@ async fn sensitivities_published_with_local_validity() {
         QUADRATIC,
         SolverSelection::Explicit(Backend::Ipopt),
         &["x", "z"],
-        |_, _| None,
+        |_, _, _| None,
     )
     .await;
     crate::workflow::review_qualification_tests::assert_review_transport(

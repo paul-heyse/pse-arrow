@@ -142,6 +142,10 @@ Derived in: pse-compiler.
 | `CompilerModelingViewV6` | `pse.compiler.modeling-view.v6` | Consumed physical premises for a prepared mathematical view. |
 | `MathPhysicalPremisesV1` | `pse.math.physical-premises.v1` | Resolver-issued lookup questions and their complete consumed values. |
 | `ModelingConsumerBodyV5` | `pse.modeling.consumer-body.v5` | Body identity under resolver-issued consumed physical premises. |
+| `ModelingResolvedSyntaxV1` | `pse.modeling.resolved-syntax.v1` | Resolved operation syntax, exact literals, typed lexical/local slots and finite membership. |
+| `ModelingResolvedFunctionV1` | `pse.modeling.resolved-function.v1` | Resolved function syntax with complete formal/result, validity, permission and provider contracts. |
+| `ModelingResolvedBodyV1` | `pse.modeling.resolved-body.v1` | Reusable resolved output/guard body, local physical roles, consumed premises and construction policy. |
+| `ModelingDerivedRelationshipV1` | `pse.modeling.derived-relationship.v1` | Catalogued typed derived-source relationships; occurrence/instance bindings remain separate. |
 | `CompilerModelingParametricV1` | `pse.compiler.modeling-parametric.v1` | The parametric projection of a prepared modeling view over requested parameters. |
 | `ModelingConsumerBodyV2` | `pse.modeling.consumer-body.v2` | A grouped consumer body, its expressions and validity ranges in canonical spelling (ADR-0123 Outcome 8). |
 | `ModelingConsumerBodyV3` | `pse.modeling.consumer-body.v3` | Canonical complete identity under ADR-0150. |
@@ -252,6 +256,8 @@ Derived in: pse-runtime.
 
 | Frame | Spelling | Meaning |
 |---|---|---|
+| `BoundarySchemaSetV1` | `pse.boundary.schema-set.v1` | Direction-qualified exported serde schemas and their interpretation versions. |
+| `CovarianceInputV1` | `pse.covariance.input.v1` | Complete covariance payload bound to privately verified fit evidence. |
 | `CausalMapV2` | `pse.causal-map.v2` | A conditional strategy's causal map. |
 | `CompletedEnvironmentV1` | `pse.completed.environment.v1` | The environment a completed step actually ran in. |
 | `CompletedRequestV2` | `pse.completed.request.v2` | A completed step's request lineage. |

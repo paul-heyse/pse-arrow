@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One public native workflow. Model declarations are generated; mathematics stays in Rust libraries.
+mod conformance_documents;
+pub use conformance_documents::{RunSettings, ConformanceRun, ConformanceManifest};
 mod diagnostic_request;
 pub use diagnostic_request::{
     DiagnosticCommandRequest, DiagnosticExecutionDocument, DiagnosticExecutionRequest,
@@ -43,7 +45,6 @@ mod connected_results;
 mod review_export;
 pub use review_export::{
     ReviewExportDeployment, ReviewOutputSelection, ReviewScientificSelection,
-    export_supplied_review_pack, prepare_review_pack,
 };
 mod physical_spool;
 pub mod result_blocks;
@@ -74,7 +75,7 @@ mod durable;
 pub use completion::Completion;
 pub use durable::{
     AdmittedSeed, Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability,
-    SeedReadError, TerminationCause, TerminationDetail,
+    SeedReadError, StoredCompletion, TerminationCause, TerminationDetail,
 };
 mod progress_documents;
 pub use progress_documents::{
@@ -95,6 +96,10 @@ pub use native_deployment::{
     ManagedPrimaryReceiver, NativeAllocation, NativeExecutionAllocation, NativeExecutionSelection,
 };
 pub use worker::{PhysicalSource, Processed, WorkerSettings};
+mod operation_preparation;
+mod declared_requests;
+pub use declared_requests::conform_pure_request;
+pub use operation_preparation::{PreparedOperation, RuntimeOperationRequest};
 mod study_demand;
 pub use study_demand::{
     CompactStudyResult, StudyDetailDemand, StudyMemberDemand, StudyOutputDemand,
@@ -128,7 +133,7 @@ pub use study::{
 };
 pub use study_operations::{
     AdmittedHorizonValues, ArrivalDocument, CaseOperation, ControllerOperation, EstimatorInput,
-    EstimatorOperation, FitOperation, FitOperationSettings, HorizonBinding, HorizonInputDocument,
+    EstimatorOperation, FitOperation, HorizonBinding, HorizonInputDocument,
     HorizonOperation, HorizonSignalDocument, OperationRequest, OperationSource,
     PreparationSettings, PreparedStudyOperation, SimulationOperation, StudyOperation,
     StudyResultRole,
@@ -179,6 +184,10 @@ pub use shooting::{
 };
 mod physical;
 pub use physical::{PhysicalAdmissionReceipt, PhysicalContext};
+mod physical_values;
+pub use physical_values::{PrimalCoordinates, DiagnosticSamples, InitializationStages, PrimalValues, StateTolerances};
+mod simulation_request;
+pub use simulation_request::{PhysicalFitRequest, PhysicalSimulationRequest};
 pub(crate) mod modeling;
 pub(crate) use modeling::PackageAdmission;
 pub use modeling::documents::{
@@ -230,7 +239,9 @@ use pse_engine::{
     EngineError,
     session::{BoundModel, EngineFactory},
 };
-pub use run::{RunHandle, RunReport, RunRequest, RunResult, StoredStart};
+pub use run::{RunHandle, RunResult, StoredStart};
+mod run_outcome;
+pub use run_outcome::{HorizonRunOutcome, RunOutcome, RunReport, RunRequest};
 mod live_simulation;
 pub use live_simulation::{
     LiveSampleAttempt, LiveSampleBatch, LiveSimulationCursor, LiveSimulationEvent,
@@ -239,7 +250,7 @@ pub use live_simulation::{
 use std::sync::Arc;
 mod canonical;
 mod source_settlement;
-pub use canonical::{CanonicalDeployment, OuterAttestation};
+pub use canonical::{CanonicalDeployment, DeploymentHost, OuterAttestation};
 pub use source_settlement::{SourceAcknowledgement, SourceSettlement};
 
 /// Errors retain the native/physical/authoring cause; no string matching or fallback.
@@ -351,7 +362,7 @@ pse_diagnostics::impl_diagnostic! {
     forward(this) {match this {Self::SeedRead(e)=>Some(e),Self::ResultBlock(e)=>Some(e),Self::Canonical(e)=>Some(e),Self::Boundary(e)=>Some(e.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::StudyCreationUnsettled{source,..}|Self::ArtifactTransferUnsettled{source,..}=>Some(source.as_ref()),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }
-fn contract(message: impl Into<String>) -> WorkflowError {
+pub(crate) fn contract(message: impl Into<String>) -> WorkflowError {
     WorkflowError::Input(message.into())
 }
 fn math(error: impl Into<pse_math::MathError>) -> WorkflowError {
@@ -390,18 +401,6 @@ pub enum DurabilitySelection {
         /// Finite lease and renewal policy.
         policy: LeasePolicy,
     },
-}
-impl DurabilitySelection {
-    fn validate(&self) -> Result<(), WorkflowError> {
-        if let Self::Durable { policy, .. } = self
-            && (policy.heartbeat.is_zero() || policy.lease.is_zero())
-        {
-            return Err(contract(
-                "durable heartbeat and lease intervals must be positive",
-            ));
-        }
-        Ok(())
-    }
 }
 impl Runtime {
     /// Passive diagnostic registry, available before preparing or starting a run.
@@ -622,12 +621,11 @@ impl Runtime {
     /// The same deployment under an explicit durability class (ADR-0114 Outcome 16).
     /// Packages and preparations made from the returned runtime run under it.
     /// # Errors
-    /// Durable lease or heartbeat intervals are zero.
+    /// No canonical deployment is attached for a durable selection.
     pub fn with_durability(
         mut self,
         selection: DurabilitySelection,
     ) -> Result<Self, WorkflowError> {
-        selection.validate()?;
         self.durability = match selection {
             DurabilitySelection::Ephemeral => Durability::Ephemeral,
             DurabilitySelection::Durable { worker, policy } => {
@@ -656,6 +654,17 @@ impl Runtime {
     /// The published rows are the capability records routing reads (F21).
     pub fn capabilities(&self) -> Vec<pse_model::generated::runtime::solver_capabilities::Row> {
         pse_backend_native::execution::LINKED.published()
+    }
+    /// The linked adapter's actual capability for one selected settings profile.
+    /// # Errors
+    /// The adapter is unlinked or the settings are foreign or unsupported.
+    pub fn capability_for(
+        &self,
+        backend: pse_backend_native::solve::Backend,
+        settings: &pse_backend_native::execution::BackendSettings,
+    ) -> Result<pse_model::generated::runtime::solver_capabilities::Row, WorkflowError> {
+        pse_backend_native::execution::LINKED.capability_for(backend, settings)
+            .map_err(MathRuntimeError::from).map_err(WorkflowError::from)
     }
     /// Existing typed native services, including cone preparation, initialization,
     /// graph analysis, MILP tears and declared recycle maps, use this same owner.
@@ -1124,3 +1133,9 @@ mod local_caller_tests {
         assert!(!Arc::ptr_eq(&next, &other));
     }
 }
+
+mod result_selection;
+pub use result_selection::{PackResultPredicate, PackResultSelection, PackScientificState};
+
+#[cfg(test)]
+mod observation_inquiry_tests;

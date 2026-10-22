@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Completion owns qualification and lineage. Exporters only copy this product.
-use super::{RunReport, RunRequest, RunResult, WorkflowError};
+use super::{RunReport, RunResult, WorkflowError};
 use crate::math::solves::Outcome;
 use pse_ids::{ContentHash, FramedHasher};
 use pse_model::generated::{
@@ -13,6 +13,8 @@ use pse_model::generated::{
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Completion {
+    /// Standalone completion document interpretation.
+    pub version: pse_model::document::Version<1>,
     /// Final physical closure and usability decisions, never recomputed by an exporter.
     pub assessments: Vec<pse_model::generated::runtime::candidate_assessments::Row>,
     /// Retained engineering outcomes; historical no-goal products have an empty collection.
@@ -44,15 +46,15 @@ impl RunResult {
             .map_err(super::math)?
             .environment
             .identity();
-        match &self.request {
-            RunRequest::Horizon(_) => {
+        match &self.outcome {
+            super::RunOutcome::Horizon { execution: super::HorizonRunOutcome::Compact(_), .. } => {
                 return if self.original_completion_captured {
                     self.completion.clone().map_err(WorkflowError::Shared)
                 } else {
                     Ok(product)
                 };
             }
-            RunRequest::Modeling(requests) => {
+            super::RunOutcome::Modeling { request: requests, .. } | super::RunOutcome::Horizon { execution: super::HorizonRunOutcome::Full { requests, .. }, .. } => {
                 for (ordinal, request) in requests.iter().enumerate() {
                     let step = self.modeling_step(ordinal) as i64;
                     if let Some(result) = self.modeling_result(ordinal) {
@@ -225,11 +227,8 @@ impl RunResult {
                     });
                 }
             }
-            RunRequest::Simulation(p) => {
-                let trajectory = match &self.report {
-                    Ok(RunReport::Simulation(r)) => Some(r.as_ref()),
-                    _ => None,
-                };
+            super::RunOutcome::Simulation { request: p, result } => {
+                let trajectory = result.as_ref().ok().map(Box::as_ref);
                 if let Some(t) = trajectory {
                     product.accuracy_goals.extend(
                         t.completion()
@@ -301,14 +300,8 @@ impl RunResult {
                 });
             }
             #[cfg(feature = "solver-diffsol")]
-            RunRequest::Shooting {
-                problem: p,
-                initial,
-            } => {
-                let report = match &self.report {
-                    Ok(RunReport::Shooting(r)) => Some(r.as_ref()),
-                    _ => None,
-                };
+            super::RunOutcome::Shooting { problem: p, initial, result } => {
+                let report = result.as_ref().ok().map(Box::as_ref);
                 if let Some(r) = report {
                     product
                         .accuracy_goals
@@ -403,11 +396,9 @@ impl RunResult {
                     environment_identity: actual_environment.finish_hash(),
                 });
             }
-            RunRequest::Fit(p) => {
-                let retained = match &self.report {
-                    Ok(RunReport::Fit(r)) => r.completion.as_ref(),
-                    _ => None,
-                };
+            super::RunOutcome::Fit { request: p, result } => {
+                let r = result.as_ref().ok().map(Box::as_ref);
+                let retained = r.and_then(|r| r.completion.as_ref());
                 if let Some(completion) = retained {
                     product
                         .accuracy_goals
@@ -423,10 +414,6 @@ impl RunResult {
                         }),
                     );
                 }
-                let r = match &self.report {
-                    Ok(RunReport::Fit(r)) => Some(r.as_ref()),
-                    _ => None,
-                };
                 let native = r.and_then(|r| r.solve.as_ref());
                 let residual = r.and_then(|r| r.residual.as_ref());
                 let physical = p.source.physical.key;
@@ -604,7 +591,7 @@ fn header(
     profile_identity: ContentHash,
 ) -> computation_runs::Row {
     let mut row = empty_header(result.run_id, kind, source_identity, profile_identity);
-    row.error = result.report.as_ref().err().map(ToString::to_string);
+    row.error = result.error().map(ToString::to_string);
     row
 }
 fn empty_header(
@@ -783,13 +770,7 @@ mod tests {
                 owner.clone(),
                 None,
             );
-            let mut result = RunResult::joined(
-                run_id,
-                runtime.clone(),
-                RunRequest::Modeling(vec![prepared.clone()]),
-                None,
-                Ok(RunReport::Modeling(vec![step])),
-            );
+            let mut result = RunResult::joined(run_id, runtime.clone(), crate::workflow::RunOutcome::Modeling { request: vec![prepared.clone()], result: Ok(vec![step]) }, None);
             result.assessments = result.assess_candidates();
             let completion = result.capture_completion().unwrap();
             let [solve] = completion.solves.as_slice() else {

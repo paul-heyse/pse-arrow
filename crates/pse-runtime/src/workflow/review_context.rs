@@ -410,6 +410,11 @@ pub struct ReviewContext {
     document: ReviewContextDocument,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
+impl serde::Serialize for ReviewContext {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serde::Serialize::serialize(&self.document, serializer)
+    }
+}
 impl ReviewContext {
     /// Borrow the complete selected factual document.
     pub fn document(&self) -> &ReviewContextDocument {
@@ -571,7 +576,7 @@ impl RunResult {
             "invocation-evidence.v2",
             &self.invocation_evidence()?,
         )?;
-        out.document.failure = self.report.as_ref().err().map(ToString::to_string);
+        out.document.failure = self.error().map(ToString::to_string);
         match self.replay_request() {
             RunRequest::Modeling(steps) => {
                 if request.steps.iter().any(|step| *step >= steps.len()) {
@@ -1366,13 +1371,7 @@ mod tests {
             "control reaches the real preparation-identity factory callback path"
         );
         let configurations_before = configuration_calls.load(std::sync::atomic::Ordering::SeqCst);
-        let result = Arc::new(RunResult::joined(
-            RunId::from_bytes([92; 16]),
-            runtime.clone(),
-            RunRequest::Modeling(vec![prepared]),
-            None,
-            Err(Arc::new(contract("retained pre-dispatch failure"))),
-        ));
+        let result = Arc::new(RunResult::joined(RunId::from_bytes([92; 16]), runtime.clone(), crate::workflow::RunOutcome::Modeling { request: vec![prepared], result: Err(Arc::new(contract("retained pre-dispatch failure"))) }, None));
         let run_context = result
             .review_context(&ReviewContextRequest::default())
             .unwrap();

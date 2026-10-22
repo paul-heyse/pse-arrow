@@ -272,6 +272,14 @@ pub(in crate::workflow::fitting) fn solve(
     pin: Option<(usize, f64)>,
     scratch: Option<Arc<FitScratch>>,
 ) -> Result<(FitResidualReport, Vec<f64>), ProblemError> {
+    solve_using(p, execution, initial, pin, scratch,
+        LevenbergMarquardt::new().with_tol(p.accuracy.stationarity))
+}
+/// The same callback, normalization, work and join owner under an explicit library policy.
+pub(in crate::workflow::fitting) fn solve_using(
+    p: &Arc<FitProblem>, execution: Execution, initial: &[f64], pin: Option<(usize, f64)>,
+    scratch: Option<Arc<FitScratch>>, method: LevenbergMarquardt<f64>,
+) -> Result<(FitResidualReport, Vec<f64>), ProblemError> {
     if !eligible(p) {
         return Err(ProblemError::unsupported("residual LM eligibility changed"));
     }
@@ -353,8 +361,7 @@ pub(in crate::workflow::fitting) fn solve(
         update_limit,
         evaluation_limit,
     };
-    let (problem, report) = LevenbergMarquardt::new()
-        .with_tol(p.accuracy.stationarity)
+    let (problem, report) = method
         .with_scale_diag(p.numerics.policy.native_scaling)
         .with_patience(update_limit)
         .minimize(problem);

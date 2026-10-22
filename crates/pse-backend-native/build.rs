@@ -22,11 +22,14 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 mod build_receipt;
+#[path = "build-link.rs"]
+mod build_link;
 
 const MKL: &str = "mkl-dynamic-lp64-gomp";
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=build-link.rs");
     println!("cargo:rerun-if-changed=build_receipt.rs");
     let isolation = env::var_os("CARGO_FEATURE_ROOT_ISOLATION").is_some();
     if isolation {
@@ -50,12 +53,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         None
     };
     let mut manifest = String::new();
+    let mut dynamic_link = String::new();
     if linked {
         match &prefix {
             Some(prefix) => {
                 let pc = prefix.join("lib/pkgconfig").join(format!("{MKL}.pc"));
                 println!("cargo:rerun-if-changed={}", pc.display());
-                link_from_pc(&pc, &prefix.join("lib"), "dylib")?;
+                dynamic_link = link_from_pc(&pc, &prefix.join("lib"), "dylib")?;
             }
             None => {
                 pkg_config::Config::new().probe(MKL).map_err(|e| {
@@ -67,6 +71,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     }
+    build_receipt::write_if_changed(&out.join("provider-link.rs"), dynamic_link.as_bytes())?;
     if ipopt && let Some(prefix) = &prefix {
         let info = prefix.join("share/pse-solvers/build-info.txt");
         println!("cargo:rerun-if-changed={}", info.display());
@@ -228,10 +233,10 @@ fn root_isolation() -> Result<(), Box<dyn Error>> {
 }
 
 /// Emit the `Libs:` line of the image's MKL link description: its `-l` libraries as dynamic
-/// links in the described order, searched in the image library directory. The interface
-/// layer comes first, so under the linker's `--as-needed` the threading and core layers stay
-/// linked for the symbols it leaves undefined.
-fn link_from_pc(pc: &Path, libdir: &Path, linkage: &str) -> Result<(), Box<dyn Error>> {
+/// links in the described order, searched in the image library directory. Dynamic
+/// retention scopes are translated to transitive Rust native-library attributes;
+/// discarding the provider's no-as-needed flag can drop MKL's core/threading layers.
+fn link_from_pc(pc: &Path, libdir: &Path, linkage: &str) -> Result<String, Box<dyn Error>> {
     let text = fs::read_to_string(pc)
         .map_err(|e| format!("pse-backend-native: unreadable {}: {e}", pc.display()))?;
     let libs = text
@@ -239,15 +244,15 @@ fn link_from_pc(pc: &Path, libdir: &Path, linkage: &str) -> Result<(), Box<dyn E
         .find_map(|l| l.strip_prefix("Libs:"))
         .ok_or_else(|| format!("{} has no Libs line", pc.display()))?;
     println!("cargo:rustc-link-search=native={}", libdir.display());
-    let mut linked = 0;
-    for token in libs.split_whitespace() {
-        if let Some(name) = token.strip_prefix("-l") {
-            println!("cargo:rustc-link-lib={linkage}={name}");
-            linked += 1;
-        }
-    }
-    if linked == 0 {
+    let libraries = build_link::libraries(libs, linkage)?;
+    if libraries.is_empty() {
         return Err(format!("{} names no libraries", pc.display()).into());
     }
-    Ok(())
+    if linkage == "dylib" {
+        return Ok(build_link::attributes(&libraries)?);
+    }
+    for library in libraries {
+        println!("cargo:rustc-link-lib={library}");
+    }
+    Ok(String::new())
 }

@@ -1409,13 +1409,10 @@ impl ModelingPackage {
                 #[cfg(feature = "solver-diffsol")]
                 match self.conform_shooting(&admitted, cancel).await {
                     Ok(result) => {
-                        let crate::workflow::RunReport::Shooting(shooting) = result
-                            .report
-                            .as_ref()
-                            .map_err(|error| WorkflowError::Shared(error.clone()))?
-                        else {
+                        let crate::workflow::RunOutcome::Shooting { result: shooting, .. } = result.outcome() else {
                             return Err(contract("shooting conformance report mismatch"));
                         };
+                        let shooting = shooting.as_ref().map_err(|error| WorkflowError::Shared(error.clone()))?;
                         report.record_fixture(fixture, Kind::StartToSolve,
                             if result.usable() && expected_failure.is_none() { Status::Passed } else { Status::Failed },
                             format!("{} shooting over the declared controls; objective {:?}, continuity {:?}",
@@ -2114,17 +2111,10 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<Arc<crate::workflow::RunResult>, WorkflowError> {
         let problem = Arc::new(self.shooting_for_declared(execution, None, cancel).await?);
-        let handle = problem.start()?;
-        let finish = handle.wait();
-        tokio::pin!(finish);
-        let result = tokio::select! {
-            result = &mut finish => result,
-            () = cancel.cancelled() => { handle.cancel(); finish.await }
-        }?;
-        result
-            .report
-            .as_ref()
-            .map_err(|error| WorkflowError::Shared(error.clone()))?;
+        let result = problem.start_replay_with_cancel(None, cancel)?.wait().await?;
+        if let Some(error) = result.error() {
+            return Err(WorkflowError::Shared(error.clone()));
+        }
         Ok(result)
     }
     async fn conformance_derivatives(

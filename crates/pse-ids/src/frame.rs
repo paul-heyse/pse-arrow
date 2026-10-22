@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! The unkeyed framing used by the `pse.canon.v2` and `pse.snapshot.v2` preimages
-//! (blueprint §5.3 steps 4 and 7).
+//! Unkeyed framing with explicit lengths for variable-width components.
 //!
 //! One trait with four operations, so the same code can build a preimage in memory (for a
 //! fixture to inspect) and stream it into a hasher (for production), and neither can drift
@@ -10,12 +9,11 @@
 //!
 //! **This is not the framing of [`crate::derive`].** A derived identity is keyed
 //! (`blake3::Hasher::new_derive_key`) and *every* part carries a `u64` little-endian
-//! length, integers included. A canonical preimage is unkeyed and mixes variable-length
+//! length, integers included. This unkeyed framing mixes variable-length
 //! components, which carry a length, with fixed-width components — IDs, hashes, counts and
-//! schema versions — which carry their declared width and no length. Both are frozen; the
-//! distinction is the contract, not an inconsistency.
+//! schema versions — which carry their declared width and no length.
 
-/// A sink that accepts the framed components of a canonical preimage.
+/// A sink that accepts fixed-width and length-prefixed preimage components.
 ///
 /// Implemented for `Vec<u8>` (the preimage as bytes) and for `blake3::Hasher` (the preimage
 /// as a digest, without ever materializing it).

@@ -13,6 +13,8 @@ pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "canonical_study_dependencies";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "runtime.canonical_study_dependencies";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.

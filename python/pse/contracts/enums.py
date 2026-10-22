@@ -103,6 +103,14 @@ class AccuracyUnavailableReason(StrEnum):
     FAILED = "failed"
 
 
+class ArtifactOwnerKind(StrEnum):
+    """The declared ArtifactOwnerKind enumeration."""
+
+    USER = "user"
+    PROJECT = "project"
+    AUDIT = "audit"
+
+
 class AssertionStatus(StrEnum):
     """The declared AssertionStatus enumeration."""
 
@@ -349,6 +357,20 @@ class ComputationKind(StrEnum):
     SHOOTING = "shooting"
 
 
+class ConformanceExecution(StrEnum):
+    """The declared ConformanceExecution enumeration."""
+
+    NATIVE = "native"
+    PURE = "pure"
+
+
+class ConformancePresolve(StrEnum):
+    """The declared ConformancePresolve enumeration."""
+
+    AUTO = "auto"
+    OFF = "off"
+
+
 class ConstraintScalingScheme(StrEnum):
     """The declared ConstraintScalingScheme enumeration."""
 
@@ -372,6 +394,13 @@ class CovarianceApproximation(StrEnum):
 
     EXACT = "exact"
     GAUSS_NEWTON = "gauss_newton"
+
+
+class CovarianceInputOrigin(StrEnum):
+    """The declared CovarianceInputOrigin enumeration."""
+
+    QUALIFIED_FIT = "qualified_fit"
+    EXTERNAL = "external"
 
 
 class DerivationGranularity(StrEnum):
@@ -1117,6 +1146,18 @@ class KinsolStrategy(StrEnum):
     FIXED_POINT = "fixed_point"
 
 
+class LiveSimulationEventKind(StrEnum):
+    """The declared LiveSimulationEventKind enumeration."""
+
+    SAMPLE = "sample"
+    ATTEMPT_FINISHED = "attempt_finished"
+    SELECTED = "selected"
+    RECORDED = "recorded"
+    RECORDING_UNKNOWN = "recording_unknown"
+    RECORDING_CLOSED = "recording_closed"
+    JOINED = "joined"
+
+
 class MigrationOp(StrEnum):
     """The declared MigrationOp enumeration."""
 
@@ -1718,6 +1759,8 @@ class NativeConstraintForm(StrEnum):
 class NativeDerivativeCapability(StrEnum):
     """The declared NativeDerivativeCapability enumeration."""
 
+    VALUE_ONLY = "value_only"
+    FIRST_ORDER_ONLY = "first_order_only"
     EXACT_HESSIAN_OR_LIMITED_MEMORY = "exact_hessian_or_limited_memory"
     JACOBIAN_OR_PRODUCT = "jacobian_or_product"
     COEFFICIENTS = "coefficients"
@@ -1822,6 +1865,13 @@ class NativePetscPreconditioner(StrEnum):
     JACOBI = "jacobi"
     ILU = "ilu"
     LU = "lu"
+
+
+class NativePrimalCoordinateRole(StrEnum):
+    """The declared NativePrimalCoordinateRole enumeration."""
+
+    ORIGINAL = "original"
+    AUXILIARY = "auxiliary"
 
 
 class NativeProblemClass(StrEnum):
@@ -2288,6 +2338,15 @@ class PardisoOrdering(StrEnum):
     PARALLEL_METIS = "parallel_metis"
 
 
+class PhysicalInputKind(StrEnum):
+    """The declared PhysicalInputKind enumeration."""
+
+    PRIMAL_VALUES = "primal_values"
+    INITIALIZATION_STAGES = "initialization_stages"
+    DIAGNOSTIC_SAMPLES = "diagnostic_samples"
+    STATE_TOLERANCES = "state_tolerances"
+
+
 class PounceFdColoring(StrEnum):
     """The declared PounceFdColoring enumeration."""
 
@@ -2461,6 +2520,14 @@ class ScaleKind(StrEnum):
 
     POINT = "point"
     DIFFERENCE = "difference"
+
+
+class ScientificArtifactKind(StrEnum):
+    """The declared ScientificArtifactKind enumeration."""
+
+    FINAL_STATE = "final-state"
+    TRAJECTORY = "trajectory"
+    LOCAL_ANALYSIS = "local-analysis"
 
 
 class SensitivityCorrector(StrEnum):

@@ -55,12 +55,36 @@ pub const IDENTITY: &str = "pse.domain.identity";
 pub const IDENTITY_OWNER: &str = "pse.domain.identity.owner";
 #[doc = concat!("Declared field facet `", "pse.domain.document", "`.")]
 pub const DOCUMENT: &str = "pse.domain.document";
+#[doc = concat!("Declared field facet `", "pse.domain.expression.role", "`.")]
+pub const EXPRESSION_ROLE: &str = "pse.domain.expression.role";
+#[doc = concat!("Declared field facet `", "pse.domain.expression.ordinal", "`.")]
+pub const EXPRESSION_ORDINAL: &str = "pse.domain.expression.ordinal";
+#[doc = concat!("Declared field facet `", "pse.domain.expression.binder", "`.")]
+pub const EXPRESSION_BINDER: &str = "pse.domain.expression.binder";
+#[doc = concat!("Declared field facet `", "pse.domain.expression.cases", "`.")]
+pub const EXPRESSION_CASES: &str = "pse.domain.expression.cases";
+#[doc = concat!("Declared field facet `", "pse.domain.result.selection", "`.")]
+pub const RESULT_SELECTION: &str = "pse.domain.result.selection";
+#[doc = concat!("Declared field facet `", "pse.domain.result.sort", "`.")]
+pub const RESULT_SORT: &str = "pse.domain.result.sort";
 #[doc = concat!("Declared field facet `", "pse.semantic.logical_type", "`.")]
 pub const KEY_LOGICAL_TYPE: &str = "pse.semantic.logical_type";
 #[doc = concat!("Declared field facet `", "pse.semantic.quantity_type", "`.")]
 pub const KEY_QUANTITY_TYPE: &str = "pse.semantic.quantity_type";
 #[doc = concat!("Declared field facet `", "pse.semantic.transfer_context", "`.")]
 pub const KEY_TRANSFER_CONTEXT: &str = "pse.semantic.transfer_context";
+#[doc = concat!("Declared field facet `", "pse.semantic.expression.role", "`.")]
+pub const KEY_EXPRESSION_ROLE: &str = "pse.semantic.expression.role";
+#[doc = concat!("Declared field facet `", "pse.semantic.expression.ordinal", "`.")]
+pub const KEY_EXPRESSION_ORDINAL: &str = "pse.semantic.expression.ordinal";
+#[doc = concat!("Declared field facet `", "pse.semantic.expression.binder", "`.")]
+pub const KEY_EXPRESSION_BINDER: &str = "pse.semantic.expression.binder";
+#[doc = concat!("Declared field facet `", "pse.semantic.expression.cases", "`.")]
+pub const KEY_EXPRESSION_CASES: &str = "pse.semantic.expression.cases";
+#[doc = concat!("Declared field facet `", "pse.semantic.result.selection", "`.")]
+pub const KEY_RESULT_SELECTION: &str = "pse.semantic.result.selection";
+#[doc = concat!("Declared field facet `", "pse.semantic.result.sort", "`.")]
+pub const KEY_RESULT_SORT: &str = "pse.semantic.result.sort";
 #[doc = concat!("Declared field facet `", "pse.semantic.role", "`.")]
 pub const KEY_ROLE: &str = "pse.semantic.role";
 #[doc = concat!("Declared field facet `", "pse.semantic.fk", "`.")]
@@ -192,6 +216,54 @@ pub const FACETS: &[Facet] = &[
         admission: Admission::Preserve,
     },
     Facet {
+        key: EXPRESSION_ROLE,
+        execution: true,
+        value: false,
+        storage_root: false,
+        type_identity: true,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: EXPRESSION_ORDINAL,
+        execution: true,
+        value: false,
+        storage_root: false,
+        type_identity: true,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: EXPRESSION_BINDER,
+        execution: true,
+        value: false,
+        storage_root: false,
+        type_identity: true,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: EXPRESSION_CASES,
+        execution: true,
+        value: true,
+        storage_root: true,
+        type_identity: true,
+        admission: Admission::Preserve,
+    },
+    Facet {
+        key: RESULT_SELECTION,
+        execution: true,
+        value: false,
+        storage_root: false,
+        type_identity: true,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: RESULT_SORT,
+        execution: true,
+        value: false,
+        storage_root: false,
+        type_identity: true,
+        admission: Admission::Ignore,
+    },
+    Facet {
         key: KEY_LOGICAL_TYPE,
         execution: true,
         value: true,
@@ -214,6 +286,54 @@ pub const FACETS: &[Facet] = &[
         storage_root: true,
         type_identity: true,
         admission: Admission::Exact,
+    },
+    Facet {
+        key: KEY_EXPRESSION_ROLE,
+        execution: true,
+        value: false,
+        storage_root: true,
+        type_identity: true,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: KEY_EXPRESSION_ORDINAL,
+        execution: true,
+        value: false,
+        storage_root: true,
+        type_identity: true,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: KEY_EXPRESSION_BINDER,
+        execution: true,
+        value: false,
+        storage_root: true,
+        type_identity: true,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: KEY_EXPRESSION_CASES,
+        execution: true,
+        value: true,
+        storage_root: true,
+        type_identity: true,
+        admission: Admission::Preserve,
+    },
+    Facet {
+        key: KEY_RESULT_SELECTION,
+        execution: true,
+        value: false,
+        storage_root: true,
+        type_identity: true,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: KEY_RESULT_SORT,
+        execution: true,
+        value: false,
+        storage_root: true,
+        type_identity: true,
+        admission: Admission::Ignore,
     },
     Facet {
         key: KEY_ROLE,

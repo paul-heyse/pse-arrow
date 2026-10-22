@@ -72,16 +72,19 @@ fn predictions(level: f64) -> Option<FitUncertainty> {
 #[tokio::test]
 async fn uncertainty_propagation_linear_exact() {
     // x = (b + 2a)/3 and y = (a − b)/3 at the optimum of the quadratic case.
-    let run = RunId::from(SemanticId::from_bytes([9; 16]));
     let (result, ids) = solve_propagating(
         QUADRATIC,
         SolverSelection::Explicit(Backend::Ipopt),
         &["x", "y"],
-        |parameters, outputs| {
+        |parameters, outputs, ports| {
+            let port = |id| ports.iter().find(|port| port.id == id).unwrap();
             Some(Propagation {
                 // The covariance names b before a: parameters match by identity.
                 covariance: ParameterCovariance {
-                    run_id: run,
+                    version: pse_model::document::Version,
+                    origin: CovarianceOrigin::External { label: "analytic oracle".into(), assumptions: vec!["declared independent errors".into()] },
+                    parameter_quantities: vec![port(parameters[1]).quantity.as_id(), port(parameters[0]).quantity.as_id()], parameter_units: vec![port(parameters[1]).unit.as_id(), port(parameters[0]).unit.as_id()], verified: None,
+                    scales: bound(&[1.0, 1.0]),
                     parameters: vec![parameters[1], parameters[0]],
                     values: bound(&[
                         SIGMA_AB[1][1],
@@ -98,7 +101,7 @@ async fn uncertainty_propagation_linear_exact() {
     let expected = sandwich(&[[2.0 / 3.0, 1.0 / 3.0], [1.0 / 3.0, -1.0 / 3.0]], SIGMA_AB);
     let rows = propagated(&result);
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].covariance_run_id, run);
+    assert_eq!(rows[0].covariance_run_id, None);
     assert_eq!(rows[0].parameters, vec![ids[1], ids[0]]);
     assert_eq!(rows[0].outputs, vec![ids[2], ids[3]]);
     close(&rows[0].values, &expected);
@@ -118,25 +121,25 @@ async fn uncertainty_propagation_linear_exact() {
     let expected = sandwich(&design, [[sigma[0], sigma[1]], [sigma[2], sigma[3]]]);
     let rows = propagated(&result);
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].covariance_run_id, result.run_id);
+    assert_eq!(rows[0].covariance_run_id, Some(result.run_id));
     let observations: Vec<SemanticId> = (40..44).map(|n| SemanticId::from_bytes([n; 16])).collect();
     assert_eq!(rows[0].outputs, observations);
     close(&rows[0].values, &expected);
     assert!(validity(&result).validity.certified);
     // The entry point: the run's covariance handed on, through the same Jacobian.
     let input = result.parameter_covariance().unwrap().unwrap();
-    assert_eq!(input.run_id, result.run_id);
+    assert!(matches!(input.origin, CovarianceOrigin::QualifiedFit { run_id, .. } if run_id == result.run_id));
     let jacobian = Jacobian {
         outputs: observations,
         parameters: input.parameters.clone(),
         values: design.iter().flatten().copied().collect(),
     };
-    let direct = propagate(Ok(&input), Ok(&jacobian)).unwrap().unwrap();
+    let direct = propagate_for_test(Ok(&input), Ok(&jacobian)).unwrap().unwrap();
     close(&direct.values, &expected);
     // A covariance parameter the Jacobian does not differentiate is a caller error.
     let mut foreign = jacobian.clone();
     foreign.parameters[1] = SemanticId::from_bytes([99; 16]);
-    assert!(propagate(Ok(&input), Ok(&foreign)).is_err());
+    assert!(propagate_for_test(Ok(&input), Ok(&foreign)).is_err());
 }
 
 /// ADR-0118 item 11: the validity of a propagated covariance is the conjunction of its
@@ -144,15 +147,18 @@ async fn uncertainty_propagation_linear_exact() {
 #[tokio::test]
 async fn propagation_withheld_when_upstream_withheld() {
     // The coefficient route runs no KKT-point analysis, so the sensitivities are withheld.
-    let run = RunId::from(SemanticId::from_bytes([9; 16]));
     let (result, _) = solve_propagating(
         LINEAR,
         SolverSelection::Explicit(Backend::Highs),
         &["x"],
-        |parameters, outputs| {
+        |parameters, outputs, ports| {
+            let port = |id| ports.iter().find(|port| port.id == id).unwrap();
             Some(Propagation {
                 covariance: ParameterCovariance {
-                    run_id: run,
+                    version: pse_model::document::Version,
+                    origin: CovarianceOrigin::External { label: "withholding control".into(), assumptions: vec!["declared independent errors".into()] },
+                    parameter_quantities: parameters.iter().map(|id| port(*id).quantity.as_id()).collect(), parameter_units: parameters.iter().map(|id| port(*id).unit.as_id()).collect(), verified: None,
+                    scales: bound(&[1.0, 1.0]),
                     parameters: parameters.to_vec(),
                     values: bound(&[1.0, 0.0, 0.0, 1.0]),
                 },
@@ -194,17 +200,21 @@ async fn propagation_withheld_when_upstream_withheld() {
         values: vec![1.0],
     };
     assert_eq!(
-        propagate(Err(upstream.clone()), Ok(&jacobian)).unwrap(),
+        propagate_for_test(Err(upstream.clone()), Ok(&jacobian)).unwrap(),
         Err(upstream)
     );
     // A covariance that is not square, symmetric and nonnegative on its diagonal is refused.
     let skew = ParameterCovariance {
-        run_id: run,
+        version: pse_model::document::Version,
+        origin: CovarianceOrigin::External { label: "skew control".into(), assumptions: vec!["declared independent errors".into()] },
+        parameter_quantities: vec![SemanticId::from_bytes([1; 16]), SemanticId::from_bytes([2; 16])],
+        parameter_units: vec![SemanticId::from_bytes([1; 16]), SemanticId::from_bytes([2; 16])], verified: None,
+        scales: bound(&[1.0, 1.0]),
         parameters: vec![
             SemanticId::from_bytes([1; 16]),
             SemanticId::from_bytes([2; 16]),
         ],
         values: bound(&[1.0, 0.5, -0.5, 1.0]),
     };
-    assert!(skew.admit().is_err());
+    assert!(propagate_for_test(Ok(&skew), Ok(&jacobian)).is_err());
 }

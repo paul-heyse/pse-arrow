@@ -77,6 +77,7 @@ pub struct AdmittedBinding {
     /// Physical interpretation context.
     pub context: ContentHash,
     /// Entries in member identity order.
+    #[schemars(with = "pse_ids::document::KeyedMap<SemanticId, AdmittedBindingEntry>")]
     pub entries: BTreeMap<SemanticId, AdmittedBindingEntry>,
 }
 impl AdmittedBinding {
@@ -99,6 +100,21 @@ impl AdmittedBinding {
             .map(|(id, entry)| (*id, entry.canonical.into_inner()))
             .collect()
     }
+}
+pub(in crate::workflow) fn parameter_binding_refusal(binding: &AdmittedBinding, reason: &str) -> WorkflowError {
+    let mut diagnostic = pse_model::diagnostic::BoundaryDiagnostic::new(
+        pse_model::diagnostic::BoundaryClass::Unsupported,
+        pse_diagnostics::DiagnosticStage::StudyBinding,
+        binding.entries.keys().copied(), pse_diagnostics::DiagnosticRule::StudyOperationUnsupported,
+    );
+    diagnostic.observations.insert("reason".into(), pse_model::diagnostic::Observation::Text(reason.into()));
+    diagnostic.into()
+}
+pub(in crate::workflow) fn require_parameter_binding(binding: &AdmittedBinding) -> Result<(), WorkflowError> {
+    if binding.entries.values().any(|entry| !entry.parameter) {
+        return Err(parameter_binding_refusal(binding, "this operation accepts parameter points only"));
+    }
+    Ok(())
 }
 impl ModelingPackage {
     /// Resolve submitted paths through the compiler's lexical/indexed path owner at admission.
@@ -144,6 +160,29 @@ impl ModelingPackage {
                     return Ok((binding, seed_need));
                 }
                 *admission = None;
+                match &operation.operation {
+                    super::OperationRequest::Simulation(simulation) => {
+                        let execution = self.declared_execution_with_demand(
+                            simulation.case, operation.preparation.compiler, Default::default(),
+                            Default::default(), operation.preparation.limits,
+                            overlay.assignments.iter().filter_map(|assignment| match &assignment.target {
+                                BindingTarget::Path(path) => Some(path.clone()), BindingTarget::Member(_) => None,
+                            }).collect(), cancel,
+                        ).await?;
+                        if !matches!(execution.procedure, super::DeclaredProcedure::Integrate(_)) {
+                            return Err(super::contract("simulation point requires an authored integration procedure"));
+                        }
+                        let binding = self.admit_overlay(execution.model.compiled(), overlay)?;
+                        require_parameter_binding(&binding)?;
+                        return Ok((binding, pse_model::study::SeedNeed::NotNeeded));
+                    }
+                    super::OperationRequest::Fit(fit) => {
+                        fit.settings.settings.solver.clone().profile()?;
+                        let binding = self.admit_fit_overlay(fit.fit, overlay, operation.preparation.limits, cancel).await?;
+                        return Ok((binding, pse_model::study::SeedNeed::NotNeeded));
+                    }
+                    super::OperationRequest::DeclaredCase(_) | super::OperationRequest::Horizon(_) => {}
+                }
                 if !overlay.assignments.is_empty() {
                     return Err(pse_model::diagnostic::BoundaryDiagnostic::new(
                         pse_model::diagnostic::BoundaryClass::Unsupported,
@@ -210,7 +249,7 @@ impl ModelingPackage {
                     operation
                         .admit_binding_seed_need(self, binding, admission, cancel)
                         .await?;
-                    let mut execution = admission
+                    let execution = admission
                         .as_ref()
                         .ok_or_else(|| super::contract("declared lane admission absent"))?
                         .execution
@@ -227,43 +266,19 @@ impl ModelingPackage {
                         )
                         .into());
                     }
-                    self.validate_binding(execution.model.compiled(), binding)?;
-                    let bound_source = self.retain_bound_source(binding)?;
-                    execution.analysis.case.members = binding.values();
-                    let analysis = execution.analysis;
-                    let resolution = self
-                        .resolve_prepared_case_with_current_view(
-                            execution.model,
-                            analysis.case,
-                            analysis.order,
-                            analysis.compiler,
-                            analysis.solver,
-                            analysis.numerical,
-                            super::modeling::cases::CaseOverrides::default(),
-                            false,
-                            current_view,
-                            cancel,
-                        )
-                        .await?;
-                    let mut prepared = self.finish_case(resolution, cancel).await?;
-                    prepared.bound_source = Some(bound_source);
+                    let prepared = self.prepare_operation_execution(execution, Some(binding), current_view, cancel).await?;
                     return Ok(super::PreparedStudyOperation::DeclaredCase(Box::new(
                         prepared,
                     )));
                 }
-                if !binding.entries.is_empty()
-                    || binding.revision != self.revision.identity()
-                    || binding.context != self.physical.identity()
-                {
-                    return Err(pse_model::diagnostic::BoundaryDiagnostic::new(
-                        pse_model::diagnostic::BoundaryClass::Unsupported,
-                        pse_diagnostics::DiagnosticStage::StudyBinding,
-                        binding.entries.keys().copied(),
-                        pse_diagnostics::DiagnosticRule::StudyOperationUnsupported,
-                    )
-                    .into());
-                }
-                operation.prepare(self, cancel).await
+                operation.admit_binding_seed_need(self, binding, admission, cancel).await?;
+                self.prepare_operation(
+                    &operation.source, &operation.preparation,
+                    super::RuntimeOperationRequest::Study {
+                        operation: operation.operation.clone(), output: operation.output.clone(),
+                        admitted_horizon: operation.admitted_horizon.clone(),
+                    }, Some(binding), cancel,
+                ).await?.into_study()
             })
             .await
     }

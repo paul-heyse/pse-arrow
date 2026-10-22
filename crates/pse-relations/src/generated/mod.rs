@@ -32,11 +32,13 @@ pub mod extension_values;
 pub mod identities;
 /// Enforced algorithm argument projections.
 pub mod algorithm_arguments;
+/// Scientific access fields and new-batch ordering from registry declarations.
+pub mod result_selection;
 /// Registry identity; validity is established by admission.
 pub const REGISTRY_FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    59u8, 89u8, 97u8, 238u8, 215u8, 73u8, 6u8, 250u8, 47u8, 22u8, 207u8, 80u8, 177u8,
-    133u8, 163u8, 124u8, 142u8, 184u8, 64u8, 171u8, 67u8, 19u8, 14u8, 187u8, 29u8, 100u8,
-    190u8, 89u8, 204u8, 18u8, 87u8, 120u8,
+    230u8, 87u8, 240u8, 119u8, 245u8, 80u8, 214u8, 180u8, 198u8, 238u8, 33u8, 42u8,
+    255u8, 180u8, 198u8, 170u8, 161u8, 118u8, 246u8, 56u8, 79u8, 138u8, 78u8, 157u8,
+    201u8, 161u8, 204u8, 119u8, 85u8, 88u8, 68u8, 146u8,
 ]);
 /// Resolves an exact declaration from the current registry.
 /// # Errors

@@ -19,6 +19,10 @@ pub const RESULT_BLOCK_BYTES: usize = 32 * 1024 * 1024;
 pub const RESULT_FILE_TARGET_BYTES: usize = 16 * 1024 * 1024;
 /// Native CBOR index/descriptor envelope admission per append.
 pub const RESULT_INDEX_BYTES: usize = 128 * 1024;
+/// Closed admitted-batch statistics envelope, independent of scientific payload size.
+pub const RESULT_STATISTICS_BYTES: usize = 16 * 1024;
+/// Codec version for exact statistics produced with admitted native result files.
+pub const RESULT_STATISTICS_VERSION: u32 = 1;
 /// Maximum metadata rows in one artifact attachment transaction.
 pub const ARTIFACT_APPEND_ROWS: usize = 64;
 /// Complete uncompressed native RPC message admission.
@@ -219,6 +223,18 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     let flag = || FieldContract::native(DataType::Boolean);
     let timestamp = || FieldContract::native(crate::model::extension::timestamp_micros_storage());
     let declarations = [
+        (
+            "canonical_maintenance_operations",
+            vec![
+                column("key", text()), column("operation", text()),
+                column("generation", text()), column("phase", text()),
+                column("source", text()), column("target", text()),
+                column("kind", text()), column("after", text()),
+                column("next", text()), column("count", uint()),
+                column("complete", flag()),
+            ],
+            "Current fenced privileged maintenance generation and immutable exact-operation page effects. Historical installation remains separately privileged; page replay never repeats authority rotation or placement mutation.",
+        ),
         (
             "canonical_maintenance_activations",
             vec![
@@ -741,6 +757,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("coordinate_max", FieldContract::native(DataType::Float64)).optional(),
                 column("payload_bytes", uint()),
                 column("payload_digest", text()),
+                column("statistics", bytes()).optional(),
                 column("interpretation", text()),
             ],
             "Independently decodable exact scientific Arrow block; indexed range metadata is derived from its admitted coordinates.",

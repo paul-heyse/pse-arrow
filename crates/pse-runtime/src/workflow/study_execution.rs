@@ -4,7 +4,7 @@
 use super::modeling::assessment::Obligations;
 use super::staged::Staged;
 use super::{
-    AdmittedStudy, LocalStudy, ModelingPackage, PreparedStudyOperation, RunReport, RunRequest,
+    AdmittedStudy, LocalStudy, ModelingPackage, PreparedStudyOperation, RunReport,
     RunResult, StudyDefinition, WorkflowError,
 };
 use futures_util::{FutureExt, StreamExt};
@@ -132,12 +132,9 @@ impl StudyOccurrenceResult {
     }
     /// Original native report is available only in explicit kernel mode. Applications
     /// read retained rows through the canonical result selector.
-    pub fn report(&self) -> Result<&RunReport, WorkflowError> {
+    pub fn report(&self) -> Result<RunReport<'_>, WorkflowError> {
         match self {
-            Self::Ephemeral(result) => result
-                .report
-                .as_ref()
-                .map_err(|error| WorkflowError::Shared(error.clone())),
+            Self::Ephemeral(result) => result.outcome.report().map_err(|error| WorkflowError::Shared(error.clone())),
             Self::Retained { .. } => Err(super::contract(
                 "persisted occurrence requires a connected result selection",
             )),
@@ -297,7 +294,7 @@ impl ModelingPackage {
         let inventory = wait_study_inventory(
             handle.study_id(),
             cancel,
-            self.runtime.operations()?.policy().heartbeat,
+            self.runtime.operations()?.policy().heartbeat(),
             || handle.terminal_inventory(),
             || async { handle.cancel().await.map(|_| ()) },
             || primary.observe(),
@@ -1420,14 +1417,13 @@ async fn execute_lane_inner(
                 .batch(&preparations, Obligations::Final, cancel)
                 .await;
             for ((member, preparation), result) in members.drain(..).zip(preparations).zip(solved) {
-                let request = RunRequest::Modeling(vec![preparation]);
-                let report = result.map(|result| RunReport::Modeling(vec![result]));
+                let request = vec![preparation];
+                let report = result.map(|result| vec![result]);
                 let result = RunResult::joined(
                     pse_operations::mint_id(),
                     package.runtime.clone(),
-                    request,
+                    super::RunOutcome::Modeling { request, result: report },
                     None,
-                    report,
                 )
                 .finished(None, cancel.token().is_cancelled())
                 .await;
@@ -1627,10 +1623,7 @@ async fn settle_occurrence(
     let diagnostic =
         result_diagnostic(&result).map(|diagnostic| diagnostic.with_revision(revision));
     let completed = result.report().is_ok();
-    let fatal = result
-        .report
-        .as_ref()
-        .err()
+    let fatal = result.error()
         .or_else(|| result.completion.as_ref().err())
         .filter(|error| {
             matches!(
@@ -1672,14 +1665,11 @@ pub(in crate::workflow) async fn continuation_start(
     cancel: &crate::CancelSource,
 ) -> Result<(), WorkflowError> {
     let predecessor_result = predecessor;
-    let predicted = if target
-        .solve
-        .composition_request()
-        .recovery
-        .contains(&pse_model::strategy::StartOrigin::Predicted)
-        && target.solve.numerical_strategy().start.policy
-            != pse_backend_native::solve::StartPolicy::Explicit
-    {
+    let entry = pse_model::study_policy::prediction_entry(
+        &target.solve.numerical_strategy().start,
+        predecessor_result.is_some_and(|result| result.prediction.is_some()),
+    );
+    let predicted = if entry == pse_model::study_policy::PredictionEntry::Attempt {
         if let Some(point) = predecessor_result.and_then(|result| result.prediction.as_ref()) {
             let point = point
                 .as_ref()
@@ -1734,12 +1724,12 @@ pub(in crate::workflow) async fn continuation_start(
                     )
                 }
                 Err(error)
-                    if matches!(
-                        error.boundary_diagnostic().class,
-                        BoundaryClass::Unsupported
-                            | BoundaryClass::Incompatible
-                            | BoundaryClass::Numerical
-                    ) =>
+                    if pse_model::study_policy::prediction_choice(
+                        pse_model::study_policy::PredictionResult::Failed {
+                            stage: pse_model::study_policy::PredictionStage::Proposal,
+                            class: error.boundary_diagnostic().class,
+                        },
+                    ) == pse_model::study_policy::PredictionChoice::ContinueFromSeed =>
                 {
                     None
                 }
@@ -1753,9 +1743,7 @@ pub(in crate::workflow) async fn continuation_start(
     };
     if let Some(solve) = predicted {
         target.solve = solve;
-    } else if target.solve.numerical_strategy().start.policy
-        != pse_backend_native::solve::StartPolicy::Explicit
-    {
+    } else if entry != pse_model::study_policy::PredictionEntry::PreserveExplicit {
         let source = predecessor.ok_or_else(|| {
             WorkflowError::Internal("policy selected a missing admitted seed".into())
         })?;
@@ -1786,7 +1774,7 @@ async fn execute(
         match operation {
             PreparedStudyOperation::DeclaredCase(case) => {
                 let run_id = pse_operations::mint_id();
-                let request = RunRequest::Modeling(vec![case.as_ref().clone()]);
+                let request = vec![case.as_ref().clone()];
                 let report = staged
                     .run(
                         *case,
@@ -1797,9 +1785,9 @@ async fn execute(
                         cancel,
                     )
                     .await
-                    .map(|result| RunReport::Modeling(vec![result]));
+                    .map(|result| vec![result]);
                 Ok(Arc::new(
-                    RunResult::joined(run_id, package.runtime.clone(), request, None, report)
+                    RunResult::joined(run_id, package.runtime.clone(), super::RunOutcome::Modeling { request, result: report }, None)
                         .finished(None, cancel.token().is_cancelled())
                         .await,
                 ))

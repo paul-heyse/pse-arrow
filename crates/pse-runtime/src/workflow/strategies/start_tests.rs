@@ -148,8 +148,10 @@ async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance()
         );
     }
     let x = negative.model.case.compiled().plan.columns()[0];
+    let batch = crate::workflow::physical_values::test_primal_batch(&negative, BTreeMap::from([(x, 1.0)]));
+    let schema = batch.schema();
     let result = negative
-        .with_primal_start(BTreeMap::from([(x, 1.0)]))
+        .with_primal_start(datafusion::arrow::record_batch::RecordBatchIterator::new(vec![Ok(batch)], schema))
         .unwrap()
         .start()
         .unwrap()

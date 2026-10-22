@@ -2,15 +2,12 @@
 # Copyright (c) 2026 Paul Heyse
 """Independent scientific selections with exact attributed lifetimes."""
 
-from typing import Literal
-
 import attrs
 
 from pse._build import _NativeArtifactSettlement, _NativeScientificArtifact
 from pse._inspection import TableStream
-
-ScientificArtifactKind = Literal["final-state", "trajectory", "local-analysis"]
-ArtifactOwnerKind = Literal["user", "project", "audit"]
+from pse.contracts.documents import ArtifactIntent
+from pse.contracts.enums import ArtifactOwnerKind, ScientificArtifactKind
 
 
 @attrs.frozen
@@ -25,13 +22,13 @@ class ScientificArtifact:
         return self._handle.key
 
     @property
-    def kind(self) -> str:
+    def kind(self) -> ScientificArtifactKind:
         """Scientific product promised by its original promotion owner."""
         return self._handle.kind
 
     @property
-    def original_intent(self) -> bytes:
-        """Exact original settlement bytes, also retained by errors and interrupts."""
+    def original_intent(self) -> ArtifactIntent:
+        """Exact original settlement document, also retained by errors and interrupts."""
         return self._handle.original_intent
 
     def metadata(self) -> TableStream:

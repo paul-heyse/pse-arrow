@@ -154,7 +154,7 @@ fn check_python_candidate(root: &Path, tree: &GeneratedTree, mode: Option<&str>)
 /// crates' serde types (ADR-0116 Outcome 7).
 #[cfg(feature = "product-schemas")]
 fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
-    let mut tree = documents::generate(registry, &schemas::documents())?;
+    let mut tree = documents::generate_catalogue(registry, &schemas::documents(), pse_runtime::boundary_documents::fingerprint()?)?;
     let fixtures = schemas::boundary_fixtures()?;
     tree.roots.extend(fixtures.roots);
     tree.files.extend(fixtures.files);
@@ -673,7 +673,7 @@ mod tests {
     fn nested_document_roots_belong_to_their_own_target() {
         let checkout = tempfile::tempdir().unwrap();
         for nested in [
-            "docs/generated/schema/solve-settings.schema.json",
+            "docs/generated/schema/solve-settings.input.schema.json",
             "python/pse/contracts/documents/__init__.py",
         ] {
             let path = checkout.path().join(nested);
@@ -701,7 +701,7 @@ mod tests {
         assert!(
             checkout
                 .path()
-                .join("docs/generated/schema/solve-settings.schema.json")
+                .join("docs/generated/schema/solve-settings.input.schema.json")
                 .exists()
         );
         assert!(

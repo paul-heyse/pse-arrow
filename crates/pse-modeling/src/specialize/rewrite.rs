@@ -547,11 +547,13 @@ impl Engine<'_, '_> {
                 else {
                     return Err(invalid(at, "finite reduction set required"));
                 };
+                let carrier=crate::resolved::Carrier {kind:crate::resolved::CarrierKind::OrderedSet, element:*element.clone(), members:values.clone().into()};
+                let mut selected_members=Vec::new();
                 let saved = self.lexical.remove(&binder.var);
                 let mut terms = Vec::new();
                 for value in values {
                     let mut local = env.clone();
-                    local.insert(binder.var.clone(), value);
+                    local.insert(binder.var.clone(), value.clone());
                     if let Some(filter) = &binder.filter
                         && !(Evaluator {
                             lexical_bases: Some(&self.lexical_bases),
@@ -568,6 +570,7 @@ impl Engine<'_, '_> {
                     {
                         continue;
                     }
+                    selected_members.push(value);
                     terms.push(self.rewrite(instance, body, &local, chain)?);
                 }
                 if let Some(saved) = saved {
@@ -583,7 +586,13 @@ impl Engine<'_, '_> {
                         .map_err(|e| invalid(at, e.to_string()))?;
                     let (reduction, domain) =
                         crate::expression::finite_reduction(*kind, &element, at)?;
-                    let mut hash = FramedHasher::new(pse_ids::Frame::ModelingFiniteReductionV2);
+                    let mut hash = FramedHasher::new(pse_ids::Frame::ModelingResolvedFunctionV1);
+                    hash.str("finite-reduction");
+                    crate::resolved::frame_type(&carrier.element, &mut hash);
+                    hash.u64(carrier.members.len() as u64);
+                    for member in carrier.members.iter() {member.frame(&mut hash);}
+                    hash.u64(selected_members.len() as u64);
+                    for member in &selected_members {member.frame(&mut hash);}
                     hash.str(kind.as_str());
                     quantity.frame(&mut hash);
                     hash.bool(domain.is_some()).u64(terms.len() as u64);
@@ -593,6 +602,7 @@ impl Engine<'_, '_> {
                     // A lowered reduction is a synthesized function declaration.
                     let id = DeclarationId::from(hash.finish_id());
                     let name = format!("f_{}", id.as_id().to_hex());
+                    self.finite_collector.reduction(name.clone(), carrier, selected_members)?;
                     self.model
                         .functions
                         .entry(name.clone())

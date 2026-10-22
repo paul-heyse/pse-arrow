@@ -404,29 +404,15 @@ pub(crate) fn callable<T>(
             && let Some(Ok(value)) = result.value.as_ref()
             && let Some(report) = native_report(value)
         {
-            let settings = match &baseline.backend {
-                pse_backend_native::execution::BackendSettings::Default => {
-                    pse_backend_native::settings::pounce::Settings::default()
-                }
-                pse_backend_native::execution::BackendSettings::Pounce(settings) => {
-                    settings.clone()
-                }
-                _ => {
-                    return Err(
-                        ProblemError::Contract("callable POUNCE settings differ".into()).into(),
-                    );
-                }
-            };
-            for offered in pse_backend_native::pounce::second_opinion_profiles(
+            for offered in pse_backend_native::execution::adapter(Backend::Pounce).recovery_profiles(
                 &baseline.controls,
-                &settings,
+                &baseline.backend,
                 report,
-                false,
+                pse_backend_native::execution::RecoveryPermission { replacement_start: false },
             )? {
                 let mut profile = baseline.clone();
                 profile.controls = offered.controls;
-                profile.backend =
-                    pse_backend_native::execution::BackendSettings::Pounce(offered.settings);
+                profile.backend = offered.settings;
                 let key = source.offered_profile(&profile)?;
                 if known_profiles.insert(key) {
                     profiles.push(Some(profile));

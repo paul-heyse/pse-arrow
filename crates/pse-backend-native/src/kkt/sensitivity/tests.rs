@@ -286,6 +286,7 @@ fn retaining(
         Budget {
             dual: accuracy.stationarity,
             limit: 10_000,
+            bytes: usize::MAX,
         },
     );
     (report, advance)

@@ -8,6 +8,7 @@
 //! unshielded Uno entrypoint. Callbacks must catch Rust unwinds and retain typed
 //! original failures in their context; foreign status codes do not classify them.
 //! The caller owns exclusive handle access, callback lifetime and scope admission.
+//! The numerical changes and dense SQP allowance are declared in `docker/solvers/uno-binding.md`.
 
 #![allow(
     unsafe_code,
@@ -57,6 +58,20 @@ pub const CANCELLED: i32 = 5;
 pub const DEADLINE: i32 = 6;
 pub const ABANDONED: i32 = 7;
 pub const NO_RESULT: i32 = 8;
+pub const UNO_SUCCESS: i32 = 0;
+pub const UNO_ITERATION_LIMIT: i32 = 1;
+pub const UNO_TIME_LIMIT: i32 = 2;
+pub const UNO_EVALUATION_ERROR: i32 = 3;
+pub const UNO_ALGORITHMIC_ERROR: i32 = 4;
+pub const UNO_USER_TERMINATION: i32 = 5;
+pub const UNO_NOT_OPTIMAL: i32 = 0;
+pub const UNO_FEASIBLE_KKT_POINT: i32 = 1;
+pub const UNO_FEASIBLE_FJ_POINT: i32 = 2;
+pub const UNO_INFEASIBLE_STATIONARY_POINT: i32 = 3;
+pub const UNO_FEASIBLE_SMALL_STEP: i32 = 4;
+pub const UNO_INFEASIBLE_SMALL_STEP: i32 = 5;
+pub const UNO_DIVERGING_ITERATE: i32 = 6;
+pub const UNO_UNBOUNDED_OBJECTIVE: i32 = 7;
 pub const SQP_LBFGS: i32 = 0;
 pub const SLP: i32 = 1;
 pub const EVAL_OK: i32 = 0;
@@ -219,6 +234,34 @@ unsafe extern "C" {
         error: *mut c_char,
         error_capacity: usize,
     ) -> i32;
+}
+
+#[cfg(test)]
+mod status_contract {
+    use super::*;
+
+    #[test]
+    fn rust_native_constants_match_the_upstream_checked_bridge_header() {
+        let header = include_str!("../bridge/pse_uno.h");
+        for (name, value) in [
+            ("SUCCESS", UNO_SUCCESS),
+            ("ITERATION_LIMIT", UNO_ITERATION_LIMIT),
+            ("TIME_LIMIT", UNO_TIME_LIMIT),
+            ("EVALUATION_ERROR", UNO_EVALUATION_ERROR),
+            ("ALGORITHMIC_ERROR", UNO_ALGORITHMIC_ERROR),
+            ("USER_TERMINATION", UNO_USER_TERMINATION),
+            ("NOT_OPTIMAL", UNO_NOT_OPTIMAL),
+            ("FEASIBLE_KKT_POINT", UNO_FEASIBLE_KKT_POINT),
+            ("FEASIBLE_FJ_POINT", UNO_FEASIBLE_FJ_POINT),
+            ("INFEASIBLE_STATIONARY_POINT", UNO_INFEASIBLE_STATIONARY_POINT),
+            ("FEASIBLE_SMALL_STEP", UNO_FEASIBLE_SMALL_STEP),
+            ("INFEASIBLE_SMALL_STEP", UNO_INFEASIBLE_SMALL_STEP),
+            ("DIVERGING_ITERATE", UNO_DIVERGING_ITERATE),
+            ("UNBOUNDED_OBJECTIVE", UNO_UNBOUNDED_OBJECTIVE),
+        ] {
+            assert!(header.lines().any(|line| line.trim().trim_end_matches(',') == format!("PSE_UNO_{name} = {value}")), "{name}: Rust and C bridge disagree");
+        }
+    }
 }
 
 #[cfg(all(test, feature = "link"))]
@@ -610,8 +653,8 @@ mod tests {
             unsafe { pse_uno_get_result(handle, &mut result, ptr::null_mut(), 0) },
             OK
         );
-        assert_eq!(result.optimization_status, 0);
-        assert_eq!(result.iterate_status, 1);
+        assert_eq!(result.optimization_status, UNO_SUCCESS);
+        assert_eq!(result.iterate_status, UNO_FEASIBLE_KKT_POINT);
         assert_eq!(fixture.rejected, 1);
         assert_eq!(result.highs_primal_tolerance, 1e-8);
         assert_eq!(result.highs_dual_tolerance, 1e-8);
@@ -651,7 +694,10 @@ mod tests {
             trial_once: false,
             rejected: 0,
         };
-        let mut handle = create(&mut fixture, profile);
+        // SLP has no L-BFGS histories or dense operator materialization: zero
+        // SQP allowance must not refuse this distinct native profile.
+        let mut handle = create_with_limit(&mut fixture, profile,
+            if profile == SLP { 0 } else { 8 << 20 });
         assert_eq!(
             // SAFETY: the owned bridge handle is live and result is a separate writable output slot.
             unsafe { pse_uno_solve(handle, &0.0, 1, ptr::null_mut(), 0) },
@@ -663,8 +709,8 @@ mod tests {
             unsafe { pse_uno_get_result(handle, &mut result, ptr::null_mut(), 0) },
             OK
         );
-        assert_eq!(result.optimization_status, 0);
-        assert_eq!(result.iterate_status, 1);
+        assert_eq!(result.optimization_status, UNO_SUCCESS);
+        assert_eq!(result.iterate_status, UNO_FEASIBLE_KKT_POINT);
         if profile == SQP_LBFGS {
             assert!(result.materialization_count > 0);
             assert!(result.materialization_columns > 0);
@@ -762,6 +808,16 @@ mod tests {
             MEMORY
         );
         assert_eq!(fixture.rejected, 0);
+        let mut result = Result::default();
+        assert_eq!(
+            // SAFETY: the handle remains live; scalar observations remain readable
+            // after Uno catches a terminal boundary refusal.
+            unsafe { pse_uno_get_result(handle, &mut result, ptr::null_mut(), 0) },
+            OK
+        );
+        assert_eq!(result.materialization_count, 0);
+        assert_eq!(result.materialization_columns, 0);
+        assert_eq!(result.materialization_numeric_bytes, 0);
         let mut value = 0.;
         assert_eq!(
             // SAFETY: the owned handle and separate one-variable output buffers are live; zero row counts permit null row buffers.

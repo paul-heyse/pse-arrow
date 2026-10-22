@@ -101,6 +101,14 @@ Member names are canonical string values; declaration order is presentation only
 | `refinement_disallowed` | `` | false |
 | `failed` | `` | false |
 
+## `ArtifactOwnerKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `user` | `` | false |
+| `project` | `` | false |
+| `audit` | `` | false |
+
 ## `AssertionStatus`
 
 | Member | IDAES name | Deprecated |
@@ -347,6 +355,20 @@ Member names are canonical string values; declaration order is presentation only
 | `fit` | `` | false |
 | `shooting` | `` | false |
 
+## `ConformanceExecution`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `native` | `` | false |
+| `pure` | `` | false |
+
+## `ConformancePresolve`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `auto` | `` | false |
+| `off` | `` | false |
+
 ## `ConstraintScalingScheme`
 
 IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
@@ -373,6 +395,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `exact` | `` | false |
 | `gauss_newton` | `` | false |
+
+## `CovarianceInputOrigin`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `qualified_fit` | `` | false |
+| `external` | `` | false |
 
 ## `DerivationGranularity`
 
@@ -1117,6 +1146,18 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `line_search` | `` | false |
 | `fixed_point` | `` | false |
 
+## `LiveSimulationEventKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `sample` | `` | false |
+| `attempt_finished` | `` | false |
+| `selected` | `` | false |
+| `recorded` | `` | false |
+| `recording_unknown` | `` | false |
+| `recording_closed` | `` | false |
+| `joined` | `` | false |
+
 ## `MigrationOp`
 
 | Member | IDAES name | Deprecated |
@@ -1719,6 +1760,8 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
+| `value_only` | `` | false |
+| `first_order_only` | `` | false |
 | `exact_hessian_or_limited_memory` | `` | false |
 | `jacobian_or_product` | `` | false |
 | `coefficients` | `` | false |
@@ -1823,6 +1866,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `jacobi` | `` | false |
 | `ilu` | `` | false |
 | `lu` | `` | false |
+
+## `NativePrimalCoordinateRole`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `original` | `` | false |
+| `auxiliary` | `` | false |
 
 ## `NativeProblemClass`
 
@@ -2288,6 +2338,15 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `metis` | `` | false |
 | `parallel_metis` | `` | false |
 
+## `PhysicalInputKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `primal_values` | `` | false |
+| `initialization_stages` | `` | false |
+| `diagnostic_samples` | `` | false |
+| `state_tolerances` | `` | false |
+
 ## `PounceFdColoring`
 
 | Member | IDAES name | Deprecated |
@@ -2462,6 +2521,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `point` | `` | false |
 | `difference` | `` | false |
+
+## `ScientificArtifactKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `final-state` | `` | false |
+| `trajectory` | `` | false |
+| `local-analysis` | `` | false |
 
 ## `SensitivityCorrector`
 

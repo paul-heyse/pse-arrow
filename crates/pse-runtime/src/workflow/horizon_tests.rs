@@ -1174,6 +1174,41 @@ async fn advanced_no_prior_start_consumes_fresh_screened_activity_with_one_task_
     }
 }
 #[tokio::test]
+async fn horizon_public_run_inherits_caller_stop_and_original_deadline() {
+    let runtime = horizon_runtime();
+    let (package, [root, whole, _]) = package(runtime.clone()).await;
+    let (plant, actuator, x) = plant(&package, whole, 0.0, 3).await;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    let caller = crate::CancelSource::new().with_deadline(Some(deadline));
+    let sibling = caller.child_with_deadline(None);
+    let handle = runtime.start_horizon(Horizon {
+        output: crate::workflow::StudyOutputDemand::Full {},
+        plant,
+        period: PERIOD,
+        steps: 3,
+        inputs: vec![HorizonInput { parameter: actuator, initial: 0.5 }],
+        estimator: None,
+        controller: Some(controller(&package, root, x, vec![1.; 3])),
+    }, &caller).await.unwrap();
+    assert_eq!(handle.cancellation_scope().deadline(), Some(deadline));
+    assert!(!handle.cancellation_scope().token().is_cancelled());
+    caller.cancel();
+    assert!(handle.cancellation_scope().token().is_cancelled());
+    let stopped = handle.wait().await.unwrap();
+    assert!(stopped.report().is_err(), "{:?}", stopped.report());
+    let crate::workflow::RunOutcome::Horizon { request, execution } = stopped.outcome() else {
+        panic!("horizon must retain its actual paired operation");
+    };
+    assert_eq!(request.original.steps, 3);
+    assert!(matches!(execution, crate::workflow::HorizonRunOutcome::Full { result: Err(_), .. }));
+    assert!(matches!(stopped.replay().inputs(), crate::workflow::RunRequest::Horizon(_)));
+    assert_eq!(stopped.horizon().unwrap().completed_steps, 0);
+    assert!(!stopped.usable(), "an uncomputed endpoint cannot be qualified");
+    drop(handle);
+    assert!(sibling.token().is_cancelled(), "caller stop reaches its other children");
+}
+
+#[tokio::test]
 async fn horizon_proposal_queue_preserves_the_original_clock_and_cancellation_owner() {
     use std::{
         sync::atomic::{AtomicBool, Ordering},
@@ -1271,10 +1306,7 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
         .wait()
         .await
         .unwrap();
-    let cause = match &failed.report {
-        Err(cause) => cause.clone(),
-        Ok(_) => panic!("zero evaluation cap must refuse the actual target"),
-    };
+    let cause = failed.error().cloned().expect("zero evaluation cap must refuse the actual target");
     assert!(cause.strategy_trace().is_some());
     // The compact accumulator copies the same already assessed products,
     // including the original absolute failed ordinal and all mandatory tables.
@@ -1284,24 +1316,12 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
     };
     let mut history = prefix::OriginalHistory::new(&runtime, &demand).unwrap();
     history.admit_step(&runtime, &good).unwrap();
-    let mut first_original = RunResult::joined(
-        completed.run_id,
-        runtime.clone(),
-        crate::workflow::RunRequest::Modeling(vec![good.clone()]),
-        None,
-        Ok(RunReport::Modeling(vec![first.clone()])),
-    )
+    let mut first_original = RunResult::joined(completed.run_id, runtime.clone(), crate::workflow::RunOutcome::Modeling { request: vec![good.clone()], result: Ok(vec![first.clone()]) }, None)
     .completed();
     history.validate_original(&first_original).unwrap();
     history.export(&first_original).await.unwrap();
     history.take_original(&mut first_original);
-    let mut original_failure = RunResult::joined(
-        completed.run_id,
-        runtime.clone(),
-        crate::workflow::RunRequest::Modeling(vec![bad.clone()]),
-        None,
-        Err(cause.clone()),
-    );
+    let mut original_failure = RunResult::joined(completed.run_id, runtime.clone(), crate::workflow::RunOutcome::Modeling { request: vec![bad.clone()], result: Err(cause.clone()) }, None);
     original_failure.modeling_origin = 1;
     let mut original_failure = original_failure.completed();
     let failed_assessments = serde_json::to_value(&original_failure.assessments).unwrap();
@@ -1350,13 +1370,7 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
         vec![first.clone()],
         Some(1),
     );
-    let mut joined = RunResult::joined(
-        completed.run_id,
-        runtime.clone(),
-        crate::workflow::RunRequest::Modeling(vec![good.clone(), bad]),
-        None,
-        report,
-    );
+    let mut joined = RunResult::joined(completed.run_id, runtime.clone(), crate::workflow::RunOutcome::Modeling { request: vec![good.clone(), bad], result: report }, None);
     joined.modeling_failure = failure;
     let joined = joined.finished(None, false).await;
     assert!(!joined.usable());
@@ -1404,13 +1418,7 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
         vec![first],
         None,
     );
-    let mut plant = RunResult::joined(
-        completed.run_id,
-        runtime,
-        crate::workflow::RunRequest::Modeling(vec![good]),
-        None,
-        report,
-    );
+    let mut plant = RunResult::joined(completed.run_id, runtime, crate::workflow::RunOutcome::Modeling { request: vec![good], result: report }, None);
     plant.modeling_failure = failure;
     let plant = plant.finished(None, false).await;
     assert!(!plant.usable());
@@ -2254,13 +2262,7 @@ async fn compact_original_history_releases_report_allowance_in_a_finite_pool() {
         if step != 0 {
             history.admit_step(runtime, prepared).unwrap();
         }
-        let mut original = RunResult::joined(
-            source.run_id,
-            runtime.clone(),
-            crate::workflow::RunRequest::Modeling(vec![prepared.clone()]),
-            None,
-            Ok(RunReport::Modeling(vec![native.clone()])),
-        );
+        let mut original = RunResult::joined(source.run_id, runtime.clone(), crate::workflow::RunOutcome::Modeling { request: vec![prepared.clone()], result: Ok(vec![native.clone()]) }, None);
         original.modeling_origin = step;
         original = original.completed();
         let expected = serde_json::to_value(original.completion().unwrap()).unwrap();

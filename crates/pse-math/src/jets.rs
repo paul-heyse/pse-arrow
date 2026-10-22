@@ -40,6 +40,44 @@ pub enum ProductKind {
     /// Hessian of a runtime-weighted output sum applied to a runtime direction.
     WeightedHessianAction,
 }
+/// Deterministic arithmetic route selected before derivative or evaluator construction.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProductRoute {
+    /// Joint direct symbolic product over an eligible flat source shape.
+    Direct,
+    /// Existing reverse composition over host-guarded regional arithmetic.
+    Reverse,
+    /// Existing regional scalar/Taylor construction.
+    Regional,
+}
+/// Exact demanded input and the construction route fixed by its declared profile.
+/// Owner leases and source mappings remain with the supplied prepared support.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProductPreflight {
+    pub(crate) support: crate::guarded::PreparedSupport,
+    pub(crate) kind: ProductKind,
+    pub(crate) options: Optimization,
+    pub(crate) limits: EvaluationLimits,
+    pub(crate) route: ProductRoute,
+}
+impl ProductPreflight {
+    /// Complete selected body, support, original output map and coordinate order.
+    pub fn support(&self) -> &crate::guarded::PreparedSupport { &self.support }
+    /// Mathematical product whose runtime seed/weight contract will be consumed.
+    pub fn kind(&self) -> ProductKind { self.kind }
+    /// Construction route fixed before any transient capacity or library operation.
+    pub fn route(&self) -> ProductRoute { self.route }
+}
+impl ProductKind {
+    pub(crate) fn required_order(self, support: DerivativeOrder) -> DerivativeOrder {
+        match self {
+            Self::SelectedPartials => support,
+            Self::JacobianAction | Self::TransposeJacobianAction => DerivativeOrder::First,
+            Self::WeightedHessian | Self::WeightedHessianAction => DerivativeOrder::Second,
+        }
+    }
+}
+
 /// Runtime bindings in the immutable product's selected output/coordinate order.
 #[derive(Clone, Copy, Debug)]
 pub enum ProductValues<'a> {
@@ -393,16 +431,22 @@ pub(crate) struct ProviderLift {
     pub scratch: Vec<f64>,
     pub output: Vec<f64>,
 }
-impl ProviderLift {
-    /// Symbolica differentiates an abstract composition `f(a_0(z)`, ..., `a_n(z)`).
-    pub(crate) fn compile(
+/// Symbolica-generated local composition in raw-partial parameter order and
+/// Taylor-coefficient output order. Both providers and arithmetic definitions use
+/// this layout; no caller supplies a second numerical chain-rule implementation.
+pub(crate) struct SymbolicComposition {
+    pub(crate) expressions: Vec<Atom>,
+    pub(crate) parameters: Vec<Atom>,
+    pub(crate) inputs: Vec<LiftInput>,
+}
+impl SymbolicComposition {
+    pub(crate) fn new(
         arity: usize,
         layout: &JetLayout,
-        options: Optimization,
         limits: EvaluationLimits,
         cancelled: &Arc<AtomicBool>,
-        scalars: &mut library::ScalarCache,
     ) -> Result<Self, MathError> {
+        if cancelled.load(std::sync::atomic::Ordering::Acquire) { return Err(MathError::Cancelled); }
         let n = layout.coordinates.len();
         let estimate = arity
             .checked_mul(layout.width())
@@ -441,6 +485,7 @@ impl ProviderLift {
         let mut inputs = vec![LiftInput::Value];
         if layout.order >= DerivativeOrder::First {
             for i in 0..arity {
+                if cancelled.load(std::sync::atomic::Ordering::Acquire) { return Err(MathError::Cancelled); }
                 let d = generic.derivative(
                     Indeterminate::try_from(local[i].clone())
                         .map_err(|e| MathError::Library(e.clone()))?,
@@ -472,6 +517,21 @@ impl ProviderLift {
                     / Atom::num(layout.raw_factor(component)))
             })
             .collect::<Result<Vec<_>, MathError>>()?;
+        if cancelled.load(std::sync::atomic::Ordering::Acquire) { return Err(MathError::Cancelled); }
+        Ok(Self { expressions, parameters, inputs })
+    }
+}
+impl ProviderLift {
+    /// Symbolica differentiates an abstract composition `f(a_0(z)`, ..., `a_n(z)`).
+    pub(crate) fn compile(
+        arity: usize,
+        layout: &JetLayout,
+        options: Optimization,
+        limits: EvaluationLimits,
+        cancelled: &Arc<AtomicBool>,
+        scalars: &mut library::ScalarCache,
+    ) -> Result<Self, MathError> {
+        let SymbolicComposition { expressions, parameters, inputs } = SymbolicComposition::new(arity, layout, limits, cancelled)?;
         let library::FloatingEvaluator {
             evaluator, facts, ..
         } = library::bounded_scalar_evaluator(
@@ -495,6 +555,34 @@ impl ProviderLift {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn symbolic_composition_preserves_raw_input_scaling_and_mixed_chain_terms() {
+        crate::initialize().unwrap();
+        let limits = EvaluationLimits::default();
+        let layout = JetLayout::new(vec![0, 1], DerivativeOrder::Second, limits).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut lift = ProviderLift::compile(2, &layout, Optimization::default(), limits, &cancel, &mut library::ScalarCache::default()).unwrap();
+        // a=x², b=xy, f(a,b)=ab+a² at (x,y)=(2,3). Argument bindings
+        // are raw derivatives; generated output has Taylor diagonal coefficients.
+        let arguments = [[4., 4., 0., 2., 0., 0.], [6., 3., 2., 0., 1., 0.]];
+        for (input, value) in lift.inputs.iter().zip(&mut lift.scratch) {
+            *value = match *input {
+                LiftInput::Value => 40.,
+                LiftInput::First(0) => 14.,
+                LiftInput::First(1) => 4.,
+                LiftInput::Second(0, 0) => 2.,
+                LiftInput::Second(0, 1) => 1.,
+                LiftInput::Second(1, 1) => 0.,
+                LiftInput::Argument(argument, component) => arguments[argument][component],
+                _ => panic!("unexpected binary composition input"),
+            };
+        }
+        lift.evaluator.try_evaluate(&lift.scratch, &mut lift.output).unwrap();
+        assert_eq!(lift.output, [40., 68., 8., 42., 12., 0.]);
+        cancel.store(true, std::sync::atomic::Ordering::Release);
+        assert!(matches!(SymbolicComposition::new(2, &layout, limits, &cancel), Err(MathError::Cancelled)));
+    }
 
     #[test]
     fn repeated_provider_lifts_share_scalar_preparation_with_distinct_order_keys() {

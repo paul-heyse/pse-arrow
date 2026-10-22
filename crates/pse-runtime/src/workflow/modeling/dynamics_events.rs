@@ -85,6 +85,8 @@ impl ModelingPackage {
                     None,
                     &BTreeSet::new(),
                     None,
+                    None,
+                    None,
                     cancel,
                 )
                 .await
@@ -110,24 +112,12 @@ impl ModelingPackage {
         forward_parameters: Option<&BTreeSet<SemanticId>>,
         provisional_quadratures: &BTreeSet<SemanticId>,
         prepared: Option<ModelingPreparation>,
+        binding: Option<&crate::workflow::AdmittedBinding>,
+        pending: Option<&crate::workflow::PhysicalSimulationRequest>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let original_inputs = crate::workflow::replay::OriginalSimulationInputs::capture(
-            self,
-            root,
-            instance,
-            &bindings,
-            limits,
-            &case,
-            compiler,
-            &profile,
-            derivatives,
-            exact_parameters,
-            forward_parameters,
-            provisional_quadratures,
-        )?;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -165,6 +155,17 @@ impl ModelingPackage {
                             .await?
                     }
                 };
+                if let Some(binding) = binding {
+                    self.validate_binding(base.compiled(), binding)?;
+                    crate::workflow::bindings::require_parameter_binding(binding)?;
+                    if binding.entries.len() != case.members.len()
+                        || binding.entries.iter().any(|(member, entry)|
+                            case.members.get(member).map(|value| value.to_bits())
+                                != Some(entry.canonical.into_inner().to_bits()))
+                    {
+                        return Err(contract("simulation point binding differs from original case values"));
+                    }
+                }
                 let authored = base
                     .compiled()
                     .model
@@ -184,15 +185,17 @@ impl ModelingPackage {
                 let snapshot = pse_backend_native::execution::Snapshot::observe(
                     &pse_backend_native::execution::LINKED,
                 );
+                let original_profile = profile.clone();
                 let mut simulation = self
                     .prepare_simulation_modes(
                         root,
                         instance,
-                        bindings,
+                        bindings.clone(),
                         limits,
-                        case,
+                        case.clone(),
                         compiler,
                         profile,
+                        pending,
                         derivatives,
                         &modes,
                         exact_parameters,
@@ -203,7 +206,13 @@ impl ModelingPackage {
                         cancel,
                     )
                     .await?;
-                simulation.original_inputs = Some(original_inputs);
+                let original_profile = if pending.is_some() {
+                    original_profile.with_coordinates(simulation.profile.atol.clone(), simulation.profile.out_atol.clone(), simulation.profile.parameter_scales.clone())
+                } else { original_profile };
+                simulation.original_inputs = Some(crate::workflow::replay::OriginalSimulationInputs::capture(
+                    self, root, instance, &bindings, limits, &case, compiler, &original_profile,
+                    derivatives, exact_parameters, forward_parameters, provisional_quadratures, binding,
+                )?);
                 Ok(simulation)
             })
             .await
@@ -222,6 +231,7 @@ impl ModelingPackage {
         case: ModelingCaseBindings,
         compiler: Profile,
         profile: native::Profile,
+        pending: Option<&crate::workflow::PhysicalSimulationRequest>,
         derivatives: DerivativeOrder,
         modes: &[FixtureMode],
         exact_parameters: &BTreeSet<SemanticId>,
@@ -275,6 +285,7 @@ impl ModelingPackage {
                     case.clone(),
                     compiler,
                     profile.clone(),
+                    pending,
                     derivatives,
                     index,
                     &names,

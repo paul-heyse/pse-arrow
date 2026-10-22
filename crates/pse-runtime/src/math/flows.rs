@@ -29,6 +29,8 @@ pub use pse_model::generated::enums::TearMethod;
 /// Native attempt and independently checked graph result retain accounted ownership.
 #[derive(Debug)]
 pub struct TearResult {
+    /// Explicit dimensionless auxiliary inventory declared by the tear construction.
+    pub dimensionless_coordinates: Vec<SemanticId>,
     /// Available independently checked tear set; absent if no native incumbent exists.
     pub selected: Option<tears::TearReport>,
     /// Actual native report, including attempts without usable graph results.
@@ -147,19 +149,19 @@ impl MathService {
                         let mut execution = Execution::within(flag, &controls, scope.clone())?;
                         execution.progress = events;
                         execution.check()?;
-                        let (selected, attempt) = match method {
+                        let (selected, attempt, dimensionless_coordinates) = match method {
                             TearMethod::UnweightedHeuristic => {
-                                (Some(tears::heuristic(&flow.graph)?), None)
+                                (Some(tears::heuristic(&flow.graph)?), None, Vec::new())
                             }
                             TearMethod::Highs
                                 if flow.graph.declaration().connections.is_empty() =>
                             {
-                                (Some(tears::heuristic(&flow.graph)?), None)
+                                (Some(tears::heuristic(&flow.graph)?), None, Vec::new())
                             }
                             #[cfg(feature = "solver-highs")]
                             TearMethod::Highs => {
-                                let (s, r) = tears::solve(&flow.graph, &controls, execution)?;
-                                (s, Some(r.with_owner(owner.clone())))
+                                let (s, r, coordinates) = tears::solve(&flow.graph, &controls, execution)?;
+                                (s, Some(r.with_owner(owner.clone())), coordinates)
                             }
                             #[cfg(not(feature = "solver-highs"))]
                             TearMethod::Highs => {
@@ -172,6 +174,7 @@ impl MathService {
                         };
                         scope.check().map_err(ProblemError::from)?;
                         Ok(TearResult {
+                            dimensionless_coordinates,
                             selected: selected.map(|v| v.with_owner(owner.clone())),
                             attempt,
                             _owner: owner,

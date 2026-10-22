@@ -314,12 +314,12 @@ impl ReportSource for pse_runtime::observation::ObservationError {
         pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
     }
 }
-impl ReportSource for pse_runtime::review_pack::PackError {
+impl ReportSource for pse_runtime::tooling::review_pack::PackError {
     fn report_boundary(&self) -> BoundaryDiagnostic {
         pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
     }
 }
-impl ReportSource for pse_runtime::capture::CaptureError {
+impl ReportSource for pse_runtime::observation_detail::CaptureError {
     fn report_boundary(&self) -> BoundaryDiagnostic {
         pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
     }
@@ -410,13 +410,10 @@ impl DiagnosticReport {
 }
 #[pymethods]
 impl DiagnosticReport {
-    /// Exact original settlement bytes; inactive content remains inaccessible.
+    /// Exact original settlement document; inactive content remains inaccessible.
     #[getter]
-    fn artifact_intent(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
-        self.artifact_intent
-            .as_ref()
-            .map(|intent| crate::documents::encode(py, intent))
-            .transpose()
+    fn artifact_intent(&self) -> Option<DocumentValue<&pse_operations::canonical_artifacts::Artifact>> {
+        self.artifact_intent.as_ref().map(DocumentValue)
     }
     #[getter]
     fn code(&self) -> Option<EnumValue<DiagnosticCode>> {

@@ -383,12 +383,10 @@ fn workflow_composition_binds_same_owner_factory_without_a_store() {
 #[test]
 fn workflow_durability_selection_uses_this_deployment() {
     let runtime = durable_runtime();
-    let policy = LeasePolicy {
-        lease: std::time::Duration::from_secs(17),
-        heartbeat: std::time::Duration::from_secs(3),
-        batch: 11,
-        flush: std::time::Duration::from_millis(71),
-    };
+    let policy = LeasePolicy::new(
+        std::time::Duration::from_secs(17), std::time::Duration::from_secs(3),
+        11, std::time::Duration::from_millis(71),
+    ).unwrap();
     let durable = runtime
         .clone()
         .with_durability(DurabilitySelection::Durable {
@@ -427,39 +425,29 @@ fn workflow_durability_selection_uses_this_deployment() {
 }
 
 #[test]
-fn durability_selection_validates_positive_lease_and_heartbeat_intervals() {
-    assert!(DurabilitySelection::Ephemeral.validate().is_ok());
-    assert!(
-        DurabilitySelection::Durable {
-            worker: "valid".into(),
-            policy: LeasePolicy::default(),
-        }
-        .validate()
-        .is_ok()
-    );
-    // Positivity is the production contract; validation must not round a positive
-    // sub-millisecond duration to zero or impose an unstated lease/heartbeat order.
+fn lease_policy_constructor_and_decoder_share_admission() {
+    use std::time::Duration;
     for (lease, heartbeat) in [(1, 1), (1, 2), (2, 1), (0, 1), (1, 0), (0, 0)] {
-        let selection = DurabilitySelection::Durable {
-            worker: "interval-policy".into(),
-            policy: LeasePolicy {
-                lease: std::time::Duration::from_nanos(lease),
-                heartbeat: std::time::Duration::from_nanos(heartbeat),
-                ..Default::default()
-            },
-        };
-        match selection.validate() {
-            Ok(()) => assert!(lease > 0 && heartbeat > 0),
-            Err(WorkflowError::Input(message)) => {
-                assert!(lease == 0 || heartbeat == 0);
-                assert_eq!(
-                    message,
-                    "durable heartbeat and lease intervals must be positive"
-                );
-            }
-            other => panic!("unexpected interval validation: {other:?}"),
-        }
+        let result = LeasePolicy::new(Duration::from_nanos(lease), Duration::from_nanos(heartbeat), 1, Duration::from_nanos(1));
+        assert_eq!(result.is_ok(), lease > heartbeat && heartbeat > 0);
     }
+    for batch in [0, 1, 512, 513] {
+        let policy = LeasePolicy::new(Duration::from_secs(2), Duration::from_secs(1), batch, Duration::from_nanos(1));
+        assert_eq!(policy.is_ok(), (1..=512).contains(&batch));
+    }
+    assert!(LeasePolicy::new(Duration::from_secs(2), Duration::from_secs(1), 1, Duration::ZERO).is_err());
+    let policy = LeasePolicy::default();
+    let document = serde_json::to_value(policy).unwrap();
+    assert_eq!(serde_json::from_value::<LeasePolicy>(document.clone()).unwrap(), policy);
+    let mut invalid = document.clone();
+    invalid["heartbeat"] = invalid["lease"].clone();
+    assert!(serde_json::from_value::<LeasePolicy>(invalid).is_err());
+    let mut invalid = document;
+    invalid["batch"] = 513.into();
+    assert!(serde_json::from_value::<LeasePolicy>(invalid).is_err());
+    let schema = schemars::schema_for!(LeasePolicy).to_value();
+    assert_eq!(schema["properties"]["batch"]["minimum"], 1);
+    assert_eq!(schema["properties"]["batch"]["maximum"], 512);
 }
 pub(crate) fn physical() -> PhysicalContext {
     // Fixture only: production requires source-backed PhysicalInventory admission.

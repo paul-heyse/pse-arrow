@@ -8,20 +8,22 @@ pub use pse_model::generated::r#runtime::r#propagated_covariances::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    133u8, 37u8, 225u8, 93u8, 183u8, 139u8, 91u8, 104u8, 16u8, 43u8, 10u8, 137u8, 176u8,
-    52u8, 119u8, 61u8,
+    156u8, 250u8, 14u8, 201u8, 248u8, 30u8, 115u8, 206u8, 244u8, 134u8, 120u8, 95u8,
+    97u8, 103u8, 158u8, 25u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "propagated_covariances";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "runtime.propagated_covariances";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    203u8, 2u8, 215u8, 136u8, 207u8, 53u8, 108u8, 232u8, 248u8, 110u8, 28u8, 111u8,
-    105u8, 213u8, 115u8, 234u8, 170u8, 94u8, 195u8, 16u8, 253u8, 82u8, 232u8, 184u8,
-    191u8, 12u8, 132u8, 173u8, 163u8, 74u8, 99u8, 197u8,
+    40u8, 44u8, 5u8, 52u8, 237u8, 68u8, 227u8, 73u8, 183u8, 80u8, 132u8, 254u8, 85u8,
+    116u8, 74u8, 168u8, 243u8, 249u8, 194u8, 191u8, 170u8, 30u8, 108u8, 211u8, 106u8,
+    202u8, 201u8, 184u8, 209u8, 196u8, 174u8, 191u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimePropagatedCovariancesRow {
     fn append(
@@ -39,15 +41,54 @@ impl crate::columnar::ArrowValue for RuntimePropagatedCovariancesRow {
             children[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#parameters,
+            &self.r#covariance_origin,
             children[3usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#outputs, children[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#output_units,
+            &self.r#covariance_label,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#covariance_assumptions,
             children[5usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#values, children[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#covariance_source_identity,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#covariance_physical_identity,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parameter_scales,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#psd_norm_inf,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#psd_tolerance,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#psd_minimum_eigenvalue,
+            children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parameters,
+            children[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#outputs,
+            children[13usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#output_units,
+            children[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#values, children[15usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -62,21 +103,40 @@ impl crate::columnar::ArrowValue for RuntimePropagatedCovariancesRow {
             children[0usize].as_mut(),
         )?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <crate::generated::identities::RunId as crate::columnar::ArrowValue>::append_null(
-            children[2usize].as_mut(),
+        <Option<
+            crate::generated::identities::RunId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <crate::generated::enums::CovarianceInputOrigin as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
         )?;
+        <String as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <Vec<
-            pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <Vec<
-            pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
-        <Vec<
-            pse_ids::SemanticId,
+            String,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            pse_ids::ContentHash,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            pse_ids::ContentHash,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <Vec<
             f64,
-        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
+        <Vec<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -95,32 +155,78 @@ impl crate::columnar::ArrowValue for RuntimePropagatedCovariancesRow {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#covariance_run_id: <crate::generated::identities::RunId as crate::columnar::ArrowValue>::read(
+            r#covariance_run_id: <Option<
+                crate::generated::identities::RunId,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#covariance_origin: <crate::generated::enums::CovarianceInputOrigin as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#covariance_label: <String as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#covariance_assumptions: <Vec<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#covariance_source_identity: <Option<
+                pse_ids::ContentHash,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#covariance_physical_identity: <Option<
+                pse_ids::ContentHash,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#parameter_scales: <Vec<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#psd_norm_inf: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#psd_tolerance: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#psd_minimum_eigenvalue: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
                 index,
             )?,
             r#parameters: <Vec<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
+                input.column(12usize).as_ref(),
                 index,
             )?,
             r#outputs: <Vec<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
+                input.column(13usize).as_ref(),
                 index,
             )?,
             r#output_units: <Vec<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(14usize).as_ref(),
                 index,
             )?,
             r#values: <Vec<
                 f64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
+                input.column(15usize).as_ref(),
                 index,
             )?,
         })
@@ -186,15 +292,51 @@ impl crate::columnar::RelationRow for RuntimePropagatedCovariancesRow {
             columns[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#parameters,
+            &self.r#covariance_origin,
             columns[3usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#outputs, columns[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#output_units,
+            &self.r#covariance_label,
+            columns[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#covariance_assumptions,
             columns[5usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#values, columns[6usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#covariance_source_identity,
+            columns[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#covariance_physical_identity,
+            columns[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parameter_scales,
+            columns[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#psd_norm_inf,
+            columns[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#psd_tolerance,
+            columns[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#psd_minimum_eigenvalue,
+            columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parameters,
+            columns[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#outputs, columns[13usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#output_units,
+            columns[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#values, columns[15usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -230,10 +372,10 @@ impl crate::columnar::RelationRow for RuntimePropagatedCovariancesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        23_552_usize + size_of::<Self::Builder>()
+        50_176_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        184usize
+        392usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -247,7 +389,83 @@ impl crate::columnar::RelationRow for RuntimePropagatedCovariancesRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            Ok::<usize, crate::RelationError>(16usize)?,
+            if (self.r#covariance_run_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(
+                8,
+                (self.r#covariance_origin).as_str().len(),
+            )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#covariance_label).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#covariance_assumptions)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        crate::columnar::allocation_add(8, (item).len())?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#covariance_source_identity).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(32usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#covariance_physical_identity).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(32usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#parameter_scales)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, _| crate::columnar::allocation_add(
+                        bytes,
+                        Ok::<usize, crate::RelationError>(8usize)?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -307,7 +525,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 16usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -325,23 +543,68 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "parameters",
+        name: "covariance_origin",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "outputs",
+        name: "covariance_label",
         position: 4usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "output_units",
+        name: "covariance_assumptions",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "values",
+        name: "covariance_source_identity",
         position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "covariance_physical_identity",
+        position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "parameter_scales",
+        position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "psd_norm_inf",
+        position: 9usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "psd_tolerance",
+        position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "psd_minimum_eigenvalue",
+        position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "parameters",
+        position: 12usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "outputs",
+        position: 13usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "output_units",
+        position: 14usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "values",
+        position: 15usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -352,14 +615,32 @@ pub mod columns {
     pub const STEP: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///covariance_run_id
     pub const COVARIANCE_RUN_ID: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    ///covariance_origin
+    pub const COVARIANCE_ORIGIN: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    ///covariance_label
+    pub const COVARIANCE_LABEL: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    ///covariance_assumptions
+    pub const COVARIANCE_ASSUMPTIONS: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///covariance_source_identity
+    pub const COVARIANCE_SOURCE_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    ///covariance_physical_identity
+    pub const COVARIANCE_PHYSICAL_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    ///parameter_scales
+    pub const PARAMETER_SCALES: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    ///psd_norm_inf
+    pub const PSD_NORM_INF: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    ///psd_tolerance
+    pub const PSD_TOLERANCE: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    ///psd_minimum_eigenvalue
+    pub const PSD_MINIMUM_EIGENVALUE: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///parameters
-    pub const PARAMETERS: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    pub const PARAMETERS: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///outputs
-    pub const OUTPUTS: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const OUTPUTS: crate::columnar::ColumnReference = super::COLUMNS[13usize];
     ///output_units
-    pub const OUTPUT_UNITS: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const OUTPUT_UNITS: crate::columnar::ColumnReference = super::COLUMNS[14usize];
     ///values
-    pub const VALUES: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const VALUES: crate::columnar::ColumnReference = super::COLUMNS[15usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -370,6 +651,15 @@ pub struct RuntimePropagatedCovariancesView<'a> {
     run_id_column: &'a arrow_array::FixedSizeBinaryArray,
     step_column: &'a arrow_array::Int64Array,
     covariance_run_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    covariance_origin_column: &'a arrow_array::StringArray,
+    covariance_label_column: &'a arrow_array::StringArray,
+    covariance_assumptions_column: &'a arrow_array::ListArray,
+    covariance_source_identity_column: &'a arrow_array::FixedSizeBinaryArray,
+    covariance_physical_identity_column: &'a arrow_array::FixedSizeBinaryArray,
+    parameter_scales_column: &'a arrow_array::ListArray,
+    psd_norm_inf_column: &'a arrow_array::Float64Array,
+    psd_tolerance_column: &'a arrow_array::Float64Array,
+    psd_minimum_eigenvalue_column: &'a arrow_array::Float64Array,
     parameters_column: &'a arrow_array::ListArray,
     outputs_column: &'a arrow_array::ListArray,
     output_units_column: &'a arrow_array::ListArray,
@@ -427,18 +717,45 @@ impl<'a> RuntimePropagatedCovariancesView<'a> {
             covariance_run_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(2usize).as_ref())?,
-            parameters_column: crate::columnar::array::<
-                arrow_array::ListArray,
+            covariance_origin_column: crate::columnar::array::<
+                arrow_array::StringArray,
             >(batch.column(3usize).as_ref())?,
-            outputs_column: crate::columnar::array::<
-                arrow_array::ListArray,
+            covariance_label_column: crate::columnar::array::<
+                arrow_array::StringArray,
             >(batch.column(4usize).as_ref())?,
-            output_units_column: crate::columnar::array::<
+            covariance_assumptions_column: crate::columnar::array::<
                 arrow_array::ListArray,
             >(batch.column(5usize).as_ref())?,
+            covariance_source_identity_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(6usize).as_ref())?,
+            covariance_physical_identity_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(7usize).as_ref())?,
+            parameter_scales_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(8usize).as_ref())?,
+            psd_norm_inf_column: crate::columnar::array::<
+                arrow_array::Float64Array,
+            >(batch.column(9usize).as_ref())?,
+            psd_tolerance_column: crate::columnar::array::<
+                arrow_array::Float64Array,
+            >(batch.column(10usize).as_ref())?,
+            psd_minimum_eigenvalue_column: crate::columnar::array::<
+                arrow_array::Float64Array,
+            >(batch.column(11usize).as_ref())?,
+            parameters_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(12usize).as_ref())?,
+            outputs_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(13usize).as_ref())?,
+            output_units_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(14usize).as_ref())?,
             values_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(15usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -493,6 +810,134 @@ impl<'a> RuntimePropagatedCovariancesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "covariance_origin",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn covariance_origin_column(&self) -> &'a arrow_array::StringArray {
+        self.covariance_origin_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "covariance_origin", "`.")]
+    pub fn covariance_origin_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[3usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "covariance_label",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn covariance_label_column(&self) -> &'a arrow_array::StringArray {
+        self.covariance_label_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "covariance_label", "`.")]
+    pub fn covariance_label_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "covariance_assumptions",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn covariance_assumptions_column(&self) -> &'a arrow_array::ListArray {
+        self.covariance_assumptions_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "covariance_assumptions",
+        "`.",
+    )]
+    pub fn covariance_assumptions_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "covariance_source_identity",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn covariance_source_identity_column(
+        &self,
+    ) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.covariance_source_identity_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "covariance_source_identity",
+        "`.",
+    )]
+    pub fn covariance_source_identity_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "covariance_physical_identity",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn covariance_physical_identity_column(
+        &self,
+    ) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.covariance_physical_identity_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "covariance_physical_identity",
+        "`.",
+    )]
+    pub fn covariance_physical_identity_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "parameter_scales",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn parameter_scales_column(&self) -> &'a arrow_array::ListArray {
+        self.parameter_scales_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "parameter_scales", "`.")]
+    pub fn parameter_scales_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "psd_norm_inf",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn psd_norm_inf_column(&self) -> &'a arrow_array::Float64Array {
+        self.psd_norm_inf_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "psd_norm_inf", "`.")]
+    pub fn psd_norm_inf_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "psd_tolerance",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn psd_tolerance_column(&self) -> &'a arrow_array::Float64Array {
+        self.psd_tolerance_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "psd_tolerance", "`.")]
+    pub fn psd_tolerance_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[10usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "psd_minimum_eigenvalue",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn psd_minimum_eigenvalue_column(&self) -> &'a arrow_array::Float64Array {
+        self.psd_minimum_eigenvalue_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "psd_minimum_eigenvalue",
+        "`.",
+    )]
+    pub fn psd_minimum_eigenvalue_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "parameters",
         "`, including its offsets and validity bitmap.",
     )]
@@ -501,7 +946,7 @@ impl<'a> RuntimePropagatedCovariancesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "parameters", "`.")]
     pub fn parameters_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -513,7 +958,7 @@ impl<'a> RuntimePropagatedCovariancesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "outputs", "`.")]
     pub fn outputs_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[13usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -525,7 +970,7 @@ impl<'a> RuntimePropagatedCovariancesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "output_units", "`.")]
     pub fn output_units_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[14usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -537,7 +982,7 @@ impl<'a> RuntimePropagatedCovariancesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "values", "`.")]
     pub fn values_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[15usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -555,6 +1000,42 @@ impl<'a> RuntimePropagatedCovariancesView<'a> {
             r#step: crate::columnar::ArrowValue::read(self.step_column, index)?,
             r#covariance_run_id: crate::columnar::ArrowValue::read(
                 self.covariance_run_id_column,
+                index,
+            )?,
+            r#covariance_origin: crate::columnar::ArrowValue::read(
+                self.covariance_origin_column,
+                index,
+            )?,
+            r#covariance_label: crate::columnar::ArrowValue::read(
+                self.covariance_label_column,
+                index,
+            )?,
+            r#covariance_assumptions: crate::columnar::ArrowValue::read(
+                self.covariance_assumptions_column,
+                index,
+            )?,
+            r#covariance_source_identity: crate::columnar::ArrowValue::read(
+                self.covariance_source_identity_column,
+                index,
+            )?,
+            r#covariance_physical_identity: crate::columnar::ArrowValue::read(
+                self.covariance_physical_identity_column,
+                index,
+            )?,
+            r#parameter_scales: crate::columnar::ArrowValue::read(
+                self.parameter_scales_column,
+                index,
+            )?,
+            r#psd_norm_inf: crate::columnar::ArrowValue::read(
+                self.psd_norm_inf_column,
+                index,
+            )?,
+            r#psd_tolerance: crate::columnar::ArrowValue::read(
+                self.psd_tolerance_column,
+                index,
+            )?,
+            r#psd_minimum_eigenvalue: crate::columnar::ArrowValue::read(
+                self.psd_minimum_eigenvalue_column,
                 index,
             )?,
             r#parameters: crate::columnar::ArrowValue::read(

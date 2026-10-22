@@ -385,9 +385,10 @@ impl Settings {
         };
         let constraints = self.validate_contract(c, representation, &guards)?;
         if let Function::Picard { linear, .. } = function
-            && linear.val().iter().any(|v| !v.is_finite())
+            && (linear.nrows() != c.variables.len() || linear.ncols() != c.variables.len()
+                || linear.val().iter().any(|v| !v.is_finite()))
         {
-            return Err(ProblemError::Contract("nonfinite Picard splitting".into()));
+            return Err(ProblemError::Contract("Picard splitting dimensions or nonfinite values".into()));
         }
         let original = match function {
             Function::Equations(o) => o.jacobian_pattern(),
@@ -445,7 +446,8 @@ impl Settings {
                 "Picard requires an explicit constant splitting".into(),
             ));
         }
-        if !fixed && !m.consumes_directional_only() {
+        if !matches!(representation, Strategy::FixedPoint | Strategy::Picard)
+            && !m.consumes_directional_only() {
             c.square()?;
         } else {
             c.validate(pse_kernels::DerivativeOrder::Value)?;
@@ -457,54 +459,11 @@ impl Settings {
                     .into(),
             ));
         }
-        match m.linear {
-            Linear::Dense { limit } if n > limit.into_inner() => {
-                return Err(ProblemError::Unsupported(
-                    "KINSOL dense dimension limit".into(),
-                ));
-            }
-            linear if linear.krylov().is_some_and(|d| i32::try_from(d).is_err()) => {
-                return Err(ProblemError::Contract("KINSOL Krylov dimension".into()));
-            }
-            _ => {}
-        }
-        let krylov = m.linear.krylov().is_some();
-        let map = matches!(m.strategy, Strategy::FixedPoint | Strategy::Picard);
-        let defaults = Method::default();
-        if m.preconditioner == Preconditioner::BlockFactor && map {
-            return Err(ProblemError::Unsupported(
-                "block factor preconditioning requires original analytic equation Jacobians".into(),
-            ));
-        }
-        if (!map && (m.anderson != 0 || m.damping != defaults.damping))
-            || (map && m.max_newton_step.is_some())
-            || (fixed
-                && (m.linear != defaults.linear
-                    || m.setup_interval != defaults.setup_interval
-                    || m.eta != defaults.eta
-                    || m.preconditioner != defaults.preconditioner))
+        m.validate()?;
+        if let Linear::Dense { limit } = m.linear
+            && n > limit.into_inner()
         {
-            return Err(ProblemError::Unsupported(
-                "KINSOL selected strategy does not consume the requested method controls".into(),
-            ));
-        }
-        if m.max_newton_step
-            .is_some_and(|v| !(v.is_finite() && v >= 1.0))
-            || match m.eta {
-                Eta::Choice1 => false,
-                Eta::Choice2 { alpha, .. } => !(alpha > 1.0 && alpha <= 2.0),
-                Eta::Constant { .. } => false,
-            }
-            || (m.eta != Eta::default() && !krylov)
-            || (m.preconditioner != Preconditioner::None && (!krylov || fixed))
-            || (m.anderson == 0
-                && (m.anderson_delay != 0
-                    || m.orthogonalization != Orthogonalization::ModifiedGramSchmidt))
-            || c_long::try_from(m.anderson_delay).is_err()
-        {
-            return Err(ProblemError::Contract(
-                "KINSOL Newton-step, forcing-term, preconditioner or Anderson control".into(),
-            ));
+            return Err(ProblemError::Unsupported("KINSOL dense dimension limit".into()));
         }
         Ok(constraints)
     }
@@ -1410,6 +1369,8 @@ impl Session {
             _local: PhantomData,
         };
         native!(ffi::SUNContext_Create(0, &raw mut s.ctx), "context")?;
+        // SAFETY: new context owned by s; Drop frees it after all native objects.
+        unsafe { crate::sundials_errors::install(s.ctx) }?;
         // SAFETY: the session's live context; `Drop` frees the vector.
         s.x = unsafe { ffi::N_VNew_Serial(index(n)?, s.ctx) };
         // SAFETY: as above.

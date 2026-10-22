@@ -96,6 +96,8 @@ pub struct ModelingNativeAnalysis {
     pub table: FieldCheckedBatch,
     /// Original native attempts, ordered as described by the relation.
     pub attempts: Vec<pse_backend_native::solve::SolveReport>,
+    /// Physical coordinate inventory paired with each original native attempt.
+    pub primal_coordinates: Vec<crate::workflow::PrimalCoordinates>,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 

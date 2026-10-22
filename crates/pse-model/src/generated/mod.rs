@@ -28,6 +28,8 @@ pub mod enums;
 pub mod structures;
 /// Declared extension values.
 pub mod extension_values;
+/// Complete scientific product membership.
+pub mod products;
 /// Typed entity ids declared by the registry (ADR-0115).
 pub mod identities;
 

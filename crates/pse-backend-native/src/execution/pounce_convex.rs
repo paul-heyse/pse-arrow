@@ -464,7 +464,21 @@ mod native {
             .collect()
     }
 
-    /// Solve the active members in parallel on the admitted pool: quadratic programs with
+    /// A single-thread admission stays on its caller even when an embedding host
+    /// has initialized a wider global pool. Parallel work uses the existing local scope.
+    fn map_jobs<T: Sync, R: Send>(
+        jobs: &[T],
+        parallel: bool,
+        work: impl Fn(&T) -> R + Sync + Send,
+    ) -> Vec<R> {
+        if parallel {
+            jobs.par_iter().map(work).collect()
+        } else {
+            jobs.iter().map(work).collect()
+        }
+    }
+
+    /// Solve active members on the admitted threads: quadratic programs with
     /// one options set through the library's cold batch, the others instance by instance.
     /// A single member factors on the worker's threads; a batch factors each instance
     /// serially, its parallelism across instances.
@@ -510,6 +524,9 @@ mod native {
                 ))
             }
         };
+        // Batch member factors are serial (pool_width=1), while the batch itself
+        // may still use the wider admitted team from the original controls.
+        let parallel = members.iter().flatten().any(|member| member.input.controls.threads > 1);
         let uniform = jobs.first().is_some_and(|f| {
             jobs.iter().all(|j| {
                 j.quadratic
@@ -526,9 +543,7 @@ mod native {
             // The pinned batch helper is exactly par_iter + solve_qp_ipm. Keep that
             // native entry point while installing each member's copied context on
             // its actual worker; a shared backend factory cannot identify a member.
-            return jobs
-                .par_iter()
-                .map(|j| {
+            return map_jobs(&jobs, parallel, |j| {
                     let operation = observation_context.as_ref().map(|context| {
                         context.child(
                             "pounce_convex.member",
@@ -546,11 +561,9 @@ mod native {
                         operation.finish(pse_diagnostics::observation::Outcome::Completed);
                     }
                     Some(solution)
-                })
-                .collect();
+                });
         }
-        jobs.par_iter()
-            .map(|j| {
+        map_jobs(&jobs, parallel, |j| {
                 let operation = observation_context.as_ref().map(|context| {
                     context.child(
                         "pounce_convex.member",
@@ -578,7 +591,6 @@ mod native {
                 }
                 Some(solution)
             })
-            .collect()
     }
 
     fn observe_solution(solution: &QpSolution) {
@@ -912,6 +924,32 @@ mod native {
     #[cfg(test)]
     mod tests {
         use super::psd_rows;
+
+        #[test]
+        fn single_thread_batch_stays_on_caller_with_preinitialized_host_pool() {
+            // Initialize an embedding-host global pool before entering the adapter.
+            // A host that already initialized it is equally valid.
+            let _ = rayon::ThreadPoolBuilder::new().num_threads(3).build_global();
+            assert!(rayon::current_num_threads() > 0);
+            let caller = std::thread::current().id();
+            let serial = crate::pounce::with_threads(1, 4 << 20, || {
+                Ok::<_, crate::ProblemError>(super::map_jobs(&[1, 2, 3], false, |value| {
+                    assert_eq!(std::thread::current().id(), caller);
+                    assert_eq!(rayon::current_thread_index(), None);
+                    value * value
+                }))
+            }).unwrap();
+            assert_eq!(serial, vec![1, 4, 9]);
+            let parallel = crate::pounce::with_threads(2, 4 << 20, || {
+                Ok::<_, crate::ProblemError>(super::map_jobs(&[1, 2, 3], true, |value| {
+                    assert_ne!(std::thread::current().id(), caller);
+                    assert!(rayon::current_thread_index().is_some());
+                    assert_eq!(rayon::current_num_threads(), 2);
+                    value * value
+                }))
+            }).unwrap();
+            assert_eq!(parallel, serial);
+        }
 
         #[test]
         fn independent_pounce_cone_control_magnitude_probe() {

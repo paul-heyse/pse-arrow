@@ -6581,43 +6581,101 @@ def maintenance_catalog(
     return object_mapping(nonempty[0])
 
 
+def maintenance_domain_call(
+    state: Path,
+    config: dict[str, object],
+    credentials: dict[str, object] | None,
+    function: str,
+    arguments: list[object],
+) -> object:
+    """Call a fixed generated domain owner; never accept SQL from an operator input."""
+    if function not in {"current", "claim", "page", "rehome_complete", "validation_reads"}:
+        raise SupervisorError("Unknown generated maintenance operation")
+    encoded = ",".join(json.dumps(value, allow_nan=False) for value in arguments)
+    call = f"fn::pse_maintenance_v1::{function}({payload_expiry()}" + ("," + encoded if encoded else "") + ")"
+    if credentials is None:
+        return payload_query(state, config, "RETURN " + call + ";")
+    return maintenance_query(state, config, credentials, "LET $value=" + call + ";").get("value")
+
+
+def maintenance_domain_context(
+    state: Path,
+    config: dict[str, object],
+    credentials: dict[str, object] | None,
+    purpose: str,
+    source: str,
+    target: str,
+) -> tuple[str, str, str]:
+    """Fence one explicit phase under its actual live supervisor generation."""
+    owner = read_json(state / "lifecycle-owner.json")
+    generation = owner.get("nonce")
+    if not reservation_live(owner) or not isinstance(generation, str) or not generation:
+        raise SupervisorError("Domain maintenance requires its actual live generation")
+    pending = config.get("derived_rebuild_pending")
+    persisted = config_for(state)
+    if isinstance(pending, dict):
+        phase = pending.get("phase")
+        nonce = pending.get("domain_nonce")
+        actual = object_mapping(persisted.get("derived_rebuild_pending"))
+        identity = ("kind", "phase", "namespace", "database", "target_namespace", "target_database", "payload_incarnation", "backup_digest")
+        if any(actual.get(key) != pending.get(key) for key in identity) or actual.get("domain_nonce") != nonce:
+            raise SupervisorError("Domain maintenance phase or original operation changed")
+        if nonce is None:
+            nonce = uuid.uuid4().hex
+            actual["domain_nonce"] = nonce
+            persisted["derived_rebuild_pending"] = actual
+            write_json(state / "config.json", persisted)
+            pending["domain_nonce"] = nonce
+    else:
+        if persisted.get("derived_rebuild_pending"):
+            raise SupervisorError("Domain maintenance phase changed")
+        phase, nonce = "validation", uuid.uuid4().hex
+    if not isinstance(phase, str) or not isinstance(nonce, str) or re.fullmatch(r"[a-f0-9]{32}", nonce) is None:
+        raise SupervisorError("Invalid original domain maintenance operation")
+    operation = ":".join((nonce, purpose, source, target, str(config["namespace"]), str(config["database"])))
+    previous = maintenance_domain_call(state, config, credentials, "current", [])
+    if previous is not None and (
+        not isinstance(previous, dict)
+        or set(previous) != {"operation", "generation", "phase"}
+        or any(not isinstance(value, str) or not value for value in previous.values())
+    ):
+        raise SupervisorError("Malformed current maintenance generation")
+    acknowledged = maintenance_domain_call(
+        state, config, credentials, "claim", [operation, generation, phase, source, target, previous]
+    )
+    if acknowledged != {"operation": operation, "generation": generation, "phase": phase}:
+        raise SupervisorError("Maintenance generation was not acknowledged")
+    return operation, generation, phase
+
+
+def maintenance_domain_page(value: object, after: str) -> tuple[int, str, bool]:
+    """Closed typed progress; errors/unknown responses never become a successful page."""
+    if not isinstance(value, dict) or set(value) != {"count", "after", "complete"}:
+        raise SupervisorError("Malformed generated maintenance page")
+    count, cursor, complete = value["count"], value["after"], value["complete"]
+    if (
+        type(count) is not int or not 0 <= count <= 64
+        or not isinstance(cursor, str) or type(complete) is not bool
+        or complete != (count == 0)
+        or (count and cursor <= after) or (not count and cursor != after)
+    ):
+        raise SupervisorError("Invalid generated maintenance progress")
+    return count, cursor, complete
+
+
 def rotate_source_authorities(
     state: Path, config: dict[str, object], credentials: dict[str, object]
 ) -> None:
     """Fence old creation grants while preserving admitted science and its borrowers."""
-    response = maintenance_query(
-        state,
-        config,
-        credentials,
-        "LET $pins=SELECT key FROM canonical_protections WHERE !released AND expires_at>time::micros() LIMIT 1; "
-        "IF array::len($pins)!=0 { THROW 'live source protections refuse authority rotation'; }; LET $value=true;",
-    )
-    if response.get("value") is not True:
-        raise SupervisorError("Live protection check was not acknowledged")
+    pending = object_mapping(config.get("derived_rebuild_pending"))
+    incarnation = str(pending["payload_incarnation"])
+    context = maintenance_domain_context(state, config, credentials, "rotate", incarnation, incarnation)
     after = ""
     while True:
-        response = maintenance_query(
-            state,
-            config,
-            credentials,
-            "LET $rows=SELECT * FROM canonical_guards WHERE string::starts_with(key,'retention:') AND key>"  # noqa: S608 -- Cursor is encoded as a JSON string.
-            + json.dumps(after)
-            + " ORDER BY key LIMIT 64; "
-            "FOR $row IN $rows { UPDATE ONLY $row.id SET incarnation=<string>rand::uuid::v4(),generation=generation+1dec RETURN NONE; }; "
-            "LET $value={count:array::len($rows),after:array::last($rows.key) ?? ''};",
-        )
-        value = object_mapping(response.get("value"))
-        count, cursor = value.get("count"), value.get("after")
-        if (
-            type(count) is not int
-            or not 0 <= count <= 64
-            or not isinstance(cursor, str)
-            or (count and cursor <= after)
-        ):
-            raise SupervisorError("Invalid source authority rotation acknowledgment")
-        if count == 0:
-            break
-        after = cursor
+        value = maintenance_domain_call(state, config, credentials, "page", [*context, "rotate", after])
+        _count, after, complete = maintenance_domain_page(value, after)
+        if complete:
+            return
 
 
 def fresh_database_identity(config: dict[str, object]) -> dict[str, object]:
@@ -7228,15 +7286,9 @@ def rehome_restored_payloads(
         )
     old_incarnation = original["payload_incarnation"]
     new_incarnation = config["payload_incarnation"]
-    response = maintenance_query(
-        state,
-        config,
-        credentials,
-        "LET $owners=SELECT key FROM canonical_file_owners WHERE !drained LIMIT 1; "
-        "IF array::len($owners)!=0 { THROW 'undrained file owner refuses restored placement'; }; LET $value=true;",
+    context = maintenance_domain_context(
+        state, config, credentials, "rehome", str(old_incarnation), str(new_incarnation)
     )
-    if response.get("value") is not True:
-        raise SupervisorError("Restored file-owner drain was not acknowledged")
     target = {"payload_incarnation": new_incarnation, "database": config["database"]}
     payloads = maintenance_payloads(state, pending)
     targets = object_inventory(payloads["payload_targets"])
@@ -7286,40 +7338,11 @@ def rehome_restored_payloads(
     # physical fields are absent from scientific descriptors and manifest bytes.
     after = ""
     while True:
-        response = maintenance_query(
-            state,
-            config,
-            credentials,
-            # Interpolated incarnation/cursor values are JSON encoded.
-            "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "  # noqa: S608
-            f"IF $gate=NONE OR !$gate.frozen OR !$gate.gc_frozen OR $gate.storage_incarnation NOT IN [{json.dumps(old_incarnation)},{json.dumps(new_incarnation)}] {{ THROW 'restored file gate mismatch'; }}; "
-            f"LET $rows=SELECT * FROM canonical_file_instances WHERE key>{json.dumps(after)} ORDER BY key LIMIT 64; "
-            f"FOR $row IN $rows {{ IF $row.storage_incarnation NOT IN [{json.dumps(old_incarnation)},{json.dumps(new_incarnation)}] {{ THROW 'restored instance mismatch'; }}; UPDATE ONLY $row.id SET storage_incarnation={json.dumps(new_incarnation)} RETURN NONE; }}; "
-            "LET $value={count:array::len($rows),after:array::last($rows.key) ?? ''};",
-        )
-        value = object_mapping(response.get("value"))
-        count, cursor = value.get("count"), value.get("after")
-        if (
-            type(count) is not int
-            or not 0 <= count <= 64
-            or not isinstance(cursor, str)
-            or (count and cursor <= after)
-        ):
-            raise SupervisorError("Invalid bounded payload rehome acknowledgment")
-        if not count:
+        value = maintenance_domain_call(state, config, credentials, "page", [*context, "rehome", after])
+        _count, after, complete = maintenance_domain_page(value, after)
+        if complete:
             break
-        after = cursor
-    response = maintenance_query(
-        state,
-        config,
-        credentials,
-        # Incarnations are JSON encoded values in this fixed transaction.
-        "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "  # noqa: S608
-        f"IF $gate=NONE OR !$gate.frozen OR !$gate.gc_frozen OR $gate.storage_incarnation NOT IN [{json.dumps(old_incarnation)},{json.dumps(new_incarnation)}] {{ THROW 'restored file gate mismatch'; }}; "
-        f"UPDATE ONLY canonical_interpretations:current SET payload_incarnation={json.dumps(new_incarnation)} RETURN NONE; "
-        f"UPDATE ONLY canonical_file_admission:current SET storage_incarnation={json.dumps(new_incarnation)} RETURN NONE; LET $value=true;",
-    )
-    if response.get("value") is not True:
+    if maintenance_domain_call(state, config, credentials, "rehome_complete", list(context)) is not True:
         raise SupervisorError("Restored file incarnation was not acknowledged")
     config["payload_frozen"] = True
     write_json(state / "config.json", config)
@@ -8194,21 +8217,9 @@ def validation_payload_reads(
         raise SupervisorError(
             "Validator file reads require the exact closed restored profile"
         )
-    expiry = payload_expiry()
-    incarnation = json.dumps(config["payload_incarnation"])
-    acknowledged = payload_query(
-        state,
-        config,
-        # Expiry is an integer; identity and interpretation values use JSON.
-        f"LET $validation_start_deadline=fn::pse_execution_v1::deadline({expiry}); "  # noqa: S608
-        "LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; "
-        "LET $marker=SELECT * FROM ONLY canonical_interpretations:current; "
-        f"IF $gate=NONE OR $gate.storage_incarnation!={incarnation} OR !$gate.frozen OR !$gate.gc_frozen "
-        f"OR $marker=NONE OR $marker.payload_incarnation!={incarnation} OR $marker.interpretation!={json.dumps(interpretation)} "
-        "{ THROW 'validator requires exact frozen restored placement'; }; "
-        "UPDATE ONLY canonical_file_admission:current SET frozen=false,gc_frozen=true RETURN NONE; "
-        f"LET $validation_end_deadline=fn::pse_execution_v1::deadline({expiry}); RETURN true;",
-    )
+    incarnation = str(config["payload_incarnation"])
+    context = maintenance_domain_context(state, config, None, "validation", incarnation, incarnation)
+    acknowledged = maintenance_domain_call(state, config, None, "validation_reads", [*context, interpretation])
     if acknowledged is not True:
         raise SupervisorError("Validator file-read admission was not acknowledged")
 

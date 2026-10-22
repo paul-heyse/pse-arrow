@@ -5,14 +5,6 @@
 //! (ADR-0116 Outcomes 6 and 7). Each schema is derived by schemars from the document's
 //! serde type in its owning crate; the pure generator renders them.
 
-use pse_codegen::codegen::documents::Document;
-
-fn document<T: schemars::JsonSchema>(name: &'static str) -> Document {
-    Document {
-        name,
-        schema: schemars::schema_for!(T).to_value(),
-    }
-}
 
 /// Isolated values serialized by the same owners as exported operation products.
 /// These fixtures exercise transport only; no solver or operational store is invoked.
@@ -152,9 +144,9 @@ pub(super) fn boundary_fixtures() -> anyhow::Result<pse_codegen::codegen::Genera
         process_instance: [1, 2],
         sequence: 3,
     };
-    let mut request = pse_runtime::inspection::InspectionRequest::new(snapshot.id);
+    let mut request = pse_runtime::tooling::inspection::InspectionRequest::new(snapshot.id);
     request.include_related = false;
-    let diagnostic = pse_runtime::inspection::inspect_snapshot(snapshot, request);
+    let diagnostic = pse_runtime::tooling::inspection::inspect_snapshot(snapshot, request);
     let products = BTreeMap::from([
         ("diagnostic_inspection", encoded(&diagnostic)?),
         (
@@ -206,163 +198,13 @@ pub(super) fn boundary_fixtures() -> anyhow::Result<pse_codegen::codegen::Genera
     Ok(tree)
 }
 
-/// Every published document, in publication order.
-pub(super) fn documents() -> Vec<Document> {
-    vec![
-        document::<pse_runtime::workflow::SimulationProfile>("simulation-profile"),
-        document::<pse_runtime::workflow::InitializationOverrides>("initialization-overrides"),
-        document::<pse_runtime::workflow::ModelingNonlinearPolicy>("nonlinear-explanation-policy"),
-        document::<pse_runtime::workflow::ModelingDiagnosticPolicy>("modeling-diagnostic-policy"),
-        document::<pse_backend_native::solve::WarmStartSnapshot>("warm-start-snapshot"),
-        document::<pse_runtime::workflow::DiagnosticCauseDocument>("diagnostic-cause"),
-        document::<pse_runtime::workflow::DiagnosticSpanDocument>("diagnostic-span"),
-        document::<pse_runtime::workflow::DiagnosticNoteDocument>("diagnostic-note"),
-        document::<pse_runtime::workflow::DiagnosticAnnotationDocument>("diagnostic-annotation"),
-        document::<pse_runtime::workflow::DiagnosticContextDocument>("diagnostic-context"),
-        document::<pse_engine::cache_service::CacheReport>("cache-report"),
-        document::<pse_runtime::ResourceReport>("resource-report"),
-        document::<pse_diagnostics::observation::OperationId>("diagnostic-operation-id"),
-        document::<pse_diagnostics::observation::OperationSnapshot>("operation-snapshot"),
-        document::<pse_diagnostics::observation::OperationPage>("operation-page"),
-        document::<pse_runtime::observation::CheckpointIdentity>("checkpoint-identity"),
-        document::<pse_runtime::observation::ReceiverCheckpoint>("receiver-checkpoint"),
-        document::<pse_runtime::observation::ProcessCheckpoint>("process-checkpoint"),
-        document::<pse_runtime::review_launch::SourceRecordingLaunchDocument>(
-            "source-recording-launch-document",
-        ),
-        document::<pse_runtime::review_launch::SourceRecordingLaunchRequest>(
-            "source-recording-launch-request",
-        ),
-        document::<pse_runtime::review_pack::PackExportRequest>("pack-export-request"),
-        document::<pse_runtime::workflow::ReviewExportDeployment>("review-export-deployment"),
-        document::<pse_runtime::workflow::DiagnosticCommandRequest>("diagnostic-command-request"),
-        document::<pse_runtime::workflow::DiagnosticExecutionRequest>(
-            "diagnostic-execution-request",
-        ),
-        document::<pse_runtime::workflow::DiagnosticExecutionDocument>(
-            "diagnostic-execution-document",
-        ),
-        document::<pse_runtime::review_analysis::AnalysisRequest>("analysis-request"),
-        document::<pse_runtime::review_analysis::AnalysisDocument>("analysis-document"),
-        document::<pse_runtime::review_pack::PackSelection>("pack-selection"),
-        document::<pse_runtime::review_pack::PackIndex>("pack-index"),
-        document::<pse_runtime::review_query::ReviewTableDocument>("review-table-document"),
-        document::<pse_runtime::review_query::ReviewTableRequest>("review-table-request"),
-        document::<pse_runtime::review_query::ReviewQueryRequest>("review-query-request"),
-        document::<pse_runtime::review_query::ReviewQueryDocument>("review-query-document"),
-        document::<pse_runtime::review_query::ReviewQuerySpecification>(
-            "review-query-specification",
-        ),
-        document::<pse_runtime::capture::SourceRecordingRequest>("source-recording-request"),
-        document::<pse_runtime::capture::ReviewHandoffReceipt>("review-handoff-receipt"),
-        document::<pse_runtime::capture::SourceRecordingAcknowledgement>(
-            "source-recording-acknowledgement",
-        ),
-        document::<pse_runtime::frozen_inspection::FrozenEvidenceSet>("frozen-evidence-set"),
-        document::<pse_runtime::frozen_inspection::FrozenInspectionRequest>(
-            "frozen-inspection-request",
-        ),
-        document::<pse_runtime::frozen_inspection::FrozenInspectionDocument>(
-            "frozen-inspection-document",
-        ),
-        document::<pse_runtime::workflow::ReviewContextRequest>("review-context-request"),
-        document::<pse_runtime::workflow::ReviewContextDocument>("review-context-document"),
-        document::<pse_runtime::workflow::ReviewScientificCoordinates>(
-            "review-scientific-coordinates",
-        ),
-        document::<pse_runtime::workflow::ReviewInventoryRequest>("review-inventory-request"),
-        document::<pse_runtime::workflow::ReviewInventorySelection>("review-inventory-selection"),
-        document::<pse_runtime::workflow::ReviewInventoryPage>("review-inventory-page"),
-        document::<pse_runtime::inspection::InspectionRequest>("inspection-request"),
-        document::<pse_runtime::inspection::InspectionDocument>("inspection-document"),
-        document::<pse_runtime::inspection::DiagnosticListRequest>("diagnostic-list-request"),
-        document::<pse_runtime::inspection::DiagnosticProcessPage>("diagnostic-process-page"),
-        document::<pse_runtime::capture::CaptureRequest>("capture-request"),
-        document::<pse_runtime::workflow::DiagnosticOrigin>("diagnostic-origin"),
-        document::<pse_runtime::capture::LaunchCaptureRequest>("launch-capture-request"),
-        document::<pse_runtime::capture::CaptureDocument>("capture-document"),
-        document::<pse_runtime::capture::DetailRequest>("detail-request"),
-        document::<pse_runtime::capture::DetailDocument>("detail-document"),
-        document::<pse_runtime::capture::DetailRecordPage>("detail-record-page"),
-        document::<pse_runtime::workflow::ModelingSourceMapDocument>("modeling-source-map"),
-        document::<pse_diagnostics::observation::CoherentRecord>("coherent-record"),
-        document::<pse_runtime::invocation::InvocationEvidenceDocument>("invocation-evidence"),
-        document::<pse_runtime::inspection_comparison::InvocationComparisonDocument>(
-            "invocation-comparison",
-        ),
-        document::<pse_runtime::workflow::ProgressCheckpointDocument>("progress-checkpoint"),
-        document::<pse_runtime::workflow::ManagedStudyDiagnosticsDocument>(
-            "managed-study-diagnostics",
-        ),
-        document::<pse_runtime::TableName>("table-name"),
-        document::<pse_buildinfo::BuildInfo>("build-info"),
-        document::<pse_runtime::workflow::ProgressEventDocument>("progress-event"),
-        document::<pse_runtime::workflow::ProgressCoverage>("progress-coverage"),
-        document::<pse_runtime::workflow::RouteDocument>("route"),
-        document::<pse_runtime::workflow::EligibilityDocument>("eligibility"),
-        document::<pse_runtime::workflow::Completion>("completion"),
-        document::<pse_runtime::workflow::AttemptSummaryDocument>("attempt-summary"),
-        document::<pse_runtime::workflow::ReplayDocument>("scientific-replay"),
-        document::<pse_runtime::math::solves::SolverAdviceInputs>("solver-advice-inputs"),
-        document::<pse_model::strategy::advice::FrozenAdvice>("frozen-advice"),
-        document::<pse_runtime::workflow::FitPreparationDocument>("fit-preparation"),
-        document::<pse_runtime::workflow::FitExecutionDocument>("fit-execution"),
-        document::<pse_runtime::workflow::FitProfileDocument>("fit-profiles"),
-        document::<pse_runtime::workflow::FitDeclarations>("fit-declarations"),
-        document::<pse_runtime::workflow::RunControls>("run-controls"),
-        document::<pse_runtime::workflow::StudyRunControls>("study-run-controls"),
-        document::<pse_runtime::workflow::StudyWaitControls>("study-wait-controls"),
-        document::<pse_runtime::workflow::KnowledgeControls>("knowledge-controls"),
-        document::<pse_runtime::workflow::DiagnosticSamplesControls>("diagnostic-samples-controls"),
-        document::<pse_runtime::workflow::JacobianDiagnosticControls>(
-            "jacobian-diagnostic-controls",
-        ),
-        document::<pse_runtime::workflow::LinearDiagnosticControls>("linear-diagnostic-controls"),
-        document::<pse_runtime::workflow::PureConformanceControls>("pure-conformance-controls"),
-        document::<pse_runtime::workflow::ConformanceControls>("conformance-controls"),
-        document::<pse_runtime::workflow::DeclarationEdit>("declaration-edit"),
-        document::<pse_runtime::workflow::SourceDelta>("source-delta"),
-        document::<pse_runtime::workflow::SourceSettlement>("source-settlement"),
-        document::<pse_runtime::workflow::DeclarationInventory>("declaration-inventory"),
-        document::<pse_runtime::workflow::ModelingInspection>("modeling-inspection"),
-        document::<pse_runtime::workflow::ConicRequest>("conic-request"),
-        document::<pse_runtime::workflow::RecycleRequest>("recycle-request"),
-        document::<pse_runtime::workflow::RecycleRestartRequest>("recycle-restart-request"),
-        document::<pse_runtime::math::flows::FlowSelectionDocument>("flow-selection"),
-        document::<pse_runtime::math::flows::FlowGraphDocument>("flow-graph"),
-        document::<pse_runtime::math::flows::TearSelectionDocument>("tear-selection"),
-        document::<pse_runtime::workflow::InitializationDocument>("initialization"),
-        document::<pse_runtime::math::settings::SolveSettings>("solve-settings"),
-        document::<pse_runtime::math::settings::BlockSolveOverride>("block-solve-override"),
-        document::<pse_model::strategy::EffortPolicy>("effort-policy"),
-        document::<pse_model::strategy::NumericalStrategyDocument>("numerical-strategy"),
-        document::<pse_model::strategy::CompositionRequest>("composition-request"),
-        document::<pse_backend_native::execution::BackendSettings>("backend-settings"),
-        document::<pse_backend_native::dynamics::DiffsolSettings>("diffsol-settings"),
-        document::<pse_backend_native::dynamics::IdasSettings>("idas-settings"),
-        document::<pse_backend_native::dynamics::AdjointSettings>("adjoint-settings"),
-        document::<pse_runtime::workflow::StudyDefinition>("study-definition"),
-        document::<pse_runtime::workflow::StudyRequest>("study-request"),
-        document::<pse_runtime::workflow::StudyStatus>("study-status"),
-        document::<pse_runtime::workflow::StudyResults>("study-results"),
-        document::<pse_runtime::workflow::AnalysisControls>("analysis-controls"),
-        document::<pse_operations::canonical_result_retention::ResultReclamationPage>(
-            "result-reclamation-page",
-        ),
-        document::<pse_operations::canonical_history::HistoryOwner>("history-owner"),
-        document::<pse_operations::canonical_history::HistoryPurpose>("history-purpose"),
-        document::<pse_operations::canonical_history::HistoryObligation>("history-obligation"),
-        document::<pse_operations::canonical_history::HistoryReclamationPage>(
-            "history-reclamation-page",
-        ),
-        document::<pse_runtime::workflow::StudyCancel>("study-cancel"),
-        document::<pse_runtime::workflow::PointOutcome>("study-point-outcome"),
-        document::<pse_runtime::workflow::StudyConclusion>("study-conclusion"),
-        document::<pse_runtime::workflow::BoundaryDiagnostic>("boundary-diagnostic"),
-        document::<pse_runtime::workflow::TerminationDetail>("termination-detail"),
-        document::<pse_runtime::workflow::FitUncertainty>("fit-uncertainty"),
-        document::<pse_runtime::math::PreparationCounts>("preparation-counts"),
-    ]
+/// The actual compiled catalogue supplies both publication and native registrations.
+pub(super) fn documents() -> Vec<pse_codegen::codegen::documents::CatalogueDocument> {
+    pse_runtime::boundary_documents::schemas().into_iter().map(|entry| pse_codegen::codegen::documents::CatalogueDocument {
+        name: entry.name.into(), slug: entry.slug.into(), rust_type: entry.rust_type.into(),
+        output: entry.direction == pse_runtime::boundary_documents::Direction::Output,
+        version: entry.version, schema: entry.schema,
+    }).collect()
 }
 
 #[cfg(test)]

@@ -232,6 +232,7 @@ fn frozen_allowances(
 /// Immutable generated simulation. No authored state/RHS declaration is introduced.
 #[derive(Clone, Debug)]
 pub struct ModelingSimulation {
+    physical_input_owner: Option<Arc<dyn pse_columnar::PayloadOwner>>,
     pub(in crate::workflow) original_inputs:
         Option<Arc<crate::workflow::replay::OriginalSimulationInputs>>,
     /// The model, case and instance it simulates (`pse_model::lineage`).
@@ -573,6 +574,9 @@ type DynamicsHandle = crate::math::solves::SolveHandle<(
     Arc<pse_columnar::AllocationLease>,
 )>;
 impl ModelingSimulation {
+    pub(in crate::workflow) fn retain_physical_request(&mut self, request: &super::super::PhysicalSimulationRequest) {
+        self.physical_input_owner = Some(Arc::new(request.clone()));
+    }
     /// Project a coherent joined shooting product, retaining its final optimizer header.
     #[cfg(feature = "solver-diffsol")]
     pub(in crate::workflow) fn completed_trajectory(
@@ -752,7 +756,8 @@ impl ModelingSimulation {
             preparation_identity: Some(self.identity()),
             profile_identity: None,
             configuration: configuration.into(),
-            binding: None,
+            binding: self.original_inputs.as_ref().and_then(|inputs| inputs.binding())
+                .map(serde_json::to_vec).transpose().map_err(|error| contract(error.to_string()))?.map(Into::into),
             state,
             inputs,
             outputs,
@@ -1332,17 +1337,12 @@ impl ModelingSimulation {
     ) -> Result<ModelingTrajectory, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity.scope(async {
-        let handle = self.start()?;
-        let wait = handle.wait();
-        tokio::pin!(wait);
-        let result = tokio::select! { r=&mut wait=>r?, ()=cancel.cancelled()=>{handle.cancel();wait.await?} };
-        match &result.report {
-            Ok(crate::workflow::RunReport::Simulation(trajectory)) => {
-                Ok(trajectory.as_ref().clone())
-            }
-            Err(error) => Err(WorkflowError::Shared(error.clone())),
-            _ => Err(contract("simulation report mismatch")),
-        }
+        let result = self.start_with_cancel(cancel)?.wait().await?;
+        let crate::workflow::RunOutcome::Simulation { result, .. } = &result.outcome else {
+            return Err(contract("simulation operation required"));
+        };
+        result.as_ref().map(|trajectory| trajectory.as_ref().clone())
+            .map_err(|error| WorkflowError::Shared(error.clone()))
 
         }).await
     }
@@ -1607,12 +1607,33 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        self.declared_simulation_bound(root, compiler, profile, limits, None, cancel).await
+    }
+    /// Admit pending physical controls once, or use the case's authored controls.
+    pub(in crate::workflow) async fn declared_simulation_request(
+        &self, root: DeclarationId, compiler: Profile,
+        request: Option<&super::super::PhysicalSimulationRequest>, limits: Limits,
+        binding: Option<&super::super::AdmittedBinding>, cancel: &crate::CancelSource,
+    ) -> Result<ModelingSimulation, WorkflowError> {
+        match request {
+            Some(request) => {
+                let request = request.clone().retain(&self.runtime)?;
+                self.declared_physical_simulation(root, compiler, &request, limits, binding, cancel).await
+            }
+            None => self.declared_simulation_bound(root, compiler, None, limits, binding, cancel).await,
+        }
+    }
+    /// Apply fresh immutable parameter coordinates before rebuilding integration premises.
+    pub(in crate::workflow) async fn declared_simulation_bound(
+        &self, root: DeclarationId, compiler: Profile, profile: Option<native::Profile>,
+        limits: Limits, binding: Option<&super::super::AdmittedBinding>, cancel: &crate::CancelSource,
+    ) -> Result<ModelingSimulation, WorkflowError> {
         let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
-                let execution = self
+                let mut execution = self
                     .declared_execution(
                         root,
                         compiler,
@@ -1627,8 +1648,18 @@ impl ModelingPackage {
                         "declared simulation requires the authored integration procedure",
                     ));
                 }
-                self.simulation_for_declared(&execution, profile, cancel)
-                    .await
+                if let Some(binding) = binding {
+                    self.validate_binding(execution.model.compiled(), binding)?;
+                    super::super::bindings::require_parameter_binding(binding)?;
+                    execution.analysis.case.members = binding.values();
+                }
+                let prepared = self.simulation_for_declared_bound(&execution, profile, binding, cancel).await?;
+                if let Some(binding) = binding {
+                    if binding.entries.keys().any(|member| !prepared.contract().parameters.contains(member)) {
+                        return Err(super::super::bindings::parameter_binding_refusal(binding, "bound member is not an integration parameter"));
+                    }
+                }
+                Ok(prepared)
             })
             .await
     }
@@ -1638,6 +1669,37 @@ impl ModelingPackage {
         execution: &DeclaredExecution,
         profile: Option<native::Profile>,
         cancel: &crate::CancelSource,
+    ) -> Result<ModelingSimulation, WorkflowError> {
+        self.simulation_for_declared_bound(execution, profile, None, cancel).await
+    }
+    pub(in crate::workflow) async fn simulation_for_declared_bound(
+        &self, execution: &DeclaredExecution, profile: Option<native::Profile>,
+        binding: Option<&super::super::AdmittedBinding>, cancel: &crate::CancelSource,
+    ) -> Result<ModelingSimulation, WorkflowError> {
+        self.simulation_for_declared_input(execution, profile, None, binding, cancel).await
+    }
+    /// Admit host physical coordinate controls under the actual declared state inventory.
+    pub async fn declared_physical_simulation(
+        &self, root: DeclarationId, compiler: Profile,
+        request: &super::super::PhysicalSimulationRequest,
+        limits: Limits, binding: Option<&super::super::AdmittedBinding>, cancel: &crate::CancelSource,
+    ) -> Result<ModelingSimulation, WorkflowError> {
+        let mut execution = self.declared_execution(root, compiler, Default::default(), Default::default(), limits, cancel).await?;
+        if !matches!(execution.procedure, DeclaredProcedure::Integrate(_)) { return Err(contract("physical simulation requires an integrated declaration")); }
+        if let Some(binding) = binding {
+            self.validate_binding(execution.model.compiled(), binding)?;
+            super::super::bindings::require_parameter_binding(binding)?;
+            execution.analysis.case.members = binding.values();
+        }
+        let controls = request.controls.clone().with_coordinates(Vec::new(), Vec::new(), Vec::new());
+        let mut prepared = self.simulation_for_declared_input(&execution, Some(controls), Some(request), binding, cancel).await?;
+        prepared.physical_input_owner = Some(Arc::new(request.clone()));
+        Ok(prepared)
+    }
+    async fn simulation_for_declared_input(
+        &self, execution: &DeclaredExecution, profile: Option<native::Profile>,
+        pending: Option<&super::super::PhysicalSimulationRequest>,
+        binding: Option<&super::super::AdmittedBinding>, cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
@@ -1683,6 +1745,8 @@ impl ModelingPackage {
                     None,
                     &provisional_quadratures,
                     Some(execution.prepared_model(self)?),
+                    binding,
+                    pending,
                     cancel,
                 )
                 .await
@@ -1703,6 +1767,7 @@ impl ModelingPackage {
         case: ModelingCaseBindings,
         compiler: Profile,
         mut profile: native::Profile,
+        pending: Option<&super::super::PhysicalSimulationRequest>,
         derivatives: DerivativeOrder,
         mode: usize,
         mode_names: &[String],
@@ -1896,8 +1961,14 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
+        let annotations = product.numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Dynamic).map_err(crate::math::MathRuntimeError::from)?;
         for (state, _, row) in &initial_outputs {
-            values.scalars.insert(*state, initial_values[row]);
+            let (value, _) = annotations.select_start(pse_compiler::workspace::NumericalStartValues {
+                initial_condition: Some(initial_values[row]),
+                supplied_value: values.scalars.get(state).copied(),
+                ..Default::default()
+            }).ok_or_else(|| contract("missing dynamic initial condition"))?;
+            values.scalars.insert(*state, value);
         }
         // Evaluate the original isolated RHS projection, independently of case Start overrides.
         let original_initial_rows = product
@@ -2066,21 +2137,13 @@ impl ModelingPackage {
                 .any(|id| ModelingOutput::Member(*id).row_id() == *row)
         });
         outputs.retain(|id| !terminal_rows.contains(id));
-        let nominal_rows = product
-            .admitted
-            .outputs
-            .iter()
-            .filter(|o| {
-                matches!(
-                    o,
-                    ModelingOutput::Hint {
-                        kind: ModelingHint::Nominal,
-                        ..
-                    }
-                )
-            })
-            .map(ModelingOutput::row_id)
-            .collect();
+        let annotations = product.numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Dynamic).map_err(crate::math::MathRuntimeError::from)?;
+        let nominal_rows = annotations.outer_hints().filter(|hint| hint.kind == ModelingHint::Nominal).map(|hint| {
+            let pse_compiler::workspace::AnnotationObservation::Row(row) = hint.observation else {
+                return Err(contract("dynamic numerical observation requires a row"));
+            };
+            Ok(row)
+        }).collect::<Result<BTreeSet<_>, WorkflowError>>()?;
         let observed = self
             .observe_registered(
                 model.clone(),
@@ -2190,24 +2253,15 @@ impl ModelingPackage {
             });
         }
         let mut declarations = Vec::new();
-        for o in &product.admitted.outputs {
-            if let ModelingOutput::Hint {
-                target,
-                declaration,
-                kind: ModelingHint::Nominal,
-            } = o
-                && let Some(t) = targets.iter().find(|t| t.id == *target)
-            {
-                declarations.push(cases::requirement(
-                    model.solved().lineage(),
-                    *target,
-                    t.kind,
-                    *declaration,
-                    NumericalSource::ModelHint,
-                    Some(observed[&o.row_id()]),
-                    None,
-                ));
-            }
+        for hint in annotations.outer_hints().filter(|hint| hint.kind == ModelingHint::Nominal) {
+            let Some(target) = targets.iter().find(|target| target.id == hint.target) else { continue; };
+            let pse_compiler::workspace::AnnotationObservation::Row(row) = hint.observation else {
+                return Err(contract("dynamic numerical observation requires a row"));
+            };
+            declarations.push(cases::requirement(
+                model.solved().lineage(), hint.target, target.kind, hint.declaration,
+                NumericalSource::ModelHint, Some(observed[&row]), None,
+            ));
         }
         let frozen = states
             .iter()
@@ -2320,6 +2374,24 @@ impl ModelingPackage {
             &profile.numerics,
         )?;
         let closure_budgets = cases::closure_budgets(&numerics);
+        if let Some(pending) = pending {
+            let source_port = |id: SemanticId| -> Result<pse_kernels::Port, WorkflowError> {
+                let ty = &product.model.symbols.get(&id).ok_or_else(|| contract("physical integration coordinate absent"))?.ty;
+                let quantity = ty.quantity_scheme().ok_or_else(|| contract("physical integration coordinate has no quantity"))?
+                    .resolve_with_evidence(&self.quantities, &pse_quantity::scheme::Substitution::new(), self.physical.preconditions())
+                    .map_err(|error| contract(error.to_string()))?;
+                let unit = self.quantities.quantity_type(quantity).map_err(math)?.canonical_unit;
+                Ok(pse_kernels::Port { id, quantity, unit })
+            };
+            let integral_ports = integral_ids.iter().copied().map(source_port).collect::<Result<Vec<_>, _>>()?;
+            let parameter_ports = parameters.iter().copied().map(source_port).collect::<Result<Vec<_>, _>>()?;
+            let access = pse_math::numerics::TargetAccess::new(&numerics).map_err(math)?;
+            let scales = state.iter().map(|port| access.get(NumericalTarget::Variable, port.id).map(|target| target.coordinate_scale).map_err(math)).collect::<Result<Vec<_>, _>>()?;
+            let admitted = pending.admit(&self.quantities, &state, &integral_ports, &parameter_ports, &scales)?;
+            profile.atol = admitted.atol;
+            profile.out_atol = admitted.out_atol;
+            profile.parameter_scales = admitted.parameter_scales;
+        }
         for (position, integral) in product.model.integrals.keys().enumerate() {
             if !provisional_quadratures.contains(integral) {
                 continue;
@@ -2454,6 +2526,13 @@ impl ModelingPackage {
                 .ok_or_else(|| contract("scheduled input interval layout"))?
                 .copy_from_slice(authored);
         }
+        // Explicit point parameters bind the start interval; later authored intervals stay stated.
+        for (parameter, member) in parameters.iter().enumerate() {
+            if let Some(value) = case.members.get(member) {
+                parameter_values[first[parameter]] = *value;
+            }
+        }
+
         let event_layout = (0..mode_names.len())
             .map(|index| {
                 events::resolve_events(product, instance, index, &states).map(|(events, _)| events)
@@ -3162,6 +3241,7 @@ impl ModelingPackage {
             )
             .ok_or_else(|| contract_error("dynamic allowance storage extent"))?;
         Ok(ModelingSimulation {
+            physical_input_owner: None,
             original_inputs: None,
             solved: model.solved(),
             quantities: self.quantities.clone(),
@@ -3223,7 +3303,6 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<Vec<native::StateSign>, WorkflowError> {
-        use pse_modeling::annotation::AnnotationValue;
         #[derive(Clone, Copy)]
         enum Endpoint {
             Constant(f64),
@@ -3231,29 +3310,14 @@ impl ModelingPackage {
         }
         let product = model.compiled();
         let mut endpoints = vec![[None::<Endpoint>; 2]; states.len()];
-        for a in &product.model.annotations {
-            let AnnotationValue::Bounds(lower, upper) = &a.value else {
-                continue;
+        let annotations = product.numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Dynamic).map_err(crate::math::MathRuntimeError::from)?;
+        for hint in annotations.constant_sign_bounds() {
+            let Some(i) = states.iter().position(|id| *id == hint.target) else { continue; };
+            let pse_compiler::workspace::AnnotationObservation::Row(row) = hint.observation else {
+                return Err(contract("dynamic sign observation requires a row"));
             };
-            let Some(i) = states.iter().position(|id| *id == a.target) else {
-                continue;
-            };
-            for (k, (bound, kind)) in [(lower, ModelingHint::Lower), (upper, ModelingHint::Upper)]
-                .into_iter()
-                .enumerate()
-            {
-                // Only an endpoint that references no member is a constant.
-                if pse_modeling::expression::references(bound).is_empty() {
-                    endpoints[i][k] = Some(Endpoint::Row(
-                        ModelingOutput::Hint {
-                            target: a.target,
-                            declaration: a.lineage.declaration,
-                            kind,
-                        }
-                        .row_id(),
-                    ));
-                }
-            }
+            let endpoint = usize::from(hint.kind == ModelingHint::Upper);
+            endpoints[i][endpoint] = Some(Endpoint::Row(row));
         }
         for (path, state) in &case.variables {
             let Some(i) = product
@@ -3996,7 +4060,6 @@ mod tests {
             else {
                 panic!("simulation expected");
             };
-            let trajectory = trajectory.as_ref();
             assert_eq!(
                 result.completion().unwrap().computation.as_ref().unwrap(),
                 trajectory.header()
@@ -7747,4 +7810,77 @@ mod diagnostic_admission_tests {
             );
         }
     }
+    #[cfg(feature = "solver-diffsol")]
+    #[tokio::test]
+    async fn simulation_parameter_points_recompute_initial_conditions_and_preserve_later_schedules() {
+        use crate::workflow::{BindingAssignment, BindingQuantity, BindingTarget, PointOverlay};
+        let runtime = super::super::super::tests::runtime();
+        let mut context = super::super::super::tests::physical();
+        context.preconditions = Arc::new(pse_quantity::PhysicalPreconditions::new(
+            pse_quantity::generated::standard_preconditions(),
+        ).unwrap());
+        let quantity = context.quantities.neutral_dimensionless().unwrap();
+        let canonical = context.quantities.quantity_type(quantity).unwrap().canonical_unit;
+        let mut percent = context.quantities.unit(canonical).unwrap().clone();
+        percent.id = pse_quantity::UnitId::from_id(pse_ids::named_id(canonical.as_id(), "simulation-parameter-percent"));
+        percent.symbol = "simulation-percent".into();
+        percent.scale_to_canonical = 0.01;
+        // This representation is a new atom, rather than the canonical unit's empty product.
+        percent.definition = None;
+        let percent_id = percent.id;
+        let mut builder = context.quantities.to_builder(); builder.unit(percent);
+        context.quantities = Arc::new(builder.build().unwrap());
+        context.key = pse_compiler::workspace::physical_identity(&context.quantities, &context.preconditions);
+        let source = "package p { def D { domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param u:Scalar=2; var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==u; eq initial:x[0{s}]==u*1{s}; } test constant fixture {dof 0; route integrated; procedure integrate; integrate samples(0{s},0.5{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s});} {child root:D=D();} test scheduled fixture {dof 0; route integrated; procedure integrate; integrate samples(0{s},0.5{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.u at(0.5{s}) values(2,7);} {child root:D=D();} }";
+        let rows = pse_authoring::language::parse(source, SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap();
+        let case = rows.iter().find(|row| row.name == "constant").unwrap().declaration_id;
+        let scheduled = rows.iter().find(|row| row.name == "scheduled").unwrap().declaration_id;
+        let package = runtime.modeling_package(rows, context).await.unwrap();
+        let compiler = super::super::super::tests::compiler_profile();
+        let cancel = crate::CancelSource::new();
+        let execution = package.declared_execution(case, compiler, Default::default(), Default::default(), Limits::default(), &cancel).await.unwrap();
+        let overlay = |value, unit| PointOverlay { assignments: vec![BindingAssignment {
+            target: BindingTarget::Path("root.u".into()), value: BindingQuantity {
+                magnitude: pse_model::scalars::FiniteBound::try_new(value).unwrap(), quantity: quantity.as_id(), unit,
+            },
+        }] };
+        let operation = crate::workflow::StudyOperation {
+            version: pse_model::document::Version, source: crate::workflow::OperationSource::of(&package),
+            preparation: crate::workflow::PreparationSettings { compiler, limits: Limits::default() },
+            operation: crate::workflow::OperationRequest::Simulation(crate::workflow::SimulationOperation { case, settings: None }),
+            output: crate::workflow::StudyOutputDemand::Full {}, admitted_horizon: None,
+        };
+        let (converted, seed_need) = package.admit_operation_overlay(&operation, &overlay(300., percent_id.as_id()), &mut None, &cancel).await.unwrap();
+        assert_eq!(seed_need, pse_model::study::SeedNeed::NotNeeded);
+        let canonical_binding = package.admit_overlay(execution.model.compiled(), &overlay(3., canonical.as_id())).unwrap();
+        assert_eq!(converted.identity(), canonical_binding.identity());
+        let crate::workflow::PreparedStudyOperation::Simulation(first) = package.prepare_bound_operation(&operation, &converted, &cancel).await.unwrap() else { panic!("simulation point"); };
+        let mut fresh_execution = execution;
+        fresh_execution.analysis.case.values.insert("root.u".into(), 3.);
+        let fresh = package.simulation_for_declared(&fresh_execution, None, &cancel).await.unwrap();
+        assert_eq!(first.parameters(), fresh.parameters());
+        assert_eq!(first.modes[0].original_initial_conditions[0].expected, fresh.modes[0].original_initial_conditions[0].expected);
+        assert_eq!(first.modes[0].original_initial_conditions[0].expected, 3.);
+        let next_binding = package.admit_overlay(fresh_execution.model.compiled(), &overlay(5., canonical.as_id())).unwrap();
+        let next = package.declared_simulation_bound(case, compiler, None, Limits::default(), Some(&next_binding), &cancel).await.unwrap();
+        assert_eq!(next.parameters(), [5.]);
+        assert_eq!(next.modes[0].original_initial_conditions[0].expected, 5.);
+        assert_eq!(first.parameters(), [3.]);
+        let retry = package.declared_simulation_bound(case, compiler, None, Limits::default(), Some(&converted), &cancel).await.unwrap();
+        assert_eq!(retry.identity(), first.identity());
+        let document = first.original_inputs.as_ref().unwrap().document(0);
+        assert_eq!(document.binding.as_ref(), Some(&converted));
+        assert_eq!(document.reconstruct(&package, &cancel).await.unwrap().identity(), first.identity());
+        let result = first.run(&cancel).await.unwrap();
+        assert!(result.accepted(), "{:?}", result.diagnostic());
+        assert!((result.report().samples.last().unwrap().state[0] - 6.).abs() < 1e-7);
+        let scheduled_execution = package.declared_execution(scheduled, compiler, Default::default(), Default::default(), Limits::default(), &cancel).await.unwrap();
+        let scheduled_binding = package.admit_overlay(scheduled_execution.model.compiled(), &overlay(300., percent_id.as_id())).unwrap();
+        let scheduled_point = package.declared_simulation_bound(scheduled, compiler, None, Limits::default(), Some(&scheduled_binding), &cancel).await.unwrap();
+        assert_eq!(scheduled_point.parameters(), [3., 7.]);
+        let result = scheduled_point.run(&cancel).await.unwrap();
+        assert!(result.accepted(), "{:?}", result.diagnostic());
+        assert!((result.report().samples.last().unwrap().state[0] - 8.).abs() < 1e-7);
+    }
+
 }

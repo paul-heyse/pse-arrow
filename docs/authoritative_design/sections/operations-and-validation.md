@@ -21,6 +21,10 @@ computation can never change its scientific or publication outcome
 
 ### 23.1 Observability
 
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+Product detail and protected result-selection contracts precede internal tooling extraction. Rust owns conformance manifest/defaults and cooperating-source launch execution; Python adapts commands. Optional tracing/crate selection requires its own bounded outcome; existing observation authority remains until replacement qualifies.
+
 > Decision: ADR-0192/0196 (proposed; accepted Plan47 RC01/RC02 target). Live inspection
 > observes current time and known local publication. Frozen inspection consumes supplied
 > immutable documents and a recorded endpoint/lookback or explicit source-clock interval;
@@ -506,7 +510,7 @@ design-change tracking are owned by
 | Crate tests | `#[cfg(test)]` modules and `crates/*/tests` | the owning contract: identity, admission, compilation, physical providers, native adapters, workflow, publication and settlement; `pse-rules` owns independent integrity mechanism witnesses and catalog/enforcement controls |
 | Governance | `tests/governance` | workspace invariants: sole hasher, dependency pins and floors, error taxonomy, crate registration, FFI unwind containment, no shadow structs, registry governance, MSRV, unsafe allowlist |
 | Engine | `tests/engine` | provider hierarchy, plan codec, pushdown truthfulness against unpruned sources, relational expansion, unified sources |
-| Conformance | `tests/conformance` | `pse.canon.v2` properties (layout, null payload, signed zero, encoding round trips) and selected scientific acceptance journeys |
+| Conformance | `tests/conformance` | selected scientific acceptance journeys; native value/IEEE framing and Arrow admission properties remain in their owning crates |
 | Lifecycle | `tests/lifecycle` | guarded canonical admission, interruption, exact retained reads and result memory budgets |
 | Python | `python/pse/tests` | the native Python boundary: generated contracts, extension round trips, extra-key refusal, nullable-array refusal, workflows, protected canonical Arrow streams |
 | Parity | `python/pse/parity` | the IDAES 2.13.0 environment and selected scientific reference comparisons (proposed [ADR-0097](../../adr/0097-modeling-scope-and-parity.md)) |
@@ -842,7 +846,7 @@ failures, invalid samples and unsafe ownership or drain still fail. Existing run
 selection; no second test-name manifest or proof campaign is required. Comparative performance
 claims still require a controlled comparison.
 
-Criterion benchmarks live in `benches/` (`pse-benches`): `canonicalization`,
+Criterion benchmarks live in `benches/` (`pse-benches`):
 `native_cache`, `native_consolidation`, `native_process` (complete-process cases) and
 `modeling_preparation` (specialization, lowering and derivative programs of the seed
 PC-SAFT state at a stated number of components and of the Peng–Robinson density root

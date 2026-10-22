@@ -41,6 +41,22 @@ macro_rules! semantic_id_newtype {
     () => {};
     (
         $(#[$meta:meta])*
+        $name:ident : RegistrySemanticId
+        $(, $($rest:tt)*)?
+    ) => {
+        $crate::__typed_identity! { $(#[$meta])* $name, $crate::SemanticId, stringify!($name) }
+        $($crate::semantic_id_newtype! { $($rest)* })?
+    };
+    (
+        $(#[$meta:meta])*
+        $name:ident : RegistryContentHash
+        $(, $($rest:tt)*)?
+    ) => {
+        $crate::__typed_identity! { $(#[$meta])* $name, $crate::ContentHash, stringify!($name) }
+        $($crate::semantic_id_newtype! { $($rest)* })?
+    };
+    (
+        $(#[$meta:meta])*
         $name:ident : ContentHash
         $(, $($rest:tt)*)?
     ) => {
@@ -61,7 +77,7 @@ macro_rules! semantic_id_newtype {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __typed_identity {
-    ($(#[$meta:meta])* $name:ident, $base:path) => {
+    ($(#[$meta:meta])* $name:ident, $base:path $(, $role:expr)?) => {
         $(#[$meta])*
         #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
         pub struct $name($base);
@@ -125,7 +141,13 @@ macro_rules! __typed_identity {
             fn json_schema(
                 generator: &mut $crate::__schemars::SchemaGenerator,
             ) -> $crate::__schemars::Schema {
-                <$base as $crate::__schemars::JsonSchema>::json_schema(generator)
+                let schema = <$base as $crate::__schemars::JsonSchema>::json_schema(generator);
+                $(let schema = {
+                    let mut schema = schema;
+                    schema.insert("x-pse-identity".into(), $role.into());
+                    schema
+                };)?
+                schema
             }
         }
 
@@ -198,6 +220,20 @@ mod tests {
             hash
         );
         assert!(serde_json::from_str::<BundleId>("\"not a hash\"").is_err());
+    }
+
+    crate::semantic_id_newtype! { /// Registry schema role control.
+        RegistryControlId: RegistrySemanticId }
+    #[test]
+    fn registry_role_schema_retains_base_shape_and_explicit_role() {
+        let schema = schemars::schema_for!(RegistryControlId);
+        let schema = schema.as_value();
+        assert_eq!(schema["x-pse-identity"], "RegistryControlId");
+        let base = schemars::schema_for!(SemanticId);
+        let base = base.as_value();
+        assert_eq!(schema["type"], base["type"]);
+        assert_eq!(schema["pattern"], base["pattern"]);
+        assert_eq!(serde_json::to_value(RegistryControlId::from_bytes([1;16])).unwrap(), serde_json::to_value(SemanticId::from_bytes([1;16])).unwrap());
     }
 
     #[test]

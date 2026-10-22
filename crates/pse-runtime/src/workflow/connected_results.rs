@@ -140,6 +140,7 @@ where
 #[derive(Debug)]
 struct OutputFilter {
     output: String,
+    owner: pse_ids::SemanticId,
     field: String,
     partition: String,
     dense: bool,
@@ -150,7 +151,7 @@ struct OutputFilter {
 }
 #[derive(Debug)]
 enum OutputRows {
-    Scalar(Vec<pse_model::generated::runtime::canonical_result_rows::Row>),
+    Scalar,
     Dense(pse_model::generated::runtime::canonical_result_block_outputs::Row),
 }
 
@@ -240,13 +241,13 @@ impl CanonicalResultReader {
     /// Original complete selection coordinates for a portable review member.
     pub fn pack_selection(
         &self,
-        usability: crate::review_pack::PackScientificState,
-    ) -> Result<crate::review_pack::PackResultSelection, WorkflowError> {
+        usability: super::PackScientificState,
+    ) -> Result<super::PackResultSelection, WorkflowError> {
         self.reader.pack_selection(usability)
     }
     pub(crate) fn validate_pack_selection(
         &self,
-        selection: &crate::review_pack::PackResultSelection,
+        selection: &super::PackResultSelection,
     ) -> Result<(), WorkflowError> {
         self.reader.validate_pack_selection(selection)
     }
@@ -377,13 +378,13 @@ impl SelectedResultReader {
     /// Original complete selection coordinates for a portable review member.
     pub fn pack_selection(
         &self,
-        usability: crate::review_pack::PackScientificState,
-    ) -> Result<crate::review_pack::PackResultSelection, WorkflowError> {
+        usability: super::PackScientificState,
+    ) -> Result<super::PackResultSelection, WorkflowError> {
         self.reader.pack_selection(usability)
     }
     pub(crate) fn validate_pack_selection(
         &self,
-        selection: &crate::review_pack::PackResultSelection,
+        selection: &super::PackResultSelection,
     ) -> Result<(), WorkflowError> {
         self.reader.validate_pack_selection(selection)
     }
@@ -514,14 +515,14 @@ impl ResultReader {
 
     fn pack_selection(
         &self,
-        usability: crate::review_pack::PackScientificState,
-    ) -> Result<crate::review_pack::PackResultSelection, WorkflowError> {
+        usability: super::PackScientificState,
+    ) -> Result<super::PackResultSelection, WorkflowError> {
         let spec = self
             .runtime
             .registry()
             .relation_by_id(self.relation)
             .ok_or_else(|| contract("selected relation absent"))?;
-        Ok(crate::review_pack::PackResultSelection {
+        Ok(super::PackResultSelection {
             run: self.read.run().key.clone(),
             attempt: self.read.attempt().key.clone(),
             relation: spec.key.qualified_name(),
@@ -538,7 +539,7 @@ impl ResultReader {
             predicate: self
                 .output
                 .as_ref()
-                .map(|o| crate::review_pack::PackResultPredicate {
+                .map(|o| super::PackResultPredicate {
                     output: o.output.clone(),
                     partition: o.partition.clone(),
                     minimum_bits: o.minimum.map(f64::to_bits),
@@ -550,7 +551,7 @@ impl ResultReader {
     }
     fn validate_pack_selection(
         &self,
-        selection: &crate::review_pack::PackResultSelection,
+        selection: &super::PackResultSelection,
     ) -> Result<(), WorkflowError> {
         let original = self.pack_selection(selection.usability)?;
         if original.run != selection.run
@@ -814,15 +815,7 @@ impl ResultReader {
         }
         for (key, rows) in &self.indexes {
             let heap = match rows {
-                OutputRows::Scalar(rows) => rows
-                    .capacity()
-                    .checked_mul(size_of::<
-                        pse_model::generated::runtime::canonical_result_rows::Row,
-                    >())
-                    .and_then(|size| {
-                        rows.iter()
-                            .try_fold(size, |n, row| n.checked_add(row.heap_bytes()))
-                    }),
+                OutputRows::Scalar => Some(0),
                 OutputRows::Dense(row) => Some(row.heap_bytes()),
             }
             .ok_or_else(|| contract("result index extent"))?;
@@ -914,54 +907,34 @@ impl ResultReader {
                             if let Some(context) = pse_diagnostics::observation::current() {
                                 context.count("canonical.result.output_page_requests", "count", 1);
                             }
-                            let page = self
-                                .runtime
-                                .canonical_store()?
-                                .result_output_page(
-                                    &self.read,
-                                    &self.set,
-                                    &filter.output,
-                                    &filter.partition,
-                                    self.start,
-                                    self.end,
-                                    self.after,
-                                    filter.dense,
-                                    filter.dense.then_some(filter.minimum).flatten(),
-                                    filter.dense.then_some(filter.maximum).flatten(),
-                                    None,
-                                )
-                                .await?;
-                            self.exhausted = page.rows.len() + page.outputs.len() < 64;
-                            self.after = page
-                                .rows
-                                .last()
-                                .map(|locator| locator.row)
-                                .or_else(|| page.outputs.last().map(|output| output.start))
-                                .or(self.after);
-                            for locator in page.rows {
-                                match self
-                                    .indexes
-                                    .entry(locator.batch.clone())
-                                    .or_insert_with(|| OutputRows::Scalar(Vec::new()))
-                                {
-                                    OutputRows::Scalar(rows) => rows.push(locator),
-                                    OutputRows::Dense(_) => {
-                                        return Err(contract(
-                                            "mixed scientific output index kinds",
-                                        ));
+                            if filter.dense {
+                                let page = self.runtime.canonical_store()?.result_output_page(
+                                    &self.read, &self.set, &filter.output, &filter.partition,
+                                    self.start, self.end, self.after, true,
+                                    filter.minimum, filter.maximum, None,
+                                ).await?;
+                                self.exhausted = page.outputs.len() < 64;
+                                self.after = page.outputs.last().map(|output| output.start).or(self.after);
+                                for output in page.outputs {
+                                    if self.indexes.insert(output.batch.clone(), OutputRows::Dense(output)).is_some() {
+                                        return Err(contract("duplicate dense output index"));
                                     }
                                 }
-                            }
-                            for output in page.outputs {
-                                if self
-                                    .indexes
-                                    .insert(output.batch.clone(), OutputRows::Dense(output))
-                                    .is_some()
-                                {
-                                    return Err(contract("duplicate dense output index"));
+                                page.blocks
+                            } else {
+                                let page = self.runtime.canonical_store()?.result_block_page(
+                                    &self.read, &self.set, &self.relation.to_string(), "0",
+                                    self.start, self.end, self.after,
+                                ).await?;
+                                self.exhausted = page.len() < 64;
+                                self.after = page.last().map(|block| block.ordinal).or(self.after);
+                                for block in &page {
+                                    if self.indexes.insert(block.batch.clone(), OutputRows::Scalar).is_some() {
+                                        return Err(contract("duplicate scalar block inventory"));
+                                    }
                                 }
+                                page
                             }
-                            page.blocks
                         } else {
                             return Err(contract("selected result filter absent"));
                         };
@@ -1047,6 +1020,17 @@ impl ResultReader {
                 .descriptors
                 .remove(&metadata.batch)
                 .ok_or_else(|| contract("selected batch descriptor absent"))?;
+            let expression = self.output.as_ref().filter(|filter| !filter.dense).map(|filter| {
+                super::result_projection::scalar_selection_expression(self.relation, filter.owner, &filter.partition, &filter.field, filter.minimum, filter.maximum, filter.missing)
+            }).transpose()?;
+            if let Some(expression) = &expression {
+                if !super::result_snapshot::block_may_match(&self.runtime, self.relation, self.schema.clone(), &metadata, &descriptor, expression)? {
+                    self.indexes.remove(&metadata.batch);
+                    self.selected_batch = None;
+                    self.decode.validate_pruned_block(&metadata, &descriptor, &self.cancel).await?;
+                    continue;
+                }
+            }
             let cached = self
                 .selected_batch
                 .as_ref()
@@ -1091,52 +1075,34 @@ impl ResultReader {
                 let offsets_owner = MemoryConsumer::new("canonical:selected-source-offsets")
                     .register(&self.runtime.shared.pool());
                 let maximum_offsets = match &indexes {
-                    OutputRows::Scalar(rows) => rows.len(),
+                    OutputRows::Scalar => checked.batch().num_rows(),
                     OutputRows::Dense(_) => checked.batch().num_rows(),
                 };
                 offsets_owner
                     .try_grow(
                         maximum_offsets
                             .checked_mul(size_of::<u32>())
+                            .and_then(|bytes| {
+                                let predicate = if matches!(&indexes, OutputRows::Scalar) {
+                                    // Native Boolean/CASE/comparison temporaries span the
+                                    // original complete batch, even for one selected owner.
+                                    checked.batch().num_rows().checked_mul(64)?
+                                } else { 0 };
+                                bytes.checked_add(predicate)
+                            })
                             .ok_or_else(|| contract("selected offset allocation extent"))?,
                     )
                     .map_err(pse_engine::EngineError::from)?;
                 let indices = match indexes {
-                    OutputRows::Scalar(locators) => {
-                        for locator in &locators {
-                            if locator.output != filter.output
-                                || locator.partition != filter.partition
-                            {
-                                return Err(contract(
-                                    "selected scalar index differs from requested output",
-                                ));
-                            }
-                            super::result_projection::verify_scalar_row(
-                                &checked,
-                                locator,
-                                &self.read.attempt().key,
-                                &self.set,
-                                &metadata.batch,
-                                metadata.start,
-                            )?;
-                        }
-                        let mask = super::result_projection::scalar_predicate(
-                            &checked,
-                            &filter.field,
-                            filter.minimum,
-                            filter.maximum,
-                            filter.missing,
-                        )?;
-                        // Reserve the exact admitted upper bound: iterator collection
-                        // may choose a four-slot minimum for a single surviving row.
-                        let mut indices = Vec::with_capacity(locators.len());
-                        for locator in locators {
+                    OutputRows::Scalar => {
+                        let expression = expression.ok_or_else(|| contract("original scalar selection expression absent"))?;
+                        let mask = super::result_projection::scalar_selection_mask(&self.runtime.bound_model().native_state(), &checked, expression)?;
+                        let mut indices = Vec::with_capacity(checked.batch().num_rows());
+                        for offset in 0..checked.batch().num_rows() {
                             use datafusion::arrow::array::Array;
-                            let offset = locator.offset as usize;
-                            if mask.is_valid(offset) && mask.value(offset) {
-                                indices.push(u32::try_from(locator.row - metadata.start).map_err(
-                                    |_| contract("selected row exceeds Arrow take extent"),
-                                )?);
+                            let coordinate = metadata.start.checked_add(offset as u64).ok_or_else(|| contract("original scalar coordinate extent"))?;
+                            if coordinate >= lower && coordinate < upper && mask.is_valid(offset) && mask.value(offset) {
+                                indices.push(u32::try_from(offset).map_err(|_| contract("selected row exceeds Arrow take extent"))?);
                             }
                         }
                         indices
@@ -1222,18 +1188,18 @@ impl ResultReader {
 }
 impl Runtime {
     /// Bounded exact-attempt metadata preflight for review publication. It never polls rows.
-    pub(super) async fn review_result_selections(
+    pub(crate) async fn review_result_selections(
         &self,
         requests: &[super::ReviewScientificSelection],
         cancel: &CancellationToken,
     ) -> Result<
         (
-            Vec<crate::review_pack::PackResultSelection>,
+            Vec<super::PackResultSelection>,
             MemoryReservation,
         ),
         WorkflowError,
     > {
-        use crate::review_pack::{PackResultPredicate, PackResultSelection, PackScientificState};
+        use super::{PackResultPredicate, PackResultSelection, PackScientificState};
         if requests.len() > 1024 {
             return Err(contract("review selects more than 1024 scientific members"));
         }
@@ -1773,6 +1739,7 @@ impl Runtime {
                 write_output_identity(&mut output, &spec.id, owner, field, dense)?;
                 let filter = OutputFilter {
                     output,
+                    owner,
                     field: field.into(),
                     partition: partition.into(),
                     dense,
@@ -3290,7 +3257,7 @@ mod canonical_connected_results_server_unit {
             .unwrap();
         let selected_borrower = Arc::downgrade(&selected_reader.reader.read);
         let selected_coordinates = selected_reader
-            .pack_selection(crate::review_pack::PackScientificState::Partial)
+            .pack_selection(super::PackScientificState::Partial)
             .unwrap();
         assert_eq!(selected_coordinates.field.as_deref(), Some("value"));
         assert_eq!(
@@ -3301,14 +3268,14 @@ mod canonical_connected_results_server_unit {
                 .minimum_bits,
             Some(20.0_f64.to_bits())
         );
-        let mut pack_selection = crate::review_pack::PackSelection::default();
+        let mut pack_selection = crate::tooling::review_pack::PackSelection::default();
         pack_selection
             .members
-            .push(crate::review_pack::PackMemberSelection {
+            .push(crate::tooling::review_pack::PackMemberSelection {
                 id: "selected".into(),
-                role: crate::review_pack::PackMemberRole::Result,
+                role: crate::tooling::review_pack::PackMemberRole::Result,
                 required: true,
-                format: crate::review_pack::PackFormat::ArrowIpcStream,
+                format: crate::tooling::review_pack::PackFormat::ArrowIpcStream,
                 document_version: None,
                 source: None,
                 references: vec![],
@@ -3318,18 +3285,18 @@ mod canonical_connected_results_server_unit {
             });
         let pack_directory = tempfile::tempdir().unwrap();
         let pack_path = pack_directory.path().join("selected-pack");
-        let mut pack = crate::review_pack::PackSession::create(
+        let mut pack = crate::tooling::review_pack::PackSession::create(
             &pack_path,
             pack_selection,
             CancellationToken::new(),
         )
         .unwrap();
-        let evidence = crate::frozen_inspection::FrozenEvidenceSet::default();
+        let evidence = crate::tooling::frozen_inspection::FrozenEvidenceSet::default();
         let analysis_pool: Arc<dyn MemoryPool> =
             Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20));
-        let analysis = crate::review_analysis::analyze(
+        let analysis = crate::tooling::review_analysis::analyze(
             &evidence,
-            &crate::review_analysis::AnalysisRequest::new(
+            &crate::tooling::review_analysis::AnalysisRequest::new(
                 pse_diagnostics::observation::OperationId {
                     process_instance: [1, 2],
                     sequence: 3,
@@ -3358,15 +3325,15 @@ mod canonical_connected_results_server_unit {
                     missing: None,
                 }),
             };
-        let request = crate::review_pack::PackExportRequest {
+        let request = crate::tooling::review_pack::PackExportRequest {
             scientific_results: vec![
                 make_selection("early", 20.0, 21.0),
                 make_selection("late", 22.0, 22.0),
             ],
             ..Default::default()
         };
-        let composed = runtime
-            .export_review_pack(
+        let composed = crate::tooling::review_export::export_review_pack(
+            &runtime,
                 &composed_path,
                 &evidence,
                 &analysis,
@@ -3377,9 +3344,9 @@ mod canonical_connected_results_server_unit {
             .unwrap();
         assert_eq!(
             composed.publication,
-            crate::review_pack::PackPublication::Sealed
+            crate::tooling::review_pack::PackPublication::Sealed
         );
-        let portable = crate::review_pack::PackReader::open(&composed_path, 8 << 20).unwrap();
+        let portable = crate::tooling::review_pack::PackReader::open(&composed_path, 8 << 20).unwrap();
         for (member, expected) in [("early", 2), ("late", 1)] {
             let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
                 portable.open_member(member).unwrap(),
@@ -3402,7 +3369,7 @@ mod canonical_connected_results_server_unit {
             assert_eq!(declared.attempt, fence.attempt());
             assert_eq!(
                 declared.usability,
-                crate::review_pack::PackScientificState::Unknown
+                super::PackScientificState::Unknown
             );
         }
         pack.add_frozen(&evidence).unwrap();
@@ -3414,7 +3381,7 @@ mod canonical_connected_results_server_unit {
         // Other original fixture selections remain independent live borrowers.
         assert!(read.sets().iter().any(|set| set.row_count > 0));
         pack.seal().unwrap();
-        let portable = crate::review_pack::PackReader::open(&pack_path, 1 << 20).unwrap();
+        let portable = crate::tooling::review_pack::PackReader::open(&pack_path, 1 << 20).unwrap();
         let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
             portable.open_member("selected").unwrap(),
             None,
@@ -3533,6 +3500,7 @@ mod canonical_connected_results_server_unit {
             coordinate_max: None,
             payload_bytes: payload.len() as u64,
             payload_digest: result_payload_digest(&payload),
+            statistics: None,
             interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
         };
         let intent = store
@@ -3745,16 +3713,16 @@ mod canonical_connected_results_server_unit {
         assert!(file.next().is_none());
         // The pack uses this actual protected selected exporter, with exact
         // row coordinates, terminal lineage and scientific usability unchanged.
-        use crate::review_pack::{
+        use crate::tooling::review_pack::{
             PackAvailability, PackFormat, PackMemberRole, PackMemberSelection, PackPublication,
             PackReader, PackScientificState, PackSelection, PackSession,
         };
-        let evidence = crate::frozen_inspection::FrozenEvidenceSet::default();
+        let evidence = crate::tooling::frozen_inspection::FrozenEvidenceSet::default();
         let analysis_pool: Arc<dyn MemoryPool> =
             Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20));
-        let analysis = crate::review_analysis::analyze(
+        let analysis = crate::tooling::review_analysis::analyze(
             &evidence,
-            &crate::review_analysis::AnalysisRequest::new(
+            &crate::tooling::review_analysis::AnalysisRequest::new(
                 pse_diagnostics::observation::OperationId {
                     process_instance: [1, 2],
                     sequence: 3,
@@ -3951,6 +3919,7 @@ mod canonical_connected_results_server_unit {
                 coordinate_max: None,
                 payload_bytes: bytes.len() as u64,
                 payload_digest: result_payload_digest(&bytes),
+                statistics: None,
                 interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
             };
             let intent = store

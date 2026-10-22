@@ -9,7 +9,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING
 
 import msgspec
 import pyarrow as pa
@@ -18,7 +18,6 @@ from msgspec.structs import replace
 from scripts import diagnostic_trace
 
 import pse
-import pse._diagnostic_launch as launch
 from pse import codec, diagnostics
 from pse._build import _diagnostic_query_specification
 from pse._diagnostic_query import run_query
@@ -490,141 +489,6 @@ def test_query_cancellation_and_output_cap_keep_failure_prefixes(
     assert stopped.status == "cancelled"
     assert stopped.rows is None
     assert raw.read_bytes() == b"raw"
-
-
-@pytest.mark.unit
-def test_launch_claim_is_released_when_initialization_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-
-    source = tmp_path / "request.json"
-    source.write_bytes(
-        codec.encode_json(
-            {
-                "version": 2,
-                "detail": {
-                    "version": 1,
-                    "families": ["root_evaluation.v1"],
-                    "requirement": "complete",
-                    "sample_every": 1,
-                    "boundary_thread_cpu": False,
-                    "managed_budget": None,
-                    "expiry_monotonic_ns": None,
-                    "duration": {"secs": 1, "nanos": 0},
-                    "output": str(tmp_path / "source"),
-                    "budget": {"memory_bytes": 4 << 20, "output_bytes": 1 << 20},
-                },
-                "acknowledgement": str(tmp_path / "ack.json"),
-            }
-        )
-    )
-    request = codec.decode_json(
-        codec.encode_json(
-            {
-                "version": 1,
-                "request_file": str(source),
-                "argv": [
-                    sys.executable,
-                    "-c",
-                    "raise AssertionError('must not launch')",
-                ],
-                "cwd": None,
-                "acknowledgement_timeout": {"secs": 1, "nanos": 0},
-                "command_timeout": {"secs": 2, "nanos": 0},
-                "output": str(tmp_path / "launch"),
-                "output_bytes": 1024,
-            }
-        ),
-        d.SourceRecordingLaunchRequest,
-    )
-    original = launch.os.fdopen
-
-    def fail(_descriptor: int, _mode: str) -> None:
-        message = "injected claim setup failure"
-        raise OSError(message)
-
-    monkeypatch.setattr(launch.os, "fdopen", fail)
-    with pytest.raises(OSError, match="injected"):
-        diagnostics.record_launch(request)
-    assert not (tmp_path / "ack.json.launch").exists()
-    assert not (tmp_path / "launch").exists()
-    monkeypatch.setattr(launch.os, "fdopen", original)
-
-
-@pytest.mark.unit
-def test_launch_log_flush_failure_does_not_advertise_unwritten_bytes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    request_file = tmp_path / "request.json"
-    request_file.write_bytes(
-        codec.encode_json(
-            {
-                "version": 2,
-                "detail": {
-                    "version": 1,
-                    "families": ["root_evaluation.v1"],
-                    "requirement": "complete",
-                    "sample_every": 1,
-                    "boundary_thread_cpu": False,
-                    "managed_budget": None,
-                    "expiry_monotonic_ns": None,
-                    "duration": {"secs": 1, "nanos": 0},
-                    "output": str(tmp_path / "source"),
-                    "budget": {"memory_bytes": 4 << 20, "output_bytes": 1 << 20},
-                },
-                "acknowledgement": str(tmp_path / "ack.json"),
-            }
-        )
-    )
-    request = codec.decode_json(
-        codec.encode_json(
-            {
-                "version": 1,
-                "request_file": str(request_file),
-                "argv": [sys.executable, "-c", "print('buffered output')"],
-                "cwd": None,
-                "acknowledgement_timeout": {"secs": 1, "nanos": 0},
-                "command_timeout": {"secs": 2, "nanos": 0},
-                "output": str(tmp_path / "launch"),
-                "output_bytes": 1024,
-            }
-        ),
-        d.SourceRecordingLaunchRequest,
-    )
-    original = Path.open
-
-    class FailedBufferedSink:
-        def __enter__(self) -> Self:
-            return self
-
-        def write(self, data: bytes) -> int:
-            return len(data)
-
-        def __exit__(self, *_arguments: object) -> None:
-            message = "injected buffered flush failure"
-            raise OSError(message)
-
-    def open_path(
-        path: Path,
-        mode: str = "r",
-        *,
-        encoding: str | None = None,
-        errors: str | None = None,
-        newline: str | None = None,
-    ) -> object:
-        if path.name == "stdout.txt" and mode == "xb":
-            with original(path, mode):
-                pass
-            return FailedBufferedSink()
-        return original(path, mode, encoding=encoding, errors=errors, newline=newline)
-
-    monkeypatch.setattr(Path, "open", open_path)
-    result = diagnostics.record_launch(request)
-    assert result.command_status == 0
-    assert result.stdout_prefix_bytes == 0
-    assert result.logs_truncated
-    assert (tmp_path / "launch/stdout.txt").stat().st_size == 0
-    assert any("injected buffered" in item for item in result.limitations)
 
 
 @pytest.mark.unit

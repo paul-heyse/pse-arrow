@@ -52,9 +52,8 @@ pse-quantity = { workspace = true, features = ["fixtures"] }
 pse-engine.workspace = true
 criterion.workspace = true
 allocation-counter.workspace = true
-# The canonicalization group measures native canonicalization over Arrow batches.
 pse-ids.workspace = true
-pse-columnar = { workspace = true, features = ["bench-instrumentation"] }
+pse-columnar.workspace = true
 pse-codegen.workspace = true
 arrow.workspace = true
 datafusion.workspace = true
@@ -71,14 +70,10 @@ futures-util.workspace = true
 parquet.workspace = true
 
 [[bench]]
-name = "canonicalization"
+name = "native_cache"
 # Criterion supplies its own main; the libtest harness would swallow the arguments.
 # `cargo bench` passes `--bench`; `cargo test --benches -p pse-benches` passes no mode flag,
 # and every target then runs once with no timing gate — the smoke check (`just bench-smoke`).
-harness = false
-
-[[bench]]
-name = "native_cache"
 harness = false
 
 [[bench]]

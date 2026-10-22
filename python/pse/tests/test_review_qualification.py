@@ -14,6 +14,7 @@ from pse import codec, diagnostics
 from pse.contracts import documents as d
 from pse.contracts.enums import NativeBackend, NativeSolveIntent, PresolvePolicyKind
 from pse.tests.test_frozen_review import source_recording_request
+from pse.tests.physical_input_fixture import stage_batch
 from pse.tests.test_local_runtime import physical_documents
 from pse.tests.test_native_workflow import package_documents
 from pse.tests.test_native_workflow import (
@@ -214,7 +215,7 @@ def test_original_initialization_selects_context_without_changing_scientific_res
             intent=NativeSolveIntent.INITIALIZE, backend=NativeBackend.KINSOL
         )
         assert settings.numerics.engineering_relative_fraction == 0.001
-        prepared = package.prepare_block_initialization(case, settings, [{}])
+        prepared = package.prepare_block_initialization(case, settings, stage_batch(runtime, [()]))
         selection = (
             None
             if context_bytes is None

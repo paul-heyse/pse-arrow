@@ -20,6 +20,7 @@ pub mod enums_platform;
 pub mod inv;
 pub mod invariants;
 mod modeling;
+mod modeling_expression;
 mod modeling_analysis;
 mod modeling_knowledge;
 mod modeling_native_analysis;

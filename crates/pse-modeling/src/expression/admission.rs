@@ -314,6 +314,20 @@ impl PartialEq for PhysicalAdmission {
     }
 }
 impl PhysicalAdmission {
+    /// Frame the actual request, complete operand schemes and its retained concrete admission.
+    pub fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        use PhysicalRequest as R;
+        match &self.request {
+            R::Add=>{hash.str("add");}, R::Sub=>{hash.str("sub");}, R::Neg=>{hash.str("neg");}, R::Abs=>{hash.str("abs");}, R::Mul=>{hash.str("mul");}, R::Div=>{hash.str("div");}, R::Sqrt=>{hash.str("sqrt");}, R::Conditional=>{hash.str("conditional");},
+            R::Pow(exponent)=>{hash.str("pow").bool(exponent.is_some()); if let Some(exponent)=exponent {hash.part(&exponent.num().to_le_bytes()).part(&exponent.den().to_le_bytes());}},
+            R::Transcendental(opcode)=>{hash.str("transcendental").str(opcode.as_str());},
+            R::FiniteReduce(kind,domain)=>{hash.str("finite-reduce").str(kind.as_str()).bool(domain.is_some()); if let Some(domain)=domain {hash.id(&domain.as_id());}},
+            R::Reduce(kind,bound)=>{hash.str("bound-reduce").str(kind.as_str()).id(&bound.kind.as_id()).id(&bound.domain.as_id()).id(&bound.bound_index.as_id());},
+        }
+        hash.u64(self.operands.len() as u64); for operand in &self.operands {operand.frame(hash);}
+        hash.bool(self.resolved.is_some()); if let Some(resolved)=&self.resolved {resolved.frame(hash);}
+    }
+
     /// Instantiate a checked scalar finite reduction's operand at its actual lexical
     /// binder. The checked reduction result and scales are retained; broadcasting only
     /// validates and installs the actual operand axis and binder before construction.

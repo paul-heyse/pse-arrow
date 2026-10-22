@@ -40,6 +40,24 @@ fn registry_fingerprint() -> String {
     pse_relations::generated::REGISTRY_FINGERPRINT.to_prefixed()
 }
 
+/// Identity of the direction-qualified schemas in this actual compiled extension.
+#[pyfunction]
+fn boundary_schema_fingerprint() -> PyResult<String> {
+    pse_runtime::boundary_documents::fingerprint().map(|hash| hash.to_prefixed())
+        .map_err(|error| pyo3::exceptions::PyRuntimeError::new_err(error.to_string()))
+}
+
+/// Admit generated campaign documents through their Rust-owned source-context rules.
+#[pyfunction]
+fn admit_conformance_manifest(
+    py: Python<'_>, path: &str,
+    manifest: documents::DocumentInput<pse_runtime::workflow::ConformanceManifest>,
+) -> PyResult<documents::DocumentValue<pse_runtime::workflow::ConformanceManifest>> {
+    let path = std::path::PathBuf::from(path);
+    py.detach(move || manifest.0.admit_paths(&path)).map(documents::DocumentValue)
+        .map_err(|error| workflow::invalid(py, error.to_string()))
+}
+
 /// Features of this actual extension binary, independent of its launch environment.
 #[pyfunction]
 fn compiled_features() -> Vec<String> {
@@ -65,7 +83,7 @@ fn compiled_features() -> Vec<String> {
 mod _native {
     #[pymodule_export]
     use super::{
-        build_info, compiled_features,
+        build_info, compiled_features, boundary_schema_fingerprint, admit_conformance_manifest,
         diagnostics::{
             NativeCaptureSession, NativeDetailSession, NativeDiagnostics, NativeLaunchedCommand,
             NativeOperationObservations, diagnostic_analyze, diagnostic_capture,
@@ -73,7 +91,7 @@ mod _native {
             diagnostic_detail_records, diagnostic_explain_invocation, diagnostic_export_pack,
             diagnostic_inspect, diagnostic_inspect_frozen, diagnostic_inspect_image,
             diagnostic_inventory_from_evidence, diagnostic_inventory_page,
-            diagnostic_launch_capture, diagnostic_list, diagnostic_operation_id,
+            diagnostic_launch_capture, diagnostic_record_launch, diagnostic_list, diagnostic_operation_id,
             diagnostic_operation_text, diagnostic_pack_analysis, diagnostic_pack_evidence,
             diagnostic_query_specification, diagnostic_read_checkpoint, diagnostic_read_context,
             diagnostic_read_detail, diagnostic_read_evidence, diagnostic_read_handoff,

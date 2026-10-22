@@ -7,16 +7,11 @@ use pse_authoring::dsl::{CompareOp, Number, Predicate, PredicateKind};
 
 impl Engine<'_, '_> {
     pub(super) fn validate_contextual_equations(&self) -> Result<()> {
-        let types = self
-            .model
-            .symbols
-            .iter()
-            .map(|(id, symbol)| (symbol_name(*id), symbol.ty.clone()))
-            .collect::<BTreeMap<_, _>>();
+        let types = crate::TypeScope::new(&self.model.symbols);
         let functions = self.model.function_contracts(self.p);
         fn check(
             equation: &Equation,
-            types: &BTreeMap<String, Type>,
+            types: &dyn crate::TypeLookup,
             functions: &dyn crate::FunctionAdmission,
             context: &TypeContext<'_>,
             at: DeclarationId,
@@ -252,12 +247,7 @@ impl Engine<'_, '_> {
             }
         };
         let input = self.rewrite(instance, input, env, chain)?;
-        let types = self
-            .model
-            .symbols
-            .iter()
-            .map(|(id, symbol)| (symbol_name(*id), symbol.ty.clone()))
-            .collect::<BTreeMap<_, _>>();
+        let types = crate::TypeScope::new(&self.model.symbols);
         let actual = crate::expression::infer(
             &input,
             &types,

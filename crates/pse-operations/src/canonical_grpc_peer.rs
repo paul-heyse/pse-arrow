@@ -73,6 +73,7 @@ fn generated_block_page() -> proto::Value {
                 coordinate_max: Some(ordinal as f64),
                 payload_bytes: 2,
                 payload_digest: "payload-digest".into(),
+                statistics: None,
                 interpretation: crate::generated::surreal::INTERPRETATION.into(),
             };
             let mut object =

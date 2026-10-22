@@ -152,13 +152,10 @@ impl ModelingPreparation {
     pub fn compiled(&self) -> &PreparedModeling {
         &self.product
     }
-    /// The admitted selected-supplier equation view, retaining the same product owner.
-    pub(crate) fn original_equations(&self) -> Option<Self> {
-        Some(Self {
-            original: self.original.clone(),
-            product: self.product.original_equations()?,
-            ..self.clone()
-        })
+    /// Select the compiler-owned equation view while retaining the admitted product owner.
+    pub(crate) fn compiler_view(&self, policy: pse_compiler::workspace::ViewPolicy) -> Result<Self, MathRuntimeError> {
+        let (product, _choice) = self.product.compiler_view(policy)?;
+        Ok(Self { product, ..self.clone() })
     }
     /// The model, case and instance this preparation specialized: what its lineage,
     /// solve rows and numerical requirements name.

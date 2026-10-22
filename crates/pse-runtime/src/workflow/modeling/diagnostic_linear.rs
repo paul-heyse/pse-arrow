@@ -14,6 +14,7 @@ pub struct ModelingLinearDiagnostics {
     pub run_id: RunId,
     /// The diagnostic model's own solve.
     pub attempt: SolveReport,
+    pub(in crate::workflow::modeling) primal_coordinates: crate::workflow::PrimalCoordinates,
     /// Native diagnostics of that solve, in original coordinates.
     pub evidence: highs::diagnostics::Report,
     pub(in crate::workflow::modeling) runtime: Runtime,
@@ -67,6 +68,7 @@ impl ModelingPackage {
             ));
         }
         let plan = product.plan.clone();
+        let primal_coordinates = crate::workflow::PrimalCoordinates::original(&self.runtime, plan.structure().variables().iter().map(|variable| variable.port.clone()).collect())?;
         let source_identity = plan.structure().key();
         let numerical_identity = prepared.numerics.key;
         let columns = plan.columns().to_vec();
@@ -149,6 +151,7 @@ impl ModelingPackage {
             rows,
             columns,
             attempt,
+            primal_coordinates,
             evidence,
             _owner: owner,
         })

@@ -26,25 +26,9 @@ use std::{
 
 type TestResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 const DIMENSION: usize = 120;
-#[derive(Deserialize)]
-struct Manifest {
-    settings: Settings,
-    runs: Vec<SourceRun>,
-}
-#[derive(Deserialize)]
-struct Settings {
-    memory_limit_bytes: usize,
-    threads: usize,
-    math_jobs: usize,
-    math_worker_bytes: usize,
-    preparation: crate::workflow::PreparationSettings,
-}
-#[derive(Deserialize)]
-struct SourceRun {
-    name: String,
-    package: String,
-    dependencies: Vec<String>,
-    physical: String,
+use crate::workflow::{ConformanceManifest as Manifest, ConformanceRun as SourceRun, RunSettings as Settings};
+fn preparation(settings: &Settings) -> TestResult<&crate::workflow::PreparationSettings> {
+    settings.preparation.as_ref().ok_or_else(|| std::io::Error::other("reference campaign preparation absent").into())
 }
 
 /// Load exact document bytes; unlike the acceptance seed helper, no tests are removed.
@@ -83,7 +67,7 @@ async fn package(
             .ok_or_else(|| std::io::Error::other("positive reference execution allowance required"))
     };
     assert_eq!(
-        settings.preparation.compiler.optimization.cores, 1,
+        preparation(settings)?.compiler.optimization.cores, 1,
         "each diagnostic native proof uses one optimizer core"
     );
     let shared = crate::SharedRuntime::build(crate::ResourceBudget {
@@ -98,8 +82,8 @@ async fn package(
         execution: Default::default(),
         cache: crate::CacheBudget::for_memory(settings.memory_limit_bytes),
         math: crate::math::MathPolicy {
-            worker_bytes: settings.math_worker_bytes,
-            jobs: settings.math_jobs,
+            worker_bytes: settings.math_worker_bytes.ok_or_else(|| std::io::Error::other("reference worker allowance absent"))?,
+            jobs: settings.math_jobs.ok_or_else(|| std::io::Error::other("reference job allowance absent"))?,
             ..Default::default()
         },
     })?;
@@ -156,15 +140,14 @@ pub(super) async fn reference_seed_package() -> TestResult<(
     crate::workflow::PreparationSettings,
 )> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/reference");
-    let manifest: Manifest =
-        toml::from_str(&std::fs::read_to_string(root.join("conformance.toml"))?)?;
+    let manifest = Manifest::load(&root.join("conformance.toml"))?;
     let source = manifest
         .runs
         .iter()
         .find(|r| r.name == "seed")
         .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?;
     let (package, spill) = package(&manifest.settings, source, &root).await?;
-    Ok((package, spill, manifest.settings.preparation))
+    Ok((package, spill, preparation(&manifest.settings)?.clone()))
 }
 
 #[derive(Clone, Serialize)]
@@ -835,11 +818,128 @@ fn describe(sample: &Sample, artifact: &Path) {
     );
 }
 
+/// Characterize the actual guarded product programs, not flattened obligation-free
+/// expressions. Each action uses fresh worker completion state, so a previously
+/// assembled matrix cannot satisfy it without executing the requested action.
+#[expect(clippy::print_stderr, reason = "explicit guarded product characterization reports actual profile, stage inventory and separated preparation/evaluation observations")]
+#[tokio::test]
+async fn guarded_regional_pr_product_characterization_uses_actual_stage_programs() -> TestResult<()> {
+    use pse_math::jets::ProductKind;
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/reference");
+    let manifest = Manifest::load(&root.join("conformance.toml"))?;
+    let source = manifest.runs.iter().find(|r| r.name == "seed").ok_or_else(|| std::io::Error::other("reference seed closure absent"))?;
+    let (package, _spill) = package(&manifest.settings, source, &root).await?;
+    let fixture = DeclarationId::from(SemanticId::parse_hex("01a0eecf2935721c9fc3aaab14032e96")?);
+    let cancel = crate::CancelSource::new();
+    let solver = crate::math::solves::SolverProfile { intent: SolveIntent::Root, controls: Controls { time_limit: Duration::from_secs(1800), ..Default::default() }, ..Default::default() };
+    let declared = package.declared_execution(fixture, preparation(&manifest.settings)?.compiler, solver, Default::default(), preparation(&manifest.settings)?.limits, &cancel).await?;
+    assert!(matches!(declared.procedure, DeclaredProcedure::Solve));
+    let analysis = declared.analysis;
+    let resolved = package.resolve_case(analysis.root, analysis.instance, analysis.bindings, analysis.limits, analysis.case, DerivativeOrder::Second, analysis.compiler, analysis.solver, analysis.numerical, Default::default(), false, &cancel).await?;
+    let plan = &resolved.model.case.compiled().plan;
+    let rows = plan.structure().rows().iter().map(|row| row.id).collect::<Vec<_>>();
+    let columns = plan.columns().to_vec();
+    assert_eq!((rows.len(), columns.len()), (DIMENSION, DIMENSION));
+    let normalization = Normalization::from_policy(&resolved.numerics, &columns, &rows)?;
+    let compiler = preparation(&manifest.settings)?.compiler;
+    let service = package.runtime.shared.math();
+    let started = std::time::Instant::now();
+    let executable = service.prepare_modeling_function_products(
+        package.numerical_workspace()?, resolved.model.model.clone(), rows.clone(), columns.clone(), DerivativeOrder::Second,
+        vec![ProductKind::JacobianAction, ProductKind::TransposeJacobianAction, ProductKind::WeightedHessianAction], compiler, &cancel,
+    ).await?;
+    let preparation_micros = started.elapsed().as_micros();
+    assert_eq!(executable.assembly.columns(), columns);
+    let mut products = BTreeMap::<ProductKind, [usize; 7]>::new();
+    for program in executable.assembly.programs() {
+        for census in program.census() {
+            let population = products.entry(census.product).or_default();
+            for (total, value) in population.iter_mut().zip([census.stages, census.arithmetic_blocks, census.control_stages, census.provider_stages, census.library_operations, census.library_instructions, census.worker_bytes]) {
+                *total = total.checked_add(value).ok_or_else(|| std::io::Error::other("guarded characterization population overflow"))?;
+            }
+            assert!(program.arithmetic_origin_count(census.order) > 0 || census.provider_stages > 0 || census.control_stages > 0, "every actual program retains arithmetic origins or its original host stages");
+        }
+    }
+    for kind in [ProductKind::SelectedPartials, ProductKind::JacobianAction, ProductKind::TransposeJacobianAction, ProductKind::WeightedHessian, ProductKind::WeightedHessianAction] {
+        assert!(products.contains_key(&kind), "the characterized fixture must actually prepare {kind:?}");
+    }
+    assert!(products.values().any(|population| population[2] > 0), "the original ordered guards/branches remain in the measured program");
+    assert!(products.values().any(|population| population[3] > 0), "the original fallible provider boundaries remain in the measured program");
+    eprintln!("guarded_pr_profile={:?}; preparation_micros={preparation_micros}; case_census={:?}", compiler, executable.assembly.census());
+    for (kind, population) in &products {
+        eprintln!("guarded_pr_product={kind:?}; probe_stage_kinds=[stages,arithmetic,control,provider]={:?}; exported=[operations,instructions]={:?}; worker_bytes={}", &population[..4], &population[4..6], population[6]);
+    }
+    let worker_allowance = package.runtime.shared.budget().math.worker_bytes;
+    let diagnostic_owner = service.reserve("math:guarded-pr-product-observation", compiler.evaluation.scratch_bytes)?;
+    let job_service = service.clone();
+    let controls = resolved.solver.controls;
+    let base = resolved.model.values;
+    let providers = resolved.providers;
+    let tolerance = resolved.numerics.policy.supplier_action_accuracy;
+    let handle = service.submit_construction(1, crate::math::ConstructionEstimate::Opaque(worker_allowance), crate::math::Submission::ephemeral(), move |flag, _| {
+        let _diagnostic_owner = diagnostic_owner;
+        let execution = Execution::new(flag.clone(), &controls);
+        let scope = execution.scope()?;
+        let budget = WorkerBudget::new(worker_allowance);
+        let direction = normalization.variables.iter().map(|value| value / 4.).collect::<Vec<_>>();
+        let weights = normalization.rows.iter().enumerate().map(|(i, value)| (1. + (i + 1) as f64 / (DIMENSION + 1) as f64) / value).collect::<Vec<_>>();
+        let mut owned = job_service.worker(executable.clone(), &providers, scope.clone(), &budget)?;
+        let worker = owned.worker();
+        let started = std::time::Instant::now();
+        assert!(worker.constraints(&base)?.iter().all(|value| value.is_finite()));
+        let jacobian = worker.jacobian(&base)?;
+        let mut jacobian_values = vec![0.; DIMENSION * DIMENSION];
+        for column in 0..DIMENSION {
+            for (row, value) in jacobian.row_idx_of_col(column).zip(jacobian.val_of_col(column)) { jacobian_values[row * DIMENSION + column] = *value; }
+        }
+        let selected_micros = started.elapsed().as_micros();
+        let started = std::time::Instant::now();
+        let hessian = worker.hessian(&base, 0., &weights)?;
+        let mut hessian_values = vec![0.; DIMENSION * DIMENSION];
+        for column in 0..DIMENSION {
+            for (row, value) in hessian.row_idx_of_col(column).zip(hessian.val_of_col(column)) {
+                hessian_values[row * DIMENSION + column] = *value;
+                hessian_values[column * DIMENSION + row] = *value;
+            }
+        }
+        let weighted_micros = started.elapsed().as_micros();
+        drop(owned);
+        let mut observations = vec![(ProductKind::SelectedPartials, selected_micros), (ProductKind::WeightedHessian, weighted_micros)];
+        for kind in [ProductKind::JacobianAction, ProductKind::TransposeJacobianAction, ProductKind::WeightedHessianAction] {
+            let mut owned = job_service.worker(executable.clone(), &providers, scope.clone(), &budget)?;
+            let worker = owned.worker();
+            let mut actual = vec![0.; DIMENSION];
+            let started = std::time::Instant::now();
+            match kind {
+                ProductKind::JacobianAction => worker.jacobian_product(&base, &direction, &mut actual)?,
+                ProductKind::TransposeJacobianAction => worker.jacobian_transpose_product(&base, &weights, &mut actual)?,
+                ProductKind::WeightedHessianAction => worker.hessian_product(&base, 0., &weights, &direction, &mut actual)?,
+                _ => return Err(crate::math::MathRuntimeError::Limit("guarded product characterization kind")),
+            }
+            observations.push((kind, started.elapsed().as_micros()));
+            for i in 0..DIMENSION {
+                let terms = (0..DIMENSION).map(|j| match kind {
+                    ProductKind::JacobianAction => jacobian_values[i * DIMENSION + j] * direction[j],
+                    ProductKind::TransposeJacobianAction => jacobian_values[j * DIMENSION + i] * weights[j],
+                    _ => hessian_values[i * DIMENSION + j] * direction[j],
+                }).collect::<Vec<_>>();
+                let expected = terms.iter().sum::<f64>();
+                let absolute = terms.iter().map(|value| value.abs()).sum();
+                assert!(backward_error(actual[i], expected, absolute) <= tolerance, "{kind:?} row {i}: actual={} expected={expected}", actual[i]);
+            }
+        }
+        Ok((observations, 0))
+    })?;
+    let (observations, _empty_owner) = handle.finish().await?;
+    for (kind, elapsed_micros) in observations { eprintln!("guarded_pr_product={kind:?}; cold_worker_evaluation_micros={elapsed_micros}; supplier_action_accuracy={tolerance}"); }
+    Ok(())
+
+}
+
 #[tokio::test]
 async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> TestResult<()> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/reference");
-    let manifest: Manifest =
-        toml::from_str(&std::fs::read_to_string(root.join("conformance.toml"))?)?;
+    let manifest = Manifest::load(&root.join("conformance.toml"))?;
     let source = manifest
         .runs
         .iter()
@@ -859,10 +959,10 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
     let declared = package
         .declared_execution(
             fixture,
-            manifest.settings.preparation.compiler,
+            preparation(&manifest.settings)?.compiler,
             solver,
             Default::default(),
-            manifest.settings.preparation.limits,
+            preparation(&manifest.settings)?.limits,
             &cancel,
         )
         .await?;
@@ -1167,7 +1267,7 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
     let service = package.runtime.shared.math();
     let executable = service.assemble(resolved.model.case.clone()).await?;
     let worker_allowance = package.runtime.shared.budget().math.worker_bytes;
-    let compiler = manifest.settings.preparation.compiler;
+    let compiler = preparation(&manifest.settings)?.compiler;
     // One ordinary assembly worker, two observed root jets, primitive programs and
     // three raw 120x120 matrices are bounded by the deployment's numeric allowance.
     // This is no longer a 43,200-cell finite-difference qualification campaign.

@@ -16,6 +16,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 from types import FrameType
+from typing import cast
 
 import msgspec
 import pyarrow as pa
@@ -26,12 +27,16 @@ import pse
 from pse import codec
 from pse._build import compiled_features
 from pse.contracts.documents import (
+    ArtifactIntent,
     HistoryObligation,
     HistoryOwner,
     ObservationText,
     SensitivityRequest,
 )
 from pse.contracts.enums import (
+    ScientificArtifactKind,
+    CanonicalTerminalOutcome,
+    ArtifactOwnerKind,
     CanonicalAttemptPhase,
     DiagnosticCode,
     FailureClass,
@@ -494,7 +499,7 @@ def test_canonical_result_selection_and_progress_reopen(
     transfer_report = graph_transfer.value.report
     assert transfer_report.analysis_key is None
     assert transfer_report.artifact_key is not None
-    assert isinstance(transfer_report.artifact_intent, bytes)
+    assert isinstance(transfer_report.artifact_intent, ArtifactIntent)
     assert transfer_report.artifact_owner_kind == "audit"
     assert transfer_report.artifact_owner is not None
     assert transfer_report.artifact_read_key is not None
@@ -502,18 +507,18 @@ def test_canonical_result_selection_and_progress_reopen(
         transfer_report.artifact_intent
     )
     assert transfer_settlement.key == transfer_report.artifact_key
-    transfer_settlement.release("audit", transfer_report.artifact_owner)
+    transfer_settlement.release(ArtifactOwnerKind.AUDIT, transfer_report.artifact_owner)
     assert not transfer_settlement.collect()
 
     # Invalid initial owner activation happens after actual staging. Its original
     # strict recovery document settles the inactive occurrence without a reader.
     with pytest.raises(pse.InspectionError) as inactive_transfer:
         reopened.promote_scientific_artifact(
-            run, attempt, "final-state", owner_kind="user", owner=""
+            run, attempt, ScientificArtifactKind.FINAL_STATE, owner_kind=ArtifactOwnerKind.USER, owner=""
         )
     inactive_report = inactive_transfer.value.report
     assert inactive_report.artifact_key is not None
-    assert isinstance(inactive_report.artifact_intent, bytes)
+    assert isinstance(inactive_report.artifact_intent, ArtifactIntent)
     inactive_settlement = reopened.recover_artifact_intent(
         inactive_report.artifact_intent
     )
@@ -525,38 +530,35 @@ def test_canonical_result_selection_and_progress_reopen(
     )
 
     artifact = reopened.promote_scientific_artifact(
-        run, attempt, "final-state", owner_kind="user", owner="python-final-state"
+        run, attempt, ScientificArtifactKind.FINAL_STATE, owner_kind=ArtifactOwnerKind.USER, owner="python-final-state"
     )
-    assert isinstance(artifact.original_intent, bytes)
+    assert isinstance(artifact.original_intent, ArtifactIntent)
     settlement = reopened.recover_artifact_intent(artifact.original_intent)
     assert settlement.key == artifact.key
     assert not hasattr(settlement, "block")
-    altered_intent = json.loads(artifact.original_intent)
-    altered_intent["creation_request_digest"] = "f" * 64
-    altered_settlement = reopened.recover_artifact_intent(
-        json.dumps(altered_intent).encode()
-    )
+    altered_intent = msgspec.structs.replace(artifact.original_intent, creation_request_digest="f" * 64)
+    altered_settlement = reopened.recover_artifact_intent(altered_intent)
     with pytest.raises(pse.InspectionError):
-        altered_settlement.release("user", "python-final-state")
+        altered_settlement.release(ArtifactOwnerKind.USER, "python-final-state")
+    with pytest.raises(TypeError):
+        reopened.recover_artifact_intent(cast(ArtifactIntent, b"{}"))
     with pytest.raises(pse.InspectionError):
-        reopened.recover_artifact_intent(b"{}")
-    with pytest.raises(pse.InspectionError):
-        reopened.recover_artifact_intent(b" " * (1024 * 1024 + 1))
-    artifact.retain("audit", "python-independent-audit")
+        reopened.recover_artifact_intent(msgspec.structs.replace(artifact.original_intent, provenance=b" " * (1024 * 1024 + 1)))
+    artifact.retain(ArtifactOwnerKind.AUDIT, "python-independent-audit")
     (artifact_header,) = pa.table(artifact.metadata()).to_pylist()
     assert artifact_header["kind"] == "final-state"
     copied = [
         pa.table(artifact.block(i)) for i in range(artifact_header["block_count"])
     ]
     assert any(table.num_rows and "value" in table.column_names for table in copied)
-    artifact.release("user", "python-final-state")
+    artifact.release(ArtifactOwnerKind.USER, "python-final-state")
     with pytest.raises(pse.InspectionError):
-        artifact.retain("user", "python-final-state")
+        artifact.retain(ArtifactOwnerKind.USER, "python-final-state")
     assert pa.table(reopened.scientific_artifact(artifact.key).metadata()).num_rows == 1
     relation = "runtime.solve_runs"
     exact = pa.table(reopened.results(run, attempt, relation))
     latest = pa.table(
-        reopened.latest_results(header["problem"], relation, classes=("succeeded",))
+        reopened.latest_results(header["problem"], relation, classes=(CanonicalTerminalOutcome.SUCCEEDED,))
     )
     assert exact.equals(latest)
     assert exact.num_rows == 1

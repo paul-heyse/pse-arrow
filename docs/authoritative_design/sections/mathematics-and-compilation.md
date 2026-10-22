@@ -25,6 +25,10 @@ fallible provider calls and source attribution.
 
 ### 7.1 Design constraints
 
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+An immutable physically resolved semantic product replaces source/name reconstruction before library algebra. Modeling owns symbols, lexical binders, original guards and occurrence mapping; Symbolica/Numerica retain mathematical authority. Demanded product regions use deterministic preflight and lawful local derivative/chain composition across host barriers, preserving original source checks and actual evaluator ownership.
+
 | Constraint | Consequence |
 |---|---|
 | Real algebra on an admitted domain | Physical checks and domain obligations precede algebra. Equivalence is real-algebraic on the admitted domain, not ordered floating-point or bitwise identity. There is no approximate or finite-difference fallback. |
@@ -556,6 +560,10 @@ own reviewed contract.
 
 ### 14.3 The preparation engine and ownership
 
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+Pure compiler annotation/view products and pure study-start policy have one owner. All relevant runtime consumers migrate before old policy copies retire; values and native effects remain outside tracked queries.
+
 > Decision: [ADR-0193](../../adr/0193-demand-products-and-compiled-derivatives.md) (proposed; maintainer-authorized Plan43 target).
 
 Prepared mathematical demand distinguishes selected partials, Jacobian actions, weighted
@@ -897,6 +905,10 @@ poisons unfinished pure work instead of letting a later consumer restart it.
 
 #### 14.3.2 Resource ownership and admission limits
 
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+Finite family-specific count capacities, live-root/backdating allowance and actual shared-root accounting replace routine reference-workload generation rotation. Initial retained defaults are 131,072 entries/1 GiB known bytes, granular capacity 4,096 and live family capacity 256, subject to finite admitted extent; these are policy starting values, not RSS measurements or per-memo pinning.
+
 **Candidate and retained compiler ownership (accepted Plan45 RC02).** Candidate phase construction and retained compiler products have separate lifetimes. A candidate allowance bounds temporary work; publication transfers a conservative charge for genuinely retained owners rather than accumulating every historical construction allowance. Equality/backdating does not retain an identical candidate twice. Live old outputs, hidden shared nodes and unreported foreign allocations remain covered; failed/cancelled candidates release temporary grants. Reserved defaults, opaque allowances and conservative pressure rotation remain unchanged. A lifetime-bound census accounts for the actual current input roots, deduplicates shared input owners within that census and conservatively covers distinct persistent prefixes; tracked output allocations retain their own accounting. Historical candidate-construction allowances do not accumulate as current retained inputs.
 
 > Decision: [ADR-0195](../../adr/0195-notification-owned-execution-waits.md) (proposed; maintainer-authorized Plan43 target).
@@ -987,6 +999,10 @@ or measure process RSS.
 `crates/pse-runtime/src/math.rs`.
 
 ### 14.4 Incrementality
+
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+Resolved body/derived frames preserve complete physical, binder, membership, guard and provider premises. Existing-symbol observation demand and numerical value rebind are distinct from structural changes; receiver-local permission never follows from semantic equality.
 
 > Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).
 

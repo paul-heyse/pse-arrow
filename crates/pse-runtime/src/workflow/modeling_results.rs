@@ -20,7 +20,7 @@ impl RunResult {
         &self,
         projection: &super::result_export::Projection,
     ) -> Result<(), WorkflowError> {
-        let RunRequest::Modeling(requests) = &self.request else {
+        let RunRequest::Modeling(requests) = self.request() else {
             return Err(contract("authored solve request mismatch"));
         };
         if self.horizon_tightenings.is_some() && projection.wants(modeling_findings::RELATION_ID) {
@@ -637,13 +637,7 @@ mod tests {
             )
             .await
             .unwrap();
-        let result = RunResult::joined(
-            completed.run_id,
-            runtime.clone(),
-            RunRequest::Modeling(vec![requested]),
-            None,
-            Ok(super::super::RunReport::Modeling(vec![completed])),
-        )
+        let result = RunResult::joined(completed.run_id, runtime.clone(), crate::workflow::RunOutcome::Modeling { request: vec![requested], result: Ok(vec![completed]) }, None)
         .finished(None, false)
         .await;
         assert!(result.usable());
@@ -694,7 +688,7 @@ mod tests {
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn complete_original_publication_uses_reconstructed_and_rebound_values() {
-        use super::super::{ModelingAnalysis, RunReport, tests as fixture};
+        use super::super::{ModelingAnalysis, tests as fixture};
         use pse_relations::generated::enums::NativeRunState;
         for permitted in [true, false] {
             let runtime = fixture::runtime_on(
@@ -783,13 +777,7 @@ mod tests {
                     assert!((value - expected[id]).abs() < 1e-7);
                 }
             }
-            let result = RunResult::joined(
-                completed.run_id,
-                runtime.clone(),
-                RunRequest::Modeling(vec![requested]),
-                None,
-                Ok(RunReport::Modeling(vec![completed])),
-            )
+            let result = RunResult::joined(completed.run_id, runtime.clone(), crate::workflow::RunOutcome::Modeling { request: vec![requested], result: Ok(vec![completed]) }, None)
             .finished(None, false)
             .await;
             assert_eq!(result.usable(), permitted);

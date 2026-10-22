@@ -23,6 +23,7 @@ import cattrs
 import msgspec
 import msgspec.inspect
 import msgspec.json
+import msgspec.toml
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
 
 from pse.contracts.values import FIELD_NAME_METADATA, ContentHash, SemanticId
@@ -30,9 +31,12 @@ from pse.governance import check_class
 
 __all__ = [
     "converter",
+    "convert_document",
     "decode_json",
+    "decode_toml",
     "decode_rows_json",
     "document_rows",
+    "document_builtins",
     "encode_json",
     "render_errors",
     "structure_rows",
@@ -257,7 +261,21 @@ def decode_json(data: bytes | str, type: type[T]) -> T:
     if _has_required_version(info, set()):
         raw: object = msgspec.json.decode(data, type=object)
         _check_version_headers(raw, info, "$")
-    return msgspec.json.decode(data, type=type)
+    return msgspec.json.decode(data, type=type, dec_hook=_decode_identity)
+
+
+def convert_document(value: object, type: type[T]) -> T:
+    """Construct generated schema defaults through the same admitted value hooks."""
+    return msgspec.convert(value, type=type, dec_hook=_decode_identity)
+
+
+def decode_toml(data: bytes | str, type: type[T]) -> T:
+    """Read a generated TOML document with the same version-first value contract."""
+    info = msgspec.inspect.type_info(type)
+    if _has_required_version(info, set()):
+        raw: object = msgspec.toml.decode(data, type=object)
+        _check_version_headers(raw, info, "$")
+    return msgspec.toml.decode(data, type=type, dec_hook=_decode_identity)
 
 
 def decode_rows_json(data: bytes | str, row_type: type[T]) -> tuple[T, ...]:
@@ -267,11 +285,16 @@ def decode_rows_json(data: bytes | str, row_type: type[T]) -> tuple[T, ...]:
     )
 
 
+def document_builtins(value: object) -> object:
+    """Project document values using their explicit JSON identity transport."""
+    return msgspec.to_builtins(value, enc_hook=_encode_identity)
+
+
 def document_rows(values: Iterable[object], row_type: type[T]) -> tuple[T, ...]:
     """Project document rows to the registry's generated relation-row type."""
     conv = converter()
     return tuple(
-        conv.structure(msgspec.to_builtins(value), row_type) for value in values
+        conv.structure(msgspec.to_builtins(value, enc_hook=_encode_identity), row_type) for value in values
     )
 
 
@@ -284,7 +307,28 @@ def encode_json(obj: object) -> bytes:
     Returns:
         The encoded document, as bytes.
     """
-    return msgspec.json.encode(obj)
+    return msgspec.json.encode(obj, enc_hook=_encode_identity)
+
+
+def _decode_identity(target: type, value: object) -> object:
+    """Decode retained value classes; NewType aliases supply static roles only."""
+    if target is SemanticId:
+        if isinstance(value, str):
+            return SemanticId.from_hex(value)
+        raise ValueError("semantic identity JSON must be hexadecimal text")
+    if target is ContentHash:
+        if isinstance(value, str):
+            return ContentHash.from_prefixed(value)
+        raise ValueError("content digest JSON must be blake3-prefixed text")
+    raise NotImplementedError(f"unsupported document value {target!r}")
+
+
+def _encode_identity(value: object) -> object:
+    if isinstance(value, SemanticId):
+        return value.to_hex()
+    if isinstance(value, ContentHash):
+        return value.to_prefixed()
+    raise NotImplementedError(f"unsupported document value {type(value)!r}")
 
 
 def _structure_id(value: object, _cls: type[SemanticId]) -> SemanticId:

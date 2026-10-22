@@ -12929,6516 +12929,6513 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
     }
 }
-impl AuthoredModelingDeclarationsFieldValue {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "temporal" => {
-                let value = &mut self.r#temporal;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "relaxation" => {
-                let value = &mut self.r#relaxation;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "continuation" => {
-                let value = &mut self.r#continuation;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "scope" => {
-                let value = &mut self.r#scope;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "binding" => {
-                let value = &mut self.r#binding;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "function" => {
-                let value = &mut self.r#function;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "coordinate_map" => {
-                let value = &mut self.r#coordinate_map;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "coordinate_slot" => {
-                let value = &mut self.r#coordinate_slot;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "reconstruction" => {
-                let value = &mut self.r#reconstruction;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "response" => {
-                let value = &mut self.r#response;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "reference_translation" => {
-                let value = &mut self.r#reference_translation;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "boundary" => {
-                let value = &mut self.r#boundary;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "exchange" => {
-                let value = &mut self.r#exchange;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "equation" => {
-                let value = &mut self.r#equation;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "ordered_set" => {
-                let value = &mut self.r#ordered_set;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "cardinality" => {
-                let value = &mut self.r#cardinality;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "piecewise" => {
-                let value = &mut self.r#piecewise;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "logic" => {
-                let value = &mut self.r#logic;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "complementarity" => {
-                let value = &mut self.r#complementarity;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "table" => {
-                let value = &mut self.r#table;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "applicability" => {
-                let value = &mut self.r#applicability;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "permission" => {
-                let value = &mut self.r#permission;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "envelope" => {
-                let value = &mut self.r#envelope;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "attribute" => {
-                let value = &mut self.r#attribute;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "dataset" => {
-                let value = &mut self.r#dataset;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "entity" => {
-                let value = &mut self.r#entity;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "enumeration" => {
-                let value = &mut self.r#enumeration;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "import" => {
-                let value = &mut self.r#import;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "guard" => {
-                let value = &mut self.r#guard;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "accumulator" => {
-                let value = &mut self.r#accumulator;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "contribution" => {
-                let value = &mut self.r#contribution;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "state_specification" => {
-                let value = &mut self.r#state_specification;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "state_port" => {
-                let value = &mut self.r#state_port;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "inventory_balance" => {
-                let value = &mut self.r#inventory_balance;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "connection" => {
-                let value = &mut self.r#connection;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "annotation" => {
-                let value = &mut self.r#annotation;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "requirement" => {
-                let value = &mut self.r#requirement;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "expectation" => {
-                let value = &mut self.r#expectation;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "continuous" => {
-                let value = &mut self.r#continuous;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "discretization" => {
-                let value = &mut self.r#discretization;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "realization" => {
-                let value = &mut self.r#realization;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueAccumulator {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "boundary" => {
-                let value = &mut self.r#boundary;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "tolerance" => {
-                let source = &mut self.r#tolerance;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueAnnotation {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "target" => {
-                let source = &mut self.r#target;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "arguments" => {
-                let values = &mut self.r#arguments;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            "objective" => {
-                let value = &mut self.r#objective;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "accuracy_goal" => {
-                let value = &mut self.r#accuracy_goal;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "engineering_scale" => {
-                let value = &mut self.r#engineering_scale;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "engineering_default" => {
-                let value = &mut self.r#engineering_default;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "time" => {
-                let value = &mut self.r#time;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "resolution" => {
-                let value = &mut self.r#resolution;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "criterion_lower" => {
-                let value = &mut self.r#criterion_lower;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "criterion_upper" => {
-                let value = &mut self.r#criterion_upper;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "rule" => {
-                let source = &mut self.r#rule;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "value" => {
-                let source = &mut self.r#value;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueAnnotationObjective {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "weight" => {
-                let value = &mut self.r#weight;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "normalization" => {
-                let value = &mut self.r#normalization;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "absolute_tolerance" => {
-                let value = &mut self.r#absolute_tolerance;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "relative_tolerance" => {
-                let value = &mut self.r#relative_tolerance;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueApplicability {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "arguments" => {
-                let values = &mut self.r#arguments;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "owner" => {
-                let source = &mut self.r#owner;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "evidence" => {
-                let source = &mut self.r#evidence;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "predicate" => {
-                let value = &mut self.r#predicate;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "reason" => {
-                let value = &mut self.r#reason;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "axis" => {
-                let value = &mut self.r#axis;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "lower" => {
-                let value = &mut self.r#lower;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "upper" => {
-                let value = &mut self.r#upper;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "alternatives" => {
-                let values = &mut self.r#alternatives;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            "dependencies" => {
-                let values = &mut self.r#dependencies;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "default_value" => {
-                let value = &mut self.r#default_value;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueAttribute {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "derived" => {
-                let value = &mut self.r#derived;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueBinding {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "expression" => {
-                let value = &mut self.r#expression;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "defined_by" => {
-                let value = &mut self.r#defined_by;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueBindingIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueBoundary {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueCardinality {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "count" => {
-                let source = &mut self.r#count;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "member" => {
-                let source = &mut self.r#member;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueComplementarity {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "first" => {
-                let source = &mut self.r#first;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "second" => {
-                let source = &mut self.r#second;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueConnection {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "from" => {
-                let source = &mut self.r#from;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "to" => {
-                let source = &mut self.r#to;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueConnectionIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueContinuation {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "target" => {
-                let source = &mut self.r#target;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "start" => {
-                let source = &mut self.r#start;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "end" => {
-                let source = &mut self.r#end;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueContinuous {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "lower" => {
-                let source = &mut self.r#lower;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "upper" => {
-                let source = &mut self.r#upper;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueContribution {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "target" => {
-                let source = &mut self.r#target;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "expression" => {
-                let source = &mut self.r#expression;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueContributionIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueCoordinateMap {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "arguments" => {
-                let values = &mut self.r#arguments;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "validity" => {
-                let value = &mut self.r#validity;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "default_value" => {
-                let value = &mut self.r#default_value;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueCoordinateSlot {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "expression" => {
-                let source = &mut self.r#expression;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueDataset {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "target" => {
-                let source = &mut self.r#target;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "bindings" => {
-                let values = &mut self.r#bindings;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "document" => {
-                let value = &mut self.r#document;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueDatasetBindingsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueDiscretization {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "target" => {
-                let source = &mut self.r#target;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "scheme" => {
-                let source = &mut self.r#scheme;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "elements" => {
-                let source = &mut self.r#elements;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "order" => {
-                let source = &mut self.r#order;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueEntity {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "kind_name" => {
-                let source = &mut self.r#kind_name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "attributes" => {
-                let values = &mut self.r#attributes;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueEntityAttributesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueEnumeration {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "members" => {
-                let values = &mut self.r#members;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueEnumerationMembersItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueEnvelope {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "lower" => {
-                let source = &mut self.r#lower;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "upper" => {
-                let source = &mut self.r#upper;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueEquation {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "expression" => {
-                let source = &mut self.r#expression;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "condition" => {
-                let value = &mut self.r#condition;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueEquationCondition {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "variable" => {
-                let source = &mut self.r#variable;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueEquationIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueExchange {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "from" => {
-                let source = &mut self.r#from;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "to" => {
-                let source = &mut self.r#to;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueExchangeIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueExpectation {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "actual" => {
-                let source = &mut self.r#actual;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "expected" => {
-                let source = &mut self.r#expected;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "tolerance" => {
-                let source = &mut self.r#tolerance;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "relative_tolerance" => {
-                let value = &mut self.r#relative_tolerance;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueFunction {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "type_parameters" => {
-                let values = &mut self.r#type_parameters;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            "arguments" => {
-                let values = &mut self.r#arguments;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "body" => {
-                let value = &mut self.r#body;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "validity" => {
-                let value = &mut self.r#validity;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "applicability" => {
-                let values = &mut self.r#applicability;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            "external" => {
-                let value = &mut self.r#external;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "default_value" => {
-                let value = &mut self.r#default_value;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueFunctionExternal {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "implementation" => {
-                let source = &mut self.r#implementation;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "revision" => {
-                let source = &mut self.r#revision;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "data" => {
-                let source = &mut self.r#data;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "output" => {
-                let source = &mut self.r#output;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueGuard {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "predicate" => {
-                let source = &mut self.r#predicate;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueImport {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "alias" => {
-                let value = &mut self.r#alias;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueInventoryBalance {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "axis" => {
-                let source = &mut self.r#axis;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "inventory" => {
-                let source = &mut self.r#inventory;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "flux" => {
-                let source = &mut self.r#flux;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "tolerance" => {
-                let source = &mut self.r#tolerance;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "transfers" => {
-                let values = &mut self.r#transfers;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "event" => {
-                let source = &mut self.r#event;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "expression" => {
-                let source = &mut self.r#expression;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueLogic {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "proposition" => {
-                let source = &mut self.r#proposition;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueLogicIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueOrderedSet {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "member" => {
-                let source = &mut self.r#member;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "weight" => {
-                let source = &mut self.r#weight;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValuePermission {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "targets" => {
-                let values = &mut self.r#targets;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValuePiecewise {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "output" => {
-                let source = &mut self.r#output;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "input" => {
-                let source = &mut self.r#input;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "abscissa" => {
-                let source = &mut self.r#abscissa;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "ordinate" => {
-                let source = &mut self.r#ordinate;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueRealization {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "target" => {
-                let source = &mut self.r#target;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "accelerator" => {
-                let value = &mut self.r#accelerator;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "argument" => {
-                let value = &mut self.r#argument;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "function" => {
-                let value = &mut self.r#function;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueReconstruction {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "map" => {
-                let source = &mut self.r#map;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "arguments" => {
-                let values = &mut self.r#arguments;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "reference" => {
-                let source = &mut self.r#reference;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "normalization" => {
-                let source = &mut self.r#normalization;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "default_value" => {
-                let value = &mut self.r#default_value;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueReferenceTranslation {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "arguments" => {
-                let values = &mut self.r#arguments;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "source_anchor" => {
-                let source = &mut self.r#source_anchor;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "target_anchor" => {
-                let source = &mut self.r#target_anchor;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "temperature" => {
-                let source = &mut self.r#temperature;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "pressure" => {
-                let source = &mut self.r#pressure;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "default_value" => {
-                let value = &mut self.r#default_value;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueRelaxation {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "target" => {
-                let source = &mut self.r#target;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "nominal" => {
-                let source = &mut self.r#nominal;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueRequirement {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "predicate" => {
-                let source = &mut self.r#predicate;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "message" => {
-                let source = &mut self.r#message;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueResponse {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "witness" => {
-                let source = &mut self.r#witness;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "arguments" => {
-                let values = &mut self.r#arguments;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "body" => {
-                let source = &mut self.r#body;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueResponseArgumentsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "default_value" => {
-                let value = &mut self.r#default_value;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScope {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "parameters" => {
-                let values = &mut self.r#parameters;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "bases" => {
-                let values = &mut self.r#bases;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            "type_parameters" => {
-                let values = &mut self.r#type_parameters;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            "selection" => {
-                let value = &mut self.r#selection;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "branch" => {
-                let value = &mut self.r#branch;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "operational" => {
-                let value = &mut self.r#operational;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "eligibility" => {
-                let value = &mut self.r#eligibility;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "oracle" => {
-                let value = &mut self.r#oracle;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let values = next;
-                            if let Some(index) = path
-                                .first()
-                                .and_then(|part| part.parse::<usize>().ok())
-                            {
-                                let path = &path[1..];
-                                values
-                                    .get_mut(index)
-                                    .is_some_and(|next| {
-                                        {
-                                            let source = next;
-                                            if path.is_empty() && source == expected {
-                                                source.clear();
-                                                true
-                                            } else {
-                                                false
-                                            }
-                                        }
-                                    })
-                            } else if !indexed {
-                                let indexed = true;
-                                let _ = indexed;
-                                values
-                                    .get_mut(position)
-                                    .is_some_and(|next| {
-                                        {
-                                            let source = next;
-                                            if path.is_empty() && source == expected {
-                                                source.clear();
-                                                true
-                                            } else {
-                                                false
-                                            }
-                                        }
-                                    })
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "fixture" => {
-                let value = &mut self.r#fixture;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixture {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "endpoint" => {
-                let value = &mut self.r#endpoint;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "policy" => {
-                let value = &mut self.r#policy;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "stages" => {
-                let values = &mut self.r#stages;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            "integration" => {
-                let value = &mut self.r#integration;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "modes" => {
-                let values = &mut self.r#modes;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "shooting" => {
-                let value = &mut self.r#shooting;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "expected_failure" => {
-                let value = &mut self.r#expected_failure;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "diagnostics" => {
-                let values = &mut self.r#diagnostics;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "specifications" => {
-                let values = &mut self.r#specifications;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "members" => {
-                let values = &mut self.r#members;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "event" => {
-                let value = &mut self.r#event;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "validity" => {
-                let value = &mut self.r#validity;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "applicability" => {
-                let value = &mut self.r#applicability;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "members" => {
-                let values = &mut self.r#members;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "claim" => {
-                let source = &mut self.r#claim;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "form" => {
-                let source = &mut self.r#form;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "sets" => {
-                let values = &mut self.r#sets;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            "variables" => {
-                let values = &mut self.r#variables;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "form" => {
-                let value = &mut self.r#form;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "sets" => {
-                let values = &mut self.r#sets;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            "variables" => {
-                let values = &mut self.r#variables;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "samples" => {
-                let values = &mut self.r#samples;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            "initial_step" => {
-                let source = &mut self.r#initial_step;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "quadratures" => {
-                let values = &mut self.r#quadratures;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "schedules" => {
-                let values = &mut self.r#schedules;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "target" => {
-                let source = &mut self.r#target;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "absolute_tolerance" => {
-                let source = &mut self.r#absolute_tolerance;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "target" => {
-                let source = &mut self.r#target;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "times" => {
-                let values = &mut self.r#times;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            "values" => {
-                let values = &mut self.r#values;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            "lower" => {
-                let value = &mut self.r#lower;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "upper" => {
-                let value = &mut self.r#upper;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "facts" => {
-                let values = &mut self.r#facts;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "events" => {
-                let values = &mut self.r#events;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "guard" => {
-                let source = &mut self.r#guard;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "tolerance" => {
-                let source = &mut self.r#tolerance;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "reset" => {
-                let values = &mut self.r#reset;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "next" => {
-                let value = &mut self.r#next;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "target" => {
-                let source = &mut self.r#target;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "expression" => {
-                let source = &mut self.r#expression;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixturePolicy {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "native_options" => {
-                let values = &mut self.r#native_options;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "nodes" => {
-                let values = &mut self.r#nodes;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "target" => {
-                let source = &mut self.r#target;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "expression" => {
-                let value = &mut self.r#expression;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeOperational {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "anchors" => {
-                let values = &mut self.r#anchors;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "settings" => {
-                let source = &mut self.r#settings;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "neighborhood" => {
-                let value = &mut self.r#neighborhood;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "target" => {
-                let source = &mut self.r#target;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "expression" => {
-                let source = &mut self.r#expression;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeParametersItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "default_value" => {
-                let value = &mut self.r#default_value;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueScopeSelection {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "criterion" => {
-                let source = &mut self.r#criterion;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "tolerance" => {
-                let source = &mut self.r#tolerance;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueStatePort {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "specification" => {
-                let source = &mut self.r#specification;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueStatePortIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueStateSpecification {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "extends" => {
-                let value = &mut self.r#extends;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            "supplied" => {
-                let source = &mut self.r#supplied;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "coordinates" => {
-                let values = &mut self.r#coordinates;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "reconstructions" => {
-                let values = &mut self.r#reconstructions;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "transports" => {
-                let values = &mut self.r#transports;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "target" => {
-                let source = &mut self.r#target;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "equation" => {
-                let source = &mut self.r#equation;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "tolerance" => {
-                let source = &mut self.r#tolerance;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "indices" => {
-                let values = &mut self.r#indices;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "expression" => {
-                let source = &mut self.r#expression;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "tolerance" => {
-                let source = &mut self.r#tolerance;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "domain" => {
-                let source = &mut self.r#domain;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueTable {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "keys" => {
-                let values = &mut self.r#keys;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "columns" => {
-                let values = &mut self.r#columns;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "symmetry" => {
-                let value = &mut self.r#symmetry;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        (next).mask_expression_path(path, position, expected, indexed)
-                    })
-            }
-            "unique" => {
-                let values = &mut self.r#unique;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            (next)
-                                .mask_expression_path(path, position, expected, indexed)
-                        })
-                } else {
-                    false
-                }
-            }
-            "requirements" => {
-                let values = &mut self.r#requirements;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueTableColumnsItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "derived" => {
-                let value = &mut self.r#derived;
-                value
-                    .as_mut()
-                    .is_some_and(|next| {
-                        {
-                            let source = next;
-                            if path.is_empty() && source == expected {
-                                source.clear();
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    })
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueTableKeysItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "name" => {
-                let source = &mut self.r#name;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueTableSymmetry {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "first" => {
-                let source = &mut self.r#first;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "second" => {
-                let source = &mut self.r#second;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueTableUniqueItem {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "names" => {
-                let values = &mut self.r#names;
-                if let Some(index) = path
-                    .first()
-                    .and_then(|part| part.parse::<usize>().ok())
-                {
-                    let path = &path[1..];
-                    values
-                        .get_mut(index)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else if !indexed {
-                    let indexed = true;
-                    let _ = indexed;
-                    values
-                        .get_mut(position)
-                        .is_some_and(|next| {
-                            {
-                                let source = next;
-                                if path.is_empty() && source == expected {
-                                    source.clear();
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                        })
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValueTemporal {
-    fn mask_expression_path(
-        &mut self,
-        path: &[&str],
-        position: usize,
-        expected: &str,
-        indexed: bool,
-    ) -> bool {
-        let _ = (position, expected, indexed);
-        let Some((field, path)) = path.split_first() else {
-            return false;
-        };
-        let _ = path;
-        match *field {
-            "target" => {
-                let source = &mut self.r#target;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "axis" => {
-                let source = &mut self.r#axis;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            "argument" => {
-                let source = &mut self.r#argument;
-                if path.is_empty() && source == expected {
-                    source.clear();
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-impl AuthoredModelingDeclarationsFieldValue {
-    /// Clear one exact expression string selected by its parser-owned role and ordinal.
-    /// Unknown paths and ambiguous nested array ordinals leave the payload unchanged.
-    pub fn mask_expression(
-        &mut self,
+/// Existing source parser selected by a declared field, independent of storage strings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SourceGrammar {
+    Expression,
+    Equation,
+    Predicate,
+    Proposition,
+    Static,
+}
+/// Typed source traversal, with lexical binder lifetime made explicit.
+pub trait SourceExpressionVisitor {
+    /// Attributed parser or admission failure.
+    type Error;
+    /// Admit one exact source occurrence.
+    fn expression(
+        &mut self,
+        grammar: SourceGrammar,
         role: &str,
         position: usize,
-        expected: &str,
-    ) -> bool {
-        let path = role.split('.').collect::<Vec<_>>();
-        self.mask_expression_path(&path, position, expected, false)
+        source: &str,
+    ) -> Result<(), Self::Error>;
+    /// Save the enclosing index environment.
+    fn enter_scope(&mut self);
+    /// Restore the enclosing environment after a payload or nested sibling.
+    fn leave_scope(&mut self);
+    /// Introduce an index only after its domain occurrence has been visited.
+    fn bind_index(&mut self, name: &str, domain: &str);
+}
+/// Typed annotation shape selected by the authoritative kind declaration.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SourceAnnotationShape {
+    r#AccuracyGoal,
+    r#Connectivity,
+    r#EngineeringDefault,
+    r#EngineeringRule,
+    r#EngineeringScale,
+    r#Expressions(usize),
+    r#Label,
+    r#Objective,
+    r#Predicate,
+    r#Scheme,
+}
+impl AuthoredModelingDeclarationsFieldValueAnnotation {
+    /// Exact typed argument shape; validation remains attributed by the caller.
+    pub fn source_shape(&self) -> SourceAnnotationShape {
+        match self.kind {
+            super::super::enums::ModelingAnnotationKind::r#Start => {
+                SourceAnnotationShape::r#Expressions(1usize)
+            }
+            super::super::enums::ModelingAnnotationKind::r#Nominal => {
+                SourceAnnotationShape::r#Expressions(1usize)
+            }
+            super::super::enums::ModelingAnnotationKind::r#Bounds => {
+                SourceAnnotationShape::r#Expressions(2usize)
+            }
+            super::super::enums::ModelingAnnotationKind::r#Scale => {
+                SourceAnnotationShape::r#Scheme
+            }
+            super::super::enums::ModelingAnnotationKind::r#Report => {
+                SourceAnnotationShape::r#Label
+            }
+            super::super::enums::ModelingAnnotationKind::r#Valid => {
+                SourceAnnotationShape::r#Expressions(2usize)
+            }
+            super::super::enums::ModelingAnnotationKind::r#Check => {
+                SourceAnnotationShape::r#Predicate
+            }
+            super::super::enums::ModelingAnnotationKind::r#Objective => {
+                SourceAnnotationShape::r#Objective
+            }
+            super::super::enums::ModelingAnnotationKind::r#Connectivity => {
+                SourceAnnotationShape::r#Connectivity
+            }
+            super::super::enums::ModelingAnnotationKind::r#AccuracyGoal => {
+                SourceAnnotationShape::r#AccuracyGoal
+            }
+            super::super::enums::ModelingAnnotationKind::r#EngineeringScale => {
+                SourceAnnotationShape::r#EngineeringScale
+            }
+            super::super::enums::ModelingAnnotationKind::r#EngineeringDefault => {
+                SourceAnnotationShape::r#EngineeringDefault
+            }
+            super::super::enums::ModelingAnnotationKind::r#EngineeringRule => {
+                SourceAnnotationShape::r#EngineeringRule
+            }
+        }
+    }
+    /// Whether positional cardinality and all typed member presences agree.
+    pub fn matches_source_shape(&self) -> bool {
+        match self.kind {
+            super::super::enums::ModelingAnnotationKind::r#Start => {
+                self.arguments.len() == 1usize && self.r#accuracy_goal.is_some() == false
+                    && self.r#connectivity.is_some() == false
+                    && self.r#engineering_default.is_some() == false
+                    && self.r#engineering_scale.is_some() == false
+                    && self.r#objective.is_some() == false
+                    && self.r#scheme.is_some() == false
+            }
+            super::super::enums::ModelingAnnotationKind::r#Nominal => {
+                self.arguments.len() == 1usize && self.r#accuracy_goal.is_some() == false
+                    && self.r#connectivity.is_some() == false
+                    && self.r#engineering_default.is_some() == false
+                    && self.r#engineering_scale.is_some() == false
+                    && self.r#objective.is_some() == false
+                    && self.r#scheme.is_some() == false
+            }
+            super::super::enums::ModelingAnnotationKind::r#Bounds => {
+                self.arguments.len() == 2usize && self.r#accuracy_goal.is_some() == false
+                    && self.r#connectivity.is_some() == false
+                    && self.r#engineering_default.is_some() == false
+                    && self.r#engineering_scale.is_some() == false
+                    && self.r#objective.is_some() == false
+                    && self.r#scheme.is_some() == false
+            }
+            super::super::enums::ModelingAnnotationKind::r#Scale => {
+                self.arguments.len() == 0usize && self.r#accuracy_goal.is_some() == false
+                    && self.r#connectivity.is_some() == false
+                    && self.r#engineering_default.is_some() == false
+                    && self.r#engineering_scale.is_some() == false
+                    && self.r#objective.is_some() == false
+                    && self.r#scheme.is_some() == true
+            }
+            super::super::enums::ModelingAnnotationKind::r#Report => {
+                self.arguments.len() == 1usize && self.r#accuracy_goal.is_some() == false
+                    && self.r#connectivity.is_some() == false
+                    && self.r#engineering_default.is_some() == false
+                    && self.r#engineering_scale.is_some() == false
+                    && self.r#objective.is_some() == false
+                    && self.r#scheme.is_some() == false
+            }
+            super::super::enums::ModelingAnnotationKind::r#Valid => {
+                self.arguments.len() == 2usize && self.r#accuracy_goal.is_some() == false
+                    && self.r#connectivity.is_some() == false
+                    && self.r#engineering_default.is_some() == false
+                    && self.r#engineering_scale.is_some() == false
+                    && self.r#objective.is_some() == false
+                    && self.r#scheme.is_some() == false
+            }
+            super::super::enums::ModelingAnnotationKind::r#Check => {
+                self.arguments.len() == 1usize && self.r#accuracy_goal.is_some() == false
+                    && self.r#connectivity.is_some() == false
+                    && self.r#engineering_default.is_some() == false
+                    && self.r#engineering_scale.is_some() == false
+                    && self.r#objective.is_some() == false
+                    && self.r#scheme.is_some() == false
+            }
+            super::super::enums::ModelingAnnotationKind::r#Objective => {
+                self.arguments.len() == 0usize && self.r#accuracy_goal.is_some() == false
+                    && self.r#connectivity.is_some() == false
+                    && self.r#engineering_default.is_some() == false
+                    && self.r#engineering_scale.is_some() == false
+                    && self.r#objective.is_some() == true
+                    && self.r#scheme.is_some() == false
+            }
+            super::super::enums::ModelingAnnotationKind::r#Connectivity => {
+                self.arguments.len() == 0usize && self.r#accuracy_goal.is_some() == false
+                    && self.r#connectivity.is_some() == true
+                    && self.r#engineering_default.is_some() == false
+                    && self.r#engineering_scale.is_some() == false
+                    && self.r#objective.is_some() == false
+                    && self.r#scheme.is_some() == false
+            }
+            super::super::enums::ModelingAnnotationKind::r#AccuracyGoal => {
+                self.arguments.len() == 0usize && self.r#accuracy_goal.is_some() == true
+                    && self.r#connectivity.is_some() == false
+                    && self.r#engineering_default.is_some() == false
+                    && self.r#engineering_scale.is_some() == false
+                    && self.r#objective.is_some() == false
+                    && self.r#scheme.is_some() == false
+            }
+            super::super::enums::ModelingAnnotationKind::r#EngineeringScale => {
+                self.arguments.len() == 0usize && self.r#accuracy_goal.is_some() == false
+                    && self.r#connectivity.is_some() == false
+                    && self.r#engineering_default.is_some() == false
+                    && self.r#engineering_scale.is_some() == true
+                    && self.r#objective.is_some() == false
+                    && self.r#scheme.is_some() == false
+            }
+            super::super::enums::ModelingAnnotationKind::r#EngineeringDefault => {
+                self.arguments.len() == 0usize && self.r#accuracy_goal.is_some() == false
+                    && self.r#connectivity.is_some() == false
+                    && self.r#engineering_default.is_some() == true
+                    && self.r#engineering_scale.is_some() == false
+                    && self.r#objective.is_some() == false
+                    && self.r#scheme.is_some() == false
+            }
+            super::super::enums::ModelingAnnotationKind::r#EngineeringRule => {
+                self.arguments.len() == 0usize && self.r#accuracy_goal.is_some() == false
+                    && self.r#connectivity.is_some() == false
+                    && self.r#engineering_default.is_some() == false
+                    && self.r#engineering_scale.is_some() == false
+                    && self.r#objective.is_some() == false
+                    && self.r#scheme.is_some() == false
+            }
+        }
+    }
+    /// Exact declared positional cardinality.
+    pub fn source_argument_count(&self) -> usize {
+        match self.kind {
+            super::super::enums::ModelingAnnotationKind::r#Start => 1usize,
+            super::super::enums::ModelingAnnotationKind::r#Nominal => 1usize,
+            super::super::enums::ModelingAnnotationKind::r#Bounds => 2usize,
+            super::super::enums::ModelingAnnotationKind::r#Scale => 0usize,
+            super::super::enums::ModelingAnnotationKind::r#Report => 1usize,
+            super::super::enums::ModelingAnnotationKind::r#Valid => 2usize,
+            super::super::enums::ModelingAnnotationKind::r#Check => 1usize,
+            super::super::enums::ModelingAnnotationKind::r#Objective => 0usize,
+            super::super::enums::ModelingAnnotationKind::r#Connectivity => 0usize,
+            super::super::enums::ModelingAnnotationKind::r#AccuracyGoal => 0usize,
+            super::super::enums::ModelingAnnotationKind::r#EngineeringScale => 0usize,
+            super::super::enums::ModelingAnnotationKind::r#EngineeringDefault => 0usize,
+            super::super::enums::ModelingAnnotationKind::r#EngineeringRule => 0usize,
+        }
+    }
+}
+impl AuthoredModelingDeclarationsFieldValue {
+    /// Visit only explicitly declared grammar fields, preserving list ordinals and scopes.
+    pub fn visit_source_expressions<V: SourceExpressionVisitor>(
+        &self,
+        visitor: &mut V,
+    ) -> Result<(), V::Error> {
+        let mut source_ordinals = std::collections::BTreeMap::<String, usize>::new();
+        {
+            let source_value = self;
+            {
+                let source_optional = &source_value.r#relaxation;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "relaxation.target";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#target,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "relaxation.nominal";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#nominal,
+                                )?;
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#continuation;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "continuation.target";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#target,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "continuation.start";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#start,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "continuation.end";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#end,
+                                )?;
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#scope;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &source_value.r#parameters;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_optional = &source_value.r#default_value;
+                                        if let Some(source_value) = source_optional.as_ref() {
+                                            {
+                                                let source_grammar = SourceGrammar::Static;
+                                                let _ = source_grammar;
+                                                let source_role = "scope.parameters.default_value";
+                                                let source_position = source_index_0;
+                                                visitor
+                                                    .expression(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source_value,
+                                                    )?;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#selection;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "scope.selection.criterion";
+                                        let source_position = 0usize;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#criterion,
+                                            )?;
+                                    }
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "scope.selection.tolerance";
+                                        let source_position = 0usize;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#tolerance,
+                                            )?;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#branch;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Predicate;
+                                    let _ = source_grammar;
+                                    let source_role = "scope.branch";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#operational;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_values = &source_value.r#anchors;
+                                        for (source_index_0, source_value) in source_values
+                                            .iter()
+                                            .enumerate()
+                                        {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_grammar = SourceGrammar::Expression;
+                                                    let _ = source_grammar;
+                                                    let source_role = "scope.operational.anchors.target";
+                                                    let source_position = source_index_0;
+                                                    visitor
+                                                        .expression(
+                                                            source_grammar,
+                                                            source_role,
+                                                            source_position,
+                                                            &source_value.r#target,
+                                                        )?;
+                                                }
+                                                {
+                                                    let source_grammar = SourceGrammar::Expression;
+                                                    let _ = source_grammar;
+                                                    let source_role = "scope.operational.anchors.expression";
+                                                    let source_position = source_index_0;
+                                                    visitor
+                                                        .expression(
+                                                            source_grammar,
+                                                            source_role,
+                                                            source_position,
+                                                            &source_value.r#expression,
+                                                        )?;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &source_value.r#neighborhood;
+                                        if let Some(source_value) = source_optional.as_ref() {
+                                            {
+                                                let source_grammar = SourceGrammar::Predicate;
+                                                let _ = source_grammar;
+                                                let source_role = "scope.operational.neighborhood";
+                                                let source_position = 0usize;
+                                                visitor
+                                                    .expression(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source_value,
+                                                    )?;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#eligibility;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Predicate;
+                                    let _ = source_grammar;
+                                    let source_role = "scope.eligibility";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#fixture;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_optional = &source_value.r#integration;
+                                        if let Some(source_value) = source_optional.as_ref() {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_values = &source_value.r#samples;
+                                                    for (source_index_0, source_value) in source_values
+                                                        .iter()
+                                                        .enumerate()
+                                                    {
+                                                        {
+                                                            let source_grammar = SourceGrammar::Expression;
+                                                            let _ = source_grammar;
+                                                            let source_role = "scope.fixture.integration.samples";
+                                                            let source_position = source_index_0;
+                                                            visitor
+                                                                .expression(
+                                                                    source_grammar,
+                                                                    source_role,
+                                                                    source_position,
+                                                                    source_value,
+                                                                )?;
+                                                        }
+                                                    }
+                                                }
+                                                {
+                                                    let source_grammar = SourceGrammar::Expression;
+                                                    let _ = source_grammar;
+                                                    let source_role = "scope.fixture.integration.initial_step";
+                                                    let source_position = 0usize;
+                                                    visitor
+                                                        .expression(
+                                                            source_grammar,
+                                                            source_role,
+                                                            source_position,
+                                                            &source_value.r#initial_step,
+                                                        )?;
+                                                }
+                                                {
+                                                    let source_values = &source_value.r#quadratures;
+                                                    for (source_index_0, source_value) in source_values
+                                                        .iter()
+                                                        .enumerate()
+                                                    {
+                                                        {
+                                                            let source_value = source_value;
+                                                            {
+                                                                let source_grammar = SourceGrammar::Expression;
+                                                                let _ = source_grammar;
+                                                                let source_role = "scope.fixture.integration.quadratures.target";
+                                                                let source_position = source_index_0;
+                                                                visitor
+                                                                    .expression(
+                                                                        source_grammar,
+                                                                        source_role,
+                                                                        source_position,
+                                                                        &source_value.r#target,
+                                                                    )?;
+                                                            }
+                                                            {
+                                                                let source_grammar = SourceGrammar::Expression;
+                                                                let _ = source_grammar;
+                                                                let source_role = "scope.fixture.integration.quadratures.absolute_tolerance";
+                                                                let source_position = source_index_0;
+                                                                visitor
+                                                                    .expression(
+                                                                        source_grammar,
+                                                                        source_role,
+                                                                        source_position,
+                                                                        &source_value.r#absolute_tolerance,
+                                                                    )?;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                {
+                                                    let source_values = &source_value.r#schedules;
+                                                    for (source_index_0, source_value) in source_values
+                                                        .iter()
+                                                        .enumerate()
+                                                    {
+                                                        {
+                                                            let source_value = source_value;
+                                                            {
+                                                                let source_grammar = SourceGrammar::Expression;
+                                                                let _ = source_grammar;
+                                                                let source_role_owned = format!(
+                                                                    "scope.fixture.integration.schedules.{0}.target",
+                                                                    source_index_0,
+                                                                );
+                                                                let source_role = source_role_owned.as_str();
+                                                                let source_position = 0usize;
+                                                                visitor
+                                                                    .expression(
+                                                                        source_grammar,
+                                                                        source_role,
+                                                                        source_position,
+                                                                        &source_value.r#target,
+                                                                    )?;
+                                                            }
+                                                            {
+                                                                let source_values = &source_value.r#times;
+                                                                for (source_index_1, source_value) in source_values
+                                                                    .iter()
+                                                                    .enumerate()
+                                                                {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Expression;
+                                                                        let _ = source_grammar;
+                                                                        let source_role_owned = format!(
+                                                                            "scope.fixture.integration.schedules.{0}.times",
+                                                                            source_index_0,
+                                                                        );
+                                                                        let source_role = source_role_owned.as_str();
+                                                                        let source_position = source_index_1;
+                                                                        visitor
+                                                                            .expression(
+                                                                                source_grammar,
+                                                                                source_role,
+                                                                                source_position,
+                                                                                source_value,
+                                                                            )?;
+                                                                    }
+                                                                }
+                                                            }
+                                                            {
+                                                                let source_values = &source_value.r#values;
+                                                                for (source_index_1, source_value) in source_values
+                                                                    .iter()
+                                                                    .enumerate()
+                                                                {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Expression;
+                                                                        let _ = source_grammar;
+                                                                        let source_role_owned = format!(
+                                                                            "scope.fixture.integration.schedules.{0}.values",
+                                                                            source_index_0,
+                                                                        );
+                                                                        let source_role = source_role_owned.as_str();
+                                                                        let source_position = source_index_1;
+                                                                        visitor
+                                                                            .expression(
+                                                                                source_grammar,
+                                                                                source_role,
+                                                                                source_position,
+                                                                                source_value,
+                                                                            )?;
+                                                                    }
+                                                                }
+                                                            }
+                                                            {
+                                                                let source_optional = &source_value.r#lower;
+                                                                if let Some(source_value) = source_optional.as_ref() {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Expression;
+                                                                        let _ = source_grammar;
+                                                                        let source_role_owned = format!(
+                                                                            "scope.fixture.integration.schedules.{0}.lower",
+                                                                            source_index_0,
+                                                                        );
+                                                                        let source_role = source_role_owned.as_str();
+                                                                        let source_position = 0usize;
+                                                                        visitor
+                                                                            .expression(
+                                                                                source_grammar,
+                                                                                source_role,
+                                                                                source_position,
+                                                                                source_value,
+                                                                            )?;
+                                                                    }
+                                                                }
+                                                            }
+                                                            {
+                                                                let source_optional = &source_value.r#upper;
+                                                                if let Some(source_value) = source_optional.as_ref() {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Expression;
+                                                                        let _ = source_grammar;
+                                                                        let source_role_owned = format!(
+                                                                            "scope.fixture.integration.schedules.{0}.upper",
+                                                                            source_index_0,
+                                                                        );
+                                                                        let source_role = source_role_owned.as_str();
+                                                                        let source_position = 0usize;
+                                                                        visitor
+                                                                            .expression(
+                                                                                source_grammar,
+                                                                                source_role,
+                                                                                source_position,
+                                                                                source_value,
+                                                                            )?;
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_values = &source_value.r#modes;
+                                        for (source_index_0, source_value) in source_values
+                                            .iter()
+                                            .enumerate()
+                                        {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_values = &source_value.r#events;
+                                                    for (source_index_1, source_value) in source_values
+                                                        .iter()
+                                                        .enumerate()
+                                                    {
+                                                        {
+                                                            let source_value = source_value;
+                                                            {
+                                                                let source_grammar = SourceGrammar::Expression;
+                                                                let _ = source_grammar;
+                                                                let source_role = "scope.fixture.modes.events.guard";
+                                                                let source_position = {
+                                                                    let next = source_ordinals
+                                                                        .entry(source_role.to_owned())
+                                                                        .or_default();
+                                                                    let position = *next;
+                                                                    *next += 1;
+                                                                    position
+                                                                };
+                                                                visitor
+                                                                    .expression(
+                                                                        source_grammar,
+                                                                        source_role,
+                                                                        source_position,
+                                                                        &source_value.r#guard,
+                                                                    )?;
+                                                            }
+                                                            {
+                                                                let source_grammar = SourceGrammar::Expression;
+                                                                let _ = source_grammar;
+                                                                let source_role = "scope.fixture.modes.events.tolerance";
+                                                                let source_position = {
+                                                                    let next = source_ordinals
+                                                                        .entry(source_role.to_owned())
+                                                                        .or_default();
+                                                                    let position = *next;
+                                                                    *next += 1;
+                                                                    position
+                                                                };
+                                                                visitor
+                                                                    .expression(
+                                                                        source_grammar,
+                                                                        source_role,
+                                                                        source_position,
+                                                                        &source_value.r#tolerance,
+                                                                    )?;
+                                                            }
+                                                            {
+                                                                let source_values = &source_value.r#reset;
+                                                                for (source_index_2, source_value) in source_values
+                                                                    .iter()
+                                                                    .enumerate()
+                                                                {
+                                                                    {
+                                                                        let source_value = source_value;
+                                                                        {
+                                                                            let source_grammar = SourceGrammar::Expression;
+                                                                            let _ = source_grammar;
+                                                                            let source_role_owned = format!(
+                                                                                "scope.fixture.modes.{0}.events.{1}.reset.{2}.target",
+                                                                                source_index_0,
+                                                                                source_index_1,
+                                                                                source_index_2,
+                                                                            );
+                                                                            let source_role = source_role_owned.as_str();
+                                                                            let source_position = 0usize;
+                                                                            visitor
+                                                                                .expression(
+                                                                                    source_grammar,
+                                                                                    source_role,
+                                                                                    source_position,
+                                                                                    &source_value.r#target,
+                                                                                )?;
+                                                                        }
+                                                                        {
+                                                                            let source_grammar = SourceGrammar::Expression;
+                                                                            let _ = source_grammar;
+                                                                            let source_role_owned = format!(
+                                                                                "scope.fixture.modes.{0}.events.{1}.reset.{2}.expression",
+                                                                                source_index_0,
+                                                                                source_index_1,
+                                                                                source_index_2,
+                                                                            );
+                                                                            let source_role = source_role_owned.as_str();
+                                                                            let source_position = 0usize;
+                                                                            visitor
+                                                                                .expression(
+                                                                                    source_grammar,
+                                                                                    source_role,
+                                                                                    source_position,
+                                                                                    &source_value.r#expression,
+                                                                                )?;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &source_value.r#shooting;
+                                        if let Some(source_value) = source_optional.as_ref() {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_values = &source_value.r#nodes;
+                                                    for (source_index_0, source_value) in source_values
+                                                        .iter()
+                                                        .enumerate()
+                                                    {
+                                                        {
+                                                            let source_grammar = SourceGrammar::Expression;
+                                                            let _ = source_grammar;
+                                                            let source_role = "scope.fixture.shooting.nodes";
+                                                            let source_position = source_index_0;
+                                                            visitor
+                                                                .expression(
+                                                                    source_grammar,
+                                                                    source_role,
+                                                                    source_position,
+                                                                    source_value,
+                                                                )?;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &source_value.r#expected_failure;
+                                        if let Some(source_value) = source_optional.as_ref() {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_optional = &source_value.r#validity;
+                                                    if let Some(source_value) = source_optional.as_ref() {
+                                                        {
+                                                            let source_value = source_value;
+                                                            {
+                                                                let source_values = &source_value.r#sets;
+                                                                for (source_index_0, source_value) in source_values
+                                                                    .iter()
+                                                                    .enumerate()
+                                                                {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Static;
+                                                                        let _ = source_grammar;
+                                                                        let source_role = "scope.fixture.expected_failure.validity.sets";
+                                                                        let source_position = source_index_0;
+                                                                        visitor
+                                                                            .expression(
+                                                                                source_grammar,
+                                                                                source_role,
+                                                                                source_position,
+                                                                                source_value,
+                                                                            )?;
+                                                                    }
+                                                                }
+                                                            }
+                                                            {
+                                                                let source_values = &source_value.r#variables;
+                                                                for (source_index_0, source_value) in source_values
+                                                                    .iter()
+                                                                    .enumerate()
+                                                                {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Expression;
+                                                                        let _ = source_grammar;
+                                                                        let source_role = "scope.fixture.expected_failure.validity.variables";
+                                                                        let source_position = source_index_0;
+                                                                        visitor
+                                                                            .expression(
+                                                                                source_grammar,
+                                                                                source_role,
+                                                                                source_position,
+                                                                                source_value,
+                                                                            )?;
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                {
+                                                    let source_optional = &source_value.r#applicability;
+                                                    if let Some(source_value) = source_optional.as_ref() {
+                                                        {
+                                                            let source_value = source_value;
+                                                            {
+                                                                let source_values = &source_value.r#sets;
+                                                                for (source_index_0, source_value) in source_values
+                                                                    .iter()
+                                                                    .enumerate()
+                                                                {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Static;
+                                                                        let _ = source_grammar;
+                                                                        let source_role = "scope.fixture.expected_failure.applicability.sets";
+                                                                        let source_position = source_index_0;
+                                                                        visitor
+                                                                            .expression(
+                                                                                source_grammar,
+                                                                                source_role,
+                                                                                source_position,
+                                                                                source_value,
+                                                                            )?;
+                                                                    }
+                                                                }
+                                                            }
+                                                            {
+                                                                let source_values = &source_value.r#variables;
+                                                                for (source_index_0, source_value) in source_values
+                                                                    .iter()
+                                                                    .enumerate()
+                                                                {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Expression;
+                                                                        let _ = source_grammar;
+                                                                        let source_role = "scope.fixture.expected_failure.applicability.variables";
+                                                                        let source_position = source_index_0;
+                                                                        visitor
+                                                                            .expression(
+                                                                                source_grammar,
+                                                                                source_role,
+                                                                                source_position,
+                                                                                source_value,
+                                                                            )?;
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                {
+                                                    let source_values = &source_value.r#members;
+                                                    for (source_index_0, source_value) in source_values
+                                                        .iter()
+                                                        .enumerate()
+                                                    {
+                                                        {
+                                                            let source_grammar = SourceGrammar::Expression;
+                                                            let _ = source_grammar;
+                                                            let source_role = "scope.fixture.expected_failure.members";
+                                                            let source_position = source_index_0;
+                                                            visitor
+                                                                .expression(
+                                                                    source_grammar,
+                                                                    source_role,
+                                                                    source_position,
+                                                                    source_value,
+                                                                )?;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_values = &source_value.r#diagnostics;
+                                        for (source_index_0, source_value) in source_values
+                                            .iter()
+                                            .enumerate()
+                                        {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_values = &source_value.r#members;
+                                                    for (source_index_1, source_value) in source_values
+                                                        .iter()
+                                                        .enumerate()
+                                                    {
+                                                        {
+                                                            let source_grammar = SourceGrammar::Expression;
+                                                            let _ = source_grammar;
+                                                            let source_role_owned = format!(
+                                                                "scope.fixture.diagnostics.{0}.members",
+                                                                source_index_0,
+                                                            );
+                                                            let source_role = source_role_owned.as_str();
+                                                            let source_position = source_index_1;
+                                                            visitor
+                                                                .expression(
+                                                                    source_grammar,
+                                                                    source_role,
+                                                                    source_position,
+                                                                    source_value,
+                                                                )?;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_values = &source_value.r#specifications;
+                                        for (source_index_0, source_value) in source_values
+                                            .iter()
+                                            .enumerate()
+                                        {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_grammar = SourceGrammar::Expression;
+                                                    let _ = source_grammar;
+                                                    let source_role = "scope.fixture.specifications.target";
+                                                    let source_position = source_index_0;
+                                                    visitor
+                                                        .expression(
+                                                            source_grammar,
+                                                            source_role,
+                                                            source_position,
+                                                            &source_value.r#target,
+                                                        )?;
+                                                }
+                                                {
+                                                    let source_optional = &source_value.r#expression;
+                                                    if let Some(source_value) = source_optional.as_ref() {
+                                                        {
+                                                            let source_grammar = SourceGrammar::Expression;
+                                                            let _ = source_grammar;
+                                                            let source_role = "scope.fixture.specifications.expression";
+                                                            let source_position = source_index_0;
+                                                            visitor
+                                                                .expression(
+                                                                    source_grammar,
+                                                                    source_role,
+                                                                    source_position,
+                                                                    source_value,
+                                                                )?;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#binding;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "binding.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#expression;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Static;
+                                    let _ = source_grammar;
+                                    let source_role = "binding.expression";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#defined_by;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Equation;
+                                    let _ = source_grammar;
+                                    let source_role = "binding.defined_by";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#function;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_optional = &source_value.r#body;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "function.body";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#validity;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Predicate;
+                                    let _ = source_grammar;
+                                    let source_role = "function.validity";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        {
+                            let source_values = &source_value.r#applicability;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "function.applicability";
+                                    let source_position = source_index_0;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#external;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "function.external.output";
+                                        let source_position = 0usize;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#output,
+                                            )?;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#coordinate_map;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_optional = &source_value.r#validity;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Predicate;
+                                    let _ = source_grammar;
+                                    let source_role = "coordinate_map.validity";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#coordinate_slot;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "coordinate_slot.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "coordinate_slot.expression";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#expression,
+                                )?;
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#reconstruction;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "reconstruction.normalization";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#normalization,
+                                )?;
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#response;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "response.body";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#body,
+                                )?;
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#reference_translation;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "reference_translation.temperature";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#temperature,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "reference_translation.pressure";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#pressure,
+                                )?;
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#boundary;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "boundary.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#exchange;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "exchange.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "exchange.from";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#from,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "exchange.to";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#to,
+                                )?;
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#equation;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "equation.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Equation;
+                            let _ = source_grammar;
+                            let source_role = "equation.expression";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#expression,
+                                )?;
+                        }
+                        {
+                            let source_optional = &source_value.r#condition;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "equation.condition.variable";
+                                        let source_position = 0usize;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#variable,
+                                            )?;
+                                    }
+                                }
+                            }
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#ordered_set;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "ordered_set.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "ordered_set.member";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#member,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "ordered_set.weight";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#weight,
+                                )?;
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#cardinality;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "cardinality.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "cardinality.count";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#count,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "cardinality.member";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#member,
+                                )?;
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#piecewise;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "piecewise.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "piecewise.output";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#output,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "piecewise.input";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#input,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "piecewise.abscissa";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#abscissa,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "piecewise.ordinate";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#ordinate,
+                                )?;
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#logic;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "logic.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Proposition;
+                            let _ = source_grammar;
+                            let source_role = "logic.proposition";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#proposition,
+                                )?;
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#complementarity;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "complementarity.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "complementarity.first";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#first,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "complementarity.second";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#second,
+                                )?;
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#table;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &source_value.r#columns;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_optional = &source_value.r#derived;
+                                        if let Some(source_value) = source_optional.as_ref() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "table.columns.derived";
+                                                let source_position = source_index_0;
+                                                visitor
+                                                    .expression(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source_value,
+                                                    )?;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_values = &source_value.r#requirements;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_grammar = SourceGrammar::Predicate;
+                                    let _ = source_grammar;
+                                    let source_role = "table.requirements";
+                                    let source_position = source_index_0;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#applicability;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "applicability.evidence";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#evidence,
+                                )?;
+                        }
+                        {
+                            let source_optional = &source_value.r#predicate;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Predicate;
+                                    let _ = source_grammar;
+                                    let source_role = "applicability.predicate";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#axis;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "applicability.axis";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#lower;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "applicability.lower";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#upper;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "applicability.upper";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        {
+                            let source_values = &source_value.r#alternatives;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "applicability.alternatives";
+                                    let source_position = source_index_0;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        {
+                            let source_values = &source_value.r#dependencies;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "applicability.dependencies";
+                                    let source_position = source_index_0;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#permission;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &source_value.r#targets;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "permission.targets";
+                                    let source_position = source_index_0;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#attribute;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_optional = &source_value.r#derived;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "attribute.derived";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#guard;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Predicate;
+                            let _ = source_grammar;
+                            let source_role = "guard.predicate";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#predicate,
+                                )?;
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#accumulator;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "accumulator.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#boundary;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "accumulator.boundary";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "accumulator.tolerance";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#tolerance,
+                                )?;
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#contribution;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "contribution.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "contribution.target";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#target,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "contribution.expression";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#expression,
+                                )?;
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#state_specification;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "state_specification.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#extends;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "state_specification.extends";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "state_specification.supplied";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#supplied,
+                                )?;
+                        }
+                        {
+                            let source_values = &source_value.r#coordinates;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    visitor.enter_scope();
+                                    {
+                                        let source_values = &source_value.r#indices;
+                                        for (source_index_1, source_value) in source_values
+                                            .iter()
+                                            .enumerate()
+                                        {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_grammar = SourceGrammar::Static;
+                                                    let _ = source_grammar;
+                                                    let source_role_owned = format!(
+                                                        "state_specification.coordinates.{0}.indices.domain",
+                                                        source_index_0,
+                                                    );
+                                                    let source_role = source_role_owned.as_str();
+                                                    let source_position = source_index_1;
+                                                    visitor
+                                                        .expression(
+                                                            source_grammar,
+                                                            source_role,
+                                                            source_position,
+                                                            &source_value.r#domain,
+                                                        )?;
+                                                }
+                                            }
+                                            visitor
+                                                .bind_index(&source_value.name, &source_value.domain);
+                                        }
+                                    }
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "state_specification.coordinates.target";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#target,
+                                            )?;
+                                    }
+                                    visitor.leave_scope();
+                                }
+                            }
+                        }
+                        {
+                            let source_values = &source_value.r#reconstructions;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    visitor.enter_scope();
+                                    {
+                                        let source_values = &source_value.r#indices;
+                                        for (source_index_1, source_value) in source_values
+                                            .iter()
+                                            .enumerate()
+                                        {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_grammar = SourceGrammar::Static;
+                                                    let _ = source_grammar;
+                                                    let source_role_owned = format!(
+                                                        "state_specification.reconstructions.{0}.indices.domain",
+                                                        source_index_0,
+                                                    );
+                                                    let source_role = source_role_owned.as_str();
+                                                    let source_position = source_index_1;
+                                                    visitor
+                                                        .expression(
+                                                            source_grammar,
+                                                            source_role,
+                                                            source_position,
+                                                            &source_value.r#domain,
+                                                        )?;
+                                                }
+                                            }
+                                            visitor
+                                                .bind_index(&source_value.name, &source_value.domain);
+                                        }
+                                    }
+                                    {
+                                        let source_grammar = SourceGrammar::Equation;
+                                        let _ = source_grammar;
+                                        let source_role = "state_specification.reconstructions.equation";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#equation,
+                                            )?;
+                                    }
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "state_specification.reconstructions.tolerance";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#tolerance,
+                                            )?;
+                                    }
+                                    visitor.leave_scope();
+                                }
+                            }
+                        }
+                        {
+                            let source_values = &source_value.r#transports;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    visitor.enter_scope();
+                                    {
+                                        let source_values = &source_value.r#indices;
+                                        for (source_index_1, source_value) in source_values
+                                            .iter()
+                                            .enumerate()
+                                        {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_grammar = SourceGrammar::Static;
+                                                    let _ = source_grammar;
+                                                    let source_role_owned = format!(
+                                                        "state_specification.transports.{0}.indices.domain",
+                                                        source_index_0,
+                                                    );
+                                                    let source_role = source_role_owned.as_str();
+                                                    let source_position = source_index_1;
+                                                    visitor
+                                                        .expression(
+                                                            source_grammar,
+                                                            source_role,
+                                                            source_position,
+                                                            &source_value.r#domain,
+                                                        )?;
+                                                }
+                                            }
+                                            visitor
+                                                .bind_index(&source_value.name, &source_value.domain);
+                                        }
+                                    }
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "state_specification.transports.expression";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#expression,
+                                            )?;
+                                    }
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "state_specification.transports.tolerance";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#tolerance,
+                                            )?;
+                                    }
+                                    visitor.leave_scope();
+                                }
+                            }
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#state_port;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "state_port.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "state_port.specification";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#specification,
+                                )?;
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#inventory_balance;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "inventory_balance.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "inventory_balance.axis";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#axis,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "inventory_balance.inventory";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#inventory,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "inventory_balance.flux";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#flux,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "inventory_balance.tolerance";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#tolerance,
+                                )?;
+                        }
+                        {
+                            let source_values = &source_value.r#transfers;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "inventory_balance.transfers.event";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#event,
+                                            )?;
+                                    }
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "inventory_balance.transfers.expression";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#expression,
+                                            )?;
+                                    }
+                                }
+                            }
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#connection;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        visitor.enter_scope();
+                        {
+                            let source_values = &source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "connection.indices.domain";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#domain,
+                                            )?;
+                                    }
+                                }
+                                visitor
+                                    .bind_index(&source_value.name, &source_value.domain);
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "connection.from";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#from,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "connection.to";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#to,
+                                )?;
+                        }
+                        visitor.leave_scope();
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#annotation;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        let (source_annotation_grammar, source_annotation_target) = match source_value
+                            .kind
+                        {
+                            super::super::enums::ModelingAnnotationKind::r#Start => {
+                                (Some(SourceGrammar::Expression), true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Nominal => {
+                                (Some(SourceGrammar::Expression), true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Bounds => {
+                                (Some(SourceGrammar::Expression), true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Scale => {
+                                (None, true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Report => {
+                                (Some(SourceGrammar::Static), true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Valid => {
+                                (Some(SourceGrammar::Expression), true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Check => {
+                                (Some(SourceGrammar::Predicate), true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Objective => {
+                                (None, true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Connectivity => {
+                                (None, true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#AccuracyGoal => {
+                                (None, true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#EngineeringScale => {
+                                (None, true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#EngineeringDefault => {
+                                (None, true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#EngineeringRule => {
+                                (None, false)
+                            }
+                        };
+                        if source_annotation_target {
+                            {
+                                let source_grammar = SourceGrammar::Expression;
+                                let _ = source_grammar;
+                                let source_role = "annotation.target";
+                                let source_position = 0usize;
+                                visitor
+                                    .expression(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        &source_value.r#target,
+                                    )?;
+                            }
+                        }
+                        {
+                            let source_values = &source_value.r#arguments;
+                            for (source_index_0, source_value) in source_values
+                                .iter()
+                                .enumerate()
+                            {
+                                {
+                                    if let Some(source_grammar) = source_annotation_grammar {
+                                        let _ = source_grammar;
+                                        let source_role = "annotation.arguments";
+                                        let source_position = source_index_0;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                source_value,
+                                            )?;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#objective;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_optional = &source_value.r#weight;
+                                        if let Some(source_value) = source_optional.as_ref() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.objective.weight";
+                                                let source_position = 0usize;
+                                                visitor
+                                                    .expression(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source_value,
+                                                    )?;
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &source_value.r#normalization;
+                                        if let Some(source_value) = source_optional.as_ref() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.objective.normalization";
+                                                let source_position = 0usize;
+                                                visitor
+                                                    .expression(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source_value,
+                                                    )?;
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &source_value.r#absolute_tolerance;
+                                        if let Some(source_value) = source_optional.as_ref() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.objective.absolute_tolerance";
+                                                let source_position = 0usize;
+                                                visitor
+                                                    .expression(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source_value,
+                                                    )?;
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &source_value.r#relative_tolerance;
+                                        if let Some(source_value) = source_optional.as_ref() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.objective.relative_tolerance";
+                                                let source_position = 0usize;
+                                                visitor
+                                                    .expression(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source_value,
+                                                    )?;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#accuracy_goal;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_optional = &source_value.r#time;
+                                        if let Some(source_value) = source_optional.as_ref() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.accuracy_goal.time";
+                                                let source_position = 0usize;
+                                                visitor
+                                                    .expression(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source_value,
+                                                    )?;
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &source_value.r#resolution;
+                                        if let Some(source_value) = source_optional.as_ref() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.accuracy_goal.resolution";
+                                                let source_position = 0usize;
+                                                visitor
+                                                    .expression(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source_value,
+                                                    )?;
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &source_value.r#criterion_lower;
+                                        if let Some(source_value) = source_optional.as_ref() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.accuracy_goal.criterion_lower";
+                                                let source_position = 0usize;
+                                                visitor
+                                                    .expression(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source_value,
+                                                    )?;
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &source_value.r#criterion_upper;
+                                        if let Some(source_value) = source_optional.as_ref() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.accuracy_goal.criterion_upper";
+                                                let source_position = 0usize;
+                                                visitor
+                                                    .expression(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source_value,
+                                                    )?;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#engineering_scale;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "annotation.engineering_scale.value";
+                                        let source_position = 0usize;
+                                        visitor
+                                            .expression(
+                                                source_grammar,
+                                                source_role,
+                                                source_position,
+                                                &source_value.r#value,
+                                            )?;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#requirement;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Predicate;
+                            let _ = source_grammar;
+                            let source_role = "requirement.predicate";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#predicate,
+                                )?;
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#expectation;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "expectation.actual";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#actual,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "expectation.expected";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#expected,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "expectation.tolerance";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#tolerance,
+                                )?;
+                        }
+                        {
+                            let source_optional = &source_value.r#relative_tolerance;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "expectation.relative_tolerance";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#continuous;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "continuous.lower";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#lower,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "continuous.upper";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#upper,
+                                )?;
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#discretization;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "discretization.elements";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#elements,
+                                )?;
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "discretization.order";
+                            let source_position = 0usize;
+                            visitor
+                                .expression(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    &source_value.r#order,
+                                )?;
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &source_value.r#realization;
+                if let Some(source_value) = source_optional.as_ref() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_optional = &source_value.r#argument;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "realization.argument";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &source_value.r#function;
+                            if let Some(source_value) = source_optional.as_ref() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "realization.function";
+                                    let source_position = 0usize;
+                                    visitor
+                                        .expression(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source_value,
+                                        )?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+    /// Visit each declared source string once and clear only exactly selected occurrences.
+    /// Plain labels and scientific cells are never passed to the selector.
+    pub fn mask_source_expressions(
+        &mut self,
+        mut select: impl FnMut(SourceGrammar, &str, usize, &str) -> bool,
+    ) -> usize {
+        let mut masked = 0usize;
+        let mut source_ordinals = std::collections::BTreeMap::<String, usize>::new();
+        {
+            let source_value = self;
+            {
+                let source_optional = &mut source_value.r#relaxation;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "relaxation.target";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#target;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "relaxation.nominal";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#nominal;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#continuation;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "continuation.target";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#target;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "continuation.start";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#start;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "continuation.end";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#end;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#scope;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#parameters;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_optional = &mut source_value.r#default_value;
+                                        if let Some(source_value) = source_optional.as_mut() {
+                                            {
+                                                let source_grammar = SourceGrammar::Static;
+                                                let _ = source_grammar;
+                                                let source_role = "scope.parameters.default_value";
+                                                let source_position = source_index_0;
+                                                let source = source_value;
+                                                if select(
+                                                    source_grammar,
+                                                    source_role,
+                                                    source_position,
+                                                    source,
+                                                ) {
+                                                    source.clear();
+                                                    masked += 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#selection;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "scope.selection.criterion";
+                                        let source_position = 0usize;
+                                        let source = &mut source_value.r#criterion;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "scope.selection.tolerance";
+                                        let source_position = 0usize;
+                                        let source = &mut source_value.r#tolerance;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#branch;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Predicate;
+                                    let _ = source_grammar;
+                                    let source_role = "scope.branch";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#operational;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_values = &mut source_value.r#anchors;
+                                        for (source_index_0, source_value) in source_values
+                                            .iter_mut()
+                                            .enumerate()
+                                        {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_grammar = SourceGrammar::Expression;
+                                                    let _ = source_grammar;
+                                                    let source_role = "scope.operational.anchors.target";
+                                                    let source_position = source_index_0;
+                                                    let source = &mut source_value.r#target;
+                                                    if select(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source,
+                                                    ) {
+                                                        source.clear();
+                                                        masked += 1;
+                                                    }
+                                                }
+                                                {
+                                                    let source_grammar = SourceGrammar::Expression;
+                                                    let _ = source_grammar;
+                                                    let source_role = "scope.operational.anchors.expression";
+                                                    let source_position = source_index_0;
+                                                    let source = &mut source_value.r#expression;
+                                                    if select(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source,
+                                                    ) {
+                                                        source.clear();
+                                                        masked += 1;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &mut source_value.r#neighborhood;
+                                        if let Some(source_value) = source_optional.as_mut() {
+                                            {
+                                                let source_grammar = SourceGrammar::Predicate;
+                                                let _ = source_grammar;
+                                                let source_role = "scope.operational.neighborhood";
+                                                let source_position = 0usize;
+                                                let source = source_value;
+                                                if select(
+                                                    source_grammar,
+                                                    source_role,
+                                                    source_position,
+                                                    source,
+                                                ) {
+                                                    source.clear();
+                                                    masked += 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#eligibility;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Predicate;
+                                    let _ = source_grammar;
+                                    let source_role = "scope.eligibility";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#fixture;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_optional = &mut source_value.r#integration;
+                                        if let Some(source_value) = source_optional.as_mut() {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_values = &mut source_value.r#samples;
+                                                    for (source_index_0, source_value) in source_values
+                                                        .iter_mut()
+                                                        .enumerate()
+                                                    {
+                                                        {
+                                                            let source_grammar = SourceGrammar::Expression;
+                                                            let _ = source_grammar;
+                                                            let source_role = "scope.fixture.integration.samples";
+                                                            let source_position = source_index_0;
+                                                            let source = source_value;
+                                                            if select(
+                                                                source_grammar,
+                                                                source_role,
+                                                                source_position,
+                                                                source,
+                                                            ) {
+                                                                source.clear();
+                                                                masked += 1;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                {
+                                                    let source_grammar = SourceGrammar::Expression;
+                                                    let _ = source_grammar;
+                                                    let source_role = "scope.fixture.integration.initial_step";
+                                                    let source_position = 0usize;
+                                                    let source = &mut source_value.r#initial_step;
+                                                    if select(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source,
+                                                    ) {
+                                                        source.clear();
+                                                        masked += 1;
+                                                    }
+                                                }
+                                                {
+                                                    let source_values = &mut source_value.r#quadratures;
+                                                    for (source_index_0, source_value) in source_values
+                                                        .iter_mut()
+                                                        .enumerate()
+                                                    {
+                                                        {
+                                                            let source_value = source_value;
+                                                            {
+                                                                let source_grammar = SourceGrammar::Expression;
+                                                                let _ = source_grammar;
+                                                                let source_role = "scope.fixture.integration.quadratures.target";
+                                                                let source_position = source_index_0;
+                                                                let source = &mut source_value.r#target;
+                                                                if select(
+                                                                    source_grammar,
+                                                                    source_role,
+                                                                    source_position,
+                                                                    source,
+                                                                ) {
+                                                                    source.clear();
+                                                                    masked += 1;
+                                                                }
+                                                            }
+                                                            {
+                                                                let source_grammar = SourceGrammar::Expression;
+                                                                let _ = source_grammar;
+                                                                let source_role = "scope.fixture.integration.quadratures.absolute_tolerance";
+                                                                let source_position = source_index_0;
+                                                                let source = &mut source_value.r#absolute_tolerance;
+                                                                if select(
+                                                                    source_grammar,
+                                                                    source_role,
+                                                                    source_position,
+                                                                    source,
+                                                                ) {
+                                                                    source.clear();
+                                                                    masked += 1;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                {
+                                                    let source_values = &mut source_value.r#schedules;
+                                                    for (source_index_0, source_value) in source_values
+                                                        .iter_mut()
+                                                        .enumerate()
+                                                    {
+                                                        {
+                                                            let source_value = source_value;
+                                                            {
+                                                                let source_grammar = SourceGrammar::Expression;
+                                                                let _ = source_grammar;
+                                                                let source_role_owned = format!(
+                                                                    "scope.fixture.integration.schedules.{0}.target",
+                                                                    source_index_0,
+                                                                );
+                                                                let source_role = source_role_owned.as_str();
+                                                                let source_position = 0usize;
+                                                                let source = &mut source_value.r#target;
+                                                                if select(
+                                                                    source_grammar,
+                                                                    source_role,
+                                                                    source_position,
+                                                                    source,
+                                                                ) {
+                                                                    source.clear();
+                                                                    masked += 1;
+                                                                }
+                                                            }
+                                                            {
+                                                                let source_values = &mut source_value.r#times;
+                                                                for (source_index_1, source_value) in source_values
+                                                                    .iter_mut()
+                                                                    .enumerate()
+                                                                {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Expression;
+                                                                        let _ = source_grammar;
+                                                                        let source_role_owned = format!(
+                                                                            "scope.fixture.integration.schedules.{0}.times",
+                                                                            source_index_0,
+                                                                        );
+                                                                        let source_role = source_role_owned.as_str();
+                                                                        let source_position = source_index_1;
+                                                                        let source = source_value;
+                                                                        if select(
+                                                                            source_grammar,
+                                                                            source_role,
+                                                                            source_position,
+                                                                            source,
+                                                                        ) {
+                                                                            source.clear();
+                                                                            masked += 1;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                            {
+                                                                let source_values = &mut source_value.r#values;
+                                                                for (source_index_1, source_value) in source_values
+                                                                    .iter_mut()
+                                                                    .enumerate()
+                                                                {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Expression;
+                                                                        let _ = source_grammar;
+                                                                        let source_role_owned = format!(
+                                                                            "scope.fixture.integration.schedules.{0}.values",
+                                                                            source_index_0,
+                                                                        );
+                                                                        let source_role = source_role_owned.as_str();
+                                                                        let source_position = source_index_1;
+                                                                        let source = source_value;
+                                                                        if select(
+                                                                            source_grammar,
+                                                                            source_role,
+                                                                            source_position,
+                                                                            source,
+                                                                        ) {
+                                                                            source.clear();
+                                                                            masked += 1;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                            {
+                                                                let source_optional = &mut source_value.r#lower;
+                                                                if let Some(source_value) = source_optional.as_mut() {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Expression;
+                                                                        let _ = source_grammar;
+                                                                        let source_role_owned = format!(
+                                                                            "scope.fixture.integration.schedules.{0}.lower",
+                                                                            source_index_0,
+                                                                        );
+                                                                        let source_role = source_role_owned.as_str();
+                                                                        let source_position = 0usize;
+                                                                        let source = source_value;
+                                                                        if select(
+                                                                            source_grammar,
+                                                                            source_role,
+                                                                            source_position,
+                                                                            source,
+                                                                        ) {
+                                                                            source.clear();
+                                                                            masked += 1;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                            {
+                                                                let source_optional = &mut source_value.r#upper;
+                                                                if let Some(source_value) = source_optional.as_mut() {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Expression;
+                                                                        let _ = source_grammar;
+                                                                        let source_role_owned = format!(
+                                                                            "scope.fixture.integration.schedules.{0}.upper",
+                                                                            source_index_0,
+                                                                        );
+                                                                        let source_role = source_role_owned.as_str();
+                                                                        let source_position = 0usize;
+                                                                        let source = source_value;
+                                                                        if select(
+                                                                            source_grammar,
+                                                                            source_role,
+                                                                            source_position,
+                                                                            source,
+                                                                        ) {
+                                                                            source.clear();
+                                                                            masked += 1;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_values = &mut source_value.r#modes;
+                                        for (source_index_0, source_value) in source_values
+                                            .iter_mut()
+                                            .enumerate()
+                                        {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_values = &mut source_value.r#events;
+                                                    for (source_index_1, source_value) in source_values
+                                                        .iter_mut()
+                                                        .enumerate()
+                                                    {
+                                                        {
+                                                            let source_value = source_value;
+                                                            {
+                                                                let source_grammar = SourceGrammar::Expression;
+                                                                let _ = source_grammar;
+                                                                let source_role = "scope.fixture.modes.events.guard";
+                                                                let source_position = {
+                                                                    let next = source_ordinals
+                                                                        .entry(source_role.to_owned())
+                                                                        .or_default();
+                                                                    let position = *next;
+                                                                    *next += 1;
+                                                                    position
+                                                                };
+                                                                let source = &mut source_value.r#guard;
+                                                                if select(
+                                                                    source_grammar,
+                                                                    source_role,
+                                                                    source_position,
+                                                                    source,
+                                                                ) {
+                                                                    source.clear();
+                                                                    masked += 1;
+                                                                }
+                                                            }
+                                                            {
+                                                                let source_grammar = SourceGrammar::Expression;
+                                                                let _ = source_grammar;
+                                                                let source_role = "scope.fixture.modes.events.tolerance";
+                                                                let source_position = {
+                                                                    let next = source_ordinals
+                                                                        .entry(source_role.to_owned())
+                                                                        .or_default();
+                                                                    let position = *next;
+                                                                    *next += 1;
+                                                                    position
+                                                                };
+                                                                let source = &mut source_value.r#tolerance;
+                                                                if select(
+                                                                    source_grammar,
+                                                                    source_role,
+                                                                    source_position,
+                                                                    source,
+                                                                ) {
+                                                                    source.clear();
+                                                                    masked += 1;
+                                                                }
+                                                            }
+                                                            {
+                                                                let source_values = &mut source_value.r#reset;
+                                                                for (source_index_2, source_value) in source_values
+                                                                    .iter_mut()
+                                                                    .enumerate()
+                                                                {
+                                                                    {
+                                                                        let source_value = source_value;
+                                                                        {
+                                                                            let source_grammar = SourceGrammar::Expression;
+                                                                            let _ = source_grammar;
+                                                                            let source_role_owned = format!(
+                                                                                "scope.fixture.modes.{0}.events.{1}.reset.{2}.target",
+                                                                                source_index_0,
+                                                                                source_index_1,
+                                                                                source_index_2,
+                                                                            );
+                                                                            let source_role = source_role_owned.as_str();
+                                                                            let source_position = 0usize;
+                                                                            let source = &mut source_value.r#target;
+                                                                            if select(
+                                                                                source_grammar,
+                                                                                source_role,
+                                                                                source_position,
+                                                                                source,
+                                                                            ) {
+                                                                                source.clear();
+                                                                                masked += 1;
+                                                                            }
+                                                                        }
+                                                                        {
+                                                                            let source_grammar = SourceGrammar::Expression;
+                                                                            let _ = source_grammar;
+                                                                            let source_role_owned = format!(
+                                                                                "scope.fixture.modes.{0}.events.{1}.reset.{2}.expression",
+                                                                                source_index_0,
+                                                                                source_index_1,
+                                                                                source_index_2,
+                                                                            );
+                                                                            let source_role = source_role_owned.as_str();
+                                                                            let source_position = 0usize;
+                                                                            let source = &mut source_value.r#expression;
+                                                                            if select(
+                                                                                source_grammar,
+                                                                                source_role,
+                                                                                source_position,
+                                                                                source,
+                                                                            ) {
+                                                                                source.clear();
+                                                                                masked += 1;
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &mut source_value.r#shooting;
+                                        if let Some(source_value) = source_optional.as_mut() {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_values = &mut source_value.r#nodes;
+                                                    for (source_index_0, source_value) in source_values
+                                                        .iter_mut()
+                                                        .enumerate()
+                                                    {
+                                                        {
+                                                            let source_grammar = SourceGrammar::Expression;
+                                                            let _ = source_grammar;
+                                                            let source_role = "scope.fixture.shooting.nodes";
+                                                            let source_position = source_index_0;
+                                                            let source = source_value;
+                                                            if select(
+                                                                source_grammar,
+                                                                source_role,
+                                                                source_position,
+                                                                source,
+                                                            ) {
+                                                                source.clear();
+                                                                masked += 1;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &mut source_value.r#expected_failure;
+                                        if let Some(source_value) = source_optional.as_mut() {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_optional = &mut source_value.r#validity;
+                                                    if let Some(source_value) = source_optional.as_mut() {
+                                                        {
+                                                            let source_value = source_value;
+                                                            {
+                                                                let source_values = &mut source_value.r#sets;
+                                                                for (source_index_0, source_value) in source_values
+                                                                    .iter_mut()
+                                                                    .enumerate()
+                                                                {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Static;
+                                                                        let _ = source_grammar;
+                                                                        let source_role = "scope.fixture.expected_failure.validity.sets";
+                                                                        let source_position = source_index_0;
+                                                                        let source = source_value;
+                                                                        if select(
+                                                                            source_grammar,
+                                                                            source_role,
+                                                                            source_position,
+                                                                            source,
+                                                                        ) {
+                                                                            source.clear();
+                                                                            masked += 1;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                            {
+                                                                let source_values = &mut source_value.r#variables;
+                                                                for (source_index_0, source_value) in source_values
+                                                                    .iter_mut()
+                                                                    .enumerate()
+                                                                {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Expression;
+                                                                        let _ = source_grammar;
+                                                                        let source_role = "scope.fixture.expected_failure.validity.variables";
+                                                                        let source_position = source_index_0;
+                                                                        let source = source_value;
+                                                                        if select(
+                                                                            source_grammar,
+                                                                            source_role,
+                                                                            source_position,
+                                                                            source,
+                                                                        ) {
+                                                                            source.clear();
+                                                                            masked += 1;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                {
+                                                    let source_optional = &mut source_value.r#applicability;
+                                                    if let Some(source_value) = source_optional.as_mut() {
+                                                        {
+                                                            let source_value = source_value;
+                                                            {
+                                                                let source_values = &mut source_value.r#sets;
+                                                                for (source_index_0, source_value) in source_values
+                                                                    .iter_mut()
+                                                                    .enumerate()
+                                                                {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Static;
+                                                                        let _ = source_grammar;
+                                                                        let source_role = "scope.fixture.expected_failure.applicability.sets";
+                                                                        let source_position = source_index_0;
+                                                                        let source = source_value;
+                                                                        if select(
+                                                                            source_grammar,
+                                                                            source_role,
+                                                                            source_position,
+                                                                            source,
+                                                                        ) {
+                                                                            source.clear();
+                                                                            masked += 1;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                            {
+                                                                let source_values = &mut source_value.r#variables;
+                                                                for (source_index_0, source_value) in source_values
+                                                                    .iter_mut()
+                                                                    .enumerate()
+                                                                {
+                                                                    {
+                                                                        let source_grammar = SourceGrammar::Expression;
+                                                                        let _ = source_grammar;
+                                                                        let source_role = "scope.fixture.expected_failure.applicability.variables";
+                                                                        let source_position = source_index_0;
+                                                                        let source = source_value;
+                                                                        if select(
+                                                                            source_grammar,
+                                                                            source_role,
+                                                                            source_position,
+                                                                            source,
+                                                                        ) {
+                                                                            source.clear();
+                                                                            masked += 1;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                {
+                                                    let source_values = &mut source_value.r#members;
+                                                    for (source_index_0, source_value) in source_values
+                                                        .iter_mut()
+                                                        .enumerate()
+                                                    {
+                                                        {
+                                                            let source_grammar = SourceGrammar::Expression;
+                                                            let _ = source_grammar;
+                                                            let source_role = "scope.fixture.expected_failure.members";
+                                                            let source_position = source_index_0;
+                                                            let source = source_value;
+                                                            if select(
+                                                                source_grammar,
+                                                                source_role,
+                                                                source_position,
+                                                                source,
+                                                            ) {
+                                                                source.clear();
+                                                                masked += 1;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_values = &mut source_value.r#diagnostics;
+                                        for (source_index_0, source_value) in source_values
+                                            .iter_mut()
+                                            .enumerate()
+                                        {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_values = &mut source_value.r#members;
+                                                    for (source_index_1, source_value) in source_values
+                                                        .iter_mut()
+                                                        .enumerate()
+                                                    {
+                                                        {
+                                                            let source_grammar = SourceGrammar::Expression;
+                                                            let _ = source_grammar;
+                                                            let source_role_owned = format!(
+                                                                "scope.fixture.diagnostics.{0}.members",
+                                                                source_index_0,
+                                                            );
+                                                            let source_role = source_role_owned.as_str();
+                                                            let source_position = source_index_1;
+                                                            let source = source_value;
+                                                            if select(
+                                                                source_grammar,
+                                                                source_role,
+                                                                source_position,
+                                                                source,
+                                                            ) {
+                                                                source.clear();
+                                                                masked += 1;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_values = &mut source_value.r#specifications;
+                                        for (source_index_0, source_value) in source_values
+                                            .iter_mut()
+                                            .enumerate()
+                                        {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_grammar = SourceGrammar::Expression;
+                                                    let _ = source_grammar;
+                                                    let source_role = "scope.fixture.specifications.target";
+                                                    let source_position = source_index_0;
+                                                    let source = &mut source_value.r#target;
+                                                    if select(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source,
+                                                    ) {
+                                                        source.clear();
+                                                        masked += 1;
+                                                    }
+                                                }
+                                                {
+                                                    let source_optional = &mut source_value.r#expression;
+                                                    if let Some(source_value) = source_optional.as_mut() {
+                                                        {
+                                                            let source_grammar = SourceGrammar::Expression;
+                                                            let _ = source_grammar;
+                                                            let source_role = "scope.fixture.specifications.expression";
+                                                            let source_position = source_index_0;
+                                                            let source = source_value;
+                                                            if select(
+                                                                source_grammar,
+                                                                source_role,
+                                                                source_position,
+                                                                source,
+                                                            ) {
+                                                                source.clear();
+                                                                masked += 1;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#binding;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "binding.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#expression;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Static;
+                                    let _ = source_grammar;
+                                    let source_role = "binding.expression";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#defined_by;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Equation;
+                                    let _ = source_grammar;
+                                    let source_role = "binding.defined_by";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#function;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_optional = &mut source_value.r#body;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "function.body";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#validity;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Predicate;
+                                    let _ = source_grammar;
+                                    let source_role = "function.validity";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_values = &mut source_value.r#applicability;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "function.applicability";
+                                    let source_position = source_index_0;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#external;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "function.external.output";
+                                        let source_position = 0usize;
+                                        let source = &mut source_value.r#output;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#coordinate_map;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_optional = &mut source_value.r#validity;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Predicate;
+                                    let _ = source_grammar;
+                                    let source_role = "coordinate_map.validity";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#coordinate_slot;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "coordinate_slot.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "coordinate_slot.expression";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#expression;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#reconstruction;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "reconstruction.normalization";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#normalization;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#response;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "response.body";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#body;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#reference_translation;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "reference_translation.temperature";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#temperature;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "reference_translation.pressure";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#pressure;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#boundary;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "boundary.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#exchange;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "exchange.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "exchange.from";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#from;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "exchange.to";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#to;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#equation;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "equation.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Equation;
+                            let _ = source_grammar;
+                            let source_role = "equation.expression";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#expression;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#condition;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "equation.condition.variable";
+                                        let source_position = 0usize;
+                                        let source = &mut source_value.r#variable;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#ordered_set;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "ordered_set.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "ordered_set.member";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#member;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "ordered_set.weight";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#weight;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#cardinality;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "cardinality.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "cardinality.count";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#count;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "cardinality.member";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#member;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#piecewise;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "piecewise.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "piecewise.output";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#output;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "piecewise.input";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#input;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "piecewise.abscissa";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#abscissa;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "piecewise.ordinate";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#ordinate;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#logic;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "logic.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Proposition;
+                            let _ = source_grammar;
+                            let source_role = "logic.proposition";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#proposition;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#complementarity;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "complementarity.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "complementarity.first";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#first;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "complementarity.second";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#second;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#table;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#columns;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_optional = &mut source_value.r#derived;
+                                        if let Some(source_value) = source_optional.as_mut() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "table.columns.derived";
+                                                let source_position = source_index_0;
+                                                let source = source_value;
+                                                if select(
+                                                    source_grammar,
+                                                    source_role,
+                                                    source_position,
+                                                    source,
+                                                ) {
+                                                    source.clear();
+                                                    masked += 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_values = &mut source_value.r#requirements;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_grammar = SourceGrammar::Predicate;
+                                    let _ = source_grammar;
+                                    let source_role = "table.requirements";
+                                    let source_position = source_index_0;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#applicability;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "applicability.evidence";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#evidence;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#predicate;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Predicate;
+                                    let _ = source_grammar;
+                                    let source_role = "applicability.predicate";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#axis;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "applicability.axis";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#lower;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "applicability.lower";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#upper;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "applicability.upper";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_values = &mut source_value.r#alternatives;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "applicability.alternatives";
+                                    let source_position = source_index_0;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_values = &mut source_value.r#dependencies;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "applicability.dependencies";
+                                    let source_position = source_index_0;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#permission;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#targets;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "permission.targets";
+                                    let source_position = source_index_0;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#attribute;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_optional = &mut source_value.r#derived;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "attribute.derived";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#guard;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Predicate;
+                            let _ = source_grammar;
+                            let source_role = "guard.predicate";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#predicate;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#accumulator;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "accumulator.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#boundary;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "accumulator.boundary";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "accumulator.tolerance";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#tolerance;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#contribution;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "contribution.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "contribution.target";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#target;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "contribution.expression";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#expression;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#state_specification;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "state_specification.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#extends;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "state_specification.extends";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "state_specification.supplied";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#supplied;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_values = &mut source_value.r#coordinates;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_values = &mut source_value.r#indices;
+                                        for (source_index_1, source_value) in source_values
+                                            .iter_mut()
+                                            .enumerate()
+                                        {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_grammar = SourceGrammar::Static;
+                                                    let _ = source_grammar;
+                                                    let source_role_owned = format!(
+                                                        "state_specification.coordinates.{0}.indices.domain",
+                                                        source_index_0,
+                                                    );
+                                                    let source_role = source_role_owned.as_str();
+                                                    let source_position = source_index_1;
+                                                    let source = &mut source_value.r#domain;
+                                                    if select(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source,
+                                                    ) {
+                                                        source.clear();
+                                                        masked += 1;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "state_specification.coordinates.target";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#target;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_values = &mut source_value.r#reconstructions;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_values = &mut source_value.r#indices;
+                                        for (source_index_1, source_value) in source_values
+                                            .iter_mut()
+                                            .enumerate()
+                                        {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_grammar = SourceGrammar::Static;
+                                                    let _ = source_grammar;
+                                                    let source_role_owned = format!(
+                                                        "state_specification.reconstructions.{0}.indices.domain",
+                                                        source_index_0,
+                                                    );
+                                                    let source_role = source_role_owned.as_str();
+                                                    let source_position = source_index_1;
+                                                    let source = &mut source_value.r#domain;
+                                                    if select(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source,
+                                                    ) {
+                                                        source.clear();
+                                                        masked += 1;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_grammar = SourceGrammar::Equation;
+                                        let _ = source_grammar;
+                                        let source_role = "state_specification.reconstructions.equation";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#equation;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "state_specification.reconstructions.tolerance";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#tolerance;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_values = &mut source_value.r#transports;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_values = &mut source_value.r#indices;
+                                        for (source_index_1, source_value) in source_values
+                                            .iter_mut()
+                                            .enumerate()
+                                        {
+                                            {
+                                                let source_value = source_value;
+                                                {
+                                                    let source_grammar = SourceGrammar::Static;
+                                                    let _ = source_grammar;
+                                                    let source_role_owned = format!(
+                                                        "state_specification.transports.{0}.indices.domain",
+                                                        source_index_0,
+                                                    );
+                                                    let source_role = source_role_owned.as_str();
+                                                    let source_position = source_index_1;
+                                                    let source = &mut source_value.r#domain;
+                                                    if select(
+                                                        source_grammar,
+                                                        source_role,
+                                                        source_position,
+                                                        source,
+                                                    ) {
+                                                        source.clear();
+                                                        masked += 1;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "state_specification.transports.expression";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#expression;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "state_specification.transports.tolerance";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#tolerance;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#state_port;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "state_port.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "state_port.specification";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#specification;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#inventory_balance;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "inventory_balance.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "inventory_balance.axis";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#axis;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "inventory_balance.inventory";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#inventory;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "inventory_balance.flux";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#flux;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "inventory_balance.tolerance";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#tolerance;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_values = &mut source_value.r#transfers;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "inventory_balance.transfers.event";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#event;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "inventory_balance.transfers.expression";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#expression;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#connection;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_values = &mut source_value.r#indices;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Static;
+                                        let _ = source_grammar;
+                                        let source_role = "connection.indices.domain";
+                                        let source_position = source_index_0;
+                                        let source = &mut source_value.r#domain;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "connection.from";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#from;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "connection.to";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#to;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#annotation;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        let (source_annotation_grammar, source_annotation_target) = match source_value
+                            .kind
+                        {
+                            super::super::enums::ModelingAnnotationKind::r#Start => {
+                                (Some(SourceGrammar::Expression), true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Nominal => {
+                                (Some(SourceGrammar::Expression), true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Bounds => {
+                                (Some(SourceGrammar::Expression), true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Scale => {
+                                (None, true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Report => {
+                                (Some(SourceGrammar::Static), true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Valid => {
+                                (Some(SourceGrammar::Expression), true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Check => {
+                                (Some(SourceGrammar::Predicate), true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Objective => {
+                                (None, true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#Connectivity => {
+                                (None, true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#AccuracyGoal => {
+                                (None, true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#EngineeringScale => {
+                                (None, true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#EngineeringDefault => {
+                                (None, true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#EngineeringRule => {
+                                (None, false)
+                            }
+                        };
+                        if source_annotation_target {
+                            {
+                                let source_grammar = SourceGrammar::Expression;
+                                let _ = source_grammar;
+                                let source_role = "annotation.target";
+                                let source_position = 0usize;
+                                let source = &mut source_value.r#target;
+                                if select(
+                                    source_grammar,
+                                    source_role,
+                                    source_position,
+                                    source,
+                                ) {
+                                    source.clear();
+                                    masked += 1;
+                                }
+                            }
+                        }
+                        {
+                            let source_values = &mut source_value.r#arguments;
+                            for (source_index_0, source_value) in source_values
+                                .iter_mut()
+                                .enumerate()
+                            {
+                                {
+                                    if let Some(source_grammar) = source_annotation_grammar {
+                                        let _ = source_grammar;
+                                        let source_role = "annotation.arguments";
+                                        let source_position = source_index_0;
+                                        let source = source_value;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#objective;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_optional = &mut source_value.r#weight;
+                                        if let Some(source_value) = source_optional.as_mut() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.objective.weight";
+                                                let source_position = 0usize;
+                                                let source = source_value;
+                                                if select(
+                                                    source_grammar,
+                                                    source_role,
+                                                    source_position,
+                                                    source,
+                                                ) {
+                                                    source.clear();
+                                                    masked += 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &mut source_value.r#normalization;
+                                        if let Some(source_value) = source_optional.as_mut() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.objective.normalization";
+                                                let source_position = 0usize;
+                                                let source = source_value;
+                                                if select(
+                                                    source_grammar,
+                                                    source_role,
+                                                    source_position,
+                                                    source,
+                                                ) {
+                                                    source.clear();
+                                                    masked += 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &mut source_value
+                                            .r#absolute_tolerance;
+                                        if let Some(source_value) = source_optional.as_mut() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.objective.absolute_tolerance";
+                                                let source_position = 0usize;
+                                                let source = source_value;
+                                                if select(
+                                                    source_grammar,
+                                                    source_role,
+                                                    source_position,
+                                                    source,
+                                                ) {
+                                                    source.clear();
+                                                    masked += 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &mut source_value
+                                            .r#relative_tolerance;
+                                        if let Some(source_value) = source_optional.as_mut() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.objective.relative_tolerance";
+                                                let source_position = 0usize;
+                                                let source = source_value;
+                                                if select(
+                                                    source_grammar,
+                                                    source_role,
+                                                    source_position,
+                                                    source,
+                                                ) {
+                                                    source.clear();
+                                                    masked += 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#accuracy_goal;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_optional = &mut source_value.r#time;
+                                        if let Some(source_value) = source_optional.as_mut() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.accuracy_goal.time";
+                                                let source_position = 0usize;
+                                                let source = source_value;
+                                                if select(
+                                                    source_grammar,
+                                                    source_role,
+                                                    source_position,
+                                                    source,
+                                                ) {
+                                                    source.clear();
+                                                    masked += 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &mut source_value.r#resolution;
+                                        if let Some(source_value) = source_optional.as_mut() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.accuracy_goal.resolution";
+                                                let source_position = 0usize;
+                                                let source = source_value;
+                                                if select(
+                                                    source_grammar,
+                                                    source_role,
+                                                    source_position,
+                                                    source,
+                                                ) {
+                                                    source.clear();
+                                                    masked += 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &mut source_value.r#criterion_lower;
+                                        if let Some(source_value) = source_optional.as_mut() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.accuracy_goal.criterion_lower";
+                                                let source_position = 0usize;
+                                                let source = source_value;
+                                                if select(
+                                                    source_grammar,
+                                                    source_role,
+                                                    source_position,
+                                                    source,
+                                                ) {
+                                                    source.clear();
+                                                    masked += 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    {
+                                        let source_optional = &mut source_value.r#criterion_upper;
+                                        if let Some(source_value) = source_optional.as_mut() {
+                                            {
+                                                let source_grammar = SourceGrammar::Expression;
+                                                let _ = source_grammar;
+                                                let source_role = "annotation.accuracy_goal.criterion_upper";
+                                                let source_position = 0usize;
+                                                let source = source_value;
+                                                if select(
+                                                    source_grammar,
+                                                    source_role,
+                                                    source_position,
+                                                    source,
+                                                ) {
+                                                    source.clear();
+                                                    masked += 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#engineering_scale;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_value = source_value;
+                                    {
+                                        let source_grammar = SourceGrammar::Expression;
+                                        let _ = source_grammar;
+                                        let source_role = "annotation.engineering_scale.value";
+                                        let source_position = 0usize;
+                                        let source = &mut source_value.r#value;
+                                        if select(
+                                            source_grammar,
+                                            source_role,
+                                            source_position,
+                                            source,
+                                        ) {
+                                            source.clear();
+                                            masked += 1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#requirement;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Predicate;
+                            let _ = source_grammar;
+                            let source_role = "requirement.predicate";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#predicate;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#expectation;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "expectation.actual";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#actual;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "expectation.expected";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#expected;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "expectation.tolerance";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#tolerance;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#relative_tolerance;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "expectation.relative_tolerance";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#continuous;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "continuous.lower";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#lower;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "continuous.upper";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#upper;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#discretization;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "discretization.elements";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#elements;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                        {
+                            let source_grammar = SourceGrammar::Expression;
+                            let _ = source_grammar;
+                            let source_role = "discretization.order";
+                            let source_position = 0usize;
+                            let source = &mut source_value.r#order;
+                            if select(
+                                source_grammar,
+                                source_role,
+                                source_position,
+                                source,
+                            ) {
+                                source.clear();
+                                masked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            {
+                let source_optional = &mut source_value.r#realization;
+                if let Some(source_value) = source_optional.as_mut() {
+                    {
+                        let source_value = source_value;
+                        {
+                            let source_optional = &mut source_value.r#argument;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "realization.argument";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                        {
+                            let source_optional = &mut source_value.r#function;
+                            if let Some(source_value) = source_optional.as_mut() {
+                                {
+                                    let source_grammar = SourceGrammar::Expression;
+                                    let _ = source_grammar;
+                                    let source_role = "realization.function";
+                                    let source_position = 0usize;
+                                    let source = source_value;
+                                    if select(
+                                        source_grammar,
+                                        source_role,
+                                        source_position,
+                                        source,
+                                    ) {
+                                        source.clear();
+                                        masked += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        masked
     }
 }

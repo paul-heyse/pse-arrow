@@ -1125,20 +1125,20 @@ impl PreparedSolve {
         let mut operations = Vec::new();
         #[cfg(feature = "solver-pounce")]
         if last.is_some_and(|report| report.backend == Backend::Pounce)
-            && let Some((baseline, settings)) = self.pounce_recovery_baseline()?
+            && let Some(baseline) = self.pounce_recovery_baseline()?
         {
             let allow_replacement = self
                 .profile
                 .composition
                 .recovery
                 .contains(&StartOrigin::Auxiliary);
-            let descriptions = native::pounce::second_opinion_profiles(
+            let descriptions = execution::adapter(Backend::Pounce).recovery_profiles(
                 &baseline.controls,
-                &settings,
+                &baseline.backend,
                 last.ok_or_else(|| {
                     ProblemError::Internal("missing actual native observation".into())
                 })?,
-                allow_replacement,
+                execution::RecoveryPermission { replacement_start: allow_replacement },
             )?;
             operations.extend(
                 descriptions
@@ -1147,7 +1147,7 @@ impl PreparedSolve {
                     .map(|(observed_rank, description)| {
                         let mut profile = baseline.clone();
                         profile.controls = description.controls;
-                        profile.backend = BackendSettings::Pounce(description.settings);
+                        profile.backend = description.settings;
                         let mut observed = candidate(
                             MechanismKind::NativeGlobalization,
                             description.replaces_start,
@@ -1228,10 +1228,7 @@ impl PreparedSolve {
             return Vec::new();
         };
         let Some(class) = decision.classes.iter().find(|class| {
-            current_adapter
-                .capability()
-                .automatic_classes
-                .contains(class)
+            current_adapter.capability_for(&self.profile.backend).is_ok_and(|capability| capability.automatic_classes.contains(class))
         }) else {
             return Vec::new();
         };
@@ -1241,11 +1238,11 @@ impl PreparedSolve {
             .filter(|entry| {
                 execution::LINKED
                     .get(entry.backend)
-                    .is_some_and(|adapter| adapter.capability().automatic_classes.contains(class))
+                    .is_some_and(|adapter| adapter.capability_for(&self.profile.backend).is_ok_and(|capability| capability.automatic_classes.contains(class)))
             })
             .cloned()
             .collect::<Vec<_>>();
-        let inventory = routing::policy_candidates(&execution::LINKED, &[*class], false, &choices);
+        let inventory = routing::policy_candidates(&execution::LINKED, &[*class], false, &choices, &self.profile.backend);
         let Some(current_index) = choices.iter().position(|entry| entry.backend == current) else {
             return Vec::new();
         };
@@ -1274,7 +1271,7 @@ impl PreparedSolve {
     #[cfg(feature = "solver-pounce")]
     fn pounce_recovery_baseline(
         &self,
-    ) -> Result<Option<(SolverProfile, native::settings::pounce::Settings)>, ProblemError> {
+    ) -> Result<Option<SolverProfile>, ProblemError> {
         let profile = if self.backend() == Some(Backend::Pounce) {
             self.profile.clone()
         } else if self
@@ -1285,16 +1282,7 @@ impl PreparedSolve {
         } else {
             return Ok(None);
         };
-        let settings = match &profile.backend {
-            BackendSettings::Default => native::settings::pounce::Settings::default(),
-            BackendSettings::Pounce(settings) => settings.clone(),
-            _ => {
-                return Err(ProblemError::Contract(
-                    "POUNCE recovery route settings differ".into(),
-                ));
-            }
-        };
-        Ok(Some((profile, settings)))
+        Ok(Some(profile))
     }
 }
 impl MathService {
@@ -3882,16 +3870,13 @@ impl MathService {
         profile.resolve_curvature(prepared.prepared.plan.available_order());
         profile.controls.validate()?;
         let order = routing::derivative_demand(
-            execution::adapter(selected).capability(),
+            &execution::adapter(selected).capability_for(&profile.backend)?,
             &profile.controls,
         )
         .unwrap_or(pse_kernels::DerivativeOrder::Value);
-        let method = match &profile.backend {
-            BackendSettings::Kinsol(method) => *method,
-            _ => native::kinsol::Method::default(),
-        };
-        let directional_only = selected == Backend::Kinsol && method.consumes_directional_only();
-        let consumes_jvp = selected == Backend::Kinsol && method.consumes_jvp();
+        let demand = execution::adapter(selected).callback_demand(&profile.backend);
+        let directional_only = demand.directional_only;
+        let consumes_jvp = demand.jacobian_product;
         let mut changed = false;
         let prepared = if !directional_only && prepared.prepared.plan.order() < order {
             changed = true;
@@ -5266,7 +5251,7 @@ impl MathService {
         if let Some(c) = &prepared.prepared.coefficients {
             oracle = oracle.with_coefficient_facts(c)?;
         }
-        if run.adapter.backend() == Backend::Pounce
+        if run.adapter.consumes_separator(&profile.backend)
             && profile.composition.policy == pse_model::strategy::CompositionPolicy::Auto
             && let Some(separator) = prepared
                 .compiled()

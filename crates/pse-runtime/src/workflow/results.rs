@@ -49,15 +49,15 @@ impl RunResult {
         if self.completion().is_ok() {
             ids.push(accuracy_goal_assessments::RELATION_ID);
         }
-        match &self.request {
-            super::RunRequest::Horizon(_) => {
+        match &self.outcome {
+            super::RunOutcome::Horizon { execution: super::HorizonRunOutcome::Compact(_), .. } => {
                 ids.extend(super::horizon::prefix::summary_ids());
                 if let Some(report) = &self.horizon_output {
                     ids.extend(report.summaries.keys());
                     ids.extend(&report.detail_membership);
                 }
             }
-            super::RunRequest::Modeling(_) => ids.extend([
+            super::RunOutcome::Modeling { .. } | super::RunOutcome::Horizon { execution: super::HorizonRunOutcome::Full { .. }, .. } => ids.extend([
                 scientific_contexts::RELATION_ID,
                 solve_runs::RELATION_ID,
                 solve_variables::RELATION_ID,
@@ -78,13 +78,13 @@ impl RunResult {
                 route_decisions::RELATION_ID,
                 structural_assessments::RELATION_ID,
             ]),
-            super::RunRequest::Simulation(_) => {
+            super::RunOutcome::Simulation { result, .. } => {
                 ids.push(computation_runs::RELATION_ID);
-                if let Ok(super::RunReport::Simulation(trajectory)) = &self.report {
+                if let Ok(trajectory) = result {
                     ids.extend(trajectory.table_ids());
                 }
             }
-            super::RunRequest::Fit(_) => ids.extend([
+            super::RunOutcome::Fit { .. } => ids.extend([
                 scientific_contexts::RELATION_ID,
                 computation_runs::RELATION_ID,
                 fit_variables::RELATION_ID,
@@ -106,7 +106,7 @@ impl RunResult {
                 propagated_covariances::RELATION_ID,
             ]),
             #[cfg(feature = "solver-diffsol")]
-            super::RunRequest::Shooting { .. } => {
+            super::RunOutcome::Shooting { result, .. } => {
                 ids.extend([
                     computation_runs::RELATION_ID,
                     solve_variables::RELATION_ID,
@@ -115,7 +115,7 @@ impl RunResult {
                     solve_strategy_events::RELATION_ID,
                     solve_strategy_products::RELATION_ID,
                 ]);
-                if let Ok(super::RunReport::Shooting(report)) = &self.report
+                if let Ok(report) = result
                     && report.trajectory.is_some()
                 {
                     ids.extend(super::ModelingTrajectory::relation_ids());
@@ -439,7 +439,7 @@ impl RunResult {
             accuracy_goal_assessments, candidate_assessments, resolved_numerics, run_lineage,
         };
         let id = projection.relation;
-        if matches!(self.request, super::RunRequest::Horizon(_)) {
+        if matches!(self.request(), super::RunRequest::Horizon(_)) {
             if super::horizon::prefix::summary_ids().contains(&id)
                 && let Some(report) = &self.horizon_output
                 && let Some(error) = &report.summary_error
@@ -532,7 +532,7 @@ impl RunResult {
         {
             return self.project_common(projection).await;
         }
-        match &self.request {
+        match self.request() {
             super::RunRequest::Horizon(_) => Err(contract("horizon detail was not selected")),
             super::RunRequest::Simulation(_) => self.encode_simulation(projection).await,
             super::RunRequest::Modeling(_) => self.encode_modeling(projection).await,

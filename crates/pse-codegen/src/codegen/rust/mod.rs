@@ -8,11 +8,14 @@ mod arguments;
 mod columnar;
 mod contracts;
 mod enums;
+mod expression_fields;
 mod field_facets;
 pub(crate) mod identities;
 pub mod physical;
+mod products;
 mod registry;
 mod relation;
+mod result_selection;
 mod semantic;
 mod typed_local;
 pub(crate) mod types;
@@ -121,6 +124,8 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             pub mod identities;
             /// Enforced algorithm argument projections.
             pub mod algorithm_arguments;
+            /// Scientific access fields and new-batch ordering from registry declarations.
+            pub mod result_selection;
             /// Registry identity; validity is established by admission.
             pub const REGISTRY_FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([#(#bytes),*]);
             /// Resolves an exact declaration from the current registry.
@@ -132,6 +137,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         },
     )?;
     emit(&mut tree, format!("{ROOT}/enums.rs"), enums::render(reg)?)?;
+    emit(&mut tree, format!("{ROOT}/result_selection.rs"), result_selection::render(reg)?)?;
     emit(&mut tree, format!("{ROOT}/structures.rs"), structures(reg)?)?;
     emit(
         &mut tree,
@@ -175,6 +181,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     )?;
     semantic::split(&mut tree, reg)?;
     semantic::facts(&mut tree, reg)?;
+    emit(&mut tree, "crates/pse-model/src/generated/products.rs", products::render(reg)?)?;
     // After the split: typed ids are declared in pse-model and only re-exported here.
     identities::emit(&mut tree, reg)?;
     Ok(tree)

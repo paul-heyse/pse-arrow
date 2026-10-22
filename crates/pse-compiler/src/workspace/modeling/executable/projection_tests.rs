@@ -9,6 +9,48 @@ use pse_authoring::{
 };
 use pse_modeling::{Limits, specialize::Bindings};
 
+#[test]
+fn dependency_index_reaches_unexpressed_rates_and_preserves_guard_closure() {
+    let id = |n| SemanticId::from_bytes([n; 16]);
+    let expression = |n| symbol_expression(id(n));
+    let mut index = dependencies::Dependencies::new((1..=7).map(id));
+    index.expression(id(2), &expression(1));
+    index.expression(id(3), &expression(2));
+    index.expression(id(4), &expression(3));
+    index.guard(id(3), &expression(5));
+    index.expression(id(5), &expression(6));
+    let workspace = CompilerWorkspace::new(crate::authored_transfer_tests::context(), WorkspaceLimits::default()).unwrap();
+    let reached = index.consumers([id(1)], &workspace.db);
+    assert_eq!(reached, BTreeSet::from([id(1), id(2), id(3), id(4)]));
+    assert_eq!(index.reads(&expression(4)), BTreeSet::from([id(1), id(2), id(3), id(4), id(5), id(6)]));
+    assert!(!reached.contains(&id(7)));
+    let members = BTreeSet::from([id(2), id(3), id(5)]);
+    let order = index.order(&members).unwrap();
+    assert!(order.iter().position(|id| *id == SemanticId::from_bytes([2; 16])).unwrap() < order.iter().position(|id| *id == SemanticId::from_bytes([3; 16])).unwrap());
+    index.expression(id(2), &expression(3));
+    assert!(index.order(&members).is_err());
+}
+
+#[test]
+fn dependency_index_traversal_honors_cancellation() {
+    let id = SemanticId::from_bytes([1; 16]);
+    let index = dependencies::Dependencies::new([id]);
+    let workspace = CompilerWorkspace::new(crate::authored_transfer_tests::context(), WorkspaceLimits::default()).unwrap();
+    workspace.db.cancel.store(true, Ordering::Release);
+    assert!(salsa::Cancelled::catch(|| index.consumers([id], &workspace.db)).is_err());
+}
+
+#[test]
+fn member_reads_follow_guards_on_free_inputs_transitively() {
+    let id = |n| SemanticId::from_bytes([n; 16]);
+    let bindings = vec![(symbol_name(id(2)), number_expression(2.0)), (symbol_name(id(3)), number_expression(3.0))];
+    let validity = BTreeMap::from([
+        (symbol_name(id(1)), crate::typed_math::Validity { lower: symbol_expression(id(2)), upper: number_expression(10.0), source: id(8), target: id(1) }),
+        (symbol_name(id(2)), crate::typed_math::Validity { lower: symbol_expression(id(3)), upper: number_expression(10.0), source: id(9), target: id(2) }),
+    ]);
+    assert_eq!(MemberReads::new(&bindings, &validity).closure(&symbol_expression(id(1))), BTreeSet::from([0, 1]));
+}
+
 /// A mesh of `cells` replicas, each with a local expression member and one equation, and
 /// one member that reads every replica.
 fn projected(cells: usize) -> Arc<Projection> {

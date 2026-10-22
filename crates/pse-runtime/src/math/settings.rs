@@ -25,12 +25,13 @@ pub struct SolveSettings {
     /// Validated against the actual compiler scope even when direct execution wins;
     /// applied only if the governing policy selects the block mechanism.
     #[serde(default)]
+    #[schemars(with = "pse_ids::document::KeyedMap<pse_structural::incidence::BlockId, BlockSolveOverride>")]
     pub block_overrides: BTreeMap<pse_structural::incidence::BlockId, BlockSolveOverride>,
     /// Maximum independent ready blocks; actual capacity is admitted by the existing owner.
     #[serde(default = "defaults::block_workers")]
     pub block_workers: usize,
     /// Document version.
-    pub version: Version<4>,
+    pub version: Version<5>,
     /// Requested composition; omission chooses automatic resolution without replacement starts.
     #[serde(default)]
     pub composition: pse_model::strategy::CompositionRequest,
@@ -108,41 +109,124 @@ pub struct Propagation {
     pub outputs: Vec<pse_ids::SemanticId>,
 }
 /// A parameter covariance as `runtime.parameter_covariances` publishes it.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ParameterCovariance {
-    /// The fit run that derived it.
-    pub run_id: pse_model::generated::identities::RunId,
+    /// Covariance input interpretation; required before decoding its body.
+    pub version: Version<1>,
+    /// A qualified fit reference or explicit external statistical assumptions.
+    pub origin: CovarianceOrigin,
     /// The fitted parameters by identity, in the order of `values`.
     pub parameters: Vec<pse_ids::SemanticId>,
     /// `Σ_θ` row-major, in the parameters' units.
     pub values: Vec<FiniteBound>,
+    /// Positive coordinate scales in those same units, in parameter order.
+    /// Fit inputs use their recorded scales; external inputs declare their scales.
+    pub scales: Vec<FiniteBound>,
+    /// Complete quantity contracts and representation units, in parameter order.
+    pub parameter_quantities: Vec<pse_ids::SemanticId>,
+    /// Representation unit of each matrix row/column and its coordinate scale.
+    pub parameter_units: Vec<pse_ids::SemanticId>,
+    // Deserialization cannot create evidence. A fit payload is reconciled against
+    // actual immutable results before this process-local authority is issued.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub(crate) verified: Option<std::sync::Arc<VerifiedFitCovariance>>,
+}
+
+/// Exact canonical selection of the fit that owns the covariance.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FitCovarianceRecord {
+    /// Native canonical run key.
+    pub run: String,
+    /// Exact native attempt key; latest-result substitution is not allowed.
+    pub attempt: String,
+}
+/// Statistical provenance is independent of matrix admissibility.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CovarianceOrigin {
+    /// Resolve or reconcile actual qualified fit content and its local validity.
+    QualifiedFit {
+        /// Scientific run identity, checked against the selected actual fit.
+        run_id: pse_model::generated::identities::RunId,
+        /// Absent only for a still-owned in-process fit; a decoded reference then refuses.
+        record: Option<FitCovarianceRecord>,
+    },
+    /// Caller-declared covariance with uncertified statistical provenance.
+    External {
+        /// Attribution label; it never identifies a certified fit.
+        label: String,
+        /// Explicit statistical assumptions of this external input.
+        assumptions: Vec<String>,
+    },
+}
+
+#[derive(Debug)]
+pub(crate) struct VerifiedFitCovariance {
+    pub(crate) content: pse_ids::ContentHash,
+    pub(crate) source: pse_ids::ContentHash,
+    pub(crate) physical: pse_ids::ContentHash,
+    pub(crate) validity: pse_model::generated::structures::LocalValidity,
+    pub(crate) _owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+}
+impl PartialEq for ParameterCovariance {
+    fn eq(&self, other: &Self) -> bool {
+        self.origin == other.origin && self.parameters == other.parameters
+            && self.values == other.values && self.scales == other.scales
+            && self.parameter_quantities == other.parameter_quantities
+            && self.parameter_units == other.parameter_units
+    }
 }
 impl ParameterCovariance {
-    /// Distinct parameters and a square, symmetric `values` over them with a nonnegative
-    /// diagonal.
+    /// A numerical covariance supplied under explicit external assumptions.
+    pub fn external(
+        parameters: Vec<pse_ids::SemanticId>, parameter_quantities: Vec<pse_ids::SemanticId>,
+        parameter_units: Vec<pse_ids::SemanticId>, values: Vec<FiniteBound>,
+        scales: Vec<FiniteBound>, label: String, assumptions: Vec<String>,
+    ) -> Self {
+        Self { version: Version, origin: CovarianceOrigin::External { label, assumptions }, parameters,
+            parameter_quantities, parameter_units, values, scales, verified: None }
+    }
+    pub(crate) fn content(&self) -> Result<pse_ids::ContentHash, ProblemError> {
+        pse_ids::document::of(pse_ids::Frame::CovarianceInputV1, self)
+            .map_err(|error| ProblemError::Contract(error.to_string()))
+    }
+    pub(crate) fn verified_fit(&self) -> Result<Option<&VerifiedFitCovariance>, ProblemError> {
+        match &self.origin {
+            CovarianceOrigin::External { .. } => Ok(None),
+            CovarianceOrigin::QualifiedFit { .. } => self.verified.as_deref()
+                .filter(|proof| proof.validity.certified)
+                .filter(|proof| self.content().is_ok_and(|content| content == proof.content))
+                .map(Some)
+                .ok_or_else(|| ProblemError::Contract("fit covariance payload has not been reconciled with its actual qualified result".into())),
+        }
+    }
+    /// Structural input admission. Mathematical PSD admission also requires the
+    /// caller's resource owner and is performed before propagation.
     ///
     /// # Errors
     /// A contract error naming the violated rule.
     pub fn admit(&self) -> Result<(), ProblemError> {
         let n = self.parameters.len();
         let distinct: BTreeSet<_> = self.parameters.iter().collect();
-        let value = |i: usize, j: usize| self.values[i * n + j].into_inner();
-        let scale = self
-            .values
-            .iter()
-            .fold(0.0_f64, |m, v| m.max(v.into_inner().abs()));
         if n == 0
             || distinct.len() != n
-            || self.values.len() != n * n
-            || (0..n).any(|i| {
-                value(i, i) < 0.0
-                    || (0..i).any(|j| (value(i, j) - value(j, i)).abs() > 1e-12 * scale)
-            })
+            || n.checked_mul(n) != Some(self.values.len())
+            || self.scales.len() != n
+            || self.parameter_quantities.len() != n
+            || self.parameter_units.len() != n
+            || self.scales.iter().any(|scale| scale.into_inner() <= 0.0)
         {
             return Err(ProblemError::Contract(
-                "a parameter covariance names distinct parameters and a symmetric square matrix over them with a nonnegative diagonal".into(),
+                "a parameter covariance names distinct parameters, a square finite matrix and one positive scale per parameter".into(),
             ));
+        }
+        if let CovarianceOrigin::External { label, assumptions } = &self.origin
+            && (label.trim().is_empty() || assumptions.is_empty() || assumptions.iter().any(|value| value.trim().is_empty()))
+        {
+            return Err(ProblemError::Contract("external covariance requires an attribution label and explicit nonempty assumptions".into()));
         }
         Ok(())
     }
@@ -381,10 +465,10 @@ mod tests {
     #[test]
     fn current_request_admits_version_before_body_and_preserves_start_grants() {
         let old = br#"{"settings":{"backend":"retired"},"version":1}"#;
-        let error = pse_model::document::decode_versioned::<SolveSettings, 4>(old).unwrap_err();
+        let error = pse_model::document::decode_versioned::<SolveSettings, 5>(old).unwrap_err();
         assert!(error.to_string().contains("explicit readmission"));
         let current =
-            pse_model::document::decode_versioned::<SolveSettings, 4>(br#"{"version":4}"#).unwrap();
+            pse_model::document::decode_versioned::<SolveSettings, 5>(br#"{"version":5}"#).unwrap();
         assert_eq!(
             current.composition.policy,
             pse_model::strategy::CompositionPolicy::Auto
@@ -414,7 +498,7 @@ mod tests {
     #[test]
     fn solve_settings_enum_types() {
         let settings: SolveSettings = serde_json::from_value(json!({
-            "version": 4,
+            "version": 5,
             "intent": "root",
             "backend": "kinsol",
             "presolve": "explicit",
@@ -428,10 +512,10 @@ mod tests {
         assert_eq!(settings.presolve, PolicyKind::Explicit);
         assert_eq!(settings.required_passes, BTreeSet::from([Pass::Fbbt]));
         for misspelled in [
-            json!({"version": 4, "intent": "rooot"}),
-            json!({"version": 4, "presolve": "magic"}),
-            json!({"version": 4, "controls": {"reuse": "sometimes"}}),
-            json!({"version": 4, "settings": {"backend": "gurobi"}}),
+            json!({"version": 5, "intent": "rooot"}),
+            json!({"version": 5, "presolve": "magic"}),
+            json!({"version": 5, "controls": {"reuse": "sometimes"}}),
+            json!({"version": 5, "settings": {"backend": "gurobi"}}),
             json!({"version": 1}),
             json!({"intent": "root"}),
         ] {
@@ -461,7 +545,7 @@ mod tests {
             pse_ids::SemanticId::from_bytes([2; 16]),
         );
         let settings: SolveSettings = serde_json::from_value(json!({
-            "version": 4,
+            "version": 5,
             "sensitivity": {"parameters": [a, b], "reduced_hessian": true},
         }))
         .unwrap();
@@ -479,21 +563,21 @@ mod tests {
             super::super::solves::profile_key(&plain).unwrap()
         );
         let root: SolveSettings = serde_json::from_value(
-            json!({"version":4,"intent":"root","sensitivity":{"parameters":[a]}}),
+            json!({"version":5,"intent":"root","sensitivity":{"parameters":[a]}}),
         )
         .unwrap();
         assert!(root.profile().is_ok());
         for refused in [
-            json!({"version": 4, "intent": "root", "sensitivity": {"parameters": [a], "reduced_hessian": true}}),
-            json!({"version": 4, "sensitivity": {"parameters": [a, a]}}),
-            json!({"version": 4, "sensitivity": {"parameters": []}}),
+            json!({"version": 5, "intent": "root", "sensitivity": {"parameters": [a], "reduced_hessian": true}}),
+            json!({"version": 5, "sensitivity": {"parameters": [a, a]}}),
+            json!({"version": 5, "sensitivity": {"parameters": []}}),
         ] {
             let settings: SolveSettings = serde_json::from_value(refused.clone()).unwrap();
             assert!(settings.profile().is_err(), "{refused}");
         }
         assert!(
             serde_json::from_value::<SolveSettings>(json!({
-                "version": 4,
+                "version": 5,
                 "sensitivity": {"parameters": [a], "gradient": true},
             }))
             .is_err()
@@ -505,10 +589,12 @@ mod tests {
         let propagating = |parameters: serde_json::Value,
                            values: serde_json::Value,
                            outputs: serde_json::Value| {
+            let count = parameters.as_array().unwrap().len();
             serde_json::from_value::<SolveSettings>(json!({
-                "version": 4,
+                "version": 5,
                 "sensitivity": {"parameters": [a, b], "propagation": {
-                    "covariance": {"run_id": run, "parameters": parameters, "values": values},
+                    "covariance": {"version": 1, "origin": {"kind": "external", "label": "admission control", "assumptions": ["declared model"]}, "parameters": parameters, "values": values,
+                        "parameter_quantities": vec![a; count], "parameter_units": vec![run; count], "scales": vec![1.0; count]},
                     "outputs": outputs,
                 }},
             }))
@@ -539,19 +625,19 @@ mod tests {
     fn invalid_tolerance_refused_at_decode() {
         for (document, cause) in [
             (
-                json!({"version": 4, "settings": {"backend": "ipopt", "bound_push": -1.0}}),
+                json!({"version": 5, "settings": {"backend": "ipopt", "bound_push": -1.0}}),
                 "Tolerance",
             ),
             (
-                json!({"version": 4, "settings": {"backend": "kinsol", "damping": 1.5}}),
+                json!({"version": 5, "settings": {"backend": "kinsol", "damping": 1.5}}),
                 "Fraction",
             ),
             (
-                json!({"version": 4, "settings": {"backend": "kinsol", "linear": {"kind": "spgmr", "dimension": 0}}}),
+                json!({"version": 5, "settings": {"backend": "kinsol", "linear": {"kind": "spgmr", "dimension": 0}}}),
                 "PositiveCount",
             ),
             (
-                json!({"version": 4, "controls": {"time_limit": -3.0}}),
+                json!({"version": 5, "controls": {"time_limit": -3.0}}),
                 "seconds",
             ),
         ] {
@@ -566,7 +652,7 @@ mod tests {
         );
         // Cross-field rules stay admission rules with typed reasons.
         let options = serde_json::from_value::<SolveSettings>(json!({
-            "version": 4,
+            "version": 5,
             "presolve_options": {"max_passes": 3},
         }))
         .unwrap();
@@ -575,7 +661,7 @@ mod tests {
             Err(MathRuntimeError::Solve(ProblemError::Contract(_)))
         ));
         let one_budget = serde_json::from_value::<SolveSettings>(json!({
-            "version": 4,
+            "version": 5,
             "convexity_absolute": 1e-9,
         }))
         .unwrap();

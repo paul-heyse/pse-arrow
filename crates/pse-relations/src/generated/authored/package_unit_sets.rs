@@ -13,15 +13,17 @@ pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "package_unit_sets";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "authored.package_unit_sets";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    172u8, 131u8, 59u8, 25u8, 178u8, 57u8, 33u8, 229u8, 40u8, 5u8, 55u8, 19u8, 191u8,
-    120u8, 209u8, 201u8, 64u8, 94u8, 235u8, 139u8, 230u8, 56u8, 154u8, 9u8, 78u8, 127u8,
-    39u8, 146u8, 178u8, 139u8, 51u8, 58u8,
+    67u8, 158u8, 153u8, 175u8, 1u8, 133u8, 23u8, 161u8, 34u8, 88u8, 170u8, 32u8, 73u8,
+    1u8, 106u8, 36u8, 216u8, 10u8, 243u8, 215u8, 31u8, 214u8, 89u8, 12u8, 58u8, 158u8,
+    35u8, 253u8, 112u8, 226u8, 35u8, 181u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredPackageUnitSetsRow {
     fn append(

@@ -1198,6 +1198,30 @@ impl PartialEq for ScientificArtifactCoordinate {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ScientificCoordinateValue {
+    ///coordinate_id
+    pub r#coordinate_id: pse_ids::SemanticId,
+    ///value
+    pub r#value: crate::generated::extension_values::QuantityValue,
+}
+impl crate::SemanticEq for ScientificCoordinateValue {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#coordinate_id, &other.r#coordinate_id)
+            && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+    }
+}
+impl PartialEq for ScientificCoordinateValue {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct VersionRequirement {
     ///operator
     pub r#operator: crate::generated::enums::ModelingVersionOperator,
@@ -1791,6 +1815,21 @@ impl crate::HeapUsage for ScientificArtifactCoordinate {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unit_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scale))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#offset))
+    }
+}
+impl crate::SemanticFrame for ScientificCoordinateValue {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#coordinate_id));
+        crate::SemanticFrame::frame(&self.r#coordinate_id, hash);
+        hash.str(stringify!(r#value));
+        crate::SemanticFrame::frame(&self.r#value, hash);
+    }
+}
+impl crate::HeapUsage for ScientificCoordinateValue {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#coordinate_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
     }
 }
 impl crate::SemanticFrame for VersionRequirement {

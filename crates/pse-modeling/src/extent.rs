@@ -193,7 +193,7 @@ pub(crate) fn equation(value: &Equation) -> usize {
             } => predicate(guard) + equation(then) + equation(otherwise),
         }
 }
-fn lineage(v: &Lineage) -> usize {
+pub(crate) fn lineage(v: &Lineage) -> usize {
     v.path.capacity()
         + (v.demand.capacity() + v.presets.capacity()) * size_of::<pse_ids::SemanticId>()
 }
@@ -425,6 +425,7 @@ impl SpecializedModel {
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + crate::expression::occurrences::retained_bytes(self.source_occurrences())
+            + self.finite_facts.retained_bytes()
             + selections(&self.selection_closures)
             + map(&self.root_selections, |_, s| match s {
                 crate::specialize::RootSelection::Branch(p) => predicate(p),
@@ -560,12 +561,7 @@ impl SpecializedModel {
                         .map(|(_, v)| v.capacity() * size_of::<(usize, f64)>())
                         .sum::<usize>()
             })
-            + map(&self.symbols, |_, s| {
-                ty(&s.ty)
-                    + s.expression.as_ref().map_or(0, expression)
-                    + s.initial.as_ref().map_or(0, Value::retained_bytes)
-                    + lineage(&s.lineage)
-            })
+            + self.symbols.retained_bytes()
             + self.equations.capacity() * size_of::<crate::specialize::Row>()
             + self
                 .equations

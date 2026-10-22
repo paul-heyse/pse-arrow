@@ -13,15 +13,17 @@ pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "conversion_rules";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "reference.conversion_rules";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Reference;
 /// The schema generation.
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    139u8, 157u8, 137u8, 7u8, 55u8, 133u8, 16u8, 203u8, 8u8, 124u8, 174u8, 75u8, 79u8,
-    92u8, 65u8, 15u8, 52u8, 74u8, 170u8, 32u8, 202u8, 167u8, 247u8, 62u8, 3u8, 25u8,
-    131u8, 136u8, 193u8, 237u8, 29u8, 8u8,
+    210u8, 235u8, 219u8, 173u8, 216u8, 107u8, 12u8, 60u8, 218u8, 118u8, 102u8, 192u8,
+    182u8, 200u8, 156u8, 73u8, 86u8, 88u8, 221u8, 80u8, 215u8, 53u8, 213u8, 237u8, 37u8,
+    208u8, 183u8, 2u8, 134u8, 77u8, 211u8, 127u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceConversionRulesRow {
     fn append(

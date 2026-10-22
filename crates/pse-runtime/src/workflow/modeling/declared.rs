@@ -836,12 +836,10 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let compiler = crate::workflow::tests::compiler_profile();
         let execution = package
-            .declared_execution(
+            .admit_declared_request(
                 root,
-                compiler,
+                &crate::workflow::PreparationSettings { compiler, limits: Limits::default() },
                 Default::default(),
-                Default::default(),
-                Limits::default(),
                 &cancel,
             )
             .await

@@ -20,7 +20,7 @@ pub use float::{
     CANONICAL_F32_NAN_BITS, CANONICAL_F64_NAN_BITS, canonical_f32_bits, canonical_f64_bits,
 };
 pub use frame::FrameSink;
-pub use id::{ContentHash, EncodingChecksum, LogicalHash, SchemaVersion, SemanticId};
+pub use id::{ContentHash, EncodingChecksum, SchemaVersion, SemanticId};
 
 /// The serde paths [`semantic_id_newtype!`] expands to; not a public interface.
 #[doc(hidden)]

@@ -389,7 +389,7 @@ fn field_extent(value: Option<&Value>, ty: &FieldContract) -> Result<usize, Driv
 fn expression_extent(value: &Value, ty: &FieldContract, path: usize) -> Result<usize, DriverError> {
     let mut bytes = mul(add(path, 32)?, 8)?;
     match (value, ty.extension(), ty.data_type()) {
-        (Value::Text(text), Some(ExtensionUse::ExprDsl), _) => {
+        (Value::Text(text), Some(ExtensionUse::ExprDsl(_)), _) => {
             // A token witnesses every AST node (with at most a wrapper plus a
             // boxed/list node). Names/unit strings together are bounded by the
             // source; nested syntax does not duplicate complete source suffixes.

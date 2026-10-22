@@ -14,7 +14,25 @@ pub struct RuntimePropagatedCovariancesRow {
     ///step
     pub r#step: i64,
     ///The fit run whose parameter covariance was propagated: this run for a fit's own predictions.
-    pub r#covariance_run_id: crate::generated::identities::RunId,
+    pub r#covariance_run_id: Option<crate::generated::identities::RunId>,
+    ///covariance_origin
+    pub r#covariance_origin: crate::generated::enums::CovarianceInputOrigin,
+    ///covariance_label
+    pub r#covariance_label: String,
+    ///covariance_assumptions
+    pub r#covariance_assumptions: Vec<String>,
+    ///covariance_source_identity
+    pub r#covariance_source_identity: Option<pse_ids::ContentHash>,
+    ///covariance_physical_identity
+    pub r#covariance_physical_identity: Option<pse_ids::ContentHash>,
+    ///parameter_scales
+    pub r#parameter_scales: Vec<f64>,
+    ///Infinity norm after dividing each covariance axis by its declared parameter scale.
+    pub r#psd_norm_inf: f64,
+    ///64*EPSILON*n*max(1,norm_inf), used for dimensionless symmetry and the least eigenvalue.
+    pub r#psd_tolerance: f64,
+    ///Least finite eigenvalue returned by lower-triangle sequential faer without eigenvectors; no matrix repair was made.
+    pub r#psd_minimum_eigenvalue: f64,
     ///The fitted parameters propagated, in the covariance's order.
     pub r#parameters: Vec<pse_ids::SemanticId>,
     ///The solved variables of a modeling step, or the included observations whose predictions a fit propagates: the order of every other output list.
@@ -31,6 +49,42 @@ impl crate::SemanticEq for RuntimePropagatedCovariancesRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#covariance_run_id,
                 &other.r#covariance_run_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#covariance_origin,
+                &other.r#covariance_origin,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#covariance_label,
+                &other.r#covariance_label,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#covariance_assumptions,
+                &other.r#covariance_assumptions,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#covariance_source_identity,
+                &other.r#covariance_source_identity,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#covariance_physical_identity,
+                &other.r#covariance_physical_identity,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#parameter_scales,
+                &other.r#parameter_scales,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#psd_norm_inf,
+                &other.r#psd_norm_inf,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#psd_tolerance,
+                &other.r#psd_tolerance,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#psd_minimum_eigenvalue,
+                &other.r#psd_minimum_eigenvalue,
             ) && crate::SemanticEq::semantic_eq(&self.r#parameters, &other.r#parameters)
             && crate::SemanticEq::semantic_eq(&self.r#outputs, &other.r#outputs)
             && crate::SemanticEq::semantic_eq(
@@ -54,6 +108,24 @@ impl crate::SemanticFrame for RuntimePropagatedCovariancesRow {
         crate::SemanticFrame::frame(&self.r#step, hash);
         hash.str(stringify!(r#covariance_run_id));
         crate::SemanticFrame::frame(&self.r#covariance_run_id, hash);
+        hash.str(stringify!(r#covariance_origin));
+        crate::SemanticFrame::frame(&self.r#covariance_origin, hash);
+        hash.str(stringify!(r#covariance_label));
+        crate::SemanticFrame::frame(&self.r#covariance_label, hash);
+        hash.str(stringify!(r#covariance_assumptions));
+        crate::SemanticFrame::frame(&self.r#covariance_assumptions, hash);
+        hash.str(stringify!(r#covariance_source_identity));
+        crate::SemanticFrame::frame(&self.r#covariance_source_identity, hash);
+        hash.str(stringify!(r#covariance_physical_identity));
+        crate::SemanticFrame::frame(&self.r#covariance_physical_identity, hash);
+        hash.str(stringify!(r#parameter_scales));
+        crate::SemanticFrame::frame(&self.r#parameter_scales, hash);
+        hash.str(stringify!(r#psd_norm_inf));
+        crate::SemanticFrame::frame(&self.r#psd_norm_inf, hash);
+        hash.str(stringify!(r#psd_tolerance));
+        crate::SemanticFrame::frame(&self.r#psd_tolerance, hash);
+        hash.str(stringify!(r#psd_minimum_eigenvalue));
+        crate::SemanticFrame::frame(&self.r#psd_minimum_eigenvalue, hash);
         hash.str(stringify!(r#parameters));
         crate::SemanticFrame::frame(&self.r#parameters, hash);
         hash.str(stringify!(r#outputs));
@@ -70,6 +142,19 @@ impl crate::HeapUsage for RuntimePropagatedCovariancesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#run_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#step))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#covariance_run_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#covariance_origin))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#covariance_label))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#covariance_assumptions))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#covariance_source_identity),
+            )
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#covariance_physical_identity),
+            )
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parameter_scales))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#psd_norm_inf))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#psd_tolerance))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#psd_minimum_eigenvalue))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parameters))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#outputs))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#output_units))

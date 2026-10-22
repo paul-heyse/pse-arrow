@@ -20,12 +20,12 @@
 //! deliberately absent until then, because a module declaring an empty generated
 //! directory would make `codegen --check` pass over nothing.
 
-pub mod canonical;
 pub mod columnar;
 pub mod error;
 pub mod ext;
 pub mod identity;
 pub mod physical;
+pub mod result_batch;
 
 pub mod registry_relations;
 #[cfg(any(test, feature = "test-support"))]

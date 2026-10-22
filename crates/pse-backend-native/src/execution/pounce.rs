@@ -42,6 +42,44 @@ impl BackendExecution for Pounce {
     fn capability(&self) -> &'static Capability {
         &CAPABILITY
     }
+    fn recovery_profiles(
+        &self,
+        controls: &crate::solve::Controls,
+        settings: &BackendSettings,
+        report: &SolveReport,
+        permission: super::RecoveryPermission,
+    ) -> Result<Vec<super::RecoveryProfile>, ProblemError> {
+        #[cfg(feature = "pounce")]
+        {
+            let settings = match settings {
+                BackendSettings::Default => crate::settings::pounce::Settings::default(),
+                BackendSettings::Pounce(settings) => settings.clone(),
+                _ => return Err(super::foreign(Backend::Pounce)),
+            };
+            controls.validate()?;
+            settings.restart.validate()?;
+            settings.curvature_options(controls.hessian)?;
+            if report.backend != Backend::Pounce {
+                return Err(ProblemError::Contract("recovery observation belongs to another backend".into()));
+            }
+            crate::pounce::second_opinion_profiles(controls, &settings, report, permission.replacement_start)
+                .map(|profiles| profiles.into_iter().map(|profile| super::RecoveryProfile {
+                    label: profile.label,
+                    controls: profile.controls,
+                    settings: BackendSettings::Pounce(profile.settings),
+                    replaces_start: profile.replaces_start,
+                    perturbation: profile.perturbation,
+                }).collect())
+        }
+        #[cfg(not(feature = "pounce"))]
+        {
+            let _ = (controls, settings, report, permission);
+            Err(super::unlinked(Backend::Pounce))
+        }
+    }
+    fn consumes_separator(&self, _settings: &BackendSettings) -> bool {
+        true
+    }
     fn representation(&self) -> Representation {
         Representation::Nlp
     }

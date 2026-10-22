@@ -114,6 +114,10 @@ fn supported(field: &FieldContract, path: &str) -> Result<(), SchemaError> {
         field_facets::ROLE,
         field_facets::DOC,
         field_facets::STRUCTURE,
+        field_facets::EXPRESSION_ROLE,
+        field_facets::EXPRESSION_ORDINAL,
+        field_facets::EXPRESSION_BINDER,
+        field_facets::EXPRESSION_CASES,
         field_facets::IDENTITY,
         field_facets::IDENTITY_OWNER,
         field_facets::FK_RELATION,
@@ -145,7 +149,7 @@ fn supported(field: &FieldContract, path: &str) -> Result<(), SchemaError> {
         )));
     }
     if let Some(extension) = field.extension() {
-        if !matches!(extension, ExtensionUse::Enum(_) | ExtensionUse::SemanticId) {
+        if !matches!(extension, ExtensionUse::Enum(_) | ExtensionUse::SemanticId | ExtensionUse::ExprDsl(_)) {
             return Err(super::error(format!(
                 "unsupported typed modeling extension at {path}"
             )));

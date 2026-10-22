@@ -327,10 +327,13 @@ pub struct LinearDiagnosticControls {
     #[doc = "Explicit lower, upper and row relaxation penalties."]
     pub relaxation: Option<(f64, f64, f64)>,
     #[doc = "Complete lower-bound penalties keyed by source coordinate."]
+    #[schemars(with = "Option<pse_ids::document::KeyedMap<SemanticId, f64>>")]
     pub lower_penalties: Option<BTreeMap<SemanticId, f64>>,
     #[doc = "Complete upper-bound penalties keyed by source coordinate."]
+    #[schemars(with = "Option<pse_ids::document::KeyedMap<SemanticId, f64>>")]
     pub upper_penalties: Option<BTreeMap<SemanticId, f64>>,
     #[doc = "Complete row penalties keyed by source coordinate."]
+    #[schemars(with = "Option<pse_ids::document::KeyedMap<SemanticId, f64>>")]
     pub row_penalties: Option<BTreeMap<SemanticId, f64>>,
     #[doc = "Maximum retained matrix entries."]
     pub maximum_entries: usize,

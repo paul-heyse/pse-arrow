@@ -10,7 +10,9 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.contracts.enums import DynamicSensitivity, DynamicsMethod
 from pse.tests.canonical_fixture import CanonicalFixture
+from pse.tests.physical_input_fixture import coordinate_batch, member
 
 SAMPLES = [0.0, 0.25, 0.5, 0.75, 1.0]
 SOURCE = """package live {
@@ -33,7 +35,7 @@ SOURCE = """package live {
 
 
 def prepare(
-    runtime: pse.Runtime, *, sensitivity: str = "none"
+    runtime: pse.Runtime, *, sensitivity: DynamicSensitivity = DynamicSensitivity.NONE
 ) -> pse.PreparedOperation:
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
@@ -63,13 +65,14 @@ def prepare(
     return package.prepare_simulation(
         case,
         pse.SimulationSettings(
-            method="diffsol",
+            runtime=runtime,
+            method=DynamicsMethod.DIFFSOL,
             start=0,
             end=1,
             samples=SAMPLES,
-            atol=[1e-8],
+            atol=coordinate_batch(runtime, [(member(package, case, "x"), 1e-8, "Time")]),
             rtol=1e-8,
-            parameter_scales=[1],
+            parameter_scales=coordinate_batch(runtime, [(member(package, case, "p"), 1.0, "Scalar")]),
             sensitivity=sensitivity,
         ),
     )
@@ -176,7 +179,7 @@ def test_compact_explicit_sensitivities_refuse_before_a_live_run_is_returned(
 ) -> None:
     runtime = pse.Runtime(inspection_settings, ephemeral=True)
     try:
-        prepared = prepare(runtime, sensitivity="forward")
+        prepared = prepare(runtime, sensitivity=DynamicSensitivity.FORWARD)
         before = runtime.resource_usage()
         with pytest.raises(pse.InspectionError) as refused:
             prepared.start_live(capacity=1, compact=True)

@@ -64,7 +64,6 @@ settings = pse.EngineSettings(
     batch_size=7,
     cache=pse.CacheSettings(
         working_bytes=16 << 30,
-        metadata_bytes=8 << 20,
         concurrent_loads=2,
         inflight_bytes=64 << 20,
         inspection_bytes=4 << 20,

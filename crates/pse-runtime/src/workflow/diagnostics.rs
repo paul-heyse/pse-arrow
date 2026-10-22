@@ -144,7 +144,7 @@ pub(super) fn operation_context(
 }
 impl RunResult {
     pub(super) fn capture_diagnostics(&self) -> Vec<BoundaryDiagnostic> {
-        let mut diagnostics: Vec<BoundaryDiagnostic> = match &self.report {
+        let mut diagnostics: Vec<BoundaryDiagnostic> = match self.report() {
             Ok(RunReport::Horizon(_)) => self
                 .completion
                 .as_ref()
@@ -216,7 +216,7 @@ impl RunResult {
                 }
             }
         };
-        match &self.report {
+        match self.report() {
             Ok(RunReport::Horizon(_)) => {}
             Ok(RunReport::Modeling(results)) => {
                 for result in results {

@@ -207,7 +207,6 @@ def _run_managed_public_study(
                     key: getattr(settings.cache, key)
                     for key in (
                         "working_bytes",
-                        "metadata_bytes",
                         "concurrent_loads",
                         "inflight_bytes",
                         "inspection_bytes",
@@ -257,7 +256,6 @@ def _managed_public_study_caller(directory: str, mode: str) -> None:
         math_artifact_bytes=engine["math_artifact_bytes"],
         cache=pse.CacheSettings(
             working_bytes=cache["working_bytes"],
-            metadata_bytes=cache["metadata_bytes"],
             concurrent_loads=cache["concurrent_loads"],
             inflight_bytes=cache["inflight_bytes"],
             inspection_bytes=cache["inspection_bytes"],

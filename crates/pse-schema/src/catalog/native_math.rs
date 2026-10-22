@@ -7,7 +7,7 @@ use super::declarations::{
 };
 use crate::{
     RegistryBuilder,
-    model::{EnumDecl, EnumMember, FieldContract as T, Namespace as N, SnapshotClass as S},
+    model::{EnumDecl, EnumMember, FieldContract as T, Namespace as N, SnapshotClass as S, ResultSelectionRole as R},
 };
 use arrow_schema::DataType as D;
 fn text() -> T {
@@ -49,6 +49,7 @@ fn fit_id(doc: &'static str) -> T {
         .optional()
 }
 pub(super) fn declare(b: &mut RegistryBuilder) {
+    declare_physical_boundary(b);
     let coordinate = record(vec![
         ("id", T::id()),
         ("quantity_id", T::id()),
@@ -1036,6 +1037,8 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         b,
         "NativeDerivativeCapability",
         [
+            "value_only",
+            "first_order_only",
             "exact_hessian_or_limited_memory",
             "jacobian_or_product",
             "coefficients",
@@ -1176,28 +1179,28 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         b,
         N::Runtime,
         "solve_variables",
-        3,
+        4,
         S::Derived,
         &["run_id", "step", "symbol_id"],
         vec![
-            run_id(),
-            column("step", ordinal()),
-            column("symbol_id", T::id()),
+            run_id().with_result_selection(R::Run).with_result_sort(0),
+            column("step", ordinal()).with_result_selection(R::Step).with_result_sort(1),
+            column("symbol_id", T::id()).with_result_selection(R::Owner).with_result_sort(2),
             column("quantity_id", T::id()).optional(),
             column("unit_id", T::id()).optional(),
             column("fixed", flag()),
             column("parameter", flag()),
             column("domain", T::enumeration("ModelingVariableDomain")).optional(),
-            column("value", real()).optional(),
-            column("lower", real()).optional(),
-            column("upper", real()).optional(),
-            column("lower_violation", real()).optional(),
-            column("upper_violation", real()).optional(),
-            column("tolerance", real()).optional(),
-            column("lower_dual", real()).optional(),
-            column("upper_dual", real()).optional(),
-            column("reduced_cost", real()).optional(),
-            column("stationarity", real()).optional(),
+            column("value", real()).optional().with_result_selection(R::Value),
+            column("lower", real()).optional().with_result_selection(R::Value),
+            column("upper", real()).optional().with_result_selection(R::Value),
+            column("lower_violation", real()).optional().with_result_selection(R::Value),
+            column("upper_violation", real()).optional().with_result_selection(R::Value),
+            column("tolerance", real()).optional().with_result_selection(R::Value),
+            column("lower_dual", real()).optional().with_result_selection(R::Value),
+            column("upper_dual", real()).optional().with_result_selection(R::Value),
+            column("reduced_cost", real()).optional().with_result_selection(R::Value),
+            column("stationarity", real()).optional().with_result_selection(R::Value),
             column("dual_qualification", T::enumeration("DualQualification")),
         ],
         "Original physical variable coordinates, including authored fixed values. Missing multipliers differ from zero. KKT residuals alone are not a sensitivity certificate. Every variable row states its declared domain (ADR-0103); parameter rows carry none.",
@@ -1206,23 +1209,23 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         b,
         N::Runtime,
         "solve_constraints",
-        2,
+        3,
         S::Derived,
         &["run_id", "step", "row_id"],
         vec![
-            run_id(),
-            column("step", ordinal()),
-            column("row_id", T::id()),
+            run_id().with_result_selection(R::Run).with_result_sort(0),
+            column("step", ordinal()).with_result_selection(R::Step).with_result_sort(1),
+            column("row_id", T::id()).with_result_selection(R::Owner).with_result_sort(2),
             column("quantity_id", T::id()).optional(),
             column("unit_id", T::id()).optional(),
-            column("value", real()).optional(),
-            column("lower", real()).optional(),
-            column("upper", real()).optional(),
-            column("equality_residual", real()).optional(),
-            column("lower_violation", real()).optional(),
-            column("upper_violation", real()).optional(),
-            column("tolerance", real()).optional(),
-            column("dual", real()).optional(),
+            column("value", real()).optional().with_result_selection(R::Value),
+            column("lower", real()).optional().with_result_selection(R::Value),
+            column("upper", real()).optional().with_result_selection(R::Value),
+            column("equality_residual", real()).optional().with_result_selection(R::Value),
+            column("lower_violation", real()).optional().with_result_selection(R::Value),
+            column("upper_violation", real()).optional().with_result_selection(R::Value),
+            column("tolerance", real()).optional().with_result_selection(R::Value),
+            column("dual", real()).optional().with_result_selection(R::Value),
             column("dual_qualification", T::enumeration("DualQualification")),
         ],
         "Fresh original constraint values; signed residual exists only for equality rows. Interval violations retain separate sides and physical tolerances.",
@@ -1289,6 +1292,43 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         "The incumbent stream of a durable run as the operational store holds it when the attempt ends (Plan 22 I13): each improving feasible point of a branch-and-bound search with the bound at that time, numbered `seq` by the producer, with the step, the phase and `elapsed_seconds` of the event that reported it. `solution_id` names the captured point stored for resumption; the store prunes captures with their stream, so the published row outlives it. An ephemeral run keeps its retained incumbents in runtime.solve_metrics instead.",
     );
     declare_certificates(b);
+}
+
+/// Physical bulk inputs and native primal output share explicit coordinate identity.
+fn declare_physical_boundary(b: &mut RegistryBuilder) {
+    b.declare_enum(EnumDecl::platform("NativePrimalCoordinateRole", vec![
+        EnumMember::new("original", "An original scientific coordinate with the prepared owner's actual quantity and representation unit; accepted by complete primal-start admission."),
+        EnumMember::new("auxiliary", "A coordinate explicitly declared by the producing mathematical construction, carrying its actual physical meaning; never an original primal-start coordinate."),
+    ]));
+    b.declare_enum(EnumDecl::platform("PhysicalInputKind", vec![
+        EnumMember::new("primal_values", "Registered keyed physical Point values with explicit original or auxiliary coordinate role."),
+        EnumMember::new("initialization_stages", "Registered ordered sparse physical Point stages."),
+        EnumMember::new("diagnostic_samples", "Registered named sparse physical Point samples."),
+        EnumMember::new("state_tolerances", "Registered keyed positive physical Delta values for contextual tolerances or characteristic scales."),
+    ]));
+    let quantity = || T::extended(crate::model::ExtensionUse::QuantityValue);
+    let coordinate = record(vec![("coordinate_id", T::id()), ("value", quantity())])
+        .named("ScientificCoordinateValue");
+    relation(
+        b, N::Runtime, "primal_values", S::Derived, &["coordinate_id"],
+        vec![column("coordinate_id", T::id()), column("coordinate_role", T::enumeration("NativePrimalCoordinateRole")), column("value", quantity())],
+        "Physical Point values keyed by the actual original coordinate identity. Complete native starts and native attempt primals use the receiving prepared owner's actual quantity and representation-unit inventory; row order is not numerical placement. External inputs become an owned immutable numeric snapshot before asynchronous or native execution.",
+    );
+    relation(
+        b, N::Runtime, "initialization_stages", S::Derived, &["stage"],
+        vec![column("stage", ordinal()), column("values", T::list(coordinate.clone()))],
+        "Ordered initialization stages containing sparse physical Point values keyed by original coordinate identity. Stage ordinals are contiguous from zero; an empty values list retains an empty stage. Coordinate keys must be unique within a stage and belong to the actual prepared owner. External inputs become an owned immutable numeric snapshot before execution.",
+    );
+    relation(
+        b, N::Runtime, "diagnostic_samples", S::Derived, &["sample_id"],
+        vec![column("sample_id", T::id()), column("values", T::list(coordinate))],
+        "Diagnostic samples with distinct sample identities and sparse physical Point values keyed by original coordinate identity. Coordinate keys must be unique within a sample and belong to the actual diagnostic owner. External inputs become an owned immutable numeric snapshot before execution.",
+    );
+    relation(
+        b, N::Runtime, "state_tolerances", S::Derived, &["coordinate_id"],
+        vec![column("coordinate_id", T::id()), column("value", quantity())],
+        "Strictly positive finite physical Delta absolute tolerances keyed by actual state coordinate identity. Admission requires exact state coverage and compatible complete quantities, applies representation scaling without Point offsets, then resolves the prepared numerical scales once. Row order is not state order; the admitted immutable snapshot survives native drain.",
+    );
 }
 
 /// Typed infeasibility and unboundedness certificates in original coordinates (Plan 22 I11).
@@ -1500,20 +1540,21 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         ],
         "One joined native job, independent of the mathematical result representation.",
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "simulation_samples",
+        2,
         S::Derived,
         &["run_id", "sample", "symbol_id"],
         vec![
-            run_id(),
+            run_id().with_result_selection(R::Run),
             column("sample", ordinal()),
             column("time", real()),
-            column("symbol_id", T::id()),
+            column("symbol_id", T::id()).with_result_selection(R::Owner),
             column("quantity_id", T::id()),
             column("unit_id", T::id()),
-            column("value", real()),
+            column("value", real()).with_result_selection(R::Value),
         ],
         "Successfully completed physical samples only; no missing trajectory tail is fabricated.",
     );
@@ -1629,38 +1670,40 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         ],
         "Independently evaluated original steady physical constraints and declared acceptance tolerances.",
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "fit_parameters",
+        2,
         S::Derived,
         &["run_id", "parameter_id"],
         vec![
-            run_id(),
-            column("parameter_id", T::id()),
+            run_id().with_result_selection(R::Run).with_result_sort(0),
+            column("parameter_id", T::id()).with_result_selection(R::Owner).with_result_sort(1),
             column("fixed", flag()),
-            column("value", real()).optional(),
+            column("value", real()).optional().with_result_selection(R::Value),
             column("unit_id", T::id()),
-            column("scale", real()),
+            column("scale", real()).with_result_selection(R::Value),
             column("at_bound", flag()).optional(),
         ],
         "Original parameter identities, fixed decisions and optional final candidate values.",
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "fit_observations",
+        2,
         S::Derived,
         &["run_id", "observation_id"],
         vec![
-            run_id(),
-            column("observation_id", T::id()),
-            column("experiment_id", T::id()).with_identity("instance"),
+            run_id().with_result_selection(R::Run).with_result_sort(0),
+            column("observation_id", T::id()).with_result_selection(R::Owner).with_result_sort(2),
+            column("experiment_id", T::id()).with_identity("instance").with_result_selection(R::Experiment).with_result_sort(1),
             column("included", flag()),
-            column("prediction", real()).optional(),
-            column("residual", real()).optional(),
-            column("standardized_residual", real()).optional(),
-            column("objective_contribution", real()).optional(),
+            column("prediction", real()).optional().with_result_selection(R::Value),
+            column("residual", real()).optional().with_result_selection(R::Value),
+            column("standardized_residual", real()).optional().with_result_selection(R::Value),
+            column("objective_contribution", real()).optional().with_result_selection(R::Value),
             column("unit_id", T::id()),
         ],
         "Observation-aligned original physical predictions and half weighted squared standardized residual contributions.",
@@ -1951,10 +1994,15 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
 /// directions (ADR-0118 items 1, 3 and 8; Plan 22 S3). The fit's validity rows are in
 /// `local_validity` at step 0.
 fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
-    relation(
+    b.declare_enum(EnumDecl::platform("CovarianceInputOrigin", vec![
+        EnumMember::new("qualified_fit", "Complete covariance content and local validity reconciled with an actual fit."),
+        EnumMember::new("external", "Explicit caller assumptions with uncertified statistical provenance; mathematical PSD admission is separate."),
+    ]));
+    relation_version(
         b,
         N::Runtime,
         "parameter_covariances",
+        2,
         S::Derived,
         &["run_id"],
         vec![
@@ -1970,6 +2018,8 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
                 "The free fitted parameters in fit order: the order of every list in the row.",
             ),
             column("parameter_units", T::list(T::id())),
+            column("parameter_quantities", T::list(T::id())),
+            documented("parameter_scales", T::list(real()), "Recorded positive free-parameter coordinate scales in the covariance's units."),
             documented(
                 "values",
                 T::list(real()),
@@ -2102,10 +2152,11 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
         ],
         "The right singular vectors of a fit's weighted, parameter-scaled response matrix at its candidate (ADR-0118 item 8): the identifiable directions span the locally identifiable subspace, and the others are the parameter combinations the observations do not determine.",
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "propagated_covariances",
+        2,
         S::Derived,
         &["run_id", "step"],
         vec![
@@ -2116,7 +2167,16 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
                 T::id(),
                 "The fit run whose parameter covariance was propagated: this run for a fit's own predictions.",
             )
-            .with_identity("run"),
+            .with_identity("run").optional(),
+            column("covariance_origin", T::enumeration("CovarianceInputOrigin")),
+            column("covariance_label", text()),
+            column("covariance_assumptions", T::list(text())),
+            column("covariance_source_identity", T::hash()).optional(),
+            column("covariance_physical_identity", T::hash()).optional(),
+            column("parameter_scales", T::list(real())),
+            documented("psd_norm_inf", real(), "Infinity norm after dividing each covariance axis by its declared parameter scale."),
+            documented("psd_tolerance", real(), "64*EPSILON*n*max(1,norm_inf), used for dimensionless symmetry and the least eigenvalue."),
+            documented("psd_minimum_eigenvalue", real(), "Least finite eigenvalue returned by lower-triangle sequential faer without eigenvectors; no matrix repair was made."),
             documented(
                 "parameters",
                 T::list(T::id()),

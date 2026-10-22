@@ -21,10 +21,12 @@ from pse.contracts.enums import (
     NativeSolveIntent,
     NativeStartPolicy,
     PresolvePolicyKind,
+    PhysicalInputKind,
     ReusePolicy,
 )
 from pse.contracts.values import SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
+from pse.tests.physical_input_fixture import coordinate_batch
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
@@ -102,7 +104,7 @@ def test_authored_solve_join_warm_start_checks_and_retention(
     warmed = prepared.with_start(seed).start().wait()
     assert warmed.usable
     assert warmed.run_id != result.run_id
-    primal = {SemanticId(rows[0]["symbol_id"]): 1.5}
+    primal = coordinate_batch(runtime, [(SemanticId(rows[0]["symbol_id"]), 1.5, "Scalar")], kind=PhysicalInputKind.PRIMAL_VALUES)
     assert prepared.with_primal_start(primal).start().wait().usable
     # Source inventory is explicitly read from the immutable package revision.
     sources = package.source_tables()

@@ -3,11 +3,10 @@
 
 //! Native columnar admission, buffer ownership and engine error boundaries.
 use pse_ids::{
-    ContentHash, FramedHasher, LogicalHash, SemanticId, canonical_f32_bits, canonical_f64_bits,
-    frame, id,
+    ContentHash, FramedHasher, SemanticId, canonical_f32_bits, canonical_f64_bits,
 };
 pub mod allocation_extent;
-pub mod canon;
+pub mod ipc_file;
 pub mod contract;
 pub mod generated;
 pub mod native_field;
@@ -22,11 +21,7 @@ pub mod error;
 pub use allocation_extent::{
     algorithm_decode_extent, columnar_validation_extent, schema_working_extent,
 };
-pub use canon::{
-    CANON_VERSION, CanonicalOutput, CanonicalizeOptions, IPC_ALIGNMENT, IPC_METADATA_VERSION,
-    canonicalize, logical_hash,
-};
-pub use contract::{CanonicalContract, CanonicalField, Envelope, FieldPath};
+pub use contract::{Envelope, FieldPath};
 pub use datafusion_common::DataFusionError as NativeError;
 pub use datafusion_execution::memory_pool::{
     GreedyMemoryPool, MemoryConsumer, MemoryPool, MemoryReservation,

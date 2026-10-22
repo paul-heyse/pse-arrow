@@ -59,11 +59,10 @@ impl Environment {
             // ordinals. Unknown/mismatching coordinates retain their complete value;
             // scientific cells never cross a JSON number representation.
             let mut normalized = row.clone();
-            for (key, field) in package.occurrences_of(*id) {
-                normalized
-                    .value
-                    .mask_expression(&key.role, key.position, &field.text);
-            }
+            let expected = package.occurrences_of(*id).map(|(key, field)|
+                ((key.role.as_str(), key.position), field.text.as_str())).collect::<BTreeMap<_, _>>();
+            normalized.value.mask_source_expressions(|_, role, position, text|
+                expected.get(&(role, position)).is_some_and(|expected| *expected == text));
             declarations.insert(*id, normalized);
             let fields = package
                 .occurrences_of(*id)
@@ -378,6 +377,9 @@ impl Product {
 
 #[cfg(test)]
 mod tests {
+    fn mask(value: &mut pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValue, role: &str, position: usize, expected: &str) -> bool {
+        value.mask_source_expressions(|_, selected, ordinal, text| selected == role && ordinal == position && text == expected) != 0
+    }
 
     #[test]
     fn typed_mask_obeys_exact_role_ordinal_text_and_conservative_fallback() {
@@ -391,12 +393,12 @@ mod tests {
             .value
             .clone();
         let original = value.clone();
-        assert!(!value.mask_expression("scope.parameters.default_value", 1, "1"));
-        assert!(!value.mask_expression("scope.parameters.default_value", 2, "2"));
-        assert!(!value.mask_expression("scope.parameters.unknown", 1, "2"));
-        assert!(!value.mask_expression("unknown.expression", 0, "1"));
+        assert!(!mask(&mut value, "scope.parameters.default_value", 1, "1"));
+        assert!(!mask(&mut value, "scope.parameters.default_value", 2, "2"));
+        assert!(!mask(&mut value, "scope.parameters.unknown", 1, "2"));
+        assert!(!mask(&mut value, "unknown.expression", 0, "1"));
         assert_eq!(value, original);
-        assert!(value.mask_expression("scope.parameters.default_value", 1, "2"));
+        assert!(mask(&mut value, "scope.parameters.default_value", 1, "2"));
         let scope = value.scope.as_ref().unwrap();
         assert_eq!(scope.parameters[0].default_value.as_deref(), Some("1"));
         assert_eq!(scope.parameters[1].default_value.as_deref(), Some(""));
@@ -405,7 +407,6 @@ mod tests {
             scope.parameters[1].r#type,
             original.scope.as_ref().unwrap().parameters[1].r#type
         );
-        assert!(value.mask_expression("scope.parameters.0.default_value", 99, "1"));
         let mut function = rows
             .iter()
             .find(|row| row.name == "law")
@@ -413,8 +414,8 @@ mod tests {
             .value
             .clone();
         function.function.as_mut().unwrap().applicability = vec!["first".into(), "second".into()];
-        assert!(function.mask_expression("function.body", 0, "x"));
-        assert!(function.mask_expression("function.applicability", 1, "second"));
+        assert!(mask(&mut function, "function.body", 0, "x"));
+        assert!(mask(&mut function, "function.applicability", 1, "second"));
         let law = function.function.unwrap();
         assert_eq!(law.body.as_deref(), Some(""));
         assert_eq!(law.applicability, ["first", ""]);
@@ -449,8 +450,8 @@ mod tests {
                 .unwrap()
                 .magnitude = f64::from_bits(bits);
             let before = value.clone();
-            assert!(!value.mask_expression("constant.value.value.quantity.magnitude", 0, "-0.0"));
-            assert!(!value.mask_expression("unrecognized", 0, "-0.0"));
+            assert!(!mask(&mut value, "constant.value.value.quantity.magnitude", 0, "-0.0"));
+            assert!(!mask(&mut value, "unrecognized", 0, "-0.0"));
             assert_eq!(
                 value
                     .constant
@@ -475,8 +476,8 @@ mod tests {
             .clone();
         let mut second = first.clone();
         second.function.as_mut().unwrap().body = Some("x*2".into());
-        assert!(first.mask_expression("function.body", 0, "x"));
-        assert!(second.mask_expression("function.body", 0, "x*2"));
+        assert!(mask(&mut first, "function.body", 0, "x"));
+        assert!(mask(&mut second, "function.body", 0, "x*2"));
         assert_eq!(first, second);
         second.function.as_mut().unwrap().arguments[0].name = "changed".into();
         assert_ne!(first, second);

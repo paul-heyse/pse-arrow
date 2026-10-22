@@ -11,8 +11,8 @@
 //! `pse-ids` is the only workspace crate with a direct dependency on `blake3`.
 //!
 //! Identity is a contract, not a convenience: every 128-bit ID comes from a `derive_key`
-//! context (blueprint §5.1). The same crate owns `pse.canon.v2` logical hashing and
-//! encoded integrity checksums (§5.3). A second crate hashing on its own
+//! context (blueprint §5.1). The same crate owns encoded integrity checksums
+//! (§5.3). A second crate hashing on its own
 //! would invent another identity contract, so the dependency itself is fenced.
 
 mod common;

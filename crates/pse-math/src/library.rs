@@ -193,6 +193,14 @@ pub struct Optimization {
     /// Explicit implementation for scalar Value arithmetic blocks.
     pub evaluator: Evaluator,
 }
+impl Optimization {
+    pub(crate) fn validate(self) -> Result<(), MathError> {
+        if self.cores == 0 || self.cores > 64 || self.horner_iterations > 1000 || self.cpe_iterations > 32 {
+            return Err(MathError::Contract("optimizer budget".into()));
+        }
+        Ok(())
+    }
+}
 impl Default for Optimization {
     fn default() -> Self {
         Self {
@@ -223,11 +231,25 @@ fn scoped_abort<T>(flag: &Arc<std::sync::atomic::AtomicBool>, work: impl FnOnce(
     drop(restore);
     result
 }
-struct AbortBinding(std::sync::Mutex<Option<Arc<std::sync::atomic::AtomicBool>>>);
+struct AbortBinding {
+    producer: std::sync::Mutex<Option<Arc<std::sync::atomic::AtomicBool>>>,
+    observed: std::sync::atomic::AtomicBool,
+}
 impl AbortBinding {
+    fn new(producer: Arc<std::sync::atomic::AtomicBool>) -> Self {
+        Self { producer: std::sync::Mutex::new(Some(producer)), observed: std::sync::atomic::AtomicBool::new(false) }
+    }
+    fn finish<T>(&self, result: T, producer: &std::sync::atomic::AtomicBool) -> Result<T, MathError> {
+        if self.observed.load(std::sync::atomic::Ordering::Acquire)
+            || producer.load(std::sync::atomic::Ordering::Acquire)
+        {
+            return Err(MathError::Cancelled);
+        }
+        Ok(result)
+    }
     fn cancelled(&self) -> bool {
         let producer = self
-            .0
+            .producer
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone();
@@ -240,7 +262,11 @@ impl AbortBinding {
                         .is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Acquire))
                 })
             },
-            |flag| flag.load(std::sync::atomic::Ordering::Acquire),
+            |flag| {
+                let cancelled = flag.load(std::sync::atomic::Ordering::Acquire);
+                if cancelled { self.observed.store(true, std::sync::atomic::Ordering::Release); }
+                cancelled
+            },
         )
     }
 }
@@ -248,7 +274,7 @@ struct DetachAbort(Arc<AbortBinding>);
 impl Drop for DetachAbort {
     fn drop(&mut self) {
         self.0
-            .0
+            .producer
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .take();
@@ -257,20 +283,22 @@ impl Drop for DetachAbort {
 fn exact_evaluator(
     expressions: &[Atom],
     parameters: &[Atom],
+    definitions: &[(Atom, Atom)],
     options: Optimization,
     cancelled: &Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<ExpressionEvaluator<Complex<Rational>>, MathError> {
+    if cancelled.load(std::sync::atomic::Ordering::Acquire) { return Err(MathError::Cancelled); }
+    options.validate()?;
     crate::context()?;
-    if options.cores == 0
-        || options.cores > 64
-        || options.horner_iterations > 1000
-        || options.cpe_iterations > 32
-    {
-        return Err(MathError::Contract("optimizer budget".into()));
-    }
-    let abort = Arc::new(AbortBinding(std::sync::Mutex::new(Some(cancelled.clone()))));
+    let abort = Arc::new(AbortBinding::new(cancelled.clone()));
     let detach = DetachAbort(abort.clone());
+    let mut functions = symbolica::evaluate::FunctionMap::new();
+    functions.add_aliases(definitions.iter().cloned()).map_err(|error| MathError::Library(error.to_string()))?;
     let ev = Atom::evaluator_multiple(expressions, parameters)
+        .function_map(functions)
+        // The direct translator resolves aliases as a shared instruction DAG;
+        // the tree translator would recursively expand each output expression.
+        .direct_translation(true)
         .abort_check(Some(Box::new(move || abort.cancelled())))
         .cores(options.cores)
         .horner_iterations(options.horner_iterations)
@@ -281,12 +309,16 @@ fn exact_evaluator(
         .verbose(false)
         .build()
         .map_err(|e| {
-            if cancelled.load(std::sync::atomic::Ordering::Relaxed) {
+            if detach.0.observed.load(std::sync::atomic::Ordering::Acquire)
+                || cancelled.load(std::sync::atomic::Ordering::Relaxed) {
                 MathError::Cancelled
             } else {
                 MathError::Library(e.to_string())
             }
         })?;
+    // Symbolica may return a successfully built, truncated optimizer result after
+    // its abort callback fired. It must never reach export, ScalarCache or retention.
+    let ev = detach.0.finish(ev, cancelled)?;
     drop(detach);
     if !ev.is_real() {
         return Err(MathError::Contract(
@@ -299,7 +331,7 @@ fn exact_evaluator(
 mod admission;
 pub use admission::ScalarProducts;
 pub(crate) use admission::{
-    ScalarCache, bounded_evaluator, bounded_scalar_evaluator, evaluator_construction,
+    ScalarCache, bounded_evaluator, bounded_scalar_evaluator, bounded_defined_scalar_evaluator, evaluator_construction,
     evaluator_construction_shape,
 };
 
@@ -449,9 +481,21 @@ fn instruction_description<T>(export: &ExportedInstructions<T>) -> Option<Instru
 mod abort_binding_tests {
     use super::*;
     #[test]
+    fn observed_constructor_abort_refuses_a_successful_truncated_result() {
+        let producer = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let binding = AbortBinding::new(producer.clone());
+        assert!(binding.cancelled());
+        // Even a subsequently cleared caller flag cannot rehabilitate an optimizer
+        // result whose construction already observed an abort.
+        producer.store(false, std::sync::atomic::Ordering::Release);
+        assert!(matches!(binding.finish("successful truncated result", &producer), Err(MathError::Cancelled)));
+        let fresh = AbortBinding::new(producer.clone());
+        assert_eq!(fresh.finish("complete result", &producer).unwrap(), "complete result");
+    }
+    #[test]
     fn constructor_abort_binding_is_fresh_nested_and_restored_after_unwind() {
         let producer = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let binding = Arc::new(AbortBinding(std::sync::Mutex::new(Some(producer.clone()))));
+        let binding = Arc::new(AbortBinding::new(producer.clone()));
         let detach = DetachAbort(binding.clone());
         producer.store(true, std::sync::atomic::Ordering::Release);
         assert!(

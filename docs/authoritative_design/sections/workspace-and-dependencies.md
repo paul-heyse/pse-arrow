@@ -161,7 +161,7 @@ register crates.
 | `pse-compiler` | Local Salsa workspaces, admitted immutable product reuse, mathematical lowering and bounded preparation ([§14](mathematics-and-compilation.md#section-14)) |
 | `pse-backend-native` | Class-specific native adapters: Ipopt, POUNCE, POUNCE-convex, KINSOL, HiGHS, Clarabel, SCIP, Diffsol and IDAS, plus tears, presolve and quality ([§18](numerical-execution.md#section-18)) |
 | `pse-ipopt-sys` | Generated raw Ipopt C bindings; the build script emits link directives only |
-| `pse-columnar` | Arrow canonicalization, owned buffers, reservations, cancellation and native error adapters |
+| `pse-columnar` | Owned Arrow buffers, allocation envelopes, reservations, cancellation and native error adapters |
 | `pse-schema` | The semantic registry, native field contracts, resolved contracts, compatibility and canonical storage declarations ([§4](schema-and-relations.md#section-4)) |
 | `pse-codegen` | Pure registry generators; returns the generated tree without writing files |
 | `pse-relations` | Generated Arrow views, builders, extension types and validators over checked batches |
@@ -180,7 +180,7 @@ register crates.
 | `pse-tests-conformance` | Canonical encoding properties and scientific/native boundary journeys; independent integrity mechanisms live with their production owners |
 | `pse-tests-lifecycle` | Canonical lifecycle and memory-budget behavior |
 | `xtask` | Code generation, governance and tooling; worker and recovery executable composition roots, controlled producer capture and inspection fixtures |
-| `pse-benches` | Criterion groups for canonicalization, native cache, consolidation, process cases and modeling preparation |
+| `pse-benches` | Criterion groups for native cache, consolidation, process cases and modeling preparation |
 
 Dependencies point one way. The semantic foundations (`pse-diagnostics`, `pse-ids`,
 `pse-quantity`, `pse-model`) sit below `pse-authoring`, `pse-modeling`, `pse-kernels`,
@@ -252,7 +252,7 @@ units, identity, schemas or canonical encoding merely because it is present.
 | Diffsol | `pse-backend-native` | BDF, SDIRK and explicit dynamics for the admitted mass-matrix profile, with pse-owned faer LU or KLU linear solvers, events, scheduled inputs, forward sensitivities and checkpointed adjoint gradients | No second model language |
 | Salsa | `pse-compiler` | Synchronous semantic reuse over admitted values | No I/O, native state or effects in tracked queries |
 | rustworkx-core, petgraph | `pse-structural` | Deterministic ordering, acyclicity and graph projections | Graph indices never cross the projection boundary |
-| BLAKE3 | `pse-ids` only | Content hashing and derived identity | The canonicalizer, not the hash, defines coverage |
+| BLAKE3 | `pse-ids` only | Content hashing and derived identity | Each named identity/payload owner defines coverage; hashing alone does not |
 | `serde-saphyr`, `toml`, `winnow`, `sqlparser` | `pse-admission`, `pse-runtime`, `pse-authoring`, `pse-schema` | YAML/TOML loading with spans, the expression DSL, declared SQL predicates | Parsing evaluates nothing; budgets bound hostile input ([ADR-0021](../../adr/0021-serde-saphyr-replaces-serde-yaml.md)) |
 | `syn`, `quote`, `prettyplease` | `pse-codegen`, `xtask` | Deterministic registry and bindgen rendering | Output is committed and checked by regeneration |
 | Tokio, Rayon, tracing | runtime, engine, native | One process executor, admitted native pools and structured observation | Observation never changes results ([§23](operations-and-validation.md#section-23)) |

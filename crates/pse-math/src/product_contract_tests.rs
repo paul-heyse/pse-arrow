@@ -122,7 +122,7 @@ fn requested_weighted_product_preserves_value_domain_without_materializing_unuse
 }
 
 #[test]
-fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal() {
+fn regional_products_provider_barrier_preserves_actual_provider_calls_and_refusal() {
     use pse_ids::ContentHash;
     use pse_kernels::{DerivativeSource, Port, ProviderError, ProviderShapes};
     use std::sync::atomic::AtomicUsize;
@@ -202,8 +202,8 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
     let u = library::formal(1).unwrap();
     let body = PreparedBody::new(
         1,
-        3,
-        vec![2],
+        4,
+        vec![3],
         vec![
             Stage::Provider {
                 spec: spec.clone(),
@@ -215,6 +215,11 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
             Stage::Block {
                 expressions: vec![u + x.pow(2)],
                 outputs: vec![2],
+                source,
+            },
+            Stage::Block {
+                expressions: vec![library::formal(2).unwrap().pow(2)],
+                outputs: vec![3],
                 source,
             },
         ],
@@ -272,13 +277,13 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
         worker
             .evaluate_product_into(&[2.], binding, &mut providers, &cancel, &mut actual)
             .unwrap();
-        // v=2x², weighted by 2: H=8, and H·3=24, independently of callback output.
+        // u=x², t=u+x², v=t²=4x⁴: at x=2, H=192; 2H=384 and 2H·3=1152.
         assert_eq!(
             actual,
             if kind == ProductKind::WeightedHessian {
-                [8.]
+                [384.]
             } else {
-                [24.]
+                [1152.]
             }
         );
         assert!(calls.load(Ordering::Relaxed) > 0);
@@ -294,18 +299,49 @@ fn weighted_product_provider_barrier_preserves_actual_provider_calls_and_refusal
         );
         assert_eq!(actual, complete);
     }
+
+    // The same actual provider feeds joint forward regions. These checks use an
+    // independent analytic matrix; no callback supplies the final chain terms.
+    let providers = || {
+        let calls = Arc::new(AtomicUsize::new(0));
+        (ProviderBindings::from([(spec.key(), pse_kernels::ProviderBinding::new(spec.clone(), Box::new(Square { spec: spec.clone(), calls: calls.clone() })))]), calls)
+    };
+    let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
+    let selected = support.compile(Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+    assert_eq!(selected.census[DerivativeOrder::Second].unwrap().arithmetic_blocks, 1);
+    let (mut bindings, calls) = providers();
+    let result = selected.worker().evaluate(&[2.], DerivativeOrder::Second, &mut bindings, &cancel).unwrap();
+    assert_eq!(result.values, [64.]);
+    assert_eq!(result.jacobian, [128.]);
+    assert_eq!(result.hessians, [192.]);
+    assert!(calls.load(Ordering::Relaxed) > 0);
+    let first = body.prepare_support(&[0], &[0], DerivativeOrder::First, &cancel).unwrap();
+    for kind in [ProductKind::JacobianAction, ProductKind::TransposeJacobianAction] {
+        let compiled = first.compile_product(kind, Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+        if kind == ProductKind::JacobianAction { assert_eq!(compiled.census[DerivativeOrder::First].unwrap().arithmetic_blocks, 1); }
+        let (mut bindings, calls) = providers();
+        let product = if kind == ProductKind::JacobianAction { ProductValues::JacobianAction { direction: &[3.] } } else { ProductValues::TransposeJacobianAction { weights: &[2.] } };
+        let mut actual = [97.];
+        let mut worker = compiled.worker();
+        worker.evaluate_product_into(&[2.], product, &mut bindings, &cancel, &mut actual).unwrap();
+        assert_eq!(actual, if kind == ProductKind::JacobianAction { [384.] } else { [256.] });
+        assert!(calls.load(Ordering::Relaxed) > 0);
+        let complete = actual;
+        assert!(matches!(worker.evaluate_product_into(&[-2.], product, &mut bindings, &cancel, &mut actual), Err(MathError::Provider { source_id, .. }) if source_id == source));
+        assert_eq!(actual, complete);
+    }
 }
 
 #[test]
-fn weighted_product_branch_barrier_keeps_actual_arm_and_original_domain_source() {
+fn regional_products_branch_barrier_keeps_actual_arm_and_original_domain_source() {
     crate::initialize().unwrap();
     let x = library::formal(0).unwrap();
     let square_source = pse_ids::named_id(SemanticId::NIL, "selected square branch");
     let root_source = pse_ids::named_id(SemanticId::NIL, "selected sqrt branch");
     let body = PreparedBody::new(
         2,
-        4,
-        vec![3],
+        6,
+        vec![5],
         vec![
             Stage::Block {
                 expressions: vec![Atom::num(0)],
@@ -328,6 +364,8 @@ fn weighted_product_branch_barrier_keeps_actual_arm_and_original_domain_source()
                     source: root_source,
                 }],
             },
+            Stage::Block { expressions: vec![library::formal(3).unwrap() + x.pow(2)], outputs: vec![4], source: SemanticId::NIL },
+            Stage::Block { expressions: vec![library::formal(4).unwrap().pow(2)], outputs: vec![5], source: SemanticId::NIL },
         ],
         DerivativeOrder::Second,
     )
@@ -380,9 +418,9 @@ fn weighted_product_branch_barrier_keeps_actual_arm_and_original_domain_source()
         assert_eq!(
             actual,
             if kind == ProductKind::WeightedHessian {
-                [4.]
+                [96.]
             } else {
-                [12.]
+                [288.]
             },
             "the unselected sqrt arm is not evaluated at its invalid input"
         );
@@ -398,17 +436,48 @@ fn weighted_product_branch_barrier_keeps_actual_arm_and_original_domain_source()
         assert_eq!(
             actual,
             if kind == ProductKind::WeightedHessian {
-                [-1. / 16.]
+                [414.]
             } else {
-                [-3. / 16.]
+                [1242.]
             },
-            "sqrt''(4)=-1/32, weighted by 2, with the explicitly requested direction"
+            "v=(sqrt(x)+x²)² gives v''(4)=207, weighted by 2 and the requested direction"
         );
         let complete = actual;
         assert!(
             matches!(worker.evaluate_product_into(&[-1., -1.], binding, &mut ProviderBindings::new(), &cancel, &mut actual),
             Err(MathError::Domain { source_id, .. }) if source_id == root_source)
         );
+        assert_eq!(actual, complete);
+    }
+
+    let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
+    let selected = support.compile(Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+    for (point, value, first, second) in [([-1., 1.], 4., -16., 48.), ([4., -1.], 324., 297., 207.)] {
+        let result = selected.worker().evaluate(&point, DerivativeOrder::Second, &mut ProviderBindings::new(), &cancel).unwrap();
+        assert_eq!(result.values, [value]);
+        assert_eq!(result.jacobian, [first]);
+        assert_eq!(result.hessians, [second]);
+    }
+    let first = body.prepare_support(&[0], &[0], DerivativeOrder::First, &cancel).unwrap();
+    {
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("reverse source preflight refusal");
+        let context = operation.context();
+        let _entered = context.enter();
+        assert!(matches!(first.compile_product(ProductKind::TransposeJacobianAction, Optimization::default(), EvaluationLimits { operations: 1, ..Default::default() }, &scope), Err(MathError::Limit(_))));
+        assert!(!context.reader().snapshot(std::time::Duration::from_secs(60)).metrics.iter().any(|metric| metric.name == "math.rational_representation_inspections"), "reverse local source limits refuse before any forward evaluator is built");
+    }
+    for kind in [ProductKind::JacobianAction, ProductKind::TransposeJacobianAction] {
+        let compiled = first.compile_product(kind, Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+        let product = if kind == ProductKind::JacobianAction { ProductValues::JacobianAction { direction: &[3.] } } else { ProductValues::TransposeJacobianAction { weights: &[2.] } };
+        let mut actual = [79.];
+        let mut worker = compiled.worker();
+        for (point, expected) in [([-1., 1.], -16.), ([4., -1.], 297.)] {
+            worker.evaluate_product_into(&point, product, &mut ProviderBindings::new(), &cancel, &mut actual).unwrap();
+            assert_eq!(actual, [expected * if kind == ProductKind::JacobianAction { 3. } else { 2. }]);
+        }
+        let complete = actual;
+        assert!(matches!(worker.evaluate_product_into(&[-1., -1.], product, &mut ProviderBindings::new(), &cancel, &mut actual), Err(MathError::Domain { source_id, .. }) if source_id == root_source));
         assert_eq!(actual, complete);
     }
 }

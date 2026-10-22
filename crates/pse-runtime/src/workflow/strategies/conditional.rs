@@ -29,6 +29,11 @@ pub struct PreparedInitializationStrategy {
     pub(crate) profile: InitializationProfile,
 }
 impl PreparedInitializationStrategy {
+    /// Conditional blocks retain their actual original physical ports.
+    pub fn primal_coordinates(&self) -> Result<crate::workflow::PrimalCoordinates, WorkflowError> {
+        crate::workflow::PrimalCoordinates::original(&self.runtime, self.prepared.original_primal_ports())
+    }
+
     /// Copy an explicitly selected original initialization and its actual joined stages.
     pub fn review_context(
         &self,
@@ -408,6 +413,15 @@ pub struct PreparedRecycle {
     resident_foreign_bytes: usize,
 }
 impl PreparedRecycle {
+    /// Actual original model ports retained independently from map reports.
+    pub fn primal_coordinates(&self) -> Result<crate::workflow::PrimalCoordinates, WorkflowError> {
+        crate::workflow::PrimalCoordinates::original(&self.runtime, self._source.case.compiled().plan.structure().variables().iter().map(|variable| variable.port.clone()).collect())
+    }
+
+    /// The selected, linked declared-map route, consumed by runtime and language inspection.
+    pub fn route(&self) -> Result<native::routing::Route, native::ProblemError> {
+        native::execution::map_route(&self.settings)
+    }
     /// Copy explicitly selected original request and joined outcomes without evaluation.
     pub fn review_context(
         &self,
@@ -908,20 +922,15 @@ impl crate::math::solves::causal::CausalExecution for PreparedRecycle {
             data: self._source.values.identity(),
             backend: Backend::Kinsol,
         };
-        let mut session =
-            kinsol::Session::new(function, self.settings.clone(), execution.clone(), stamp)?;
-        let mut report = session.solve_with_restarts(
-            &self.initial,
-            &self.controls,
-            &self.accuracy,
-            execution.clone(),
-            &self.tolerances,
-            None,
-            self.restarts.as_ref(),
-        )?;
-        native::quality::qualify(&mut report, &self.accuracy);
+        let report = native::execution::map(native::execution::MapInput {
+            problem: native::execution::Problem::declared_map(function, &self.initial, &self.settings, self.restarts.as_ref())?,
+            controls: &self.controls,
+            accuracy: &self.accuracy,
+            execution: execution.clone(),
+            tolerances: &self.tolerances,
+            compatibility: stamp,
+        })?;
         capture_component(&report)?;
-        drop(session);
         execution.check()?;
         let values = candidate
             .lock()

@@ -13,7 +13,8 @@ use crate::{Registry, SchemaError};
 use super::pascal;
 
 pub(super) fn render(reg: &Registry) -> Result<String, SchemaError> {
-    let mut source = include_str!("extensions.py.template").to_owned();
+    let grammars = crate::model::ExpressionGrammar::ALL.map(|grammar| format!("{:?}", grammar.as_str())).join(", ");
+    let mut source = include_str!("extensions.py.template").replace("# GRAMMAR_DECLARATION", &format!("_GRAMMARS = ({grammars},)\n_GRAMMAR_VERSION = {}", crate::model::expression::GRAMMAR_VERSION));
     let mut classes = Vec::new();
     let mut names = Vec::new();
     for extension in EXTENSION_TYPES {
@@ -21,6 +22,7 @@ pub(super) fn render(reg: &Registry) -> Result<String, SchemaError> {
         let storage = storage(&extension.storage())?;
         let (binding, prototype) = match extension.metadata {
             ExtensionMetadataShape::VersionOnly => ("None".to_owned(), "None".to_owned()),
+            ExtensionMetadataShape::Expression => ("\"grammar\"".to_owned(), "\"expression\"".to_owned()),
             ExtensionMetadataShape::Enum => (
                 "\"enum_id\"".to_owned(),
                 format!(
@@ -79,9 +81,9 @@ fn field(field: &Field) -> Result<String, SchemaError> {
                 .ok_or_else(|| super::error(format!("unknown nested extension {name}")))?;
             let value: serde_json::Value =
                 serde_json::from_str(encoded).map_err(|error| super::error(error.to_string()))?;
-            let argument = spec
+            let argument = (if spec.metadata == ExtensionMetadataShape::Expression { Some("grammar") } else { spec
                 .metadata
-                .id_key()
+                .id_key() })
                 .map(|key| {
                     value
                         .get(key)

@@ -110,10 +110,11 @@ impl Evaluator {
 // finite f64 constants as scientific notation, and the fixed wrappers below.
 // Registered constants/subevaluators and opaque function/control channels refuse.
 // This is not a validator for arbitrary Symbolica evaluators: its sole production
-// caller receives library::bounded_evaluator products. library::exact_evaluator
-// uses Atom::evaluator_multiple's empty FunctionMap and never registers functions;
-// ScalarProducts has no public insertion route. This producer boundary excludes
-// unused external bodies, which export_cpp emits but export_instructions omits.
+// caller receives bounded library products. library::exact_evaluator registers only
+// argument-free aliases and selects direct translation, which fully inlines them;
+// it admits no opaque callbacks or retained non-inline function bodies. ScalarProducts
+// has no public insertion route. This producer boundary excludes unused external
+// bodies, which export_cpp emits but export_instructions omits.
 fn export_bound(export: &ExportedInstructions<f64>) -> Result<usize, MathError> {
     if !export.constant_functions.is_empty()
         || !export.sub_evaluators.is_empty()

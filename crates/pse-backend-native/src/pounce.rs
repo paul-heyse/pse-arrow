@@ -2248,6 +2248,21 @@ mod tests {
         let baseline = Controls::default();
         let settings = Settings::default();
         let rungs = second_opinion_profiles(&baseline, &settings, &report, true).unwrap();
+        let offered = crate::execution::adapter(Backend::Pounce).recovery_profiles(
+            &baseline, &crate::execution::BackendSettings::Pounce(settings.clone()), &report,
+            crate::execution::RecoveryPermission { replacement_start: true },
+        ).unwrap();
+        assert_eq!(offered.iter().map(|profile| profile.label).collect::<Vec<_>>(),
+            rungs.iter().map(|profile| profile.label).collect::<Vec<_>>());
+        for profile in &offered {
+            assert!(matches!(&profile.settings, crate::execution::BackendSettings::Pounce(_)));
+            assert_eq!(profile.replaces_start, profile.perturbation.is_some());
+        }
+        let original_starts_only = crate::execution::adapter(Backend::Pounce).recovery_profiles(
+            &baseline, &crate::execution::BackendSettings::Pounce(settings.clone()), &report,
+            crate::execution::RecoveryPermission::default(),
+        ).unwrap();
+        assert!(original_starts_only.iter().all(|profile| !profile.replaces_start && profile.perturbation.is_none()));
         let mc64 = rungs
             .iter()
             .find(|rung| rung.label == "feral_scaling=mc64")

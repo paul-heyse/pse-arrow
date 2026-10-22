@@ -29,7 +29,7 @@ pub struct ModelingDiagnosticSamples {
 impl ModelingPackage {
     /// Inspect supplied points without changing starts or generating scientific guesses.
     /// The finding limit and wall allowance apply across the complete sample set.
-    pub async fn diagnose_samples(
+    pub(in crate::workflow) async fn diagnose_samples(
         &self,
         prepared: ModelingDiagnosticPreparation,
         samples: Vec<(SemanticId, CaseValues)>,

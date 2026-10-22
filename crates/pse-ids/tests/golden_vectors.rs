@@ -5,7 +5,7 @@
 //! (blueprint §5.1, §5.3; ADR-0007, ADR-0030, ADR-0045).
 //!
 //! These are the contract, not a regression net. A change to any value below is a change
-//! to identity: every stored `logical_hash` and derived entity ID computed
+//! to identity: every derived entity ID computed
 //! under the old value becomes unreachable, which is why ADR-0045 needed a `v2` rather
 //! than a repair of `v1`. When one of these assertions fails the question is never "what
 //! is the new value" but "which contract changed, and where is its decision record".

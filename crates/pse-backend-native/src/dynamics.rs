@@ -1721,7 +1721,9 @@ pub struct EndpointAssessment {
 /// Finite integration policy. Tolerances apply to the normalized state coordinates.
 #[derive(Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct Profile {
+#[schemars(rename = "IntegrationControlsFor{Coordinates}")]
+#[schemars(bound = "Coordinates: schemars::JsonSchema + serde::Serialize")]
+pub struct IntegrationControls<Coordinates = Vec<f64>> {
     /// Required execution interpretation version; legacy unversioned requests need readmission.
     pub version: Version<3>,
     /// Native method selected from the required trial semantics; automatic when absent.
@@ -1747,9 +1749,9 @@ pub struct Profile {
     /// Explicit integrated-flux relative tolerance; required when conservation is declared.
     pub out_rtol: Option<f64>,
     /// Absolute integrated-flux tolerances in canonical conserved quantities.
-    pub out_atol: Vec<f64>,
+    pub out_atol: Coordinates,
     /// Positive absolute tolerances in normalized state order.
-    pub atol: Vec<f64>,
+    pub atol: Coordinates,
     /// Positive initialization orientation scale in seconds. IDAS also attempts this
     /// physical step only under [`IdasInitialStep::Configured`]; its default uses the
     /// native estimate. Diffsol's initial-step meaning is unchanged.
@@ -1783,7 +1785,7 @@ pub struct Profile {
     pub adjoint: AdjointSettings,
     /// Positive characteristic scales in the contract's parameter order, also used for
     /// sensitivity tolerances; every interval of a scheduled input takes its parameter's.
-    pub parameter_scales: Vec<f64>,
+    pub parameter_scales: Coordinates,
     /// Scheduled inputs: a contract parameter that takes one integration value per
     /// schedule interval, each with its own live sensitivity (I6).
     #[serde(default)]
@@ -1802,6 +1804,26 @@ pub struct Profile {
     #[serde(with = "ode_options")]
     #[schemars(with = "ode_options::Remote")]
     pub native: Arc<diffsol::OdeSolverOptions<f64>>,
+}
+
+/// Admitted integration controls in the prepared numerical coordinate order.
+pub type Profile = IntegrationControls<Vec<f64>>;
+
+impl<Coordinates> IntegrationControls<Coordinates> {
+    /// Project the three coordinate-bearing slots after contextual physical admission.
+    /// All other controls retain their exact values and native owners.
+    pub fn with_coordinates<Admitted>(self, atol: Admitted, out_atol: Admitted, parameter_scales: Admitted) -> IntegrationControls<Admitted> {
+        IntegrationControls {
+            version: self.version, method: self.method, trial_failures: self.trial_failures,
+            numerics: self.numerics, endpoint: self.endpoint, start: self.start, end: self.end,
+            samples: self.samples, rtol: self.rtol, out_rtol: self.out_rtol, out_atol, atol,
+            initial_step: self.initial_step, max_steps: self.max_steps, max_events: self.max_events,
+            time_limit: self.time_limit, max_cells: self.max_cells, sensitivity: self.sensitivity,
+            forward_axes: self.forward_axes, adjoint_parameters: self.adjoint_parameters,
+            adjoint: self.adjoint, parameter_scales, schedule: self.schedule, diffsol: self.diffsol,
+            idas: self.idas, initialization: self.initialization, native: self.native,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -3629,7 +3651,7 @@ fn positive(x: f64) -> bool {
 /// Share the same outer cancellation flag across fitting and integration.
 pub use pse_diagnostics::Cancellation;
 
-impl std::fmt::Debug for Profile {
+impl<Coordinates> std::fmt::Debug for IntegrationControls<Coordinates> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DynamicProfile")
             .field("start", &self.start)

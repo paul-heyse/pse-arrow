@@ -21,6 +21,7 @@ pub mod collection;
 pub mod document;
 pub mod enums;
 pub mod extension;
+pub mod expression;
 pub mod field;
 pub mod field_facets;
 pub mod identity;
@@ -30,6 +31,7 @@ pub mod migration;
 pub mod provider;
 pub mod reference;
 pub mod relation;
+pub mod result_selection;
 pub mod tagged_alternative;
 
 pub use field::ROW_KEY_ENCODING;
@@ -60,7 +62,9 @@ pub use pse_ids::source_path::ExpressionPathSegmentKind;
 
 pub use collection::{CollectionContract, CollectionOrder};
 pub use field::FieldContract;
+pub use expression::ExpressionGrammar;
 pub use identity::{IdentityBase, IdentityDecl, IdentityOwner, IdentitySpec};
+pub use result_selection::ResultSelectionRole;
 pub use integer_range::IntegerRange;
 pub use reference::{ReferenceColumn, ReferenceContract, ReferenceNullPolicy};
 pub use tagged_alternative::TaggedAlternative;

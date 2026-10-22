@@ -782,11 +782,61 @@ enum Command<E: std::error::Error + 'static> {
     },
     Stop(std::sync::mpsc::SyncSender<()>),
 }
+/// Own both the Rayon termination request and the actual OS worker lifetimes.
+/// This guard also drains partially constructed pools before constructor errors escape.
+struct JoinedPool {
+    pool: Option<rayon::ThreadPool>,
+    workers: Vec<std::thread::JoinHandle<()>>,
+}
+impl JoinedPool {
+    fn new(
+        threads: usize,
+        stack_bytes: usize,
+        mut spawn: impl FnMut(rayon::ThreadBuilder) -> std::io::Result<std::thread::JoinHandle<()>>,
+    ) -> Result<Self, MathError> {
+        let mut owner = Self { pool: None, workers: Vec::with_capacity(threads) };
+        owner.pool = Some(rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .stack_size(stack_bytes)
+            .spawn_handler(|thread| {
+                owner.workers.push(spawn(thread)?);
+                Ok(())
+            })
+            .build()
+            .map_err(|error| MathError::Library(error.to_string()))?);
+        Ok(owner)
+    }
+    fn spawn(&self, operation: impl FnOnce() + Send + 'static) {
+        if let Some(pool) = &self.pool {
+            pool.spawn(operation);
+        }
+    }
+}
+impl Drop for JoinedPool {
+    fn drop(&mut self) {
+        // Rayon drop requests termination; only OS joins establish actual exit.
+        drop(self.pool.take());
+        for worker in self.workers.drain(..) {
+            // A failed worker must not prevent joining the remaining workers.
+            let _ = worker.join();
+        }
+    }
+}
+fn spawn_pool_worker(thread: rayon::ThreadBuilder) -> std::io::Result<std::thread::JoinHandle<()>> {
+    let mut builder = std::thread::Builder::new();
+    if let Some(name) = thread.name() {
+        builder = builder.name(name.to_owned());
+    }
+    if let Some(bytes) = thread.stack_size() {
+        builder = builder.stack_size(bytes);
+    }
+    builder.spawn(|| thread.run())
+}
 /// Channel owner of the full solver/state, permanently retained inside one actual local-rayon worker.
 /// Library non-Send strategies never cross threads. Read-only snapshots do not replace worker state.
 pub(super) struct RetainedSurrogate<E: FidelityEvaluator> {
     commands: std::sync::mpsc::Sender<Command<E::Error>>,
-    pool: Option<rayon::ThreadPool>,
+    pool: Option<JoinedPool>,
     callback: Arc<Mutex<Callback<E>>>,
     summary: SurrogateStateSummary,
     proposal: Option<SurrogateProposal>,
@@ -810,7 +860,7 @@ impl<E: FidelityEvaluator> Drop for RetainedSurrogate<E> {
         if self.commands.send(Command::Stop(reply)).is_ok() {
             let _ = finished.recv();
         }
-        // Stop's receipt is sent after actual solver/state destruction on the owning worker.
+        // Stop acknowledges solver/state destruction; JoinedPool then joins every OS worker.
         drop(self.pool.take());
     }
 }
@@ -821,17 +871,21 @@ impl<E: FidelityEvaluator> RetainedSurrogate<E> {
         options: SurrogateOptions,
         scope: ExecutionScope,
     ) -> Result<Self, SurrogateFailure<E::Error>> {
+        Self::new_with_spawn(evaluator, options, scope, spawn_pool_worker)
+    }
+    fn new_with_spawn(
+        evaluator: E,
+        options: SurrogateOptions,
+        scope: ExecutionScope,
+        spawn: impl FnMut(rayon::ThreadBuilder) -> std::io::Result<std::thread::JoinHandle<()>>,
+    ) -> Result<Self, SurrogateFailure<E::Error>> {
         options.validate(evaluator.correspondence())?;
         let allowance = scope.remaining(options.time).map_err(scope_math)?;
         let deadline = std::time::Instant::now()
             .checked_add(allowance)
             .ok_or(MathError::Limit("surrogate deadline extent"))?;
         let scope = ExecutionScope::new(scope.cancellation_control().clone(), Some(deadline));
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(options.threads)
-            .stack_size(options.stack_bytes)
-            .build()
-            .map_err(|e| MathError::Library(e.to_string()))?;
+        let pool = JoinedPool::new(options.threads, options.stack_bytes, spawn)?;
         let iterations = options.iterations;
         let (commands, receiver) = std::sync::mpsc::channel();
         let (ready, initialized) = std::sync::mpsc::sync_channel(1);
@@ -1205,6 +1259,103 @@ mod tests {
             &pse_columnar::CancellationToken::new(),
         )
         .unwrap()
+    }
+    #[test]
+    fn retained_pool_joins_actual_workers_after_solver_acknowledgement() {
+        for cancelled in [false, true] {
+            let (exiting, exit_seen) = std::sync::mpsc::channel();
+            let (release, exit_gate) = std::sync::mpsc::channel();
+            let exit_gate = Arc::new(Mutex::new(exit_gate));
+            let (exited, worker_finished) = std::sync::mpsc::channel();
+            let cancel = pse_diagnostics::Cancellation::default();
+            let mut options = options();
+            options.threads = 2;
+            let task = RetainedSurrogate::new_with_spawn(
+                evaluator(Arc::new(AtomicUsize::new(0))), options,
+                ExecutionScope::new(cancel.clone(), None),
+                move |thread| {
+                    let gate = exit_gate.clone();
+                    let exiting = exiting.clone();
+                    let exited = exited.clone();
+                    std::thread::Builder::new().stack_size(thread.stack_size().unwrap()).spawn(move || {
+                        thread.run();
+                        // Solver destruction and Rayon termination have completed,
+                        // but these actual OS workers deliberately remain alive.
+                        exiting.send(()).unwrap();
+                        gate.lock().unwrap().recv().unwrap();
+                        exited.send(()).unwrap();
+                    })
+                },
+            ).unwrap();
+            let pool: Arc<dyn pse_columnar::MemoryPool> =
+                Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
+            let allocation = pse_columnar::MemoryConsumer::new("retained worker join control").register(&pool);
+            let bytes = task.retained_bytes();
+            allocation.try_grow(bytes).unwrap();
+            let owner = pse_columnar::AllocationLease::new(allocation);
+            let (drained, finished) = std::sync::mpsc::channel();
+            if cancelled { cancel.cancel(); }
+            let dropper = std::thread::spawn(move || {
+                drop(task);
+                drop(owner);
+                drained.send(()).unwrap();
+            });
+            for _ in 0..2 { exit_seen.recv_timeout(Duration::from_secs(5)).unwrap(); }
+            assert!(matches!(finished.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)));
+            assert_eq!(pool.reserved(), bytes, "actual workers still hold their admitted lifetime");
+            release.send(()).unwrap();
+            worker_finished.recv_timeout(Duration::from_secs(5)).unwrap();
+            assert!(matches!(finished.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)),
+                "joining only one of the actual workers cannot release admission");
+            assert_eq!(pool.reserved(), bytes);
+            release.send(()).unwrap();
+            finished.recv_timeout(Duration::from_secs(5)).unwrap();
+            dropper.join().unwrap();
+            assert_eq!(pool.reserved(), 0);
+        }
+    }
+    #[test]
+    fn retained_pool_constructor_failures_join_every_created_worker() {
+        for partial_spawn_failure in [false, true] {
+            let (exiting, exit_seen) = std::sync::mpsc::channel();
+            let (release, exit_gate) = std::sync::mpsc::channel();
+            let (finished, result) = std::sync::mpsc::channel();
+            let cancel = pse_diagnostics::Cancellation::default();
+            let dropper = std::thread::spawn(move || {
+                let mut gate = Some(exit_gate);
+                let mut options = options();
+                options.threads = if partial_spawn_failure { 2 } else { 1 };
+                let scope = ExecutionScope::new(cancel.clone(), None);
+                let task = RetainedSurrogate::new_with_spawn(
+                    evaluator(Arc::new(AtomicUsize::new(0))), options, scope,
+                    move |thread| {
+                        if thread.index() == 1 {
+                            return Err(std::io::Error::other("injected second-worker creation failure"));
+                        }
+                        if !partial_spawn_failure {
+                            // The outer scope was admitted; fail construction on
+                            // the worker's next checkpoint after pool creation.
+                            cancel.cancel();
+                        }
+                        let exiting = exiting.clone();
+                        let gate = gate.take().unwrap();
+                        std::thread::Builder::new().stack_size(thread.stack_size().unwrap()).spawn(move || {
+                            thread.run();
+                            exiting.send(()).unwrap();
+                            gate.recv().unwrap();
+                        })
+                    },
+                );
+                assert!(task.is_err());
+                finished.send(()).unwrap();
+            });
+            exit_seen.recv_timeout(Duration::from_secs(5)).unwrap();
+            assert!(matches!(result.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)),
+                "constructor must not return while a created OS worker remains alive");
+            release.send(()).unwrap();
+            result.recv_timeout(Duration::from_secs(5)).unwrap();
+            dropper.join().unwrap();
+        }
     }
     #[test]
     fn compact_advance_and_explicit_snapshot_preserve_state_and_charge_lifetimes() {

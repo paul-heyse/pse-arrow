@@ -1520,51 +1520,6 @@ impl FieldCheckedBatch {
         })
     }
 
-    /// Run the declared canonicalizer and retain its actual sorted values as checked fields.
-    /// Local field validity transfers through this known row permutation; no hash or raw
-    /// caller-supplied result mints the capability. Other relational obligations remain open.
-    /// Sorted values are always requested and transferred out of `CanonicalOutput.sorted`;
-    /// its returned identity/count/preimage describe the same completed transformation.
-    ///
-    /// # Errors
-    /// A different declaration, canonical key/value refusal, cancellation or resource failure.
-    pub fn canonicalize(
-        &self,
-        registry: &pse_schema::Registry,
-        spec: &pse_schema::model::RelationSpec,
-        pool: &Arc<dyn pse_columnar::MemoryPool>,
-        mut options: pse_columnar::CanonicalizeOptions,
-    ) -> Result<(Self, pse_columnar::CanonicalOutput), RelationError> {
-        self.check_declaration(registry, spec)?;
-        let contract = crate::canonical::contract(registry, spec)?;
-        options.keep_sorted = true;
-        let mut output = pse_columnar::canonicalize(
-            &contract,
-            std::slice::from_ref(&self.storage.batch),
-            pool,
-            options,
-        )?;
-        let batch = output
-            .sorted
-            .take()
-            .ok_or_else(|| RelationError::Contract {
-                relation: spec.qualified_name(),
-                reason: "canonicalizer did not return the requested sorted values".into(),
-            })?;
-        Ok((
-            Self::from_parts(
-                self.relation_id,
-                self.contract.clone(),
-                batch.batch().clone(),
-                Some(batch),
-            )
-            .with_sources(self.storage.sources.clone())
-            .with_admission(self.admission.clone())
-            .retained(pool, &pse_columnar::CancellationToken::new())?,
-            output,
-        ))
-    }
-
     /// The declaration used to construct the batch.
     pub const fn relation_id(&self) -> SemanticId {
         self.relation_id

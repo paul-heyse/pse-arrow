@@ -6,6 +6,11 @@ use super::declarations::{enumeration, identity};
 use crate::RegistryBuilder;
 
 pub(super) fn declare(builder: &mut RegistryBuilder) {
+    enumeration(builder, "ConformanceExecution", ["native", "pure"]);
+    enumeration(builder, "ConformancePresolve", ["auto", "off"]);
+    enumeration(builder, "ScientificArtifactKind", ["final-state", "trajectory", "local-analysis"]);
+    enumeration(builder, "ArtifactOwnerKind", ["user", "project", "audit"]);
+    enumeration(builder, "LiveSimulationEventKind", ["sample", "attempt_finished", "selected", "recorded", "recording_unknown", "recording_closed", "joined"]);
     enumeration(
         builder,
         "CanonicalTerminalOutcome",

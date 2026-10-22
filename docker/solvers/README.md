@@ -41,6 +41,9 @@ line, the pinned CNR branch and every source checksum.
 Why these choices is argued in the comment header of [`build.sh`](./build.sh)
 and recorded in ADR-0108 and ADR-0105.
 
+The separately prepared [Uno numerical binding](uno-binding.md) declares its retained
+LP/QP adaptations, dense SQP allowance and bounded upstream-equivalence inquiry.
+
 ### Process environment
 
 The `solvers` stage (and so `ci` and `dev`) sets, beside `IPOPT_DIR`,

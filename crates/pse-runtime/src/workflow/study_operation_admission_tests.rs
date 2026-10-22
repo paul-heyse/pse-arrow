@@ -132,6 +132,34 @@ fn prior_overlay(package: &ModelingPackage, magnitude: f64, unit: &str) -> Point
 }
 
 #[tokio::test]
+async fn host_and_study_requests_share_case_preparation_and_keep_study_route_assertion() {
+    let (package, operation) = control_operation().await;
+    let OperationRequest::DeclaredCase(case) = &operation.operation else { panic!("declared case"); };
+    let cancel = CancelSource::new();
+    let (prepared, admissions) = counted_declared_admissions(async {
+        let host = package.prepare_operation(
+            &operation.source,
+            &operation.preparation,
+            crate::workflow::RuntimeOperationRequest::DeclaredCase { case: case.case, settings: case.settings.clone() },
+            None,
+            &cancel,
+        ).await.unwrap().into_study().unwrap();
+        let study = operation.prepare(&package, &cancel).await.unwrap();
+        (host, study)
+    }).await;
+    assert_eq!(admissions, 2, "both callers use the shared declared admission owner");
+    let (PreparedStudyOperation::DeclaredCase(host), PreparedStudyOperation::DeclaredCase(study)) = prepared else { panic!("paired case preparations"); };
+    assert_eq!(host.solve.request_identity().unwrap(), study.solve.request_identity().unwrap());
+    assert_eq!(host.solve.numerics().key, study.solve.numerics().key);
+    assert_eq!(crate::math::solves::profile_key(&host.profile).unwrap(), crate::math::solves::profile_key(&study.profile).unwrap());
+    let mut wrong_route = operation;
+    let OperationRequest::DeclaredCase(case) = &mut wrong_route.operation else { panic!("declared case"); };
+    case.route = ModelingAnalysisRoute::Integrated;
+    let error = wrong_route.prepare(&package, &cancel).await.unwrap_err();
+    assert_eq!(error.boundary_diagnostic().class, BoundaryClass::Unsupported);
+}
+
+#[tokio::test]
 async fn presentation_only_successive_admission_reuses_basis_with_current_receiving() {
     let (package, operation) = control_operation().await;
     let cancel = CancelSource::new();
@@ -682,7 +710,7 @@ async fn horizon(package: &ModelingPackage, case: DeclarationId) -> HorizonOpera
     HorizonOperation {
         plant: SimulationOperation {
             case,
-            profile: None,
+            settings: None,
         },
         period: Tolerance::try_new(0.5).unwrap(),
         steps: PositiveCount::try_new(2).unwrap(),
@@ -723,7 +751,7 @@ async fn admitted_simulation_descriptor_reconstructs_the_existing_owner() {
             &crate::workflow::StudyInputs::Explicit(
                 [point(OperationRequest::Simulation(SimulationOperation {
                     case,
-                    profile: None,
+                    settings: None,
                 }))]
                 .to_vec(),
             ),
@@ -751,7 +779,7 @@ async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
     let package = regression::package(regression::declared(), [1.; 4]).await;
     let request = OperationRequest::Fit(FitOperation {
         fit: super::super::tests::id(32).into(),
-        settings: FitOperationSettings {
+        settings: crate::workflow::PhysicalFitRequest::new(FitPreparationDocument {
             optimizer: crate::workflow::FitOptimizer::NativeNlp,
             solver: SolveSettings {
                 intent: SolveIntent::Optimize,
@@ -764,7 +792,7 @@ async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
             derivatives: FitDerivatives::Responses,
             experiment_workers: pse_model::scalar!(PositiveCount(1)),
             uncertainty: None,
-        },
+        }),
     });
     let definition = package
         .admit_study(
@@ -1008,7 +1036,7 @@ async fn durable_origin_local_simulation_keeps_original_full_and_compact_results
     let inputs = StudyInputs::Explicit(vec![point(OperationRequest::Simulation(
         SimulationOperation {
             case,
-            profile: None,
+            settings: None,
         },
     ))]);
     let full = package
@@ -1075,7 +1103,7 @@ async fn durable_origin_local_lazy_simulation_constructs_only_selected_occurrenc
     let requested = |key| {
         let mut selected = point(OperationRequest::Simulation(SimulationOperation {
             case,
-            profile: None,
+            settings: None,
         }));
         selected.policy.key = OccurrenceKey(key);
         selected
@@ -1174,7 +1202,7 @@ async fn durable_origin_local_fit_keeps_original_regression_without_recording() 
     deny_recording_after_durable_source(&package).await;
     let request = OperationRequest::Fit(FitOperation {
         fit: super::super::tests::id(32).into(),
-        settings: FitOperationSettings {
+        settings: crate::workflow::PhysicalFitRequest::new(FitPreparationDocument {
             optimizer: crate::workflow::FitOptimizer::NativeNlp,
             solver: SolveSettings {
                 intent: SolveIntent::Optimize,
@@ -1187,7 +1215,7 @@ async fn durable_origin_local_fit_keeps_original_regression_without_recording() 
             derivatives: FitDerivatives::Responses,
             experiment_workers: pse_model::scalar!(PositiveCount(1)),
             uncertainty: None,
-        },
+        }),
     });
     let cancel = CancelSource::new();
     let local = package

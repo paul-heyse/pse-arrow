@@ -564,6 +564,7 @@ fn validate_result_block_interpretation(
         || metadata.payload_bytes != batch.payload_bytes
         || metadata.payload_bytes > RESULT_BLOCK_BYTES as u64
         || metadata.columns > 256
+        || metadata.statistics.as_ref().is_some_and(|bytes| bytes.len() > pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES)
         || metadata.interpretation != interpretation
     {
         return Err(invalid(
@@ -1652,6 +1653,7 @@ mod canonical_results_server_unit {
             coordinate_max: None,
             payload_bytes: payload.len() as u64,
             payload_digest: crate::canonical_execution::result_payload_digest(&payload),
+            statistics: None,
             interpretation: wire::INTERPRETATION.into(),
         };
         // This mechanism fixture tests exact native indexing/receipts. The runtime
@@ -1902,6 +1904,7 @@ mod canonical_results_server_unit {
                 coordinate_max: Some((start + 9) as f64),
                 payload_bytes: payload.len() as u64,
                 payload_digest: crate::canonical_execution::result_payload_digest(&payload),
+                statistics: None,
                 interpretation: wire::INTERPRETATION.into(),
             };
             let outputs = [BlockOutput {

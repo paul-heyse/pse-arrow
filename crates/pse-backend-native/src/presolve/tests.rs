@@ -69,6 +69,7 @@ fn presolve_replay_document_preserves_retained_options_without_requalifying_them
 const UNUSED: Budget = Budget {
     dual: 0.0,
     limit: 0,
+    bytes: 0,
 };
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])

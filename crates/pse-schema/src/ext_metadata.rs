@@ -37,6 +37,11 @@ use crate::model::extension::ExtensionMetadataShape;
 /// );
 /// ```
 pub fn canonical(shape: ExtensionMetadataShape, version: u32, id: Option<SemanticId>) -> String {
+    if shape == ExtensionMetadataShape::Expression {
+        // No grammar was supplied. This deliberately invalid descriptor is refused by
+        // both strict decoders; field producers must use canonical_expression().
+        return format!("{{\"v\":{version},\"grammar\":null,\"grammar_version\":{}}}", crate::model::expression::GRAMMAR_VERSION);
+    }
     match shape.id_key() {
         None => format!("{{\"v\":{version}}}"),
         Some(key) => {
@@ -46,6 +51,12 @@ pub fn canonical(shape: ExtensionMetadataShape, version: u32, id: Option<Semanti
     }
 }
 
+/// Canonical expression metadata requires an explicit closed grammar.
+pub fn canonical_expression(grammar: crate::model::ExpressionGrammar) -> String {
+    let version = crate::model::ExtensionUse::ExprDsl(grammar).spec().metadata_version;
+    format!("{{\"v\":{version},\"grammar\":\"{}\",\"grammar_version\":{}}}", grammar.as_str(), crate::model::expression::GRAMMAR_VERSION)
+}
+
 /// The JSON Schema that describes `shape` at `version`.
 ///
 /// Stored in `reference.schema_logical_types.metadata_schema` (blueprint §4.1) and emitted
@@ -53,6 +64,10 @@ pub fn canonical(shape: ExtensionMetadataShape, version: u32, id: Option<Semanti
 /// extension whose metadata grew a key nobody declared is exactly the silent fork the
 /// `v` generation counter exists to prevent (DM-44, DM-51).
 pub fn json_schema(shape: ExtensionMetadataShape, version: u32) -> String {
+    if shape == ExtensionMetadataShape::Expression {
+        let grammars = crate::model::ExpressionGrammar::ALL.map(|g| format!("\"{}\"", g.as_str())).join(",");
+        return format!("{{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"v\",\"grammar\",\"grammar_version\"],\"properties\":{{\"v\":{{\"const\":{version}}},\"grammar\":{{\"enum\":[{grammars}]}},\"grammar_version\":{{\"const\":{}}}}}}}", crate::model::expression::GRAMMAR_VERSION);
+    }
     match shape.id_key() {
         None => format!(
             "{{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"v\"],\

@@ -106,159 +106,66 @@ pub(crate) fn controls<T: serde::de::DeserializeOwned + Default>(
 #[derive(Clone, Debug)]
 pub(crate) struct DocumentValue<T>(pub(crate) T);
 pub(crate) trait DocumentType {
-    const NAME: &'static str;
+    const INPUT_NAME: &'static str;
+    const OUTPUT_NAME: &'static str;
+    const DISTINCT_DIRECTIONS: bool;
+    const VERSION: Option<u32>;
 }
-impl DocumentType for pse_diagnostics::observation::OperationId {
-    const NAME: &'static str = "OperationId";
+#[path = "generated/documents.rs"]
+mod catalogue;
+// These are explicit owning serializable projections, rather than new catalogue roots.
+macro_rules! projection {
+    ($owner:ty => $document:ty) => {
+        impl $crate::documents::DocumentType for $owner {
+            const INPUT_NAME: &'static str = <$document as $crate::documents::DocumentType>::INPUT_NAME;
+            const OUTPUT_NAME: &'static str = <$document as $crate::documents::DocumentType>::OUTPUT_NAME;
+            const DISTINCT_DIRECTIONS: bool = <$document as $crate::documents::DocumentType>::DISTINCT_DIRECTIONS;
+            const VERSION: Option<u32> = <$document as $crate::documents::DocumentType>::VERSION;
+        }
+    };
 }
-impl DocumentType for pse_diagnostics::observation::OperationPage {
-    const NAME: &'static str = "OperationPage";
-}
-impl DocumentType for pse_diagnostics::observation::OperationSnapshot {
-    const NAME: &'static str = "OperationSnapshot";
-}
-impl DocumentType for pse_runtime::observation::CheckpointIdentity {
-    const NAME: &'static str = "CheckpointIdentity";
-}
-impl DocumentType for pse_runtime::observation::ProcessCheckpoint {
-    const NAME: &'static str = "ProcessCheckpoint";
-}
-impl DocumentType for pse_runtime::inspection::InspectionRequest {
-    const NAME: &'static str = "InspectionRequest";
-}
-impl DocumentType for pse_runtime::inspection::InspectionDocument {
-    const NAME: &'static str = "InspectionDocument";
-}
-impl DocumentType for pse_runtime::inspection::DiagnosticListRequest {
-    const NAME: &'static str = "DiagnosticListRequest";
-}
-impl DocumentType for pse_runtime::inspection::DiagnosticProcessPage {
-    const NAME: &'static str = "DiagnosticProcessPage";
-}
-impl DocumentType for pse_runtime::capture::CaptureRequest {
-    const NAME: &'static str = "CaptureRequest";
-}
-impl DocumentType for pse_runtime::observation::ProcessLocator {
-    const NAME: &'static str = "ProcessLocator";
-}
-impl DocumentType for pse_runtime::capture::LaunchCaptureRequest {
-    const NAME: &'static str = "LaunchCaptureRequest";
-}
-impl DocumentType for pse_runtime::workflow::DiagnosticOrigin {
-    const NAME: &'static str = "DiagnosticOrigin";
-}
-impl DocumentType for pse_runtime::capture::CaptureDocument {
-    const NAME: &'static str = "CaptureDocument";
-}
-impl DocumentType for pse_runtime::capture::DetailRequest {
-    const NAME: &'static str = "DetailRequest";
-}
-impl DocumentType for pse_runtime::capture::DetailDocument {
-    const NAME: &'static str = "DetailDocument";
-}
-impl DocumentType for pse_runtime::capture::DetailRecordPage {
-    const NAME: &'static str = "DetailRecordPage";
-}
-impl DocumentType for pse_runtime::workflow::ModelingSourceMapDocument {
-    const NAME: &'static str = "ModelingSourceMapDocument";
-}
-impl DocumentType for pse_runtime::workflow::ModelingSourceMap {
-    const NAME: &'static str = "ModelingSourceMapDocument";
-}
-impl DocumentType for pse_runtime::inspection_comparison::InvocationComparisonDocument {
-    const NAME: &'static str = "InvocationComparisonDocument";
-}
-impl DocumentType for pse_runtime::inspection_comparison::ComparisonPolicy {
-    const NAME: &'static str = "ComparisonPolicy";
-}
+pub(crate) use projection;
+projection!(pse_runtime::workflow::ModelingSourceMap => pse_runtime::workflow::ModelingSourceMapDocument);
+projection!(pse_runtime::workflow::ReviewContext => pse_runtime::workflow::ReviewContextDocument);
+projection!(pse_runtime::invocation::InvocationEvidence => pse_runtime::invocation::InvocationEvidenceDocument);
+projection!(pse_runtime::workflow::AttemptSummary => pse_runtime::workflow::AttemptSummaryDocument);
+projection!(pse_runtime::tooling::review_analysis::Analysis => pse_runtime::tooling::review_analysis::AnalysisDocument);
+projection!(crate::workflow::StoredCompletionDocument => pse_runtime::workflow::Completion);
 
-impl DocumentType for pse_runtime::invocation::InvocationEvidence {
-    const NAME: &'static str = "InvocationEvidenceDocument";
-}
-impl DocumentType for pse_runtime::invocation::InvocationEvidenceDocument {
-    const NAME: &'static str = "InvocationEvidenceDocument";
-}
-impl DocumentType for pse_runtime::workflow::ProgressCheckpointDocument {
-    const NAME: &'static str = "ProgressCheckpointDocument";
-}
-impl DocumentType for pse_runtime::workflow::ManagedStudyDiagnosticsDocument {
-    const NAME: &'static str = "ManagedStudyDiagnosticsDocument";
-}
 impl<T: DocumentType> DocumentType for std::sync::Arc<T> {
-    const NAME: &'static str = T::NAME;
+    const INPUT_NAME: &'static str = T::INPUT_NAME;
+    const OUTPUT_NAME: &'static str = T::OUTPUT_NAME;
+    const DISTINCT_DIRECTIONS: bool = T::DISTINCT_DIRECTIONS;
+    const VERSION: Option<u32> = T::VERSION;
 }
-impl DocumentType for pse_model::diagnostic::BoundaryDiagnostic {
-    const NAME: &'static str = "BoundaryDiagnostic";
+impl<T: DocumentType> DocumentType for &T {
+    const INPUT_NAME: &'static str = T::INPUT_NAME;
+    const OUTPUT_NAME: &'static str = T::OUTPUT_NAME;
+    const DISTINCT_DIRECTIONS: bool = T::DISTINCT_DIRECTIONS;
+    const VERSION: Option<u32> = T::VERSION;
 }
-impl DocumentType for pse_runtime::workflow::DiagnosticCauseDocument {
-    const NAME: &'static str = "DiagnosticCauseDocument";
-}
-impl DocumentType for pse_runtime::workflow::DiagnosticSpanDocument {
-    const NAME: &'static str = "DiagnosticSpanDocument";
-}
-impl DocumentType for pse_runtime::workflow::DiagnosticNoteDocument {
-    const NAME: &'static str = "DiagnosticNoteDocument";
-}
-impl DocumentType for pse_runtime::workflow::DiagnosticAnnotationDocument {
-    const NAME: &'static str = "DiagnosticAnnotationDocument";
-}
-impl DocumentType for pse_runtime::workflow::DiagnosticContextDocument {
-    const NAME: &'static str = "DiagnosticContextDocument";
-}
-impl DocumentType for pse_model::diagnostic::SourceLocation {
-    const NAME: &'static str = "SourceLocation";
-}
-impl DocumentType for pse_runtime::ResourceReport {
-    const NAME: &'static str = "ResourceReport";
-}
-impl DocumentType for pse_engine::cache_service::CacheReport {
-    const NAME: &'static str = "CacheReport";
-}
-impl DocumentType for pse_runtime::TableName {
-    const NAME: &'static str = "TableName";
-}
-impl DocumentType for pse_buildinfo::BuildInfo {
-    const NAME: &'static str = "BuildInfo";
-}
-impl DocumentType for pse_runtime::workflow::ProgressEventDocument {
-    const NAME: &'static str = "ProgressEventDocument";
-}
-impl DocumentType for pse_runtime::workflow::ProgressCoverage {
-    const NAME: &'static str = "ProgressCoverage";
-}
-impl DocumentType for pse_runtime::workflow::AttemptSummary {
-    const NAME: &'static str = "AttemptSummary";
-}
-impl DocumentType for pse_runtime::workflow::ReplayDocument {
-    const NAME: &'static str = "ReplayDocument";
-}
-impl DocumentType for pse_runtime::math::solves::SolverAdviceInputs {
-    const NAME: &'static str = "SolverAdviceInputs";
-}
-impl DocumentType for pse_model::strategy::advice::FrozenAdvice {
-    const NAME: &'static str = "FrozenAdvice";
-}
-impl DocumentType for pse_runtime::workflow::SourceSettlement {
-    const NAME: &'static str = "SourceSettlement";
-}
-impl DocumentType for pse_runtime::workflow::RouteDocument {
-    const NAME: &'static str = "RouteDocument";
-}
-impl DocumentType for pse_runtime::workflow::EligibilityDocument {
-    const NAME: &'static str = "EligibilityDocument";
-}
-impl DocumentType for pse_runtime::workflow::IneligibleDocument {
-    const NAME: &'static str = "IneligibleDocument";
+fn require_document<T: DocumentType>(value: Borrowed<'_, '_, PyAny>) -> PyResult<()> {
+    let module = value.py().import("pse.contracts.documents")?;
+    let input = module.getattr(T::INPUT_NAME)?;
+    if value.is_instance(&input)? {
+        return Ok(());
+    }
+    if T::DISTINCT_DIRECTIONS && value.is_instance(&module.getattr(T::OUTPUT_NAME)?)? {
+        return Ok(());
+    }
+    Err(pyo3::exceptions::PyTypeError::new_err(format!(
+        "expected {} document", T::INPUT_NAME
+    )))
 }
 impl<'py, T: serde::Serialize + DocumentType> IntoPyObject<'py> for DocumentValue<T> {
     type Target = PyAny;
     type Output = Bound<'py, PyAny>;
     type Error = PyErr;
     const OUTPUT_TYPE: pyo3::inspect::PyStaticExpr =
-        pyo3::type_hint_identifier!("pse.contracts.documents", T::NAME);
+        pyo3::type_hint_identifier!("pse.contracts.documents", T::OUTPUT_NAME);
     fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
         let bytes = encode(py, &self.0)?;
-        let target = py.import("pse.contracts.documents")?.getattr(T::NAME)?;
+        let target = py.import("pse.contracts.documents")?.getattr(T::OUTPUT_NAME)?;
         py.import("pse.codec")?
             .call_method1("decode_json", (PyBytes::new(py, &bytes), target))
     }
@@ -266,36 +173,35 @@ impl<'py, T: serde::Serialize + DocumentType> IntoPyObject<'py> for DocumentValu
 
 /// A generated Python input document decoded into its actual Rust owner.
 pub(crate) struct DocumentInput<T>(pub(crate) T);
-impl DocumentType for pse_model::strategy::CompositionRequest {
-    const NAME: &'static str = "CompositionRequest";
-}
-impl DocumentType for pse_model::numerics::NumericalPolicy {
-    const NAME: &'static str = "NumericalPolicy";
-}
 impl<T: serde::de::DeserializeOwned + DocumentType> FromPyObject<'_, '_> for DocumentInput<T> {
     type Error = PyErr;
-    const INPUT_TYPE: pyo3::inspect::PyStaticExpr =
-        pyo3::type_hint_identifier!("pse.contracts.documents", T::NAME);
+    const INPUT_TYPE: pyo3::inspect::PyStaticExpr = if T::DISTINCT_DIRECTIONS {
+        pyo3::type_hint_union!(pyo3::type_hint_identifier!("pse.contracts.documents", T::INPUT_NAME), pyo3::type_hint_identifier!("pse.contracts.documents", T::OUTPUT_NAME))
+    } else {
+        pyo3::type_hint_identifier!("pse.contracts.documents", T::INPUT_NAME)
+    };
     fn extract(value: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
         let py = value.py();
-        let target = py.import("pse.contracts.documents")?.getattr(T::NAME)?;
-        if !value.is_instance(&target)? {
-            return Err(pyo3::exceptions::PyTypeError::new_err(format!(
-                "expected {} document",
-                T::NAME
-            )));
-        }
+        require_document::<T>(value)?;
         let encoded = py
             .import("pse.codec")?
             .call_method1("encode_json", (value,))?;
         let bytes = encoded.cast::<PyBytes>()?;
-        decode(py, T::NAME, bytes.as_bytes(), 1 << 20).map(Self)
+        let bytes = bytes.as_bytes();
+        if let Some(version) = T::VERSION {
+            #[derive(serde::Deserialize)]
+            struct Header { version: u32 }
+            let header: Header = decode(py, T::INPUT_NAME, bytes, 1 << 20)?;
+            if header.version != version {
+                return Err(crate::workflow::invalid(py, format!("unsupported {} version {}", T::INPUT_NAME, header.version)));
+            }
+        }
+        decode(py, T::INPUT_NAME, bytes, 1 << 20).map(Self)
     }
 }
 
 /// Version-first factual ingress, with no runtime/admitted-owner deserialization.
 pub(crate) trait RecordedDocument: DocumentType + serde::de::DeserializeOwned {
-    const VERSION: u32;
     fn validate_recorded(&self) -> Result<(), pse_runtime::observation::ObservationError> {
         Ok(())
     }
@@ -303,23 +209,20 @@ pub(crate) trait RecordedDocument: DocumentType + serde::de::DeserializeOwned {
 pub(crate) struct RecordedInput<T>(pub(crate) T);
 impl<T: RecordedDocument> FromPyObject<'_, '_> for RecordedInput<T> {
     type Error = PyErr;
-    const INPUT_TYPE: pyo3::inspect::PyStaticExpr =
-        pyo3::type_hint_identifier!("pse.contracts.documents", T::NAME);
+    const INPUT_TYPE: pyo3::inspect::PyStaticExpr = if T::DISTINCT_DIRECTIONS {
+        pyo3::type_hint_union!(pyo3::type_hint_identifier!("pse.contracts.documents", T::INPUT_NAME), pyo3::type_hint_identifier!("pse.contracts.documents", T::OUTPUT_NAME))
+    } else {
+        pyo3::type_hint_identifier!("pse.contracts.documents", T::INPUT_NAME)
+    };
     fn extract(value: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
         let py = value.py();
-        let target = py.import("pse.contracts.documents")?.getattr(T::NAME)?;
-        if !value.is_instance(&target)? {
-            return Err(pyo3::exceptions::PyTypeError::new_err(format!(
-                "expected {} document",
-                T::NAME
-            )));
-        }
+        require_document::<T>(value)?;
         let encoded = py
             .import("pse.codec")?
             .call_method1("encode_json", (value,))?;
         let bytes = encoded.cast::<PyBytes>()?;
         let bytes = bytes.as_bytes();
-        if bytes.len() > pse_runtime::frozen_inspection::MAXIMUM_DOCUMENT_BYTES {
+        if bytes.len() > pse_runtime::tooling::frozen_inspection::MAXIMUM_DOCUMENT_BYTES {
             return Err(crate::workflow::invalid(py, "recorded document extent"));
         }
         #[derive(serde::Deserialize)]
@@ -328,21 +231,21 @@ impl<T: RecordedDocument> FromPyObject<'_, '_> for RecordedInput<T> {
         }
         let header: Header = decode(
             py,
-            T::NAME,
+            T::INPUT_NAME,
             bytes,
-            pse_runtime::frozen_inspection::MAXIMUM_DOCUMENT_BYTES,
+            pse_runtime::tooling::frozen_inspection::MAXIMUM_DOCUMENT_BYTES,
         )?;
-        if header.version != T::VERSION {
+        if Some(header.version) != T::VERSION {
             return Err(crate::workflow::invalid(
                 py,
-                format!("unsupported {} version {}", T::NAME, header.version),
+                format!("unsupported {} version {}", T::INPUT_NAME, header.version),
             ));
         }
         let document: T = decode(
             py,
-            T::NAME,
+            T::INPUT_NAME,
             bytes,
-            pse_runtime::frozen_inspection::MAXIMUM_DOCUMENT_BYTES,
+            pse_runtime::tooling::frozen_inspection::MAXIMUM_DOCUMENT_BYTES,
         )?;
         document
             .validate_recorded()
@@ -350,154 +253,65 @@ impl<T: RecordedDocument> FromPyObject<'_, '_> for RecordedInput<T> {
         Ok(Self(document))
     }
 }
-impl DocumentType for pse_runtime::frozen_inspection::FrozenEvidenceSet {
-    const NAME: &'static str = "FrozenEvidenceSet";
-}
-impl RecordedDocument for pse_runtime::frozen_inspection::FrozenEvidenceSet {
-    const VERSION: u32 = 2;
+impl RecordedDocument for pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet {
     fn validate_recorded(&self) -> Result<(), pse_runtime::observation::ObservationError> {
         self.validate()
     }
 }
-impl DocumentType for pse_runtime::frozen_inspection::FrozenInspectionRequest {
-    const NAME: &'static str = "FrozenInspectionRequest";
+impl RecordedDocument for pse_runtime::tooling::frozen_inspection::FrozenInspectionRequest {
 }
-impl RecordedDocument for pse_runtime::frozen_inspection::FrozenInspectionRequest {
-    const VERSION: u32 = 1;
-}
-impl DocumentType for pse_runtime::frozen_inspection::FrozenInspectionDocument {
-    const NAME: &'static str = "FrozenInspectionDocument";
-}
-impl RecordedDocument for pse_runtime::frozen_inspection::FrozenInspectionDocument {
-    const VERSION: u32 = 1;
-}
-impl DocumentType for pse_runtime::workflow::ReviewContextDocument {
-    const NAME: &'static str = "ReviewContextDocument";
+impl RecordedDocument for pse_runtime::tooling::frozen_inspection::FrozenInspectionDocument {
 }
 impl RecordedDocument for pse_runtime::workflow::ReviewContextDocument {
-    const VERSION: u32 = 1;
-}
-impl DocumentType for pse_runtime::workflow::ReviewContextRequest {
-    const NAME: &'static str = "ReviewContextRequest";
-}
-impl DocumentType for pse_runtime::workflow::ReviewInventoryRequest {
-    const NAME: &'static str = "ReviewInventoryRequest";
-}
-impl DocumentType for pse_runtime::workflow::ReviewInventorySelection {
-    const NAME: &'static str = "ReviewInventorySelection";
 }
 impl RecordedDocument for pse_runtime::workflow::ReviewInventorySelection {
-    const VERSION: u32 = 1;
-}
-impl DocumentType for pse_runtime::workflow::ReviewInventoryPage {
-    const NAME: &'static str = "ReviewInventoryPage";
 }
 impl RecordedDocument for pse_runtime::workflow::ReviewInventoryPage {
-    const VERSION: u32 = 1;
 }
 impl RecordedDocument for pse_runtime::invocation::InvocationEvidenceDocument {
-    const VERSION: u32 = 2;
     fn validate_recorded(&self) -> Result<(), pse_runtime::observation::ObservationError> {
         self.validate()
     }
 }
 
-impl DocumentType for pse_runtime::review_analysis::AnalysisRequest {
-    const NAME: &'static str = "AnalysisRequest";
-}
-impl RecordedDocument for pse_runtime::review_analysis::AnalysisRequest {
-    const VERSION: u32 = 2;
+impl RecordedDocument for pse_runtime::tooling::review_analysis::AnalysisRequest {
 }
 
-impl DocumentType for pse_runtime::review_analysis::AnalysisDocument {
-    const NAME: &'static str = "AnalysisDocument";
-}
-impl RecordedDocument for pse_runtime::review_analysis::AnalysisDocument {
-    const VERSION: u32 = 2;
+impl RecordedDocument for pse_runtime::tooling::review_analysis::AnalysisDocument {
     fn validate_recorded(&self) -> Result<(), pse_runtime::observation::ObservationError> {
         self.validate()
     }
 }
 
-impl DocumentType for pse_runtime::review_pack::PackSelection {
-    const NAME: &'static str = "PackSelection";
-}
-impl RecordedDocument for pse_runtime::review_pack::PackSelection {
-    const VERSION: u32 = 2;
+impl RecordedDocument for pse_runtime::tooling::review_pack::PackSelection {
 }
 
-impl DocumentType for pse_runtime::review_pack::PackIndex {
-    const NAME: &'static str = "PackIndex";
-}
-impl RecordedDocument for pse_runtime::review_pack::PackIndex {
-    const VERSION: u32 = 2;
+impl RecordedDocument for pse_runtime::tooling::review_pack::PackIndex {
 }
 
-impl DocumentType for pse_runtime::review_query::ReviewQueryRequest {
-    const NAME: &'static str = "ReviewQueryRequest";
-}
-impl RecordedDocument for pse_runtime::review_query::ReviewQueryRequest {
-    const VERSION: u32 = 1;
+impl RecordedDocument for pse_runtime::tooling::review_query::ReviewQueryRequest {
 }
 
-impl DocumentType for pse_runtime::review_query::ReviewQueryDocument {
-    const NAME: &'static str = "ReviewQueryDocument";
-}
-impl RecordedDocument for pse_runtime::review_query::ReviewQueryDocument {
-    const VERSION: u32 = 1;
+impl RecordedDocument for pse_runtime::tooling::review_query::ReviewQueryDocument {
 }
 
-impl DocumentType for pse_runtime::review_query::ReviewQuerySpecification {
-    const NAME: &'static str = "ReviewQuerySpecification";
-}
-impl RecordedDocument for pse_runtime::review_query::ReviewQuerySpecification {
-    const VERSION: u32 = 1;
+impl RecordedDocument for pse_runtime::tooling::review_query::ReviewQuerySpecification {
 }
 
-impl DocumentType for pse_runtime::capture::SourceRecordingRequest {
-    const NAME: &'static str = "SourceRecordingRequest";
-}
-impl RecordedDocument for pse_runtime::capture::SourceRecordingRequest {
-    const VERSION: u32 = 2;
+impl RecordedDocument for pse_runtime::tooling::capture::SourceRecordingRequest {
 }
 
-impl DocumentType for pse_runtime::capture::SourceRecordingAcknowledgement {
-    const NAME: &'static str = "SourceRecordingAcknowledgement";
-}
-impl RecordedDocument for pse_runtime::capture::SourceRecordingAcknowledgement {
-    const VERSION: u32 = 2;
+impl RecordedDocument for pse_runtime::tooling::capture::SourceRecordingAcknowledgement {
 }
 
-impl DocumentType for pse_runtime::review_pack::PackExportRequest {
-    const NAME: &'static str = "PackExportRequest";
-}
-impl RecordedDocument for pse_runtime::review_pack::PackExportRequest {
-    const VERSION: u32 = 2;
+impl RecordedDocument for pse_runtime::tooling::review_pack::PackExportRequest {
 }
 
-impl DocumentType for pse_runtime::workflow::DiagnosticExecutionRequest {
-    const NAME: &'static str = "DiagnosticExecutionRequest";
-}
 impl RecordedDocument for pse_runtime::workflow::DiagnosticExecutionRequest {
-    const VERSION: u32 = 1;
-}
-impl DocumentType for pse_runtime::workflow::DiagnosticExecutionDocument {
-    const NAME: &'static str = "DiagnosticExecutionDocument";
 }
 
-impl DocumentType for pse_runtime::review_query::ReviewTableRequest {
-    const NAME: &'static str = "ReviewTableRequest";
-}
-impl RecordedDocument for pse_runtime::review_query::ReviewTableRequest {
-    const VERSION: u32 = 1;
+impl RecordedDocument for pse_runtime::tooling::review_query::ReviewTableRequest {
 }
 
-impl DocumentType for pse_runtime::review_analysis::Analysis {
-    const NAME: &'static str = "AnalysisDocument";
-}
-impl DocumentType for pse_runtime::capture::ReviewHandoffReceipt {
-    const NAME: &'static str = "ReviewHandoffReceipt";
-}
-impl RecordedDocument for pse_runtime::capture::ReviewHandoffReceipt {
-    const VERSION: u32 = 1;
+impl RecordedDocument for pse_runtime::tooling::capture::ReviewHandoffReceipt {
 }

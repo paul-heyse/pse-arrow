@@ -19,6 +19,7 @@ import pytest
 from pyomo.contrib.parmest.experiment import Experiment
 
 import pse
+from pse import codec
 from pse import modeling as w
 from pse.contracts import authored as a
 from pse.contracts.enums import (
@@ -146,8 +147,11 @@ def pse_estimate(
     result = (
         authored.prepare_fit(
             FitId(identity(158)),
-            pse.FitPreparationDocument(
-                solver=pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE)
+            codec.decode_json(
+                codec.encode_json({"version": 1, "settings": {
+                    "solver": pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE),
+                }}),
+                pse.PhysicalFitRequest,
             ),
         )
         .start()

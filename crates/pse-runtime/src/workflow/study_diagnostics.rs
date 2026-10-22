@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Explicit execution-only detail selection across the managed canonical worker boundary.
 use super::{StudyHandle, WorkflowError, contract};
-use crate::capture::{CaptureBudget, DetailDocument, DetailRequest, DetailSession};
+use crate::observation_detail::{CaptureBudget, DetailDocument, DetailRequest, DetailSession};
 use pse_diagnostics::observation::{ObservationContext, OperationId};
 use pse_model::{document::Version, generated::identities::StudyId};
 use serde::{Deserialize, Serialize};
@@ -48,7 +48,7 @@ pub struct ManagedDetailSelection {
 }
 impl ManagedDetailSelection {
     pub(crate) fn selected(attempt_slots: Option<u64>) -> Option<Self> {
-        let mut request = crate::capture::current_detail_request()?;
+        let mut request = crate::observation_detail::current_detail_request()?;
         let declared = request.managed_budget.take();
         let slots = attempt_slots.unwrap_or(0);
         let refusal = if slots == 0 {
@@ -61,7 +61,7 @@ impl ManagedDetailSelection {
             None
         };
         let grant = if refusal.is_none() {
-            crate::capture::claim_managed_detail_budget()
+            crate::observation_detail::claim_managed_detail_budget()
         } else {
             None
         };
@@ -71,7 +71,7 @@ impl ManagedDetailSelection {
                 .then_some(ManagedDetailRefusal::BudgetAlreadyAllocated)
         });
         if let Some(reason) = refusal {
-            crate::capture::mark_detail_scope_unavailable(&format!(
+            crate::observation_detail::mark_detail_scope_unavailable(&format!(
                 "managed study selection refused: {reason:?}"
             ));
         }
@@ -224,7 +224,7 @@ pub(crate) fn begin_child(
             .parent()
             .ok_or_else(|| std::io::Error::other("child output parent absent"))?;
         std::fs::create_dir_all(parent)?;
-        crate::capture::start_detailed_collection(context.clone(), request.clone())
+        crate::observation_detail::start_detailed_collection(context.clone(), request.clone())
             .map_err(std::io::Error::other)
     })();
     match result {
@@ -238,7 +238,7 @@ pub(crate) fn begin_child(
             Some(session)
         }
         Err(error) => {
-            crate::capture::mark_detail_scope_unavailable(
+            crate::observation_detail::mark_detail_scope_unavailable(
                 "managed child collector admission refused",
             );
             context.unavailable("managed.detail.collection", &error.to_string());
@@ -319,7 +319,7 @@ impl StudyHandle {
                                 if actual.refusal.is_some() { reference.state = ManagedDetailReferenceState::Refused; reference.error = actual.error.clone(); }
                                 reference.owner = Some(actual);
                             }
-                            match selection.per_attempt_budget.as_ref().map(|budget| crate::capture::read_detailed_collection(&output.join("records.jsonl"), budget.output_bytes)) {
+                            match selection.per_attempt_budget.as_ref().map(|budget| crate::observation_detail::read_detailed_collection(&output.join("records.jsonl"), budget.output_bytes)) {
                                 Some(Ok(detail)) => { reference.state = ManagedDetailReferenceState::Captured; reference.detail = Some(detail); }
                                 Some(Err(error)) if dispatched && reference.state != ManagedDetailReferenceState::Refused => reference.error = Some(bounded(error)),
                                 _ => {}
@@ -367,7 +367,7 @@ mod tests {
 #[cfg(test)]
 mod selection_tests {
     use super::*;
-    use crate::capture::{DetailOutcome, DetailRequirement, start_detailed_collection};
+    use crate::observation_detail::{DetailOutcome, DetailRequirement, start_detailed_collection};
     use pse_diagnostics::observation::{ObservationHub, ProducerRole};
     use std::time::Duration;
     fn request(output: PathBuf, managed_budget: Option<CaptureBudget>) -> DetailRequest {
@@ -463,7 +463,7 @@ mod selection_tests {
         assert_eq!(receipt.run, "run:bb");
         assert_eq!(receipt.attempt, "cc");
         let detail =
-            crate::capture::read_detailed_collection(&output.join("records.jsonl"), 1 << 20)
+            crate::observation_detail::read_detailed_collection(&output.join("records.jsonl"), 1 << 20)
                 .unwrap();
         assert_eq!(detail.outcome, DetailOutcome::Complete);
         assert_eq!(detail.families[0].acknowledged, 1);

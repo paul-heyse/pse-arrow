@@ -172,6 +172,7 @@ impl Engine<'_, '_> {
                 self.model.symbols.insert(
                     time,
                     Symbol {
+                        definition: None,
                         id: time,
                         ty: ty.clone(),
                         role: Kind::Parameter,
@@ -478,14 +479,14 @@ impl Engine<'_, '_> {
             let axis_id = mesh.id;
             let axis = self.model.integrated[&axis_id].clone();
             let original =
-                if symbol_reference(body).is_some_and(|id| self.model.symbols.contains_key(&id)) {
+                if self.model.symbols.reference(body).is_some_and(|id| self.model.symbols.contains_key(&id)) {
                     // Derived inventories already name their admitted generated stock.
                     // It has no authored lexical member to resolve a second time.
                     body.clone()
                 } else {
                     self.rewrite(instance, body, env, chain)?
                 };
-            let state = symbol_reference(&original).ok_or_else(|| {
+            let state = self.model.symbols.reference(&original).ok_or_else(|| {
                 invalid(at, "integrated derivative must select a scalar variable")
             })?;
             let symbol = self.model.symbols[&state].clone();
@@ -520,6 +521,7 @@ impl Engine<'_, '_> {
             self.model.symbols.insert(
                 rate,
                 Symbol {
+                    definition: None,
                     id: rate,
                     ty: Type::Quantity(pse_quantity::scheme::Scheme::Concrete(quantity)),
                     role: Kind::Variable,
@@ -841,12 +843,7 @@ impl Engine<'_, '_> {
             let mut local = env.clone();
             local.insert(binder.var.clone(), first.clone());
             let integrand = self.rewrite(instance, body, &local, chain)?;
-            let types: BTreeMap<_, _> = self
-                .model
-                .symbols
-                .iter()
-                .map(|(id, s)| (symbol_name(*id), s.ty.clone()))
-                .collect();
+            let types = crate::TypeScope::new(&self.model.symbols);
             let Type::Quantity(value_type) = crate::expression::infer(
                 &integrand,
                 &types,
@@ -890,6 +887,7 @@ impl Engine<'_, '_> {
             self.model.symbols.insert(
                 flux,
                 Symbol {
+                    definition: None,
                     id: flux,
                     ty: Type::Quantity(pse_quantity::scheme::Scheme::Concrete(value_type)),
                     role: Kind::Let,
@@ -902,6 +900,7 @@ impl Engine<'_, '_> {
             self.model.symbols.insert(
                 result,
                 Symbol {
+                    definition: None,
                     id: result,
                     ty: Type::Quantity(pse_quantity::scheme::Scheme::Concrete(result_type)),
                     role: Kind::Parameter,

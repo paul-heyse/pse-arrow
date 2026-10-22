@@ -69,6 +69,11 @@ pub(crate) fn original_scope(execution: &Execution) -> OriginalScope {
         std::marker::PhantomData,
     )
 }
+/// Actual foreign allowance of the current admitted synchronous numerical operation.
+/// Direct library callers without an execution scope retain their explicit API limits.
+pub(crate) fn foreign_allowance() -> Option<usize> {
+    ORIGINAL.with(|held| held.borrow().as_ref().and_then(|execution| execution.memory))
+}
 /// Carry the actual attempt's control through synchronous mathematical primitives.
 /// Nested scopes restore their caller; other native threads inherit no control or permit.
 pub fn original_scoped<T>(execution: &Execution, work: impl FnOnce() -> T) -> T {
@@ -296,6 +301,10 @@ pub(crate) mod factorable;
 mod highs;
 mod ipopt;
 mod kinsol;
+#[cfg(feature = "kinsol")]
+mod maps;
+#[cfg(feature = "kinsol")]
+pub use maps::{MapInput, map, map_route};
 mod petsc;
 mod pounce;
 mod pounce_convex;
@@ -459,6 +468,32 @@ pub enum Problem<'a> {
         /// Owner of the evaluators behind `oracle`; retained as long as a session retains it.
         owner: Option<Box<dyn Any>>,
     },
+    /// A declared causal map in physical coordinates, independent of residual derivatives.
+    #[cfg(feature = "kinsol")]
+    FixedPoint {
+        /// Original map and independent physical residual validator.
+        oracle: Box<dyn crate::kinsol::FixedPointOracle>,
+        /// Authored physical start.
+        initial: &'a [f64],
+        /// Frozen physical scales and selected map method.
+        settings: &'a crate::kinsol::Settings,
+        /// Authorized bounded physical restart starts.
+        restarts: Option<&'a crate::kinsol::RestartSchedule>,
+    },
+    /// An explicit constant Picard splitting, never labelled a residual Jacobian.
+    #[cfg(feature = "kinsol")]
+    Picard {
+        /// Original physical residual authority; no derivative values are demanded.
+        oracle: Box<dyn NleOracle>,
+        /// Authored constant splitting operator.
+        linear: faer::sparse::SparseColMat<usize, f64>,
+        /// Authored physical start.
+        initial: &'a [f64],
+        /// Frozen physical scales and selected splitting method.
+        settings: &'a crate::kinsol::Settings,
+        /// Explicit schedule, refused if unsupported by the selected native map.
+        restarts: Option<&'a crate::kinsol::RestartSchedule>,
+    },
     /// Normalized coefficient model.
     Coefficients {
         /// Normalized coefficients.
@@ -491,6 +526,25 @@ pub enum Problem<'a> {
     },
 }
 
+#[cfg(feature = "kinsol")]
+impl<'a> Problem<'a> {
+    /// Bind a source-owned native map to its physical input without root transport.
+    /// # Errors
+    /// Equation residuals cannot be silently recast as maps.
+    pub fn declared_map(
+        function: crate::kinsol::Function,
+        initial: &'a [f64],
+        settings: &'a crate::kinsol::Settings,
+        restarts: Option<&'a crate::kinsol::RestartSchedule>,
+    ) -> Result<Self, ProblemError> {
+        match function {
+            crate::kinsol::Function::FixedPoint(oracle) => Ok(Self::FixedPoint { oracle, initial, settings, restarts }),
+            crate::kinsol::Function::Picard { oracle, linear } => Ok(Self::Picard { oracle, linear, initial, settings, restarts }),
+            crate::kinsol::Function::Equations(_) => Err(ProblemError::Contract("map execution requires an explicit fixed-point map or Picard splitting".into())),
+        }
+    }
+}
+
 impl std::fmt::Debug for Input<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Input")
@@ -505,11 +559,53 @@ impl std::fmt::Debug for Problem<'_> {
         f.write_str(match self {
             Self::Nlp { .. } => "Problem::Nlp",
             Self::Roots { .. } => "Problem::Roots",
+            #[cfg(feature = "kinsol")]
+            Self::FixedPoint { .. } => "Problem::FixedPoint",
+            #[cfg(feature = "kinsol")]
+            Self::Picard { .. } => "Problem::Picard",
             Self::Coefficients { .. } => "Problem::Coefficients",
             Self::Cone { .. } => "Problem::Cone",
             Self::Factorable { .. } => "Problem::Factorable",
         })
     }
+}
+
+/// Explicit permission from the semantic composition owner to offer replacement starts.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RecoveryPermission {
+    /// A recovery candidate may propose a new start; the caller must screen and record it.
+    pub replacement_start: bool,
+}
+/// A library-owned deterministic start displacement, materialized by the task owner.
+#[derive(Clone, Copy, Debug)]
+pub struct StartPerturbation {
+    /// Native displacement generator seed.
+    pub seed: u64,
+    /// Relative displacement scale.
+    pub scale: f64,
+}
+/// One separately admitted native recovery candidate, derived from the original profile.
+#[derive(Clone, Debug)]
+pub struct RecoveryProfile {
+    /// Native library rung label.
+    pub label: &'static str,
+    /// Acting finite controls.
+    pub controls: Controls,
+    /// Acting typed settings.
+    pub settings: BackendSettings,
+    /// The candidate requires replacement-start permission.
+    pub replaces_start: bool,
+    /// Proposed displacement, never a hidden native starting-point option.
+    pub perturbation: Option<StartPerturbation>,
+}
+
+/// Callback products consumed by a selected native method.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CallbackDemand {
+    /// The original residual directional action is evaluated.
+    pub jacobian_product: bool,
+    /// No assembled Jacobian is consumed, including by preconditioning.
+    pub directional_only: bool,
 }
 
 /// The backend-execution adapter. Implementations are unit values in the static table.
@@ -518,6 +614,41 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     fn backend(&self) -> Backend;
     /// The one capability record.
     fn capability(&self) -> &'static Capability;
+    /// Capabilities of the selected method. Foreign or unsupported settings are refused
+    /// before an inspection row can promise a route; contextual admission remains separate.
+    fn capability_for(&self, settings: &BackendSettings) -> Result<Capability, ProblemError> {
+        if settings.backend().is_some_and(|backend| backend != self.backend()) {
+            return Err(foreign(self.backend()));
+        }
+        Ok(*self.capability())
+    }
+    /// Lower bounded native recovery descriptions; the caller admits every returned
+    /// candidate independently and qualifies it in original coordinates.
+    /// # Errors
+    /// The baseline settings or native recovery description is invalid.
+    fn recovery_profiles(
+        &self,
+        _controls: &Controls,
+        settings: &BackendSettings,
+        _report: &SolveReport,
+        _permission: RecoveryPermission,
+    ) -> Result<Vec<RecoveryProfile>, ProblemError> {
+        self.capability_for(settings)?;
+        Ok(Vec::new())
+    }
+    /// Preparation facts consumed by the selected method, independent of backend spelling.
+    fn callback_demand(&self, _settings: &BackendSettings) -> CallbackDemand {
+        CallbackDemand::default()
+    }
+    /// Whether this adapter consumes the compiler's original-coordinate separator.
+    fn consumes_separator(&self, _settings: &BackendSettings) -> bool {
+        false
+    }
+    /// Whether this backend/settings pair is suitable as an arclength corrector.
+    /// Physical starts, numerical identity, scaling and presolve remain caller premises.
+    fn arclength_corrector(&self, _settings: &BackendSettings, _controls: &Controls) -> bool {
+        false
+    }
     /// Native input this adapter consumes.
     fn representation(&self) -> Representation;
     /// Project consumed physical residual allowances into this adapter's primal
@@ -583,7 +714,9 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
         &self,
         requirements: &Requirements<'_>,
     ) -> Option<pse_kernels::DerivativeOrder> {
-        crate::routing::derivative_demand(self.capability(), requirements.controls)
+        self.capability_for(requirements.settings).ok().and_then(|capability| {
+            crate::routing::derivative_demand(&capability, requirements.controls)
+        })
     }
     /// Exact executable operation product for the admitted method.
     fn required_artifact(
@@ -596,8 +729,13 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     /// Compose static class/intent rules with existing contextual owners. This operation
     /// reads no ambient environment and starts no native service or worker.
     fn assess(&self, requirements: &Requirements<'_>) -> crate::routing::Eligibility {
-        let mut assessment =
-            crate::routing::assess_static(self.backend(), self.capability(), requirements);
+        let selected = self.capability_for(requirements.settings);
+        let mut assessment = crate::routing::assess_static(
+            self.backend(), selected.as_ref().unwrap_or(self.capability()), requirements,
+        );
+        if let Err(cause) = selected {
+            assessment.refuse(cause);
+        }
         if let Some(cause) = requirements.context.refusals.get(&self.backend()) {
             assessment
                 .reasons
@@ -693,6 +831,13 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     fn scope_threads(&self, _threads: usize) -> usize {
         0
     }
+    /// Execute an explicit physical map in a fresh native session on the admitted owner.
+    /// # Errors
+    /// This adapter does not consume declared maps, or native execution fails.
+    #[cfg(feature = "kinsol")]
+    fn execute_map(&self, _input: MapInput<'_>) -> Result<SolveReport, ProblemError> {
+        Err(representation(self.backend()))
+    }
     /// Prepare (reusing compatible retained state), solve and retain on the owning worker.
     ///
     /// # Errors
@@ -781,6 +926,18 @@ impl Table {
             };
         }
         h.finish_hash()
+    }
+    /// Inspect a linked adapter's selected settings using the inventory row contract.
+    /// # Errors
+    /// The backend is absent/unlinked or its settings are foreign/unsupported.
+    pub fn capability_for(
+        &self,
+        backend: Backend,
+        settings: &BackendSettings,
+    ) -> Result<pse_model::generated::runtime::solver_capabilities::Row, ProblemError> {
+        let adapter = self.get(backend).filter(|adapter| adapter.linked())
+            .ok_or_else(|| unlinked(backend))?;
+        Ok(adapter.capability_for(settings)?.row(backend))
     }
     /// The published inventory: one row per linked adapter.
     pub fn published(&self) -> Vec<pse_model::generated::runtime::solver_capabilities::Row> {
@@ -1338,15 +1495,6 @@ fn enter(
 fn foreign(backend: Backend) -> ProblemError {
     ProblemError::Contract(format!("wrong {} settings", backend.as_str()))
 }
-#[cfg(not(all(
-    feature = "ipopt",
-    feature = "pounce",
-    feature = "kinsol",
-    feature = "highs",
-    feature = "scip",
-    feature = "uno",
-    feature = "petsc"
-)))]
 fn unlinked(backend: Backend) -> ProblemError {
     crate::observation::unavailable(
         &format!("{}.native", format!("{backend:?}").to_lowercase()),

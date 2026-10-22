@@ -17,6 +17,10 @@ pub struct RuntimeParameterCovariancesRow {
     pub r#parameters: Vec<pse_ids::SemanticId>,
     ///parameter_units
     pub r#parameter_units: Vec<pse_ids::SemanticId>,
+    ///parameter_quantities
+    pub r#parameter_quantities: Vec<pse_ids::SemanticId>,
+    ///Recorded positive free-parameter coordinate scales in the covariance's units.
+    pub r#parameter_scales: Vec<f64>,
     ///Σ row-major, in row-parameter unit × column-parameter unit.
     pub r#values: Vec<f64>,
 }
@@ -30,6 +34,14 @@ impl crate::SemanticEq for RuntimeParameterCovariancesRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#parameter_units,
                 &other.r#parameter_units,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#parameter_quantities,
+                &other.r#parameter_quantities,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#parameter_scales,
+                &other.r#parameter_scales,
             ) && crate::SemanticEq::semantic_eq(&self.r#values, &other.r#values)
     }
 }
@@ -50,6 +62,10 @@ impl crate::SemanticFrame for RuntimeParameterCovariancesRow {
         crate::SemanticFrame::frame(&self.r#parameters, hash);
         hash.str(stringify!(r#parameter_units));
         crate::SemanticFrame::frame(&self.r#parameter_units, hash);
+        hash.str(stringify!(r#parameter_quantities));
+        crate::SemanticFrame::frame(&self.r#parameter_quantities, hash);
+        hash.str(stringify!(r#parameter_scales));
+        crate::SemanticFrame::frame(&self.r#parameter_scales, hash);
         hash.str(stringify!(r#values));
         crate::SemanticFrame::frame(&self.r#values, hash);
     }
@@ -61,6 +77,8 @@ impl crate::HeapUsage for RuntimeParameterCovariancesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#approximation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parameters))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parameter_units))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parameter_quantities))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parameter_scales))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#values))
     }
 }

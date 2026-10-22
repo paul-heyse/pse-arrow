@@ -6,7 +6,10 @@
 # another backend, presolve, derivative inspection or allowance declares it in its own
 # `policy { ... }` clause. Package roots are relative to this file.
 
+version = 1
+
 [settings]
+version = 1
 memory_limit_bytes = 137438953472 # 128 GiB pool
 math_worker_bytes = 17179869184 # 16 GiB aggregate case worker capacity
 threads = 16
@@ -56,6 +59,7 @@ body_slots = 65536
 # campaign depends on seed-data, process, thermodynamics, methods, domain and physical, so
 # one native run discovers every campaign, seed and physical fixture exactly once.
 [[runs]]
+version = 1
 name = "seed"
 package = "campaign"
 dependencies = ["data/oracles/teqp-0.23.1", "data/oracles/feos-0.10.1", "data/gross-sadowski-2001", "data/references", "data/nist", "data/perry7", "data/poling2000", "data/oracles/idaes-2.13", "data/species", "data/ciaaw", "seed-data", "process", "thermodynamics", "methods", "domain", "physical"]
@@ -66,6 +70,7 @@ execution = "native"
 # so that no production closure admits their synthetic elements, species and groups; the
 # physical fixtures this closure also discovers run again here.
 [[runs]]
+version = 1
 name = "domain"
 package = "domain-fixtures"
 dependencies = ["domain", "physical"]

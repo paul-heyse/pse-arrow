@@ -5,6 +5,7 @@
 use super::{Runtime, WorkflowError, contract};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
 use pse_model::HeapUsage;
+use pse_model::generated::products::ScientificRelation;
 use pse_operations::canonical::MetadataResponse;
 use pse_operations::canonical_artifacts::{Artifact, ArtifactLocator};
 #[cfg(all(test, feature = "canonical-tests", feature = "solver-diffsol"))]
@@ -125,11 +126,15 @@ pub(super) struct PromotedScientificArtifact {
 
 pub(super) fn prepare_scientific_member(
     runtime: &Runtime,
-    name: &'static str,
+    relation: ScientificRelation,
     batch: &pse_relations::columnar::FieldCheckedBatch,
     original_digest: &str,
     analysis: bool,
 ) -> Result<PreparedScientificMember, WorkflowError> {
+    if batch.relation_id() != relation.id {
+        return Err(contract("scientific member name and admitted relation identity differ"));
+    }
+    let name = relation.name;
     let owner = MemoryConsumer::new("canonical:prepared-scientific-member")
         .register(&runtime.shared.pool());
     owner
@@ -197,25 +202,7 @@ fn retain_prepared_member(
 }
 
 /// A promised scientific product, distinct from arbitrary result row selection.
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum ScientificArtifactKind {
-    /// Actual terminal physical state, including its observed endpoint assessment.
-    FinalState,
-    /// Complete recorded trajectory prefix, transitions and endpoint interpretation.
-    Trajectory,
-    /// Original local derivative/uncertainty rows with qualification and assumptions.
-    LocalAnalysis,
-}
-impl ScientificArtifactKind {
-    fn name(self) -> &'static str {
-        match self {
-            Self::FinalState => "final-state",
-            Self::Trajectory => "trajectory",
-            Self::LocalAnalysis => "local-analysis",
-        }
-    }
-}
+pub use pse_model::generated::enums::ScientificArtifactKind;
 
 /// Response dispatch consumes admitted scientific ownership, never the presence
 /// of a sensitivity relation or a successful primal candidate.
@@ -783,64 +770,24 @@ impl Runtime {
             let revision = &protected.revision;
             let run = input.run().key.as_str();
             let attempt = input.attempt().key.as_str();
-            let mut names = vec![
-                "runtime.scientific_contexts",
-                "runtime.candidate_assessments",
-                "runtime.run_lineage",
-                "runtime.resolved_numerics",
-                "runtime.modeling_checks",
-                "runtime.modeling_reports",
-                "runtime.modeling_findings",
-            ];
-            match kind {
-                ScientificArtifactKind::FinalState => names.extend([
-                    "runtime.trajectory_endpoints",
-                    "runtime.computation_runs",
-                    "runtime.solve_variables",
-                    "runtime.solve_runs",
-                ]),
-                ScientificArtifactKind::Trajectory => names.extend([
-                    "runtime.trajectory_endpoints",
-                    "runtime.simulation_samples",
-                    "runtime.simulation_events",
-                    "runtime.modeling_trajectory_modes",
-                    "runtime.response_sensitivities",
-                    "runtime.computation_runs",
-                ]),
-                ScientificArtifactKind::LocalAnalysis => names.extend([
-                    "runtime.route_decisions",
-                    "runtime.local_validity",
-                    "runtime.parametric_sensitivities",
-                    "runtime.response_sensitivities",
-                    "runtime.reduced_hessians",
-                    "runtime.parameter_covariances",
-                    "runtime.parameter_intervals",
-                    "runtime.profile_points",
-                    "runtime.response_directions",
-                    "runtime.propagated_covariances",
-                    "runtime.fit_parameters",
-                    "runtime.fit_observations",
-                    "runtime.solve_runs",
-                    "runtime.computation_runs",
-                    "runtime.solve_metrics",
-                ]),
-            }
+            let required = kind.required_relations();
             let members = MemoryConsumer::new("canonical:scientific-artifact-member-files")
                 .register(&self.shared.pool());
             let mut copied = Vec::new();
             let mut facts = super::analyses::ArtifactEvidence::new(self)?;
             let mut selected = Vec::new();
-            for name in names {
+            for member in required {
+                let name = member.name;
                 let spec = self
                     .registry()
-                    .relation(name)
+                    .relation_by_id(member.id)
                     .ok_or_else(|| contract("scientific artifact relation unavailable"))?;
                 let Some(set) = input
                     .sets()
                     .iter()
                     .find(|set| set.name == spec.id.to_string())
                 else {
-                    continue;
+                    return Err(contract(format!("scientific artifact is missing required relation {name}")));
                 };
                 if copied.len().saturating_add(set.batch_count.max(1) as usize) > 64 {
                     return Err(contract(
@@ -893,7 +840,7 @@ impl Runtime {
                         let checked = snapshot.read_block(block, cancel).await?;
                         let member = prepare_scientific_member(
                             self,
-                            name,
+                            *member,
                             &checked,
                             &block.payload_digest,
                             analysis,
@@ -1033,7 +980,7 @@ impl Runtime {
                 Arc::new((input.clone(), input_owner.clone(), response)),
                 self.canonical_store()?.new_artifact(
                     revision,
-                    kind.name(),
+                    kind.as_str(),
                     provenance,
                     copied.len() as u64,
                     bytes,

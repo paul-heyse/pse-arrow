@@ -25,6 +25,7 @@ pub struct Settings {
     /// fixed-commitment LP, which prices it.
     pub diagnostics: Request,
     /// Partial source-attributed MIP start, with unspecified coordinates absent.
+    #[schemars(with = "Option<pse_ids::document::KeyedMap<SemanticId, f64>>")]
     pub sparse_start: Option<BTreeMap<SemanticId, f64>>,
 }
 impl Settings {

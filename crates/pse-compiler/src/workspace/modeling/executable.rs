@@ -9,9 +9,12 @@ use pse_quantity::scheme::Substitution;
 use std::collections::BTreeSet;
 mod conformance;
 mod derived;
+mod dependencies;
 mod factorable;
 mod grouped;
 mod implicit;
+mod policy;
+pub use policy::{AnnotationObservation, CompilerView, NumericalAnnotation, NumericalAnnotationMode, NumericalAnnotations, NumericalScale, NumericalStartSource, NumericalStartValues, ScalingObservations, ViewChoice, ViewPolicy, ViewReason};
 #[cfg(test)]
 #[path = "executable/projection_tests.rs"]
 mod projection_tests;
@@ -46,7 +49,7 @@ fn number_expression(value: f64) -> Expr {
 }
 
 /// Numerical observation purpose. These do not add equations or fix variables.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ModelingHint {
     /// Physical start value for initialization.
     Start,
@@ -101,7 +104,7 @@ impl ModelingHint {
 /// A check that bounds the objective from its optimized side (ADR-0119 Outcome 5): from
 /// below when minimizing, from above when maximizing. A certified dual bound of the step
 /// then establishes it over the declared box; without one it is evaluated at the point.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ObjectiveBound {
     /// `objective > c` (strict) or `objective >= c` on a minimized objective.
     Lower {
@@ -331,6 +334,8 @@ impl PartialEq for AdmittedModeling {
 #[derive(Clone, Debug, PartialEq)]
 struct Projection {
     physical_scope: Arc<PhysicalScope>,
+    annotation_scales: Vec<NumericalScale>,
+    annotation_plans: Option<Arc<policy::AnnotationPlans>>,
     /// Authored objective members grouped into levels (ADR-0111): priority, weight,
     /// normalization, and each level's tolerances and generated bound.
     objectives: pse_modeling::specialize::Objectives,
@@ -414,6 +419,12 @@ fn projection(
             bound_equations.insert(row.id, row.equation.clone());
         }
     }
+    let rows_by_id = rows.iter().map(|row| (row.id, *row)).collect::<BTreeMap<_, _>>();
+    let closures_by_row = model.closures.values().map(|closure| (pse_ids::named_id(closure.id, "conservation"), closure)).collect::<BTreeMap<_, _>>();
+    let contributions_by_id = model.closures.values().flat_map(|closure| closure.terms.iter().map(move |term| ((closure.id, term.id), term))).collect::<BTreeMap<_, _>>();
+    let mut symbols_by_path = BTreeMap::new();
+    for symbol in model.symbols.values() { symbols_by_path.entry(symbol.lineage.path.as_str()).or_insert(symbol.id); }
+    let rate_ids = model.derivatives.values().map(|derivative| derivative.rate).collect::<BTreeSet<_>>();
     let annotations = model
         .annotations
         .iter()
@@ -456,7 +467,9 @@ fn projection(
         }
     }
     let mut p = Projection {
-        physical_scope: Arc::new(catalog.checked(db).context().scope.clone()),
+        physical_scope: physical_scope(db, catalog, *request.root(db))?,
+        annotation_scales: Vec::new(),
+        annotation_plans: None,
         objectives: model.objectives.clone(),
         body_limits: BodyLimits {
             occurrences: request
@@ -473,7 +486,7 @@ fn projection(
             .values()
             .filter_map(|closure| {
                 let row = pse_ids::named_id(closure.id, "conservation");
-                (rows.iter().any(|r| r.id == row) && !model.elastic.contains_key(&row)).then(|| {
+                (rows_by_id.contains_key(&row) && !model.elastic.contains_key(&row)).then(|| {
                     (
                         row,
                         closure
@@ -507,13 +520,8 @@ fn projection(
         implicit: Vec::new(),
         original: None,
     };
-    let mut graph = DiGraph::<SemanticId, ()>::new();
-    let nodes = model
-        .symbols
-        .iter()
-        .filter(|(_, s)| s.expression.is_some())
-        .map(|(id, _)| (*id, graph.add_node(*id)))
-        .collect::<BTreeMap<_, _>>();
+    let mut dependencies = dependencies::Dependencies::new(model.symbols.keys().copied().chain(rate_ids.iter().copied()).collect::<BTreeSet<_>>());
+    let members = bound_expressions.keys().copied().collect::<BTreeSet<_>>();
     for (id, symbol) in &model.symbols {
         if let Some(expression) = bound_expressions.get(id) {
             let Some(scheme) = symbol.ty.quantity_scheme() else {
@@ -531,15 +539,7 @@ fn projection(
                     )
                     .map_err(|e| CompileError::Missing(e.to_string()))?,
             );
-            for path in expression.paths() {
-                if path.segments.len() == 1
-                    && let Some(name) = path.segments[0].name.strip_prefix("s_")
-                    && let Ok(dependency) = SemanticId::parse_hex(name)
-                    && let Some(node) = nodes.get(&dependency)
-                {
-                    graph.add_edge(*node, nodes[id], ());
-                }
-            }
+            dependencies.expression(*id, expression);
         } else {
             let Some(scheme) = symbol.ty.quantity_scheme() else {
                 return Err(CompileError::Missing("nonphysical runtime symbol".into()));
@@ -576,17 +576,15 @@ fn projection(
             });
         }
     }
-    let order = toposort(&graph, None)
-        .map_err(|_| CompileError::Missing("cyclic expression members".into()))?;
+    let order = dependencies.order(&members)?;
     let mut bindings = order
         .iter()
-        .map(|node| {
-            let id = graph[*node];
+        .map(|id| {
             let expression = bound_expressions
-                .get(&id)
+                .get(id)
                 .cloned()
                 .ok_or_else(|| CompileError::Missing("expression member".into()))?;
-            Ok((symbol_name(id), expression))
+            Ok((symbol_name(*id), expression))
         })
         .collect::<Result<Vec<_>>>()?;
     for row in &rows {
@@ -596,6 +594,8 @@ fn projection(
         let EquationKind::Relation { lhs, rhs, sense } = &equation.kind else {
             return Err(CompileError::Missing("unspecialized equation guard".into()));
         };
+        dependencies.expression(row.id, lhs);
+        dependencies.expression(row.id, rhs);
         p.outputs.push(ModelingOutput::Equation {
             id: row.id,
             sense: *sense,
@@ -611,47 +611,11 @@ fn projection(
     }
     // The derivative system is solved as one guarded affine residual. Every rate
     // retains the whole source equation set; equation ordering never pairs states by accident.
-    let rate_names = model
-        .derivatives
-        .values()
-        .map(|d| symbol_name(d.rate))
-        .collect::<BTreeSet<_>>();
-    let dynamic_rows = rows
-        .iter()
-        .filter_map(|row| {
-            let EquationKind::Relation { lhs, rhs, sense } = &bound_equations[&row.id].kind else {
-                return None;
-            };
-            let mut needed = lhs
-                .free_paths()
-                .into_iter()
-                .chain(rhs.free_paths())
-                .filter(|&p| p.segments.len() == 1)
-                .map(|p| p.segments[0].name.clone())
-                .collect::<BTreeSet<_>>();
-            loop {
-                let before = needed.len();
-                for (name, expression) in &bindings {
-                    if needed.contains(name) {
-                        needed.extend(
-                            expression
-                                .free_paths()
-                                .into_iter()
-                                .filter(|&p| p.segments.len() == 1)
-                                .map(|p| p.segments[0].name.clone()),
-                        );
-                    }
-                }
-                if needed.len() == before {
-                    break;
-                }
-            }
-            needed
-                .iter()
-                .any(|p| rate_names.contains(p))
-                .then_some((row.id, *sense))
-        })
-        .collect::<Vec<_>>();
+    let dynamic_consumers = dependencies.consumers(rate_ids.iter().copied(), db);
+    let dynamic_rows = rows.iter().filter_map(|row| {
+        let EquationKind::Relation { sense, .. } = &bound_equations[&row.id].kind else { return None; };
+        dynamic_consumers.contains(&row.id).then_some((row.id, *sense))
+    }).collect::<Vec<_>>();
     if dynamic_rows.len() != model.derivatives.len()
         || dynamic_rows
             .iter()
@@ -717,10 +681,7 @@ fn projection(
                 // identifies the explicitly demanded member; suffix matching would
                 // accidentally admit unrelated child consumers.
                 let full_path = format!("{instance_path}.{path}");
-                model
-                    .symbols
-                    .values()
-                    .find_map(|symbol| (symbol.lineage.path == full_path).then_some(symbol.id))
+                symbols_by_path.get(full_path.as_str()).copied()
             })
         })
         .collect::<BTreeSet<_>>();
@@ -791,13 +752,13 @@ fn projection(
     for id in p
         .inputs
         .iter()
-        .filter(|id| observed.contains(id) && !model.derivatives.values().any(|d| d.rate == **id))
+        .filter(|id| observed.contains(id) && !rate_ids.contains(id))
     {
         p.outputs.push(ModelingOutput::Member(*id));
         p.expressions.push(symbol_expression(*id));
     }
     for node in order {
-        let id = graph[node];
+        let id = node;
         if !observed.contains(&id) {
             continue;
         }
@@ -916,16 +877,14 @@ fn projection(
             A::Scale(_) | A::Report(_) | A::Objective(_) => {}
         }
     }
+    let mut projected_members = p.outputs.iter().filter_map(|output| match output { ModelingOutput::Member(id) => Some(*id), _ => None }).collect::<BTreeSet<_>>();
     for a in &model.annotations {
         if matches!(
             a.value,
             pse_modeling::annotation::AnnotationValue::Report(_)
                 | pse_modeling::annotation::AnnotationValue::Valid { .. }
         ) && model.symbols.contains_key(&a.target)
-            && !p
-                .outputs
-                .iter()
-                .any(|o| matches!(o,ModelingOutput::Member(id) if *id==a.target))
+            && projected_members.insert(a.target)
         {
             p.outputs.push(ModelingOutput::Member(a.target));
             p.expressions.push(symbol_expression(a.target));
@@ -1009,10 +968,7 @@ fn projection(
             | ModelingOutput::Equation { id, .. }
             | ModelingOutput::Term { equation: id, .. }
             | ModelingOutput::OriginalEquation(id)
-            | ModelingOutput::Penalty(id) => rows
-                .iter()
-                .find(|r| r.id == *id)
-                .map(|r| r.lineage.declaration),
+            | ModelingOutput::Penalty(id) => rows_by_id.get(id).map(|row| row.lineage.declaration),
             ModelingOutput::ConditionalBoundary(id)
             | ModelingOutput::Member(id)
             | ModelingOutput::LevelBound { parameter: id, .. } => {
@@ -1021,28 +977,23 @@ fn projection(
             ModelingOutput::Contribution {
                 accumulator,
                 contribution,
-            } => model
-                .closures
-                .get(accumulator)
-                .and_then(|c| c.terms.iter().find(|t| t.id == *contribution))
-                .map(|c| c.lineage.declaration),
+            } => contributions_by_id.get(&(*accumulator, *contribution)).map(|term| term.lineage.declaration),
         }
         .ok_or_else(|| CompileError::Missing("output lineage".into()))?;
         p.declarations.push(declaration);
     }
-    let package = model.function_contracts(catalog.checked(db));
+    let selected_contracts = function_contracts(db, catalog, *request.root(db))?;
+    let package = model.function_contracts(&selected_contracts);
     let context = package.context();
     let types: BTreeMap<String, Type> = model
         .symbols
         .iter()
         .map(|(id, s)| (symbol_name(*id), s.ty.clone()))
         .collect();
+    let equation_outputs = p.outputs.iter().enumerate().filter_map(|(index, output)| match output { ModelingOutput::Equation { id, .. } => Some((*id, index)), _ => None }).collect::<BTreeMap<_, _>>();
     for (expression, output) in p.expressions.iter().zip(&p.outputs) {
         let term_type = if let ModelingOutput::Term { equation, .. } = output {
-            let index = p
-                .outputs
-                .iter()
-                .position(|o| matches!(o,ModelingOutput::Equation{id,..} if id==equation))
+            let index = equation_outputs.get(equation).copied()
                 .ok_or_else(|| CompileError::Missing("term parent equation".into()))?;
             Some(Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
                 p.quantities[index],
@@ -1101,9 +1052,7 @@ fn projection(
             } else if let Some(symbol) = model.symbols.get(target) {
                 Some(symbol.ty.clone())
             } else {
-                p.outputs
-                    .iter()
-                    .position(|o| matches!(o,ModelingOutput::Equation{id,..} if id==target))
+                equation_outputs.get(target).copied()
                     .map(|i| {
                         Type::Quantity(pse_quantity::scheme::Scheme::Concrete(p.quantities[i]))
                     })
@@ -1174,11 +1123,7 @@ fn projection(
             ModelingOutput::Contribution { accumulator, .. } => {
                 Some(&model.closures[accumulator].ty)
             }
-            ModelingOutput::Equation { id, .. } => model
-                .closures
-                .values()
-                .find(|closure| pse_ids::named_id(closure.id, "conservation") == *id)
-                .map(|closure| &closure.ty),
+            ModelingOutput::Equation { id, .. } => closures_by_row.get(id).map(|closure| &closure.ty),
         };
         let ty = pse_modeling::expression::infer(
             expression,
@@ -1201,6 +1146,11 @@ fn projection(
                 .map_err(|e| CompileError::Missing(e.to_string()))?,
         );
     }
+    p.annotation_scales = annotations.iter().filter_map(|annotation| {
+        let pse_modeling::annotation::AnnotationValue::Scale(scheme) = annotation.value else { return None; };
+        Some(NumericalScale { target: annotation.target, declaration: annotation.lineage.declaration, scheme,
+            observations: ScalingObservations::Rows(p.outputs.iter().filter(|output| matches!(output, ModelingOutput::Term { equation, .. } if *equation == annotation.target)).map(ModelingOutput::row_id).collect()), nested: false })
+    }).collect();
     // Preserve the input to the existing lowering. Preparation replays that lowering
     // for peers whose selected meaning must remain an opaque provider operation.
     let original = OriginalProjection {
@@ -1211,13 +1161,15 @@ fn projection(
     if !p.implicit.is_empty() {
         p.original = Some(Arc::new(original));
     }
-    finish_projection(&mut p, &bindings, registry)?;
+    finish_projection(db, &mut p, &bindings, registry, Some(dependencies))?;
     Ok(Arc::new(p))
 }
 fn finish_projection(
+    db: &dyn CompilerDb,
     p: &mut Projection,
     bindings: &[(String, Expr)],
     registry: &QuantityRegistry,
+    dependencies: Option<dependencies::Dependencies>,
 ) -> Result<()> {
     // Scatter addition has no authority to convert between physical contracts. A
     // mixed ledger keeps its complete typed expression, whose declared operations
@@ -1251,13 +1203,20 @@ fn finish_projection(
                 })
         })
     });
-    bind_members(p, bindings);
+    let constant_bounds = p.outputs.iter().zip(&p.expressions).filter_map(|(output, expression)| {
+        matches!(output, ModelingOutput::Hint { kind: ModelingHint::Lower | ModelingHint::Upper, .. }).then(|| pse_modeling::expression::references(expression).is_empty()).filter(|constant| *constant).map(|_| output.row_id())
+    }).collect();
+    bind_members(p, bindings, dependencies);
+    p.annotation_plans = Some(policy::projection_annotations(db, p, &constant_bounds));
     Ok(())
 }
-fn bind_members(p: &mut Projection, bindings: &[(String, Expr)]) {
-    let members = MemberReads::new(bindings, &p.validity);
-    for expression in &mut p.expressions {
-        let needed = members.closure(expression);
+fn bind_members(p: &mut Projection, bindings: &[(String, Expr)], dependencies: Option<dependencies::Dependencies>) {
+    let mut members = MemberReads::with_dependencies(bindings, &p.validity, dependencies);
+    for (output, expression) in p.outputs.iter().zip(&p.expressions) {
+        members.dependencies.expression(output.row_id(), expression);
+    }
+    for (output, expression) in p.outputs.iter().zip(&mut p.expressions) {
+        let needed = members.dependencies.reads_from([output.row_id()]).into_iter().filter_map(|id| members.index.get(&id).copied()).collect::<BTreeSet<_>>();
         if !needed.is_empty() {
             *expression = Expr {
                 kind: ExprKind::Let {
@@ -1274,78 +1233,32 @@ fn bind_members(p: &mut Projection, bindings: &[(String, Expr)]) {
 /// of what it reads. Each output carries only these, in their topological order: wrapping
 /// every output in every member grows with the product of outputs and members.
 struct MemberReads {
-    index: BTreeMap<String, usize>,
-    reads: Vec<Vec<usize>>,
-    guards: BTreeMap<String, Vec<String>>,
+    index: BTreeMap<SemanticId, usize>,
+    dependencies: dependencies::Dependencies,
 }
 impl MemberReads {
-    fn new(
-        bindings: &[(String, Expr)],
-        validity: &BTreeMap<String, crate::typed_math::Validity>,
-    ) -> Self {
-        let names = |e: &Expr| {
-            e.free_paths()
-                .into_iter()
-                .filter(|p| p.segments.len() == 1)
-                .map(|p| p.segments[0].name.clone())
-                .collect::<Vec<_>>()
-        };
-        let index = bindings
-            .iter()
-            .enumerate()
-            .map(|(i, (name, _))| (name.clone(), i))
-            .collect::<BTreeMap<_, _>>();
-        let guards = validity
-            .iter()
-            .map(|(name, guard)| {
-                let mut read = names(&guard.lower);
-                read.extend(names(&guard.upper));
-                (name.clone(), read)
-            })
-            .collect::<BTreeMap<_, _>>();
-        let mut members = Self {
-            index,
-            reads: Vec::new(),
-            guards,
-        };
-        members.reads = bindings
-            .iter()
-            .map(|(name, e)| {
-                let mut read = names(e);
-                read.push(name.clone());
-                members.resolve(read)
-            })
-            .collect();
-        members
+    #[cfg(test)]
+    fn new(bindings: &[(String, Expr)], validity: &BTreeMap<String, crate::typed_math::Validity>) -> Self {
+        Self::with_dependencies(bindings, validity, None)
     }
-    /// Member positions a set of names reads directly, including their guards' reads.
-    fn resolve(&self, names: Vec<String>) -> Vec<usize> {
-        let mut out = Vec::new();
-        for name in names {
-            if let Some(read) = self.guards.get(&name) {
-                out.extend(read.iter().filter_map(|n| self.index.get(n).copied()));
-            }
-            out.extend(self.index.get(&name).copied());
+    fn with_dependencies(bindings: &[(String, Expr)], validity: &BTreeMap<String, crate::typed_math::Validity>, dependencies: Option<dependencies::Dependencies>) -> Self {
+        let id = |name: &str| name.strip_prefix("s_").and_then(|hex| SemanticId::parse_hex(hex).ok());
+        let index = bindings.iter().enumerate().filter_map(|(i, (name, _))| id(name).map(|id| (id, i))).collect::<BTreeMap<_, _>>();
+        let mut dependencies = dependencies.unwrap_or_else(|| dependencies::Dependencies::new(index.keys().copied()));
+        for (name, expression) in bindings {
+            if let Some(id) = id(name) { dependencies.replace_expression(id, expression); }
         }
-        out
+        for (name, guard) in validity {
+            if let Some(id) = id(name) {
+                dependencies.guard(id, &guard.lower);
+                dependencies.guard(id, &guard.upper);
+            }
+        }
+        Self { index, dependencies }
     }
-    /// The positions of every member the expression reads, in topological order.
+    #[cfg(test)]
     fn closure(&self, expression: &Expr) -> BTreeSet<usize> {
-        let mut needed = BTreeSet::new();
-        let mut pending = self.resolve(
-            expression
-                .free_paths()
-                .into_iter()
-                .filter(|p| p.segments.len() == 1)
-                .map(|p| p.segments[0].name.clone())
-                .collect(),
-        );
-        while let Some(i) = pending.pop() {
-            if needed.insert(i) {
-                pending.extend(&self.reads[i]);
-            }
-        }
-        needed
+        self.dependencies.reads(expression).into_iter().filter_map(|id| self.index.get(&id).copied()).collect()
     }
 }
 #[salsa::tracked(returns(clone),lru=64,heap_size=admitted_heap)]
@@ -1372,9 +1285,14 @@ impl CompilerWorkspace {
     ) -> Result<Arc<AdmittedModeling>> {
         self.db.cancel = Arc::new(AtomicBool::new(false));
         let (catalog, request) = self.modeling_request(root, instance, bindings, limits)?;
-        let result =
-            salsa::Cancelled::catch(|| admitted(&self.db, self.inventory, catalog, request))
-                .map_err(|_| compiler_cancelled(&self.db))?;
+        let projected = salsa::Cancelled::catch(|| projection(&self.db, self.inventory, catalog, request)).map_err(|_| compiler_cancelled(&self.db))??;
+        let working_bytes = projection_body_bytes(&projected);
+        self.admit_live_root(projected.outputs.len(), working_bytes)?;
+        let result = salsa::Cancelled::catch(|| admitted(&self.db, self.inventory, catalog, request)).map_err(|_| compiler_cancelled(&self.db)).and_then(std::convert::identity);
+        if let Ok(product) = &result {
+            let bodies = product.bodies.values().map(|body| (grouped::memo_key(body), body.descriptor_bytes().saturating_add(body.math.retained_bytes()))).collect();
+            self.retain_live_root(bodies, working_bytes);
+        }
         self.trim_queries()?;
         result
     }
@@ -1473,6 +1391,7 @@ pub struct PreparedModeling {
     physical: ContentHash,
     semantic: SemanticModeling,
     projection: Arc<Projection>,
+    view_choices: Arc<policy::ViewChoices>,
     occurrences: Arc<BTreeMap<SemanticId, Vec<Occurrence>>>,
     occurrence_identity: Arc<ModelingOccurrenceIdentity>,
     lookup_structure: ContentHash,
@@ -1500,6 +1419,20 @@ impl AdmittedModeling {
     }
 }
 impl PreparedModeling {
+    /// Pure typed numerical instructions for the requested analysis mode.
+    /// # Errors
+    /// An unpublished/incomplete projection has no annotation product.
+    pub fn numerical_annotations(&self, mode: NumericalAnnotationMode) -> Result<&NumericalAnnotations> {
+        self.projection.annotation_plans.as_ref().and_then(|plans| plans.get(&mode)).map(AsRef::as_ref).ok_or_else(|| CompileError::Missing("compiler numerical annotation product".into()))
+    }
+    /// Compiler-owned view selection, carrying the source/policy premise that permits it.
+    /// # Errors
+    /// The retained immutable view inventory is incomplete.
+    pub fn compiler_view(&self, policy: ViewPolicy) -> Result<(Self, Arc<ViewChoice>)> {
+        let choice = self.view_choices.get(&(self.original.is_some(), policy)).cloned().ok_or_else(|| CompileError::Missing("compiler view policy product".into()))?;
+        let model = match choice.view { CompilerView::Effective => self.clone(), CompilerView::Original => self.original_equations().ok_or_else(|| CompileError::Missing("selected original-equation view".into()))? };
+        Ok((model, choice))
+    }
     /// Resolver-issued consumed physical interpretation of this mathematical product.
     #[doc(hidden)]
     pub fn consumed_physical_identity(&self) -> ContentHash {
@@ -1665,7 +1598,7 @@ impl CompilerWorkspace {
                                 &mut p,
                                 &mut bindings,
                             )?;
-                            finish_projection(&mut p, &bindings, &self.inputs.quantities)?;
+                            finish_projection(&self.db, &mut p, &bindings, &self.inputs.quantities, None)?;
                             let supplied = primary
                                 .implicit
                                 .iter()
@@ -1734,7 +1667,7 @@ impl CompilerWorkspace {
             }
             Ok(frontier)
         })
-        .map_err(|_| compiler_cancelled(&self.db))?;
+        .map_err(|_| compiler_cancelled(&self.db)).and_then(std::convert::identity);
         self.trim_queries()?;
         result
     }
@@ -1756,6 +1689,9 @@ impl CompilerWorkspace {
             return Err(CompileError::Cancelled);
         }
         self.db.cancel = cancel;
+        let live_keys = frontier.body_requests().collect::<BTreeSet<_>>();
+        let frontier_bytes = frontier.retained_bytes();
+        self.admit_live_root(live_keys.len(), frontier_bytes)?;
         // Completion consumes immutable owned instructions. Allocation owners may
         // contain interior accounting state, but cancellation cannot expose a partly
         // constructed product; non-cancellation panics are rethrown by Salsa.
@@ -1859,6 +1795,7 @@ impl CompilerWorkspace {
                             .filter_map(|o| o.constraint().map(|(id, _)| id))
                             .collect(),
                     );
+                    let view_choices = policy::view_choices(&self.db, &admitted, original.as_ref().map(|(_, view)| view.as_ref()), &frontier.model);
                     Ok(PreparedModeling {
                         context: self.inputs.clone(),
                         physical: complete_context(
@@ -1871,6 +1808,7 @@ impl CompilerWorkspace {
                         occurrences,
                         occurrence_identity,
                         semantic: frontier.semantic,
+                        view_choices,
                         projection: frontier.projection,
                         original,
                         portable,
@@ -1886,7 +1824,11 @@ impl CompilerWorkspace {
             }
             Ok(product)
         }))
-        .map_err(|_| compiler_cancelled(&self.db))?;
+        .map_err(|_| compiler_cancelled(&self.db)).and_then(std::convert::identity);
+        if let Ok(product) = &result {
+            let bodies = product.admitted.bodies.values().chain(product.original.iter().flat_map(|(_, view)| view.bodies.values())).map(|body| (grouped::memo_key(body), body.descriptor_bytes().saturating_add(body.math.retained_bytes()))).collect();
+            self.retain_live_root(bodies, frontier_bytes);
+        }
         self.trim_queries()?;
         result
     }
@@ -1916,6 +1858,7 @@ impl PreparedModeling {
             + 256
             + context_extent(&self.context)
             + self.semantic.descriptor_bytes()
+            + policy::choices_bytes(&self.view_choices)
             + size_of_val(self.portable.as_ref())
             + 32
             + self
@@ -1969,11 +1912,9 @@ impl CompilerWorkspace {
     ) -> Result<PreparedFunctions> {
         let mut p = model.projection.as_ref().clone();
         let mut selected = Vec::new();
+        let members = p.outputs.iter().enumerate().filter_map(|(index, output)| match output { ModelingOutput::Member(id) => Some((*id, index)), _ => None }).collect::<BTreeMap<_, _>>();
         for symbol in symbols {
-            let index = p
-                .outputs
-                .iter()
-                .position(|o| matches!(o, ModelingOutput::Member(id) if id == symbol))
+            let index = members.get(symbol).copied()
                 .ok_or_else(|| {
                     CompileError::Missing("conditional boundary member projection absent".into())
                 })?;
@@ -2062,6 +2003,9 @@ fn projection_heap(value: &Result<Arc<Projection>>) -> usize {
 }
 fn projection_body_bytes(p: &Projection) -> usize {
     size_of::<Projection>()
+        + p.annotation_plans.as_ref().map_or(0, |plans| policy::plans_bytes(plans))
+        + p.annotation_scales.capacity() * size_of::<NumericalScale>()
+        + p.annotation_scales.iter().map(|scale| match &scale.observations { ScalingObservations::Rows(rows) => rows.capacity() * size_of::<SemanticId>(), ScalingObservations::Range(_) => 0 }).sum::<usize>()
         + p.objectives.members.capacity()
             * (size_of::<pse_modeling::specialize::ObjectiveMember>() + 256)
         + p.objectives.levels.capacity()
@@ -2206,10 +2150,11 @@ fn admitted_owner_attachment_bytes(p: &AdmittedModeling) -> usize {
             .map(|v| v.owner_attachment_bytes())
             .sum::<usize>()
 }
-pub(super) fn configure(db: &mut CompilerDatabase, n: usize) {
+pub(in crate::workspace) fn configure(db: &mut CompilerDatabase, n: usize) {
     projection::set_lru_capacity(db, n);
     admitted::set_lru_capacity(db, n);
     grouped::configure(db, n);
+    policy::configure(db, n);
 }
 
 impl PreparedModeling {

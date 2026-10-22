@@ -164,6 +164,7 @@ fn budget(limit: usize) -> Budget {
             .kkt
             .stationarity,
         limit,
+        bytes: usize::MAX,
     }
 }
 fn run(
@@ -643,6 +644,7 @@ mod output_accuracy {
             Budget {
                 dual: 1e-3,
                 limit: 1000,
+                bytes: usize::MAX,
             },
         )
         .unwrap();

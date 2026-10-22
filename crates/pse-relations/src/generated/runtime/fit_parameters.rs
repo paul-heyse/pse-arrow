@@ -8,20 +8,22 @@ pub use pse_model::generated::r#runtime::r#fit_parameters::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    78u8, 131u8, 218u8, 39u8, 133u8, 183u8, 146u8, 205u8, 198u8, 93u8, 42u8, 244u8,
-    100u8, 251u8, 131u8, 204u8,
+    155u8, 60u8, 188u8, 58u8, 97u8, 41u8, 23u8, 240u8, 160u8, 4u8, 209u8, 134u8, 242u8,
+    49u8, 30u8, 55u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "fit_parameters";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "runtime.fit_parameters";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    98u8, 26u8, 163u8, 212u8, 17u8, 232u8, 134u8, 213u8, 151u8, 207u8, 208u8, 128u8, 0u8,
-    96u8, 214u8, 171u8, 122u8, 198u8, 86u8, 231u8, 196u8, 193u8, 65u8, 123u8, 192u8,
-    175u8, 223u8, 124u8, 39u8, 112u8, 227u8, 84u8,
+    41u8, 184u8, 121u8, 135u8, 76u8, 222u8, 66u8, 214u8, 195u8, 175u8, 6u8, 15u8, 186u8,
+    124u8, 84u8, 70u8, 234u8, 162u8, 226u8, 146u8, 55u8, 101u8, 145u8, 42u8, 111u8, 96u8,
+    163u8, 122u8, 0u8, 13u8, 90u8, 152u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeFitParametersRow {
     fn append(

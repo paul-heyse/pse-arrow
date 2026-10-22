@@ -9,11 +9,11 @@ use super::{
 use crate::math::MathRuntimeError;
 use crate::workflow::{
     ModelingAnalysis, ModelingPackage, ModelingResult, ModelingSolvePreparation, RunHandle,
-    RunReport, RunRequest, RunResult, Runtime, WorkflowError, contract,
+    RunResult, Runtime, WorkflowError, contract,
     durable::DurableAttempt,
     integrated::IntegratedExperiment,
     modeling::assessment::Obligations,
-    run::{attempt_for, progress_for},
+    run::RunSupervisor,
     staged::{Overlay, Staged},
 };
 use pse_backend_native::{
@@ -121,16 +121,15 @@ impl Runtime {
                         return Err(WorkflowError::Shared(error));
                     }
                 };
-                let durable = match attempt_for(self, attempt) {
-                    Ok(durable) => durable,
+                let supervisor = match RunSupervisor::new(self.clone(), attempt, Some(cancel), None, admitted.history) {
+                    Ok(supervisor) => supervisor,
                     Err(error) => {
                         admitted.close_sources().await?;
                         return Err(error);
                     }
                 };
-                let progress = progress_for(admitted.history, durable.as_ref());
-                let opened = match durable {
-                    None => match Staged::open(self, Some(progress.clone())) {
+                let opened = match supervisor.durable {
+                    None => match Staged::open(self, Some(supervisor.progress.clone())) {
                         Ok(staged) => Some(staged),
                         Err(error) => {
                             admitted.close_sources().await?;
@@ -139,21 +138,8 @@ impl Runtime {
                     },
                     Some(_) => None,
                 };
-                let cancel = crate::CancelSource::new();
-                let checks = cancel.clone();
-                let (sender, receiver) = tokio::sync::watch::channel(None);
-                let runtime = self.clone();
-                let run_id: RunId = durable
-                    .as_ref()
-                    .and_then(DurableAttempt::claimed_run)
-                    .unwrap_or_else(pse_operations::mint_id);
-                let attempt_id = durable.as_ref().map(DurableAttempt::attempt_id);
-                let canonical_keys = durable
-                    .as_ref()
-                    .map(|attempt| attempt.canonical_keys(run_id));
-                let stream = progress.clone();
-                tokio::spawn(crate::workflow::inherit_runtime_activity(
-                    crate::invocation::scope(async move {
+                Ok(supervisor.spawn(move |supervisor| crate::invocation::scope(async move {
+                        let RunSupervisor { runtime, run_id, durable, progress: stream, checks: cancel, .. } = supervisor;
                         use futures_util::FutureExt;
                         let source_owner = admitted.clone();
                         let scopes = admitted
@@ -179,9 +165,7 @@ impl Runtime {
                                     return RunResult::joined(
                                         run_id,
                                         runtime,
-                                        RunRequest::Horizon(admitted.request()),
-                                        None,
-                                        Err(Arc::new(error)),
+                                        crate::workflow::RunOutcome::horizon_refused(admitted.request(), Arc::new(error)), None,
                                     )
                                     .refused(durable)
                                     .await;
@@ -197,9 +181,7 @@ impl Runtime {
                                     return RunResult::joined(
                                         run_id,
                                         runtime,
-                                        RunRequest::Horizon(admitted.request()),
-                                        None,
-                                        Err(Arc::new(error)),
+                                        crate::workflow::RunOutcome::horizon_refused(admitted.request(), Arc::new(error)), None,
                                     )
                                     .refused(durable)
                                     .await;
@@ -215,9 +197,7 @@ impl Runtime {
                                 return RunResult::joined(
                                     run_id,
                                     runtime,
-                                    RunRequest::Horizon(admitted.request()),
-                                    None,
-                                    Err(Arc::new(error)),
+                                    crate::workflow::RunOutcome::horizon_refused(admitted.request(), Arc::new(error)), None,
                                 )
                                 .refused(durable)
                                 .await;
@@ -243,7 +223,7 @@ impl Runtime {
                             operation = async move {
                                 let (mut result, renewal) = scope.joined(phase, operation).await;
                                 if let Some(error) = renewal {
-                                    result.report = Err(Arc::new(error));
+                                    result.fail_report(Arc::new(error));
                                 }
                                 result
                             }
@@ -251,22 +231,13 @@ impl Runtime {
                         }
                         let mut result = operation.await;
                         if let Err(error) = source_owner.close_sources().await {
-                            result.report = Err(Arc::new(error));
+                            result.fail_report(Arc::new(error));
                         }
                         if let Some(recorder) = &result.invocation {
                             recorder.ready();
                         }
-                        sender.send_replace(Some(Arc::new(result)));
-                    }),
-                ));
-                Ok(RunHandle::staged(
-                    checks,
-                    receiver,
-                    progress,
-                    run_id,
-                    attempt_id,
-                    canonical_keys,
-                ))
+                        result
+                    })))
             })
             .await
     }
@@ -279,11 +250,11 @@ pub(super) fn joined_modeling(
     completed: Vec<ModelingResult>,
     failed_solve: Option<usize>,
 ) -> (
-    Result<RunReport, Arc<WorkflowError>>,
+    Result<Vec<ModelingResult>, Arc<WorkflowError>>,
     Option<crate::workflow::run::ModelingFailure>,
 ) {
     match outcome {
-        Ok(()) => (Ok(RunReport::Modeling(completed)), None),
+        Ok(()) => (Ok(completed), None),
         Err(error) => (
             Err(Arc::new(error)),
             Some(crate::workflow::run::ModelingFailure {
@@ -323,14 +294,10 @@ async fn admit(
     let staged = match opened {
         Some(staged) => staged,
         None => tokio::select! {
-            staged = Staged::open_queued(runtime, Some(progress.clone()), cancel, None) => staged?,
+            staged = Staged::open_queued(runtime, Some(progress.clone()), cancel, cancel.deadline()) => staged?,
             () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled.into()),
         },
     };
-    if let Some(attempt) = durable.as_mut() {
-        let stop = cancel.clone();
-        attempt.start(Arc::new(move || stop.cancel())).await?;
-    }
     Ok(staged)
 }
 
@@ -1416,12 +1383,10 @@ impl Loop {
             let mut result = RunResult::joined(
                 run_id,
                 runtime,
-                RunRequest::Modeling(requests),
+                crate::workflow::RunOutcome::Horizon { request: admitted.request(), execution: crate::workflow::HorizonRunOutcome::Full { requests, result: report } },
                 None,
-                report,
             );
             result.modeling_failure = failure;
-            result.original_horizon_request = Some(RunRequest::Horizon(admitted.request()));
             result
         } else {
             let report = Arc::new(super::HorizonOutcome {
@@ -1432,14 +1397,13 @@ impl Loop {
                 detail_membership,
             });
             let original = outcome
-                .map(|()| RunReport::Horizon(report.clone()))
+                .map(|()| report.clone())
                 .map_err(Arc::new);
             let mut result = RunResult::joined(
                 run_id,
                 runtime,
-                RunRequest::Horizon(admitted.request()),
+                crate::workflow::RunOutcome::Horizon { request: admitted.request(), execution: crate::workflow::HorizonRunOutcome::Compact(original) },
                 None,
-                original,
             );
             result.horizon_output = Some(report);
             result
@@ -1762,9 +1726,8 @@ impl Loop {
                 let mut original = RunResult::joined(
                     self.run_id,
                     self.admitted.sources[0].runtime.clone(),
-                    RunRequest::Modeling(vec![request]),
+                    crate::workflow::RunOutcome::Modeling { request: vec![request], result: Err(error.clone()) },
                     None,
-                    Err(error.clone()),
                 );
                 original.modeling_origin = attempt;
                 original = original.completed();
@@ -1779,9 +1742,8 @@ impl Loop {
         let mut original = RunResult::joined(
             self.run_id,
             self.admitted.sources[0].runtime.clone(),
-            RunRequest::Modeling(vec![request]),
+            crate::workflow::RunOutcome::Modeling { request: vec![request], result: Ok(vec![result.clone()]) },
             None,
-            Ok(RunReport::Modeling(vec![result.clone()])),
         );
         original.modeling_origin = attempt;
         original = original.completed();

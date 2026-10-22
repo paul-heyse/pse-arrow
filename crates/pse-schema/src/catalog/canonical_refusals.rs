@@ -45,6 +45,11 @@ macro_rules! refusals {
     };
 }
 refusals! {
+    MaintenanceGenerationChanged: "maintenance_generation_changed" => (Fence, "maintenance generation or exact operation changed"),
+    MaintenanceFrozenPlacementRequired: "maintenance_frozen_placement_required" => (Fence, "maintenance requires the exact jointly frozen placement"),
+    MaintenanceOriginalInputsDiffer: "maintenance_original_inputs_differ" => (Identity, "maintenance operation or page inputs differ"),
+    MaintenanceProtectedSource: "maintenance_protected_source" => (Fence, "source protections or undrained file owners prevent maintenance"),
+    MaintenancePlacementIncomplete: "maintenance_placement_incomplete" => (Invariant, "bounded placement rehoming remains incomplete"),
     ActivationFilePlacementDiffers: "activation_file_placement_differs" => (Identity, "activation file placement differs"),
     ActivationOperationAlreadyExistsSettleExactReceipt: "activation_operation_already_exists_settle_exact_receipt" => (Invariant, "activation operation already exists; settle exact receipt"),
     ActivationPayloadIncarnationDiffers: "activation_payload_incarnation_differs" => (Identity, "activation payload incarnation differs"),

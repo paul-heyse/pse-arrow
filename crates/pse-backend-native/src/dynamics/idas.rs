@@ -2032,6 +2032,9 @@ impl<'a> Session<'a> {
             #[cfg(test)]
             workspace_tests::record_context_construction();
         }
+        // SAFETY: new or exclusively reinstalled context owned by this session.
+        // The selected handler retains no session pointer, including while parked.
+        unsafe { crate::sundials_errors::install(s.ctx) }?;
         s.local_error = local_error::LocalError::prepare(n);
         let Some(initial) = s.callback.evaluate(
             Function::Initial,

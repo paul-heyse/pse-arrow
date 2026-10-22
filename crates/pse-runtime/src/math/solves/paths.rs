@@ -327,6 +327,12 @@ impl std::ops::Deref for PreparedPath {
     }
 }
 impl PreparedPath {
+    fn corrector_backend(&self) -> Result<Backend, ProblemError> {
+        match self.request.corrector.selection {
+            SolverSelection::Explicit(backend) => Ok(backend),
+            SolverSelection::Auto => Err(ProblemError::Internal("prepared arclength corrector lost explicit selection".into())),
+        }
+    }
     /// Bound original target; its completion identity remains separate from the path source.
     pub fn original_target(&self) -> &PreparedSolve {
         &self.request.target
@@ -971,11 +977,13 @@ impl MathService {
             )
             .into());
         }
+        let SolverSelection::Explicit(corrector_backend) = request.corrector.selection else {
+            return Err(ProblemError::Unsupported("bounded arclength requires an explicitly selected corrector".into()).into());
+        };
         if request.corrector.intent != SolveIntent::Root
             || request.corrector.numerics.key() != original.profile.numerics.key()
             || request.scale.to_bits() != program.normalization.variables[n].to_bits()
-            || request.corrector.selection != SolverSelection::Explicit(Backend::Ipopt)
-            || request.corrector.controls.hessian != HessianMode::LimitedMemory
+            || !execution::adapter(corrector_backend).arclength_corrector(&request.corrector.backend, &request.corrector.controls)
             || request.corrector.controls.start != StartPolicy::Explicit
             || request.corrector.sensitivity.is_some()
             || !matches!(request.corrector.presolve, native::presolve::Policy::Off)
@@ -985,7 +993,7 @@ impl MathService {
         request.corrector.controls.validate()?;
         admit_profile(
             &request.corrector,
-            Route::Native(Backend::Ipopt),
+            Route::Native(corrector_backend),
             &original.snapshot,
         )?;
         let meta = (n + 1)
@@ -1673,7 +1681,7 @@ fn correct(
             layout: path.family.key(),
             profile: profile_key(&path.request.corrector)?.as_id(),
             data: identity,
-            backend: Backend::Ipopt,
+            backend: path.corrector_backend()?,
         };
         let structure = native::structural::Assessment::new(
             native::structural::Mode::Roots,
@@ -1681,7 +1689,7 @@ fn correct(
             path.structure.equations.clone(),
             path.structure.witness.clone(),
         )?;
-        let adapter = execution::adapter(Backend::Ipopt);
+        let adapter = execution::adapter(path.corrector_backend()?);
         let warm = WarmStart {
             origin: None,
             compatibility: compatibility.clone(),
@@ -1874,7 +1882,7 @@ fn correct_target(
                 refusals: &BTreeMap::new(),
             },
         }
-        .select(SolverSelection::Explicit(Backend::Ipopt))?;
+        .select(path.request.corrector.selection)?;
         let assessment = native::structural::Assessment::new(
             native::structural::Mode::Roots,
             structure.variables,
@@ -1885,9 +1893,9 @@ fn correct_target(
             layout: original.identity(),
             profile: profile_key(&path.request.corrector)?.as_id(),
             data: identity,
-            backend: Backend::Ipopt,
+            backend: path.corrector_backend()?,
         };
-        let adapter = execution::adapter(Backend::Ipopt);
+        let adapter = execution::adapter(path.corrector_backend()?);
         let warm = WarmStart {
             origin: None,
             compatibility: compatibility.clone(),

@@ -32,101 +32,14 @@ pub struct ObjectiveDeclaration {
 /// The registry annotation kinds (ADR-0123 Outcome 1).
 pub use pse_model::generated::enums::ModelingAnnotationKind as AnnotationKind;
 type Declared = pse_authoring::language::AuthoredModelingDeclarationsFieldValueAnnotation;
-/// What an annotation's arguments are, by kind.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Shape {
-    /// This many expressions of the target's physical type.
-    Expressions(usize),
-    /// One presentation label.
-    Label,
-    /// One predicate over the model.
-    Predicate,
-    /// The typed members of an objective (ADR-0111).
-    Objective,
-    /// The typed scaling scheme.
-    Scheme,
-    /// The typed connection maxima of a port.
-    Connectivity,
-    /// Authored physical accuracy goal attached to one scalar target.
-    AccuracyGoal,
-    /// Tagged engineering characteristic magnitude attached to one target.
-    EngineeringScale,
-    /// Inherited shared engineering rule selected by one target.
-    EngineeringDefault,
-    /// Package-level marker that makes an existing constant a shared engineering rule.
-    EngineeringRule,
-}
-/// The shape of a declared annotation. The match over the registry kinds is exhaustive:
-/// every kind states its argument count and exactly which typed members it carries.
-/// # Errors
-/// Arguments or typed members that disagree with the kind.
+/// Registry-projected argument shape; the source declaration owns cardinality and typed-member selection.
+pub(crate) use pse_model::generated::authored::modeling_declarations::SourceAnnotationShape as Shape;
+/// Validate source cardinality and member presence at the original declaration.
 pub(crate) fn shape(a: &Declared, at: DeclarationId) -> Result<Shape> {
-    // (arguments, objective, scheme, connectivity)
-    let (shape, expected) = match a.kind {
-        AnnotationKind::Start | AnnotationKind::Nominal => (
-            Shape::Expressions(1),
-            (1, false, false, false, false, false, false),
-        ),
-        AnnotationKind::Bounds => (
-            Shape::Expressions(2),
-            (2, false, false, false, false, false, false),
-        ),
-        // Hard closure ranges have exactly two physical endpoints.
-        AnnotationKind::Valid => (
-            Shape::Expressions(2),
-            (2, false, false, false, false, false, false),
-        ),
-        AnnotationKind::Report => (Shape::Label, (1, false, false, false, false, false, false)),
-        AnnotationKind::Check => (
-            Shape::Predicate,
-            (1, false, false, false, false, false, false),
-        ),
-        AnnotationKind::Objective => (
-            Shape::Objective,
-            (0, true, false, false, false, false, false),
-        ),
-        AnnotationKind::Scale => (Shape::Scheme, (0, false, true, false, false, false, false)),
-        AnnotationKind::Connectivity => (
-            Shape::Connectivity,
-            (0, false, false, true, false, false, false),
-        ),
-        AnnotationKind::AccuracyGoal => (
-            Shape::AccuracyGoal,
-            (0, false, false, false, true, false, false),
-        ),
-        AnnotationKind::EngineeringScale => (
-            Shape::EngineeringScale,
-            (0, false, false, false, false, true, false),
-        ),
-        AnnotationKind::EngineeringDefault => (
-            Shape::EngineeringDefault,
-            (0, false, false, false, false, false, true),
-        ),
-        AnnotationKind::EngineeringRule => (
-            Shape::EngineeringRule,
-            (0, false, false, false, false, false, false),
-        ),
-    };
-    let actual = (
-        a.arguments.len(),
-        a.objective.is_some(),
-        a.scheme.is_some(),
-        a.connectivity.is_some(),
-        a.accuracy_goal.is_some(),
-        a.engineering_scale.is_some(),
-        a.engineering_default.is_some(),
-    );
-    if actual != expected {
-        return Err(invalid(
-            at,
-            format!(
-                "annotation {} takes {} argument(s) and exactly its typed members",
-                a.kind.as_str(),
-                expected.0
-            ),
-        ));
+    if !a.matches_source_shape() {
+        return Err(invalid(at, format!("annotation {} takes {} argument(s) and exactly its typed members", a.kind.as_str(), a.source_argument_count())));
     }
-    Ok(shape)
+    Ok(a.source_shape())
 }
 /// Checked annotation meaning. A start never fixes a variable and a bound is not a start.
 #[derive(Clone, Debug, PartialEq)]
@@ -776,12 +689,7 @@ impl Engine<'_, '_> {
                 AnnotationKind::Check => {
                     let predicate = self.p.predicate_at(at, "annotation.arguments", 0)?.clone();
                     let predicate = self.rewrite_predicate(instance, &predicate, env, &[at])?;
-                    let types: std::collections::BTreeMap<_, _> = self
-                        .model
-                        .symbols
-                        .iter()
-                        .map(|(id, s)| (crate::specialize::symbol_name(*id), s.ty.clone()))
-                        .collect();
+                    let types = crate::TypeScope::new(&self.model.symbols);
                     crate::expression::predicate(
                         &predicate,
                         &types,

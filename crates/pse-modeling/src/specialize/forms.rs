@@ -346,6 +346,7 @@ impl Engine<'_, '_> {
         self.model.symbols.insert(
             id,
             Symbol {
+                definition: None,
                 id,
                 ty,
                 role: Kind::Parameter,
@@ -405,6 +406,7 @@ impl Engine<'_, '_> {
         self.model.symbols.insert(
             id,
             Symbol {
+                definition: None,
                 id,
                 ty,
                 role: Kind::Parameter,
@@ -432,6 +434,7 @@ impl Engine<'_, '_> {
         self.model.symbols.insert(
             id,
             Symbol {
+                definition: None,
                 id,
                 ty,
                 role: Kind::Variable,
@@ -464,6 +467,7 @@ impl Engine<'_, '_> {
         self.model.symbols.insert(
             id,
             Symbol {
+                definition: None,
                 id,
                 ty,
                 role: Kind::Parameter,
@@ -508,12 +512,7 @@ impl Engine<'_, '_> {
         contracts: &dyn crate::FunctionAdmission,
         at: DeclarationId,
     ) -> Result<Type> {
-        let types = self
-            .model
-            .symbols
-            .iter()
-            .map(|(id, s)| (symbol_name(*id), s.ty.clone()))
-            .collect::<BTreeMap<_, _>>();
+        let types = crate::TypeScope::new(&self.model.symbols);
         crate::expression::infer(expression, &types, contracts, self.c, at, None)
     }
     /// Resolve an authored member path to an existing binary variable.
@@ -526,7 +525,7 @@ impl Engine<'_, '_> {
     ) -> Result<SemanticId> {
         let expression = self.p.expression_at(at, role, 0)?.clone();
         let expression = self.rewrite(instance, &expression, env, &[at])?;
-        symbol_reference(&expression)
+        self.model.symbols.reference(&expression)
             .filter(|id| {
                 self.model
                     .symbols
@@ -543,7 +542,7 @@ impl Engine<'_, '_> {
         at: DeclarationId,
     ) -> Result<SemanticId> {
         let expression = self.rewrite(instance, expression, env, &[at])?;
-        symbol_reference(&expression)
+        self.model.symbols.reference(&expression)
             .filter(|id| {
                 self.model
                     .symbols
@@ -668,12 +667,7 @@ impl Engine<'_, '_> {
         let (residual, upper, lower) = match realized {
             Realized::BigM(expression) => {
                 let m = self.rewrite(instance, expression, env, &[source])?;
-                let types = self
-                    .model
-                    .symbols
-                    .iter()
-                    .map(|(id, s)| (symbol_name(*id), s.ty.clone()))
-                    .collect::<BTreeMap<_, _>>();
+                let types = crate::TypeScope::new(&self.model.symbols);
                 if crate::expression::infer(
                     &m,
                     &types,
@@ -695,6 +689,7 @@ impl Engine<'_, '_> {
                     self.model.symbols.insert(
                         m_id,
                         Symbol {
+                            definition: None,
                             id: m_id,
                             ty: ty.clone(),
                             role: Kind::Let,
@@ -714,6 +709,7 @@ impl Engine<'_, '_> {
                 self.model.symbols.insert(
                     residual_id,
                     Symbol {
+                        definition: None,
                         id: residual_id,
                         ty: ty.clone(),
                         role: Kind::Let,
@@ -1229,12 +1225,7 @@ impl Engine<'_, '_> {
         let mut seen = BTreeSet::new();
         while let Some(e) = pending.pop() {
             for path in e.paths() {
-                let Some(id) = path
-                    .segments
-                    .first()
-                    .filter(|_| path.segments.len() == 1)
-                    .and_then(|s| s.name.strip_prefix("s_"))
-                    .and_then(|hex| SemanticId::parse_hex(hex).ok())
+                let Some(id) = self.model.symbols.path(path)
                 else {
                     continue;
                 };
@@ -1270,7 +1261,7 @@ impl Engine<'_, '_> {
                 if let Some(class) = memo.get(&name) {
                     return *class;
                 }
-                let class = match symbol_reference(expression)
+                let class = match self.model.symbols.reference(expression)
                     .and_then(|id| self.model.symbols.get(&id).map(|s| (id, s)))
                 {
                     Some((id, _)) if variables.contains(&id) => Class::Affine,
@@ -1335,7 +1326,7 @@ impl Engine<'_, '_> {
         let kind = match &expression.kind {
             ExprKind::Number(_) => return Ok(expression.clone()),
             ExprKind::Path(_) => {
-                return match symbol_reference(expression) {
+                return match self.model.symbols.reference(expression) {
                     Some(id) if map.contains_key(&id) => Ok(map[&id].clone()),
                     Some(id) => match self
                         .model
@@ -1472,7 +1463,7 @@ impl Engine<'_, '_> {
     ) -> Result<SemanticId> {
         let expression = self.p.expression_at(at, role, 0)?.clone();
         let expression = self.rewrite(instance, &expression, env, &[at])?;
-        symbol_reference(&expression)
+        self.model.symbols.reference(&expression)
             .filter(|id| {
                 self.model
                     .symbols

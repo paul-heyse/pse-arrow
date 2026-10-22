@@ -1430,3 +1430,32 @@ fn presence_guard_retains_the_required_lookup_refusal() {
     assert!(error.contains("lookup selected[a] is outside"), "{error}");
     assert!(!error.contains("missing static binding present"), "{error}");
 }
+
+#[test]
+fn actual_finite_facts_preserve_empty_declared_carriers_order_and_aliases() {
+    use specialize::finite::{FamilyKey, DomainKey};
+    let model = run("package p {
+        entity kind item {} entity item a {} entity item b {}
+        set ordered:Set<item>={b,a}; set empty:Set<item>={};
+        def Root { var x[j in ordered]:Scalar; var unused[j in empty]:Scalar;
+            alias shared:Scalar=x[b];
+            eq selected[j in ordered]:x[j]==1;
+            eq force:shared==2;
+        }
+    }", "p.Root", Bindings::default()).unwrap();
+    let instance = *model.instances.keys().next().unwrap();
+    let x = model.symbols.values().find(|symbol| symbol.lineage.path.ends_with(".x")).unwrap();
+    let family = FamilyKey {instance, declaration:x.lineage.declaration, role:"binding.indices.domain".into(), parents:vec![]};
+    let rows = model.finite_facts.family(&family).unwrap();
+    assert_eq!(rows.len(), 2);
+    let carrier = model.finite_facts.domain(&DomainKey {family, position:0, prefix:vec![]}).unwrap();
+    assert!(matches!(carrier.element, Type::Entity(_)));
+    assert_eq!(carrier.members.as_ref(), rows.iter().map(|row| row[0].clone()).collect::<Vec<_>>());
+    let empty = model.finite_facts.domains().find(|(_, carrier)| carrier.members.is_empty()).unwrap();
+    assert!(matches!(empty.1.element, Type::Entity(_)));
+    assert!(model.finite_facts.family(&empty.0.family).unwrap().is_empty());
+    let shared=model.symbols.values().find(|symbol| symbol.lineage.path.ends_with(".shared")).unwrap();
+    let key=specialize::finite::MemberKey {instance, declaration:shared.lineage.declaration, tuple:vec![]};
+    assert_eq!(model.finite_facts.require_member(&key).unwrap(), shared.id);
+    assert!(model.finite_facts.retained_bytes()>0);
+}

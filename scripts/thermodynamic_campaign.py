@@ -106,7 +106,6 @@ def measure(output: Path, selected: str) -> None:
             math_artifact_bytes=128 << 20,
             cache=pse.CacheSettings(
                 working_bytes=128 << 20,
-                metadata_bytes=8 << 20,
                 concurrent_loads=2,
                 inflight_bytes=32 << 20,
                 inspection_bytes=4 << 20,

@@ -806,7 +806,7 @@ fn process_contract_ftpz_and_fphz_keep_explicit_reference_species_and_derived_ob
             else {
                 panic!("reference reconstruction")
             };
-            let dependent = specialize::symbol_reference(lhs).unwrap();
+            let dependent = model.symbols.reference(lhs).unwrap();
             assert!(!model.ports.values().any(|port| port.symbol == dependent));
         }
     }

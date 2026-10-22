@@ -26,6 +26,17 @@ class VersionRequirement:
 
 
 @attrs.frozen(kw_only=True)
+class ScientificCoordinateValue:
+    """Declared relation row or nested value."""
+
+    coordinate_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    value: v.QuantityValue = attrs.field(validator=attrs.validators.instance_of(v.QuantityValue))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.coordinate_id), v.record_key(self.value),))
+
+
+@attrs.frozen(kw_only=True)
 class ScientificArtifactCoordinate:
     """Declared relation row or nested value."""
 

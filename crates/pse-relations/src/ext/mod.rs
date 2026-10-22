@@ -22,6 +22,8 @@ pub struct ExtMetadata {
     pub enum_id: Option<SemanticId>,
     /// The target relation identity, for `pse.ordinal_ref` only.
     pub target_relation_id: Option<SemanticId>,
+    /// Explicit source parser contract, for `pse.expr_dsl` only.
+    pub grammar: Option<pse_schema::model::ExpressionGrammar>,
 }
 
 #[derive(Deserialize)]
@@ -41,6 +43,13 @@ struct OrdinalWire {
     v: u32,
     target_relation_id: String,
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ExpressionWire {
+    v: u32,
+    grammar: String,
+    grammar_version: u32,
+}
 
 impl ExtMetadata {
     /// Parses one of the three closed shapes, rejecting duplicate fields and IDs that
@@ -50,24 +59,34 @@ impl ExtMetadata {
     /// [`ArrowError::InvalidArgumentError`] for malformed or unsupported metadata.
     pub fn parse(spec: &ExtensionTypeSpec, text: &str) -> Result<Self, ArrowError> {
         let parse_error = |error: serde_json::Error| invalid(&error.to_string());
-        let (v, enum_id, target_relation_id) = match spec.metadata {
+        let (v, enum_id, target_relation_id, grammar) = match spec.metadata {
             ExtensionMetadataShape::VersionOnly => {
                 let value: VersionWire = serde_json::from_str(text).map_err(parse_error)?;
-                (value.v, None, None)
+                (value.v, None, None, None)
             }
             ExtensionMetadataShape::Enum => {
                 let value: EnumWire = serde_json::from_str(text).map_err(parse_error)?;
-                (value.v, Some(parse_id(&value.enum_id)?), None)
+                (value.v, Some(parse_id(&value.enum_id)?), None, None)
             }
             ExtensionMetadataShape::OrdinalRef => {
                 let value: OrdinalWire = serde_json::from_str(text).map_err(parse_error)?;
-                (value.v, None, Some(parse_id(&value.target_relation_id)?))
+                (value.v, None, Some(parse_id(&value.target_relation_id)?), None)
+            }
+            ExtensionMetadataShape::Expression => {
+                let value: ExpressionWire = serde_json::from_str(text).map_err(parse_error)?;
+                if value.grammar_version != pse_schema::model::expression::GRAMMAR_VERSION {
+                    return Err(invalid("unsupported source grammar generation"));
+                }
+                let grammar = pse_schema::model::ExpressionGrammar::from_name(&value.grammar)
+                    .ok_or_else(|| invalid("unsupported source grammar"))?;
+                (value.v, None, None, Some(grammar))
             }
         };
         let value = Self {
             v,
             enum_id,
             target_relation_id,
+            grammar,
         };
         value.check(spec)?;
         Ok(value)
@@ -75,6 +94,9 @@ impl ExtMetadata {
 
     /// The canonical string written by the registry's own metadata encoder.
     pub fn canonical_json(&self, spec: &ExtensionTypeSpec) -> String {
+        if let Some(grammar) = self.grammar {
+            return pse_schema::ext_metadata::canonical_expression(grammar);
+        }
         pse_schema::ext_metadata::canonical(
             spec.metadata,
             self.v,
@@ -93,7 +115,9 @@ impl ExtMetadata {
             ExtensionMetadataShape::OrdinalRef => {
                 self.enum_id.is_none() && self.target_relation_id.is_some()
             }
+            ExtensionMetadataShape::Expression => self.enum_id.is_none() && self.target_relation_id.is_none(),
         };
+        let valid_shape = valid_shape && (self.grammar.is_some() == (spec.metadata == ExtensionMetadataShape::Expression));
         if self.v != spec.metadata_version || !valid_shape {
             return Err(invalid(
                 "extension metadata has an unsupported version or shape",
@@ -204,5 +228,30 @@ pub fn validate_extension(field: &Field) -> Result<(), ArrowError> {
         Some(PseExprDsl::NAME) => check!(PseExprDsl),
         Some(PseTargetPath::NAME) => check!(PseTargetPath),
         _ => Err(invalid("extension name is not registered")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn source_grammar_metadata_requires_the_exact_closed_versioned_contract() {
+        let spec = &EXTENSION_TYPES[9];
+        for grammar in pse_schema::model::ExpressionGrammar::ALL {
+            let text = pse_schema::ext_metadata::canonical_expression(grammar);
+            let metadata = ExtMetadata::parse(spec, &text).unwrap();
+            assert_eq!(metadata.grammar, Some(grammar));
+            assert_eq!(metadata.canonical_json(spec), text);
+        }
+        for invalid in [
+            r#"{"v":1}"#,
+            r#"{"v":2,"grammar_version":1}"#,
+            r#"{"v":2,"grammar":"unknown","grammar_version":1}"#,
+            r#"{"v":2,"grammar":"expression","grammar_version":2}"#,
+            r#"{"v":2,"grammar":"expression","grammar_version":1,"extra":true}"#,
+            r#"{"v":2,"grammar":"expression","grammar":"predicate","grammar_version":1}"#,
+        ] {
+            assert!(ExtMetadata::parse(spec, invalid).is_err(), "{invalid}");
+        }
     }
 }

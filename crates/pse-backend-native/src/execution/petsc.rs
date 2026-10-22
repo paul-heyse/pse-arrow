@@ -39,6 +39,19 @@ impl BackendExecution for Petsc {
     fn capability(&self) -> &'static Capability {
         &CAPABILITY
     }
+    fn capability_for(&self, settings: &BackendSettings) -> Result<Capability, ProblemError> {
+        let defaults = crate::settings::petsc::Settings::default();
+        let selected = match settings {
+            BackendSettings::Default => &defaults,
+            BackendSettings::Petsc(settings) => settings,
+            _ => return Err(super::foreign(Backend::Petsc)),
+        };
+        selected.validate()?;
+        if selected.method != crate::settings::petsc::Method::NewtonTrustRegion {
+            return Err(ProblemError::Unsupported("PETSc pseudo-time and Schwarz require their declared mathematical composition owner".into()));
+        }
+        Ok(CAPABILITY)
+    }
     fn representation(&self) -> Representation {
         Representation::Roots
     }

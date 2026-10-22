@@ -8,20 +8,22 @@ pub use pse_model::generated::r#runtime::r#simulation_samples::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    71u8, 242u8, 214u8, 157u8, 67u8, 114u8, 166u8, 122u8, 26u8, 60u8, 84u8, 245u8, 55u8,
-    216u8, 46u8, 76u8,
+    231u8, 246u8, 161u8, 44u8, 75u8, 226u8, 88u8, 111u8, 8u8, 206u8, 227u8, 81u8, 172u8,
+    81u8, 52u8, 187u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "simulation_samples";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "runtime.simulation_samples";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    148u8, 13u8, 113u8, 104u8, 179u8, 23u8, 6u8, 91u8, 23u8, 92u8, 3u8, 197u8, 9u8,
-    240u8, 16u8, 201u8, 161u8, 203u8, 214u8, 253u8, 114u8, 92u8, 250u8, 32u8, 10u8,
-    249u8, 120u8, 154u8, 3u8, 250u8, 181u8, 157u8,
+    224u8, 90u8, 160u8, 137u8, 233u8, 201u8, 23u8, 175u8, 214u8, 11u8, 222u8, 233u8, 9u8,
+    211u8, 181u8, 96u8, 55u8, 169u8, 61u8, 218u8, 227u8, 99u8, 5u8, 33u8, 202u8, 180u8,
+    179u8, 166u8, 65u8, 95u8, 211u8, 181u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeSimulationSamplesRow {
     fn append(

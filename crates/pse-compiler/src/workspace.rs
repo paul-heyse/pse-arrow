@@ -90,17 +90,20 @@ pub struct WorkspaceLimits {
     pub retained_entries: usize,
     /// Maximum known retained Salsa bytes; foreign library heaps are not claimed here.
     pub retained_bytes: usize,
-    /// Retained values per expensive query.
+    /// Minimum retained values per live-root query family (Salsa count LRU).
     pub query_values: usize,
+    /// Retained values per granular declaration query family (Salsa count LRU).
+    pub granular_query_values: usize,
 }
 impl Default for WorkspaceLimits {
     fn default() -> Self {
         Self {
             entries: 4096,
             input_bytes: 2 << 30,
-            retained_entries: 16_384,
-            retained_bytes: 256 << 20,
-            query_values: 64,
+            retained_entries: 131_072,
+            retained_bytes: 1 << 30,
+            query_values: 256,
+            granular_query_values: 4096,
         }
     }
 }
@@ -184,6 +187,7 @@ impl From<MathError> for CompileError {
 type Result<T> = std::result::Result<T, CompileError>;
 mod modeling;
 pub use modeling::{
+    AnnotationObservation, CompilerView, NumericalAnnotation, NumericalAnnotationMode, NumericalAnnotations, NumericalScale, NumericalStartSource, NumericalStartValues, ScalingObservations, ViewChoice, ViewPolicy, ViewReason,
     AdmittedImplicit, AdmittedModeling, AutomaticCausalUnit, BoundLookup, BoundLookupKey,
     BoundStructure, ConditionalUnitInventory, Derivation, Derived, FlowConnectionDocument,
     FlowSelectionDocument, ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning,
@@ -200,6 +204,15 @@ trait CompilerDb: Database {
     fn projection_scratch_limit(&self) -> usize;
     fn body_retention(&self) -> Option<&Arc<dyn ModelingBodyRetention>>;
     fn body_refusal(&self) -> &std::sync::Mutex<Option<MathError>>;
+    fn live_retention(&self) -> &std::sync::Mutex<LiveRetention>;
+}
+/// Admission of the old live set plus incoming construction. These are extent
+/// records, never escaped Arcs pretending to pin a Salsa memo.
+#[derive(Default)]
+struct LiveRetention {
+    bodies: BTreeMap<pse_ids::roles::SemanticBodyHash, usize>,
+    bytes: usize,
+    limit: usize,
 }
 #[salsa::db]
 #[derive(Clone, Default)]
@@ -209,6 +222,7 @@ struct CompilerDatabase {
     projection_scratch_limit: usize,
     body_retention: Option<Arc<dyn ModelingBodyRetention>>,
     body_refusal: Arc<std::sync::Mutex<Option<MathError>>>,
+    live_retention: Arc<std::sync::Mutex<LiveRetention>>,
 }
 #[salsa::db]
 impl Database for CompilerDatabase {}
@@ -226,6 +240,18 @@ impl CompilerDb for CompilerDatabase {
     fn body_refusal(&self) -> &std::sync::Mutex<Option<MathError>> {
         &self.body_refusal
     }
+    fn live_retention(&self) -> &std::sync::Mutex<LiveRetention> { &self.live_retention }
+}
+fn admit_live_body(db: &dyn CompilerDb, key: pse_ids::roles::SemanticBodyHash, bytes: usize) {
+    let admitted = db.live_retention().lock().is_ok_and(|mut live| {
+        if live.bodies.contains_key(&key) { return true; }
+        let next = live.bytes.saturating_add(bytes).saturating_add(128);
+        if next > live.limit { return false; }
+        live.bytes = next;
+        live.bodies.insert(key, bytes);
+        true
+    });
+    if !admitted { body_refused(db, MathError::Limit("live root retained bytes")); }
 }
 // Resource admission is an effect. Abort tracked evaluation so a transient refusal
 // never becomes a retained semantic result, then recover its typed cause at the front door.
@@ -1601,6 +1627,7 @@ pub struct CompilerWorkspace {
     /// Package data document inputs by identity (ADR-0125), each set only when its bytes
     /// change.
     documents: BTreeMap<SemanticId, modeling::DataDocumentInput>,
+    live_bodies: BTreeMap<pse_ids::roles::SemanticBodyHash, usize>,
 }
 impl std::fmt::Debug for CompilerWorkspace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1657,6 +1684,7 @@ impl CompilerWorkspace {
             projection_scratch_limit: limits.input_bytes,
             body_retention: None,
             body_refusal: Default::default(),
+            live_retention: Arc::new(std::sync::Mutex::new(LiveRetention { limit: limits.retained_bytes, ..Default::default() })),
         };
         let inventory = inventory(&db, &inputs, pse_math::context()?.environment.identity());
         configure(&mut db, limits.query_values);
@@ -1671,6 +1699,7 @@ impl CompilerWorkspace {
             modeling: None,
             granular: Default::default(),
             documents: BTreeMap::new(),
+            live_bodies: BTreeMap::new(),
         })
     }
     fn rebuild(&mut self, inputs: CompilerContext) -> Result<()> {
@@ -1746,6 +1775,32 @@ impl CompilerWorkspace {
         }
         Ok(())
     }
+    /// Reserve count capacity before evaluating the incoming root, keeping the
+    /// previous live set resident for equality/backdating during the transition.
+    fn admit_live_root(&mut self, bodies: usize, bytes: usize) -> Result<()> {
+        let count = self.live_bodies.len().saturating_add(bodies).max(self.limits.query_values);
+        // The generation census includes the old resident memo values. Add the
+        // incoming owned construction before any newly materialized memo is kept.
+        let working = self.retention_usage().1.saturating_add(bytes);
+        if count > self.limits.retained_entries || working > self.limits.retained_bytes {
+            self.trim_queries()?;
+            return Err(CompileError::Limit("live root working set"));
+        }
+        modeling::executable::configure(&mut self.db, count);
+        if let Ok(mut live) = self.db.live_retention.lock() {
+            *live = LiveRetention { bodies: self.live_bodies.clone(), bytes: working, limit: self.limits.retained_bytes };
+        }
+        Ok(())
+    }
+    fn retain_live_root(&mut self, bodies: BTreeMap<pse_ids::roles::SemanticBodyHash, usize>, bytes: usize) {
+        self.live_bodies = bodies;
+        // The transition is complete: older roots are disposable. The current
+        // live set remains inside the count cache rather than merely in an Arc.
+        modeling::executable::configure(&mut self.db, self.live_bodies.len().max(self.limits.query_values));
+        if let Ok(mut live) = self.db.live_retention.lock() {
+            *live = LiveRetention { bodies: self.live_bodies.clone(), bytes: self.live_bodies.values().copied().fold(bytes, usize::saturating_add), limit: self.limits.retained_bytes };
+        }
+    }
     fn retention_exceeded(&self) -> bool {
         let (entries, bytes) = self.retention_usage();
         entries > self.limits.retained_entries || bytes > self.limits.retained_bytes
@@ -1754,8 +1809,9 @@ impl CompilerWorkspace {
     /// Library heaps without Salsa heap callbacks remain outside this observation.
     pub fn retention_usage(&self) -> (usize, usize) {
         let report = <dyn Database>::memory_usage(&self.db);
+        let live_entries = self.live_bodies.len().saturating_add(self.db.live_retention.lock().map_or(0, |live| live.bodies.len()));
         report.structs.iter().chain(report.queries.values()).fold(
-            (self.granular.entries(), self.granular.known_bytes(&self.db)),
+            (self.granular.entries().saturating_add(live_entries), self.granular.known_bytes(&self.db).saturating_add(live_entries.saturating_mul(256))),
             |(entries, bytes), info| {
                 (
                     entries.saturating_add(info.count()),
@@ -1825,6 +1881,7 @@ fn validate(i: &CompilerContext, l: WorkspaceLimits) -> Result<()> {
         l.retained_entries,
         l.retained_bytes,
         l.query_values,
+        l.granular_query_values,
     ]
     .contains(&0)
     {

@@ -77,11 +77,14 @@ pub(super) fn render(reg: &Registry, spec: &RelationSpec) -> Result<TokenStream,
     let builder_allocation =
         syn::LitInt::new(&format!("{grouped}_usize"), proc_macro2::Span::call_site());
     let admission = admission(reg, spec);
+    let qualified_name = spec.key.qualified_name();
     Ok(quote! {
         /// The declared relation identity.
         pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([#(#ids),*]);
         /// The declared name within its namespace.
         pub const NAME: &str = #name;
+        /// The declared qualified name at relation boundaries.
+        pub const QUALIFIED_NAME: &str = #qualified_name;
         /// The declared namespace.
         pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::#namespace;
         /// The schema generation.

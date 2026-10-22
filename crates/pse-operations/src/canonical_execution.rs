@@ -2784,6 +2784,24 @@ impl ResultBlockAppend {
             schema: file.as_ref().map(|f| f.schema.clone()).unwrap_or_default(),
             encoding: payload.encoding().to_owned(),
         };
+        let mut admitted_block = block.cloned();
+        if let Some(facts) = &payload.facts
+            && (facts.rows() != row_count || facts.relation().to_string() != name || admitted_block.is_none()) {
+            return Err(CanonicalError::Configuration("admitted result facts differ from append coordinates".into()));
+        }
+        let statistics = payload.facts.as_ref().map(|facts| {
+            facts.encode_bound(&pse_relations::result_batch::StatisticsBinding {
+                instance: batch.file_instance.clone(), digest: batch.file_digest.clone(),
+                index: batch.file_batch_index, interpretation: wire::INTERPRETATION.into(),
+            }).map(pse_model::Bytes::from).map_err(|error| CanonicalError::Configuration(error.to_string()))
+        }).transpose()?;
+        if let Some(block) = &mut admitted_block {
+            if block.statistics.is_some() && block.statistics != statistics {
+                return Err(CanonicalError::Configuration("supplied statistics lack the actual admitted-file proof".into()));
+            }
+            block.statistics = statistics;
+        }
+        let block = admitted_block.as_ref();
         if let Some(block) = block
             && (block.key != key
                 || block.batch != key
@@ -3437,6 +3455,31 @@ pub struct ResultPayload {
     owner: Option<std::sync::Arc<dyn std::fmt::Debug + Send + Sync>>,
     file: Option<crate::canonical_files::SealedFile>,
     file_index: u64,
+    facts: Option<pse_relations::result_batch::BatchFacts>,
+}
+
+/// An actual sealed file matched once against the controlled admitted encoder.
+/// Copied descriptors or serialized statistics cannot construct this capability.
+#[derive(Clone, Debug)]
+pub struct AdmittedSealedResultFile {
+    file: crate::canonical_files::SealedFile,
+    facts: std::sync::Arc<[pse_relations::result_batch::BatchFacts]>,
+}
+impl AdmittedSealedResultFile {
+    /// Bind the complete original bytes, schema relation and native member count.
+    /// # Errors
+    /// A physical file differs from the actual admitted encoder product.
+    pub fn bind(file: crate::canonical_files::SealedFile, admitted: pse_relations::result_batch::AdmittedResultFile) -> Result<Self, CanonicalError> {
+        let descriptor = file.descriptor();
+        if descriptor.encoding != crate::canonical_files::ARROW_IPC_FILE
+            || descriptor.schema != admitted.relation().to_string()
+            || descriptor.batch_count != admitted.facts().len() as u64
+            || descriptor.bytes != admitted.bytes().len() as u64
+            || descriptor.digest != result_payload_digest(admitted.bytes()) {
+            return Err(CanonicalError::Configuration("sealed result file differs from admitted bytes".into()));
+        }
+        Ok(Self { file, facts: admitted.facts().to_vec().into() })
+    }
 }
 impl ResultPayload {
     /// Consume native storage and calculate its integrity digest once.
@@ -3451,6 +3494,7 @@ impl ResultPayload {
             owner: None,
             file: None,
             file_index: 0,
+            facts: None,
         })
     }
     /// Consume bytes only after their actual encoder/transport allowance is charged.
@@ -3475,6 +3519,7 @@ impl ResultPayload {
             owner: None,
             file: Some(file),
             file_index: index,
+            facts: None,
         })
     }
     /// Carry the caller's actual prepaid encoder and metadata allowance.
@@ -3485,6 +3530,20 @@ impl ResultPayload {
     ) -> Result<Self, CanonicalError> {
         let mut payload = Self::from_sealed(file, index)?;
         payload.owner = Some(owner);
+        Ok(payload)
+    }
+    /// Reference one member with facts from the verified admitted file owner.
+    /// # Errors
+    /// The requested native member is absent.
+    pub fn from_admitted_sealed_owned(
+        admitted: &AdmittedSealedResultFile,
+        index: u64,
+        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+    ) -> Result<Self, CanonicalError> {
+        let facts = usize::try_from(index).ok().and_then(|index| admitted.facts.get(index)).cloned()
+            .ok_or_else(|| CanonicalError::Configuration("admitted file member absent".into()))?;
+        let mut payload = Self::from_sealed_owned(admitted.file.clone(), index, owner)?;
+        payload.facts = Some(facts);
         Ok(payload)
     }
     /// Complete physical extent, independent of whether bytes remain resident.
@@ -5412,6 +5471,7 @@ mod canonical_result_admission_unit {
             coordinate_max: None,
             payload_bytes: payload.as_slice().len() as u64,
             payload_digest: payload.digest().into(),
+            statistics: None,
             interpretation: wire::INTERPRETATION.into(),
         };
         // Protocol fixtures own synthetic tiny bytes; production callers pass
@@ -5429,6 +5489,19 @@ mod canonical_result_admission_unit {
             std::sync::Arc::new(()),
         )
         .unwrap()
+    }
+    #[test]
+    fn copied_statistics_and_equal_replay_cannot_mint_exact_first_append_facts() {
+        let fence = ack_fence();
+        for _ in 0..2 {
+            let seed = append_item(&fence, "values", 0, vec![1]);
+            let mut block = wire::decode_canonical_result_blocks(match seed.item.get("block").unwrap() {
+                Value::Object(block) => block.clone(), _ => panic!("fixture block"),
+            }).unwrap();
+            block.statistics = Some(br#"{"rows":1,"minimum":-999,"maximum":-999}"#.to_vec().into());
+            let result = ResultBlockAppend::new(&fence, "forged-equal-replay", "values", 0, seed.payload, 1, &block, &[], &[], std::sync::Arc::new(()));
+            assert!(matches!(result, Err(CanonicalError::Configuration(message)) if message.contains("actual admitted-file proof")));
+        }
     }
     #[test]
     fn bounded_append_group_preserves_individual_request_and_exact_fence_order() {

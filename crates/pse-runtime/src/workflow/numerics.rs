@@ -588,15 +588,14 @@ fn compose_accuracy(
 }
 impl RunResult {
     pub(super) fn assess_candidates(&self) -> Vec<assessments::Row> {
-        if matches!(self.request, RunRequest::Horizon(_)) {
+        if matches!(self.request(), RunRequest::Horizon(_)) {
             return self.assessments.clone();
         }
-        if let (RunRequest::Simulation(_), Ok(RunReport::Simulation(trajectory))) =
-            (&self.request, &self.report)
+        if let super::RunOutcome::Simulation { result: Ok(trajectory), .. } = &self.outcome
         {
             return vec![trajectory.assessment().clone()];
         }
-        let count = match &self.request {
+        let count = match self.request() {
             RunRequest::Modeling(s) => s.len(),
             _ => 1,
         };
@@ -609,8 +608,8 @@ impl RunResult {
                     accuracy: vec![],
                 };
                 let (report, numerical, constant, policy, completed) =
-                    match (&self.request, &self.report) {
-                        (RunRequest::Fit(p), Ok(RunReport::Fit(r))) => {
+                    match &self.outcome {
+                        super::RunOutcome::Fit { request: p, result: Ok(r) } => {
                             let policy = &p.problem.numerics.policy;
                             (
                                 r.solve.as_ref(),
@@ -620,7 +619,7 @@ impl RunResult {
                                 r.completion.clone().unwrap_or_else(unavailable),
                             )
                         }
-                        (RunRequest::Modeling(p), _) => {
+                        super::RunOutcome::Modeling { request: p, .. } | super::RunOutcome::Horizon { execution: super::HorizonRunOutcome::Full { requests: p, .. }, .. } => {
                             if let Some(r) = self.modeling_result(step) {
                                 let (report, numerical, constant) = match &r.outcome {
                                     crate::math::solves::Outcome::Native(n) => (
@@ -646,7 +645,7 @@ impl RunResult {
                                 (None, None, false, &default, unavailable())
                             }
                         }
-                        (RunRequest::Simulation(p), Ok(RunReport::Simulation(r))) => (
+                        super::RunOutcome::Simulation { request: p, result: Ok(r) } => (
                             None,
                             None,
                             false,
@@ -654,7 +653,7 @@ impl RunResult {
                             r.completion().clone(),
                         ),
                         #[cfg(feature = "solver-diffsol")]
-                        (RunRequest::Shooting { problem: p, .. }, Ok(RunReport::Shooting(r))) => (
+                        super::RunOutcome::Shooting { problem: p, result: Ok(r), .. } => (
                             r.solve.as_ref(),
                             r.quality.as_ref().map(|q| q.feasible()),
                             r.solve.is_none() && r.candidate.is_some(),
@@ -671,7 +670,7 @@ impl RunResult {
                     numerical,
                     constant,
                 );
-                if let Ok(RunReport::Fit(report)) = &self.report
+                if let Ok(RunReport::Fit(report)) = self.report()
                     && let Some(residual) = &report.residual
                 {
                     row.native_termination = Some(residual.termination_category());
@@ -730,12 +729,12 @@ impl RunResult {
             builder.finish().await.map_err(relation)?;
         }
         if request.wants(resolved::RELATION_ID) {
-            let policy_count = match &self.request {
+            let policy_count = match self.request() {
                 RunRequest::Modeling(p) => p.len(),
                 _ => 1,
             };
             let policy = |step: usize| {
-                Some(match &self.request {
+                Some(match self.request() {
                     RunRequest::Fit(f) => &f.problem.numerics,
                     RunRequest::Simulation(p) => p.numerics(),
                     #[cfg(feature = "solver-diffsol")]

@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Canonical claims precede native effects; immutable closed manifests own stored observations.
 use super::connected_results::{pooled_response_owner, retain_metadata, retain_protected_metadata};
-use super::{RunReport, RunRequest, RunResult, WorkflowError, contract, relation};
+use super::{RunRequest, RunResult, WorkflowError, contract, relation};
+#[cfg(all(test, feature = "canonical-tests"))]
+use super::RunReport;
 use datafusion::execution::memory_pool::{MemoryConsumer, MemoryPool};
 use pse_backend_native::solve::{Compatibility, Event, ProgressTap, WarmPayload, WarmStart};
 use pse_ids::{ContentHash, Frame, FramedHasher, SemanticId};
@@ -44,26 +46,69 @@ pse_diagnostics::impl_diagnostic! {
     code(_this){Some(pse_diagnostics::DiagnosticCode::StudySeedUnavailable)},
     forward(_this){None},help(_this){None},related(_this){None},source(_this){None}
 }
-/// Finite worker lease and bounded progress queue policy.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Finite worker authority and bounded progress policy, admitted at construction.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(try_from = "LeasePolicyFields", into = "LeasePolicyFields")]
+#[schemars(with = "LeasePolicyFields")]
 pub struct LeasePolicy {
-    /// Positive server authority lifetime.
-    pub lease: Duration,
-    /// Positive interval between authority renewals.
-    pub heartbeat: Duration,
-    /// Bounded observed-event queue capacity.
-    pub batch: usize,
-    /// Maximum event flush delay.
-    pub flush: Duration,
+    lease: Duration,
+    heartbeat: Duration,
+    batch: usize,
+    flush: Duration,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct LeasePolicyFields {
+    /// Standalone policy interpretation.
+    version: pse_model::document::Version<1>,
+    /// Positive authority lifetime, strictly longer than heartbeat.
+    #[schemars(with = "pse_model::document::ClosedDuration")]
+    lease: Duration,
+    /// Positive renewal interval, strictly shorter than lease.
+    #[schemars(with = "pse_model::document::ClosedDuration")]
+    heartbeat: Duration,
+    /// Observed-event queue capacity, from one through 512.
+    #[schemars(range(min = 1, max = 512))]
+    batch: usize,
+    /// Positive maximum event flush delay.
+    #[schemars(with = "pse_model::document::ClosedDuration")]
+    flush: Duration,
+}
+impl LeasePolicy {
+    /// Admit authority timing and queue bounds once, before any canonical effect.
+    pub fn new(lease: Duration, heartbeat: Duration, batch: usize, flush: Duration) -> Result<Self, WorkflowError> {
+        if lease.is_zero() || heartbeat.is_zero() || heartbeat >= lease {
+            return Err(contract("worker heartbeat must be positive and shorter than its lease"));
+        }
+        if !(1..=512).contains(&batch) || flush.is_zero() {
+            return Err(contract("progress queue capacity must be 1..=512 and flush delay positive"));
+        }
+        Ok(Self { lease, heartbeat, batch, flush })
+    }
+    /// Admitted server authority lifetime.
+    pub const fn lease(self) -> Duration { self.lease }
+    /// Admitted authority renewal interval.
+    pub const fn heartbeat(self) -> Duration { self.heartbeat }
+    /// Admitted observed-event queue capacity.
+    pub const fn batch(self) -> usize { self.batch }
+    /// Admitted maximum event flush delay.
+    pub const fn flush(self) -> Duration { self.flush }
+}
+impl TryFrom<LeasePolicyFields> for LeasePolicy {
+    type Error = WorkflowError;
+    fn try_from(fields: LeasePolicyFields) -> Result<Self, Self::Error> {
+        Self::new(fields.lease, fields.heartbeat, fields.batch, fields.flush)
+    }
+}
+impl From<LeasePolicy> for LeasePolicyFields {
+    fn from(policy: LeasePolicy) -> Self {
+        Self { version: pse_model::document::Version, lease: policy.lease, heartbeat: policy.heartbeat, batch: policy.batch, flush: policy.flush }
+    }
 }
 impl Default for LeasePolicy {
     fn default() -> Self {
-        Self {
-            lease: Duration::from_secs(30),
-            heartbeat: Duration::from_secs(10),
-            batch: 64,
-            flush: Duration::from_millis(200),
-        }
+        // These constants satisfy the constructor's invariant.
+        Self { lease: Duration::from_secs(30), heartbeat: Duration::from_secs(10), batch: 64, flush: Duration::from_millis(200) }
     }
 }
 /// The sole canonical store, worker identity and renewal policy.
@@ -1120,7 +1165,7 @@ impl DurableAttempt {
     pub(super) async fn register(
         &self,
         run_id: RunId,
-        request: &RunRequest,
+        request: &RunRequest<'_>,
     ) -> Result<(), WorkflowError> {
         if let Some(fence) = self.fence.get() {
             let row = self
@@ -1495,11 +1540,6 @@ impl DurableAttempt {
     }
     pub(crate) async fn start(&mut self, cancel: Canceller) -> Result<(), WorkflowError> {
         self.acknowledgments.admitted()?;
-        if self.operations.policy.heartbeat.is_zero() || self.operations.policy.lease.is_zero() {
-            return Err(contract(
-                "durable heartbeat and lease intervals must be positive",
-            ));
-        }
         if self.heartbeat.is_some() {
             return Ok(());
         }
@@ -2209,7 +2249,7 @@ fn classify(result: &RunResult, cancelled: bool) -> Outcome {
         retryable: false,
     }
 }
-fn identities(request: &RunRequest) -> Result<(ContentHash, Option<ContentHash>), WorkflowError> {
+fn identities(request: &RunRequest<'_>) -> Result<(ContentHash, Option<ContentHash>), WorkflowError> {
     let math = |e: pse_backend_native::ProblemError| {
         WorkflowError::Math(crate::math::MathRuntimeError::from(e))
     };
@@ -2218,7 +2258,7 @@ fn identities(request: &RunRequest) -> Result<(ContentHash, Option<ContentHash>)
         RunRequest::Modeling(steps) => {
             let mut h = FramedHasher::new(Frame::DurableModelingRequestV3);
             h.u64(steps.len() as u64);
-            for step in steps {
+            for step in steps.iter() {
                 h.hash(&step.solve.request_identity().map_err(math)?.as_id());
             }
             let preparation = match steps.as_slice() {
@@ -2236,7 +2276,7 @@ fn identities(request: &RunRequest) -> Result<(ContentHash, Option<ContentHash>)
         ),
     })
 }
-fn request_inputs(request: &RunRequest) -> Result<Vec<Revision>, WorkflowError> {
+fn request_inputs(request: &RunRequest<'_>) -> Result<Vec<Revision>, WorkflowError> {
     let mut revisions = match request {
         RunRequest::Horizon(horizon) => horizon
             .sources
@@ -2258,10 +2298,10 @@ fn request_inputs(request: &RunRequest) -> Result<Vec<Revision>, WorkflowError> 
     revisions.dedup_by(|a, b| a.key == b.key);
     Ok(revisions)
 }
-fn request_context(
-    request: &RunRequest,
-) -> Result<(&super::Runtime, &super::PhysicalContext), WorkflowError> {
-    let source = match request {
+fn request_context<'a>(
+    request: &RunRequest<'a>,
+) -> Result<(&'a super::Runtime, &'a super::PhysicalContext), WorkflowError> {
+    let source = match *request {
         RunRequest::Horizon(horizon) => horizon
             .sources
             .first()
@@ -2279,7 +2319,7 @@ fn request_context(
     };
     Ok((&source.runtime, &source.physical))
 }
-fn request_provenance(request: &RunRequest) -> Result<Vec<serde_json::Value>, WorkflowError> {
+fn request_provenance(request: &RunRequest<'_>) -> Result<Vec<serde_json::Value>, WorkflowError> {
     let encode = |value| serde_json::to_value(value).map_err(|e| contract(e.to_string()));
     match request {
         RunRequest::Horizon(horizon) => Ok(vec![
@@ -2536,7 +2576,7 @@ impl Streamer {
         fence: Arc<OnceLock<AttemptFence>>,
         acknowledgments: Arc<PublicationAcks>,
     ) -> Self {
-        let capacity = operations.policy.batch.clamp(1, 512);
+        let capacity = operations.policy.batch;
         // Queue + retained batch + one producer permit, including DTO tree nodes,
         // and bounded serialization/append/receipt scratch are admitted up front.
         let memory = progress_memory(&operations.pool, capacity);
@@ -3157,8 +3197,7 @@ async fn append_seeds(
 ) -> Result<(Vec<(usize, SolutionId)>, Arc<pse_columnar::AllocationLease>), WorkflowError> {
     let reservation =
         MemoryConsumer::new("canonical:acknowledged-seed-identities").register(&operations.pool);
-    let (Ok(RunReport::Modeling(steps)), RunRequest::Modeling(requests)) =
-        (result.report(), result.request())
+    let (super::RunOutcome::Modeling { request: requests, result: Ok(steps) } | super::RunOutcome::Horizon { execution: super::HorizonRunOutcome::Full { requests, result: Ok(steps) }, .. }) = &result.outcome
     else {
         return Ok((Vec::new(), pse_columnar::AllocationLease::new(reservation)));
     };
@@ -5552,13 +5591,7 @@ mod canonical_durable_codec {
         let RunReport::Modeling(steps) = original.report().unwrap() else {
             unreachable!()
         };
-        let result = RunResult::joined(
-            original.run_id,
-            runtime,
-            RunRequest::Modeling(requests.clone()),
-            None,
-            Ok(RunReport::Modeling(steps.clone())),
-        )
+        let result = RunResult::joined(original.run_id, runtime, crate::workflow::RunOutcome::Modeling { request: requests.clone(), result: Ok(steps.clone()) }, None)
         .completed();
         let captured = serde_json::to_value(result.completion().unwrap()).unwrap();
         let (operations, fence) = claimed().await;

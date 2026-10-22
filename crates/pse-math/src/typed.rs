@@ -315,6 +315,13 @@ impl<'a> BodyBuilder<'a> {
         value.quantity = contract;
         Ok(value)
     }
+    /// Consume an ordinary result boundary prepared by the physical quantity owner.
+    pub fn contract_boundary_admitted(&mut self, mut value: TypedValue, boundary: &pse_quantity::AdmittedContractBoundary) -> Result<TypedValue, MathError> {
+        let (contract, scale)=boundary.apply_contract(&value.quantity)?;
+        if scale != 1.0 {value.atom *= Atom::num(scale);}
+        value.quantity=contract;
+        Ok(value)
+    }
     /// Consume a checked declaration-owned physical role transition exactly as admitted.
     pub fn authorized_boundary(
         &mut self,
@@ -404,6 +411,27 @@ impl<'a> BodyBuilder<'a> {
             indices,
             source,
         })
+    }
+    /// Bind a retained complete input contract, without repeating physical operation inference.
+    pub fn input_admitted(&mut self, slot: usize, quantity: ResolvedPhysicalContract, source: SemanticId) -> Result<TypedValue, MathError> {
+        self.tick()?;
+        if !self.physical_only && slot >= self.inputs {return Err(MathError::Contract("input slot out of range".into()));}
+        let mut key=self.registry.quantity_type(quantity.require_named()?)?.key.clone();
+        key.shape.clear();
+        let scalar=self.registry.resolve_key(&key)?;
+        if !self.physical_only {
+            if self.input_quantities[slot].is_some_and(|previous| previous != scalar) {return Err(MathError::Contract("one formal input has incompatible physical uses".into()));}
+            self.input_quantities[slot]=Some(scalar);
+        }
+        Ok(TypedValue {effects:BTreeSet::new(), atom:if self.physical_only {Atom::num(0)} else {library::formal(slot)?}, indices:quantity.indices().clone(), quantity, source})
+    }
+    /// Consume the retained literal operation and its already resolved conversion plan.
+    pub fn literal_admitted(&mut self, value: f64, conversion: &pse_quantity::CanonicalConversionPlan, admission: ResolvedInference, source: SemanticId) -> Result<TypedValue, MathError> {
+        if admission.result.require_named()? != conversion.quantity() {return Err(MathError::Contract("literal conversion and retained physical admission differ".into()));}
+        let admission=self.consume_admission(admission, &[])?;
+        let canonical=conversion.apply(value)?.value();
+        let atom=if canonical.fract()==0.0 && canonical>=f64::from(i16::MIN) && canonical<=f64::from(i16::MAX) {Atom::num(canonical as i32)} else {Atom::num(canonical)};
+        Ok(TypedValue {effects:BTreeSet::new(), atom, indices:admission.result.indices().clone(), quantity:admission.result, source})
     }
     /// Contextual literal in its composed unit (ADR-0124) with checked representation
     /// conversion.
@@ -1299,10 +1327,21 @@ impl<'a> BodyBuilder<'a> {
         T: FnOnce(&mut Self) -> Result<TypedValue, MathError>,
         E: FnOnce(&mut Self) -> Result<TypedValue, MathError>,
     {
+        self.conditional_checked(guard, then, otherwise, None, source)
+    }
+    /// Retain the same lazy branch barriers while consuming its exact physical admission.
+    pub fn conditional_admitted<T, E>(&mut self, guard: Guard, then: T, otherwise: E, admission: ResolvedInference, source: SemanticId) -> Result<TypedValue, MathError>
+    where T: FnOnce(&mut Self) -> Result<TypedValue, MathError>, E: FnOnce(&mut Self) -> Result<TypedValue, MathError> {
+        self.conditional_checked(guard, then, otherwise, Some(admission), source)
+    }
+    fn conditional_checked<T, E>(&mut self, guard: Guard, then: T, otherwise: E, admission: Option<ResolvedInference>, source: SemanticId) -> Result<TypedValue, MathError>
+    where T: FnOnce(&mut Self) -> Result<TypedValue, MathError>, E: FnOnce(&mut Self) -> Result<TypedValue, MathError> {
         if self.physical_only {
             let a = then(self)?;
             let b = otherwise(self)?;
-            let (quantity, indices) = self.result(OpRequest::Conditional, &[&a, &b])?;
+            let admission=match admission {Some(value)=>self.consume_admission(value, &[&a, &b])?, None=>self.admit(OpRequest::Conditional, &[&a, &b])?};
+            let quantity=admission.result;
+            let indices=quantity.indices().clone();
             return Ok(TypedValue {
                 effects: BTreeSet::new(),
                 atom: Atom::num(0),
@@ -1320,13 +1359,20 @@ impl<'a> BodyBuilder<'a> {
             outputs: vec![result_slot],
             source,
         });
-        let then_stages = std::mem::take(&mut self.stages);
+        let mut then_stages = std::mem::take(&mut self.stages);
         self.provider_cache.clear();
         let else_value = otherwise(self)?;
-        let (quantity, indices) =
-            self.result(OpRequest::Conditional, &[&then_value, &else_value])?;
+        let admission=match admission {Some(value)=>self.consume_admission(value, &[&then_value, &else_value])?, None=>self.admit(OpRequest::Conditional, &[&then_value, &else_value])?};
+        let scales=admission.operand_scales.iter().map(|scale| *scale * admission.result_scale).collect::<Vec<_>>();
+        if scales.len()!=2 {return Err(MathError::Contract("conditional admission has wrong operand scales".into()));}
+        if scales[0]!=1.0 {
+            let Some(Stage::Block {expressions, ..})=then_stages.last_mut() else {return Err(MathError::Contract("conditional result stage is absent".into()));};
+            expressions[0] *= Atom::num(scales[0]);
+        }
+        let quantity=admission.result;
+        let indices=quantity.indices().clone();
         self.stages.push(Stage::Block {
-            expressions: vec![else_value.atom],
+            expressions: vec![if scales[1]==1.0 {else_value.atom} else {else_value.atom * Atom::num(scales[1])}],
             outputs: vec![result_slot],
             source,
         });
@@ -1570,6 +1616,11 @@ impl<'a> BodyBuilder<'a> {
             self.compare(Comparison::Le, &right, &left, source)?
         };
         self.conditional(guard, |_| Ok(left), |_| Ok(right), source)
+    }
+    /// Exact minimum or maximum using its retained common result admission.
+    pub fn extremum_admitted(&mut self, minimum: bool, left: TypedValue, right: TypedValue, admission: ResolvedInference, source: SemanticId) -> Result<TypedValue, MathError> {
+        let guard=if minimum {self.compare(Comparison::Le, &left, &right, source)?} else {self.compare(Comparison::Le, &right, &left, source)?};
+        self.conditional_admitted(guard, |_| Ok(left), |_| Ok(right), admission, source)
     }
     /// Produce an immutable, physically admitted symbolic specification.
     pub fn prepare(mut self, outputs: &[TypedValue]) -> Result<PreparedBody, MathError> {

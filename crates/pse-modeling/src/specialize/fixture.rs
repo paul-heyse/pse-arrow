@@ -738,12 +738,7 @@ impl Engine<'_, '_> {
                             .expression_at(at, "scope.fixture.specifications.expression", position)?
                             .clone();
                         let expression = self.rewrite(instance, &expression, &local, &[at])?;
-                        let types: BTreeMap<_, _> = self
-                            .model
-                            .symbols
-                            .iter()
-                            .map(|(id, symbol)| (symbol_name(*id), symbol.ty.clone()))
-                            .collect();
+                        let types = crate::TypeScope::new(&self.model.symbols);
                         if crate::expression::infer(
                             &expression,
                             &types,

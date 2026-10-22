@@ -13,15 +13,17 @@ pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "units";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "reference.units";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Reference;
 /// The schema generation.
 pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    50u8, 214u8, 197u8, 22u8, 90u8, 142u8, 216u8, 2u8, 3u8, 4u8, 229u8, 60u8, 208u8,
-    240u8, 55u8, 24u8, 62u8, 207u8, 219u8, 252u8, 70u8, 169u8, 45u8, 18u8, 185u8, 37u8,
-    229u8, 77u8, 55u8, 35u8, 133u8, 203u8,
+    174u8, 15u8, 221u8, 215u8, 206u8, 11u8, 77u8, 185u8, 54u8, 236u8, 107u8, 250u8, 12u8,
+    6u8, 169u8, 200u8, 153u8, 217u8, 155u8, 242u8, 93u8, 66u8, 62u8, 7u8, 74u8, 108u8,
+    74u8, 217u8, 199u8, 249u8, 175u8, 142u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceUnitsFieldDefinitionItem {
     fn append(

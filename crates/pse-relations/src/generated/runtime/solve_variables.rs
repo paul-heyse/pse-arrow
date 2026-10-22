@@ -8,20 +8,22 @@ pub use pse_model::generated::r#runtime::r#solve_variables::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    150u8, 121u8, 31u8, 89u8, 86u8, 198u8, 129u8, 141u8, 73u8, 124u8, 125u8, 206u8,
-    153u8, 203u8, 152u8, 115u8,
+    33u8, 93u8, 44u8, 54u8, 195u8, 92u8, 58u8, 227u8, 196u8, 12u8, 28u8, 255u8, 206u8,
+    54u8, 183u8, 147u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "solve_variables";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "runtime.solve_variables";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 3u32;
+pub const VERSION: u32 = 4u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    68u8, 153u8, 176u8, 152u8, 22u8, 249u8, 242u8, 35u8, 112u8, 34u8, 248u8, 154u8, 51u8,
-    103u8, 4u8, 187u8, 212u8, 195u8, 69u8, 77u8, 131u8, 45u8, 190u8, 57u8, 170u8, 191u8,
-    87u8, 10u8, 123u8, 195u8, 75u8, 86u8,
+    253u8, 161u8, 30u8, 7u8, 209u8, 86u8, 12u8, 155u8, 202u8, 179u8, 247u8, 210u8, 212u8,
+    165u8, 110u8, 90u8, 143u8, 135u8, 154u8, 112u8, 119u8, 201u8, 53u8, 168u8, 22u8,
+    155u8, 97u8, 91u8, 21u8, 89u8, 36u8, 82u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeSolveVariablesRow {
     fn append(

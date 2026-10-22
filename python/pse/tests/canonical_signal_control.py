@@ -218,7 +218,6 @@ def main() -> None:
         batch_size=2048,
         cache=pse.CacheSettings(
             working_bytes=64 << 20,
-            metadata_bytes=8 << 20,
             concurrent_loads=2,
             inflight_bytes=16 << 20,
             inspection_bytes=4 << 20,

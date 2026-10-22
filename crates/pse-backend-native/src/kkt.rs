@@ -122,6 +122,8 @@ pub(crate) struct Budget {
     pub dual: f64,
     /// Entry ceiling of the KKT matrix, the NLP run's dimension ceiling.
     pub limit: usize,
+    /// Actual admitted foreign byte allowance; the full envelope remains held.
+    pub bytes: usize,
 }
 
 /// The limit that binds an active row or bound.
@@ -1178,14 +1180,16 @@ pub(crate) fn analyse(
         licq.push(base + k, j.get(), value);
     }
     let matrix = kkt.matrix(order)?;
-    let (solver, inertia) = crate::conditioning::factor(&matrix)?;
+    let (solver, inertia) = crate::conditioning::factor(&matrix, budget.bytes)?;
     // A nonsingular KKT matrix has independent active gradients (`Aᵀy = 0` would give it the
     // null vector `(0, y)`), so only a singular one needs their rank, from
     // In([I Aᵀ; A 0]) = (n, r, a − r), to split its zero eigenvalues.
+    let diagnostic_allowance = budget.bytes.checked_sub(solver.work_estimate().map_or(0, |estimate| estimate.factor_bytes))
+        .ok_or_else(|| ProblemError::memory("held KKT factor exceeds diagnostic allowance"))?;
     let (mut diagnostic, rank) = if inertia.2 == 0 {
         (None, active)
     } else {
-        let (licq, (_, rank, _)) = crate::conditioning::factor(&licq.matrix(order)?)?;
+        let (licq, (_, rank, _)) = crate::conditioning::factor(&licq.matrix(order)?, diagnostic_allowance)?;
         (Some(licq), rank)
     };
     let deficiency = active
@@ -1223,8 +1227,8 @@ pub(crate) fn analyse(
         }
         let released = released.matrix(order)?;
         let inertia = match &mut diagnostic {
-            Some(diagnostic) => crate::conditioning::factor_into(diagnostic, &released)?,
-            None => crate::conditioning::factor(&released)?.1,
+            Some(diagnostic) => crate::conditioning::factor_into(diagnostic, &released, diagnostic_allowance)?,
+            None => crate::conditioning::factor(&released, diagnostic_allowance)?.1,
         };
         // The strongly active gradients are independent, a subset of an independent set.
         let strong = active - weak.len();
@@ -1300,6 +1304,9 @@ pub(crate) fn analyse(
         lower_dual: zl.clone().into(),
         upper_dual: zu.clone().into(),
     };
+    if factor.bytes() > budget.bytes {
+        return Err(ProblemError::memory("KKT factor exceeds admitted storage allowance").into());
+    }
     Ok((point, factor))
 }
 

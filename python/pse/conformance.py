@@ -12,7 +12,6 @@ fixture runs, and the run reports ``coverage=selected`` rather than package cove
 
 import argparse
 import os
-import re
 import sys
 from collections import Counter
 from collections.abc import Sequence
@@ -37,75 +36,14 @@ from pse import (
     SolveSettings,
     codec,
 )
-from pse.contracts.documents import PreparationSettings
-from pse.contracts.enums import NativeBackend, NativeSolveIntent, PresolvePolicyKind
+from pse._build import _admit_conformance_manifest
+from pse.contracts.documents import (ConformanceManifest, ConformanceManifestOutput, ConformanceRun as ConformanceRun, RunSettings, RunSettingsOutput)
+from pse.contracts.enums import ConformanceExecution, ConformancePresolve, NativeBackend, NativeSolveIntent, PresolvePolicyKind
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 
 #: The command line's word for automatic backend selection (no explicit backend).
 AUTOMATIC = "auto"
-
-
-class RunSettings(
-    msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True
-):
-    """The execution settings of one conformance run, for every fixture it discovers.
-
-    A fixture's declared execution policy replaces a setting for that fixture only.
-    An absent backend selects automatically; an absent allowance is the kernel's.
-    """
-
-    memory_limit_bytes: int
-    #: Forwarded engine capacity; absence retains the Rust deployment default.
-    math_worker_bytes: int | None = None
-    #: Maximum admitted native jobs, forwarded to the shared engine owner.
-    math_jobs: int | None = None
-    #: Admission-only wait when the operation supplies no finite enclosing deadline.
-    math_admission_wait_ms: int | None = None
-    math_preparation_limit_ms: int | None = None
-    threads: int = 1
-    time_limit_seconds: float = 600
-    intent: NativeSolveIntent = NativeSolveIntent.ROOT
-    backend: NativeBackend | None = None
-    presolve: Literal["auto", "off"] = "auto"
-    maximum_fixtures: int = 1024
-    maximum_checks: int = 16384
-    #: Complete compiler and expansion policy. When provided, its limits replace
-    #: the standalone expansion fields below; authored fixture policy still applies.
-    preparation: PreparationSettings | None = None
-    expansion_items: int | None = None
-    expansion_members: int | None = None
-    expansion_depth: int | None = None
-    body_occurrences: int | None = None
-    body_slots: int | None = None
-    derivative_cells: int = 100000
-    derivative_step: float = 1e-6
-    derivative_tolerance: float = 1e-4
-    #: The numerical diagnostic threshold profile (JSON), relative to the manifest; a
-    #: fixture that expects diagnostic findings needs one.
-    diagnostics: str | None = None
-
-
-class ConformanceRun(
-    msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True
-):
-    """One declared run: package roots relative to the manifest, and its execution.
-
-    A pure run executes only explicit pure fixtures, without solver services.
-    """
-
-    name: str
-    package: str
-    physical: str
-    dependencies: tuple[str, ...] = ()
-    execution: Literal["native", "pure"] = "native"
-
-
-class ConformanceManifest(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """A reference set: shared run settings and every run, each executed once."""
-
-    settings: RunSettings
-    runs: tuple[ConformanceRun, ...]
 
 
 class RunSummary(msgspec.Struct, frozen=True):
@@ -132,36 +70,10 @@ class RunSummary(msgspec.Struct, frozen=True):
         )
 
 
-def load_manifest(path: Path) -> ConformanceManifest:
-    """Decode unique run names and package roots from a manifest."""
-    manifest = msgspec.toml.decode(path.read_bytes(), type=ConformanceManifest)
-    names = [run.name for run in manifest.runs]
-    if (
-        not names
-        or len(set(names)) != len(names)
-        or not all(re.fullmatch(r"[A-Za-z0-9_-]+", name) for name in names)
-    ):
-        message = f"{path}: runs must be nonempty and uniquely named by file stems"
-        raise ValueError(message)
-    for run in manifest.runs:
-        for root in (run.package, run.physical, *run.dependencies):
-            if not (path.parent / root / "package.toml").is_file():
-                message = (
-                    f"{path}: run {run.name} names {root}, which has no package.toml"
-                )
-                raise ValueError(message)
-    if manifest.settings.diagnostics is not None:
-        profile = path.parent / manifest.settings.diagnostics
-        if not profile.is_file():
-            message = f"{path}: diagnostics names {profile}, which is not a file"
-            raise ValueError(message)
-        manifest = msgspec.structs.replace(
-            manifest,
-            settings=msgspec.structs.replace(
-                manifest.settings, diagnostics=str(profile)
-            ),
-        )
-    return manifest
+def load_manifest(path: Path) -> ConformanceManifestOutput:
+    """Read generated TOML settings and admit the campaign through its Rust owner."""
+    manifest = codec.decode_toml(path.read_bytes(), ConformanceManifest)
+    return _admit_conformance_manifest(str(path), manifest)
 
 
 def fixture_id(text: str) -> DeclarationId:
@@ -211,7 +123,7 @@ def run_once(
     physical: Path,
     *,
     pure: bool,
-    settings: RunSettings,
+    settings: RunSettings | RunSettingsOutput,
     report: Path | None,
     fixtures: Sequence[DeclarationId] | None = None,
 ) -> RunSummary:
@@ -254,7 +166,7 @@ def run_once(
                     maximum_checks=settings.maximum_checks,
                     fixtures=None
                     if fixtures is None
-                    else tuple(fixture.to_hex() for fixture in fixtures),
+                    else tuple(fixtures),
                 ),
                 limits=limits,
                 preparation=settings.preparation,
@@ -270,7 +182,7 @@ def run_once(
                 SolveSettings(
                     intent=settings.intent,
                     backend=settings.backend,
-                    presolve=PresolvePolicyKind(settings.presolve),
+                    presolve=PresolvePolicyKind(settings.presolve.value),
                     controls=SolveControls(time_limit=settings.time_limit_seconds),
                 ),
                 controls=ConformanceControls(
@@ -281,7 +193,7 @@ def run_once(
                     derivative_tolerance=settings.derivative_tolerance,
                     fixtures=None
                     if fixtures is None
-                    else tuple(fixture.to_hex() for fixture in fixtures),
+                    else tuple(fixtures),
                     diagnostics=(
                         None
                         if settings.diagnostics is None
@@ -338,7 +250,7 @@ def run_manifest(
             path.parent / run.package,
             [path.parent / d for d in run.dependencies],
             path.parent / run.physical,
-            pure=run.execution == "pure",
+            pure=run.execution is ConformanceExecution.PURE,
             settings=manifest.settings,
             report=None if report_dir is None else report_dir / f"{run.name}.arrow",
             fixtures=fixtures,
@@ -362,7 +274,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--physical", type=Path)
     parser.add_argument("--dependency", type=Path, action="append", default=[])
     parser.add_argument("--memory-limit-bytes", type=int)
-    parser.add_argument("--threads", type=int, default=1)
+    parser.add_argument("--threads", type=int)
     parser.add_argument(
         "--pure",
         action="store_true",
@@ -373,14 +285,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=AUTOMATIC,
         help=f"registry backend name, or {AUTOMATIC} for automatic selection",
     )
-    parser.add_argument("--intent", choices=("root", "optimize"), default="root")
-    parser.add_argument("--presolve", choices=("auto", "off"), default="auto")
-    parser.add_argument("--time-limit", type=float, default=600)
-    parser.add_argument("--maximum-fixtures", type=int, default=1024)
-    parser.add_argument("--maximum-checks", type=int, default=16384)
-    parser.add_argument("--derivative-cells", type=int, default=100000)
-    parser.add_argument("--derivative-step", type=float, default=1e-6)
-    parser.add_argument("--derivative-tolerance", type=float, default=1e-4)
+    parser.add_argument("--intent", choices=("root", "optimize"))
+    parser.add_argument("--presolve", choices=tuple(choice.value for choice in ConformancePresolve))
+    parser.add_argument("--time-limit", type=float)
+    parser.add_argument("--maximum-fixtures", type=int)
+    parser.add_argument("--maximum-checks", type=int)
+    parser.add_argument("--derivative-cells", type=int)
+    parser.add_argument("--derivative-step", type=float)
+    parser.add_argument("--derivative-tolerance", type=float)
     parser.add_argument("--body-occurrences", type=int)
     parser.add_argument("--body-slots", type=int)
     parser.add_argument("--expansion-items", type=int)
@@ -411,25 +323,28 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(
             "a package run needs a package, --physical and --memory-limit-bytes"
         )
-    settings = RunSettings(
-        memory_limit_bytes=args.memory_limit_bytes,
-        threads=args.threads,
-        time_limit_seconds=args.time_limit,
-        intent=NativeSolveIntent(args.intent),
-        backend=None if args.backend == AUTOMATIC else NativeBackend(args.backend),
-        presolve=args.presolve,
-        maximum_fixtures=args.maximum_fixtures,
-        maximum_checks=args.maximum_checks,
-        expansion_items=args.expansion_items,
-        expansion_members=args.expansion_members,
-        expansion_depth=args.expansion_depth,
-        body_occurrences=args.body_occurrences,
-        body_slots=args.body_slots,
-        derivative_cells=args.derivative_cells,
-        derivative_step=args.derivative_step,
-        derivative_tolerance=args.derivative_tolerance,
-        diagnostics=None if args.diagnostics is None else str(args.diagnostics),
-    )
+    defaults = RunSettings(memory_limit_bytes=args.memory_limit_bytes)
+    supplied: dict[str, object] = {
+        "threads": args.threads,
+        "time_limit_seconds": args.time_limit,
+        "intent": None if args.intent is None else NativeSolveIntent(args.intent).value,
+        "backend": None if args.backend == AUTOMATIC else NativeBackend(args.backend).value,
+        "presolve": args.presolve,
+        "maximum_fixtures": args.maximum_fixtures,
+        "maximum_checks": args.maximum_checks,
+        "expansion_items": args.expansion_items,
+        "expansion_members": args.expansion_members,
+        "expansion_depth": args.expansion_depth,
+        "body_occurrences": args.body_occurrences,
+        "body_slots": args.body_slots,
+        "derivative_cells": args.derivative_cells,
+        "derivative_step": args.derivative_step,
+        "derivative_tolerance": args.derivative_tolerance,
+        "diagnostics": None if args.diagnostics is None else str(args.diagnostics),
+    }
+    values = codec.convert_document(codec.document_builtins(defaults), dict[str, object])
+    values.update({key: value for key, value in supplied.items() if value is not None})
+    settings = codec.convert_document(values, RunSettings)
     summary = run_once(
         args.package.name,
         args.package,

@@ -21,6 +21,7 @@ from pse._build import (
     _NativeRuntime,
 )
 from pse._inspection import TableStream
+from pse._physical import ArrowSchema
 from pse._modeling import LocalStudy, ModelingPackage, StudyReport
 from pse._runs import (
     PreparedOperation,
@@ -31,10 +32,12 @@ from pse._runs import (
 from pse._strategies import (
     PreparedStrategy,
 )
-from pse.contracts import runtime as result_contracts
 from pse.contracts.documents import (
+    ArtifactIntent,
+    SolverCapability,
     AnalysisControls,
     AnalysisDocument,
+    BackendSettings,
     ConicRequest,
     DiagnosticExecutionDocument,
     DiagnosticExecutionRequest,
@@ -44,6 +47,7 @@ from pse.contracts.documents import (
     HistoryReclamationPage,
     PackExportRequest,
     PackIndex,
+    ParameterCovariance,
     ResourceReport,
     ResultReclamationPage,
     RunControls,
@@ -52,14 +56,13 @@ from pse.contracts.documents import (
     StudyDefinition,
     StudyRunControls,
 )
+from pse.contracts.enums import CanonicalTerminalOutcome, NativeBackend, PhysicalInputKind
 from pse.contracts.identities import (
     SolutionId,
     StudyId,
 )
 from pse.contracts.values import ContentHash, SemanticId
 from pse.diagnostics import Diagnostics
-
-SolverCapability = result_contracts.RuntimeSolverCapabilitiesRow
 
 
 @attrs.frozen(init=False)
@@ -167,8 +170,12 @@ class Runtime:
         """Read the exact admitted closed descriptor through its Arrow schema."""
         return TableStream(self._handle.result_manifest(attempt))
 
-    def recover_artifact_intent(self, intent: bytes) -> ArtifactSettlement:
-        """Recover exact error/interrupt bytes for settlement; never replay creation."""
+    def fit_covariance(self, run: str, attempt: str) -> ParameterCovariance:
+        """Hydrate the actual qualified covariance of one exact recorded fit."""
+        return self._handle.fit_covariance(run, attempt)
+
+    def recover_artifact_intent(self, intent: ArtifactIntent) -> ArtifactSettlement:
+        """Recover an exact original intent document for settlement."""
         return ArtifactSettlement(self._handle.recover_artifact_intent(intent))
 
     def scientific_artifact(self, key: str) -> ScientificArtifact:
@@ -180,7 +187,7 @@ class Runtime:
     ) -> ScientificArtifact:
         """Copy one freshly qualified original start and its reuse assessment."""
         return ScientificArtifact(
-            self._handle.promote_seed_artifact(solution.to_hex(), owner_kind, owner)
+            self._handle.promote_seed_artifact(solution, owner_kind, owner)
         )
 
     def promote_scientific_artifact(
@@ -225,10 +232,7 @@ class Runtime:
 
     def reclaim_history_page(self, owner: HistoryOwner) -> HistoryReclamationPage:
         """Collect one bounded history page while preserving permanent replay fences."""
-        return codec.decode_json(
-            self._handle.reclaim_history_page(codec.encode_json(owner)),
-            HistoryReclamationPage,
-        )
+        return self._handle.reclaim_history_page(owner)
 
     def forget_study_results(self, study: str) -> None:
         """Withdraw a terminal study's explicit retention obligation."""
@@ -240,16 +244,14 @@ class Runtime:
 
     def reclaim_run_results(self, run: str) -> ResultReclamationPage:
         """Retire a terminal run and reclaim one bounded page of scientific data."""
-        return codec.decode_json(
-            self._handle.reclaim_run_results(run), ResultReclamationPage
-        )
+        return self._handle.reclaim_run_results(run)
 
     def latest_results(
         self,
         problem: str,
         relation: str,
         *,
-        classes: Sequence[str] = (),
+        classes: Sequence[CanonicalTerminalOutcome] = (),
         start: int = 0,
         end: int = 18446744073709551615,
     ) -> TableStream:
@@ -323,7 +325,7 @@ class Runtime:
                 run,
                 attempt,
                 relation,
-                output.to_hex(),
+                output,
                 field,
                 partition=partition,
                 start=start,
@@ -359,11 +361,8 @@ class Runtime:
 
     def record_study(self, local: LocalStudy) -> StudyDefinition:
         """Publish exact retained inputs and return a portable recorded definition."""
-        return codec.decode_json(
-            self._handle.record_study(
-                local._handle,  # noqa: SLF001 - same native ownership boundary
-            ),
-            StudyDefinition,
+        return self._handle.record_study(
+            local._handle,  # noqa: SLF001 - same native ownership boundary
         )
 
     def execute_study(
@@ -383,7 +382,7 @@ class Runtime:
 
     def study(self, study_id: StudyId) -> StudyHandle:
         """Return a handle on a durable study of this runtime's store."""
-        return StudyHandle(self._handle.study(study_id.to_hex()))
+        return StudyHandle(self._handle.study(study_id))
 
     def work(self, *, maximum_actions: int | None = None) -> int:
         """Serve native ready points and finalization until idle or the action limit.
@@ -415,9 +414,22 @@ class Runtime:
             )
         )
 
+    def physical_input_schema(self, kind: PhysicalInputKind) -> ArrowSchema:
+        """Return the registered Arrow schema for a physical input role.
+
+        ``pyarrow.schema(...)`` imports its complete native schema and metadata.
+        """
+        return self._handle.physical_input_schema(kind)
+
     def capabilities(self) -> tuple[SolverCapability, ...]:
         """Discover linked native libraries without PATH or optional Python probes."""
-        return codec.decode_rows_json(self._handle.capabilities(), SolverCapability)
+        return tuple(self._handle.capabilities())
+
+    def capability_for(
+        self, backend: NativeBackend, *, settings: BackendSettings | None = None
+    ) -> SolverCapability:
+        """Inspect the linked adapter's actual support for the selected settings."""
+        return self._handle.capability_for(backend, settings=settings)
 
     def clear_program_cache(self) -> None:
         """Release retained programs while keeping active prepared workers valid."""
@@ -434,7 +446,7 @@ class Runtime:
             self._handle.prepare_conic(
                 codec.encode_json(request),
                 physical._handle,  # noqa: SLF001 - same native boundary
-                codec.encode_json(settings),
+                settings,
             )
         )
 
@@ -459,4 +471,4 @@ class PhysicalContext:
     @property
     def identity(self) -> ContentHash:
         """Complete native compiler context identity."""
-        return ContentHash.from_prefixed(self._handle.identity)
+        return self._handle.identity

@@ -744,10 +744,11 @@ pub fn derivative_demand(
             Some(DerivativeOrder::Second)
         }
         DerivativeCapability::ExactHessianOrLimitedMemory
+        | DerivativeCapability::FirstOrderOnly
         | DerivativeCapability::JacobianOrProduct
         | DerivativeCapability::ForwardAndAdjointSensitivities
         | DerivativeCapability::SecondOrderAdjointSensitivities => Some(DerivativeOrder::First),
-        DerivativeCapability::Coefficients | DerivativeCapability::Factorable => None,
+        DerivativeCapability::ValueOnly | DerivativeCapability::Coefficients | DerivativeCapability::Factorable => None,
     }
 }
 
@@ -977,16 +978,16 @@ pub fn policy_candidates(
     classes: &[ProblemClass],
     sensitivity: bool,
     choices: &[Eligibility],
+    settings: &crate::execution::BackendSettings,
 ) -> Vec<pse_model::strategy::PolicyCandidate> {
     use pse_model::strategy::{CandidatePreference, PolicyCandidate};
     choices
         .iter()
         .map(|entry| {
             let adapter = table.get(entry.backend);
-            let class = adapter.and_then(|adapter| {
-                classes
-                    .iter()
-                    .position(|class| adapter.capability().automatic_classes.contains(class))
+            let capability = adapter.and_then(|adapter| adapter.capability_for(settings).ok());
+            let class = capability.as_ref().and_then(|capability| {
+                classes.iter().position(|class| capability.automatic_classes.contains(class))
             });
             let rank = adapter.and_then(|adapter| adapter.automatic());
             let supported = class.is_some() && rank.is_some();
@@ -994,7 +995,7 @@ pub fn policy_candidates(
                 .map(|index| {
                     index
                         + if sensitivity
-                            && adapter.is_some_and(|adapter| !adapter.capability().sensitivities)
+                            && capability.as_ref().is_some_and(|capability| !capability.sensitivities)
                         {
                             classes.len()
                         } else {
@@ -1072,7 +1073,7 @@ impl Requirements<'_> {
                 classes.push(class);
             }
         }
-        let candidates = policy_candidates(self.table, &classes, self.sensitivity, &eligibility);
+        let candidates = policy_candidates(self.table, &classes, self.sensitivity, &eligibility, self.settings);
         let preferred = if self.facts.variables == 0 {
             None
         } else {

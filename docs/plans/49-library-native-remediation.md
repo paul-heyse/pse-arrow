@@ -2,7 +2,7 @@
 title: "Plan 49: Library-native remediation and SurrealMX integration"
 status: in-progress
 date: 2026-10-21
-adrs: [ADR-0214]
+adrs: [ADR-0214, ADR-0215]
 review_sources: [docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md, docs/design_review/reviews/audits/design_review_in-use-library-remediation_2026-10-21_audit.md]
 scenario_sources: [docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md]
 doc_role: plan
@@ -286,14 +286,14 @@ appropriate new/superseding ADR or design revision before implementation changes
 
 ## Package state
 
-Implementation rows are proposed, with no product implementation claimed. Package
+Remaining rows distinguish implementation progress from package acceptance. Package
 acceptance is explained at its companion owner. GOV01 records completed operator decisions;
 GOV02 is the remaining coordinator decision/publication route.
 
 | Package | Status | Owner | Required capability / completion |
 | --- | --- | --- | --- |
 | GOV01 | done | coordinator | Operator explicitly accepted RC01–RC21, 2026-10-21; no product implementation claimed |
-| GOV02 | in-progress | coordinator | ADR-0214 and blueprint239 record selected storage/transport/lifecycle target before dependent edits; other series routes remain open |
+| GOV02 | in-progress | coordinator | ADR-0214/blueprint239 cover storage; proposed ADR-0215/blueprint241 publish remaining accepted target and I24 before dependent changes. Final implemented publication remains open. |
 | STO01 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: pinned source-built3.3.4/MX1.0, owned adapter conversions and actual source units; store Outcome. |
 | STO02 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: SSI, synchronous persistence/finite controls, authenticated native statistics, reader/fault controls; store Outcome. |
 | STO03 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: generated v7 phases/constraints/refusals, migrated consumers, terminal manifest event and exact witnesses; store Outcome. |
@@ -302,48 +302,48 @@ GOV02 is the remaining coordinator decision/publication route.
 | STO06 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: commit-order paging and sixteen-lane progress. I01 retains necessary source/sequence pacing with explicit rationale; store Outcome. |
 | STO07 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: fresh functional/reference profiles, frozen schema activation, interrupted initialization, new-data recovery/backup/restore; store Outcome. |
 | STO08 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: selected assembled durability/native/Python/interruption journeys, repaired hygiene, full Clippy/manual/feature checks and installed handoff; store Outcome and limits. |
-| RES01 | proposed | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
-| RES02 | proposed | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
+| RES01 | in-progress | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
+| RES02 | in-progress | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
 | RES03 | proposed | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
 | RES04 | superseded | [49b](49b-protected-results-and-selection.md) | Maintainer waived existing-data preservation; no historical backfill is required |
-| RES05 | proposed | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
+| RES05 | in-progress | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
 | RES06 | proposed | [49b](49b-protected-results-and-selection.md) | Local package contract and acceptance at the linked owner |
-| PRE01 | proposed | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
-| PRE02 | proposed | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
-| PRE03 | proposed | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
-| PRE04 | proposed | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
-| PRE05 | proposed | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
+| PRE01 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
+| PRE02 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
+| PRE03 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
+| PRE04 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
+| PRE05 | in-progress | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
 | PRE06 | proposed | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
 | PRE07 | proposed | [49c](49c-resolved-model-and-incremental-preparation.md) | Local package contract and acceptance at the linked owner |
-| MAT01 | proposed | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
-| MAT02 | proposed | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
-| MAT03 | proposed | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
-| MAT04 | proposed | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
+| MAT01 | in-progress | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
+| MAT02 | in-progress | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
+| MAT03 | in-progress | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
+| MAT04 | in-progress | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
 | MAT05 | proposed | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
 | MAT06 | proposed | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN01 | proposed | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN02 | proposed | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN03 | proposed | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN04 | proposed | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN05 | proposed | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN06 | proposed | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN07 | proposed | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN08 | proposed | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
+| RUN01 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
+| RUN02 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
+| RUN03 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
+| RUN04 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
+| RUN05 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
+| RUN06 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
+| RUN07 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
+| RUN08 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
 | RUN09 | proposed | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN10 | proposed | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| BND01 | proposed | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
-| BND02 | proposed | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
-| BND03 | proposed | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
-| BND04 | proposed | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
+| RUN10 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
+| BND01 | in-progress | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
+| BND02 | in-progress | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
+| BND03 | in-progress | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
+| BND04 | in-progress | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
 | BND05 | proposed | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
-| TOOL01 | proposed | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
-| TOOL02 | proposed | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
-| TOOL03 | proposed | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
-| TOOL04 | proposed | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
-| TOOL05 | proposed | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
+| TOOL01 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
+| TOOL02 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
+| TOOL03 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
+| TOOL04 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
+| TOOL05 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
 | TOOL06 | proposed | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
-| TOOL07 | proposed | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
-| QUAL01 | proposed | [49h](49h-qualification-and-design-publication.md) | Local package contract and acceptance at the linked owner |
+| TOOL07 | in-progress | [49g](49g-contracts-maintenance-and-tooling.md) | Local package contract and acceptance at the linked owner |
+| QUAL01 | in-progress | [49h](49h-qualification-and-design-publication.md) | Local package contract and acceptance at the linked owner |
 | QUAL02 | proposed | [49h](49h-qualification-and-design-publication.md) | Local package contract and acceptance at the linked owner |
 | QUAL03 | proposed | [49h](49h-qualification-and-design-publication.md) | Local package contract and acceptance at the linked owner |
 | QUAL04 | proposed | [49h](49h-qualification-and-design-publication.md) | Local package contract and acceptance at the linked owner |
@@ -414,26 +414,26 @@ finding. Technical library capability is judged on merit; licenses are not rejec
 | I03 | open | RES | Can an existing cheap exact owner summary implement contained without a parallel membership index? | Use it if pruning soundness and owner cost hold; otherwise retain min/max key pruning. |
 | I04 | open | RES | Can projection occur after full protected schema admission without weakening byte/interpretation validation? | Adopt a distinct admitted projection path; otherwise retain full decoder. |
 | I05 | open | RES | Would Parquet page/bloom/AccessPlan improve a reached payload workload while preserving IEEE and protected format contracts? | Adopt only a separate explicit format decision with sound residuals; locator correction does not wait and IPC remains selected meanwhile. |
-| I06 | open | PRE01 | Do Salsa heap_size callbacks preserve shared-Arc deduplication, generation roots and actual known-byte ownership? | Replace census only on equivalent accounting; otherwise retain shared census and use available callbacks locally. |
+| I06 | resolved — retain shared census | PRE01 | Salsa0.28.4 invokes heap_size independently per input; it cannot deduplicate allocations shared by retained inputs and generations. | Keep the actual shared-Arc census; local callbacks do not replace its ownership set. |
 | I07 | open | PRE06 | Does per-instance tracked specialization remove diagnosed root work without losing closure from original terms? | Adopt for demonstrated reached invalidation gap; otherwise retain indexed root specialization. |
-| I08 | open | PRE06 | Can same-revision storage share preparation across lanes without a mutable head cancelling pinned readers? | Share only revision-owned immutable validity; otherwise independent generation ownership remains. |
-| I09 | open | PRE06 | Does pure-flight coalescing remove duplicate pure preparation with correct waiter cancellation? | Use quick_cache only for pure work; detached native drain never becomes cache-flight completion. |
-| I10 | open | PRE06 | Would reconstructible subordinate Salsa/artifact persistence remove reached cold work beyond in-process correction? | Require version/identity/invalidation/retention semantics and a benefit; otherwise no persistent compiler cache. It never owns lifecycle commits. |
-| I11 | open | MAT06 | Which function-shaped formal/retained definition path preserves cross-process identities, derivative expansion and compiled export? | Adopt the exact supported post-admission path; otherwise canonical scalar slots plus selected alias expansion remain. |
-| I12 | open | MAT06 | Does JIT/SIMD/CUDA improve an eligible repeated/batched workload with declared float, cancellation and scratch semantics? | Select and qualify a specific realization; otherwise retain current scalar interpreted/C++ eligibility, no custom interpreter. |
-| I13 | open | MAT06 | Do exact solving, polynomial/coefficient domains, transformers or term streaming remove a concrete preparation burden? | Adopt scoped library work preserving coverage/domain/remainder and cleanup; otherwise keep current lowering and record conditions for reconsideration. |
-| I14 | open | RUN10 | Which production library actually reaches rayon global pool and who owns its embedding-host initialization? | Control reached work under admitted shared owner or report incompatibility; do not eagerly create/pin a global pool without a consumer. |
-| I15 | open | RUN08 | Can PETSc/KLU hooks retain original allocation owner/size across free/realloc and process initialization, with bypasses identified? | Use domain-specific accounting with remaining envelope; otherwise retain the complete foreign envelope. |
+| I08 | resolved — retain independent publication lanes | PRE06 | Salsa0.28.4 Storage::cancel_others cancels and waits for storage clones during mutation. Existing historical/current workspaces retain independent publication ownership. | No new shared read-handle seam is selected; reconsider a concrete immutable-revision benefit with fresh ownership controls. |
+| I09 | resolved — retain reached pure Flights | PRE06 | Existing exact-key flights retain producer clocks, independent waiter stop and actual exit; quick_cache0.6.24 directly awaits a supplied loader. | Retain the reached flight contract rather than add an adapter to recreate it. Native drain is never cache-flight completion. |
+| I10 | resolved — no additional compiler persistence | PRE06 | Existing qualified artifact recipes restore reconstructible products with version/receipt readmission; no distinct reached cold-work need is established. | Keep those owners and in-process correction; add no persistent compiler cache or lifecycle authority. |
+| I11 | resolved — retain scalar formals and aliases | MAT06 | Which function-shaped formal/retained definition path preserves cross-process identities, derivative expansion and compiled export? | Adopt the exact supported post-admission path; otherwise canonical scalar slots plus selected alias expansion remain. |
+| I12 | resolved — retain scalar profiles | MAT06 | Does JIT/SIMD/CUDA improve an eligible repeated/batched workload with declared float, cancellation and scratch semantics? | Select and qualify a specific realization; otherwise retain current scalar interpreted/C++ eligibility, no custom interpreter. |
+| I13 | resolved — retain scoped library algebra | MAT06 | Do exact solving, polynomial/coefficient domains, transformers or term streaming remove a concrete preparation burden? | Adopt scoped library work preserving coverage/domain/remainder and cleanup; otherwise keep current lowering and record conditions for reconsideration. |
+| I14 | resolved — scoped teams and retained upstream setup | RUN10 | Which production library actually reaches rayon global pool and who owns its embedding-host initialization? | Control reached work under admitted shared owner or report incompatibility; do not eagerly create/pin a global pool without a consumer. |
+| I15 | resolved — retain envelope | RUN08 | Can PETSc/KLU hooks retain original allocation owner/size across free/realloc and process initialization, with bypasses identified? | Use domain-specific accounting with remaining envelope; otherwise retain the complete foreign envelope. |
 | I16 | open | RES / RUN08 | Do Arrow pool and RecordBatch::claim benefits outweigh process-wide per-buffer reservation overhead; is a project structure sizer warranted? | Adopt actual buffer accounting only with qualified ownership/overhead; project-structure sizing is a separate bounded requirement, not an assumed missing library feature. |
-| I17 | open | RUN06 | Does KINSOL neutral reset match independently fresh sessions including history and errors? | Adopt only qualified reset or record warm history in semantics; otherwise fresh sessions stay. |
+| I17 | resolved — fresh sessions | RUN06 | Does KINSOL neutral reset match independently fresh sessions including history and errors? | Adopt only qualified reset or record warm history in semantics; otherwise fresh sessions stay. |
 | I18 | open | RUN09 | Which separate ftol/xtol/gtol policy fits LM while cosine gtol stays distinct from physical stationarity? | Adopt a declared cosine stop policy only if qualification/covariance controls hold; otherwise preserve current truthful independent gate. |
 | I19 | open | TOOL01 | Does the actual direction-qualified exported catalogue vary across supported feature builds? | Generate each actual build catalogue/expected Python identity; identical catalogues share identity, unrelated feature bits do not change it. |
-| I20 | open | BND02 / PRE02 | Can quantity/unit context resolve identity-keyed physical inputs through existing registry domains without new conflicting unit authority? | Use existing authoritative quantity/unit resolution; if registry-domain extension needed, decide that concrete input contract before BND02 adoption. |
+| I20 | resolved — reuse existing physical owner | BND02 / PRE02 | Actual admitted Ports own coordinate identity/quantity/unit; BindingQuantity and CanonicalConversionPlan already resolve complete registered physical meaning. Tolerances/characteristic scales require Delta conversion, not point offsets. | Use those owners with the new keyed relation contracts and immutable snapshots; no independent unit table/resolver. BND02 integration and qualification remain open. |
 | I21 | open | TOOL06 | Can tracing Layer preserve actual attribution/final closure at better burden, and would a tooling crate improve independent dependencies? | Adopt each independently only with stated semantic/cost result and any required ADR; internal module split and current hub remain otherwise. |
 | I22 | open | RUN04 / MAT06 | Would non-parameter overlays, IDAReInit/IDASensReInit or higher structural companions serve a reached existing capability? | Separate input/history/version decision before adoption; parameter study binding stays selected and fresh history remains default. |
-| I23 | open | RUN07 | Is there a technically equivalent upstream Uno path preserving SQP-LBFGS and the four numerical-hunk meanings? | Upstream when equivalent; otherwise declare retained numeric integration. Different IPM/PETSc methods are not substitute remediation by name. |
-| I24 | open | TOOL07 | Does native child lane or pse.canon.v2 have an explicitly named bounded exploration purpose? | Record retain-for-purpose or remove with callers/tests; without purpose decision no automatic production-feature expansion or deletion. |
-| I25 | open | MAT06 | Can hot_start reuse an identity-bearing previous scheme on a non-direct path with a concrete preparation benefit? | Adopt only with scheme in identity and correct derivative semantics; direct-translation alias target remains and cancelled truncated optimization is never retained. |
+| I23 | resolved — retain declared binding | RUN07 | Is there a technically equivalent upstream Uno path preserving SQP-LBFGS and the four numerical-hunk meanings? | Upstream when equivalent; otherwise declare retained numeric integration. Different IPM/PETSc methods are not substitute remediation by name. |
+| I24 | decided — implementation open | TOOL07 | Does native child lane or pse.canon.v2 have an explicitly named bounded exploration purpose? | Operator selected retain native-child for bounded provider-free process-isolation experiments and retire unused relation canonicalizer/API/tests; preserve independent shared allocation and identity contracts. Execution remains TOOL07. |
+| I25 | resolved — no hot-start adoption | MAT06 | Can hot_start reuse an identity-bearing previous scheme on a non-direct path with a concrete preparation benefit? | Adopt only with scheme in identity and correct derivative semantics; direct-translation alias target remains and cancelled truncated optimization is never retained. |
 
 ## Verification, checkpoint and completion
 
@@ -668,3 +668,260 @@ No all-product/native/scientific-model campaign, new-platform, release/distribut
 exhaustive feature powerset or statistical performance qualification is claimed. Existing
 Plan28/32/40 and the remaining Plan49 packages keep their owners. No benchmark is required
 to support an unmade quantitative benefit claim. Formal ADR acceptance remains separate.
+
+## Execution checkpoint — remaining series authorized, 2026-10-21
+
+The maintainer authorized the conversational execution approach for all remaining 49b–49h
+packages. Clean starting source is `4065690aa`. STO01–STO08 remain done and RES04 remains
+superseded; existing generated data can be regenerated. Proposed ADR-0215 and blueprint241
+record remaining target contracts before dependent implementation. I24 explicitly retains
+the opt-in native-child experiment and retires only the unconsumed relation canonicalizer.
+
+Implemented work awaiting targeted acceptance includes RUN01/RUN02 supervision, RUN07 status
+constants/mapping and declared numerical binding, RUN10 retained-worker join, PRE01 retention/
+firewalls and PRE03 current-identity indexes. BND01 strict vocabulary projection and TOOL07
+canonicalizer retirement are integrated at source; generation and survivor checks remain open.
+PRE05 pure policy producers, RUN03 paired outcomes/shared preparation and RUN06/RUN08 native
+seam/memory work are in progress. Root owns registry, generated
+contracts, decision publication and integration. TOOL03 now invokes the authored Rust
+cooperating-source executor through the existing authenticated command-group owner. The Python
+protocol/state machine is removed; targeted actual launch, log-failure and drain controls and
+public command journeys remain pending.
+No historical data backfill or broad qualification is scheduled mid-plan. Remaining package
+acceptance, inquiry outcomes and assembled QUAL scope are still open.
+
+The PRE01/PRE03/PRE05 producer checkpoint is **Tested** at the selected pure compiler/model
+boundary: `just check-package pse-compiler` (all targets) completed with zero warnings/errors;
+`just unit-package pse-compiler 'test(workspace::modeling::reuse_tests) | test(workspace::modeling::granular_tests) | test(executable::projection_tests) | test(executable::policy::tests)' --test-threads 1`
+passed 45 tests, zero failures (249 filtered), and the selected `pse-model` prediction-policy
+unit tests passed two, zero failures (64 filtered). Baseline is zero. The actual 143-body B2
+fixture retains no-edit/unrelated reuse without ordinary rotation; bounded churn/oversize
+and dependency/policy controls are included. Runtime RUN05 consumers and assembled qualification
+remain open. Subsequent PRE02 declaration/generator work is outside that tested checkpoint.
+
+TOOL01 now has one actual compiled document catalogue, independent serialization/deserialization
+schema contexts, direction-dependent output names and generated native registrations. Its
+fingerprint includes canonical schemas and owning interpretation versions rather than unrelated
+feature bits. Completion now carries Version1. Full `just codegen` publication has passed under the selected functional 64GiB,
+single-job allocation, including actual directional document registrations and candidate
+Python annotation controls. Wrapper migration, standalone version roots and feature
+comparison remain open; publication does not qualify the native/Python boundary.
+
+The PRE02 checkpoint is **Tested** by the source-syntax schema control, 15 expression
+traversal/checking units, generated grammar metadata control and 45 compiler reuse/policy
+units: 62 passed, zero failures. The producer-only PRE04 checkpoint is **Tested** by
+`just check-package pse-modeling` and eight selected `resolved::`/`derived::` units,
+including canonical-layout correspondence; zero warnings/errors or test failures.
+Finite-fact collection and complete function/provider/indexed/reduction support, direct
+lowering and all production consumer replacement remain open.
+
+The consolidated mathematical checkpoint is **Tested** by the selected `pse-math`
+`unit-package` run with `compiled-evaluator`: 22 passed, zero failures. It exercises
+product preflight/abort, shared value definitions, symbolic mixed-partial composition,
+actual C++ alias regions/private worker scratch and existing product guard/contracts.
+SelectedPartials First/Second dependent regions consume symbolic local partials; standalone
+and reverse/action routes retain their existing realizations. Subsequent per-region profile
+and action integration is outside that checkpoint. No assembled product or speed claim follows.
+
+RES01 now declares the four distinct scalar key/sort shapes and dense value selection on
+owning registry fields. The new source-catalogue schema and generator controls each passed
+one test with zero failures; two initial generator control runs inspected the prior
+hydrated registry before publication and failed. The corrected control inspects source assembly.
+Runtime field eligibility consumes this generated inventory; actual-session predicate
+execution is authored but awaits its focused runtime controls. Exact admitted batch
+statistics, pruning, sorting and locator retirement remain open. RUN04 Fit/Simulation point
+preparation and bound replay, and RUN05 annotation/view consumers are saved at source;
+their focused controls and assembled acceptance remain pending. The subsequent full
+`just codegen` run also passed all five targets with these source changes. The current
+`just check-package pse-py` completed all targets with explicit force-validation and zero
+warnings/errors after correcting the semantic-identity borrow and retaining the original
+stored-completion metadata lease through document construction. This is compile evidence;
+no installed extension/Python journey is qualified by it. Baseline remains zero.
+
+The latest consolidated mathematical retry again passed 22 tests with zero failures, now
+including consumed per-region construction profiles and the independently specified
+Jacobian action. Weighted/adjoint eligibility and provider/branch region controls remain open.
+The same latest source passed 16 selected `pse-backend-native` controls using explicit
+kinsol/pounce/idas/uno features and solver/klu/uno capabilities, three selected linked
+`pse-uno-sys` curvature/storage controls, and the `pse-diagnostics` effective-text-budget
+control. All 42 tests in that combined queue passed with zero failures. This includes the
+actual native freshness/loader, bounded owned UTF8 diagnostics, provider-link parser,
+preinitialized-host Pounce serial path, fresh KINSOL maps, FERAL symbolic-peak refusal and
+Uno status/stop/storage boundaries. The subsequent runtime libtest compilation completed
+with zero warnings/errors under the same 64GiB, single-job allocation. Its selected
+22-test queue ran: 19 passed and three failed against the zero baseline. The failures
+were two parameter-point fixtures registering a composed neutral unit as atomic and
+the inherited-stop horizon fixture omitting its required estimator/controller. Fixture
+repairs and their focused retry remain pending; these results do not establish complete
+RUN04/RUN05 or assembled runtime acceptance.
+The maintainer subsequently requested 16 compiler jobs, concurrent independent builds and
+no operating-system memory budget for ordinary builds/tests. The environment owner is
+implementing that persistent opt-in, retaining process/drain ownership and the separate
+scientific pool, timing and reference contracts. The earlier 64GiB/single-job results above
+retain their original conditions. Readiness found host Python patch drift: `.venv` had
+followed `/usr/bin/python3.14` to3.14.9. A locked
+sync recreated it with managed3.14.8, preserving the repository pin. The editable extension
+must still be built before Python execution; the earlier readiness failure is not a pass.
+
+The expanded normal `just unit-package pse-math` queue with `compiled-evaluator` and one
+test thread passed 191 tests, zero failures (266 filtered), including all five regional
+product kinds across actual provider/branch barriers, shared maximum-demand local partials,
+reverse construction plans, deep derivative exports, private compiled worker scratch,
+compiler cancellation/drain, curvature, implicit products and assembly. The current PRE04
+finite-fact/shared-symbol producer passed ten selected modeling units, zero failures; the
+earlier lineage-path fixture assertion was corrected before that retry. These are focused
+component boundaries; final resolved execution and whole-series qualification remain open.
+
+BND02 now has authored registry contracts for keyed physical starts, initialization stages,
+diagnostic samples and tolerances, with one pending-to-admitted integration-controls owner
+under construction. BND03/BND04 source work adds explicit external versus qualified-fit
+origin, private process-local verification, exact protected fit hydration/reconciliation,
+required parameter quantities/units/scales, and prepaid sequential faer PSD admission.
+SolveSettings advances to version5; covariance result relations advance to version2.
+Full zero-argument `just codegen` subsequently published all five schema targets, Ipopt
+bindings and candidate Python annotations. Nested generic documents now retain distinct
+owner names/defaults, and identity-keyed maps retain their actual key role. Two targeted
+identity-map schema controls passed, zero failures. The native-feature all-target
+`just check-package pse-py --features solver-kinsol,solver-diffsol,solver-ipopt,solver-highs,compiled-evaluator`
+then passed with explicit force-validation and zero warnings/errors. This establishes
+generation and compilation, not native/Python behavior. Full canonical, Python,
+resource/cancellation and scientific acceptance for these boundaries remains open.
+
+The first controlled result-file units passed three columnar controls and six relation
+controls, zero failures; the latter compilation reported three test-only trivial-cast
+warnings, whose repair remains in progress. Two operations allowance/proof controls also
+passed, zero failures. The initial columnar test compilation refused an ambiguous empty
+schema fixture, repaired before its passing retry. Actual protected-provider pruning,
+locator retirement and assembled result qualification remain open.
+
+### Bounded native inquiry dispositions
+
+I14 adopts the one-thread Pounce caller path and retains its admitted local pool for
+larger batches. The actual native control passed with an already initialized host global
+pool. Symbolica3.0.1's reached unlicensed `LicenseManager::new` still attempts a one-thread
+Rayon global initialization and ignores failure; a preexisting host pool stays unchanged.
+Valid license/unlock paths bypass that fallback. This is distinct from evaluator construction:
+`LicenseManager::max_threads` bounds the explicit requested cores, and the optimizer uses
+scoped threads with the caller executing the final lane. The current production default is
+one requested core; scalar interpreted/C++ evaluation is sequential. Retain complete foreign/
+process envelopes and add no eager project global initialization. No blanket elimination,
+resizing or ownership of an embedding host's global pool is claimed. The 22 math controls
+exercise the configured environment; fresh-process unlicensed/embedding initialization and
+constructor-team/cleanup qualification remain required before claiming those combinations.
+
+I15 retains the complete foreign allocation envelope. Tagged [PETSc3.24.0 allocator source](https://github.com/petsc/petsc/blob/v3.24.0/src/sys/memory/mal.c)
+requires installation before initialization and does not supply original allocation ownership
+on later free/realloc. The deployed SuiteSparse_config7.7.0/KLU allocator setters are global
+function pointers; they neither establish lane/owner custody nor cover SUNDIALS/BLAS/MKL
+allocations. No complete original-owner/size protocol and bypass coverage is established,
+so hooks are not adopted. Existing PETSc process initialization ownership remains intact.
+
+I17 selects independently fresh KINSOL map sessions. Tagged [KINSOL7.1.1 source](https://github.com/LLNL/sundials/blob/v7.1.1/src/kinsol/kinsol.c)
+shows vector allocation, callback resets, counter initialization and linear setup, but does
+not establish complete fresh-equivalent Anderson/map/KLU history under a neutral retained
+reset. The authored map execution therefore creates a fresh session per application. The selected
+native fixed-point/Picard controls have passed; runtime/public assembled integration remains open.
+
+I23 retains the declared Uno HiGHS SQP-LBFGS integration documented in
+[the numerical binding note](../../docker/solvers/uno-binding.md). The four numerical hunks
+remain explicit and distinct from integration/determinism work. Source comparison with
+upstream2.9.1 finds a BQPD operator-Hessian candidate, but equivalent controls, accuracy,
+acquisition, storage allowance and readback are not qualified. IPM or unconstrained-only
+algebra is not a substitute for the selected bounded SQP method. No upstream/dependency
+change is claimed. The candidate becomes actionable when those exact obligations can be met.
+
+TOOL02's versioned Rust campaign/settings/run documents now own the defaults, strict decoding,
+name inventory and package-relative source/diagnostic checks. Python uses generated msgspec
+TOML types and the common Rust context admission; the Rust reference derivative controls use
+the same manifest owner. The reference manifest now explicitly supplies interpretation1.
+Generation has passed; selected Rust/Python conformance controls remain pending.
+
+RES05 selects removal of the unreached file-cache adapter after current producer/caller
+inspection: `bind_state*`, source-generation namespaces and metadata/statistics/listing
+activation have no production caller. Their policy knobs, detailed reports and dedicated
+mechanism tests are removed with the adapter. Actual syntax/model/preparation caches and
+load/query/output admission remain; DataFusion file-cache capacities remain explicitly zero.
+The reached physical-plan predicate allowance remains independently owned. Survivor tests
+and boundary generation are pending; no hit-rate or latency improvement is claimed.
+
+MAT01/MAT02's selected compiled-evaluator controls are **Tested**: the focused `pse-math`
+unit command selecting product preflight, constructor abort, scalar definition-map admission,
+deep shared lets and sibling regions passed ten tests with zero failures against baseline zero
+at 64 GiB/jobs1. Final resolved producer identity, higher derivative cutover and full math/
+scientific acceptance remain open; these tests do not close either package as a whole.
+
+TOOL05 has moved the exact protected result-selection/predicate/usability contracts to the
+workflow result owner. Offline pack tooling consumes those types; full/selected result
+readers no longer obtain their scientific selection contract from an export module. The
+internal tooling extraction is now authored: live detail collection and shared collection
+budget/error contracts belong to `observation_detail`; capture, inspection, comparison,
+review analysis, packing and publication composition belong to `tooling`. The workflow
+owns protected selection contracts, and tooling calls its bounded reader interfaces.
+Rust/Python callers have moved; the old root module exports are removed. Compilation and
+the affected caller controls remain open.
+
+TOOL04's guarded domain-mutation source is authored. The registry declares maintenance
+generation/page-effect records, and generated functions own authority rotation, placement
+rehoming, validation-read admission and the existing exact schema-activation transaction.
+Supervisor code retains authentication, physical copy/drain and phase orchestration. Page
+effects retain original inputs and acknowledgements; a generation change fences older
+callers. The script checks persisted phase/original-operation identity before requesting
+the database generation. Generated-function behavior, interruption/replay, stale-generation
+and protected-payload controls remain open; source publication alone establishes none of them.
+
+The next shared generation checkpoint includes Study operation/request8 and stored
+definition12, physical Arrow boundary tables and role vocabularies, covariance relation2,
+and optional controlled result statistics. Generic fit/integration schema names now
+distinguish concrete instantiations; catalogue-derived names apply consistently to roots,
+nested definitions and references. Identity-keyed map schemas retain declared key roles
+rather than inferring identity from hexadecimal patterns. The first attempted generation
+stopped on the generic-name collision; the repair and subsequent source joins are being
+regenerated before their runtime/Python controls. No full package closure is claimed.
+
+### Symbolica optional inquiry dispositions
+
+I11 retains canonical scalar formals and selected argument-free `FunctionMap` aliases.
+Pinned Symbolica3.0.1 supports function-shaped indeterminates; capability absence is not the
+reason. Reached dependency, guard, class and factorable consumers currently key roles by
+`Symbol`, so a common `slot(k)` function would collapse distinct slots until those consumers
+admit exact indeterminate keys. Revisit when that role/check migration removes a measured
+registration or retained-symbol burden and fresh-process reversed-registration, derivative,
+selected-pair and C++ export controls preserve identities and domains. Current alias sharing
+remains selected. This is a source-based no-adoption decision, not a failed benchmark.
+
+I12 retains the interpreted/C++ scalar profiles. The [official evaluation guide](https://symbolica.io/docs/numerical_evaluation.html)
+documents JIT, vectorized evaluation and generated SIMD/CUDA libraries. Exact pinned
+`evaluate/backend.rs` and `evaluate/export.rs`, plus SymJIT2.26.0 sources, determine the
+remaining integration. A JIT candidate must explicitly disable fast math and library threads,
+bound stack/code/private scratch, and qualify primitive floating semantics and construction
+cancellation; lack of contraction controls is not asserted. SIMD needs admitted pack/tail
+buffers, fixed ISA and lane/error ordering. CUDA needs host/device/compiler owners and finite
+chunk cancellation through synchronization/drain. Current region consumers do not supply
+those owners. The existing test-only `product_realization_probe.rs` already invokes a
+thread-disabled, fast-math-disabled JIT candidate on guard-free polynomial rows and reports
+ISA conditions; this turn has not executed that probe or measured its benefit. Its existence
+does not establish a production profile. Revisit an actually grouped repeated region when a total preparation/evaluation
+comparison includes these costs. No device or speed benefit is claimed.
+
+I13 retains the reached library algebra: `coefficients.rs`, `implicit_cubic.rs` and
+`implicit_selection.rs` already use Symbolica polynomial/coefficient/root operations with
+consumed degree, finite-value, domain and original-residual controls. A broader rational
+reformulation must preserve excluded denominator points and parameter incidence. Generic
+[solution sets](https://symbolica.io/docs/solving.html) require explicit domain, coverage,
+coverage guards and branch predicates; unsupported/incomplete cannot become empty or a
+selected numerical root. Revisit an actual selected-function certificate or repeated
+factorable transformation burden with those obligations. A transformer wrapper alone does
+not remove an existing project rewrite engine. [Term streaming](https://symbolica.io/docs/streaming.html)
+is not selected for dependency-sharing work: pinned `streaming.rs` would introduce its own
+pool, disk/tempfile and teardown/cancellation owners. Revisit only a reached finite term-local
+spill whose complete resource and cleanup contract is qualified.
+
+I25 does not add hot-start history. Current `exact_evaluator` uses direct translation;
+pinned `evaluate/tree.rs` refuses a supplied hot-start scheme with positive Horner iterations,
+while zero iterations only linearizes. The accepted input is an explicit prior expression
+scheme, not a cached evaluator. Equal expressions/settings/definition maps already reuse
+`ScalarProducts`. Revisit a reached non-direct changed-body caller only with the completed
+scheme in versioned identity/cache/serialization premises, cancelled-construction refusal,
+derivative/guard equivalence and a total preparation comparison. No extra `optimize_stack`
+pass is added: the selected library construction already invokes it; an actual temporary
+census must justify another pass.

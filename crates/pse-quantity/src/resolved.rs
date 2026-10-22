@@ -38,6 +38,31 @@ struct FormulaEvidence {
     powers: Vec<Ratio>,
 }
 
+/// Retained ordinary contract boundary, admitted by the existing physical resolver.
+/// Unlike a scientific operation authorization, this cannot change nominal meaning.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdmittedContractBoundary {
+    source: ResolvedPhysicalContract,
+    target: ResolvedPhysicalContract,
+    scale_bits: u64,
+}
+impl AdmittedContractBoundary {
+    /// Resolve the ordinary boundary once against the actual quantity authority.
+    pub fn prepare(source: &ResolvedPhysicalContract, expected: &ResolvedPhysicalContract, registry: &QuantityRegistry) -> Result<Self, QuantityError> {
+        let (target, scale)=source.at_contract_boundary(expected, registry)?;
+        Ok(Self {source:source.clone(), target, scale_bits:scale.to_bits()})
+    }
+    /// Consume this exact admitted source, without repeating physical resolution.
+    pub fn apply_contract(&self, source: &ResolvedPhysicalContract) -> Result<(ResolvedPhysicalContract, f64), QuantityError> {
+        if source != &self.source {return Err(refusal("physical.contract_boundary", "lowered value differs from its admitted ordinary boundary source"));}
+        Ok((self.target.clone(), f64::from_bits(self.scale_bits)))
+    }
+    /// Complete consumed contracts and exact numerical conversion.
+    pub fn frame(&self, hash: &mut pse_ids::FramedHasher) {self.source.frame(hash); self.target.frame(hash); hash.u64(self.scale_bits);}
+    /// Known owned physical contract payload, excluding the inline boundary value.
+    pub fn heap_bytes(&self) -> usize {self.source.heap_bytes().saturating_add(self.target.heap_bytes())}
+}
+
 /// A declared scientific operation's checked output authorization. The declaration
 /// layer establishes the semantic role; numeric lowering verifies this exact source.
 #[derive(Clone, Debug, PartialEq, Eq)]

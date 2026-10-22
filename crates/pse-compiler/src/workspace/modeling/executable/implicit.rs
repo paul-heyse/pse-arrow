@@ -169,6 +169,10 @@ pub(super) struct Projection {
     validity: BTreeMap<String, crate::typed_math::Validity>,
 }
 impl Projection {
+    pub(super) fn annotation_variables(&self) -> impl Iterator<Item = SemanticId> + '_ { self.unknowns.iter().copied() }
+    pub(super) fn annotation_inventory(&self) -> impl Iterator<Item = SemanticId> + '_ {
+        self.unknowns.iter().copied().chain(self.residuals.iter().flat_map(|residual| residual.rows.iter().copied()))
+    }
     pub(super) fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + self.algorithm.retained_bytes()
@@ -258,6 +262,8 @@ pub struct AdmittedResidual {
     pub terms: Option<Arc<AdmittedBody>>,
     pub scales: Vec<ImplicitScale>,
     pub hint_targets: Vec<(SemanticId, DeclarationId, ModelingHint)>,
+    /// Compiler-owned implicit mode interpretation of these exact ordered hints.
+    pub numerical_annotations: Arc<NumericalAnnotations>,
     /// Exact residual, eligibility and criterion for conditional selection certification.
     pub isolation: Option<Arc<pse_math::factorable::RootIsolationProgram>>,
 }
@@ -653,6 +659,7 @@ impl AdmittedImplicit {
                 .iter()
                 .map(|r| {
                     size_of_val(r.rows.as_slice())
+                        + r.numerical_annotations.retained_bytes()
                         + size_of_val(r.hint_targets.as_slice())
                         + size_of_val(r.scales.as_slice())
                         + size_of::<AdmittedResidual>()
@@ -2426,6 +2433,17 @@ pub(super) fn admit(
                 },
                 scales: r.scales.clone(),
                 hint_targets: r.hints.iter().map(|h| (h.0, h.1, h.2)).collect(),
+                numerical_annotations: policy::lower(db, policy::AnnotationFacts {
+                    mode: NumericalAnnotationMode::Implicit,
+                    hints: r.hints.iter().enumerate().map(|(position, hint)| NumericalAnnotation {
+                        target: hint.0, declaration: hint.1, kind: hint.2, quantity: hint.4,
+                        observation: AnnotationObservation::Position(position),
+                        target_kind: if implicit.unknowns.contains(&hint.0) { pse_model::generated::enums::NumericalTarget::Variable } else { pse_model::generated::enums::NumericalTarget::Row },
+                        nested: false, constant_bound: false,
+                        reads: hint.3.free_paths().into_iter().filter_map(dependencies::symbol).collect(),
+                    }).collect(),
+                    scales: r.scales.iter().map(|scale| NumericalScale { target: scale.row, declaration: scale.source, scheme: scale.scheme, observations: ScalingObservations::Range(scale.terms.clone()), nested: false }).collect(),
+                }),
                 isolation: None,
             });
         }

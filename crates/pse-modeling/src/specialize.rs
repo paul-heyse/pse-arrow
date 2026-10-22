@@ -6,6 +6,9 @@ mod applicability;
 mod contextual;
 mod continuous;
 mod envelopes;
+pub mod finite;
+mod symbols;
+pub use symbols::Symbols;
 mod fold;
 mod functions;
 mod group;
@@ -173,7 +176,9 @@ pub struct Symbol {
     pub role: Kind,
     /// Declared decision domain of a variable (ADR-0103); continuous for every other symbol.
     pub domain: Domain,
-    /// Definition for a demanded expression member.
+    /// Sole executable definition in the resolved arena; original syntax is inspection only.
+    pub definition: Option<crate::resolved::NodeIx>,
+    /// Original specialized syntax retained for independent scientific inspection.
     pub expression: Option<Expr>,
     /// Value binding is kept outside the body identity.
     pub initial: Option<Value>,
@@ -315,6 +320,8 @@ pub struct SpecializedModel {
             crate::expression::occurrences::CheckedExpression,
         >,
     >,
+    /// Actual typed finite domains, ordered tuples, and demanded member realizations.
+    pub finite_facts: finite::FiniteFacts,
     /// Explicit function selectors for single-residual implicit occurrences.
     pub root_selections: BTreeMap<InstanceId, RootSelection>,
     /// Immutable selected records and authored closure edges in this model scope.
@@ -347,7 +354,7 @@ pub struct SpecializedModel {
     /// available for inspection.
     pub implicit: BTreeMap<InstanceId, Realization>,
     /// Instantiated variables, values and demanded expression members.
-    pub symbols: BTreeMap<SemanticId, Symbol>,
+    pub symbols: Symbols,
     /// Generated equations.
     pub equations: Vec<Row>,
     /// Raw physical closure plans.
@@ -455,6 +462,7 @@ struct ReplicatedEquation {
 }
 pub(crate) struct Engine<'a, 'b> {
     selection_collector: crate::scientific_selection::Collector,
+    finite_collector: finite::Collector,
     pub(crate) p: &'a CheckedPackage,
     pub(crate) c: &'a TypeContext<'b>,
     limits: Limits,
@@ -586,6 +594,7 @@ pub fn specialize_with_discretizer(
     let context = package.context();
     let mut engine = Engine {
         selection_collector: crate::scientific_selection::Collector::default(),
+        finite_collector: finite::Collector::default(),
         p: package,
         c: &context,
         limits,
@@ -643,7 +652,7 @@ pub fn specialize_with_discretizer(
         let resolved = engine.with_instance_selections(instance, |engine| {
             engine.rewrite(instance, &expr, &Environment::new(), &[root])
         })?;
-        if let Some(id) = symbol_reference(&resolved) {
+        if let Some(id) = engine.model.symbols.reference(&resolved) {
             engine.model.paths.insert(name.clone(), id);
         }
     }
@@ -688,6 +697,7 @@ pub fn specialize_with_discretizer(
             .map(|(key, value)| (key.clone(), value.clone()))
             .collect(),
     );
+    engine.model.finite_facts = engine.finite_collector.finish();
     engine.model.selection_closures = engine.selection_collector.into_inner();
     Ok(engine.model)
 }
@@ -923,7 +933,7 @@ impl Engine<'_, '_> {
             }
         }
         let expression = self.rewrite(instance, &expression, env, &[at])?;
-        let target = symbol_reference(&expression)
+        let target = self.model.symbols.reference(&expression)
             .ok_or_else(|| invalid(at, "annotation must target a member or equation"))?;
         Ok(vec![(
             target,
@@ -1132,10 +1142,7 @@ impl Engine<'_, '_> {
             let [segment] = path.segments.as_slice() else {
                 return Ok(());
             };
-            let Some(id) = segment
-                .name
-                .strip_prefix("s_")
-                .and_then(|id| SemanticId::parse_hex(id).ok())
+            let Some(id) = self.model.symbols.named(&segment.name).and_then(|slot| self.model.symbols.at(slot)).map(|symbol| symbol.id)
             else {
                 return Ok(());
             };
@@ -2019,7 +2026,7 @@ impl Engine<'_, '_> {
                             &coordinates_env(&env, &coordinates),
                             &[*member],
                         )?;
-                        let symbol = symbol_reference(&target)
+                        let symbol = self.model.symbols.reference(&target)
                             .ok_or_else(|| invalid(*member, "port must refer to a symbol"))?;
                         if self.model.symbols[&symbol].ty != self.p.types[member] {
                             return Err(invalid(*member, "port physical contract differs"));
@@ -2083,12 +2090,7 @@ impl Engine<'_, '_> {
                             span: Span::default(),
                         }
                     };
-                    let types: BTreeMap<_, _> = self
-                        .model
-                        .symbols
-                        .iter()
-                        .map(|(id, s)| (symbol_name(*id), s.ty.clone()))
-                        .collect();
+                    let types = crate::TypeScope::new(&self.model.symbols);
                     let ty = crate::expression::infer(
                         &actual,
                         &types,
@@ -2157,6 +2159,7 @@ impl Engine<'_, '_> {
         };
         let local = coordinates_env(env, coordinates);
         if !self.equation_defined(equation, &local)? {
+            self.finite_collector.absent(finite::MemberKey::new(id, member, coordinates))?;
             return Ok(());
         }
         if self.initial_equation(id, member, equation, &local)? {
@@ -2245,6 +2248,7 @@ impl Engine<'_, '_> {
         let declaration = &self.p.declarations[&at];
         let role = crate::expression::member_index_role(declaration);
         let names = crate::expression::member_index_names(declaration);
+        let family = self.finite_family(instance, at, &role, env);
         for (name, _) in indices {
             let position = names
                 .iter()
@@ -2254,9 +2258,10 @@ impl Engine<'_, '_> {
             for row in output {
                 self.checkpoint()?;
                 let local = coordinates_env(env, &row);
-                let domain = match crate::temporal::index_domain(self.p, at, position)? {
+                let (domain, domain_type) = match crate::temporal::index_domain(self.p, at, position)? {
                     crate::temporal::IndexDomain::Authored { position } => {
-                        self.eval_field(at, &local, &role, position, None)?
+                        (self.eval_field(at, &local, &role, position, None)?,
+                         self.finite_domain_type(at, &local, &role, position)?)
                     }
                     crate::temporal::IndexDomain::Temporal { policy, axis } => {
                         let mut owner = Some(instance);
@@ -2280,12 +2285,14 @@ impl Engine<'_, '_> {
                                 ),
                             )
                         })?;
-                        Value::Set(mesh.points.clone())
+                        (Value::Set(mesh.points.clone()), self.p.types.get(&axis).cloned()
+                            .ok_or_else(|| invalid(axis, "temporal carrier type absent"))?)
                     }
                 };
                 let Value::Set(values) = domain else {
                     return Err(invalid(at, "finite domain required"));
                 };
+                self.finite_domain(&family, position, &row, domain_type, &values)?;
                 if next
                     .len()
                     .checked_add(values.len())
@@ -2301,6 +2308,7 @@ impl Engine<'_, '_> {
             }
             output = next;
         }
+        self.finite_collector.family(family, &output)?;
         Ok(output)
     }
     fn symbol(
@@ -2323,6 +2331,17 @@ impl Engine<'_, '_> {
         result
     }
     fn symbol_member(
+        &mut self,
+        instance: InstanceId,
+        member: DeclarationId,
+        coordinates: &[(String, Value)],
+        chain: &[DeclarationId],
+    ) -> Result<SemanticId> {
+        let id = self.symbol_member_body(instance, member, coordinates, chain)?;
+        self.finite_collector.member(finite::MemberKey::new(instance, member, coordinates), id)?;
+        Ok(id)
+    }
+    fn symbol_member_body(
         &mut self,
         instance: InstanceId,
         member: DeclarationId,
@@ -2358,7 +2377,8 @@ impl Engine<'_, '_> {
                 .closures
                 .get(&id)
                 .ok_or_else(|| invalid(member, "accounting coordinate absent"))?;
-            self.model.symbols.entry(id).or_insert_with(|| Symbol {
+            if !self.model.symbols.contains_key(&id) {self.model.symbols.insert(id, Symbol {
+                definition: None,
                 id,
                 ty: closure.ty.clone(),
                 role: Kind::Let,
@@ -2366,7 +2386,7 @@ impl Engine<'_, '_> {
                 expression: None,
                 initial: None,
                 lineage: closure.lineage.clone(),
-            });
+            });}
             self.states
                 .get_mut(&instance)
                 .ok_or_else(|| invalid(member, "accounting owner absent"))?
@@ -2403,6 +2423,7 @@ impl Engine<'_, '_> {
             self.model.symbols.insert(
                 id,
                 Symbol {
+                    definition: None,
                     id,
                     ty,
                     role: Kind::Variable,
@@ -2436,7 +2457,7 @@ impl Engine<'_, '_> {
                 .clone();
             let env = coordinates_env(&self.states[&instance].env, coordinates);
             let target = self.rewrite(instance, &expr, &env, chain)?;
-            return symbol_reference(&target)
+            return self.model.symbols.reference(&target)
                 .ok_or_else(|| invalid(member, "port target must name a symbol"));
         }
         let owner = if row.value.kind == Kind::Parameter && b.indices.is_empty() {
@@ -2490,6 +2511,7 @@ impl Engine<'_, '_> {
         self.model.symbols.insert(
             id,
             Symbol {
+                definition: None,
                 id,
                 ty: ty.clone(),
                 role: row.value.kind,
@@ -2574,12 +2596,7 @@ impl Engine<'_, '_> {
             .expression_at(id, "contribution.expression", 0)?
             .clone();
         let mut expression = self.rewrite(instance, &expression, &env, &[id])?;
-        let types: BTreeMap<_, _> = self
-            .model
-            .symbols
-            .iter()
-            .map(|(id, s)| (symbol_name(*id), s.ty.clone()))
-            .collect::<BTreeMap<_, _>>();
+        let types = crate::TypeScope::new(&self.model.symbols);
         let actual = crate::expression::infer(
             &expression,
             &types,
@@ -2725,6 +2742,7 @@ impl Engine<'_, '_> {
                 self.model.symbols.insert(
                     closure.id,
                     Symbol {
+                        definition: None,
                         id: closure.id,
                         ty: closure.ty.clone(),
                         role: Kind::Let,
@@ -2748,7 +2766,7 @@ impl Engine<'_, '_> {
                 } = &source.equation.kind
                 {
                     for (target, value) in [(lhs, rhs), (rhs, lhs)] {
-                        let Some(symbol) = symbol_reference(target) else {
+                        let Some(symbol) = self.model.symbols.reference(target) else {
                             continue;
                         };
                         if !self
@@ -2844,16 +2862,6 @@ fn symbol_expr(id: SemanticId) -> Expr {
         span: Span::default(),
     }
 }
-pub(crate) fn symbol_reference(expr: &Expr) -> Option<SemanticId> {
-    let ExprKind::Path(p) = &expr.kind else {
-        return None;
-    };
-    if p.segments.len() != 1 {
-        return None;
-    }
-    SemanticId::parse_hex(p.segments[0].name.strip_prefix("s_")?).ok()
-}
-
 /// Independent assessment from original contribution magnitudes in canonical units.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClosureAssessment {
@@ -2910,7 +2918,7 @@ impl SpecializedModel {
                 .symbols
                 .get(&target)
                 .and_then(|symbol| symbol.expression.as_ref())
-                .and_then(symbol_reference)?;
+                .and_then(|expression| self.symbols.reference(expression))?;
         }
         Some(target)
     }

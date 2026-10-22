@@ -475,6 +475,7 @@
     }
   },
   "event_ended_trajectory": {
+    "version": 1,
     "assessments": [],
     "accuracy_goals": [],
     "diagnostics": [],
@@ -601,6 +602,7 @@
     "applicability": []
   },
   "qualified_incumbent": {
+    "version": 1,
     "assessments": [],
     "accuracy_goals": [],
     "diagnostics": [],

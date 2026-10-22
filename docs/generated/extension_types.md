@@ -60,7 +60,7 @@ Storage: `"Utf8"`. Metadata version: 1.
 
 Authored expression text: the only authored form of an expression (§7.7).
 
-Storage: `"Utf8"`. Metadata version: 1.
+Storage: `"Utf8"`. Metadata version: 2.
 
 ## `pse.target_path`
 

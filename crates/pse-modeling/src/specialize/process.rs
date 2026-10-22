@@ -211,12 +211,14 @@ impl Engine<'_, '_> {
     }
     fn process_coordinates<'a>(
         &self,
+        instance: InstanceId,
         at: DeclarationId,
         env: &Environment,
         role: &str,
         names: impl Iterator<Item = &'a str>,
     ) -> Result<Vec<Vec<(String, Value)>>> {
         let role = format!("{role}.indices.domain");
+        let family = self.finite_family(instance, at, &role, env);
         let mut output = vec![Vec::new()];
         for (position, name) in names.enumerate() {
             let mut next = Vec::new();
@@ -238,6 +240,7 @@ impl Engine<'_, '_> {
                 else {
                     return Err(invalid(at, "finite domain required"));
                 };
+                self.finite_domain(&family, position, &row, self.finite_domain_type(at, &local, &role, position)?, &values)?;
                 if next
                     .len()
                     .checked_add(values.len())
@@ -253,6 +256,7 @@ impl Engine<'_, '_> {
             }
             output = next;
         }
+        self.finite_collector.family(family, &output)?;
         Ok(output)
     }
     fn difference_type(ty: &Type) -> Type {
@@ -278,12 +282,7 @@ impl Engine<'_, '_> {
         }
     }
     fn process_type(&self, expression: &Expr, at: DeclarationId) -> Result<Type> {
-        let types: BTreeMap<_, _> = self
-            .model
-            .symbols
-            .iter()
-            .map(|(id, s)| (symbol_name(*id), s.ty.clone()))
-            .collect();
+        let types = crate::TypeScope::new(&self.model.symbols);
         crate::expression::infer(
             expression,
             &types,
@@ -313,6 +312,7 @@ impl Engine<'_, '_> {
             .ok_or_else(|| invalid(at, "state specification required"))?
             .clone();
         for coordinates in self.process_coordinates(
+            instance,
             at,
             env,
             "state_specification",
@@ -343,6 +343,7 @@ impl Engine<'_, '_> {
             };
             for (position, coordinate) in value.coordinates.iter().enumerate() {
                 for indices in self.process_coordinates(
+            instance,
                     at,
                     &local,
                     &format!("state_specification.coordinates.{position}"),
@@ -368,7 +369,7 @@ impl Engine<'_, '_> {
                     } else {
                         self.rewrite(instance, &original, &scope, &[at])?
                     };
-                    let symbol = symbol_reference(&target).ok_or_else(|| {
+                    let symbol = self.model.symbols.reference(&target).ok_or_else(|| {
                         invalid(
                             at,
                             "independent state coordinate must alias a scalar member",
@@ -382,6 +383,7 @@ impl Engine<'_, '_> {
             }
             for (position, reconstruction) in value.reconstructions.iter().enumerate() {
                 for indices in self.process_coordinates(
+            instance,
                     at,
                     &local,
                     &format!("state_specification.reconstructions.{position}"),
@@ -429,6 +431,7 @@ impl Engine<'_, '_> {
             }
             for (position, transport) in value.transports.iter().enumerate() {
                 for indices in self.process_coordinates(
+            instance,
                     at,
                     &local,
                     &format!("state_specification.transports.{position}"),
@@ -563,6 +566,7 @@ impl Engine<'_, '_> {
             .ok_or_else(|| invalid(at, "material port required"))?
             .clone();
         for indices in self.process_coordinates(
+            instance,
             at,
             env,
             "state_port",
@@ -654,6 +658,7 @@ impl Engine<'_, '_> {
             .ok_or_else(|| invalid(at, "connection required"))?
             .clone();
         for indices in self.process_coordinates(
+            instance,
             at,
             env,
             "connection",
@@ -766,9 +771,9 @@ impl Engine<'_, '_> {
                 }
                 let lhs = self.rewrite(instance, &source, &local, &[at])?;
                 let rhs = self.rewrite(instance, &target, &local, &[at])?;
-                let sa = symbol_reference(&lhs)
+                let sa = self.model.symbols.reference(&lhs)
                     .ok_or_else(|| invalid(at, "connection scalar symbol"))?;
-                let sb = symbol_reference(&rhs)
+                let sb = self.model.symbols.reference(&rhs)
                     .ok_or_else(|| invalid(at, "connection scalar symbol"))?;
                 if self.model.symbols[&sa].ty != self.model.symbols[&sb].ty {
                     return Err(invalid(at, "connection physical types differ"));
@@ -953,6 +958,7 @@ impl Engine<'_, '_> {
             });
         }
         for coordinates in self.process_coordinates(
+            instance,
             at,
             env,
             "inventory_balance",
@@ -1046,7 +1052,7 @@ impl Engine<'_, '_> {
             let mut differential_state = None;
             if !existing_dynamics && self.equation_defined(&source_equation, &local)? {
                 let body = if integrated
-                    && symbol_reference(&inventory)
+                    && self.model.symbols.reference(&inventory)
                         .is_none_or(|symbol| self.model.symbols[&symbol].role != Kind::Variable)
                 {
                     let state = pse_ids::named_id(id, "inventory-state");
@@ -1056,7 +1062,7 @@ impl Engine<'_, '_> {
                         let mut replaced = BTreeSet::new();
                         let mut coordinate_starts = BTreeMap::new();
                         initial.try_walk_mut(|node| -> Result<()> {
-                            let Some(symbol)=symbol_reference(node) else{return Ok(());};
+                            let Some(symbol)=self.model.symbols.reference(node) else{return Ok(());};
                             if self.model.symbols.get(&symbol).is_some_and(|s|s.role==Kind::Variable) {
                                 let (source,value,source_lineage)=substitutions.get(&symbol).ok_or_else(||invalid(at,"composite inventory requires explicit initial conditions for its coordinates"))?;
                                 coordinate_starts.insert(symbol, (*source, value.clone(), source_lineage.clone()));
@@ -1115,6 +1121,7 @@ impl Engine<'_, '_> {
                         self.model.symbols.insert(
                             state,
                             Symbol {
+                                definition: None,
                                 id: state,
                                 ty: ty.clone(),
                                 role: Kind::Variable,
@@ -1189,7 +1196,7 @@ impl Engine<'_, '_> {
                     Some(&self.tolerance_type(&ty, at)?),
                 )?;
                 if integrated {
-                    let old = symbol_reference(&integral)
+                    let old = self.model.symbols.reference(&integral)
                         .ok_or_else(|| invalid(at, "original flux integral missing"))?;
                     if old != flux_id {
                         let mut declared = self
@@ -1199,13 +1206,10 @@ impl Engine<'_, '_> {
                             .ok_or_else(|| invalid(at, "flux quadrature missing"))?;
                         declared.result = flux_id;
                         self.model.integrals.insert(flux_id, declared);
-                        let mut symbol = self
-                            .model
-                            .symbols
-                            .remove(&old)
+                        let slot = self.model.symbols.slot(old)
                             .ok_or_else(|| invalid(at, "flux integral symbol missing"))?;
-                        symbol.id = flux_id;
-                        self.model.symbols.insert(flux_id, symbol);
+                        self.model.symbols.rebind(slot, flux_id)?;
+                        self.finite_collector.remap(old, flux_id);
                     }
                 } else {
                     let mut baseline = local.clone();

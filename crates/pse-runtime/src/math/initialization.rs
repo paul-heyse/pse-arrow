@@ -25,6 +25,7 @@ pub(super) use dependencies::{Dependencies, Iterations, consumed_inputs};
 /// Compiled predecessor-ordered blocks, with explicit conditional input coordinates.
 #[derive(Clone, Debug)]
 pub struct PreparedInitialization {
+    physical_input_owner: Option<Arc<dyn pse_columnar::PayloadOwner>>,
     snapshot: execution::Snapshot,
     numerical_owner: super::numerics::PolicyResolutionOwner,
     quantities: pse_math::SharedAllocation<pse_quantity::QuantityRegistry>,
@@ -48,6 +49,15 @@ struct ConditionalBlock {
     owner: Arc<super::products::ProductOwner>,
 }
 impl PreparedInitialization {
+    pub(crate) fn original_primal_ports(&self) -> Vec<pse_kernels::Port> {
+        self.blocks.iter().flat_map(|block| block.view.plan.structure().variables().iter().map(|variable| variable.port.clone()))
+            .map(|port| (port.id, port)).collect::<BTreeMap<_, _>>().into_values().collect()
+    }
+
+    pub(crate) fn retain_physical_input(&mut self, owner: Arc<dyn pse_columnar::PayloadOwner>) {
+        self.physical_input_owner = Some(owner);
+    }
+
     /// Resolve every conditional block before worker acquisition. No fallback follows a failed attempt.
     pub fn strategies(
         &self,
@@ -673,7 +683,7 @@ impl MathService {
         if adapter.representation() != execution::Representation::Roots {
             return Err(native::ProblemError::Unsupported("conditional unit requires a selected root representation; request an explicit simultaneous strategy".into()).into());
         }
-        let demand = native::routing::derivative_demand(adapter.capability(), &profile.controls)
+        let demand = native::routing::derivative_demand(&adapter.capability_for(&profile.backend)?, &profile.controls)
             .unwrap_or(pse_kernels::DerivativeOrder::Value);
         if executable.assembly.order() < demand {
             return Err(native::ProblemError::Unsupported(
@@ -1268,25 +1278,14 @@ impl MathService {
                                     data: contract.identity,
                                     backend: Backend::Kinsol,
                                 };
-                                let mut session = kinsol::Session::new(
-                                    function,
-                                    settings.clone(),
-                                    execution.clone(),
-                                    stamp,
-                                )?;
-                                // The declared root runs and qualifies with the budgets its caller
-                                // resolved from the numerical policy (F20).
-                                let mut report = session.solve_with_restarts(
-                                    &initial,
-                                    &controls,
-                                    &accuracy,
+                                let report = execution::map(execution::MapInput {
+                                    problem: execution::Problem::declared_map(function, &initial, &settings, restarts.as_ref())?,
+                                    controls: &controls,
+                                    accuracy: &accuracy,
                                     execution,
-                                    &tolerances,
-                                    None,
-                                    restarts.as_ref(),
-                                )?;
-                                native::quality::qualify(&mut report, &accuracy);
-                                drop(session);
+                                    tolerances: &tolerances,
+                                    compatibility: stamp,
+                                })?;
                                 Ok(report.with_owner(owner.clone()))
                             },
                             |report| Some(report),
@@ -1486,6 +1485,7 @@ impl MathService {
         )?);
         let _ = self.preparation_driver(&driver)?;
         Ok(PreparedInitialization {
+            physical_input_owner: None,
             numerical_owner: self.policy_resolution_owner(),
             snapshot: execution::Snapshot::observe(&execution::LINKED),
             quantities,

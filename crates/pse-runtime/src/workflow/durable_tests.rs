@@ -53,12 +53,7 @@ pub(super) async fn package_on(
 
 /// A lease short enough for tests to observe expiry and heartbeats.
 pub(super) fn quick() -> LeasePolicy {
-    LeasePolicy {
-        lease: Duration::from_secs(5),
-        heartbeat: Duration::from_millis(100),
-        flush: Duration::from_millis(20),
-        ..LeasePolicy::default()
-    }
+    LeasePolicy::new(Duration::from_secs(5), Duration::from_millis(100), 64, Duration::from_millis(20)).unwrap()
 }
 
 /// Attach the same isolated canonical source store and accounted pool to the worker.

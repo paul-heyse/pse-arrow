@@ -97,11 +97,11 @@ pub enum EngineError {
         message: String,
     },
 
-    /// A `pse.canon.v2` failure, keeping the class `pse-ids` gave it.
+    /// A native columnar failure, retaining its allocation or admission diagnostic class.
     #[error(transparent)]
     Canon(#[from] pse_columnar::CanonError),
 
-    /// A reservation was refused, keeping the class `pse-ids` gave it.
+    /// A columnar reservation was refused, retaining its resource diagnostic class.
     #[error(transparent)]
     Reserve(#[from] pse_columnar::ReserveError),
 

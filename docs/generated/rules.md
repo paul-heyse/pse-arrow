@@ -128,6 +128,7 @@
 | `runtime.canonical_history_retirements` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_history_retirements" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_interpretations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_interpretations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_maintenance_activations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_maintenance_activations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_maintenance_operations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_maintenance_operations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_manifest_tickets` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_manifest_tickets" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_memberships` | `foreign_key:problem` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."problem" AS "__pse_value" FROM "runtime"."canonical_memberships" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_problems" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_memberships` | `foreign_key:version` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."version" AS "__pse_value" FROM "runtime"."canonical_memberships" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_version_manifests" t WHERE s."__pse_value" = t."key")` |
@@ -178,6 +179,7 @@
 | `runtime.diagnostic_evidence_fields` | `unique:pk` | `SELECT s."operation", s."producer", s."generation", s."event_sequence", s."field_ordinal" FROM "runtime"."diagnostic_evidence_fields" s GROUP BY s."operation", s."producer", s."generation", s."event_sequence", s."field_ordinal" HAVING COUNT(*) > 1` |
 | `runtime.diagnostic_invocations` | `unique:pk` | `SELECT s."run" FROM "runtime"."diagnostic_invocations" s GROUP BY s."run" HAVING COUNT(*) > 1` |
 | `runtime.diagnostic_query_results` | `unique:pk` | `SELECT s."member" FROM "runtime"."diagnostic_query_results" s GROUP BY s."member" HAVING COUNT(*) > 1` |
+| `runtime.diagnostic_samples` | `unique:pk` | `SELECT s."sample_id" FROM "runtime"."diagnostic_samples" s GROUP BY s."sample_id" HAVING COUNT(*) > 1` |
 | `runtime.diagnostics_findings` | `unique:pk` | `SELECT s."finding_id" FROM "runtime"."diagnostics_findings" s GROUP BY s."finding_id" HAVING COUNT(*) > 1` |
 | `runtime.execution_statistics` | `unique:pk` | `SELECT s."name" FROM "runtime"."execution_statistics" s GROUP BY s."name" HAVING COUNT(*) > 1` |
 | `runtime.fit_constraints` | `unique:pk` | `SELECT s."run_id", s."experiment_id", s."row_id" FROM "runtime"."fit_constraints" s GROUP BY s."run_id", s."experiment_id", s."row_id" HAVING COUNT(*) > 1` |
@@ -187,6 +189,7 @@
 | `runtime.fitted_parameter_cells` | `unique:pk` | `SELECT s."run_id", s."parameter_id" FROM "runtime"."fitted_parameter_cells" s GROUP BY s."run_id", s."parameter_id" HAVING COUNT(*) > 1` |
 | `runtime.incumbents` | `unique:pk` | `SELECT s."run_id", s."seq" FROM "runtime"."incumbents" s GROUP BY s."run_id", s."seq" HAVING COUNT(*) > 1` |
 | `runtime.infeasibility_certificates` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."infeasibility_certificates" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
+| `runtime.initialization_stages` | `unique:pk` | `SELECT s."stage" FROM "runtime"."initialization_stages" s GROUP BY s."stage" HAVING COUNT(*) > 1` |
 | `runtime.live_simulation_samples` | `unique:pk` | `SELECT s."run_id", s."accuracy_attempt", s."sample", s."symbol_id" FROM "runtime"."live_simulation_samples" s GROUP BY s."run_id", s."accuracy_attempt", s."sample", s."symbol_id" HAVING COUNT(*) > 1` |
 | `runtime.local_validity` | `unique:pk` | `SELECT s."run_id", s."step", s."quantity" FROM "runtime"."local_validity" s GROUP BY s."run_id", s."step", s."quantity" HAVING COUNT(*) > 1` |
 | `runtime.modeling_checks` | `unique:pk` | `SELECT s."run_id", s."step", s."sample_index", s."target_id", s."source_id", s."kind" FROM "runtime"."modeling_checks" s GROUP BY s."run_id", s."step", s."sample_index", s."target_id", s."source_id", s."kind" HAVING COUNT(*) > 1` |
@@ -208,6 +211,7 @@
 | `runtime.parameter_covariances` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."parameter_covariances" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |
 | `runtime.parameter_intervals` | `unique:pk` | `SELECT s."run_id", s."parameter_id", s."method", s."end" FROM "runtime"."parameter_intervals" s GROUP BY s."run_id", s."parameter_id", s."method", s."end" HAVING COUNT(*) > 1` |
 | `runtime.parametric_sensitivities` | `unique:pk` | `SELECT s."run_id", s."step", s."parameter_id", s."target_kind", s."target_id" FROM "runtime"."parametric_sensitivities" s GROUP BY s."run_id", s."step", s."parameter_id", s."target_kind", s."target_id" HAVING COUNT(*) > 1` |
+| `runtime.primal_values` | `unique:pk` | `SELECT s."coordinate_id" FROM "runtime"."primal_values" s GROUP BY s."coordinate_id" HAVING COUNT(*) > 1` |
 | `runtime.profile_points` | `unique:pk` | `SELECT s."run_id", s."parameter_id", s."end", s."point" FROM "runtime"."profile_points" s GROUP BY s."run_id", s."parameter_id", s."end", s."point" HAVING COUNT(*) > 1` |
 | `runtime.propagated_covariances` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."propagated_covariances" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
 | `runtime.reduced_hessians` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."reduced_hessians" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
@@ -227,6 +231,7 @@
 | `runtime.solve_strategy_products` | `unique:pk` | `SELECT s."run_id", s."step", s."mechanism", s."product" FROM "runtime"."solve_strategy_products" s GROUP BY s."run_id", s."step", s."mechanism", s."product" HAVING COUNT(*) > 1` |
 | `runtime.solve_variables` | `unique:pk` | `SELECT s."run_id", s."step", s."symbol_id" FROM "runtime"."solve_variables" s GROUP BY s."run_id", s."step", s."symbol_id" HAVING COUNT(*) > 1` |
 | `runtime.solver_capabilities` | `unique:pk` | `SELECT s."backend" FROM "runtime"."solver_capabilities" s GROUP BY s."backend" HAVING COUNT(*) > 1` |
+| `runtime.state_tolerances` | `unique:pk` | `SELECT s."coordinate_id" FROM "runtime"."state_tolerances" s GROUP BY s."coordinate_id" HAVING COUNT(*) > 1` |
 | `runtime.structural_assessments` | `unique:pk` | `SELECT s."request_identity", s."step" FROM "runtime"."structural_assessments" s GROUP BY s."request_identity", s."step" HAVING COUNT(*) > 1` |
 | `runtime.study_outcomes` | `unique:pk` | `SELECT s."study_id", s."point_index" FROM "runtime"."study_outcomes" s GROUP BY s."study_id", s."point_index" HAVING COUNT(*) > 1` |
 | `runtime.trajectory_endpoints` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."trajectory_endpoints" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |

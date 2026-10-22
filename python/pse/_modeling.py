@@ -30,6 +30,7 @@ from pse._build import (
     _NativeStudyReport,
 )
 from pse._inspection import TableStream
+from pse._physical import ArrowInput
 from pse._runs import PreparedOperation, RunResult, StoredResult
 from pse._strategies import PreparedFlow, PreparedStrategy
 from pse.codec._generated import encode_declarations, encode_fits
@@ -39,25 +40,24 @@ from pse.contracts.authored import (
 )
 from pse.contracts.documents import (
     AdmittedBinding,
-    Completion,
+    CompletionOutput as Completion,
     Conclusion,
     ConformanceControls,
-    DeclarationInventory,
     DiagnosticOrigin,
     DiagnosticSamplesControls,
-    FitPreparationDocument,
+    PhysicalFitRequest,
     FlowSelectionDocument,
     InitializationOverrides,
     JacobianDiagnosticControls,
     KnowledgeControls,
-    LazyStudyDefinition,
+    LazyStudyDefinitionOutput as LazyStudyDefinition,
     LinearDiagnosticControls,
     ManagedStudyDiagnosticsDocument,
-    ModelingInspection,
+    ModelingInspectionOutput as ModelingInspection,
     ModelingNonlinearPolicy,
     ModelingSourceMapDocument,
     OperationSource,
-    PointOutcome,
+    PointOutcomeOutput as PointOutcome,
     PointOverlay,
     PreparationCounts,
     PreparationSettings,
@@ -65,7 +65,7 @@ from pse.contracts.documents import (
     RecycleRequest,
     SolveSettings,
     SourceDelta,
-    StudyPointDefinition,
+    StudyPointDefinitionOutput as StudyPointDefinition,
     StudyRequest,
     StudyRunControls,
 )
@@ -100,12 +100,12 @@ class LocalStudy:
     @property
     def points(self) -> tuple[StudyPointDefinition, ...]:
         """Physically admitted explicit occurrences in authored order."""
-        return codec.decode_json(self._handle.points, tuple[StudyPointDefinition, ...])
+        return tuple(self._handle.points)
 
     @property
     def variants(self) -> LazyStudyDefinition | None:
         """The retained bounded lazy input, without constructing variants."""
-        return codec.decode_json(self._handle.variants, LazyStudyDefinition | None)
+        return self._handle.variants
 
     @property
     def modeling_revision(self) -> str:
@@ -125,7 +125,7 @@ class ModelingResult:
 
     @property
     def run_id(self) -> RunId:
-        return RunId(SemanticId.from_hex(self._handle.run_id))
+        return self._handle.run_id
 
     @property
     def outcome_kind(self) -> NativeRunState:
@@ -138,14 +138,12 @@ class ModelingResult:
     @property
     def bound_source(self) -> AdmittedBinding | None:
         """Exact parent, physical context and admitted transient coordinates."""
-        source = self._handle.bound_source()
-        return None if source is None else codec.decode_json(source, AdmittedBinding)
+        return self._handle.bound_source()
 
     @property
     def binding_identity(self) -> ContentHash | None:
         """Canonical binding identity, excluding submitted spelling and units."""
-        identity = self._handle.binding_identity
-        return None if identity is None else ContentHash.from_prefixed(identity)
+        return self._handle.binding_identity
 
     def attempt(self) -> NativeAttempt | None:
         """The unchanged native attempt, absent for constant evaluation or refusal."""
@@ -203,7 +201,7 @@ class ModelingElasticAttempt:
         return self._handle.penalty
 
     def omitted(self) -> tuple[SemanticId, ...]:
-        return tuple(SemanticId.from_hex(v) for v in self._handle.omitted())
+        return tuple(self._handle.omitted())
 
     def result(self) -> ModelingResult | None:
         result = self._handle.result()
@@ -239,12 +237,10 @@ class ModelingNonlinearExplanation:
         return self._handle.stop
 
     def candidate_rows(self) -> tuple[SemanticId, ...]:
-        return tuple(SemanticId.from_hex(v) for v in self._handle.candidate_rows())
+        return tuple(self._handle.candidate_rows())
 
     def background_variables(self) -> tuple[SemanticId, ...]:
-        return tuple(
-            SemanticId.from_hex(v) for v in self._handle.background_variables()
-        )
+        return tuple(self._handle.background_variables())
 
     def attempts(self) -> tuple[ModelingElasticAttempt, ...]:
         return tuple(ModelingElasticAttempt(v) for v in self._handle.attempts())
@@ -275,9 +271,7 @@ class ModelingConformance:
                 settings,
                 controls=None if controls is None else codec.encode_json(controls),
                 limits=limits,
-                preparation=None
-                if preparation is None
-                else codec.encode_json(preparation),
+                preparation=preparation,
             )
         )
 
@@ -315,23 +309,20 @@ class ModelingConformance:
         return self._handle.failure(ordinal)
 
     def trajectory(self, fixture_id: DeclarationId) -> "ModelingTrajectory":
-        return ModelingTrajectory(self._handle.trajectory(fixture_id.to_hex()))
+        return ModelingTrajectory(self._handle.trajectory(fixture_id))
 
     def initialization(self, fixture_id: DeclarationId) -> "ModelingInitialization":
-        return ModelingInitialization(self._handle.initialization(fixture_id.to_hex()))
+        return ModelingInitialization(self._handle.initialization(fixture_id))
 
     def fixtures(self) -> tuple[DeclarationId, ...]:
-        return tuple(
-            DeclarationId(SemanticId.from_hex(value))
-            for value in self._handle.fixtures()
-        )
+        return tuple(self._handle.fixtures())
 
     def fixture_statuses(self) -> TableStream:
         """All discovered fixtures, including those beyond the detailed check limit."""
         return TableStream(self._handle.fixture_statuses())
 
     def result(self, fixture_id: DeclarationId) -> ModelingResult:
-        return ModelingResult(self._handle.result(fixture_id.to_hex()))
+        return ModelingResult(self._handle.result(fixture_id))
 
 
 @attrs.frozen
@@ -397,12 +388,7 @@ class ModelingInitialization:
         return tuple(ModelingInitializationAttempt(a) for a in self._handle.attempts())
 
     def committed_values(self) -> dict[SemanticId, float] | None:
-        values = self._handle.committed_values()
-        return (
-            None
-            if values is None
-            else {SemanticId.from_hex(k): v for k, v in values.items()}
-        )
+        return self._handle.committed_values()
 
 
 @attrs.frozen
@@ -414,9 +400,7 @@ class CompactStudyResult:
 
     @property
     def completion(self) -> Completion:
-        return codec.decode_json(
-            self._handle.compact_completion(self._index), Completion
-        )
+        return self._handle.compact_completion(self._index)
 
     @property
     def table_names(self) -> tuple[str, ...]:
@@ -455,7 +439,7 @@ class StudyReport:
     @property
     def preparations(self) -> PreparationCounts:
         """Caller-process preparation counts; excludes an external primary worker."""
-        return codec.decode_json(self._handle.preparations, PreparationCounts)
+        return self._handle.preparations
 
     def result(
         self, index: int
@@ -469,11 +453,11 @@ class StudyReport:
         return None if handle is None else RunResult(handle)
 
     def outcome(self, index: int) -> PointOutcome:
-        return codec.decode_json(self._handle.outcome(index), PointOutcome)
+        return self._handle.outcome(index)
 
     @property
     def conclusion(self) -> Conclusion:
-        return codec.decode_json(self._handle.conclusion, Conclusion)
+        return self._handle.conclusion
 
     def failure(self, index: int) -> DiagnosticReport | None:
         return self._handle.failure(index)
@@ -535,9 +519,7 @@ class ModelingDiagnostics:
 
     def coordinates(self) -> tuple[tuple[SemanticId, ...], tuple[SemanticId, ...]]:
         rows, columns = self._handle.coordinates()
-        return tuple(SemanticId.from_hex(v) for v in rows), tuple(
-            SemanticId.from_hex(v) for v in columns
-        )
+        return tuple(rows), tuple(columns)
 
     def singular_modes(
         self,
@@ -633,7 +615,7 @@ class ModelingDiagnosticSamples:
         return self._handle.stop
 
     def ids(self) -> tuple[SemanticId, ...]:
-        return tuple(SemanticId.from_hex(value) for value in self._handle.ids())
+        return tuple(self._handle.ids())
 
     def result(self, index: int) -> ModelingDiagnostics | None:
         handle = self._handle.result(index)
@@ -651,7 +633,7 @@ class ModelingKnowledge:
 
     @property
     def source_revision(self) -> ContentHash:
-        return ContentHash.from_prefixed(self._handle.source_revision)
+        return self._handle.source_revision
 
     def table(self) -> TableStream:
         """Generated runtime.modeling_knowledge rows in canonical units."""
@@ -675,7 +657,7 @@ class ModelingPackage:
     @property
     def operation_source(self) -> OperationSource:
         """Exact source and physical identity for reconstructible study inputs."""
-        return codec.decode_json(self._handle.operation_source, OperationSource)
+        return self._handle.operation_source
 
     @property
     def canonical_revision(self) -> str | None:
@@ -696,7 +678,7 @@ class ModelingPackage:
         """Inspect admitted records, constants and tables under native limits."""
         return ModelingKnowledge(
             self._handle.knowledge(
-                None if owner_id is None else owner_id.to_hex(),
+                owner_id,
                 controls=None if controls is None else codec.encode_json(controls),
             )
         )
@@ -708,11 +690,11 @@ class ModelingPackage:
         return ModelingPackage(self._handle.with_fit_declarations(encode_fits(fits)))
 
     def prepare_fit(
-        self, fit_id: FitId, request: FitPreparationDocument
+        self, fit_id: FitId, request: PhysicalFitRequest
     ) -> "PreparedOperation":
         """Admit owned fit settings against the selected model and experiments."""
         return PreparedOperation(
-            self._handle.prepare_fit(fit_id.to_hex(), codec.encode_json(request))
+            self._handle.prepare_fit(fit_id, request)
         )
 
     def with_limits(self, limits: ModelingLimits) -> "ModelingPackage":
@@ -724,7 +706,7 @@ class ModelingPackage:
         case_id: DeclarationId,
         settings: SolveSettings,
         diagnostics: ModelingDiagnosticSettings,
-        samples: tuple[tuple[SemanticId, dict[SemanticId, float]], ...],
+        samples: ArrowInput,
         *,
         controls: DiagnosticSamplesControls | None = None,
         origin: DiagnosticOrigin | None = None,
@@ -732,16 +714,10 @@ class ModelingPackage:
         """Inspect overrides while preserving the prepared case's frozen inputs."""
         return ModelingDiagnosticSamples(
             self._handle.diagnose_samples(
-                case_id.to_hex(),
-                codec.encode_json(settings),
+                case_id,
+                settings,
                 diagnostics,
-                [
-                    (
-                        name.to_hex(),
-                        {key.to_hex(): value for key, value in point.items()},
-                    )
-                    for name, point in samples
-                ],
+                samples,
                 controls=None if controls is None else codec.encode_json(controls),
                 origin=origin,
             )
@@ -756,7 +732,7 @@ class ModelingPackage:
         """Explain local infeasibility using the actual native penalty policy."""
         return ModelingNonlinearExplanation(
             self._handle.explain_nonlinear(
-                case_id.to_hex(), codec.encode_json(settings), codec.encode_json(policy)
+                case_id, settings, codec.encode_json(policy)
             )
         )
 
@@ -768,14 +744,14 @@ class ModelingPackage:
         The case's fixture declares its modes, events and scheduled inputs.
         """
         return PreparedOperation(
-            self._handle.prepare_simulation(case_id.to_hex(), settings)
+            self._handle.prepare_simulation(case_id, settings)
         )
 
     def simulate(
         self, case_id: DeclarationId, settings: SimulationSettings
     ) -> ModelingTrajectory:
         """Integrate the authored case with the existing native dynamics engine."""
-        return ModelingTrajectory(self._handle.simulate(case_id.to_hex(), settings))
+        return ModelingTrajectory(self._handle.simulate(case_id, settings))
 
     def diagnostic_source_map(
         self,
@@ -787,7 +763,7 @@ class ModelingPackage:
     ) -> ModelingSourceMapDocument:
         """Read static attribution under one preparation and copy clock."""
         return self._handle.diagnostic_source_map(
-            case_id.to_hex(), codec.encode_json(settings), maximum_bytes, time_limit
+            case_id, settings, maximum_bytes, time_limit
         )
 
     def diagnose(
@@ -801,8 +777,8 @@ class ModelingPackage:
         """Inspect the declared candidate without requesting a native solve."""
         return ModelingDiagnostics(
             self._handle.diagnose(
-                case_id.to_hex(),
-                codec.encode_json(settings),
+                case_id,
+                settings,
                 diagnostics,
                 origin=origin,
             )
@@ -819,8 +795,8 @@ class ModelingPackage:
         """Run native affine diagnostics with explicit physical penalties."""
         return ModelingNativeAnalysis(
             self._handle.diagnose_linear(
-                case_id.to_hex(),
-                codec.encode_json(settings),
+                case_id,
+                settings,
                 controls=None if controls is None else codec.encode_json(controls),
                 origin=origin,
             )
@@ -837,8 +813,8 @@ class ModelingPackage:
         """Bounded native evidence about the local scaled Jacobian."""
         return ModelingNativeAnalysis(
             self._handle.diagnose_jacobian(
-                case_id.to_hex(),
-                codec.encode_json(settings),
+                case_id,
+                settings,
                 controls=None if controls is None else codec.encode_json(controls),
                 origin=origin,
             )
@@ -853,7 +829,7 @@ class ModelingPackage:
         )
 
     def declarations(self) -> tuple[AuthoredModelingDeclarationsRow, ...]:
-        document = codec.decode_json(self._handle.declarations(), DeclarationInventory)
+        document = self._handle.declarations()
         return codec.document_rows(
             document.declarations, AuthoredModelingDeclarationsRow
         )
@@ -878,7 +854,7 @@ class ModelingPackage:
     def source_tables(self) -> dict[SemanticId, TableStream]:
         """Export the complete immutable source inventory as explicit Arrow tables."""
         return {
-            SemanticId.from_hex(relation): TableStream(stream)
+            relation: TableStream(stream)
             for relation, stream in self._handle.source_tables().items()
         }
 
@@ -886,10 +862,7 @@ class ModelingPackage:
         self, case_id: DeclarationId, settings: SolveSettings
     ) -> ModelingInspection:
         """Inspect instantiated member lineage and declared topology before running."""
-        return codec.decode_json(
-            self._handle.inspect(case_id.to_hex(), codec.encode_json(settings)),
-            ModelingInspection,
-        )
+        return self._handle.inspect(case_id, settings)
 
     def prepare_flow(
         self,
@@ -900,9 +873,9 @@ class ModelingPackage:
         """Project explicitly selected authored nodes, ports and connection policies."""
         return PreparedFlow(
             self._handle.prepare_flow(
-                case_id.to_hex(),
+                case_id,
                 codec.encode_json(selection),
-                codec.encode_json(settings),
+                settings,
             )
         )
 
@@ -916,10 +889,10 @@ class ModelingPackage:
         """Compile admitted causal directions from this immutable authored model."""
         return PreparedStrategy(
             self._handle.prepare_recycle(
-                case_id.to_hex(),
+                case_id,
                 codec.encode_json(selection),
                 codec.encode_json(request),
-                codec.encode_json(settings),
+                settings,
             )
         )
 
@@ -927,14 +900,14 @@ class ModelingPackage:
         self,
         case_id: DeclarationId,
         settings: SolveSettings,
-        stages: Sequence[Mapping[SemanticId, float]],
+        stages: ArrowInput,
     ) -> PreparedStrategy:
         """Prepare ordered blocks and transactional overlays over original bindings."""
         return PreparedStrategy(
             self._handle.prepare_block_initialization(
-                case_id.to_hex(),
-                codec.encode_json(settings),
-                [{k.to_hex(): v for k, v in stage.items()} for stage in stages],
+                case_id,
+                settings,
+                stages,
             )
         )
 
@@ -944,15 +917,15 @@ class ModelingPackage:
         settings: SolveSettings,
         *,
         preparation: PreparationSettings | None = None,
+        covariance_source: RunResult | None = None,
     ) -> PreparedOperation:
         """Prepare an authored solve with optional compiler and expansion policy."""
         return PreparedOperation(
             self._handle.prepare_solve(
-                case_id.to_hex(),
-                codec.encode_json(settings),
-                preparation=None
-                if preparation is None
-                else codec.encode_json(preparation),
+                case_id,
+                settings,
+                preparation=preparation,
+                covariance_source=None if covariance_source is None else covariance_source._handle,
             )
         )
 
@@ -963,6 +936,7 @@ class ModelingPackage:
         settings: SolveSettings,
         *,
         preparation: PreparationSettings | None = None,
+        covariance_source: RunResult | None = None,
     ) -> ModelingResult:
         """Solve transient typed values against this immutable declared parent.
 
@@ -971,12 +945,11 @@ class ModelingPackage:
         """
         return ModelingResult(
             self._handle.solve_bound(
-                case_id.to_hex(),
+                case_id,
                 codec.encode_json(overlay),
-                codec.encode_json(settings),
-                preparation=None
-                if preparation is None
-                else codec.encode_json(preparation),
+                settings,
+                preparation=preparation,
+                covariance_source=None if covariance_source is None else covariance_source._handle,
             )
         )
 
@@ -986,6 +959,7 @@ class ModelingPackage:
         settings: SolveSettings,
         *,
         preparation: PreparationSettings | None = None,
+        covariance_source: RunResult | None = None,
     ) -> ModelingResult:
         """Solve a case through the native solver pipeline.
 
@@ -994,11 +968,10 @@ class ModelingPackage:
         """
         return ModelingResult(
             self._handle.solve_case(
-                case_id.to_hex(),
-                codec.encode_json(settings),
-                preparation=None
-                if preparation is None
-                else codec.encode_json(preparation),
+                case_id,
+                settings,
+                preparation=preparation,
+                covariance_source=None if covariance_source is None else covariance_source._handle,
             )
         )
 
@@ -1012,8 +985,8 @@ class ModelingPackage:
         """Run authored stages under native overrides and retain original bindings."""
         return ModelingInitialization(
             self._handle.initialize(
-                case_id.to_hex(),
-                codec.encode_json(settings),
+                case_id,
+                settings,
                 overrides=None if overrides is None else codec.encode_json(overrides),
             )
         )
@@ -1046,10 +1019,8 @@ class ModelingPackage:
         """Run bounded checks with optional complete compiler and expansion policy."""
         return ModelingConformance(
             self._handle.conform(
-                codec.encode_json(settings),
+                settings,
                 controls=None if controls is None else codec.encode_json(controls),
-                preparation=None
-                if preparation is None
-                else codec.encode_json(preparation),
+                preparation=preparation,
             )
         )

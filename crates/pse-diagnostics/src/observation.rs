@@ -1595,6 +1595,12 @@ pub struct ObservationContext {
     clock: Option<Arc<dyn Clock>>,
 }
 impl ObservationContext {
+    /// Effective byte ceiling for copied text in this selected operation.
+    /// Absent when collection was disabled or this operation was not admitted.
+    #[must_use]
+    pub fn text_limit_bytes(&self) -> Option<usize> {
+        self.node.as_ref().map(|node| node.policy.max_text_bytes)
+    }
     /// Return the operation diagnostic identity.
     #[must_use]
     pub fn id(&self) -> OperationId {
@@ -2470,6 +2476,17 @@ impl OperationReader {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn context_text_limit_reports_effective_policy_and_absent_collection() {
+        for (requested, effective) in [(0, 1), (37, 37), (1024, 256)] {
+            let hub = ObservationHub::new(Policy { max_text_bytes: requested, ..Default::default() });
+            let operation = hub.start("text-limit");
+            assert_eq!(operation.context().text_limit_bytes(), Some(effective));
+        }
+        let disabled = ObservationHub::new(Policy { enabled: false, ..Default::default() });
+        assert_eq!(disabled.start("disabled").context().text_limit_bytes(), None);
+    }
 
     #[derive(Default)]
     struct TestClock(AtomicU64);

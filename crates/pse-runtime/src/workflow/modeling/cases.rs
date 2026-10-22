@@ -498,23 +498,8 @@ impl ModelingPackage {
                     values.scalars.insert(id, value);
                     starts.insert(id, StartSource::Fixed);
                 }
-                let hints = product
-                    .admitted
-                    .outputs
-                    .iter()
-                    .filter_map(|o| {
-                        if let ModelingOutput::Hint {
-                            target,
-                            declaration,
-                            kind,
-                        } = o
-                        {
-                            Some((*target, *declaration, *kind, o.row_id()))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>();
+                let annotations = product.numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady).map_err(crate::math::MathRuntimeError::from)?;
+                let hints = hints(product)?;
                 let mut pending = hints
                     .iter()
                     .filter(|(id, _, k, _)| {
@@ -567,7 +552,11 @@ impl ModelingPackage {
                         )
                         .await?;
                     for (target, declaration, _, row) in &ready {
-                        let value = observed[row];
+                        let (value, _) = annotations.select_start(pse_compiler::workspace::NumericalStartValues {
+                            supplied_value: values.scalars.get(target).copied(),
+                            authored_hint: Some(observed[row]),
+                            ..Default::default()
+                        }).ok_or_else(|| contract("missing resolved start"))?;
                         if !value.is_finite() {
                             return Err(contract("nonfinite start result"));
                         }
@@ -1068,27 +1057,12 @@ impl ModelingPackage {
         )?;
         let activity = self.runtime.admit_activity()?;
         activity.scope(async {
-        let model = if (solver.composition.policy == pse_model::strategy::CompositionPolicy::Auto
-            || solver.reconstruction.is_some()
-            || implicit::declared_accuracy(&model, &solver.numerics))
-            && solver.sensitivity.is_none()
-            && model
-                .compiled()
-                .admitted
-                .implicit_systems()
-                .any(|supplier| {
-                    supplier.selection.neighborhood_evidence
-                        != pse_compiler::workspace::SelectionNeighborhood::Unestablished
-                        && !matches!(
-                            supplier.selection.meaning,
-                            pse_compiler::workspace::ImplicitMeaning::Relation
-                        )
-                        && supplier.selection.restriction.is_none()
-                }) {
-            model.original_equations().unwrap_or(model)
-        } else {
-            model
-        };
+        let model = model.compiler_view(pse_compiler::workspace::ViewPolicy {
+            automatic_composition: solver.composition.policy == pse_model::strategy::CompositionPolicy::Auto,
+            reconstruction: solver.reconstruction.is_some(),
+            declared_accuracy: !solver.numerics.goals.is_empty(),
+            sensitivity: solver.sensitivity.is_some(),
+        })?;
         let inner = Inner::of(model.compiled());
         let (values, starts) = self
             .resolve_starts(
@@ -1174,6 +1148,25 @@ impl ModelingPackage {
                     implicit::ProviderDemand::Case(&prepared.case.compiled().plan),
                 )
                 .await?;
+        }
+        if let Some(propagation) = solver.sensitivity.as_mut().and_then(|request| request.propagation.as_mut()) {
+            self.runtime.reconcile_covariance(&mut propagation.covariance, &cancel.token()).await?;
+            let covariance = &propagation.covariance;
+            let structure = prepared.case.compiled().plan.structure();
+            for (index, id) in covariance.parameters.iter().enumerate() {
+                let parameter = structure.parameters().iter().find(|parameter| parameter.id == *id)
+                    .ok_or_else(|| contract(format!("covariance parameter {id} is not a declared physical parameter")))?;
+                if covariance.parameter_quantities[index] != parameter.quantity.as_id()
+                    || covariance.parameter_units[index] != parameter.unit.as_id()
+                {
+                    return Err(contract(format!("covariance parameter {id} has a different complete quantity or representation unit")));
+                }
+            }
+            if let Some(proof) = covariance.verified_fit().map_err(|error| contract(error.to_string()))?
+                && proof.physical != self.physical.identity()
+            {
+                return Err(contract("fit covariance physical interpretation differs from the selected source context"));
+            }
         }
         // A sensitivity request differentiates the view's parametric program, and each
         // parameter resolves its coordinate scale as a variable coordinate (Plan 22 S1).
@@ -1327,7 +1320,7 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<BTreeMap<SemanticId, ModelingVariableState>, WorkflowError> {
         let product = model.compiled();
-        let hints = hints(product)
+        let hints = hints(product)?
             .into_iter()
             .filter(|(id, _, _, _)| !inner.contains(id))
             .collect::<Vec<_>>();
@@ -1441,7 +1434,7 @@ impl ModelingPackage {
         let product = model.compiled();
         let variables = variables(product);
         let equations = equations(product);
-        let authored = hints(product)
+        let authored = hints(product)?
             .into_iter()
             .filter(|(target, _, kind, _)| {
                 matches!(
@@ -1718,32 +1711,15 @@ impl ModelingPackage {
                 nominal_point.scalars.insert(t.id, value);
             }
         }
-        let schemes = product
-            .model
-            .annotations
-            .iter()
-            .filter_map(|a| {
-                if let AnnotationValue::Scale(s) = a.value
-                    && !inner.rows.contains(&a.target)
-                {
-                    Some((a.target, s, a.lineage.declaration))
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-        let term_rows = schemes
-            .iter()
-            .flat_map(|(id, _, _)| {
-                product
-                    .admitted
-                    .term_outputs
-                    .get(id)
-                    .into_iter()
-                    .flatten()
-                    .map(|(r, _)| *r)
-            })
-            .collect::<BTreeSet<_>>();
+        let annotations = product.numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady).map_err(crate::math::MathRuntimeError::from)?;
+        let schemes = annotations.outer_scales().collect::<Vec<_>>();
+        let term_rows = schemes.iter().try_fold(BTreeSet::new(), |mut rows, scale| {
+            let pse_compiler::workspace::ScalingObservations::Rows(observed) = &scale.observations else {
+                return Err(contract("outer numerical scaling requires rows"));
+            };
+            rows.extend(observed);
+            Ok(rows)
+        })?;
         if !schemes.is_empty() {
             let terms = self
                 .observe_registered(
@@ -1755,7 +1731,10 @@ impl ModelingPackage {
                     cancel,
                 )
                 .await?;
-            for (id, scheme, source) in schemes {
+            for instruction in schemes {
+                let id = instruction.target;
+                let scheme = instruction.scheme;
+                let source = instruction.declaration;
                 let inputs = product
                     .admitted
                     .term_outputs
@@ -1863,7 +1842,7 @@ pub(in crate::workflow) fn lower_authored_accuracy(
                       declaration: DeclarationId,
                       kind: ModelingHint|
      -> Result<f64, WorkflowError> {
-        let row = hints(product)
+        let row = hints(product)?
             .into_iter()
             .find(|(hint_target, hint_declaration, hint_kind, _)| {
                 *hint_target == target && *hint_declaration == declaration && *hint_kind == kind
@@ -2820,25 +2799,16 @@ impl Inner {
 /// Every numerical hint: target, declaration, purpose and observation row.
 fn hints(
     product: &pse_compiler::workspace::PreparedModeling,
-) -> Vec<(SemanticId, DeclarationId, ModelingHint, SemanticId)> {
-    product
-        .admitted
-        .outputs
-        .iter()
-        .filter_map(|o| {
-            if let ModelingOutput::Hint {
-                target,
-                declaration,
-                kind,
-            } = o
-            {
-                Some((*target, *declaration, *kind, o.row_id()))
-            } else {
-                None
-            }
-        })
-        .collect()
+) -> Result<Vec<(SemanticId, DeclarationId, ModelingHint, SemanticId)>, WorkflowError> {
+    product.numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady).map_err(crate::math::MathRuntimeError::from)?
+        .outer_hints().map(|hint| {
+            let pse_compiler::workspace::AnnotationObservation::Row(row) = hint.observation else {
+                return Err(contract("outer numerical observation requires a row"));
+            };
+            Ok((hint.target, hint.declaration, hint.kind, row))
+        }).collect()
 }
+
 fn variables(product: &pse_compiler::workspace::PreparedModeling) -> BTreeSet<SemanticId> {
     product
         .admitted
@@ -5387,7 +5357,7 @@ mod root_unavailable_tests {
     ) -> Result<pse_model::numerics::ResolvedNumericalPolicy, WorkflowError> {
         let product = model.compiled();
         let mut targets = Vec::new();
-        let values = hints(product)
+        let values = hints(product)?
             .into_iter()
             .filter(|(_, _, kind, _)| *kind == ModelingHint::EngineeringScaleValue)
             .map(|(target, _, _, row)| {

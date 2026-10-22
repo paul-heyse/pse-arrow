@@ -13,15 +13,17 @@ pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "canonical_result_blocks";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "runtime.canonical_result_blocks";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    141u8, 242u8, 90u8, 119u8, 153u8, 166u8, 41u8, 47u8, 229u8, 212u8, 112u8, 173u8,
-    206u8, 35u8, 79u8, 249u8, 23u8, 43u8, 42u8, 253u8, 93u8, 162u8, 86u8, 253u8, 1u8,
-    167u8, 65u8, 114u8, 169u8, 4u8, 202u8, 6u8,
+    229u8, 143u8, 113u8, 133u8, 38u8, 235u8, 235u8, 163u8, 145u8, 36u8, 13u8, 113u8,
+    135u8, 90u8, 14u8, 143u8, 218u8, 114u8, 225u8, 68u8, 35u8, 15u8, 16u8, 219u8, 188u8,
+    205u8, 154u8, 192u8, 142u8, 65u8, 197u8, 45u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalResultBlocksRow {
     fn append(
@@ -65,8 +67,12 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalResultBlocksRow {
             children[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#interpretation,
+            &self.r#statistics,
             children[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#interpretation,
+            children[15usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -98,8 +104,11 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalResultBlocksRow {
         <String as crate::columnar::ArrowValue>::append_null(
             children[13usize].as_mut(),
         )?;
+        <Option<
+            pse_model::Bytes,
+        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(
-            children[14usize].as_mut(),
+            children[15usize].as_mut(),
         )?;
         output.append(false);
         Ok(())
@@ -171,8 +180,14 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalResultBlocksRow {
                 input.column(13usize).as_ref(),
                 index,
             )?,
-            r#interpretation: <String as crate::columnar::ArrowValue>::read(
+            r#statistics: <Option<
+                pse_model::Bytes,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(14usize).as_ref(),
+                index,
+            )?,
+            r#interpretation: <String as crate::columnar::ArrowValue>::read(
+                input.column(15usize).as_ref(),
                 index,
             )?,
         })
@@ -264,8 +279,12 @@ impl crate::columnar::RelationRow for RuntimeCanonicalResultBlocksRow {
             columns[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#interpretation,
+            &self.r#statistics,
             columns[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#interpretation,
+            columns[15usize].as_mut(),
         )?;
         Ok(())
     }
@@ -302,10 +321,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalResultBlocksRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        30_720_usize + size_of::<Self::Builder>()
+        32_768_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        240usize
+        256usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -381,6 +400,17 @@ impl crate::columnar::RelationRow for RuntimeCanonicalResultBlocksRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            if let Some(value) = (self.r#statistics).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             crate::columnar::allocation_add(8, (self.r#interpretation).len())?,
         )?;
         Ok(bytes)
@@ -393,7 +423,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 15usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 16usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -466,8 +496,13 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 15usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "interpretation",
+        name: "statistics",
         position: 14usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "interpretation",
+        position: 15usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -500,8 +535,10 @@ pub mod columns {
     pub const PAYLOAD_BYTES: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///payload_digest
     pub const PAYLOAD_DIGEST: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    ///statistics
+    pub const STATISTICS: crate::columnar::ColumnReference = super::COLUMNS[14usize];
     ///interpretation
-    pub const INTERPRETATION: crate::columnar::ColumnReference = super::COLUMNS[14usize];
+    pub const INTERPRETATION: crate::columnar::ColumnReference = super::COLUMNS[15usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -523,6 +560,7 @@ pub struct RuntimeCanonicalResultBlocksView<'a> {
     coordinate_max_column: &'a arrow_array::Float64Array,
     payload_bytes_column: &'a arrow_array::UInt64Array,
     payload_digest_column: &'a arrow_array::StringArray,
+    statistics_column: &'a arrow_array::BinaryArray,
     interpretation_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeCanonicalResultBlocksView<'a> {
@@ -610,9 +648,12 @@ impl<'a> RuntimeCanonicalResultBlocksView<'a> {
             payload_digest_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(13usize).as_ref())?,
+            statistics_column: crate::columnar::array::<
+                arrow_array::BinaryArray,
+            >(batch.column(14usize).as_ref())?,
             interpretation_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(14usize).as_ref())?,
+            >(batch.column(15usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -797,6 +838,18 @@ impl<'a> RuntimeCanonicalResultBlocksView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "statistics",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn statistics_column(&self) -> &'a arrow_array::BinaryArray {
+        self.statistics_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "statistics", "`.")]
+    pub fn statistics_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[14usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "interpretation",
         "`, including its offsets and validity bitmap.",
     )]
@@ -805,7 +858,7 @@ impl<'a> RuntimeCanonicalResultBlocksView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "interpretation", "`.")]
     pub fn interpretation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[14usize]
+        &self.batch.schema_ref().fields()[15usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -849,6 +902,10 @@ impl<'a> RuntimeCanonicalResultBlocksView<'a> {
             )?,
             r#payload_digest: crate::columnar::ArrowValue::read(
                 self.payload_digest_column,
+                index,
+            )?,
+            r#statistics: crate::columnar::ArrowValue::read(
+                self.statistics_column,
                 index,
             )?,
             r#interpretation: crate::columnar::ArrowValue::read(

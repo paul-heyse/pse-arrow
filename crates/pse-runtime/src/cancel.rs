@@ -77,6 +77,27 @@ impl CancelSource {
     pub async fn cancelled(&self) {
         self.token.cancelled().await;
     }
+
+    /// Bridge a tree cancellation to the native callback's flat leaf and retain
+    /// the owning operation until its destruction/join completes. A ready stop
+    /// wins a simultaneously ready candidate; the typed drain result is retained.
+    pub(crate) async fn join_native<T, Drain>(
+        &self,
+        native: &pse_diagnostics::Cancellation,
+        work: impl Future<Output = T>,
+        on_stop: impl FnOnce() -> Drain,
+    ) -> T {
+        tokio::pin!(work);
+        tokio::select! {
+            biased;
+            () = self.cancelled() => {
+                native.cancel();
+                let _drain = on_stop();
+                work.await
+            }
+            result = &mut work => result,
+        }
+    }
 }
 
 #[cfg(test)]

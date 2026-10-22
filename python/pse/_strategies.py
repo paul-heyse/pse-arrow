@@ -4,7 +4,6 @@
 
 import attrs
 
-from pse import codec
 from pse._build import (
     DiagnosticReport,
     NativeStrategyAttempt,
@@ -24,7 +23,6 @@ from pse.contracts.documents import (
 )
 from pse.contracts.enums import TearMethod
 from pse.contracts.identities import RunId
-from pse.contracts.values import SemanticId
 
 
 @attrs.frozen
@@ -35,14 +33,14 @@ class PreparedFlow:
 
     def graph(self) -> FlowGraphDocument:
         """Return source-attributed nodes, scalar ports, connections and decisions."""
-        return codec.decode_json(self._handle.graph(), FlowGraphDocument)
+        return self._handle.graph()
 
     def select_tears(
         self, method: TearMethod, settings: SolveSettings
     ) -> "StrategyResult":
         """Run the explicitly selected native MILP or policy-respecting heuristic."""
         return StrategyResult(
-            self._handle.select_tears(method, codec.encode_json(settings))
+            self._handle.select_tears(method, settings)
         )
 
 
@@ -72,13 +70,12 @@ class StrategyResult:
 
     def review_context(self) -> ReviewContextDocument:
         """Read context explicitly selected for the original joined execution."""
-        return codec.decode_json(self._handle.review_context(), ReviewContextDocument)
+        return self._handle.review_context()
 
     @property
     def run_id(self) -> RunId | None:
         """Identity of the submitted numerical operation; structural tears have none."""
-        value = self._handle.run_id
-        return None if value is None else RunId(SemanticId.from_hex(value))
+        return self._handle.run_id
 
     def strategy_events(self) -> TableStream:
         """Project retained numerical observations through the generated contract."""
@@ -86,8 +83,7 @@ class StrategyResult:
 
     def tears(self) -> TearSelectionDocument | None:
         """Selected decisions, authored cost and independently checked acyclic order."""
-        data = self._handle.tears()
-        return None if data is None else codec.decode_json(data, TearSelectionDocument)
+        return self._handle.tears()
 
     def attempts(self) -> tuple[NativeStrategyAttempt, ...]:
         """Every attempt in order: its native report or the typed failure before one."""
@@ -104,5 +100,4 @@ class StrategyResult:
 
     def initialization(self) -> InitializationDocument | None:
         """Original values, committed unknowns and temporary stage evidence."""
-        data = self._handle.initialization()
-        return None if data is None else codec.decode_json(data, InitializationDocument)
+        return self._handle.initialization()

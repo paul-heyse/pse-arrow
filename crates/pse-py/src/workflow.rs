@@ -3,6 +3,7 @@
 //! Mechanical public workflow projection; all mathematical policy remains native.
 use crate::documents;
 mod modeling;
+mod physical_input;
 use documents::DocumentContent;
 mod routes;
 mod settings;
@@ -66,8 +67,8 @@ impl NativeArtifactSettlement {
     fn key(&self) -> String {
         self.inner.key().into()
     }
-    fn release(&self, py: Python<'_>, kind: &str, owner: &str) -> PyResult<()> {
-        blocking(py, &self.owner, self.inner.release(kind, owner), || {})
+    fn release(&self, py: Python<'_>, kind: crate::enums::EnumValue<pse_model::generated::enums::ArtifactOwnerKind>, owner: &str) -> PyResult<()> {
+        blocking(py, &self.owner, self.inner.release(kind.0.as_str(), owner), || {})
     }
     fn collect(&self, py: Python<'_>) -> PyResult<bool> {
         blocking(py, &self.owner, self.inner.collect(), || {})
@@ -88,13 +89,13 @@ impl NativeScientificArtifact {
         self.inner.header().key.clone()
     }
     #[getter]
-    fn kind(&self) -> String {
-        self.inner.header().kind.clone()
+    fn kind(&self, py: Python<'_>) -> PyResult<crate::enums::EnumValue<pse_model::generated::enums::ScientificArtifactKind>> {
+        self.inner.header().kind.parse().map(crate::enums::EnumValue).map_err(|error| invalid(py, format!("scientific artifact kind: {error}")))
     }
     /// Original immutable recovery document, never a content-acquisition capability.
     #[getter]
-    fn original_intent(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        documents::encode(py, self.inner.header())
+    fn original_intent(&self) -> documents::DocumentValue<&pse_operations::canonical_artifacts::Artifact> {
+        documents::DocumentValue(self.inner.header())
     }
     fn metadata(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         inspection::TableStream::from_batch(blocking(
@@ -115,11 +116,11 @@ impl NativeScientificArtifact {
         )?)
         .map_err(|error| errors::diagnostic(py, &error))
     }
-    fn retain(&self, py: Python<'_>, kind: &str, owner: &str) -> PyResult<()> {
-        blocking(py, &self.owner, self.inner.retain(kind, owner), || {})
+    fn retain(&self, py: Python<'_>, kind: crate::enums::EnumValue<pse_model::generated::enums::ArtifactOwnerKind>, owner: &str) -> PyResult<()> {
+        blocking(py, &self.owner, self.inner.retain(kind.0.as_str(), owner), || {})
     }
-    fn release(&self, py: Python<'_>, kind: &str, owner: &str) -> PyResult<()> {
-        blocking(py, &self.owner, self.inner.release(kind, owner), || {})
+    fn release(&self, py: Python<'_>, kind: crate::enums::EnumValue<pse_model::generated::enums::ArtifactOwnerKind>, owner: &str) -> PyResult<()> {
+        blocking(py, &self.owner, self.inner.release(kind.0.as_str(), owner), || {})
     }
     fn collect(&self, py: Python<'_>) -> PyResult<bool> {
         blocking(py, &self.owner, self.inner.collect(), || {})
@@ -165,6 +166,17 @@ impl NativeAnalysis {
     }
 }
 
+/// Borrow the original completion while retaining its actual metadata grant
+/// through native serialization and Python document construction.
+pub(crate) struct StoredCompletionDocument(Arc<pse_columnar::Leased<native::StoredCompletion>>);
+impl serde::Serialize for StoredCompletionDocument {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.completion.as_ref()
+            .ok_or_else(|| serde::ser::Error::custom("stored attempt has no scientific completion"))?
+            .serialize(serializer)
+    }
+}
+
 /// Compact exact persisted selection; reopening does not retain a worker report.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
@@ -186,8 +198,8 @@ impl NativeStoredResult {
         self.attempt.clone()
     }
     #[getter]
-    fn run_id(&self) -> String {
-        self.run_id.as_id().to_hex()
+    fn run_id(&self) -> crate::identities::Identity<pse_model::generated::identities::RunId> {
+        crate::identities::Identity(self.run_id)
     }
     #[getter]
     fn usable(&self, py: Python<'_>) -> PyResult<bool> {
@@ -208,20 +220,17 @@ impl NativeStoredResult {
                     .all(|assessment| assessment.permits_result)
         }))
     }
-    fn completion(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+    fn completion(&self, py: Python<'_>) -> PyResult<documents::DocumentValue<StoredCompletionDocument>> {
         let stored = blocking(
             py,
             &self.owner,
             self.inner.stored_completion(&self.run, &self.attempt),
             || {},
         )?;
-        documents::encode(
-            py,
-            stored
-                .completion
-                .as_ref()
-                .ok_or_else(|| invalid(py, "stored attempt has no scientific completion"))?,
-        )
+        if stored.completion.is_none() {
+            return Err(invalid(py, "stored attempt has no scientific completion"));
+        }
+        Ok(documents::DocumentValue(StoredCompletionDocument(stored)))
     }
     fn diagnostics(&self, py: Python<'_>) -> PyResult<Vec<errors::DiagnosticReport>> {
         let stored = blocking(
@@ -308,13 +317,13 @@ impl NativeStoredResult {
         py: Python<'_>,
         relation: &str,
         destination: std::path::PathBuf,
-        evidence: documents::RecordedInput<pse_runtime::frozen_inspection::FrozenEvidenceSet>,
-        analysis: documents::RecordedInput<pse_runtime::review_analysis::AnalysisDocument>,
-        request: documents::RecordedInput<pse_runtime::review_pack::PackExportRequest>,
+        evidence: documents::RecordedInput<pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet>,
+        analysis: documents::RecordedInput<pse_runtime::tooling::review_analysis::AnalysisDocument>,
+        request: documents::RecordedInput<pse_runtime::tooling::review_pack::PackExportRequest>,
         member: &str,
         start: u64,
         end: u64,
-    ) -> PyResult<documents::DocumentValue<pse_runtime::review_pack::PackIndex>> {
+    ) -> PyResult<documents::DocumentValue<pse_runtime::tooling::review_pack::PackIndex>> {
         let mut request = request.0;
         request
             .scientific_results
@@ -333,7 +342,8 @@ impl NativeStoredResult {
             || {
                 self.owner
                     .executor
-                    .block_on(self.inner.export_review_pack(
+                    .block_on(pse_runtime::tooling::review_export::export_review_pack(
+                        &self.inner,
                         &destination,
                         &evidence.0,
                         &analysis.0,
@@ -383,9 +393,6 @@ impl NativeStoredResult {
 
 pub(crate) fn invalid(py: Python<'_>, message: impl Into<String>) -> PyErr {
     errors::diagnostic(py, &native::WorkflowError::Input(message.into()))
-}
-fn id(py: Python<'_>, value: &str) -> PyResult<pse_ids::SemanticId> {
-    pse_ids::SemanticId::parse_hex(value).map_err(|e| invalid(py, e.to_string()))
 }
 /// Detach while waiting, periodically handle Python signals, and retain native ownership
 /// through cancellation and join before propagating a signal exception.
@@ -545,7 +552,7 @@ fn blocking_on_with_interrupted_value<
                                 if let Some(intent) = intent {
                                     e.value(py).setattr(
                                         "artifact_intent",
-                                        documents::encode(py, &intent)?,
+                                        documents::DocumentValue(intent),
                                     )?;
                                 }
                             }
@@ -564,7 +571,7 @@ fn blocking_on_with_interrupted_value<
                             }
                             if let Some(intent) = error.report_artifact_intent() {
                                 e.value(py)
-                                    .setattr("artifact_intent", documents::encode(py, &intent)?)?;
+                                    .setattr("artifact_intent", documents::DocumentValue(intent))?;
                             }
                             if let Some((kind, owner, read)) = error.report_artifact_cleanup() {
                                 e.value(py).setattr("artifact_owner_kind", kind)?;
@@ -657,20 +664,6 @@ impl NativeRuntime {
         configured: &DeferredCanonical,
         stop: &CancelSource,
     ) -> Result<native::Runtime, native::WorkflowError> {
-        use pse_runtime::math::portable::{PortableError, ReplayAdmission};
-        let typed = |error: PortableError| {
-            native::WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(
-                pse_model::diagnostic::project_typed(
-                    &error,
-                    pse_diagnostics::DiagnosticStage::ModelingAdmission,
-                ),
-            ))
-        };
-        let deadline = std::time::Instant::now()
-            .checked_add(ReplayAdmission::STARTUP_OBSERVATION_LIMIT)
-            .ok_or_else(|| {
-                native::WorkflowError::Input("deployment startup deadline extent".into())
-            })?;
         // The loaded image, not a path saved at construction, identifies this integration.
         // Revalidate immediately before and after receiving observation: a rebuilt or
         // deleted mapped artifact cannot acquire the replacement file's qualification.
@@ -688,76 +681,24 @@ impl NativeRuntime {
             }
             Ok(())
         };
-        verify_loaded()?;
-        let math = self.owner.shared.math();
-        #[allow(
-            unsafe_code,
-            reason = "actual imported composition root qualifies its requested recording/import integration"
-        )]
-        // SAFETY: artifact is verified against this actual imported module at construction;
-        // the operator-selected receipt retains the existing deployment trust contract.
-        let startup = unsafe {
-            math.observe_deployment_runtime(
-                configured.artifact.clone(),
-                configured.producer.clone(),
-                pse_runtime::math::portable::ExpectedProducerTarget::PYTHON,
-                deadline,
-                stop,
+        let anchor = Self::new as *const () as usize;
+        let host = native::DeploymentHost {
+            artifact: configured.artifact.clone(), receipt: configured.producer.clone(),
+            target: pse_runtime::math::portable::ExpectedProducerTarget::PYTHON,
+            anchor, configuration: Arc::new(move || local_python_configuration(anchor)),
+        };
+        #[allow(unsafe_code, reason = "ADR-0164 actual imported root asserts recording provenance and controlled receiving observation")]
+        // SAFETY: the artifact is verified against this actual imported module.
+        // The callback retains the controlled profile's refusal when process-wide
+        // Python ownership is unavailable. The selected receipt keeps its existing
+        // operator-owned deployment trust contract.
+        let deployment = unsafe {
+            native::CanonicalDeployment::open_observed(
+                self.owner.shared.math(), host, &configured.substrate,
+                configured.database.as_deref(), stop, verify_loaded,
             )
-        }
-        .await
-        .map_err(typed)?;
-        let producer = if configured.producer.is_some() {
-            startup.producer.clone().map(Into::into)
-        } else {
-            let anchor = Self::new as *const () as usize;
-            #[allow(
-                unsafe_code,
-                reason = "actual imported composition root retains controlled receiving qualification at import integration"
-            )]
-            // SAFETY: callback observes this composition root under the existing controlled
-            // profile, which refuses unavailable process-wide Python ownership.
-            let observed = unsafe {
-                math.observe_local_runtime(
-                    pse_runtime::math::portable::ExpectedProducerTarget::PYTHON,
-                    anchor,
-                    Arc::new(move || local_python_configuration(anchor)),
-                    deadline,
-                    stop,
-                )
-            }
-            .await;
-            match observed {
-                Ok(producer) => Some(producer),
-                Err(PortableError::Qualification(_)) => None,
-                Err(error) => return Err(typed(error)),
-            }
-        };
-        verify_loaded()?;
-        let checkpoint = || {
-            stop.checkpoint().map_err(|_| {
-                native::WorkflowError::Math(pse_runtime::math::MathRuntimeError::Cancelled)
-            })
-        };
-        checkpoint()?;
-        let options = pse_operations::canonical::CanonicalOptions::from_state_for_database(
-            &configured.substrate,
-            configured.database.as_deref(),
-        )?;
-        let store = pse_operations::canonical::CanonicalStore::connect(&options).await?;
-        checkpoint()?;
-        store.open().await?;
-        checkpoint()?;
-        // `startup` retains only the escaped observation, including through a
-        // slow or failed store open; native receipt/namespace scratch has drained.
-        self.inner.with_canonical(native::CanonicalDeployment::new(
-            store,
-            native::OuterAttestation {
-                source: startup.outer.source,
-                build: startup.outer.build,
-            },
-            producer,
-        ))
+        }.await?;
+        self.inner.with_canonical(deployment)
     }
 }
 #[pymethods]
@@ -829,9 +770,9 @@ impl NativeRuntime {
         py: Python<'_>,
         request: &[u8],
         physical: &NativePhysicalContext,
-        settings: &[u8],
+        settings: documents::DocumentInput<pse_runtime::math::settings::SolveSettings>,
     ) -> PyResult<NativePreparedStrategy> {
-        let settings = settings::solve_profile(py, settings)?;
+        let settings = settings.0;
         if request.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
             return Err(invalid(py, "cone request exceeds workspace allowance"));
         }
@@ -845,7 +786,7 @@ impl NativeRuntime {
             py,
             &self.owner,
             self.inner
-                .prepare_conic(request, &physical.inner, settings.clone()),
+                .prepare_conic_request(request, &physical.inner, settings),
             || {},
         )?;
         Ok(NativePreparedStrategy {
@@ -1014,10 +955,10 @@ impl NativeRuntime {
         &self,
         py: Python<'_>,
         destination: std::path::PathBuf,
-        evidence: documents::RecordedInput<pse_runtime::frozen_inspection::FrozenEvidenceSet>,
-        analysis: documents::RecordedInput<pse_runtime::review_analysis::AnalysisDocument>,
-        request: documents::RecordedInput<pse_runtime::review_pack::PackExportRequest>,
-    ) -> PyResult<documents::DocumentValue<pse_runtime::review_pack::PackIndex>> {
+        evidence: documents::RecordedInput<pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet>,
+        analysis: documents::RecordedInput<pse_runtime::tooling::review_analysis::AnalysisDocument>,
+        request: documents::RecordedInput<pse_runtime::tooling::review_pack::PackExportRequest>,
+    ) -> PyResult<documents::DocumentValue<pse_runtime::tooling::review_pack::PackIndex>> {
         let stop = CancelSource::new();
         let cancel = pse_columnar::CancellationToken::new();
         let work_cancel = cancel.clone();
@@ -1025,8 +966,8 @@ impl NativeRuntime {
             py,
             &self.owner,
             self.recording_operation(&stop, |recording| async move {
-                recording
-                    .export_review_pack(
+                pse_runtime::tooling::review_export::export_review_pack(
+                        &recording,
                         &destination,
                         &evidence.0,
                         &analysis.0,
@@ -1080,17 +1021,31 @@ impl NativeRuntime {
         )?;
         inspection::TableStream::from_batch(batch).map_err(|error| errors::diagnostic(py, &error))
     }
+    /// Hydrate one exact qualified fit covariance with its actual statistical validity.
+    fn fit_covariance(&self, py: Python<'_>, run: &str, attempt: &str)
+        -> PyResult<documents::DocumentValue<pse_runtime::math::settings::ParameterCovariance>>
+    {
+        let stop = CancelSource::new();
+        let token = stop.token();
+        let record = pse_runtime::math::settings::FitCovarianceRecord { run: run.into(), attempt: attempt.into() };
+        let covariance = blocking(py, &self.owner,
+            self.recording_operation(&stop, |runtime| async move {
+                runtime.fit_covariance(record, &token).await
+            }), || stop.cancel())?;
+        Ok(documents::DocumentValue(covariance))
+    }
     fn recover_artifact_intent(
         &self,
         py: Python<'_>,
-        intent: &[u8],
+        intent: documents::DocumentInput<pse_operations::canonical_artifacts::Artifact>,
     ) -> PyResult<NativeArtifactSettlement> {
+        let intent = serde_json::to_vec(&intent.0).map_err(|error| invalid(py, error.to_string()))?;
         let connection_stop = CancelSource::new();
         let inner = blocking(
             py,
             &self.owner,
             self.recording_operation(&connection_stop, |recording| async move {
-                recording.recover_artifact_intent(intent)
+                recording.recover_artifact_intent(&intent)
             }),
             || connection_stop.cancel(),
         )?;
@@ -1116,14 +1071,13 @@ impl NativeRuntime {
     fn promote_seed_artifact(
         &self,
         py: Python<'_>,
-        solution: &str,
-        owner_kind: &str,
+        solution: crate::identities::Identity<pse_model::generated::identities::SolutionId>,
+        owner_kind: crate::enums::EnumValue<pse_model::generated::enums::ArtifactOwnerKind>,
         owner: &str,
     ) -> PyResult<NativeScientificArtifact> {
         let connection_stop = CancelSource::new();
-        let solution = pse_ids::SemanticId::parse_hex(solution)
-            .map(pse_model::generated::identities::SolutionId::from_id)
-            .map_err(|error| invalid(py, error.to_string()))?;
+        let owner_kind = owner_kind.0.as_str();
+        let solution = solution.0;
         let inner = blocking_on_with_recovery(
             py,
             self.owner.executor,
@@ -1149,17 +1103,13 @@ impl NativeRuntime {
         py: Python<'_>,
         run: &str,
         attempt: &str,
-        kind: &str,
-        owner_kind: &str,
+        kind: crate::enums::EnumValue<pse_model::generated::enums::ScientificArtifactKind>,
+        owner_kind: crate::enums::EnumValue<pse_model::generated::enums::ArtifactOwnerKind>,
         owner: &str,
     ) -> PyResult<NativeScientificArtifact> {
         let connection_stop = CancelSource::new();
-        let kind = match kind {
-            "final-state" => native::artifacts::ScientificArtifactKind::FinalState,
-            "trajectory" => native::artifacts::ScientificArtifactKind::Trajectory,
-            "local-analysis" => native::artifacts::ScientificArtifactKind::LocalAnalysis,
-            _ => return Err(invalid(py, "unknown scientific artifact kind")),
-        };
+        let kind = kind.0;
+        let owner_kind = owner_kind.0.as_str();
         let cancel = pse_columnar::CancellationToken::new();
         let operation_cancel = cancel.clone();
         let inner = blocking_on_with_recovery(
@@ -1273,9 +1223,9 @@ impl NativeRuntime {
             || connection_stop.cancel(),
         )
     }
-    fn reclaim_history_page(&self, py: Python<'_>, owner: &[u8]) -> PyResult<Vec<u8>> {
+    fn reclaim_history_page(&self, py: Python<'_>, owner: documents::DocumentInput<native::HistoryOwner>) -> PyResult<documents::DocumentValue<native::HistoryReclamationPage>> {
         let connection_stop = CancelSource::new();
-        let owner: native::HistoryOwner = documents::decode(py, "history owner", owner, 32 * 1024)?;
+        let owner = owner.0;
         let cancel = pse_columnar::CancellationToken::new();
         let operation_cancel = cancel.clone();
         let page = blocking(
@@ -1289,7 +1239,7 @@ impl NativeRuntime {
                 cancel.cancel();
             },
         )?;
-        documents::encode(py, &page)
+        Ok(documents::DocumentValue(page))
     }
     fn forget_study_results(&self, py: Python<'_>, study: &str) -> PyResult<()> {
         let connection_stop = CancelSource::new();
@@ -1313,7 +1263,7 @@ impl NativeRuntime {
             || connection_stop.cancel(),
         )
     }
-    fn reclaim_run_results(&self, py: Python<'_>, run: &str) -> PyResult<Vec<u8>> {
+    fn reclaim_run_results(&self, py: Python<'_>, run: &str) -> PyResult<documents::DocumentValue<native::ResultReclamationPage>> {
         let connection_stop = CancelSource::new();
         let cancel = pse_columnar::CancellationToken::new();
         let operation_cancel = cancel.clone();
@@ -1328,7 +1278,7 @@ impl NativeRuntime {
                 cancel.cancel();
             },
         )?;
-        documents::encode(py, &page)
+        Ok(documents::DocumentValue(page))
     }
     /// Newest semantic run under explicit recorded result classes.
     #[pyo3(signature=(problem,relation,*,classes=Vec::new(),start=0,end=u64::MAX))]
@@ -1337,20 +1287,12 @@ impl NativeRuntime {
         py: Python<'_>,
         problem: &str,
         relation: &str,
-        classes: Vec<String>,
+        classes: Vec<crate::enums::EnumValue<pse_model::generated::enums::CanonicalTerminalOutcome>>,
         start: u64,
         end: u64,
     ) -> PyResult<inspection::TableStream> {
         let connection_stop = CancelSource::new();
-        let classes = classes
-            .into_iter()
-            .map(|class| {
-                serde_json::from_value::<pse_operations::canonical_execution::TerminalClass>(
-                    serde_json::Value::String(class),
-                )
-                .map_err(|error| invalid(py, error.to_string()))
-            })
-            .collect::<PyResult<Vec<_>>>()?;
+        let classes = classes.into_iter().map(|class| class.0).collect::<Vec<_>>();
         let cancel = pse_columnar::CancellationToken::new();
         let operation_cancel = cancel.clone();
         let reader = blocking(
@@ -1421,7 +1363,7 @@ impl NativeRuntime {
         run: &str,
         attempt: &str,
         relation: &str,
-        output: &str,
+        output: crate::identities::Identity<pse_ids::SemanticId>,
         field: &str,
         partition: &str,
         start: u64,
@@ -1431,7 +1373,7 @@ impl NativeRuntime {
         missing: Option<bool>,
     ) -> PyResult<inspection::TableStream> {
         let connection_stop = CancelSource::new();
-        let output = id(py, output)?;
+        let output = output.0;
         let cancel = pse_columnar::CancellationToken::new();
         let operation_cancel = cancel.clone();
         let reader = blocking(
@@ -1571,7 +1513,7 @@ impl NativeRuntime {
         Ok(processed)
     }
     /// Publish retained local inputs through this runtime's configured recording sink.
-    fn record_study(&self, py: Python<'_>, local: &NativeLocalStudy) -> PyResult<Vec<u8>> {
+    fn record_study(&self, py: Python<'_>, local: &NativeLocalStudy) -> PyResult<documents::DocumentValue<native::StudyDefinition>> {
         let cancel = CancelSource::new();
         let operation_stop = cancel.clone();
         let inner = blocking(
@@ -1582,7 +1524,7 @@ impl NativeRuntime {
             }),
             || cancel.cancel(),
         )?;
-        documents::encode(py, &inner)
+        Ok(documents::DocumentValue(inner))
     }
     /// Join recorded durable execution and retain the original result report.
     #[pyo3(signature=(definition, *, controls=None))]
@@ -1643,9 +1585,9 @@ impl NativeRuntime {
         })
     }
     /// A handle on a durable study of this runtime's store.
-    fn study(&self, py: Python<'_>, study_id: &str) -> PyResult<NativeStudyHandle> {
+    fn study(&self, py: Python<'_>, study_id: crate::identities::Identity<pse_model::generated::identities::StudyId>) -> PyResult<NativeStudyHandle> {
         let connection_stop = CancelSource::new();
-        let study = id(py, study_id)?.into();
+        let study = study_id.0;
         let inner = blocking(
             py,
             &self.owner,
@@ -1659,8 +1601,27 @@ impl NativeRuntime {
             inner,
         })
     }
-    fn capabilities(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        documents::encode(py, &self.inner.capabilities())
+    fn physical_input_schema(
+        &self, py: Python<'_>,
+        kind: crate::enums::EnumValue<pse_model::generated::enums::PhysicalInputKind>,
+    ) -> PyResult<pyo3_arrow::PySchema> {
+        self.inner.physical_input_schema(kind.0).map(pyo3_arrow::PySchema::new)
+            .map_err(|error| errors::diagnostic(py, &error))
+    }
+    fn capabilities(&self) -> Vec<documents::DocumentValue<pse_model::generated::runtime::solver_capabilities::Row>> {
+        self.inner.capabilities().into_iter().map(documents::DocumentValue).collect()
+    }
+    #[pyo3(signature=(backend, *, settings=None))]
+    fn capability_for(
+        &self,
+        py: Python<'_>,
+        backend: crate::enums::EnumValue<pse_model::generated::enums::NativeBackend>,
+        settings: Option<documents::DocumentInput<pse_backend_native::execution::BackendSettings>>,
+    ) -> PyResult<documents::DocumentValue<pse_model::generated::runtime::solver_capabilities::Row>> {
+        let settings = settings.map_or_else(Default::default, |value| value.0);
+        let capability = self.inner.capability_for(backend.0, &settings)
+            .map_err(|error| errors::diagnostic(py, &error))?;
+        Ok(documents::DocumentValue(capability))
     }
     fn clear_program_cache(&self) {
         self.inner.clear_program_cache();
@@ -1672,32 +1633,11 @@ impl NativeRuntime {
         steps: Vec<PyRef<'_, NativePreparedOperation>>,
         controls: Option<&[u8]>,
     ) -> PyResult<NativeRunHandle> {
-        let native::RunControls {
-            continue_independent,
-        } = documents::controls(
-            py,
-            "run",
-            controls,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
-        let steps = steps
-            .into_iter()
-            .map(|p| match &p.inner {
-                PreparedOperation::Modeling(step) => Ok(step.as_ref().clone()),
-                _ => Err(invalid(
-                    py,
-                    "finite solve sequences require authored algebraic cases",
-                )),
-            })
-            .collect::<PyResult<Vec<_>>>()?;
+        let controls: native::RunControls = documents::controls(py, "run", controls, self.owner.shared.budget().math.workspace_bytes)?;
+        let steps = steps.into_iter().map(|prepared| prepared.inner.clone()).collect();
         let cancel = CancelSource::new();
-        let inner = blocking(
-            py,
-            &self.owner,
-            self.inner
-                .start_modeling(steps, continue_independent, &cancel),
-            || cancel.cancel(),
-        )?;
+        let inner = blocking(py, &self.owner,
+            self.inner.start_prepared_sequence(steps, controls, &cancel), || cancel.cancel())?;
         Ok(NativeRunHandle {
             owner: self.owner.clone(),
             inner,
@@ -1711,8 +1651,8 @@ pub(crate) struct NativeStart {
 }
 #[pymethods]
 impl NativeStart {
-    fn snapshot(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        documents::encode(py, &self.inner.snapshot())
+    fn snapshot(&self) -> documents::DocumentValue<pse_backend_native::solve::WarmStartSnapshot> {
+        documents::DocumentValue(self.inner.snapshot())
     }
 }
 /// Public handle remains usable after any individual asyncio waiter is cancelled.
@@ -1813,6 +1753,17 @@ impl NativeRunResult {
 }
 #[pymethods]
 impl NativeRunResult {
+    /// Export the actual qualified fit input; later preparation reconciles its
+    /// decoded content with this retained result or an exact canonical reference.
+    fn parameter_covariance(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<Option<documents::DocumentValue<pse_runtime::math::settings::ParameterCovariance>>> {
+        self.inner.parameter_covariance()
+            .map(|covariance| covariance.map(documents::DocumentValue)
+                .map_err(|error| invalid(py, error.to_string())))
+            .transpose()
+    }
     #[pyo3(signature=(step=None))]
     fn diagnostic_origin(
         &self,
@@ -1841,8 +1792,8 @@ impl NativeRunResult {
         self.inner.usable()
     }
     #[getter]
-    fn run_id(&self) -> String {
-        self.inner.run_id.as_id().to_hex()
+    fn run_id(&self) -> crate::identities::Identity<pse_model::generated::identities::RunId> {
+        crate::identities::Identity(self.inner.run_id)
     }
     /// Exact persistent run key; absent for explicit ephemeral execution.
     #[getter]
@@ -1854,12 +1805,12 @@ impl NativeRunResult {
     fn canonical_attempt_key(&self) -> Option<String> {
         self.inner.canonical_attempt_key().map(str::to_owned)
     }
-    fn completion(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+    fn completion(&self, py: Python<'_>) -> PyResult<documents::DocumentValue<&native::Completion>> {
         let completed = self
             .inner
             .completion()
             .map_err(|e| errors::diagnostic(py, e))?;
-        documents::encode(py, completed)
+        Ok(documents::DocumentValue(completed))
     }
     /// Bounded synchronous evidence, independent of dropped progress events.
     fn attempt_summary(
@@ -1877,12 +1828,12 @@ impl NativeRunResult {
         &self,
         py: Python<'_>,
         request: Option<documents::DocumentInput<native::ReviewContextRequest>>,
-    ) -> PyResult<Vec<u8>> {
+    ) -> PyResult<documents::DocumentValue<native::ReviewContext>> {
         let context = self
             .inner
             .review_context(&request.map_or_else(Default::default, |r| r.0))
             .map_err(|error| errors::diagnostic(py, &error))?;
-        documents::encode(py, context.document())
+        Ok(documents::DocumentValue(context))
     }
     /// Joined actual invocation endpoints and existing attempt/work evidence.
     fn invocation_evidence(
@@ -1900,17 +1851,17 @@ impl NativeRunResult {
         &self,
         py: Python<'_>,
         policy: Option<
-            documents::DocumentInput<pse_runtime::inspection_comparison::ComparisonPolicy>,
+            documents::DocumentInput<pse_runtime::tooling::inspection_comparison::ComparisonPolicy>,
         >,
     ) -> PyResult<
-        documents::DocumentValue<pse_runtime::inspection_comparison::InvocationComparisonDocument>,
+        documents::DocumentValue<pse_runtime::tooling::inspection_comparison::InvocationComparisonDocument>,
     > {
         let source = self
             .inner
             .invocation_evidence()
             .map_err(|error| errors::diagnostic(py, &error))?;
         Ok(documents::DocumentValue(
-            pse_runtime::inspection_comparison::explain_invocation(
+            pse_runtime::tooling::inspection_comparison::explain_invocation(
                 &source,
                 policy.map_or_else(Default::default, |value| value.0),
             ),
@@ -1923,10 +1874,10 @@ impl NativeRunResult {
         py: Python<'_>,
         other: &Self,
         policy: Option<
-            documents::DocumentInput<pse_runtime::inspection_comparison::ComparisonPolicy>,
+            documents::DocumentInput<pse_runtime::tooling::inspection_comparison::ComparisonPolicy>,
         >,
     ) -> PyResult<
-        documents::DocumentValue<pse_runtime::inspection_comparison::InvocationComparisonDocument>,
+        documents::DocumentValue<pse_runtime::tooling::inspection_comparison::InvocationComparisonDocument>,
     > {
         let left = self
             .inner
@@ -1937,7 +1888,7 @@ impl NativeRunResult {
             .invocation_evidence()
             .map_err(|error| errors::diagnostic(py, &error))?;
         Ok(documents::DocumentValue(
-            pse_runtime::inspection_comparison::compare_invocations(
+            pse_runtime::tooling::inspection_comparison::compare_invocations(
                 &left,
                 &right,
                 policy.map_or_else(Default::default, |value| value.0),
@@ -1958,7 +1909,7 @@ impl NativeRunResult {
         py.detach(|| {
             let pool: Arc<dyn pse_columnar::MemoryPool> =
                 Arc::new(pse_columnar::GreedyMemoryPool::new(memory_bytes));
-            pse_runtime::capture::evidence::invocation_arrow(
+            pse_runtime::tooling::capture::evidence::invocation_arrow(
                 &document,
                 &pool,
                 &pse_columnar::CancellationToken::new(),
@@ -1967,26 +1918,26 @@ impl NativeRunResult {
         .map(pyo3_arrow::PyRecordBatch::new)
         .map_err(|error| errors::diagnostic(py, &error))
     }
-    fn fit_execution(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
+    fn fit_execution(&self, py: Python<'_>) -> PyResult<Option<documents::DocumentValue<native::FitExecutionDocument>>> {
         let report = self
             .inner
             .report()
             .map_err(|error| errors::diagnostic(py, error))?;
         match report {
             native::RunReport::Fit(report) => {
-                documents::encode(py, &report.execution_document()).map(Some)
+                Ok(Some(documents::DocumentValue(report.execution_document())))
             }
             _ => Ok(None),
         }
     }
-    fn fit_profiles(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
+    fn fit_profiles(&self, py: Python<'_>) -> PyResult<Option<documents::DocumentValue<native::FitProfileDocument>>> {
         let report = self
             .inner
             .report()
             .map_err(|error| errors::diagnostic(py, error))?;
         match report {
             native::RunReport::Fit(report) => {
-                documents::encode(py, &report.profile_document()).map(Some)
+                Ok(Some(documents::DocumentValue(report.profile_document())))
             }
             _ => Ok(None),
         }
@@ -2115,37 +2066,31 @@ impl NativeStudyHandle {
     }
     /// The study identity.
     #[getter]
-    fn study_id(&self) -> String {
-        pse_ids::SemanticId::from(self.inner.study_id()).to_hex()
+    fn study_id(&self) -> crate::identities::Identity<pse_model::generated::identities::StudyId> {
+        crate::identities::Identity(self.inner.study_id())
     }
-    /// The study's status as JSON.
-    fn status(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+    /// The study's exact status document.
+    fn status(&self, py: Python<'_>) -> PyResult<documents::DocumentValue<native::StudyStatus>> {
         let status = blocking(py, &self.owner, self.inner.status(), || {})?;
-        documents::encode(py, &status)
+        Ok(documents::DocumentValue(status))
     }
-    /// Cancel the study; what the cancellation did, as JSON.
-    fn cancel(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+    /// Cancel the study and report the admitted result.
+    fn cancel(&self, py: Python<'_>) -> PyResult<documents::DocumentValue<native::StudyCancel>> {
         let cancelled = blocking(py, &self.owner, self.inner.cancel(), || {})?;
-        documents::encode(py, &cancelled)
+        Ok(documents::DocumentValue(cancelled))
     }
     /// The study's exact canonical parent and occurrence keys after admission.
-    fn result(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
-        blocking(py, &self.owner, self.inner.result(), || {})?
-            .map(|published| documents::encode(py, &published))
-            .transpose()
+    fn result(&self, py: Python<'_>) -> PyResult<Option<documents::DocumentValue<native::StudyResults>>> {
+        Ok(blocking(py, &self.owner, self.inner.result(), || {})?
+            .map(documents::DocumentValue))
     }
     /// Wait for the canonical parent manifest under Rust-owned timing controls.
     #[pyo3(signature = (*, controls=None))]
-    fn wait(&self, py: Python<'_>, controls: Option<&[u8]>) -> PyResult<Vec<u8>> {
+    fn wait(&self, py: Python<'_>, controls: Option<documents::DocumentInput<native::StudyWaitControls>>) -> PyResult<documents::DocumentValue<native::StudyResults>> {
         let native::StudyWaitControls {
             poll_seconds,
             timeout_seconds,
-        } = documents::controls(
-            py,
-            "study wait",
-            controls,
-            self.owner.shared.budget().math.workspace_bytes,
-        )?;
+        } = controls.map_or_else(Default::default, |controls| controls.0);
         let poll =
             Duration::try_from_secs_f64(poll_seconds).map_err(|e| invalid(py, e.to_string()))?;
         let timeout = timeout_seconds
@@ -2170,14 +2115,14 @@ impl NativeStudyHandle {
             },
             || {},
         )?;
-        documents::encode(py, &published)
+        Ok(documents::DocumentValue(published))
     }
 }
 #[pymethods]
 impl NativePhysicalContext {
     #[getter]
-    fn identity(&self) -> String {
-        self.inner.identity().to_prefixed()
+    fn identity(&self) -> crate::identities::HashValue {
+        crate::identities::HashValue(self.inner.identity())
     }
 }
 
@@ -2307,7 +2252,7 @@ impl NativeProgressStream {
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct SimulationSettings {
-    profile: native::SimulationProfile,
+    request: native::PhysicalSimulationRequest,
 }
 #[pymethods]
 impl SimulationSettings {
@@ -2316,48 +2261,50 @@ impl SimulationSettings {
         clippy::too_many_arguments,
         reason = "mechanical keyword-only projection of native integration controls"
     )]
-    #[pyo3(signature=(*, start, end, samples, atol, parameter_scales, sensitivity=None, rtol=None, out_rtol=None, out_atol=None, initial_step=None, max_steps: "int | None"=None, max_events: "int | None"=None, time_limit=None, max_cells: "int | None"=None, method=None, trial_failures=None, numerics=None, diffsol=None, idas=None, adjoint=None))]
+    #[pyo3(signature=(*, runtime, start, end, samples, atol, parameter_scales, sensitivity=None, rtol=None, out_rtol=None, out_atol=None, initial_step=None, max_steps: "int | None"=None, max_events: "int | None"=None, time_limit=None, max_cells: "int | None"=None, method=None, trial_failures=None, numerics=None, diffsol=None, idas=None, adjoint=None))]
     fn new(
         py: Python<'_>,
+        runtime: physical_input::RuntimeInput,
         start: f64,
         end: f64,
         samples: Vec<f64>,
-        atol: Vec<f64>,
-        parameter_scales: Vec<f64>,
-        sensitivity: Option<&str>,
+        atol: physical_input::PhysicalInput,
+        parameter_scales: physical_input::PhysicalInput,
+        sensitivity: Option<crate::enums::EnumValue<pse_model::generated::enums::DynamicSensitivity>>,
         rtol: Option<f64>,
         out_rtol: Option<f64>,
-        out_atol: Option<Vec<f64>>,
+        out_atol: Option<physical_input::PhysicalInput>,
         initial_step: Option<f64>,
         #[pyo3(from_py_with = inspection::inputs::extract)] max_steps: Option<usize>,
         #[pyo3(from_py_with = inspection::inputs::extract)] max_events: Option<usize>,
         time_limit: Option<f64>,
         #[pyo3(from_py_with = inspection::inputs::extract)] max_cells: Option<usize>,
-        method: Option<&str>,
-        trial_failures: Option<&str>,
+        method: Option<crate::enums::EnumValue<pse_model::generated::enums::DynamicsMethod>>,
+        trial_failures: Option<crate::enums::EnumValue<pse_model::generated::enums::TrialPolicy>>,
         numerics: Option<documents::DocumentInput<pse_model::numerics::NumericalPolicy>>,
-        diffsol: Option<&[u8]>,
-        idas: Option<&[u8]>,
-        adjoint: Option<&[u8]>,
+        diffsol: Option<documents::DocumentInput<pse_backend_native::dynamics::DiffsolSettings>>,
+        idas: Option<documents::DocumentInput<pse_backend_native::dynamics::IdasSettings>>,
+        adjoint: Option<documents::DocumentInput<pse_backend_native::dynamics::AdjointSettings>>,
     ) -> PyResult<Self> {
+        let runtime = runtime.0.borrow(py);
+        let state = runtime.inner.snapshot_state_tolerances(atol.0.into_reader()?).map_err(|error| errors::diagnostic(py, &error))?;
+        let parameters = runtime.inner.snapshot_state_tolerances(parameter_scales.0.into_reader()?).map_err(|error| errors::diagnostic(py, &error))?;
+        let outputs = out_atol.map(|input| runtime.inner.snapshot_state_tolerances(input.0.into_reader()?).map_err(|error| errors::diagnostic(py, &error))).transpose()?;
         let mut profile = native::SimulationProfile {
             start,
             end,
             samples,
-            atol,
-            parameter_scales,
+            atol: Vec::new(),
+            parameter_scales: Vec::new(),
             out_rtol,
             numerics: settings::numerical_policy(py, numerics)?,
             ..Default::default()
         };
         if let Some(sensitivity) = sensitivity {
-            profile.sensitivity = settings::named(py, "dynamic sensitivity", sensitivity)?;
+            profile.sensitivity = sensitivity.0;
         }
         if let Some(rtol) = rtol {
             profile.rtol = rtol;
-        }
-        if let Some(out_atol) = out_atol {
-            profile.out_atol = out_atol;
         }
         if let Some(initial_step) = initial_step {
             profile.initial_step = initial_step;
@@ -2376,59 +2323,52 @@ impl SimulationSettings {
             profile.max_cells = max_cells;
         }
         if let Some(method) = method {
-            profile.method = settings::named(py, "dynamics method", method)?;
+            profile.method = method.0;
         }
         if let Some(trial_failures) = trial_failures {
-            profile.trial_failures = settings::named(py, "trial failure policy", trial_failures)?;
+            profile.trial_failures = trial_failures.0;
         }
         if let Some(diffsol) = diffsol {
-            profile.diffsol = settings::diffsol(py, diffsol)?;
+            profile.diffsol = diffsol.0;
         }
         if let Some(idas) = idas {
-            profile.idas = settings::idas(py, idas)?;
+            profile.idas = idas.0;
         }
         if let Some(adjoint) = adjoint {
-            profile.adjoint = settings::adjoint(py, adjoint)?;
+            profile.adjoint = adjoint.0;
         }
-        Ok(Self { profile })
+        let controls = profile.with_coordinates(state.coordinates(), outputs.map_or_else(Vec::new, |values| values.coordinates()), parameters.coordinates());
+        let request = native::PhysicalSimulationRequest::new(controls).retain(&runtime.inner).map_err(|error| errors::diagnostic(py, &error))?;
+        Ok(Self { request })
     }
-    /// The encoded Diffsol settings document in effect.
+    /// The typed Diffsol settings document in effect.
     #[getter]
-    fn diffsol(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        documents::encode(py, &self.profile.diffsol)
+    fn diffsol(&self) -> documents::DocumentValue<pse_backend_native::dynamics::DiffsolSettings> {
+        documents::DocumentValue(self.request.controls.diffsol.clone())
     }
-    /// The encoded IDAS settings document in effect.
+    /// The typed IDAS settings document in effect.
     #[getter]
-    fn idas(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        documents::encode(py, &self.profile.idas)
+    fn idas(&self) -> documents::DocumentValue<pse_backend_native::dynamics::IdasSettings> {
+        documents::DocumentValue(self.request.controls.idas.clone())
     }
-    /// The encoded adjoint checkpoint settings document in effect.
+    /// The typed adjoint checkpoint settings document in effect.
     #[getter]
-    fn adjoint(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
-        documents::encode(py, &self.profile.adjoint)
+    fn adjoint(&self) -> documents::DocumentValue<pse_backend_native::dynamics::AdjointSettings> {
+        documents::DocumentValue(self.request.controls.adjoint.clone())
     }
-    /// Round-trip the complete pinned native BDF and initialization options.
-    fn to_json(&self, py: Python<'_>) -> PyResult<String> {
-        String::from_utf8(documents::encode(py, &self.profile)?)
-            .map_err(|error| invalid(py, error.to_string()))
+    /// Complete typed controls, preserving the current pinned native options.
+    #[getter]
+    fn document(&self) -> documents::DocumentValue<native::PhysicalSimulationRequest> {
+        documents::DocumentValue(self.request.clone())
     }
+    /// Admit the registered current document; contextual physical checks remain native.
     #[staticmethod]
-    fn from_json(py: Python<'_>, source: &str) -> PyResult<Self> {
-        documents::decode_versioned::<native::SimulationProfile, 3>(
-            py,
-            "simulation settings",
-            source.as_bytes(),
-            1 << 20,
-        )
-        .map(|profile| Self { profile })
+    fn from_document(py: Python<'_>, runtime: physical_input::RuntimeInput, request: documents::DocumentInput<native::PhysicalSimulationRequest>) -> PyResult<Self> {
+        let runtime = runtime.0.borrow(py);
+        Ok(Self { request: request.0.retain(&runtime.inner).map_err(|error| errors::diagnostic(py, &error))? })
     }
 }
-#[derive(Clone, Debug)]
-enum PreparedOperation {
-    Modeling(Box<native::ModelingSolvePreparation>),
-    Simulation(Box<native::ModelingSimulation>),
-    Fit(Box<native::PreparedFit>),
-}
+use native::{PreparedOperation, PreparedStudyOperation};
 /// Immutable simulation/fitting view of the same owned job and Arrow result lifecycle.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
@@ -2445,7 +2385,7 @@ impl NativePreparedOperation {
         py: Python<'_>,
     ) -> PyResult<Option<documents::DocumentValue<pse_runtime::math::solves::SolverAdviceInputs>>>
     {
-        let PreparedOperation::Modeling(prepared) = &self.inner else {
+        let PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(prepared)) = &self.inner else {
             return Ok(None);
         };
         py.detach(|| {
@@ -2463,7 +2403,7 @@ impl NativePreparedOperation {
         metric: &[u8],
         observations: &[u8],
     ) -> PyResult<documents::DocumentValue<pse_model::strategy::advice::FrozenAdvice>> {
-        let PreparedOperation::Modeling(prepared) = &self.inner else {
+        let PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(prepared)) = &self.inner else {
             return Err(invalid(
                 py,
                 "this operation has no established comparable advice cohort",
@@ -2490,7 +2430,7 @@ impl NativePreparedOperation {
         .map_err(|error| invalid(py, error.to_string()))
     }
     fn dependency_analysis(&self, py: Python<'_>, controls: &[u8]) -> PyResult<NativeAnalysis> {
-        let PreparedOperation::Modeling(prepared) = &self.inner else {
+        let PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(prepared)) = &self.inner else {
             return Err(invalid(
                 py,
                 "dependency analysis currently requires an admitted algebraic preparation",
@@ -2512,7 +2452,7 @@ impl NativePreparedOperation {
     /// Admitted algebraic route, before native execution.
     #[getter]
     fn route(&self, py: Python<'_>) -> PyResult<NativeRoute> {
-        let PreparedOperation::Modeling(p) = &self.inner else {
+        let PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(p)) = &self.inner else {
             return Err(invalid(
                 py,
                 "algebraic route inspection requires an algebraic solve",
@@ -2523,7 +2463,7 @@ impl NativePreparedOperation {
     /// Typed eligibility row of every assessed adapter.
     #[getter]
     fn eligibility(&self, py: Python<'_>) -> PyResult<Vec<NativeEligibility>> {
-        let PreparedOperation::Modeling(p) = &self.inner else {
+        let PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(p)) = &self.inner else {
             return Err(invalid(
                 py,
                 "algebraic eligibility requires an algebraic solve",
@@ -2533,15 +2473,15 @@ impl NativePreparedOperation {
     }
     /// Exact effective profile identity used by declared numerical mechanisms.
     #[getter]
-    fn strategy_profile(&self, py: Python<'_>) -> PyResult<String> {
+    fn strategy_profile(&self, py: Python<'_>) -> PyResult<crate::identities::HashValue> {
         match &self.inner {
-            PreparedOperation::Modeling(p) => p
+            PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(p)) => p
                 .solve
                 .strategy_profile()
-                .map(|key| key.to_prefixed())
+                .map(crate::identities::HashValue)
                 .map_err(|error| errors::diagnostic(py, &error)),
-            PreparedOperation::Fit(p) => Ok(p.strategy_profile().to_prefixed()),
-            PreparedOperation::Simulation(_) => Err(invalid(
+            PreparedOperation::Study(PreparedStudyOperation::Fit(p)) => Ok(crate::identities::HashValue(p.strategy_profile())),
+            _ => Err(invalid(
                 py,
                 "numerical profile is inspected on prepared algebraic or fitting targets",
             )),
@@ -2554,9 +2494,9 @@ impl NativePreparedOperation {
         py: Python<'_>,
     ) -> PyResult<documents::DocumentValue<pse_model::strategy::CompositionRequest>> {
         let request = match &self.inner {
-            PreparedOperation::Modeling(p) => p.solve.composition_request(),
-            PreparedOperation::Fit(p) => p.composition_request(),
-            PreparedOperation::Simulation(_) => {
+            PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(p)) => p.solve.composition_request(),
+            PreparedOperation::Study(PreparedStudyOperation::Fit(p)) => p.composition_request(),
+            _ => {
                 return Err(invalid(
                     py,
                     "integration owns its scientific controller; numerical composition is inspected on its algebraic targets",
@@ -2567,11 +2507,11 @@ impl NativePreparedOperation {
     }
     /// Mechanical document projection of the actual declared execution policy.
     #[getter]
-    fn numerical_strategy(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+    fn numerical_strategy(&self, py: Python<'_>) -> PyResult<documents::DocumentValue<pse_model::strategy::NumericalStrategyDocument>> {
         let strategy = match &self.inner {
-            PreparedOperation::Modeling(p) => p.solve.numerical_strategy(),
-            PreparedOperation::Fit(p) => p.numerical_strategy(),
-            PreparedOperation::Simulation(_) => {
+            PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(p)) => p.solve.numerical_strategy(),
+            PreparedOperation::Study(PreparedStudyOperation::Fit(p)) => p.numerical_strategy(),
+            _ => {
                 return Err(invalid(
                     py,
                     "numerical strategy is inspected on prepared algebraic or fitting targets",
@@ -2580,7 +2520,7 @@ impl NativePreparedOperation {
         };
         let document = pse_model::strategy::NumericalStrategyDocument::new(strategy)
             .map_err(|error| invalid(py, error.to_string()))?;
-        documents::encode(py, &document)
+        Ok(documents::DocumentValue(document))
     }
     /// Bind prepared original-system profiles to the validated numerical declaration.
     fn with_numerical_strategy(
@@ -2589,7 +2529,7 @@ impl NativePreparedOperation {
         declaration: &[u8],
         rungs: Vec<PyRef<'_, NativePreparedOperation>>,
     ) -> PyResult<Self> {
-        let PreparedOperation::Modeling(p) = &self.inner else {
+        let PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(p)) = &self.inner else {
             return Err(invalid(
                 py,
                 "numerical composition requires an algebraic solve",
@@ -2608,7 +2548,7 @@ impl NativePreparedOperation {
                 if !Arc::ptr_eq(&self.owner, &rung.owner) {
                     return Err(invalid(py, "numerical rungs belong to another runtime"));
                 }
-                let PreparedOperation::Modeling(prepared) = &rung.inner else {
+                let PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(prepared)) = &rung.inner else {
                     return Err(invalid(py, "numerical rung requires an algebraic solve"));
                 };
                 Ok(prepared.solve.clone().into())
@@ -2621,7 +2561,7 @@ impl NativePreparedOperation {
             .map_err(|error| errors::diagnostic(py, &error))?;
         Ok(Self {
             owner: self.owner.clone(),
-            inner: PreparedOperation::Modeling(Box::new(prepared)),
+            inner: PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(Box::new(prepared))),
         })
     }
     fn with_artifact_start(
@@ -2629,7 +2569,7 @@ impl NativePreparedOperation {
         py: Python<'_>,
         artifact: &NativeScientificArtifact,
     ) -> PyResult<Self> {
-        let PreparedOperation::Modeling(prepared) = &self.inner else {
+        let PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(prepared)) = &self.inner else {
             return Err(invalid(
                 py,
                 "retained artifact starts require an algebraic solve",
@@ -2643,11 +2583,11 @@ impl NativePreparedOperation {
         )?;
         Ok(Self {
             owner: self.owner.clone(),
-            inner: PreparedOperation::Modeling(Box::new(inner)),
+            inner: PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(Box::new(inner))),
         })
     }
     fn with_start(&self, py: Python<'_>, seed: &NativeStart) -> PyResult<Self> {
-        let PreparedOperation::Modeling(p) = &self.inner else {
+        let PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(p)) = &self.inner else {
             return Err(invalid(py, "native warm starts require an algebraic solve"));
         };
         let inner = p
@@ -2657,55 +2597,36 @@ impl NativePreparedOperation {
             .map_err(|e| errors::diagnostic(py, &e))?;
         Ok(Self {
             owner: self.owner.clone(),
-            inner: PreparedOperation::Modeling(Box::new(inner)),
+            inner: PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(Box::new(inner))),
         })
     }
     fn with_primal_start(
         &self,
         py: Python<'_>,
-        values: std::collections::BTreeMap<String, f64>,
+        values: physical_input::PhysicalInput,
     ) -> PyResult<Self> {
-        let PreparedOperation::Modeling(p) = &self.inner else {
+        let PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(p)) = &self.inner else {
             return Err(invalid(py, "native warm starts require an algebraic solve"));
         };
-        let values = values
-            .into_iter()
-            .map(|(key, value)| id(py, &key).map(|id| (id, value)))
-            .collect::<PyResult<_>>()?;
         let inner = p
             .as_ref()
             .clone()
-            .with_primal_start(values)
+            .with_primal_start(values.0.into_reader()?)
             .map_err(|e| errors::diagnostic(py, &e))?;
         Ok(Self {
             owner: self.owner.clone(),
-            inner: PreparedOperation::Modeling(Box::new(inner)),
+            inner: PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(Box::new(inner))),
         })
     }
     #[getter]
-    fn identity(&self, py: Python<'_>) -> PyResult<String> {
-        Ok(match &self.inner {
-            PreparedOperation::Modeling(p) => p
-                .solve
-                .request_identity()
-                .map_err(|e| errors::diagnostic(py, &e))?
-                .as_id(),
-            PreparedOperation::Simulation(s) => s.identity(),
-            PreparedOperation::Fit(f) => f.identity(),
-        }
-        .to_prefixed())
+    fn identity(&self, py: Python<'_>) -> PyResult<crate::identities::HashValue> {
+        self.inner.identity().map(crate::identities::HashValue)
+            .map_err(|error| errors::diagnostic(py, &error))
     }
     fn start(&self, py: Python<'_>) -> PyResult<NativeRunHandle> {
-        let inner = py
-            .detach(|| {
-                let _enter = self.owner.executor.enter();
-                match &self.inner {
-                    PreparedOperation::Modeling(p) => p.start(),
-                    PreparedOperation::Simulation(s) => s.start(),
-                    PreparedOperation::Fit(f) => f.start(),
-                }
-            })
-            .map_err(|e| errors::diagnostic(py, &e))?;
+        let cancel = CancelSource::new();
+        let inner = blocking(py, &self.owner,
+            self.inner.start(self.inner.runtime(), &cancel), || cancel.cancel())?;
         Ok(NativeRunHandle {
             owner: self.owner.clone(),
             inner,
@@ -2719,7 +2640,7 @@ impl NativePreparedOperation {
         capacity: usize,
         compact: bool,
     ) -> PyResult<(NativeRunHandle, NativeLiveSimulationCursor)> {
-        let PreparedOperation::Simulation(simulation) = &self.inner else {
+        let PreparedOperation::Study(PreparedStudyOperation::Simulation(simulation)) = &self.inner else {
             return Err(invalid(py, "live samples require a prepared simulation"));
         };
         let (inner, cursor) = py
@@ -2805,16 +2726,18 @@ pub(crate) struct NativeLiveSimulationEvent {
 #[pymethods]
 impl NativeLiveSimulationEvent {
     #[getter]
-    fn kind(&self) -> &'static str {
+    fn kind(&self) -> crate::enums::EnumValue<pse_model::generated::enums::LiveSimulationEventKind> {
+        use pse_model::generated::enums::LiveSimulationEventKind as Kind;
+        crate::enums::EnumValue(
         match self.inner.as_ref() {
-            native::LiveSimulationEvent::Sample(_) => "sample",
-            native::LiveSimulationEvent::AttemptFinished(_) => "attempt_finished",
-            native::LiveSimulationEvent::Selected { .. } => "selected",
-            native::LiveSimulationEvent::Recorded { .. } => "recorded",
-            native::LiveSimulationEvent::RecordingUnknown(_) => "recording_unknown",
-            native::LiveSimulationEvent::RecordingClosed => "recording_closed",
-            native::LiveSimulationEvent::Joined(_) => "joined",
-        }
+            native::LiveSimulationEvent::Sample(_) => Kind::Sample,
+            native::LiveSimulationEvent::AttemptFinished(_) => Kind::AttemptFinished,
+            native::LiveSimulationEvent::Selected { .. } => Kind::Selected,
+            native::LiveSimulationEvent::Recorded { .. } => Kind::Recorded,
+            native::LiveSimulationEvent::RecordingUnknown(_) => Kind::RecordingUnknown,
+            native::LiveSimulationEvent::RecordingClosed => Kind::RecordingClosed,
+            native::LiveSimulationEvent::Joined(_) => Kind::Joined,
+        })
     }
     #[getter]
     fn accuracy_attempt(&self) -> Option<u64> {
@@ -2877,10 +2800,10 @@ impl NativeLiveSimulationEvent {
         }
     }
     #[getter]
-    fn termination(&self) -> Option<&'static str> {
+    fn termination(&self) -> Option<crate::enums::EnumValue<pse_model::generated::enums::TrajectoryTermination>> {
         match self.inner.as_ref() {
             native::LiveSimulationEvent::AttemptFinished(summary) => {
-                Some(summary.termination.as_str())
+                Some(crate::enums::EnumValue(summary.termination))
             }
             _ => None,
         }

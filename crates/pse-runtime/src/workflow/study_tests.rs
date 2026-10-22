@@ -547,7 +547,7 @@ fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
         inputs: StudyInputs::Explicit(vec![point(case, 7, vec![], StartPolicy::Fresh)]),
     };
     let encoded = serde_json::to_value(request).unwrap();
-    assert_eq!(encoded["version"], 7);
+    assert_eq!(encoded["version"], 8);
     assert!(
         encoded["inputs"]["value"][0]["policy"]
             .get("seed_need")
@@ -645,7 +645,7 @@ fn study_definition_historical_readmission_codec_unit() {
         }],
     };
     let current = serde_json::to_string(&definition).unwrap();
-    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 11);
+    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 12);
     let decoded = StudyDefinition::readmission(&current).unwrap();
     assert_eq!(serde_json::to_string(&decoded).unwrap(), current);
 
@@ -5065,13 +5065,7 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
     );
     assert_eq!(pool.reserved(), reserved);
 
-    let previous = RunResult::joined(
-        run_id,
-        runtime.clone(),
-        RunRequest::Modeling(vec![*prepared.clone()]),
-        None,
-        Ok(RunReport::Modeling(vec![completed.clone()])),
-    )
+    let previous = RunResult::joined(run_id, runtime.clone(), RunOutcome::Modeling { request: vec![*prepared.clone()], result: Ok(vec![completed.clone()]) }, None)
     .finished(None, false)
     .await;
     let mut target = prepared;
@@ -5126,11 +5120,9 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
     // assessment. They share one immutable numeric seed and its original grant.
     let bare = target.solve.clone();
     assert_eq!(Arc::as_ptr(bare.explicit_seed().unwrap()), seed_identity);
-    let request = RunRequest::Modeling(vec![target.as_ref().clone()]);
+    let request = vec![target.as_ref().clone()];
     let mut clones: Vec<_> = (0..16).map(|_| target.as_ref().clone()).collect();
-    let RunRequest::Modeling(requests) = &request else {
-        panic!("modeling request")
-    };
+    let requests = &request;
     for clone in clones.iter().chain(requests) {
         assert_eq!(
             Arc::as_ptr(clone.solve.explicit_seed().unwrap()),

@@ -3,7 +3,7 @@
 
 [package]
 name = "pse-columnar"
-description = "Arrow canonicalization and native allocation and error boundaries."
+description = "Native columnar admission, buffer ownership, allocation and error boundaries."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -26,9 +26,7 @@ arrow.workspace = true
 arrow-cast = { workspace = true, optional = true }
 arrow-array.workspace = true
 arrow-schema.workspace = true
-arrow-ipc.workspace = true
 arrow-buffer.workspace = true
-arrow-row.workspace = true
 bytes.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -45,7 +43,6 @@ force-validate = [
   "dep:arrow-cast",
   "arrow-cast/force_validate",
 ]
-bench-instrumentation = []
 
 [dev-dependencies]
 proptest.workspace = true

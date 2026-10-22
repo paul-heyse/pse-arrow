@@ -87,7 +87,7 @@ pub(crate) struct EvaluatorConstruction {
     pub(crate) entries: usize,
     pub(crate) instructions: usize,
 }
-fn source_operations(expressions: &[Atom]) -> Result<usize, MathError> {
+fn source_operations<'a>(expressions: impl IntoIterator<Item = &'a Atom>) -> Result<usize, MathError> {
     let mut operations = 0usize;
     let mut failed = false;
     for expression in expressions {
@@ -233,7 +233,7 @@ fn reserve_facts(facts: &EvaluatorFacts, initial: EvaluatorConstruction) -> Resu
     crate::construction::additional(extra)
 }
 
-type ScalarProductKey = (Vec<Atom>, Vec<Atom>, Optimization);
+type ScalarProductKey = (Vec<Atom>, Vec<Atom>, Optimization, Vec<(Atom, Atom)>);
 type ScalarProductMap = HashMap<Arc<ScalarProductKey>, Arc<ScalarProduct>, RandomState>;
 
 /// Borrow the exact ordered scalar identity. Both hashing and owned construction
@@ -242,12 +242,14 @@ struct ScalarProductQuery<'a> {
     expressions: &'a [Atom],
     parameters: &'a [Atom],
     options: Optimization,
+    definitions: &'a [(Atom, Atom)],
 }
 impl<'a> ScalarProductQuery<'a> {
-    fn new(expressions: &'a [Atom], parameters: &'a [Atom], options: Optimization) -> Self {
+    fn new(expressions: &'a [Atom], parameters: &'a [Atom], options: Optimization, definitions: &'a [(Atom, Atom)]) -> Self {
         Self {
             expressions,
             parameters,
+            definitions,
             options: Optimization {
                 evaluator: Evaluator::Interpreted,
                 ..options
@@ -260,24 +262,25 @@ impl<'a> ScalarProductQuery<'a> {
             context.count(
                 "math.scalar_key_vector_allocations",
                 "count",
-                u64::from(!self.expressions.is_empty()) + u64::from(!self.parameters.is_empty()),
+                u64::from(!self.expressions.is_empty()) + u64::from(!self.parameters.is_empty()) + u64::from(!self.definitions.is_empty()),
             );
         }
         Arc::new((
             self.expressions.to_vec(),
             self.parameters.to_vec(),
             self.options,
+            self.definitions.to_vec(),
         ))
     }
 }
 impl Hash for ScalarProductQuery<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        (self.expressions, self.parameters, self.options).hash(state);
+        (self.expressions, self.parameters, self.options, self.definitions).hash(state);
     }
 }
 impl Equivalent<Arc<ScalarProductKey>> for ScalarProductQuery<'_> {
     fn equivalent(&self, key: &Arc<ScalarProductKey>) -> bool {
-        self.expressions == key.0 && self.parameters == key.1 && self.options == key.2
+        self.expressions == key.0 && self.parameters == key.1 && self.options == key.2 && self.definitions == key.3
     }
 }
 
@@ -422,6 +425,7 @@ impl ScalarCache {
         &mut self,
         expressions: &[Atom],
         parameters: &[Atom],
+        definitions: &[(Atom, Atom)],
         options: Optimization,
         cancelled: &Arc<AtomicBool>,
         limits: EvaluationLimits,
@@ -429,6 +433,7 @@ impl ScalarCache {
         let product = self.prepare(
             expressions,
             parameters,
+            definitions,
             options,
             cancelled,
             SourceOperationLimit::Scalar(limits.operations),
@@ -443,6 +448,7 @@ impl ScalarCache {
         &mut self,
         expressions: &[Atom],
         parameters: &[Atom],
+        definitions: &[(Atom, Atom)],
         options: Optimization,
         cancelled: &Arc<AtomicBool>,
         source_limit: SourceOperationLimit,
@@ -453,7 +459,7 @@ impl ScalarCache {
         }
         // Scalar optimization does not consume the later execution selector.
         // Share exact scalar preparation across interpreted/native Value routes.
-        let query = ScalarProductQuery::new(expressions, parameters, options);
+        let query = ScalarProductQuery::new(expressions, parameters, options, definitions);
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("math.scalar_cache_lookups", "count", 1);
         }
@@ -469,14 +475,14 @@ impl ScalarCache {
                     context.count("math.scalar_constructions", "count", 1);
                     context.phase("math.scalar_construction")
                 });
-                let source_operations = source_operations(expressions)?;
+                let source_operations = add(source_operations(expressions)?, source_operations(definitions.iter().map(|(_, rhs)| rhs))?)?;
                 let source_atom_operations =
-                    expressions.iter().try_fold(0, |sum, expression| {
+                    expressions.iter().chain(definitions.iter().map(|(_, rhs)| rhs)).try_fold(0, |sum, expression| {
                         add(sum, total(expression.count_operations())?)
                     })?;
                 source_limit.check(source_operations, source_atom_operations)?;
                 let source_bytes = expressions
-                    .iter()
+                    .iter().chain(definitions.iter().map(|(_, rhs)| rhs))
                     .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
                 let initial = construction_shape(
                     source_bytes,
@@ -490,12 +496,17 @@ impl ScalarCache {
                 let atoms = expressions
                     .iter()
                     .chain(parameters)
+                    .chain(definitions.iter().flat_map(|(lhs, rhs)| [lhs, rhs]))
                     .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
+                let key_bytes = add(
+                    add(size_of::<ScalarProductKey>(), 2 * size_of::<usize>())?,
+                    mul(add(add(expressions.len(), parameters.len())?, mul(2, definitions.len())?)?, size_of::<Atom>())?,
+                )?;
                 crate::construction::additional(add(
                     mul(initial.entries, 2 * size_of::<Complex<Rational>>())?,
-                    add(initial.instructions, atoms)?,
+                    add(initial.instructions, add(atoms, key_bytes)?)?,
                 )?)?;
-                let evaluator = exact_evaluator(expressions, parameters, options, cancelled)?;
+                let evaluator = exact_evaluator(expressions, parameters, definitions, options, cancelled)?;
                 let export = evaluator.export_instructions();
                 let facts = EvaluatorFacts::inspect(
                     &export,
@@ -506,7 +517,7 @@ impl ScalarCache {
                 let bytes = add(
                     size_of::<ScalarProduct>(),
                     add(
-                        atoms,
+                        add(atoms, key_bytes)?,
                         add(
                             mul(
                                 facts.storage.numeric_entries,
@@ -553,9 +564,22 @@ pub(crate) fn bounded_scalar_evaluator(
     limits: EvaluationLimits,
     scalars: &mut ScalarCache,
 ) -> Result<FloatingEvaluator, MathError> {
+    bounded_defined_scalar_evaluator(expressions, parameters, &[], options, cancelled, limits, scalars)
+}
+
+pub(crate) fn bounded_defined_scalar_evaluator(
+    expressions: &[Atom],
+    parameters: &[Atom],
+    definitions: &[(Atom, Atom)],
+    options: Optimization,
+    cancelled: &Arc<AtomicBool>,
+    limits: EvaluationLimits,
+    scalars: &mut ScalarCache,
+) -> Result<FloatingEvaluator, MathError> {
     let product = scalars.prepare(
         expressions,
         parameters,
+        definitions,
         options,
         cancelled,
         SourceOperationLimit::Scalar(limits.operations),
@@ -615,6 +639,7 @@ pub(crate) fn bounded_evaluator(
     let product = scalars.prepare(
         expressions,
         parameters,
+        &[],
         options,
         cancelled,
         SourceOperationLimit::Taylor(remaining),
@@ -713,6 +738,32 @@ pub(crate) fn bounded_evaluator(
 mod tests {
     use super::*;
 
+    #[test]
+    fn scalar_definition_map_participates_in_exact_identity_and_refusal() {
+        crate::initialize().unwrap();
+        let x = formal(0).unwrap();
+        let a = formal(1).unwrap();
+        let outputs = [a.clone()];
+        let parameters = [x.clone()];
+        let first = [(a.clone(), x.clone() * &x)];
+        let second = [(a, x + 1)];
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut cache = ScalarCache::default();
+        let mut one = bounded_defined_scalar_evaluator(&outputs, &parameters, &first, Optimization::default(), &cancel, EvaluationLimits::default(), &mut cache).unwrap();
+        let mut two = bounded_defined_scalar_evaluator(&outputs, &parameters, &second, Optimization::default(), &cancel, EvaluationLimits::default(), &mut cache).unwrap();
+        assert_eq!(cache.len(), 2, "equal outputs with different definitions are distinct programs");
+        let mut value = [0.];
+        one.evaluator.try_evaluate(&[3.], &mut value).unwrap();
+        assert_eq!(value, [9.]);
+        two.evaluator.try_evaluate(&[3.], &mut value).unwrap();
+        assert_eq!(value, [4.]);
+        bounded_defined_scalar_evaluator(&outputs, &parameters, &first, Optimization::default(), &cancel, EvaluationLimits::default(), &mut cache).unwrap();
+        assert_eq!(cache.builds(), 2);
+        let mut refused = ScalarCache::default();
+        assert!(matches!(crate::construction::scoped(Arc::new(Refuse), || bounded_defined_scalar_evaluator(&outputs, &parameters, &first, Optimization::default(), &cancel, EvaluationLimits::default(), &mut refused)), Err(MathError::Limit("test pool full"))));
+        assert!(refused.freeze().is_empty());
+    }
+
     fn scalar_count(context: &pse_diagnostics::observation::ObservationContext, name: &str) -> u64 {
         context
             .reader()
@@ -737,7 +788,7 @@ mod tests {
         let options = Optimization::default();
         let expressions = [x.clone() + &y, x.clone() * &y];
         let parameters = [x.clone(), y.clone()];
-        let baseline = ScalarProductQuery::new(&expressions, &parameters, options).owned_key();
+        let baseline = ScalarProductQuery::new(&expressions, &parameters, options, &[]).owned_key();
         let cases = [
             (expressions.to_vec(), parameters.to_vec(), options, true),
             (
@@ -786,7 +837,7 @@ mod tests {
             ),
         ];
         for (expressions, parameters, options, equivalent) in cases {
-            let query = ScalarProductQuery::new(&expressions, &parameters, options);
+            let query = ScalarProductQuery::new(&expressions, &parameters, options, &[]);
             let key = query.owned_key();
             assert!(query.equivalent(&key));
             assert_eq!(query.equivalent(&baseline), equivalent);
@@ -815,7 +866,7 @@ mod tests {
             crate::construction::scoped(Arc::new(Refuse), || {
                 cache.admit_prepare(
                     &expressions,
-                    &parameters,
+                    &parameters, &[],
                     options,
                     &cancel,
                     EvaluationLimits::default(),
@@ -834,7 +885,7 @@ mod tests {
         cache
             .admit_prepare(
                 &expressions,
-                &parameters,
+                &parameters, &[],
                 options,
                 &cancel,
                 EvaluationLimits::default(),
@@ -849,7 +900,7 @@ mod tests {
         cache
             .admit_prepare(
                 expressions.as_ref(),
-                parameters.as_ref(),
+                parameters.as_ref(), &[],
                 Optimization {
                     evaluator: Evaluator::CompiledScalar { module_bytes: 4096 },
                     ..options
@@ -883,7 +934,7 @@ mod tests {
             },
         ] {
             assert!(matches!(
-                cache.admit_prepare(&expressions, &parameters, options, &cancel, limits),
+                cache.admit_prepare(&expressions, &parameters, &[], options, &cancel, limits),
                 Err(MathError::Limit(_))
             ));
         }
@@ -904,7 +955,7 @@ mod tests {
             cache
                 .admit_prepare(
                     &expressions,
-                    &parameters,
+                    &parameters, &[],
                     options,
                     &cancel,
                     EvaluationLimits::default(),
@@ -939,7 +990,7 @@ mod tests {
         assert!(matches!(
             cache.admit_prepare(
                 &expressions,
-                &parameters,
+                &parameters, &[],
                 Optimization {
                     cores: 0,
                     ..options
@@ -954,7 +1005,7 @@ mod tests {
         cache
             .admit_prepare(
                 &expressions,
-                &parameters,
+                &parameters, &[],
                 options,
                 &cancel,
                 EvaluationLimits::default(),
@@ -964,7 +1015,7 @@ mod tests {
         let weak_owner = Arc::downgrade(&owner);
         let retained = cache.freeze().with_owner(owner.clone());
         let mut cache = ScalarCache::from_products(&retained);
-        let query = ScalarProductQuery::new(&expressions, &parameters, options);
+        let query = ScalarProductQuery::new(&expressions, &parameters, options, &[]);
         let escaped = cache.evaluators.remove(&query).unwrap();
         assert_eq!(cache.len(), 0);
         drop(retained);
@@ -975,7 +1026,7 @@ mod tests {
         cache
             .admit_prepare(
                 &expressions,
-                &parameters,
+                &parameters, &[],
                 options,
                 &cancel,
                 EvaluationLimits::default(),
@@ -1127,7 +1178,7 @@ mod tests {
         cache
             .admit_prepare(
                 &expressions,
-                std::slice::from_ref(&x),
+                std::slice::from_ref(&x), &[],
                 Optimization::default(),
                 &cancel,
                 EvaluationLimits::default(),
@@ -1313,6 +1364,7 @@ mod tests {
         let exact = exact_evaluator(
             std::slice::from_ref(&expression),
             &parameters,
+            &[],
             options,
             &cancel,
         )

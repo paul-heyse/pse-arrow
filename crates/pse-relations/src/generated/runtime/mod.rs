@@ -63,6 +63,8 @@ pub mod r#canonical_interpretations;
 ///Generated relation contract.
 pub mod r#canonical_maintenance_activations;
 ///Generated relation contract.
+pub mod r#canonical_maintenance_operations;
+///Generated relation contract.
 pub mod r#canonical_manifest_tickets;
 ///Generated relation contract.
 pub mod r#canonical_memberships;
@@ -147,6 +149,8 @@ pub mod r#diagnostic_invocations;
 ///Generated relation contract.
 pub mod r#diagnostic_query_results;
 ///Generated relation contract.
+pub mod r#diagnostic_samples;
+///Generated relation contract.
 pub mod r#diagnostics_findings;
 ///Generated relation contract.
 pub mod r#execution_statistics;
@@ -164,6 +168,8 @@ pub mod r#fitted_parameter_cells;
 pub mod r#incumbents;
 ///Generated relation contract.
 pub mod r#infeasibility_certificates;
+///Generated relation contract.
+pub mod r#initialization_stages;
 ///Generated relation contract.
 pub mod r#live_simulation_samples;
 ///Generated relation contract.
@@ -207,6 +213,8 @@ pub mod r#parameter_intervals;
 ///Generated relation contract.
 pub mod r#parametric_sensitivities;
 ///Generated relation contract.
+pub mod r#primal_values;
+///Generated relation contract.
 pub mod r#profile_points;
 ///Generated relation contract.
 pub mod r#propagated_covariances;
@@ -244,6 +252,8 @@ pub mod r#solve_strategy_products;
 pub mod r#solve_variables;
 ///Generated relation contract.
 pub mod r#solver_capabilities;
+///Generated relation contract.
+pub mod r#state_tolerances;
 ///Generated relation contract.
 pub mod r#structural_assessments;
 ///Generated relation contract.

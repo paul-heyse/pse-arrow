@@ -17,7 +17,7 @@ publish.workspace = true
 workspace = true
 
 [features]
-force-validate = ["pse-codegen/force-validate", "pse-schema/force-validate"]
+force-validate = ["pse-codegen/force-validate", "pse-schema/force-validate", "pse-relations/force-validate"]
 default = []
 # Isolated databases with the generated schema for tests in other crates.
 test-support = []
@@ -34,6 +34,7 @@ pse-diagnostics.workspace = true
 pse-ids.workspace = true
 # The registry owns canonical rows, enumerations and typed identities.
 pse-model.workspace = true
+pse-relations.workspace = true
 # Typed result locators validate their complete keys against the declaration owner.
 pse-schema.workspace = true
 url.workspace = true

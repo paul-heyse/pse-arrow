@@ -374,7 +374,7 @@ where
     let (ready, mut readiness) = tokio::sync::mpsc::channel::<publication::Ready>(total.max(1));
     let mut count = 0usize;
     let mut last_recovery = None;
-    let drain = crate::CancelSource::new();
+    let drain = stop.child_with_deadline(None);
     while !stop.token().is_cancelled() && settings.maximum_actions.is_none_or(|limit| count < limit)
     {
         let mut pending = FuturesUnordered::new();
@@ -829,21 +829,15 @@ mod lane_tests {
     #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn lost_publication_ack_keeps_original_failure_and_separate_durable_uncertainty() {
-        use crate::workflow::{RunReport, RunRequest, RunResult};
+        use crate::workflow::RunResult;
         let runtime = super::super::durable_tests::durable_runtime();
         for report_failed in [false, true] {
             let prior = Arc::new(contract("original scientific or completion failure"));
-            let mut result = RunResult::joined(
-                RunId::from_id(SemanticId::NIL),
-                runtime.clone(),
-                RunRequest::Modeling(vec![]),
-                None,
-                if report_failed {
+            let mut result = RunResult::joined(RunId::from_id(SemanticId::NIL), runtime.clone(), crate::workflow::RunOutcome::Modeling { request: vec![], result: if report_failed {
                     Err(prior.clone())
                 } else {
-                    Ok(RunReport::Modeling(vec![]))
-                },
-            );
+                    Ok(vec![])
+                } }, None);
             result.original_completion_captured = true;
             result.completion = Err(prior.clone());
             let mut attempt = DurableAttempt::new(operations(&runtime).unwrap()).unwrap();
@@ -863,9 +857,9 @@ mod lane_tests {
             );
             assert!(Arc::ptr_eq(result.completion.as_ref().unwrap_err(), &prior));
             if report_failed {
-                assert!(Arc::ptr_eq(result.report.as_ref().unwrap_err(), &prior));
+                assert!(Arc::ptr_eq(result.error().unwrap(), &prior));
             } else {
-                assert!(result.report.is_ok());
+                assert!(result.report().is_ok());
             }
             let RunDurability::Durable(record) = result.durability else {
                 panic!("durable failure absent")
@@ -2061,7 +2055,7 @@ impl Runtime {
             }
             if let Err(error) = operations
                 .store()
-                .renew_attempt(&claim.fence, operations.policy().lease)
+                .renew_attempt(&claim.fence, operations.policy().lease())
                 .await
             {
                 let error = Arc::new(WorkflowError::Canonical(error));
@@ -2091,7 +2085,8 @@ impl Runtime {
             let result = held.during(cancel, async {
             let mut launch: futures_util::future::BoxFuture<'_, _> = boxed_worker_action(|| prepared.operation.start_attempt(self, cancel, attempt));
             let handle = futures_util::future::poll_fn(|context| poll_worker_action(launch.as_mut(), context)).await?;
-            tokio::select! {result=handle.wait()=>result,()=cancel.cancelled()=>{handle.cancel();handle.wait().await}}
+            // The supervisor owns a child of this lane's drain source.
+            handle.wait().await
         }).await?;
             let record = match result.durability() {
                 RunDurability::Durable(record) => record.clone(),
@@ -2124,7 +2119,7 @@ impl Runtime {
                     seed,
                     &claim_operation,
                     operations.worker(),
-                    operations.policy().lease,
+                    operations.policy().lease(),
                 )
                 .await
         };
@@ -2153,7 +2148,7 @@ impl Runtime {
                 claim.fence.attempt(),
             )
         });
-        let detail_context = detail.as_ref().map(crate::capture::DetailSession::context);
+        let detail_context = detail.as_ref().map(crate::observation_detail::DetailSession::context);
         let original_context = pse_diagnostics::observation::current();
         let mut execution: futures_util::future::BoxFuture<'_, _> =
             boxed_worker_action(|| execute(claim));
@@ -2248,7 +2243,7 @@ impl Runtime {
         stop: &crate::CancelSource,
         mut publication: Option<PublicationHandoff>,
     ) -> Result<Processed, WorkflowError> {
-        let cancel = crate::CancelSource::new();
+        let cancel = stop.child_with_deadline(None);
         let operation_cancel = &cancel;
         let action = move || async move {
             let lane = lane;
@@ -2262,17 +2257,9 @@ impl Runtime {
             )
             .await
         };
-        let work = self.worker_action(action);
-        tokio::pin!(work);
-        let result = tokio::select! {
-            result = &mut work => result,
-            () = stop.cancelled() => {
-                cancel.cancel();
-                // Issued canonical effects and native owners must finish their own drain.
-                work.await
-            }
-        };
-        Ok(result?.0)
+        // Cancellation descends from the worker's drain owner. The action remains
+        // in this lane until every issued effect and native owner has joined.
+        Ok(self.worker_action(action).await?.0)
     }
     /// Serve one bounded group on the shared runtime, draining every issued lane on stop
     /// or failure. Completed native owners are released as each lane finishes.

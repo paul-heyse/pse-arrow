@@ -2,13 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Encoded-artifact integrity: a plain BLAKE3 hash over the bytes an object actually
-//! holds (blueprint §5.3 step 6, ADR-0045).
+//! holds (blueprint §5.3).
 //!
-//! This is the *other* hash. [`crate::id::LogicalHash`] says two relations mean the same
-//! thing; an [`EncodingChecksum`] says one object on one store is intact. ADR-0045 keeps
-//! them apart because v1 conflated them and could then neither survive an IPC-file/Parquet
-//! round trip nor detect a truncated object under a plausible name. The manifest records
-//! both, and neither is ever substituted for the other.
+//! An [`EncodingChecksum`] asserts that one finished object is intact. It does not
+//! assert semantic identity or equivalence of separately encoded values.
 //!
 //! Unkeyed, unframed and over the *finished* bytes: an IPC file is not complete until its
 //! footer is written, so a checksum taken before `finish()` checks a file that does not

@@ -433,7 +433,7 @@ mod tests {
             *value *= scales[*row] * scales[*column] / objective;
         }
         let matrix = feral::CscMatrix::from_triplets(dimension, &rr, &cc, &vv).unwrap();
-        let (solver, inertia) = crate::conditioning::factor(&matrix).unwrap();
+        let (solver, inertia) = crate::conditioning::factor(&matrix, usize::MAX).unwrap();
         assert_eq!(inertia.2, 0);
         let factor = super::super::KktFactor {
             solver: Arc::new(solver),

@@ -107,19 +107,32 @@ pub struct Covariance {
     pub approximation: CovarianceApproximation,
     /// The free parameters in fit order: the order of every matrix.
     pub parameters: Vec<SemanticId>,
+    /// Recorded free-parameter scales in the matrix's physical units.
+    pub scales: Vec<f64>,
+    /// Complete parameter quantity contracts in free-parameter order.
+    pub parameter_quantities: Vec<SemanticId>,
+    /// Actual representation units of the covariance and scales.
+    pub parameter_units: Vec<SemanticId>,
     /// `Σ` row-major, in row-parameter unit × column-parameter unit, or why it is withheld.
     pub values: Result<Vec<f64>, FitWithheld>,
 }
 impl Covariance {
     /// Retained cells.
     pub(super) fn cells(&self) -> usize {
-        self.values.as_ref().map_or(0, Vec::len)
+        self.values.as_ref().map_or(0, Vec::capacity)
+            .saturating_add(self.scales.capacity())
+            .saturating_add(self.parameters.capacity().saturating_mul(2))
+            .saturating_add(self.parameter_quantities.capacity().saturating_mul(2))
+            .saturating_add(self.parameter_units.capacity().saturating_mul(2))
     }
     /// The standard error of each parameter, `√Σₖₖ`, when certified.
     pub fn standard_errors(&self) -> Option<Vec<f64>> {
         let values = self.values.as_ref().ok()?;
         let n = self.parameters.len();
-        Some((0..n).map(|k| values[k * n + k].max(0.0).sqrt()).collect())
+        if n.checked_mul(n) != Some(values.len())
+            || (0..n).any(|index| !values[index * n + index].is_finite() || values[index * n + index] < 0.0)
+        { return None; }
+        Some((0..n).map(|k| values[k * n + k].sqrt()).collect())
     }
 }
 
@@ -214,6 +227,9 @@ impl FitProblem {
         Some(Covariance {
             approximation,
             parameters,
+            scales: self.free().map(|(k, _)| self.declaration.parameters[k].scale).collect(),
+            parameter_quantities: self.free().map(|(k, _)| self.parameter_ports[k].quantity.as_id()).collect(),
+            parameter_units: self.free().map(|(k, _)| self.parameter_ports[k].unit.as_id()).collect(),
             values,
         })
     }

@@ -197,12 +197,7 @@ impl Engine<'_, '_> {
             env,
             &[scope.declaration_id],
         )?;
-        let types: BTreeMap<_, _> = self
-            .model
-            .symbols
-            .iter()
-            .map(|(id, s)| (symbol_name(*id), s.ty.clone()))
-            .collect();
+        let types = crate::TypeScope::new(&self.model.symbols);
         let Type::Quantity(quantity) = crate::expression::infer(
             &criterion,
             &types,

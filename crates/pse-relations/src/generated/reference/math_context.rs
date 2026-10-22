@@ -13,15 +13,17 @@ pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "math_context";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "reference.math_context";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Reference;
 /// The schema generation.
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    122u8, 59u8, 244u8, 50u8, 252u8, 8u8, 245u8, 158u8, 180u8, 187u8, 150u8, 213u8,
-    220u8, 49u8, 168u8, 228u8, 205u8, 169u8, 232u8, 45u8, 163u8, 73u8, 223u8, 84u8, 24u8,
-    27u8, 222u8, 245u8, 10u8, 0u8, 95u8, 199u8,
+    108u8, 18u8, 74u8, 133u8, 172u8, 75u8, 80u8, 166u8, 101u8, 255u8, 181u8, 96u8, 170u8,
+    135u8, 165u8, 134u8, 247u8, 20u8, 143u8, 195u8, 163u8, 209u8, 112u8, 211u8, 175u8,
+    221u8, 103u8, 64u8, 48u8, 228u8, 219u8, 134u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceMathContextRow {
     fn append(

@@ -127,19 +127,32 @@ continuous declarations. Diffsol/IDAS own stepping and consistency for the suppo
 fixed `diag(I,0)` ODE/index-1 profile. Authored finite-difference and Radau schemes lower
 to ordinary algebraic cases for simultaneous time or spatial analysis.
 
+Physical coordinate inputs are Arrow producers with the registered relation schema.
+Import its complete metadata with `pyarrow.schema(runtime.physical_input_schema(
+PhysicalInputKind.STATE_TOLERANCES))`; provide each coordinate's actual identity,
+quantity-type identity, representation-unit identity and positive Delta value. The
+existing runtime owns an immutable scalar snapshot before preparation starts.
+
 ```python
+from pse.contracts.enums import DynamicSensitivity
+
 simulation = package.prepare_simulation(
     case_id,
     pse.SimulationSettings(
+        runtime=runtime,
         start=0.0, end=10.0, samples=[0.0, 5.0, 10.0],
         atol=state_tolerances, parameter_scales=parameter_scales,
-        sensitivities=True,
+        sensitivity=DynamicSensitivity.FORWARD,
     ),
 )
 result = simulation.start().wait()
 ```
 
-State tolerances apply to normalized coordinates. Parameters, time origin, horizon,
+Physical Delta state tolerances are converted into the prepared state units and
+resolved numerical scales once. Characteristic parameter scales and integral tolerances
+use their own identity-keyed Delta inventories. Point offsets never apply to these
+Delta values. Physical time remains signed binary64 seconds, preserving subsecond
+precision. Parameters, time origin, horizon,
 quadrature tolerances, events and modes are explicit. Native limits bound steps, output
 cells and time. Unsupported index structure, hybrid IDAS sensitivities or noncausal
 integrated expressions refuse. Completed samples survive a later failure. State/output
@@ -148,8 +161,11 @@ Authored checks apply at the recorded samples and do not establish validity betw
 
 A generated `authored.fit_cases` row binds shared parameters and experiment/output
 source paths to admitted observations and datasets. Add them with `with_fit_data` or
-load their document sections. `package.prepare_fit(fit_id, settings, simulations=...)`
-uses the existing sparse fitting owner. Steady experiments retain original equations;
+load their document sections. `package.prepare_fit(fit_id, request)` consumes a required Version 1
+`PhysicalFitRequest`; its shared fitting settings contain pending physical simulation
+requests by experiment identity. Study Version 8 persists the same pending intent and
+admits it against each actual prepared model. Native replay retains the actual admitted
+integration profiles. The existing sparse fitting owner performs the fit. Steady experiments retain original equations;
 transient experiments integrate inline under the outer job, using limited-memory Hessians.
 Mixed experiments share the same parameter vector. Included observations need a finite
 physical value, positive uncertainty and importance. The loss is

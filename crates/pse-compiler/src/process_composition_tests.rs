@@ -10,7 +10,7 @@ use crate::{
     workspace::{CompilerWorkspace, WorkspaceLimits},
 };
 use pse_modeling::{Bindings, Limits, PhysicalScope, specialize::root_instance};
-const COMPOSE: &str = r#"package process_composition {
+pub(crate) const COMPOSE: &str = r#"package process_composition {
 use chemistry @"1.0.0";use chem @"1.0.0";use kinds @"1.0.0";
 use mixing @"1.0.0";use separation @"1.0.0";use reactors @"1.0.0";use saponification @"1.0.0";
 use distributed_volumes @"1.0.0";use correlations @"1.0.0";use properties @"1.0.0";use compatibility @"1.0.0";use references @"1.0.0";

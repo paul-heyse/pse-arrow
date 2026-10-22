@@ -9,14 +9,7 @@ use crate::{
 use pounce_rs::pounce_algorithm::second_opinion::{
     SecondOpinionAvailability, SecondOpinionTrigger, second_opinion_rungs,
 };
-/// Library-owned deterministic displacement, materialized and screened by the task.
-#[derive(Clone, Copy, Debug)]
-pub struct StartPerturbation {
-    /// Seed of the library's displacement generator.
-    pub seed: u64,
-    /// Relative displacement scale.
-    pub scale: f64,
-}
+pub use crate::execution::StartPerturbation;
 /// One noncumulative native profile. Every member is derived from the baseline.
 #[derive(Clone, Debug)]
 pub struct SecondOpinionProfile {

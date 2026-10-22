@@ -99,6 +99,13 @@ pub use results::{ModelingCheck, ModelingReport, ModelingResult};
 use std::sync::Mutex;
 use std::{collections::BTreeMap, sync::Arc};
 
+#[cfg(feature = "solver-kinsol")]
+enum InitializationStageValues<'a> {
+    Physical(&'a super::InitializationStages),
+    #[cfg(test)]
+    Canonical(Vec<BTreeMap<SemanticId, f64>>),
+}
+
 #[cfg(test)]
 fn source_map_extent(tables: usize) -> Result<usize, WorkflowError> {
     tables
@@ -842,11 +849,32 @@ impl ModelingPackage {
     /// Prepare predecessor-ordered conditional initialization under the analysis's solve
     /// profile and the supplied continuation stages, without changing the original
     /// specification. The profile is admitted in Rust before any native work (F26).
-    #[cfg(feature = "solver-kinsol")]
-    pub async fn prepare_block_initialization(
+    #[cfg(all(test, feature = "solver-kinsol"))]
+    pub(in crate::workflow) async fn prepare_block_initialization(
         &self,
         a: &ModelingAnalysis,
         stages: Vec<BTreeMap<SemanticId, f64>>,
+        cancel: &crate::CancelSource,
+    ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
+        self.prepare_initialization_stages(a, InitializationStageValues::Canonical(stages), cancel).await
+    }
+    /// Admit sparse physical stage coordinates against the actual resolved case.
+    #[cfg(feature = "solver-kinsol")]
+    pub async fn prepare_block_initialization_physical(
+        &self,
+        a: &ModelingAnalysis,
+        stages: &super::InitializationStages,
+        cancel: &crate::CancelSource,
+    ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
+        let mut prepared = self.prepare_initialization_stages(a, InitializationStageValues::Physical(stages), cancel).await?;
+        prepared.prepared.retain_physical_input(Arc::new(stages.clone()));
+        Ok(prepared)
+    }
+    #[cfg(feature = "solver-kinsol")]
+    async fn prepare_initialization_stages(
+        &self,
+        a: &ModelingAnalysis,
+        stages: InitializationStageValues<'_>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
         let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
@@ -855,10 +883,6 @@ impl ModelingPackage {
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("modeling.prepare");
-                let profile = crate::math::initialization::InitializationProfile {
-                    solver: a.solver.clone(),
-                    stages,
-                };
                 let resolved = self
                     .resolve_case(
                         a.root,
@@ -875,6 +899,17 @@ impl ModelingPackage {
                         cancel,
                     )
                     .await?;
+                let stages = match stages {
+                    InitializationStageValues::Physical(stages) => {
+                        let structure = resolved.model.case.compiled().plan.structure();
+                        let ports = structure.variables().iter().map(|variable| variable.port.clone())
+                            .chain(structure.parameters().iter().cloned()).collect::<Vec<_>>();
+                        stages.admit(&self.quantities, &ports)?
+                    }
+                    #[cfg(test)]
+                    InitializationStageValues::Canonical(stages) => stages,
+                };
+                let profile = crate::math::initialization::InitializationProfile { solver: a.solver.clone(), stages };
                 let prepared = self
                     .runtime
                     .native()

@@ -8,6 +8,7 @@ import msgspec
 import pytest
 
 import pse
+from pse.tests.physical_input_fixture import coordinate_batch
 from pse import codec
 from pse.contracts import documents, enums
 
@@ -15,13 +16,13 @@ from pse.contracts import documents, enums
 @pytest.mark.unit
 def test_contextual_accuracy_current_request_leaves_refuse_obsolete_versions() -> None:
     assert documents.NumericalPolicy().version == 1
-    assert pse.SolveSettings().version == 4
+    assert pse.SolveSettings().version == 5
     for document, obsolete in (
         (documents.NumericalPolicy, 0),
         (documents.NumericalPolicy, 2),
         (documents.SolveSettings, 3),
-        (documents.Profile, 0),
-        (documents.Profile, 2),
+        (documents.PhysicalSimulationRequest, 0),
+        (documents.PhysicalSimulationRequest, 2),
         (documents.StudyOperation, 4),
     ):
         with pytest.raises(msgspec.ValidationError):
@@ -33,7 +34,7 @@ def test_contextual_accuracy_document_versions_precede_defaults() -> None:
     for document in (
         documents.NumericalPolicy,
         documents.SolveSettings,
-        documents.Profile,
+        documents.PhysicalSimulationRequest,
     ):
         with pytest.raises(msgspec.ValidationError, match="version"):
             codec.decode_json(b"{}", document)
@@ -50,10 +51,8 @@ def test_contextual_accuracy_document_versions_precede_defaults() -> None:
 
 
 @pytest.mark.unit
-def test_contextual_accuracy_explicit_nested_policy_cannot_be_defaulted_on_read() -> (
-    None
-):
-    current = codec.decode_json(b'{"version":4}', documents.SolveSettings)
+def test_contextual_accuracy_explicit_nested_policy_cannot_be_defaulted_on_read(inspection_settings: pse.EngineSettings) -> None:
+    current = codec.decode_json(b'{"version":5}', documents.SolveSettings)
     assert current.numerics.version == 1  # Omission uses the owning current default.
     wire = codec.decode_json(codec.encode_json(current), dict[str, msgspec.Raw])
     wire["numerics"] = msgspec.Raw(b"{}")
@@ -67,21 +66,23 @@ def test_contextual_accuracy_explicit_nested_policy_cannot_be_defaulted_on_read(
     # These are ordinary explicitly current typed constructions, not historical reads.
     policy = documents.NumericalPolicy()
     assert policy.version == 1
-    assert pse.SolveSettings(numerics=policy).version == 4
+    assert pse.SolveSettings(numerics=policy).version == 5
     assert (
         codec.decode_json(codec.encode_json(policy), documents.NumericalPolicy)
         == policy
     )
     # The native typed admission accepts that same explicitly current policy.
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
     settings = pse.SimulationSettings(
+        runtime=runtime,
         start=0.0,
         end=1.0,
         samples=[0.0, 1.0],
-        atol=[0.001],
-        parameter_scales=[],
+        atol=coordinate_batch(runtime),
+        parameter_scales=coordinate_batch(runtime),
         numerics=policy,
     )
-    assert codec.decode_json(settings.to_json(), documents.Profile).numerics == policy
+    assert settings.document.controls.numerics == policy
 
 
 @pytest.mark.unit
@@ -104,29 +105,24 @@ def test_contextual_accuracy_versions_are_checked_inside_typed_containers() -> N
 
 
 @pytest.mark.unit
-def test_contextual_accuracy_simulation_version_precedes_policy() -> None:
+def test_contextual_accuracy_simulation_version_precedes_policy(inspection_settings: pse.EngineSettings) -> None:
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
     settings = pse.SimulationSettings(
-        start=0.0, end=1.0, samples=[0.0, 1.0], atol=[0.001], parameter_scales=[]
+        runtime=runtime, start=0.0, end=1.0, samples=[0.0, 1.0], atol=coordinate_batch(runtime), parameter_scales=coordinate_batch(runtime)
     )
-    wire = codec.decode_json(settings.to_json(), dict[str, msgspec.Raw])
-    assert bytes(wire["version"]) == b"1"
-    restored = pse.SimulationSettings.from_json(settings.to_json())
-    assert codec.decode_json(restored.to_json(), documents.Profile).version == 1
-    for obsolete in (b"0", b"2", None):
-        historical = dict(wire)
-        if obsolete is None:
-            historical.pop("version")
-        else:
-            historical["version"] = msgspec.Raw(obsolete)
+    document = settings.document
+    assert document.version == 1
+    assert pse.SimulationSettings.from_document(runtime, document).document == document
+    for obsolete in (0, 2, 3):
+        historical = msgspec.structs.replace(document, version=obsolete)
         with pytest.raises(pse.InspectionError, match="version"):
-            pse.SimulationSettings.from_json(codec.encode_json(historical).decode())
+            pse.SimulationSettings.from_document(runtime, historical)
     # A current enclosing version cannot launder an obsolete accuracy policy.
-    wire["numerics"] = msgspec.Raw(b'{"version":0}')
+    historical_policy = msgspec.structs.replace(document.controls.numerics, version=0)
     with pytest.raises(pse.InspectionError, match="version"):
-        pse.SimulationSettings.from_json(codec.encode_json(wire).decode())
-    wire["numerics"] = msgspec.Raw(b"{}")
-    with pytest.raises(pse.InspectionError, match="version"):
-        pse.SimulationSettings.from_json(codec.encode_json(wire).decode())
+        pse.SimulationSettings.from_document(
+            runtime, msgspec.structs.replace(document, controls=msgspec.structs.replace(document.controls, numerics=historical_policy))
+        )
 
 
 @pytest.mark.unit

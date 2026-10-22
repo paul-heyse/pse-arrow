@@ -58,10 +58,6 @@ the failure is silent and reads like a logic bug (blueprint §3.1).
 `unwrap`/`expect`/`panic`/`todo`/`print*`/`dbg!` are denied outside tests for the same
 reason: a panic crossing the PyO3 or Ipopt boundary is an abort risk.
 
-Canonical identity IPC remains uncompressed (§5.3, `pse.canon.v2`).
-The governance pattern restricts `try_with_compression` only under
-`crates/pse-columnar/src/canon`; the API is available for noncanonical transport
-(blueprint §3.3.1). Compression is not a library-wide prohibition.
 
 ## Lint escapes carry a reason
 

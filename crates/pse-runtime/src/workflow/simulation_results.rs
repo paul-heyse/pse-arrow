@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Physical results reuse one relation projection for convenience and durable transport.
-#[cfg(feature = "solver-diffsol")]
-use super::RunRequest;
 use super::{RunReport, RunResult, WorkflowError, contract, relation};
 use pse_relations::generated::runtime::computation_runs;
 impl RunResult {
@@ -10,7 +8,7 @@ impl RunResult {
         &self,
         request: &super::result_export::Projection,
     ) -> Result<(), WorkflowError> {
-        if let Ok(RunReport::Simulation(trajectory)) = &self.report {
+        if let Ok(RunReport::Simulation(trajectory)) = self.report() {
             return trajectory.project(request).await;
         }
         let pool = self.runtime.shared.pool();
@@ -43,14 +41,11 @@ impl RunResult {
         &self,
         request: &super::result_export::Projection,
     ) -> Result<(), WorkflowError> {
-        let RunRequest::Shooting { problem, .. } = &self.request else {
+        let super::RunOutcome::Shooting { problem, result, .. } = &self.outcome else {
             return Err(contract("shooting request mismatch"));
         };
         let validation = self.result_validation_context();
-        let report = match &self.report {
-            Ok(RunReport::Shooting(report)) => Some(report.as_ref()),
-            _ => None,
-        };
+        let report = result.as_ref().ok().map(Box::as_ref);
         let registry = self.runtime.registry();
         let pool = self.runtime.shared.pool();
         let cancel = request.cancel.clone();
@@ -233,7 +228,7 @@ impl RunResult {
         }
         let trace = report
             .and_then(|r| r.strategy.as_ref())
-            .or_else(|| match &self.report {
+            .or_else(|| match self.report() {
                 Err(error) => error.strategy_trace(),
                 _ => None,
             });

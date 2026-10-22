@@ -272,7 +272,6 @@ def inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSetti
         batch_size=7,
         cache=CacheSettings(
             working_bytes=16 << 30,
-            metadata_bytes=8 << 20,
             concurrent_loads=2,
             inflight_bytes=64 << 20,
             inspection_bytes=4 << 20,
@@ -301,7 +300,6 @@ def managed_observer_settings(
         math_artifact_bytes=128 << 20,
         cache=CacheSettings(
             working_bytes=128 << 20,
-            metadata_bytes=8 << 20,
             concurrent_loads=2,
             inflight_bytes=32 << 20,
             inspection_bytes=4 << 20,

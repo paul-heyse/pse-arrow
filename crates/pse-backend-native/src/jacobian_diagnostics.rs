@@ -60,6 +60,8 @@ pub struct Report {
     pub degenerate: Vec<DegenerateSet>,
     /// Every native attempt, LP family first.
     pub attempts: Vec<SolveReport>,
+    /// Per-attempt dimensionless multipliers/support coordinates declared by this construction.
+    pub dimensionless_coordinates: Vec<Vec<SemanticId>>,
     /// Native HiGHS sessions created: one per problem family, reused across anchors.
     pub sessions: usize,
     /// Every anchor of both families ran to a verified verdict.
@@ -368,6 +370,7 @@ pub fn analyze(
         conditioning: vec![],
         degenerate: vec![],
         attempts: vec![],
+        dimensionless_coordinates: vec![],
         sessions: 0,
         complete: true,
         unavailable: vec![],
@@ -391,6 +394,9 @@ pub fn analyze(
                 return Ok(report);
             }
             let p = problem(matrix, rows, pivot, milp, policy)?;
+            // problem() constructs normalized multipliers and support decisions, all
+            // explicitly dimensionless; metadata never comes from SolveReport.
+            let coordinates = p.contract.variables.iter().map(|variable| variable.id).collect();
             let identity = layout(&p);
             let stamp = Compatibility {
                 layout: identity,
@@ -487,6 +493,7 @@ pub fn analyze(
             } else if outcome.termination.category != Termination::Infeasible {
                 report.complete = false;
             }
+            report.dimensionless_coordinates.push(coordinates);
             report.attempts.push(outcome);
         }
     }

@@ -325,6 +325,14 @@ frames! {
         MathPhysicalPremisesV1 => "pse.math.physical-premises.v1",
         /// Body identity under resolver-issued consumed physical premises.
         ModelingConsumerBodyV5 => "pse.modeling.consumer-body.v5",
+        /// Resolved operation syntax, exact literals, typed lexical/local slots and finite membership.
+        ModelingResolvedSyntaxV1 => "pse.modeling.resolved-syntax.v1",
+        /// Resolved function syntax with complete formal/result, validity, permission and provider contracts.
+        ModelingResolvedFunctionV1 => "pse.modeling.resolved-function.v1",
+        /// Reusable resolved output/guard body, local physical roles, consumed premises and construction policy.
+        ModelingResolvedBodyV1 => "pse.modeling.resolved-body.v1",
+        /// Catalogued typed derived-source relationships; occurrence/instance bindings remain separate.
+        ModelingDerivedRelationshipV1 => "pse.modeling.derived-relationship.v1",
         /// The parametric projection of a prepared modeling view over requested parameters.
         CompilerModelingParametricV1 => "pse.compiler.modeling-parametric.v1",
         /// A grouped consumer body, its expressions and validity ranges in canonical spelling
@@ -524,6 +532,10 @@ frames! {
     }
 
     "runtime and workflows" ("pse-runtime") {
+        /// Direction-qualified exported serde schemas and their interpretation versions.
+        BoundarySchemaSetV1 => "pse.boundary.schema-set.v1",
+        /// Complete covariance payload bound to privately verified fit evidence.
+        CovarianceInputV1 => "pse.covariance.input.v1",
         /// A conditional strategy's causal map.
         CausalMapV2 => "pse.causal-map.v2",
         /// The environment a completed step actually ran in.

@@ -438,6 +438,10 @@ fallback rebuilds them. *Tested* by
 
 ### 16.2 Sources and precedence
 
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+Runtime consumes compiler-owned annotation/view products and pure predicted-start/fallback policy, preserving intentional per-mode differences.
+
 > Decision: ADR-0163 (proposed; authorized implementation).
 
 Engineering scale selection has its own precedence: analysis, case, model, applicable
@@ -938,6 +942,10 @@ owns the rationale; [ADR-0082](../../adr/0082-library-owned-process-mathematics.
 library ownership of the mathematics.
 
 ### 18.1 Problem representations
+
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+The seam exposes settings-dependent capabilities, explicit fixed-point/Picard maps and separately admitted recovery profiles. Original residual/scales/start permissions and fresh-session semantics remain; Uno code5 is Numerical, SQP-LBFGS and all four numerical hunks remain declared.
 
 > Decision: [ADR-0103](../../adr/0103-variable-domain-facet.md) — authored variable
 > domains reach `CoefficientProblem` and routing (Plan 22 M1, implemented);
@@ -1531,6 +1539,10 @@ sequence ([§19.2](workflows-and-results.md#section-19-2)) and continues after a
 step only when the steps are declared independent.
 
 ### 18.8 Threading, cancellation and resource ownership
+
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+One supervisor retains inherited cancellation, original deadlines, native destruction/join and charges through drain. Direct FERAL symbolic peak estimates precede numeric factorization without replacing post-factor checks/full envelopes. Retained Rayon workers actually join; partial allocator hooks cannot release unobserved storage.
 
 > Decision: [ADR-0205](../../adr/0205-fixed-profile-idas-storage.md) (proposed; maintainer-authorized Plan48 E01 target).
 

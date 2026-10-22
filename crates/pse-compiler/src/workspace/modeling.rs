@@ -320,6 +320,20 @@ fn selected(
     checkpoint(db);
     Ok(Arc::new(catalog.checked(db).select(root)?))
 }
+// Catalog equality is filtered through selected() before these retained firewalls.
+// Unrelated package edits may validate them, but cannot invalidate projection.
+#[salsa::tracked(returns(clone),lru=256,heap_size=physical_scope_heap)]
+fn physical_scope(db: &dyn CompilerDb, catalog: Catalog, root: DeclarationId) -> Result<Arc<PhysicalScope>> {
+    let package = selected(db, catalog, root)?;
+    Ok(Arc::new(package.context().scope.clone()))
+}
+fn physical_scope_heap(value: &Result<Arc<PhysicalScope>>) -> usize {
+    value.as_ref().map_or(0, |scope| scope_bytes(scope))
+}
+#[salsa::tracked(returns(clone),lru=256,heap_size=selected_heap)]
+fn function_contracts(db: &dyn CompilerDb, catalog: Catalog, root: DeclarationId) -> Result<Arc<CheckedPackage>> {
+    selected(db, catalog, root)
+}
 #[salsa::tracked(returns(clone),lru=64,heap_size=specialized_heap)]
 fn specialized(
     db: &dyn CompilerDb,
@@ -488,6 +502,7 @@ impl CompilerWorkspace {
                 return Err(CompileError::Cancelled);
             }
             self.publish_modeling_revision(revision.clone())?;
+            self.db.trigger_lru_eviction();
             if self.retention_exceeded() {
                 if let Some(context) = pse_diagnostics::observation::current() {
                     context.count("compiler.retention_limit_rotations", "count", 1);
@@ -654,7 +669,7 @@ impl CompilerWorkspace {
                 }
             }
         }
-        granular::configure(&mut self.db, self.limits.query_values);
+        granular::configure(&mut self.db, self.limits.granular_query_values);
         let checked = salsa::Cancelled::catch(std::panic::AssertUnwindSafe(|| {
             granular::check(self, rows, scope, documents)
         }))
@@ -702,6 +717,8 @@ impl CompilerWorkspace {
             let catalog = Catalog::new(&self.db, checked);
             selected::set_lru_capacity(&mut self.db, self.limits.query_values);
             specialized::set_lru_capacity(&mut self.db, self.limits.query_values);
+            physical_scope::set_lru_capacity(&mut self.db, self.limits.query_values);
+            function_contracts::set_lru_capacity(&mut self.db, self.limits.query_values);
             document_table::set_lru_capacity(&mut self.db, self.limits.query_values);
             executable::configure(&mut self.db, self.limits.query_values);
             self.modeling = Some(State {
@@ -868,9 +885,10 @@ impl CompilerWorkspace {
 
 mod conditional;
 pub use conditional::{AutomaticCausalUnit, ConditionalUnitInventory};
-mod executable;
+pub(super) mod executable;
 mod flow;
 pub use executable::{
+    AnnotationObservation, CompilerView, NumericalAnnotation, NumericalAnnotationMode, NumericalAnnotations, NumericalScale, NumericalStartSource, NumericalStartValues, ScalingObservations, ViewChoice, ViewPolicy, ViewReason,
     AdmittedImplicit, AdmittedModeling, BoundLookup, BoundLookupKey, BoundStructure, Derivation,
     Derived, ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning, ImplicitProgramRequest,
     ImplicitPrograms, ImplicitScale, ImplicitSelection, ModelingCaseBindings,

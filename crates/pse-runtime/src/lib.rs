@@ -34,25 +34,24 @@
 //! are implemented. Session factories bind the same runtime and reservation adapter to
 //! admitted snapshots or explicitly unpublished candidate rows.
 
+extern crate self as pse_runtime;
+
+pub mod boundary_documents;
 pub mod budget;
 pub mod cancel;
-pub mod capture;
 pub mod env;
 pub mod error;
-pub mod frozen_inspection;
-pub mod inspection;
-pub mod inspection_comparison;
 pub mod inspection_documents;
 pub mod invocation;
 pub mod observation;
-pub mod review_analysis;
-pub mod review_launch;
-pub mod review_pack;
-pub mod review_query;
+/// Live detail contracts and collectors shared by runtime and tooling.
+pub mod observation_detail;
 pub use inspection_documents::{ResourceConsumer, TableName};
 pub mod peak;
 pub mod session_factory;
 pub mod settings;
+/// Internal tooling boundary; product workflow contracts remain in their owners.
+pub mod tooling;
 
 pub use crate::budget::{CacheBudget, ResourceBudget};
 pub use crate::error::RuntimeError;

@@ -14,7 +14,7 @@ use pse_model::generated::runtime::{
 use pse_operations::{
     canonical::CanonicalStore,
     canonical_execution::{
-        AttemptFence, ResultBlockAppend, ResultPayload, result_batch_key, result_set_key,
+        AdmittedSealedResultFile, AttemptFence, ResultBlockAppend, ResultPayload, result_batch_key, result_set_key,
     },
 };
 use pse_relations::{
@@ -26,57 +26,13 @@ use pse_relations::{
 use std::sync::Arc;
 
 fn indexed_scalar(id: SemanticId) -> bool {
-    [
-        solve_variables::RELATION_ID,
-        solve_constraints::RELATION_ID,
-        fit_parameters::RELATION_ID,
-        fit_observations::RELATION_ID,
-    ]
-    .contains(&id)
+    pse_relations::generated::result_selection::for_relation(id)
+        .is_some_and(|selection| !selection.sort.is_empty())
 }
 pub(super) fn check_output_field(id: SemanticId, field: &str) -> Result<(), WorkflowError> {
-    let fields: &[&str] = if id == solve_variables::RELATION_ID {
-        &[
-            "value",
-            "lower",
-            "upper",
-            "lower_violation",
-            "upper_violation",
-            "tolerance",
-            "lower_dual",
-            "upper_dual",
-            "reduced_cost",
-            "stationarity",
-        ]
-    } else if id == solve_constraints::RELATION_ID {
-        &[
-            "value",
-            "lower",
-            "upper",
-            "equality_residual",
-            "lower_violation",
-            "upper_violation",
-            "tolerance",
-            "dual",
-        ]
-    } else if id == fit_parameters::RELATION_ID {
-        &["value", "scale"]
-    } else if id == fit_observations::RELATION_ID {
-        &[
-            "prediction",
-            "residual",
-            "standardized_residual",
-            "objective_contribution",
-        ]
-    } else if id == simulation_samples::RELATION_ID {
-        &["value"]
-    } else {
-        &[]
-    };
-    if !fields.contains(&field) {
-        return Err(contract(
-            "scientific output field has no declared native index",
-        ));
+    if !pse_relations::generated::result_selection::for_relation(id)
+        .is_some_and(|selection| selection.values.contains(&field)) {
+        return Err(contract("scientific output field has no declared native selection"));
     }
     Ok(())
 }
@@ -161,6 +117,7 @@ pub(super) fn selected_scalar_row(
     Ok(locator)
 }
 /// Validate every locator premise against its exact original decoded row.
+#[cfg(test)]
 pub(super) fn verify_scalar_row(
     table: &FieldCheckedBatch,
     locator: &RowLocator,
@@ -204,76 +161,96 @@ pub(super) fn scalar_rows_at(
     Ok(rows)
 }
 
-/// Arrow kernels evaluate predicates on the decoded requested field, while take
-/// gathers original columns without normalizing their scientific bits.
+/// Lower the public scientific predicate once; the native session owns its execution.
+pub(super) fn scalar_expression(
+    relation: SemanticId,
+    field: &str,
+    minimum: Option<f64>,
+    maximum: Option<f64>,
+    missing: Option<bool>,
+) -> Result<datafusion::logical_expr::Expr, WorkflowError> {
+    use datafusion::logical_expr::{col, lit, when};
+    check_output_field(relation, field)?;
+    if minimum.is_some_and(|value| !value.is_finite())
+        || maximum.is_some_and(|value| !value.is_finite())
+        || minimum.zip(maximum).is_some_and(|(lower, upper)| lower > upper)
+        || missing == Some(true) && (minimum.is_some() || maximum.is_some()) {
+        return Err(contract("invalid scalar access predicate"));
+    }
+    let value = col(field);
+    if missing == Some(true) { return Ok(value.is_null()); }
+    if missing.is_none() && minimum.is_none() && maximum.is_none() { return Ok(lit(true)); }
+    let mut predicate = value.clone().gt(lit(f64::NEG_INFINITY))
+        .and(value.clone().lt(lit(f64::INFINITY)));
+    if minimum.is_some() || maximum.is_some() {
+        // Arrow's total ordering distinguishes zero signs. Normalize only the
+        // temporary comparison expression; returned scientific arrays retain bits.
+        let comparison = when(value.clone().eq(lit(0.0)).or(value.clone().eq(lit(-0.0))), lit(0.0))
+            .otherwise(value).map_err(pse_engine::EngineError::from)?;
+        if let Some(lower) = minimum {
+            predicate = predicate.and(comparison.clone().gt_eq(lit(if lower == 0.0 {0.0} else {lower})));
+        }
+        if let Some(upper) = maximum {
+            predicate = predicate.and(comparison.lt_eq(lit(if upper == 0.0 {0.0} else {upper})));
+        }
+    }
+    Ok(predicate)
+}
+
+/// Evaluate through the same configured native state used by this runtime's queries.
+#[cfg(test)]
 pub(super) fn scalar_predicate(
+    state: &datafusion::execution::session_state::SessionState,
     table: &FieldCheckedBatch,
     field: &str,
     minimum: Option<f64>,
     maximum: Option<f64>,
     missing: Option<bool>,
 ) -> Result<datafusion::arrow::array::BooleanArray, WorkflowError> {
-    use datafusion::arrow::{
-        array::{Array, BooleanArray, Float64Array, UInt8Array},
-        compute::{
-            and_kleene, is_not_null, is_null,
-            kernels::cmp::{eq, gt_eq, lt_eq},
-        },
-    };
-    check_output_field(table.relation_id(), field)?;
-    if minimum.is_some_and(|value| !value.is_finite())
-        || maximum.is_some_and(|value| !value.is_finite())
-        || minimum
-            .zip(maximum)
-            .is_some_and(|(lower, upper)| lower > upper)
-        || (missing == Some(true) && (minimum.is_some() || maximum.is_some()))
-    {
-        return Err(contract("invalid scalar access predicate"));
-    }
-    let values = table
-        .batch()
-        .column_by_name(field)
-        .and_then(|column| column.as_any().downcast_ref::<Float64Array>())
-        .ok_or_else(|| contract("declared scientific scalar column absent"))?;
-    let kernel = |error| WorkflowError::from(super::result_blocks::ResultBlockError::from(error));
-    if missing == Some(true) {
-        return is_null(values).map_err(kernel);
-    }
-    let mut mask = if missing == Some(false) || minimum.is_some() || maximum.is_some() {
-        let finite: UInt8Array = values.unary(|value| u8::from(value.is_finite()));
-        let finite = eq(&finite, &UInt8Array::new_scalar(1)).map_err(kernel)?;
-        and_kleene(&is_not_null(values).map_err(kernel)?, &finite).map_err(kernel)?
-    } else {
-        BooleanArray::from(vec![true; values.len()])
-    };
-    if minimum.is_some() || maximum.is_some() {
-        // Arrow totalOrder distinguishes signed zeros. Numeric access treats them
-        // equally, using a temporary comparison array while retaining original bits.
-        let comparison: Float64Array = values.unary(|value| if value == 0.0 { 0.0 } else { value });
-        if let Some(lower) = minimum {
-            mask = and_kleene(
-                &mask,
-                &gt_eq(
-                    &comparison,
-                    &Float64Array::new_scalar(if lower == 0.0 { 0.0 } else { lower }),
-                )
-                .map_err(kernel)?,
-            )
-            .map_err(kernel)?;
-        }
-        if let Some(upper) = maximum {
-            mask = and_kleene(
-                &mask,
-                &lt_eq(
-                    &comparison,
-                    &Float64Array::new_scalar(if upper == 0.0 { 0.0 } else { upper }),
-                )
-                .map_err(kernel)?,
-            )
-            .map_err(kernel)?;
-        }
-    }
-    Ok(mask)
+    let expression = scalar_expression(table.relation_id(), field, minimum, maximum, missing)?;
+    evaluate_scalar_expression(state, expression, table.batch())
+}
+fn evaluate_scalar_expression(
+    state: &datafusion::execution::session_state::SessionState,
+    expression: datafusion::logical_expr::Expr,
+    batch: &datafusion::arrow::record_batch::RecordBatch,
+) -> Result<datafusion::arrow::array::BooleanArray, WorkflowError> {
+    let schema = datafusion::common::DFSchema::try_from(batch.schema().as_ref().clone())
+        .map_err(pse_engine::EngineError::from)?;
+    let physical = state.create_physical_expr(expression, &schema).map_err(pse_engine::EngineError::from)?;
+    let mask = physical.evaluate(batch).map_err(pse_engine::EngineError::from)?
+        .into_array(batch.num_rows()).map_err(pse_engine::EngineError::from)?;
+    mask.as_any().downcast_ref::<datafusion::arrow::array::BooleanArray>().cloned()
+        .ok_or_else(|| contract("native scientific predicate did not return Boolean values"))
+}
+
+/// Select original scientific owners and relation-specific partitions through
+/// the same native expression as the value predicate. Block positions are not keys.
+pub(super) fn scalar_selection_expression(
+    relation: SemanticId, owner: SemanticId, partition: &str, field: &str,
+    minimum: Option<f64>, maximum: Option<f64>, missing: Option<bool>,
+) -> Result<datafusion::logical_expr::Expr, WorkflowError> {
+    use datafusion::{common::ScalarValue, logical_expr::{col, lit}};
+    let values = scalar_expression(relation, field, minimum, maximum, missing)?;
+    let selection = pse_relations::generated::result_selection::for_relation(relation)
+        .filter(|selection| !selection.sort.is_empty()).ok_or_else(|| contract("declared scalar result selection"))?;
+    let mut keys = col(selection.owner).eq(lit(ScalarValue::FixedSizeBinary(16, Some(owner.as_bytes().to_vec()))));
+    if let Some(step) = selection.step {
+        let Some(value) = partition.strip_prefix("step:").and_then(|value| value.parse::<i64>().ok()).filter(|value| *value >= 0 && format!("step:{value}") == partition) else { return Ok(lit(false)); };
+        keys = keys.and(col(step).eq(lit(value)));
+    } else if let Some(experiment) = selection.experiment {
+        let Some(value) = partition.strip_prefix("experiment:").and_then(|value| SemanticId::parse_hex(value).ok()).filter(|value| format!("experiment:{value}") == partition) else { return Ok(lit(false)); };
+        keys = keys.and(col(experiment).eq(lit(ScalarValue::FixedSizeBinary(16, Some(value.as_bytes().to_vec())))));
+    } else if partition != "0" { return Ok(lit(false)); }
+    Ok(keys.and(values))
+}
+
+pub(super) fn scalar_selection_mask(
+    state: &datafusion::execution::session_state::SessionState,
+    table: &FieldCheckedBatch,
+    expression: datafusion::logical_expr::Expr,
+) -> Result<datafusion::arrow::array::BooleanArray, WorkflowError> {
+    evaluate_scalar_expression(state, expression, table.batch())
 }
 
 /// Ingest the sole admitted scientific IPC payload and its derived scalar index
@@ -326,7 +303,6 @@ struct SetCompletion {
 struct PendingBatch {
     name: String,
     ordinal: u64,
-    batch: datafusion::arrow::record_batch::RecordBatch,
     source: FieldCheckedBatch,
     block: Block,
     rows: Vec<RowLocator>,
@@ -400,7 +376,6 @@ impl<'a> ResultAppendQueue<'a> {
         &mut self,
         name: &str,
         ordinal: u64,
-        batch: datafusion::arrow::record_batch::RecordBatch,
         source: &FieldCheckedBatch,
         block: &Block,
         rows: &[RowLocator],
@@ -428,7 +403,7 @@ impl<'a> ResultAppendQueue<'a> {
                         )
                         .ok_or_else(|| contract("append metadata extent"))
                 })?;
-        let file_extent = result_files::batch_extent(&batch)?;
+        let file_extent = result_files::batch_extent(source.batch())?;
         let encoded_extent = metadata
             .checked_mul(16)
             .and_then(|bytes| bytes.checked_add(4096))
@@ -465,7 +440,6 @@ impl<'a> ResultAppendQueue<'a> {
         self.items.push(PendingBatch {
             name: name.into(),
             ordinal,
-            batch,
             source: source.clone(),
             block: block.clone(),
             rows: rows.to_vec(),
@@ -490,23 +464,24 @@ impl<'a> ResultAppendQueue<'a> {
         let items = std::mem::take(&mut self.items);
         self.extent = 4096;
         self.file_extent = 0;
-        let reservation = MemoryConsumer::new("canonical:result-file-encoding").register(self.pool);
-        if reservation
-            .try_grow(3 * result_files::MAX_FILE_BYTES)
-            .is_err()
-        {
-            self.flush_metadata().await?;
-            reservation
-                .try_grow(3 * result_files::MAX_FILE_BYTES)
-                .map_err(pse_engine::EngineError::from)?;
-        }
-        let owner = pse_columnar::AllocationLease::new(reservation);
         let batches = items
             .iter()
-            .map(|item| item.batch.clone())
+            .map(|item| item.source.clone())
             .collect::<Vec<_>>();
-        let bytes = result_files::encode_file_batches(&batches)?;
-        let digest = pse_operations::canonical_execution::result_payload_digest(&bytes);
+        result_files::check_file_batches(&batches.iter().map(|batch| batch.batch().clone()).collect::<Vec<_>>())?;
+        let registry = pse_schema::registry().map_err(pse_relations::RelationError::from).map_err(relation)?;
+        let cancel = pse_columnar::CancellationToken::new();
+        let encode = || pse_relations::result_batch::AdmittedResultFile::encode(registry, &batches, result_files::MAX_FILE_BYTES, self.pool, &cancel);
+        let admitted = match encode() {
+            Ok(file) => file,
+            Err(error) => {
+                let error = relation(error);
+                if !projection_memory_refusal(&error) { return Err(error); }
+                self.flush_metadata().await?;
+                pse_relations::result_batch::AdmittedResultFile::encode(registry, &batches, result_files::MAX_FILE_BYTES, self.pool, &cancel).map_err(relation)?
+            }
+        };
+        let digest = pse_operations::canonical_execution::result_payload_digest(admitted.bytes());
         let operation = format!(
             "file:{}:{}:{}",
             self.fence.attempt(),
@@ -527,7 +502,7 @@ impl<'a> ResultAppendQueue<'a> {
             self.store
                 .seal_file(
                     &intent,
-                    &bytes,
+                    admitted.bytes(),
                     pse_operations::canonical_files::ARROW_IPC_FILE,
                     batches.len() as u64,
                     &schema,
@@ -538,7 +513,7 @@ impl<'a> ResultAppendQueue<'a> {
         // Physical publication is synchronous; seal_file's RPC binds only the
         // descriptor. No byte-bearing transport outlives its return. Drop every
         // batch alias and byte allocation before releasing the encoder allowance.
-        drop(bytes);
+        let admitted_file = AdmittedSealedResultFile::bind(file, admitted)?;
         drop(batches);
         let metadata = items
             .into_iter()
@@ -546,26 +521,23 @@ impl<'a> ResultAppendQueue<'a> {
                 let PendingBatch {
                     name,
                     ordinal,
-                    batch,
                     source,
                     block,
                     rows,
                     outputs,
                     owner,
                 } = item;
-                drop(batch);
                 drop(source); // Checked-storage/export metadata stays charged through sealing.
                 (name, ordinal, block, rows, outputs, owner)
             })
             .collect::<Vec<_>>();
-        drop(owner);
         for (index, (name, ordinal, mut block, rows, outputs, owner)) in
             metadata.into_iter().enumerate()
         {
             // The sealed payload has no resident bytes. Its existing per-item
             // metadata lease covers the descriptor, intent and request copies.
             let payload =
-                ResultPayload::from_sealed_owned(file.clone(), index as u64, owner.clone())?;
+                ResultPayload::from_admitted_sealed_owned(&admitted_file, index as u64, owner.clone())?;
             block.payload_bytes = payload.byte_len();
             block.payload_digest = payload.digest().to_owned();
             let append = ResultBlockAppend::new(
@@ -1081,6 +1053,8 @@ async fn store_result_chunk(
     if id == simulation_samples::RELATION_ID {
         return store_trajectory(queue, table, origin, ordinal).await;
     }
+    let sorted = pse_relations::result_batch::sort_new_scalar(table, pool, &pse_columnar::CancellationToken::new()).map_err(relation)?;
+    let table = &sorted;
     let reservation = MemoryConsumer::new("canonical:result-scalar-index").register(pool);
     // Live prepared locators, encoded metadata, Arrow writer/protobuf scratch and
     // the outgoing payload are independent of either encoded admission ceiling.
@@ -1127,7 +1101,7 @@ async fn store_result_chunk(
             // identity lengths below. Row extents are prepared once per window.
             let rows = metadata_prefix(&extents[offset..])?;
             let rows = result_files::result_prefix_rows(table.batch(), base + offset, rows)?;
-            let payload = table.batch().slice(base + offset, rows);
+            let payload = table.slice(base + offset, rows).map_err(relation)?;
             let start = origin
                 .checked_add((base + offset) as u64)
                 .ok_or_else(|| contract("result global row overflow"))?;
@@ -1157,10 +1131,11 @@ async fn store_result_chunk(
                 coordinate_max: None,
                 payload_bytes: 0,
                 payload_digest: String::new(),
+                statistics: None,
                 interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
             };
             queue
-                .push(&name, current, payload, table, &block, &locators, &[])
+                .push(&name, current, &payload, &block, &locators, &[])
                 .await?;
             *ordinal += 1;
             offset += rows;
@@ -1292,7 +1267,7 @@ async fn store_trajectory(
             ));
         }
         let rows = result_files::result_prefix_rows(table.batch(), base, count)?;
-        let payload = table.batch().slice(base, rows);
+        let payload = table.slice(base, rows).map_err(relation)?;
         let outputs = trajectory_outputs(table, &key, &set, origin, base, rows)?;
         let start = origin
             .checked_add(base as u64)
@@ -1315,10 +1290,11 @@ async fn store_trajectory(
             coordinate_max: None,
             payload_bytes: 0,
             payload_digest: String::new(),
+            statistics: None,
             interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
         };
         queue
-            .push(&name, *ordinal, payload, table, &block, &[], &outputs)
+            .push(&name, *ordinal, &payload, &block, &[], &outputs)
             .await?;
         *ordinal += 1;
         base += rows;
@@ -1346,6 +1322,35 @@ mod result_projection_unit {
         (0..mask.len())
             .filter(|index| mask.is_valid(*index) && mask.value(*index))
             .collect()
+    }
+
+    #[test]
+    fn native_scalar_predicates_keep_ieee_payloads_and_conditional_finite_modes() {
+        use datafusion::arrow::{datatypes::{DataType, Field, Schema}, record_batch::RecordBatch};
+        // This is an expression-control batch, not an admitted scientific relation.
+        let nan = f64::from_bits(0x7ff8_0000_0000_0042);
+        let tiny = f64::from_bits(1);
+        let values = Arc::new(Float64Array::from(vec![None, Some(f64::NEG_INFINITY),
+            Some(f64::INFINITY), Some(nan), Some(-0.0), Some(0.0), Some(tiny),
+            Some(f64::MAX), Some(-3.0)]));
+        let batch = RecordBatch::try_new(Arc::new(Schema::new(vec![Field::new("value", DataType::Float64, true)])), vec![values.clone()]).unwrap();
+        let state = datafusion::prelude::SessionContext::new().state();
+        let evaluate = |minimum, maximum, missing| {
+            let expression = scalar_expression(fit_parameters::RELATION_ID, "value", minimum, maximum, missing).unwrap();
+            evaluate_scalar_expression(&state, expression, &batch).unwrap()
+        };
+        assert_eq!(selected(&evaluate(None, None, None)), (0..9).collect::<Vec<_>>());
+        assert_eq!(selected(&evaluate(None, None, Some(true))), [0]);
+        assert_eq!(selected(&evaluate(None, None, Some(false))), [4, 5, 6, 7, 8]);
+        let zeros = evaluate(Some(-0.0), Some(0.0), None);
+        assert_eq!(selected(&zeros), [4, 5]);
+        assert_eq!(selected(&evaluate(Some(tiny), Some(tiny), None)), [6]);
+        let selected = filter_record_batch(&batch, &zeros).unwrap();
+        let selected = selected.column(0).as_any().downcast_ref::<Float64Array>().unwrap();
+        assert_eq!(selected.value(0).to_bits(), (-0.0f64).to_bits());
+        assert_eq!(selected.value(1).to_bits(), 0.0f64.to_bits());
+        assert_eq!(values.value(3).to_bits(), nan.to_bits());
+        assert_eq!(values.value(6).to_bits(), tiny.to_bits());
     }
     #[test]
     fn projection_retry_requires_concrete_memory_cause() {
@@ -2075,7 +2080,6 @@ mod result_projection_unit {
         let key = result_batch_key(fence.attempt(), &set, 0);
         let (payload, rows) = result_files::encode_result_prefix(table.batch(), 0, 1).unwrap();
         let _encoded = payload;
-        let payload = table.batch().clone();
         let locators = scalar_rows_at(&table, fence.attempt(), &set, &key, 0, rows, 0).unwrap();
         let block = Block {
             key: key.clone(),
@@ -2092,11 +2096,12 @@ mod result_projection_unit {
             coordinate_max: None,
             payload_bytes: 0,
             payload_digest: String::new(),
+            statistics: None,
             interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
         };
         acks.expect(&fence, &name).unwrap();
         queue
-            .push(&name, 0, payload, &table, &block, &locators, &[])
+            .push(&name, 0, &table, &block, &locators, &[])
             .await
             .unwrap();
         queue
@@ -2403,22 +2408,22 @@ mod result_projection_unit {
         assert_eq!(zero.partition, "0");
         assert_eq!(zero.offset, 0);
         assert_eq!(
-            selected(&scalar_predicate(&table, "value", None, None, None).unwrap()),
+            selected(&scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "value", None, None, None).unwrap()),
             vec![0, 1, 2, 3, 4, 5]
         );
         assert_eq!(
-            selected(&scalar_predicate(&table, "value", None, None, Some(true)).unwrap()),
+            selected(&scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "value", None, None, Some(true)).unwrap()),
             vec![2]
         );
         assert_eq!(
-            selected(&scalar_predicate(&table, "value", None, None, Some(false)).unwrap()),
+            selected(&scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "value", None, None, Some(false)).unwrap()),
             vec![0, 1, 3, 4, 5]
         );
         assert_eq!(
-            selected(&scalar_predicate(&table, "scale", Some(2.0), Some(2.0), None).unwrap()),
+            selected(&scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "scale", Some(2.0), Some(2.0), None).unwrap()),
             vec![0, 1, 2, 3, 4, 5]
         );
-        let mask = scalar_predicate(&table, "value", Some(0.0), Some(-0.0), None).unwrap();
+        let mask = scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "value", Some(0.0), Some(-0.0), None).unwrap();
         assert_eq!(selected(&mask), vec![0, 1]);
         let gathered = filter_record_batch(table.batch(), &mask).unwrap();
         let values = gathered
@@ -2439,10 +2444,10 @@ mod result_projection_unit {
         assert_eq!(original.value(4).to_bits(), precise.to_bits());
         assert_eq!(original.value(5).to_bits(), f64::MAX.to_bits());
         assert!(original.is_null(2));
-        assert!(scalar_predicate(&table, "fixed", None, None, None).is_err());
-        assert!(scalar_predicate(&table, "value", Some(f64::NAN), None, None).is_err());
-        assert!(scalar_predicate(&table, "value", Some(3.0), Some(2.0), None).is_err());
-        assert!(scalar_predicate(&table, "value", Some(0.0), None, Some(true)).is_err());
+        assert!(scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "fixed", None, None, None).is_err());
+        assert!(scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "value", Some(f64::NAN), None, None).is_err());
+        assert!(scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "value", Some(3.0), Some(2.0), None).is_err());
+        assert!(scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "value", Some(0.0), None, Some(true)).is_err());
         assert!(selected_scalar_row(&table, "attempt", "set", "block", 6, 0).is_err());
         assert!(selected_scalar_row(&table, "attempt", "set", "block", 1, u64::MAX).is_err());
         let mut forged = zero.clone();

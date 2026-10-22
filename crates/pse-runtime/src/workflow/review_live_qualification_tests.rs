@@ -3,13 +3,9 @@
 //! One actual native callback remains owned while copied review is inspected/cancelled.
 #![cfg(feature = "solver-kinsol")]
 use super::*;
-use crate::{
-    frozen_inspection::{
+use crate::tooling::{frozen_inspection::{
         FrozenEvidenceSet, FrozenInspectionRequest, RecordedWindow, inspect_frozen,
-    },
-    inspection::InspectionRequest,
-    review_analysis::{AnalysisRequest, analyze},
-};
+    }, inspection::InspectionRequest, review_analysis::{AnalysisRequest, analyze}};
 use pse_backend_native::{
     presolve,
     solve::{Backend, SolverSelection},

@@ -26,6 +26,8 @@ from pse._build import (
     _NativeStudyHandle,
 )
 from pse._inspection import TableStream
+from pse._physical import ArrowInput
+from pse.contracts.enums import LiveSimulationEventKind, TrajectoryTermination
 from pse.contracts.documents import (
     AdviceMetric,
     AdviceObservation,
@@ -45,6 +47,7 @@ from pse.contracts.documents import (
     InvocationEvidenceDocument,
     ManagedStudyDiagnosticsDocument,
     NumericalStrategyDocument,
+    ParameterCovariance,
     PackExportRequest,
     PackIndex,
     PointStatus,
@@ -83,7 +86,7 @@ class StoredResult:
     @property
     def run_id(self) -> RunId:
         """Producing scientific execution identity."""
-        return RunId(SemanticId.from_hex(self._handle.run_id))
+        return self._handle.run_id
 
     @property
     def usable(self) -> bool:
@@ -93,7 +96,7 @@ class StoredResult:
     @property
     def completion(self) -> Completion:
         """Original bounded scientific completion, without report hydration."""
-        return codec.decode_json(self._handle.completion(), Completion)
+        return self._handle.completion()
 
     def diagnostics(self) -> tuple[DiagnosticReport, ...]:
         """Original scientific boundary observations."""
@@ -180,7 +183,7 @@ class PreparedOperation:
     @property
     def identity(self) -> ContentHash:
         """Exact prepared source and profile identity."""
-        return ContentHash.from_prefixed(self._handle.identity)
+        return self._handle.identity
 
     @property
     def route(self) -> RouteDocument:
@@ -195,7 +198,7 @@ class PreparedOperation:
     @property
     def strategy_profile(self) -> ContentHash:
         """Exact effective native profile identity for numerical declarations."""
-        return ContentHash.from_prefixed(self._handle.strategy_profile)
+        return self._handle.strategy_profile
 
     @property
     def composition_request(self) -> CompositionRequest:
@@ -205,9 +208,7 @@ class PreparedOperation:
     @property
     def numerical_strategy(self) -> NumericalStrategyDocument:
         """Actual finite execution declaration, projected by Rust."""
-        return codec.decode_json(
-            self._handle.numerical_strategy, NumericalStrategyDocument
-        )
+        return self._handle.numerical_strategy
 
     def with_numerical_strategy(
         self,
@@ -233,12 +234,12 @@ class PreparedOperation:
         return PreparedOperation(self._handle.with_start(seed))
 
     def with_primal_start(
-        self, values: Mapping[SemanticId, float]
+        self, values: ArrowInput
     ) -> "PreparedOperation":
         """Select every original free coordinate without retaining native state."""
         return PreparedOperation(
             self._handle.with_primal_start(
-                {key.to_hex(): value for key, value in values.items()}
+                values
             )
         )
 
@@ -266,7 +267,7 @@ class LiveSimulationEvent:
     _handle: _NativeLiveSimulationEvent
 
     @property
-    def kind(self) -> str:
+    def kind(self) -> LiveSimulationEventKind:
         return self._handle.kind
 
     @property
@@ -302,7 +303,7 @@ class LiveSimulationEvent:
         return self._handle.checks_satisfied
 
     @property
-    def termination(self) -> str | None:
+    def termination(self) -> TrajectoryTermination | None:
         return self._handle.termination
 
     def table(self) -> TableStream | None:
@@ -364,6 +365,11 @@ class RunResult:
 
     _handle: _NativeRunResult
 
+    @property
+    def parameter_covariance(self) -> ParameterCovariance | None:
+        """Qualified fit covariance; retain this result as its in-process source."""
+        return self._handle.parameter_covariance()
+
     def diagnostic_origin(self, step: int | None = None) -> DiagnosticOrigin:
         """Retain original invocation and failure context for follow-up diagnostics."""
         return self._handle.diagnostic_origin(step)
@@ -379,7 +385,7 @@ class RunResult:
     @property
     def run_id(self) -> RunId:
         """Unique execution identity."""
-        return RunId(SemanticId.from_hex(self._handle.run_id))
+        return self._handle.run_id
 
     @property
     def canonical_run_key(self) -> str | None:
@@ -399,19 +405,17 @@ class RunResult:
     @property
     def fit_execution(self) -> FitExecutionDocument | None:
         """Retained fitting method, stopping reason and observed work."""
-        data = self._handle.fit_execution()
-        return None if data is None else codec.decode_json(data, FitExecutionDocument)
+        return self._handle.fit_execution()
 
     @property
     def fit_profiles(self) -> FitProfileDocument | None:
         """Retained profile chains, with worker failures and actual parallelism."""
-        data = self._handle.fit_profiles()
-        return None if data is None else codec.decode_json(data, FitProfileDocument)
+        return self._handle.fit_profiles()
 
     @property
     def completion(self) -> Completion:
         """Read the immutable joined assessment without evaluating the model again."""
-        return codec.decode_json(self._handle.completion(), Completion)
+        return self._handle.completion()
 
     @property
     def attempt_summary(self) -> AttemptSummary:
@@ -427,9 +431,7 @@ class RunResult:
         self, *, request: ReviewContextRequest | None = None
     ) -> ReviewContextDocument:
         """Export retained explanatory facts independently of runnable Replay."""
-        return codec.decode_json(
-            self._handle.review_context(request=request), ReviewContextDocument
-        )
+        return self._handle.review_context(request=request)
 
     def invocation_arrow(self, *, memory_bytes: int = 16 << 20) -> pa.RecordBatch:
         """Project the actual joined invocation with independently missing endpoints."""
@@ -616,29 +618,23 @@ class StudyHandle:
     @property
     def study_id(self) -> StudyId:
         """The study identity."""
-        return StudyId(SemanticId.from_hex(self._handle.study_id))
+        return self._handle.study_id
 
     def status(self) -> StudyStatus:
         """Read exact canonical occurrence status and lineage."""
-        return codec.decode_json(self._handle.status(), StudyStatus)
+        return self._handle.status()
 
     def cancel(self) -> StudyCancel:
         """Cancel the points that have not started and stop the running tries.
 
         Completed observations retain their actual canonical result identities.
         """
-        return codec.decode_json(self._handle.cancel(), StudyCancel)
+        return self._handle.cancel()
 
     def result(self) -> StudyResults | None:
         """The admitted parent and exact occurrence results; ``None`` before."""
-        published = self._handle.result()
-        return None if published is None else codec.decode_json(published, StudyResults)
+        return self._handle.result()
 
     def wait(self, *, controls: StudyWaitControls | None = None) -> StudyResults:
         """Wait for admitted canonical results under Rust-owned timing."""
-        return codec.decode_json(
-            self._handle.wait(
-                controls=None if controls is None else codec.encode_json(controls)
-            ),
-            StudyResults,
-        )
+        return self._handle.wait(controls=controls)

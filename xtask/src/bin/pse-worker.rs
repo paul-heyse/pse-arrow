@@ -401,14 +401,12 @@ async fn runtime(
     let deployment = deployment::open(cli.canonical_database.as_deref(), shared.math())
         .await
         .map_err(|e| format!("canonical deployment admission: {e}"))?;
-    let policy = LeasePolicy {
-        lease: Duration::from_secs(cli.lease_seconds),
-        heartbeat: Duration::from_millis(cli.heartbeat_ms),
-        ..LeasePolicy::default()
-    };
-    if policy.lease.is_zero() || policy.heartbeat.is_zero() || policy.heartbeat >= policy.lease {
-        return Err("worker heartbeat must be positive and shorter than its lease".into());
-    }
+    let defaults = LeasePolicy::default();
+    let policy = LeasePolicy::new(
+        Duration::from_secs(cli.lease_seconds),
+        Duration::from_millis(cli.heartbeat_ms),
+        defaults.batch(), defaults.flush(),
+    ).map_err(|error| error.to_string())?;
     let worker = cli
         .name
         .clone()

@@ -5,55 +5,56 @@
 pse_ids::semantic_id_newtype! {
     #[doc =
     "A scoped engineering output accuracy or decision goal (entity identity `accuracy_goal`, ADR-0115)."]
-    AccuracyGoalId
+    AccuracyGoalId : RegistrySemanticId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
     "One actual scientific attempt of a run, with its immutable generation and observations (entity identity `attempt`, ADR-0115)."]
-    AttemptId
+    AttemptId : RegistrySemanticId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
     "One authored modeling declaration. A specialization root, a definition and a member are declarations in a role, not separate entities (entity identity `declaration`, ADR-0115)."]
-    DeclarationId
+    DeclarationId : RegistrySemanticId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
     "A typed shared engineering allowance rule (entity identity `engineering_rule`, ADR-0115)."]
-    EngineeringRuleId
+    EngineeringRuleId : RegistrySemanticId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
     "An explicitly declared engineering characteristic magnitude (entity identity `engineering_scale`, ADR-0115)."]
-    EngineeringScaleId
+    EngineeringScaleId : RegistrySemanticId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
     "One authored shared-parameter fit over its experiments (entity identity `fit`, ADR-0115)."]
-    FitId
+    FitId : RegistrySemanticId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
     "One instantiated definition instance of a specialized model. A root instance takes its root declaration's identity unless it is a fit experiment, which prepares its case under the experiment's own identity; a nested instance is derived from its parent and member (entity identity `instance`, ADR-0115)."]
-    InstanceId
+    InstanceId : RegistrySemanticId
 }
 pse_ids::semantic_id_newtype! {
-    #[doc = "One authored package (entity identity `package`, ADR-0115)."] PackageId
+    #[doc = "One authored package (entity identity `package`, ADR-0115)."] PackageId :
+    RegistrySemanticId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
     "One immutable problem request, whose actual scientific executions are distinct attempts (entity identity `run`, ADR-0115)."]
-    RunId
+    RunId : RegistrySemanticId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
     "One qualified portable scientific seed from an admitted attempt (entity identity `solution`, ADR-0115)."]
-    SolutionId
+    SolutionId : RegistrySemanticId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
     "One retained study coordinating distinct point occurrences (entity identity `study`, ADR-0115)."]
-    StudyId
+    StudyId : RegistrySemanticId
 }
 impl crate::SemanticEq for AccuracyGoalId {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -219,4 +220,12 @@ impl crate::SemanticFrame for StudyId {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
+}
+/// Visit each registry role backed by a semantic identity.
+#[macro_export]
+macro_rules! for_each_semantic_identity {
+    ($callback:ident) => {
+        $callback ! (AccuracyGoalId, AttemptId, DeclarationId, EngineeringRuleId,
+        EngineeringScaleId, FitId, InstanceId, PackageId, RunId, SolutionId, StudyId);
+    };
 }

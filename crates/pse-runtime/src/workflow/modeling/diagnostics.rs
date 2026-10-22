@@ -2078,6 +2078,7 @@ pub struct ModelingJacobianOptimization {
     pub run_id: RunId,
     /// Certificates, degenerate sets and every native attempt.
     pub evidence: pse_backend_native::jacobian_diagnostics::Report,
+    pub(in crate::workflow::modeling) quantities: Arc<pse_quantity::QuantityRegistry>,
     pub(in crate::workflow::modeling) runtime: Runtime,
     pub(in crate::workflow::modeling) source_identity: pse_ids::ContentHash,
     pub(in crate::workflow::modeling) numerical_identity: pse_ids::ContentHash,
@@ -2194,6 +2195,7 @@ impl ModelingPackage {
                     .await?;
                 operation.check()?;
                 Ok(ModelingJacobianOptimization {
+                    quantities: self.physical.quantities.clone(),
                     origin: operation.origin.clone(),
                     run_id: pse_operations::mint_id(),
                     runtime: self.runtime.clone(),

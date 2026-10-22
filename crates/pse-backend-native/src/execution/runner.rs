@@ -243,6 +243,7 @@ pub fn nlp(
     let budget = crate::kkt::Budget {
         dual: step.accuracy.stationarity,
         limit: run.limit,
+        bytes: step.execution.memory.unwrap_or(usize::MAX),
     };
     let (mut report, factor) =
         pipeline.finish(report, step.tolerances, run.sense, &run.analysis, budget);

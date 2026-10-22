@@ -25,6 +25,8 @@ use arrow_schema::{DataType, Field, Fields, TimeUnit};
 pub enum ExtensionMetadataShape {
     /// `{"v":1}`.
     VersionOnly,
+    /// A closed source grammar and its independent grammar generation.
+    Expression,
     /// `{"v":1,"enum_id":"<32 hex>"}`.
     Enum,
     /// `{"v":1,"target_relation_id":"<32 hex>"}`.
@@ -35,7 +37,7 @@ impl ExtensionMetadataShape {
     /// The JSON key this shape adds beside `v`, if any.
     pub const fn id_key(self) -> Option<&'static str> {
         match self {
-            Self::VersionOnly => None,
+            Self::VersionOnly | Self::Expression => None,
             Self::Enum => Some("enum_id"),
             Self::OrdinalRef => Some("target_relation_id"),
         }
@@ -46,6 +48,7 @@ impl fmt::Display for ExtensionMetadataShape {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
             Self::VersionOnly => "version_only",
+            Self::Expression => "expression",
             Self::Enum => "enum",
             Self::OrdinalRef => "ordinal_ref",
         })
@@ -241,8 +244,8 @@ pub const EXTENSION_TYPES: [ExtensionTypeSpec; 11] = [
     ExtensionTypeSpec {
         name: "pse.expr_dsl",
         storage: expr_dsl_storage,
-        metadata: ExtensionMetadataShape::VersionOnly,
-        metadata_version: 1,
+        metadata: ExtensionMetadataShape::Expression,
+        metadata_version: 2,
         doc: "Authored expression text: the only authored form of an expression (§7.7).",
     },
     ExtensionTypeSpec {
@@ -284,7 +287,7 @@ pub enum ExtensionUse<'a> {
     /// `pse.enum`, naming the declared enumeration.
     Enum(&'a str),
     /// `pse.expr_dsl`.
-    ExprDsl,
+    ExprDsl(super::ExpressionGrammar),
     /// `pse.target_path`.
     TargetPath,
 }
@@ -302,7 +305,7 @@ impl ExtensionUse<'_> {
             Self::OrdinalRef { .. } => 6,
             Self::SourceSpan => 7,
             Self::Enum(_) => 8,
-            Self::ExprDsl => 9,
+            Self::ExprDsl(_) => 9,
             Self::TargetPath => 10,
         }
     }
@@ -332,7 +335,7 @@ impl ExtensionUse<'_> {
             Self::OrdinalRef { target } => format!("ordinal_ref:{target}"),
             Self::SourceSpan => "source_span".to_owned(),
             Self::Enum(name) => format!("enum:{name}"),
-            Self::ExprDsl => "expr_dsl".to_owned(),
+            Self::ExprDsl(grammar) => format!("expr_dsl:{}", grammar.as_str()),
             Self::TargetPath => "target_path".to_owned(),
         }
     }

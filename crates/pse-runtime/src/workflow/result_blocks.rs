@@ -165,66 +165,9 @@ pub(super) fn visible_size(
     data: &ArrayData,
     values: &mut usize,
 ) -> Result<usize, ResultBlockError> {
-    *values = values
-        .checked_add(data.len())
-        .ok_or(ResultBlockError::Invalid("field size overflow"))?;
-    if *values > MAX_VALUES {
-        return Err(ResultBlockError::Invalid("field value bound"));
-    }
-    let bitmap = if data.nulls().is_some() {
-        data.len().div_ceil(8)
-    } else {
-        0
-    };
-    let nested = match data.data_type() {
-        DataType::List(_) | DataType::Map(_, _) => {
-            let offsets = data.buffer::<i32>(0);
-            let start = usize::try_from(offsets[0])
-                .map_err(|_| ResultBlockError::Invalid("negative list offset"))?;
-            let end = usize::try_from(offsets[data.len()])
-                .map_err(|_| ResultBlockError::Invalid("negative list offset"))?;
-            Some(
-                bitmap
-                    + (data.len() + 1) * 4
-                    + visible_size(&data.child_data()[0].slice(start, end - start), values)?,
-            )
-        }
-        DataType::LargeList(_) => {
-            let offsets = data.buffer::<i64>(0);
-            let start = usize::try_from(offsets[0])
-                .map_err(|_| ResultBlockError::Invalid("negative list offset"))?;
-            let end = usize::try_from(offsets[data.len()])
-                .map_err(|_| ResultBlockError::Invalid("negative list offset"))?;
-            Some(
-                bitmap
-                    + (data.len() + 1) * 8
-                    + visible_size(&data.child_data()[0].slice(start, end - start), values)?,
-            )
-        }
-        DataType::FixedSizeList(_, width) => Some(
-            bitmap
-                + visible_size(
-                    &data.child_data()[0].slice(
-                        data.offset() * (*width as usize),
-                        data.len() * (*width as usize),
-                    ),
-                    values,
-                )?,
-        ),
-        DataType::Struct(_) => {
-            let mut size = bitmap;
-            for child in data.child_data() {
-                size = size
-                    .checked_add(visible_size(child, values)?)
-                    .ok_or(ResultBlockError::Invalid("visible size overflow"))?;
-            }
-            Some(size)
-        }
-        _ => None,
-    };
-    Ok(match nested {
-        Some(size) => size,
-        None => data.get_slice_memory_size()?,
+    pse_columnar::ipc_file::visible_size(data, values, MAX_VALUES).map_err(|error| match error {
+        datafusion::arrow::error::ArrowError::InvalidArgumentError(message) if message == "field value bound" => ResultBlockError::Invalid("field value bound"),
+        error => ResultBlockError::Arrow(error),
     })
 }
 

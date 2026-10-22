@@ -774,7 +774,7 @@ fn collect_logical_types(
         ExtensionUse::Bound,
         ExtensionUse::IndexTuple,
         ExtensionUse::SourceSpan,
-        ExtensionUse::ExprDsl,
+        ExtensionUse::ExprDsl(crate::model::ExpressionGrammar::Expression),
         ExtensionUse::TargetPath,
     ] {
         record_logical_type(&FieldContract::extended(use_), &mut types)?;

@@ -13,6 +13,77 @@ use petgraph::algo::is_cyclic_directed;
 use petgraph::graphmap::DiGraphMap;
 use std::collections::{BTreeMap, BTreeSet};
 
+/// Pure entry decision for a continuation's optional task-produced prediction.
+/// The executor still acquires, validates and fences the selected source sample.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PredictionEntry {
+    /// Preserve the explicitly supplied start without acquiring a prediction.
+    PreserveExplicit,
+    /// A declared prediction origin and a source sample permit a proposal attempt.
+    Attempt,
+    /// Use the separately admitted continuation seed.
+    ContinueFromSeed,
+}
+/// Evaluate the actual start rules before any prediction effect.
+pub fn prediction_entry(rules: &crate::strategy::StartRules, sample_available: bool) -> PredictionEntry {
+    use crate::strategy::{StartOrigin, StartPolicy};
+    if rules.policy == StartPolicy::Explicit {
+        PredictionEntry::PreserveExplicit
+    } else if sample_available && rules.recovery.contains(&StartOrigin::Predicted) {
+        PredictionEntry::Attempt
+    } else {
+        PredictionEntry::ContinueFromSeed
+    }
+}
+/// The stage that produced a prediction failure. Only proposal unavailability has
+/// a continuation fallback; sample qualification and start screening retain errors.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PredictionStage {
+    /// Acquiring or qualifying the selected predecessor sample.
+    Sample,
+    /// Constructing the optional numerical proposal.
+    Proposal,
+    /// Screening the proposal against the actual target.
+    Screening,
+}
+/// Actual result supplied by the executor after its existing proposal/fence work.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PredictionResult {
+    /// No selected sample exists.
+    Unavailable,
+    /// Proposal and target screening succeeded.
+    Accepted,
+    /// Preserve the precise failure stage and diagnostic classification.
+    Failed {
+        /// Stage that failed.
+        stage: PredictionStage,
+        /// Existing boundary disposition, never inferred from an error message.
+        class: crate::diagnostic::BoundaryClass,
+    },
+}
+/// Pure result choice; applying it never grants seed, source or execution permission.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PredictionChoice {
+    /// Retain the screened prediction as the actual start dependency.
+    UsePrediction,
+    /// Apply the independently admitted continuation seed.
+    ContinueFromSeed,
+    /// Return the original error with its unchanged diagnostics.
+    Propagate,
+}
+/// Decide optional prediction fallback without Runtime/native service handles.
+pub const fn prediction_choice(result: PredictionResult) -> PredictionChoice {
+    use crate::diagnostic::BoundaryClass;
+    match result {
+        PredictionResult::Accepted => PredictionChoice::UsePrediction,
+        PredictionResult::Unavailable | PredictionResult::Failed {
+            stage: PredictionStage::Proposal,
+            class: BoundaryClass::Unsupported | BoundaryClass::Incompatible | BoundaryClass::Numerical,
+        } => PredictionChoice::ContinueFromSeed,
+        PredictionResult::Failed { .. } => PredictionChoice::Propagate,
+    }
+}
+
 /// Malformed policy/fact inputs; semantic dependent refusals remain returned actions.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum PolicyError {
@@ -1239,5 +1310,35 @@ mod study_policy_unit {
             child_action(&graph, &facts),
             ActionKind::Start(StartProvenance::Continuation { .. })
         ));
+    }
+}
+
+#[cfg(test)]
+mod prediction_tests {
+    use super::*;
+    use crate::{diagnostic::BoundaryClass, strategy::{StartOrigin, StartPolicy, StartRules}};
+
+    #[test]
+    fn prediction_entry_preserves_explicit_and_requires_both_declared_origin_and_sample() {
+        for policy in [StartPolicy::Explicit, StartPolicy::NoPriorStart, StartPolicy::PreviousAccepted] {
+            for declared in [false, true] {
+                for sample in [false, true] {
+                    let rules = StartRules { policy, recovery: if declared { vec![StartOrigin::Predicted] } else { vec![] } };
+                    let expected = if policy == StartPolicy::Explicit { PredictionEntry::PreserveExplicit } else if declared && sample { PredictionEntry::Attempt } else { PredictionEntry::ContinueFromSeed };
+                    assert_eq!(prediction_entry(&rules, sample), expected);
+                }
+            }
+        }
+    }
+    #[test]
+    fn only_proposal_unavailability_falls_back_and_screening_or_sample_failure_propagates() {
+        assert_eq!(prediction_choice(PredictionResult::Accepted), PredictionChoice::UsePrediction);
+        assert_eq!(prediction_choice(PredictionResult::Unavailable), PredictionChoice::ContinueFromSeed);
+        for class in [BoundaryClass::Unsupported, BoundaryClass::Incompatible, BoundaryClass::Numerical, BoundaryClass::InvalidModel, BoundaryClass::TrialRejected, BoundaryClass::Nonfinite, BoundaryClass::Conflict, BoundaryClass::Inconclusive, BoundaryClass::Cancelled, BoundaryClass::ResourceLimit, BoundaryClass::Infrastructure, BoundaryClass::Internal] {
+            for stage in [PredictionStage::Sample, PredictionStage::Proposal, PredictionStage::Screening] {
+                let fallback = stage == PredictionStage::Proposal && matches!(class, BoundaryClass::Unsupported | BoundaryClass::Incompatible | BoundaryClass::Numerical);
+                assert_eq!(prediction_choice(PredictionResult::Failed { stage, class }), if fallback { PredictionChoice::ContinueFromSeed } else { PredictionChoice::Propagate });
+            }
+        }
     }
 }

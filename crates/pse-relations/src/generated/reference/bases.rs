@@ -11,15 +11,17 @@ pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "bases";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "reference.bases";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Reference;
 /// The schema generation.
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    196u8, 29u8, 243u8, 65u8, 210u8, 229u8, 33u8, 50u8, 134u8, 14u8, 11u8, 239u8, 55u8,
-    134u8, 128u8, 30u8, 148u8, 69u8, 243u8, 224u8, 33u8, 214u8, 110u8, 130u8, 224u8,
-    190u8, 188u8, 201u8, 222u8, 97u8, 248u8, 82u8,
+    145u8, 28u8, 63u8, 163u8, 21u8, 24u8, 205u8, 195u8, 203u8, 26u8, 210u8, 68u8, 139u8,
+    248u8, 99u8, 151u8, 116u8, 128u8, 247u8, 254u8, 96u8, 249u8, 96u8, 239u8, 17u8, 1u8,
+    117u8, 202u8, 185u8, 206u8, 174u8, 72u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceBasesRow {
     fn append(

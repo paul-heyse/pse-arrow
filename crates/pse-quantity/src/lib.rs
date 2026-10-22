@@ -77,7 +77,7 @@ pub use reference_translation::{ReferenceTranslation, ScientificAnchor};
 pub mod registry;
 pub mod resolved;
 pub use resolved::{
-    AdmittedOutputBoundary, PhysicalFormulaAuthority, ResolvedInference, ResolvedPhysicalContract,
+    AdmittedContractBoundary, AdmittedOutputBoundary, PhysicalFormulaAuthority, ResolvedInference, ResolvedPhysicalContract,
 };
 pub mod scheme;
 pub mod smoothing;

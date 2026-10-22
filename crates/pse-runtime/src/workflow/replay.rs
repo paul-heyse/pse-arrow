@@ -471,7 +471,7 @@ pub struct ScientificReplay {
 }
 impl ScientificReplay {
     /// Full immutable production inputs with actual physical/provider/compiled owners.
-    pub fn inputs(&self) -> &RunRequest {
+    pub fn inputs(&self) -> RunRequest<'_> {
         self.result.replay_request()
     }
     fn traces(&self) -> Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> {
@@ -827,23 +827,19 @@ impl ScientificReplay {
     }
 }
 impl RunResult {
-    pub(super) fn replay_request(&self) -> &RunRequest {
-        self.original_horizon_request
-            .as_ref()
-            .unwrap_or(&self.request)
-    }
+    pub(super) fn replay_request(&self) -> RunRequest<'_> { self.original_request() }
     pub(super) fn replay_traces(
         &self,
     ) -> Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> {
         let retained: Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> =
-            match &self.request {
+            match self.request() {
                 RunRequest::Modeling(steps) => Box::new((0..steps.len()).filter_map(|index| {
                     self.modeling_result(index)?
                         .strategy
                         .as_ref()
                         .map(|trace| (index, trace))
                 })),
-                _ => match &self.report {
+                _ => match self.report() {
                     Ok(RunReport::Fit(report)) => {
                         Box::new(report.strategy.iter().map(|trace| (0, trace)))
                     }
@@ -854,10 +850,7 @@ impl RunResult {
                     _ => Box::new(std::iter::empty()),
                 },
             };
-        let failed = self
-            .report
-            .as_ref()
-            .err()
+        let failed = self.error()
             .and_then(|error| error.strategy_trace())
             .map(|trace| {
                 (
@@ -923,7 +916,7 @@ impl RunResult {
                 }
                 (steps.len(), count, None)
             }
-            RunRequest::Simulation(simulation) => match &self.report {
+            RunRequest::Simulation(simulation) => match self.report() {
                 Ok(RunReport::Simulation(trajectory)) => (
                     simulation.profile().samples.len(),
                     trajectory.report().coverage.produced(),
@@ -931,7 +924,7 @@ impl RunResult {
                 ),
                 _ => (simulation.profile().samples.len(), 0, None),
             },
-            RunRequest::Fit(_) => (1, usize::from(self.report.is_ok()), None),
+            RunRequest::Fit(_) => (1, usize::from(self.report().is_ok()), None),
             RunRequest::Horizon(request) => (
                 request.original.steps,
                 self.horizon
@@ -940,9 +933,9 @@ impl RunResult {
                 None,
             ),
             #[cfg(feature = "solver-diffsol")]
-            RunRequest::Shooting { .. } => (1, usize::from(self.report.is_ok()), None),
+            RunRequest::Shooting { .. } => (1, usize::from(self.report().is_ok()), None),
         };
-        let terminal = match &self.report {
+        let terminal = match self.report() {
             Err(error) => Some(crate::math::strategy::workflow_failure(error)),
             Ok(RunReport::Simulation(trajectory)) => {
                 Some(trajectory_observation(trajectory.report()))
@@ -1281,6 +1274,7 @@ pub struct ReplayCaseInputs {
     /// Values supplied by authored path.
     pub values: BTreeMap<String, u64>,
     /// Values supplied by admitted semantic member identity.
+    #[schemars(with = "pse_ids::document::KeyedMap<SemanticId, u64>")]
     pub members: BTreeMap<SemanticId, u64>,
     /// All structural fixed/free and bound overrides.
     pub variables: BTreeMap<String, ReplayVariableState>,
@@ -1632,6 +1626,7 @@ pub struct ReplayScreenedStart {
     /// Actual input producer provenance.
     pub origin: StartOrigin,
     /// All physical source coordinates in exact IEEE bits.
+    #[schemars(with = "pse_ids::document::KeyedMap<SemanticId, u64>")]
     pub values: BTreeMap<SemanticId, u64>,
 }
 impl ReplayScreenedStart {
@@ -1676,10 +1671,13 @@ pub struct ReplayCaseConstructor {
     /// Original user-supplied target definitions, before derived resolution.
     pub targets: Vec<pse_math::numerics::TargetSpec>,
     /// Explicit predecessor starts in exact original bits.
+    #[schemars(with = "pse_ids::document::KeyedMap<SemanticId, u64>")]
     pub seed: BTreeMap<SemanticId, u64>,
     /// Explicit continuation parameters in exact original bits.
+    #[schemars(with = "pse_ids::document::KeyedMap<SemanticId, u64>")]
     pub parameters: BTreeMap<SemanticId, u64>,
     /// Explicit temporary fixes in exact original bits.
+    #[schemars(with = "pse_ids::document::KeyedMap<SemanticId, u64>")]
     pub fixes: BTreeMap<SemanticId, u64>,
     /// Exact explicit input requested after constructor admission, even before dispatch.
     pub requested_start: Option<pse_backend_native::solve::WarmStartSnapshot>,
@@ -2573,6 +2571,7 @@ mod tests {
                 exact,
                 None,
                 quadratures,
+                None,
             )
         };
         assert!(capture(&case, &BTreeSet::new(), &BTreeSet::new()).is_err());
@@ -2717,13 +2716,7 @@ mod tests {
             .map(|(id, value)| (*id, value.to_bits()))
             .collect::<BTreeMap<_, _>>();
         let expected_starts = serde_json::to_vec(&prepared.starts).unwrap();
-        let result = Arc::new(RunResult::joined(
-            RunId::from_bytes([91; 16]),
-            runtime,
-            RunRequest::Modeling(vec![prepared]),
-            None,
-            Err(Arc::new(contract("failed before dispatch"))),
-        ));
+        let result = Arc::new(RunResult::joined(RunId::from_bytes([91; 16]), runtime, crate::workflow::RunOutcome::Modeling { request: vec![prepared], result: Err(Arc::new(contract("failed before dispatch"))) }, None));
         assert!(
             result
                 .replay()
@@ -2791,13 +2784,15 @@ impl OriginalSimulationInputs {
         exact_parameters: &BTreeSet<SemanticId>,
         forward_parameters: Option<&BTreeSet<SemanticId>>,
         provisional_quadratures: &BTreeSet<SemanticId>,
+        binding: Option<&super::AdmittedBinding>,
     ) -> Result<Arc<Self>, WorkflowError> {
         if forward_parameters.is_some() && profile.forward_axes.is_some() {
             return Err(contract(
                 "dynamic constructor has competing forward selections",
             ));
         }
-        let bytes = size_of::<Self>()
+        let binding_bytes = encoded_extent(&binding, EXPORT_MAX)?.saturating_mul(8);
+        let bytes = size_of::<Self>().saturating_add(binding_bytes)
             .saturating_add(1024)
             .saturating_add(crate::math::modeling::bindings_bytes(bindings))
             .saturating_add(encoded_extent(profile, EXPORT_MAX)?.saturating_mul(8))
@@ -2852,10 +2847,12 @@ impl OriginalSimulationInputs {
                 exact_parameters: exact_parameters.clone(),
                 forward_selection,
                 provisional_quadratures: provisional_quadratures.clone(),
+                binding: binding.cloned(),
             },
             _owner: owner,
         }))
     }
+    pub(in crate::workflow) fn binding(&self) -> Option<&super::AdmittedBinding> { self.document.binding.as_ref() }
     pub(in crate::workflow) fn document(&self, source: usize) -> ReplaySimulationConstructor {
         ReplaySimulationConstructor {
             source,
@@ -2906,6 +2903,9 @@ pub struct ReplaySimulationConstructor {
     pub forward_selection: Option<ReplayForwardSelection>,
     /// Explicit provisional quadrature demands.
     pub provisional_quadratures: BTreeSet<SemanticId>,
+    /// Original physical point binding; values are reconstructed before fresh IC preparation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding: Option<super::AdmittedBinding>,
 }
 impl ReplaySimulationConstructor {
     /// Reconstruct original dynamics from source through actual compiler/physical admission.
@@ -2948,6 +2948,8 @@ impl ReplaySimulationConstructor {
                 forward_parameters,
                 &self.provisional_quadratures,
                 None,
+                self.binding.as_ref(),
+                None,
                 cancel,
             )
             .await
@@ -2966,8 +2968,9 @@ impl OriginalFitInputs {
         profile: &super::FitProfile,
         compiler: pse_compiler::workspace::Profile,
         limits: pse_modeling::Limits,
+        binding: Option<&super::AdmittedBinding>,
     ) -> Result<Arc<Self>, WorkflowError> {
-        let extent = size_of::<Self>()
+        let extent = size_of::<Self>().saturating_add(encoded_extent(&binding, EXPORT_MAX)?.saturating_mul(8))
             .saturating_add(1024)
             .saturating_add(profile_extent(&profile.solver)?)
             .saturating_add(
@@ -2992,10 +2995,12 @@ impl OriginalFitInputs {
                 derivatives: profile.derivatives,
                 experiment_workers: profile.experiment_workers,
                 uncertainty: profile.uncertainty.clone(),
+                binding: binding.cloned(),
             },
             _owner: owner,
         }))
     }
+    pub(in crate::workflow) fn binding(&self) -> Option<&super::AdmittedBinding> { self.document.binding.as_ref() }
     pub(super) fn document(&self, source: usize) -> ReplayFitConstructor {
         ReplayFitConstructor {
             source,
@@ -3018,6 +3023,7 @@ pub struct ReplayFitConstructor {
     /// Complete original native/scientific policy.
     pub solver: ReplaySolverSettings,
     /// Complete original integration controls by experiment identity.
+    #[schemars(with = "pse_ids::document::KeyedMap<pse_modeling::InstanceId, super::SimulationProfile>")]
     pub simulations: BTreeMap<pse_modeling::InstanceId, super::SimulationProfile>,
     /// Original response rank cutoff.
     pub rank_tolerance: f64,
@@ -3029,6 +3035,9 @@ pub struct ReplayFitConstructor {
     pub experiment_workers: pse_model::scalars::PositiveCount,
     /// Complete requested uncertainty/propagation controls.
     pub uncertainty: Option<super::FitUncertainty>,
+    /// Original global parameter values, admitted before fitting and experiment preparation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding: Option<super::AdmittedBinding>,
 }
 impl ReplayFitConstructor {
     /// Rebuild the authored fit/experiments through existing production admission.
@@ -3038,7 +3047,7 @@ impl ReplayFitConstructor {
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedFit, WorkflowError> {
         package
-            .prepare_fit(
+            .prepare_fit_bound(
                 self.id,
                 super::FitProfile {
                     optimizer: self.optimizer,
@@ -3052,6 +3061,7 @@ impl ReplayFitConstructor {
                 },
                 self.preparation.compiler,
                 self.preparation.limits,
+                self.binding.as_ref(),
                 cancel,
             )
             .await
@@ -3083,8 +3093,10 @@ pub struct ReplayShootingConstructor {
     /// Original path output coordinates and bounds.
     pub path: Vec<ReplayShootingBound>,
     /// Original terminal objective weights.
+    #[schemars(with = "pse_ids::document::KeyedMap<SemanticId, u64>")]
     pub terminal: BTreeMap<SemanticId, u64>,
     /// Original integral objective weights.
+    #[schemars(with = "pse_ids::document::KeyedMap<SemanticId, u64>")]
     pub integral: BTreeMap<SemanticId, u64>,
     /// Original callback derivative demand policy.
     pub eager_first: bool,

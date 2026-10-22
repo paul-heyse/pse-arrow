@@ -6261,8 +6261,6 @@ dependencies = [
  "arrow-array",
  "arrow-buffer",
  "arrow-cast",
- "arrow-ipc",
- "arrow-row",
  "arrow-schema",
  "bytes",
  "datafusion-common",
@@ -6453,6 +6451,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+ "typed-index-collections",
 ]
 
 [[package]]
@@ -6475,6 +6474,7 @@ dependencies = [
  "pse-diagnostics",
  "pse-ids",
  "pse-model",
+ "pse-relations",
  "pse-schema",
  "schemars",
  "serde",
@@ -6607,6 +6607,7 @@ dependencies = [
  "datafusion",
  "datafusion-common",
  "datafusion-execution",
+ "datafusion-pruning",
  "egobox-doe",
  "egobox-ego",
  "egobox-gp",

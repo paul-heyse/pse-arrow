@@ -442,7 +442,7 @@ impl RunResult {
             .saturating_add(
                 size_of::<AttemptSummary>() + size_of::<AttemptSummaryDocument>() + 512,
             );
-        let requested_steps = match &self.request {
+        let requested_steps = match self.request() {
             RunRequest::Modeling(steps) => steps.len(),
             _ => 1,
         };
@@ -454,7 +454,7 @@ impl RunResult {
                     crate::math::solves::Outcome::Native(native) => Some(native.as_ref()),
                     _ => None,
                 })
-                .or(match &self.report {
+                .or(match self.report() {
                     Ok(RunReport::Fit(report)) => report.solve.as_ref(),
                     #[cfg(feature = "solver-diffsol")]
                     Ok(RunReport::Shooting(report)) => report.solve.as_ref(),
@@ -478,10 +478,7 @@ impl RunResult {
             omitted_steps: requested_steps.saturating_sub(limits.steps),
             native_attempts: Vec::new(),
             omitted_native_attempts: 0,
-            native_record_coverage: match self
-                .original_horizon_request
-                .as_ref()
-                .unwrap_or(&self.request)
+            native_record_coverage: match self.original_request()
             {
                 RunRequest::Simulation(_) | RunRequest::Horizon(_) => {
                     super::ReplayNativeRecordCoverage::IntegrationReportOnly
@@ -519,7 +516,7 @@ impl RunResult {
                     projected.trace(trace, &mut events);
                 }
             } else {
-                match &self.report {
+                match self.report() {
                     Ok(RunReport::Fit(report)) => {
                         projected.accepted = Some(self.usable());
                         if let Some(native) = &report.solve {
@@ -554,7 +551,7 @@ impl RunResult {
             }
             summary.steps.push(projected);
         }
-        if let Err(error) = &self.report {
+        if let Err(error) = self.report() {
             let diagnostic = error.boundary_diagnostic();
             summary.failure = Some(AttemptFailureSummary {
                 observation: crate::math::strategy::workflow_failure(error),
@@ -575,13 +572,7 @@ mod tests {
     use super::*;
     #[test]
     fn default_summary_is_one_shared_product_and_custom_bounds_are_explicit() {
-        let result = RunResult::joined(
-            RunId::from_bytes([91; 16]),
-            crate::workflow::tests::runtime(),
-            RunRequest::Modeling(vec![]),
-            None,
-            Ok(RunReport::Modeling(vec![])),
-        )
+        let result = RunResult::joined(RunId::from_bytes([91; 16]), crate::workflow::tests::runtime(), crate::workflow::RunOutcome::Modeling { request: vec![], result: Ok(vec![]) }, None)
         .completed();
         let first = result.attempt_summary().unwrap();
         let second = result.attempt_summary().unwrap();
@@ -599,13 +590,7 @@ mod tests {
     }
     #[test]
     fn escaped_summary_document_retains_real_lease_and_decoding_is_data_only() {
-        let result = RunResult::joined(
-            RunId::from_bytes([93; 16]),
-            crate::workflow::tests::runtime(),
-            RunRequest::Modeling(vec![]),
-            None,
-            Ok(RunReport::Modeling(vec![])),
-        )
+        let result = RunResult::joined(RunId::from_bytes([93; 16]), crate::workflow::tests::runtime(), crate::workflow::RunOutcome::Modeling { request: vec![], result: Ok(vec![]) }, None)
         .completed();
         let summary = result.attempt_summary().unwrap();
         let weak = Arc::downgrade(summary._allocation.as_ref().unwrap());

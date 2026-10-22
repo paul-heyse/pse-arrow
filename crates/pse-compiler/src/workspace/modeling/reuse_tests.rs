@@ -1060,3 +1060,75 @@ fn bound_lookup_preserves_complete_public_view_identity_and_exact_attribution() 
         original_key
     );
 }
+
+#[test]
+fn reference_three_units_retains_143_bodies_and_backdates_unrelated_edits() {
+    let counts = Arc::new([const { AtomicUsize::new(0) }; 4]);
+    let observed = counts.clone();
+    let mut workspace = CompilerWorkspace::with_events(
+        crate::authored_transfer_tests::context(), WorkspaceLimits::default(),
+        Some(Box::new(move |event: salsa::Event| {
+            let event = format!("{:?}", event.kind);
+            if event.contains("WillExecute") {
+                for (i, name) in ["selected(", "specialized(", "projection(", "semantic_body("].into_iter().enumerate() {
+                    if event.contains(name) { observed[i].fetch_add(1, Ordering::Relaxed); }
+                }
+            }
+        })),
+    ).unwrap();
+    let reference = format!("{}\n{}\n{}\npackage unrelated {{ def Other {{ let value:Scalar=1; }} }}", crate::authored_transfer_tests::reference_sources(), include_str!("../../../../../packages/reference/process/models/mixer.pse"), crate::process_composition_tests::COMPOSE);
+    let declarations = crate::authored_transfer_tests::rows(&reference);
+    let root = crate::authored_transfer_tests::root(&declarations, "process_composition", "ThreeUnits");
+    workspace.publish_modeling(declarations, PhysicalScope::default()).unwrap();
+    let generation = workspace.generation();
+    assert_eq!(generation, 0, "ordinary reference publication retains its generation; retained={:?}", workspace.retention_usage());
+    let prepare_reference = |workspace: &mut CompilerWorkspace| workspace.prepare_modeling_cancellable(root, pse_modeling::specialize::root_instance(root), Bindings::default().with_analysis(pse_modeling::analysis::Route::Steady), Limits::default(), Arc::new(AtomicBool::new(false))).unwrap();
+    let first = prepare_reference(&mut workspace);
+    assert_eq!(first.admitted.bodies.len(), 143);
+    let first_counts = counts.each_ref().map(|count| count.load(Ordering::Relaxed));
+    assert_eq!(first_counts[3], 143, "all distinct body queries were exercised");
+    let warm = prepare_reference(&mut workspace);
+    assert_eq!(counts[3].load(Ordering::Relaxed), first_counts[3]);
+    workspace.publish_modeling(crate::authored_transfer_tests::rows(&reference.replace("let value:Scalar=1", "let value:Scalar=2")), PhysicalScope::default()).unwrap();
+    let unrelated = prepare_reference(&mut workspace);
+    assert_eq!(workspace.generation(), generation);
+    for index in 1..4 { assert_eq!(counts[index].load(Ordering::Relaxed), first_counts[index], "selected firewall backdates family {index}"); }
+    for (key, body) in &first.admitted.bodies {
+        assert!(Arc::ptr_eq(&body.math, &warm.admitted.bodies[key].math));
+        assert!(Arc::ptr_eq(&body.math, &unrelated.admitted.bodies[key].math));
+    }
+    let (entries, bytes) = workspace.retention_usage();
+    assert!(entries <= workspace.limits.retained_entries, "{entries}");
+    assert!(bytes <= workspace.limits.retained_bytes, "{bytes}");
+}
+
+#[test]
+fn live_root_admission_refuses_oversize_without_invalidating_escaped_products() {
+    let mut workspace = CompilerWorkspace::new(crate::authored_transfer_tests::context(), WorkspaceLimits::default()).unwrap();
+    let root = publish_frontier_source(&mut workspace, "package p {def Root {var x:Scalar; eq e:x*x==1;}}");
+    let first = prepare(&mut workspace, root, Bindings::default());
+    let frontier = plan_frontier(&mut workspace, root);
+    workspace.limits.retained_bytes = frontier.retained_bytes() - 1;
+    let result = workspace.complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)));
+    assert!(matches!(result, Err(CompileError::Limit("live root working set"))));
+    assert!(!first.admitted.bodies.is_empty());
+}
+
+#[test]
+fn generation_bounds_survive_edit_deletion_and_root_switch_churn() {
+    let mut workspace = CompilerWorkspace::new(crate::authored_transfer_tests::context(), WorkspaceLimits { retained_entries: 600, granular_query_values: 16, query_values: 4, ..WorkspaceLimits::default() }).unwrap();
+    let mut escaped = Vec::new();
+    for n in 0..80 {
+        let text = format!("package p {{ def Root {{var x:Scalar; let v{n}:Scalar=x*{n}; eq e:x=={n};}} def Other {{var y:Scalar; eq f:y==1;}} }}");
+        let declarations = rows(&text);
+        let root = crate::authored_transfer_tests::root(&declarations, "p", if n % 2 == 0 { "Root" } else { "Other" });
+        workspace.publish_modeling(declarations, PhysicalScope::default()).unwrap();
+        let product = prepare(&mut workspace, root, Bindings::default());
+        if n % 20 == 0 { escaped.push(product); }
+        let (entries, bytes) = workspace.retention_usage();
+        assert!(entries <= workspace.limits.retained_entries, "iteration {n}: {entries}");
+        assert!(bytes <= workspace.limits.retained_bytes);
+    }
+    assert!(workspace.generation() > 0, "non-evictable metadata eventually rotates");
+    assert!(escaped.iter().all(|product| !product.admitted.bodies.is_empty()));
+}

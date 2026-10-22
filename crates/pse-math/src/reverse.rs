@@ -137,6 +137,43 @@ impl ReverseWorker {
         Ok(self)
     }
 }
+struct PullbackPlan {
+    partial_calls: usize,
+    construction_bytes: usize,
+    children: Vec<Vec<Self>>,
+}
+fn plan_pullbacks(
+    prepared: &PreparedStages,
+    limits: EvaluationLimits,
+    scope: &pse_kernels::ExecutionScope,
+    calls: &mut usize,
+) -> Result<Vec<PullbackPlan>, MathError> {
+    let mut result = Vec::new();
+    for stage in &prepared.stages {
+        scope.check().map_err(crate::error::scope_error)?;
+        let mut plan = PullbackPlan { partial_calls: 0, construction_bytes: 0, children: Vec::new() };
+        match &stage.stage {
+            Stage::Block { expressions, outputs, .. } => {
+                let region = stage.region.as_ref().ok_or_else(|| MathError::Contract("pullback source region".into()))?;
+                plan.partial_calls = region.inputs.len();
+                *calls = calls.checked_add(plan.partial_calls).ok_or(MathError::Limit("local symbolic derivative calls"))?;
+                if *calls > limits.operations { return Err(MathError::Limit("local symbolic derivative calls")); }
+                let source = expressions.iter().try_fold(0usize, |n, expression| n.checked_add(expression.as_view().get_byte_size())).ok_or(MathError::Limit("local pullback source extent"))?;
+                // One weighted local product, one symbolic partial per input.
+                // Second actions dualize this same gradient on one tangent axis.
+                plan.construction_bytes = outputs.len().checked_mul(128).and_then(|n| n.checked_add(source)).and_then(|n| n.checked_mul(plan.partial_calls.checked_add(1)?)).and_then(|n| n.checked_mul(8)).ok_or(MathError::Limit("local pullback construction"))?;
+                limits.allocation(plan.partial_calls.checked_add(outputs.len()).ok_or(MathError::Limit("local pullback source extent"))?)?;
+            }
+            Stage::Branch { .. } => {
+                for child in &stage.children { plan.children.push(plan_pullbacks(child, limits, scope, calls)?); }
+            }
+            Stage::Provider { .. } | Stage::Require { .. } | Stage::Domain { .. } | Stage::Applicability { .. } => {}
+        }
+        result.push(plan);
+    }
+    Ok(result)
+}
+
 #[allow(
     clippy::too_many_arguments,
     reason = "pullback compilation preserves separate prepared stages, forward association, library cache, work allowance and original scope"
@@ -144,6 +181,7 @@ impl ReverseWorker {
 fn compile_pullbacks(
     prepared: &PreparedStages,
     forward: &[CompiledStage],
+    plans: &[PullbackPlan],
     second: bool,
     options: Optimization,
     limits: EvaluationLimits,
@@ -153,7 +191,7 @@ fn compile_pullbacks(
     next_formal: usize,
     #[cfg(feature = "compiled-evaluator")] native_modules: &mut crate::native_compiled::Batch,
 ) -> Result<Vec<Pullback>, MathError> {
-    if prepared.stages.len() != forward.len() {
+    if prepared.stages.len() != forward.len() || plans.len() != forward.len() {
         return Err(MathError::Contract(
             "local pullback stage association".into(),
         ));
@@ -170,7 +208,8 @@ fn compile_pullbacks(
         .stages
         .iter()
         .zip(forward)
-        .map(|(prepared, forward)| {
+        .zip(plans)
+        .map(|((prepared, forward), plan)| {
             scope.check().map_err(crate::error::scope_error)?;
             Ok(match (&prepared.stage, forward) {
                 (
@@ -188,6 +227,10 @@ fn compile_pullbacks(
                     if region.inputs.is_empty() {
                         return Ok(Pullback::Control);
                     }
+                    if plan.partial_calls != region.inputs.len() { return Err(MathError::Contract("pullback preflight input extent".into())); }
+                    cost.operations = cost.operations.checked_add(plan.partial_calls).ok_or(MathError::Limit("local symbolic derivative calls"))?;
+                    if cost.operations > limits.operations { return Err(MathError::Limit("local symbolic derivative calls")); }
+                    crate::construction::additional(plan.construction_bytes)?;
                     let weights = (0..outputs.len())
                         .map(|i| library::formal(next_formal + i))
                         .collect::<Result<Vec<_>, _>>()?;
@@ -200,20 +243,6 @@ fn compile_pullbacks(
                     let mut gradients = Vec::with_capacity(region.inputs.len());
                     for parameter in &region.parameters {
                         scope.check().map_err(crate::error::scope_error)?;
-                        cost.operations = cost
-                            .operations
-                            .checked_add(1)
-                            .ok_or(MathError::Limit("local symbolic derivative calls"))?;
-                        if cost.operations > limits.operations {
-                            return Err(MathError::Limit("local symbolic derivative calls"));
-                        }
-                        crate::construction::additional(
-                            weighted
-                                .as_view()
-                                .get_byte_size()
-                                .checked_mul(4)
-                                .ok_or(MathError::Limit("local pullback construction"))?,
-                        )?;
                         gradients.push(
                             weighted.derivative(
                                 Indeterminate::try_from(parameter.clone())
@@ -403,6 +432,7 @@ fn compile_pullbacks(
                     then: compile_pullbacks(
                         &prepared.children[0],
                         then,
+                        plan.children.first().ok_or_else(|| MathError::Contract("missing then pullback plan".into()))?,
                         second,
                         options,
                         limits,
@@ -416,6 +446,7 @@ fn compile_pullbacks(
                     otherwise: compile_pullbacks(
                         &prepared.children[1],
                         otherwise,
+                        plan.children.get(1).ok_or_else(|| MathError::Contract("missing otherwise pullback plan".into()))?,
                         second,
                         options,
                         limits,
@@ -460,6 +491,8 @@ impl PreparedSupport {
                 available,
             });
         }
+        limits.check()?;
+        let plans = plan_pullbacks(&self.program, limits, scope, &mut 0)?;
         let mut compiled = self.body().compile_scope(
             &selected,
             &coordinates,
@@ -471,6 +504,7 @@ impl PreparedSupport {
             ProductKind::JacobianAction,
             self,
             retained,
+            RegionStrategy::ReverseSweep,
         )?;
         let mut scalars = library::ScalarCache::from_products(&compiled.scalar_products);
         let mut cost = Cost::default();
@@ -490,6 +524,7 @@ impl PreparedSupport {
             compiled.programs[DerivativeOrder::First]
                 .as_ref()
                 .ok_or_else(|| MathError::Contract("missing pullback forward program".into()))?,
+            &plans,
             second,
             options,
             limits,

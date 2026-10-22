@@ -10,6 +10,42 @@ use std::time::Instant;
 type FixtureResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 const MATRIX_ALLOWANCE: usize = 1 << 20;
+
+#[tokio::test]
+async fn fit_covariance_owned_result_reconciles_decoded_content_and_refuses_tampering() {
+    let fit = fixture("linear", [1.0; 2]).await.unwrap();
+    let result = fit.start().unwrap().wait().await.unwrap();
+    let original = result.parameter_covariance().unwrap().unwrap();
+    let bytes = serde_json::to_vec(&original).unwrap();
+    let mut decoded: crate::math::settings::ParameterCovariance =
+        serde_json::from_slice(&bytes).unwrap();
+    assert!(decoded.verified_fit().is_err());
+    result.reconcile_parameter_covariance(&mut decoded).unwrap();
+    assert!(decoded.verified_fit().unwrap().is_some());
+    for field in 0..7 {
+        let mut altered = decoded.clone();
+        match field {
+            0 => altered.values[0] = pse_model::scalars::FiniteBound::try_new(2.0).unwrap(),
+            1 => altered.parameters.swap(0, 1),
+            2 => altered.parameter_quantities.swap(0, 1),
+            3 => altered.parameter_units[0] = pse_ids::SemanticId::from_bytes([99; 16]),
+            4 => altered.scales[0] = pse_model::scalars::FiniteBound::try_new(3.0).unwrap(),
+            5 => altered.origin = crate::math::settings::CovarianceOrigin::QualifiedFit {
+                run_id: pse_model::generated::identities::RunId::from_bytes([99; 16]), record: None,
+            },
+            _ => altered.origin = crate::math::settings::CovarianceOrigin::External {
+                label: "unverified external substitution".into(), assumptions: vec!["caller input".into()],
+            },
+        }
+        // This fixture's parameters may share the same quantity; force an actual
+        // change instead of mistaking equal physical contracts for a new input.
+        if field == 2 {
+            altered.parameter_quantities[0] = pse_ids::SemanticId::from_bytes([98; 16]);
+        }
+        assert!(result.reconcile_parameter_covariance(&mut altered).is_err(), "field {field}");
+    }
+}
+
 struct ResidualProblem {
     oracle: RefCell<FitOracle>,
     x: DVector<f64>,
@@ -152,6 +188,13 @@ async fn fixture_on(
     )?);
     let outputs = (1..=4)
         .map(|i| {
+            if kind == "cosine-gap" {
+                return match i {
+                    1 => "let y1:Scalar=a;".into(),
+                    2 => "let y2:Scalar=b;".into(),
+                    _ => format!("let y{i}:Scalar=1e16;"),
+                };
+            }
             let column = if kind == "near-collinear" {
                 1. + (i as f64) * 0.0001
             } else {
@@ -1180,4 +1223,70 @@ async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and
     assert!(!metrics.iter().any(|row| row.namespace == "native"
         && row.name == "backend"
         && row.text.as_deref() == Some("ipopt")));
+}
+
+/// Independent algorithm criteria; none is the original scaled-gradient publication budget.
+fn proposed_stopping() -> LevenbergMarquardt<f64> {
+    let relative_cost_change = 30. * f64::EPSILON;
+    let relative_step = 30. * f64::EPSILON;
+    let column_residual_cosine = 30. * f64::EPSILON;
+    LevenbergMarquardt::new().with_ftol(relative_cost_change)
+        .with_xtol(relative_step).with_gtol(column_residual_cosine)
+}
+
+#[tokio::test]
+async fn fitting_lm_independent_stopping_preserves_original_qualification_and_covariance() {
+    for (kind, scales) in [("linear", [1.,2.]), ("linear", [0.001,1000.]), ("near-collinear", [1.,2.]), ("domain", [1.,2.])] {
+        let seed = fixture(kind, scales).await.unwrap();
+        let prepared = production_profile(&seed, seed.problem.profile.clone()).await.unwrap();
+        let problem = prepared.problem.clone();
+        let service = problem.runtime.native().clone();
+        service.job_scoped(1, problem.bytes + MATRIX_ALLOWANCE, Default::default(), None, move |flag| {
+            let execution = Execution::new(flag, &problem.profile.solver.controls);
+            let mut baseline_qualified = false;
+            let mut baseline_covariance = false;
+            for (candidate, stopping) in [(false, None), (true, Some(proposed_stopping()))] {
+                let report = problem.execute_profile_with_lm(&problem.profile.solver, FitRoute::ResidualLm,
+                    execution.scope()?, Arc::new(native::solve::Progress::new(256)), 1, None, stopping)?;
+                let residual = report.residual.as_ref().unwrap();
+                assert!(residual.failure.is_none(), "{kind}: {residual:?}");
+                let point = report.candidate.as_ref().unwrap();
+                let (objective, _) = fresh(problem.clone(), execution.clone(), point)?;
+                let witness = quadratic_witness(kind, &problem, point, objective);
+                assert!((witness.scaled - residual.stationarity.unwrap()).abs() <= 1e-7 * witness.scaled.max(1.));
+                let qualified = residual.qualification == native::solve::Qualification::Stationary;
+                let covariance = report.covariance.as_ref().is_some_and(|covariance| covariance.values.is_ok());
+                println!("LM stopping kind={kind} scales={scales:?} candidate={candidate} literal={:?} original_stationarity={} qualified={qualified} covariance={covariance} residual_calls={} jacobian_calls={} updates={}",
+                    residual.termination, witness.scaled, residual.residual_evaluations, residual.jacobian_evaluations, residual.parameter_updates);
+                if candidate {
+                    assert!(!baseline_qualified || qualified, "candidate stopping loses an originally qualified {kind} fit");
+                    assert!(!baseline_covariance || covariance, "candidate stopping newly withholds {kind} covariance");
+                } else {
+                    baseline_qualified = qualified;
+                    baseline_covariance = covariance;
+                }
+            }
+            Ok(())
+        }).await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn fitting_lm_cosine_success_cannot_publish_nonstationary_covariance() {
+    let seed = fixture("cosine-gap", [1.,2.]).await.unwrap();
+    let prepared = production_profile(&seed, seed.problem.profile.clone()).await.unwrap();
+    let problem = prepared.problem.clone();
+    let service = problem.runtime.native().clone();
+    service.job_scoped(1, problem.bytes + MATRIX_ALLOWANCE, Default::default(), None, move |flag| {
+        let execution = Execution::new(flag, &problem.profile.solver.controls);
+        let report = problem.execute_profile_with_lm(&problem.profile.solver, FitRoute::ResidualLm,
+            execution.scope()?, Arc::new(native::solve::Progress::new(256)), 1, None, Some(proposed_stopping()))?;
+        let residual = report.residual.as_ref().unwrap();
+        assert!(residual.failure.is_none());
+        assert_eq!(residual.termination, FitResidualTermination::Orthogonal);
+        assert!(residual.stationarity.unwrap() > problem.accuracy.stationarity);
+        assert_eq!(residual.qualification, native::solve::Qualification::Unqualified);
+        assert!(report.covariance.as_ref().unwrap().values.is_err());
+        Ok(())
+    }).await.unwrap();
 }

@@ -139,6 +139,7 @@ fn semantic_body(
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("compiler.semantic_body_retention_reuses", "count", 1);
         }
+        admit_live_body(db, input.identity, body.descriptor_bytes().saturating_add(body.math.retained_bytes()));
         return Ok(body);
     }
     let _phase = pse_diagnostics::observation::current().map(|context| {
@@ -218,6 +219,7 @@ fn semantic_body(
     } else {
         body
     });
+    admit_live_body(db, input.identity, body.descriptor_bytes().saturating_add(body.math.retained_bytes()));
     admission.record("success", true);
     if let Some(context) = pse_diagnostics::observation::current() {
         context.count("compiler.semantic_body_admissions_completed", "count", 1);
@@ -270,6 +272,12 @@ fn body_heap(value: &Result<Arc<AdmittedBody>>) -> usize {
         .map_or_else(CompileError::retained_bytes, |b| {
             b.descriptor_bytes() + b.math.retained_bytes()
         })
+}
+/// The grouped producer supplies this exact structure field to materialize().
+/// An unportable fallback still occupies its input's Salsa memo. This locator is
+/// capacity bookkeeping only and never grants semantic-body reuse eligibility.
+pub(super) fn memo_key(body: &AdmittedBody) -> pse_ids::roles::SemanticBodyHash {
+    body.semantic_identity().unwrap_or_else(|| pse_ids::roles::SemanticBodyHash::from_id(body.spec.structure))
 }
 
 pub(super) fn configure(db: &mut CompilerDatabase, n: usize) {
@@ -928,6 +936,10 @@ pub(super) fn plan(
             runtime.len() as u64,
         );
     }
+    let mut conservation_rows = BTreeMap::<SemanticId, Vec<(SemanticId, f64)>>::new();
+    for (row, terms) in &p.conservation {
+        for (term, sign) in terms { conservation_rows.entry(*term).or_default().push((*row, *sign)); }
+    }
     for (index, (expression, output)) in p.expressions.iter().zip(&p.outputs).enumerate() {
         checkpoint(db);
         if let ModelingOutput::Equation {
@@ -1073,14 +1085,8 @@ pub(super) fn plan(
             },
         }];
         if let ModelingOutput::Contribution { contribution, .. } = output {
-            for (row, terms) in &p.conservation {
-                if let Some((_, sign)) = terms.iter().find(|(term, _)| term == contribution) {
-                    contributions.push(Contribution {
-                        output: 0,
-                        target: Target::Row(*row),
-                        scale: *sign,
-                    });
-                }
+            for (row, sign) in conservation_rows.get(contribution).into_iter().flatten() {
+                contributions.push(Contribution { output: 0, target: Target::Row(*row), scale: *sign });
             }
         }
         if matches!(output, ModelingOutput::Penalty(_)) {
@@ -1169,6 +1175,7 @@ pub(super) fn complete(
         if body.semantic_identity() != Some(requested) {
             pse_quantity::premises::unsupported();
         }
+        admit_live_body(db, requested, body.descriptor_bytes().saturating_add(body.math.retained_bytes()));
         let key = body.spec.key();
         bodies.insert(key, body);
         instances.push(InstanceBinding {

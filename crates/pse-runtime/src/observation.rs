@@ -746,7 +746,7 @@ fn unix_micros() -> u128 {
 pub fn process_diagnostics() -> &'static Arc<Diagnostics> {
     static PROCESS: OnceLock<Arc<Diagnostics>> = OnceLock::new();
     PROCESS.get_or_init(|| {
-        let root = crate::inspection::default_directory();
+        let root = default_directory();
         let retention = std::env::var("PSE_DIAGNOSTICS_SUMMARY_SECONDS");
         let retention = match retention {
             Ok(value) => value
@@ -1332,4 +1332,19 @@ mod tests {
         assert_eq!(b, second_context.id());
         assert!(pse_diagnostics::observation::current().is_none());
     }
+}
+
+/// Default diagnostic directory shared with process publication; no registry is initialized.
+pub fn default_directory() -> PathBuf {
+    std::env::var_os("PSE_DIAGNOSTICS_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            std::env::var_os("XDG_STATE_HOME")
+                .map(PathBuf::from)
+                .or_else(|| {
+                    std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/state"))
+                })
+                .unwrap_or_else(std::env::temp_dir)
+                .join("pse/diagnostics")
+        })
 }

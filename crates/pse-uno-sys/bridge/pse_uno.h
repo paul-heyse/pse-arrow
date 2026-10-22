@@ -16,6 +16,23 @@ enum pse_uno_status {
     PSE_UNO_MEMORY = 3, PSE_UNO_CALLBACK_TERMINAL = 4, PSE_UNO_CANCELLED = 5,
     PSE_UNO_DEADLINE = 6, PSE_UNO_ABANDONED = 7, PSE_UNO_NO_RESULT = 8
 };
+/* Native status names are checked against the pinned Uno C header by the shield. */
+enum pse_uno_native_status {
+    PSE_UNO_SUCCESS = 0,
+    PSE_UNO_ITERATION_LIMIT = 1,
+    PSE_UNO_TIME_LIMIT = 2,
+    PSE_UNO_EVALUATION_ERROR = 3,
+    PSE_UNO_ALGORITHMIC_ERROR = 4,
+    PSE_UNO_USER_TERMINATION = 5,
+    PSE_UNO_NOT_OPTIMAL = 0,
+    PSE_UNO_FEASIBLE_KKT_POINT = 1,
+    PSE_UNO_FEASIBLE_FJ_POINT = 2,
+    PSE_UNO_INFEASIBLE_STATIONARY_POINT = 3,
+    PSE_UNO_FEASIBLE_SMALL_STEP = 4,
+    PSE_UNO_INFEASIBLE_SMALL_STEP = 5,
+    PSE_UNO_DIVERGING_ITERATE = 6,
+    PSE_UNO_UNBOUNDED_OBJECTIVE = 7
+};
 enum pse_uno_profile { PSE_UNO_SQP_LBFGS = 0, PSE_UNO_SLP = 1 };
 /* Rust owns original typed causes and catches panics before returning. */
 enum pse_uno_evaluation { PSE_UNO_EVAL_OK = 0, PSE_UNO_EVAL_TRIAL = 1, PSE_UNO_EVAL_TERMINAL = 2 };

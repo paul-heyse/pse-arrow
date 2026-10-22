@@ -10,40 +10,31 @@ use datafusion::arrow::{
     ipc::{
         self,
         reader::{FileReader, FileReaderBuilder},
-        writer::FileWriter,
     },
     record_batch::RecordBatch,
 };
-use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+use std::io::{Cursor, Read, Seek, SeekFrom};
 
 /// Default packing target; acknowledgement boundaries can seal smaller files.
 pub const TARGET_FILE_BYTES: usize = pse_operations::canonical_files::FILE_TARGET_BYTES;
 /// Every complete file, including its footer, fits this bound.
 pub const MAX_FILE_BYTES: usize = pse_operations::canonical_files::FILE_BYTES;
 const MAX_TABLES: usize = 128 * 1024;
-const MAX_BATCHES: usize = 32 * 1024;
+const MAX_BATCHES: usize = pse_columnar::ipc_file::MAX_BATCHES;
 #[cfg(test)]
 std::thread_local! {
     static PREFLIGHT_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
-struct LimitedWriter(Vec<u8>);
-impl Write for LimitedWriter {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        if self.0.len().saturating_add(bytes.len()) > MAX_FILE_BYTES {
-            return Err(std::io::Error::other("sealed result file limit"));
-        }
-        self.0.extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
 /// Pack compatible logical batches into one uncompressed, finished native file.
 /// Callers reserve writer scratch and output before calling, and seal before ACK.
 pub fn encode_file_batches(batches: &[RecordBatch]) -> Result<Vec<u8>, ResultBlockError> {
+    check_file_batches(batches)?;
+    Ok(pse_columnar::ipc_file::encode(batches, MAX_FILE_BYTES)?)
+}
+
+/// Shared representation checks for raw and admitted scientific file producers.
+pub(super) fn check_file_batches(batches: &[RecordBatch]) -> Result<(), ResultBlockError> {
     let first = batches
         .first()
         .ok_or(ResultBlockError::Invalid("empty file inventory"))?;
@@ -67,12 +58,8 @@ pub fn encode_file_batches(batches: &[RecordBatch]) -> Result<Vec<u8>, ResultBlo
     if visible > MAX_FILE_BYTES {
         return Err(ResultBlockError::Invalid("file body exceeds bound"));
     }
-    let mut writer = FileWriter::try_new(LimitedWriter(Vec::new()), first.schema().as_ref())?;
-    for batch in batches {
-        writer.write(batch)?;
-    }
-    writer.finish()?;
-    Ok(writer.into_inner()?.0)
+    pse_columnar::ipc_file::preflight(batches, MAX_FILE_BYTES)?;
+    Ok(())
 }
 
 /// One complete file, useful for independent artifact members and fixtures.

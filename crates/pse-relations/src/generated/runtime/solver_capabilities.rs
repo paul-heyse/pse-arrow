@@ -13,15 +13,17 @@ pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "solver_capabilities";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "runtime.solver_capabilities";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
 pub const VERSION: u32 = 4u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    207u8, 108u8, 156u8, 100u8, 168u8, 144u8, 149u8, 117u8, 131u8, 70u8, 43u8, 82u8,
-    171u8, 244u8, 216u8, 66u8, 159u8, 161u8, 43u8, 122u8, 220u8, 176u8, 65u8, 192u8,
-    220u8, 231u8, 162u8, 209u8, 1u8, 106u8, 195u8, 196u8,
+    143u8, 38u8, 39u8, 31u8, 169u8, 56u8, 15u8, 42u8, 220u8, 157u8, 92u8, 207u8, 153u8,
+    172u8, 205u8, 252u8, 112u8, 99u8, 122u8, 199u8, 73u8, 231u8, 90u8, 231u8, 57u8,
+    111u8, 126u8, 117u8, 124u8, 71u8, 24u8, 203u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
     fn append(

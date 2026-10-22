@@ -476,7 +476,8 @@ Workflow assembly checks the actual consumed shared pool, CPU admission and widt
 native runtime, cache service, spill/cache managers and store registry. A supplied factory
 with foreign owners refuses construction; supported custom planning/functions and query
 partition choices remain available. Durable composition installs operations from its configured canonical store and pool with
-positive lease/heartbeat intervals, rather than accepting arbitrary live operations from
+an admitted lease policy (positive heartbeat shorter than lease, progress capacity 1..=512
+and positive flush delay), rather than accepting arbitrary live operations from
 another deployment. Explicit local composition needs no store; actual store operations
 without a configured sink refuse with typed diagnostics. Recording/read operations have their own configured owner and do not change default scientific execution durability. APIs requiring canonical source publication refuse an ephemeral execution owner before writing partial source state.
 
@@ -509,6 +510,10 @@ compatibility independently of native allocation reuse. A stage, start or result
 mutates package declarations.
 
 ### 19.2 Results, qualification and diagnostics
+
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+Exact statistics over admitted batches, bound to payload/schema/interpretation, replace scalar row locators. DataFusion conservative pruning and residual-before-limit preserve full protected decode, original coordinates and scientific bits. Explicit conic/recycle/block-initialization strategies retain their nondurable lifecycle exception.
 
 > Supplement: [ADR-0191](../../adr/0191-explicit-scalar-compiled-evaluation.md) (proposed; scientific replay version 2 retains the required explicit evaluator selection in its constructor preparation).
 
@@ -766,6 +771,10 @@ obligations does not release another owner's content or require producer payload
 ([§20.4](identity-and-publication.md#section-20-4)).
 
 ### 19.3 Studies and reuse
+
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+One runtime request/preparation/admission/deployment owner and typed dispatch/finish pairing serve immediate and durable hosts. StudyOperation Version7 membership stays unchanged; host-only Shooting refuses projection before effects. Parameter Fit/Simulation points bind values with explicit starts and fresh consistent IC/history.
 
 > Decision: [ADR-0211](../../adr/0211-bounded-worker-publication.md) (proposed; Plan48 F06 target).
 
@@ -1236,6 +1245,10 @@ commitment (M2c), both in [§6.8](schema-and-relations.md#section-6-8).
 
 ### 19.8 Uncertainty
 
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+Qualified fit covariance requires complete authoritative content/validity hydration or reconciliation; external origin stays explicit. Dimensionless scale-aware faer PSD admission accepts singular inputs, refuses indefinite inputs and withholds negative propagated variance without clamping.
+
 > Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — uncertainty propagation
 > Σ_y = J·Σ_θ·Jᵀ and covariance with PS-12 validity, valid only where every upstream
 > validity row holds (Plan 22 S3–S4, implemented). ADR-0118 supersedes ADR-0107.
@@ -1357,6 +1370,10 @@ unknown/audit obligations retain the protection specified in §20.4; release doe
 invent completion, redispatch native work or promise returned physical disk space.
 
 ### 21.1 Extension module, canonical operations and Arrow streams
+
+> Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
+
+Strict registry enums/identity metadata and one direction-qualified document catalogue supply generated types, typed returns and actual compiled fingerprint checks. Keyed physical Arrow inputs resolve through selected coordinate contracts and QuantityRegistry, establish immutable custody through drain, and retain signed precise physical time separately from wall-clock budgets.
 
 > Decision: ADR-0192 (proposed): Plan43a coherent diagnostic and invocation document changes migrate their Rust, generated Python and CLI consumers together; diagnostic locators and selected-detail coverage grant no scientific or publication permission.
 

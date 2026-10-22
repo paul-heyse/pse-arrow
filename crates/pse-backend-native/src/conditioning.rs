@@ -157,7 +157,7 @@ where
         });
     }
     let matrix = feral::CscMatrix::from_triplets(order, &rows, &cols, &values).map_err(native)?;
-    let (solver, inertia) = factor(&matrix)?;
+    let (solver, inertia) = factor(&matrix, crate::execution::foreign_allowance().unwrap_or(usize::MAX))?;
     Ok(Kkt {
         inertia,
         condition_1norm: crate::observation::scoped(
@@ -176,10 +176,11 @@ where
 /// A factorization that reports no inertia, or an inertia that does not cover the order.
 pub(crate) fn factor(
     matrix: &feral::CscMatrix,
+    allowance: usize,
 ) -> Result<(feral::Solver, (usize, usize, usize)), ProblemError> {
     // Serial and FMA-free: a diagnostic owns no admitted thread team.
     let mut solver = feral::Solver::new().with_parallel(false);
-    let inertia = factor_into(&mut solver, matrix)?;
+    let inertia = factor_into(&mut solver, matrix, allowance)?;
     Ok((solver, inertia))
 }
 /// [`factor`] on an existing solver, which keeps its symbolic analysis for an unchanged
@@ -190,7 +191,9 @@ pub(crate) fn factor(
 pub(crate) fn factor_into(
     solver: &mut feral::Solver,
     matrix: &feral::CscMatrix,
+    allowance: usize,
 ) -> Result<(usize, usize, usize), ProblemError> {
+    admit_factor(solver, matrix, allowance)?;
     crate::observation::operation("conditioning.feral.ldlt", || {
         crate::observation::boolean("factor.valid", false);
         let status = crate::observation::scoped("conditioning.feral.ldlt.factor", || {
@@ -217,6 +220,37 @@ pub(crate) fn factor_into(
         publish_factor_summary(solver, true);
         Ok((inertia.positive, inertia.negative, inertia.zero))
     })
+}
+
+/// Admit the selected default Auto/default-supernode serial LDLᵀ geometry before
+/// numeric factorization. The public Solver API cannot adopt this symbolic object:
+/// analysis is intentionally repeated by factor(), and this scratch is dropped first.
+/// This estimate excludes delayed-pivot growth; the full envelope remains reserved.
+pub(crate) fn admit_factor(
+    solver: &feral::Solver,
+    matrix: &feral::CscMatrix,
+    allowance: usize,
+) -> Result<(), ProblemError> {
+    let held_matrix = matrix.col_ptr.capacity().checked_add(matrix.row_idx.capacity())
+        .and_then(|entries| entries.checked_mul(size_of::<usize>()))
+        .and_then(|bytes| matrix.values.capacity().checked_mul(size_of::<f64>()).and_then(|values| bytes.checked_add(values)))
+        .ok_or_else(|| ProblemError::memory("FERAL held matrix extent"))?;
+    let held_factor = solver.work_estimate().map_or(0, |estimate| estimate.factor_bytes);
+    let held = held_matrix.checked_add(held_factor)
+        .ok_or_else(|| ProblemError::memory("FERAL held factor extent"))?;
+    if held > allowance { return Err(ProblemError::memory("FERAL held storage exceeds factor allowance")); }
+    let symbolic = feral::symbolic::symbolic_factorize(matrix, &Default::default()).map_err(native)?;
+    let estimate = symbolic.work_estimate();
+    crate::observation::integer("conditioning.feral.symbolic.peak_bytes", "bytes", i64::try_from(estimate.peak_bytes).unwrap_or(i64::MAX));
+    // A retained factor may have escalated its ordering on the previous numeric
+    // call. Cover its cached symbolic geometry as well as a new-pattern default.
+    let peak = estimate.peak_bytes.max(solver.work_estimate().map_or(0, |held| held.peak_bytes));
+    let required = held.checked_add(peak)
+        .ok_or_else(|| ProblemError::memory("FERAL symbolic peak extent"))?;
+    if required > allowance {
+        return Err(ProblemError::memory("FERAL symbolic peak exceeds numeric factor allowance"));
+    }
+    Ok(())
 }
 
 pub(crate) fn publish_factor_status(status: &feral::FactorStatus) {
@@ -481,6 +515,22 @@ mod tests {
     }
 
     #[test]
+    fn feral_symbolic_peak_refuses_before_numeric_factorization() {
+        let matrix = feral::CscMatrix::from_triplets(2, &[0, 1, 1], &[0, 0, 1], &[2., 1., -1.]).unwrap();
+        let symbolic = feral::symbolic::symbolic_factorize(&matrix, &Default::default()).unwrap();
+        let held = (matrix.col_ptr.capacity() + matrix.row_idx.capacity()) * size_of::<usize>()
+            + matrix.values.capacity() * size_of::<f64>();
+        let exact = held + symbolic.work_estimate().peak_bytes;
+        assert!(exact > held);
+        let mut solver = feral::Solver::new().with_parallel(false);
+        assert!(factor_into(&mut solver, &matrix, exact - 1).is_err());
+        assert_eq!(solver.symbolic_call_count(), 0, "Solver::factor was not entered");
+        assert!(solver.inertia().is_none());
+        assert_eq!(factor_into(&mut solver, &matrix, usize::MAX).unwrap(), (1, 1, 0));
+        assert_eq!(solver.symbolic_call_count(), 1);
+    }
+
+    #[test]
     fn kkt_inertia_counts_pivot_signs() {
         // H = diag(2, -1), A = [1 1]: Zᵀ H Z = (2 - 1)/2 > 0, so In(K) = (2, 1, 0).
         let k = kkt(
@@ -526,16 +576,16 @@ mod tests {
             row_idx: vec![0, 2, 3, 1, 2, 3, 2, 3],
             values: vec![1., 1., 0., 1., 0., 1., 0., 0.],
         };
-        let (mut solver, inertia) = factor(&matrix).unwrap();
+        let (mut solver, inertia) = factor(&matrix, usize::MAX).unwrap();
         assert_eq!(inertia, (2, 2, 0));
         assert_eq!(solver.symbolic_call_count(), 1);
         matrix.values[2] = 2.;
         matrix.values[5] = 0.;
-        assert_eq!(factor_into(&mut solver, &matrix).unwrap(), (2, 1, 1));
+        assert_eq!(factor_into(&mut solver, &matrix, usize::MAX).unwrap(), (2, 1, 1));
         assert_eq!(solver.symbolic_call_count(), 1);
         assert!(solver.last_factor_stats().unwrap().pattern_reused);
         matrix.values[5] = 1.;
-        assert_eq!(factor_into(&mut solver, &matrix).unwrap(), (2, 2, 0));
+        assert_eq!(factor_into(&mut solver, &matrix, usize::MAX).unwrap(), (2, 2, 0));
         assert_eq!(solver.symbolic_call_count(), 1);
         // Equal order and nnz with a different row structure must reanalyse.
         matrix.row_idx[2] = 2;
@@ -543,7 +593,7 @@ mod tests {
         // This remains sorted lower-triangle CSC; new values remove dependence.
         matrix.values[1] = 0.;
         matrix.values[2] = 1.;
-        assert_eq!(factor_into(&mut solver, &matrix).unwrap(), (2, 2, 0));
+        assert_eq!(factor_into(&mut solver, &matrix, usize::MAX).unwrap(), (2, 2, 0));
         assert_eq!(solver.symbolic_call_count(), 2);
         let snapshot = operation
             .reader()

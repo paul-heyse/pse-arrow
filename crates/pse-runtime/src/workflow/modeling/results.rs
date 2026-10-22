@@ -1057,21 +1057,15 @@ impl ModelingPackage {
             .scope(async {
                 let mut prepared = prepared;
                 prepared.compiler = compiler;
-                let handle = prepared.start()?;
-                let wait = handle.wait();
-                tokio::pin!(wait);
-                let joined = tokio::select! {
-                    result = &mut wait => result?,
-                    () = cancel.cancelled() => {handle.cancel();wait.await?}
+                let joined = self.runtime.start_modeling(vec![prepared], false, cancel).await?
+                    .wait().await?;
+                let super::super::RunOutcome::Modeling { result, .. } = &joined.outcome else {
+                    return Err(contract("authored modeling operation required"));
                 };
-                match &joined.report {
-                    Ok(super::super::RunReport::Modeling(results)) => results
-                        .first()
-                        .cloned()
-                        .ok_or_else(|| contract("authored solve completed without a result")),
-                    Err(error) => Err(WorkflowError::Shared(error.clone())),
-                    _ => Err(contract("authored solve report mismatch")),
-                }
+                result.as_ref().map_err(|error| WorkflowError::Shared(error.clone()))?
+                    .first().cloned()
+                    .ok_or_else(|| contract("authored solve completed without a result"))
+
             })
             .await
     }

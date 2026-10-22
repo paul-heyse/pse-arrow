@@ -11,6 +11,15 @@ import msgspec
 import msgspec.json
 import pyarrow as pa
 
+_GRAMMARS = ("expression", "equation", "predicate", "proposition", "static", "annotation_arguments", "annotation_target",)
+_GRAMMAR_VERSION = 1
+
+
+class _ExpressionMetadata(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    v: int
+    grammar: str
+    grammar_version: int
+
 
 class _VersionMetadata(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
     v: int
@@ -51,6 +60,10 @@ class _PseExtensionType(pa.ExtensionType):
             if binding_id is not None:
                 _reject("this extension has no identity parameter")
             self.binding_id = None
+        elif self._binding_key == "grammar":
+            if binding_id not in _GRAMMARS:
+                _reject("an explicit supported source grammar is required")
+            self.binding_id = binding_id
         else:
             self.binding_id = _identity(binding_id)
         super().__init__(self._declared_storage(), self._extension_name)
@@ -73,6 +86,10 @@ class _PseExtensionType(pa.ExtensionType):
         return NotImplemented if equal is NotImplemented else not equal
 
     def __arrow_ext_serialize__(self) -> bytes:
+        if self._binding_key == "grammar":
+            if self.binding_id is None:
+                _reject("an explicit source grammar is required")
+            return msgspec.json.encode(_ExpressionMetadata(self._metadata_version, self.binding_id, _GRAMMAR_VERSION))
         if self._binding_key == "enum_id":
             return msgspec.json.encode(_EnumMetadata(self._metadata_version, _identity(self.binding_id)))
         if self._binding_key == "target_relation_id":
@@ -94,6 +111,12 @@ class _PseExtensionType(pa.ExtensionType):
                 ordinal_metadata = msgspec.json.decode(serialized, type=_OrdinalMetadata)
                 version = ordinal_metadata.v
                 binding = _identity(ordinal_metadata.target_relation_id)
+            elif cls._binding_key == "grammar":
+                expression_metadata = msgspec.json.decode(serialized, type=_ExpressionMetadata)
+                version = expression_metadata.v
+                if expression_metadata.grammar_version != _GRAMMAR_VERSION:
+                    _reject("unsupported source grammar generation")
+                binding = expression_metadata.grammar
             else:
                 version = msgspec.json.decode(serialized, type=_VersionMetadata).v
                 binding = None
@@ -229,9 +252,9 @@ class PseExprDsl(_PseExtensionType):
     """The declared pse.expr_dsl extension."""
 
     _extension_name = "pse.expr_dsl"
-    _metadata_version = 1
-    _binding_key = None
-    _prototype_binding = None
+    _metadata_version = 2
+    _binding_key = "grammar"
+    _prototype_binding = "expression"
 
     @classmethod
     def _declared_storage(cls) -> pa.DataType:

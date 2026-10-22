@@ -326,6 +326,7 @@ struct Collector<'a> {
     row: &'a Declaration,
     values: &'a mut Occurrences,
     indices: Vec<(String, String)>,
+    scopes: Vec<usize>,
     fields: Option<&'a BTreeMap<String, SourceSpan>>,
 }
 impl Collector<'_> {
@@ -433,9 +434,6 @@ impl Collector<'_> {
         self.insert(role, position, source, Syntax::Predicate(syntax))?;
         Ok(())
     }
-    fn equation(&mut self, role: &str, source: &str) -> Result<()> {
-        self.equation_at(role, 0, source)
-    }
     fn equation_at(&mut self, role: &str, position: usize, source: &str) -> Result<()> {
         let syntax = dsl::parse_equation(source).map_err(|e| self.failure(role, position, e))?;
         self.insert(role, position, source, Syntax::Equation(syntax))?;
@@ -448,7 +446,7 @@ impl Collector<'_> {
     }
 }
 
-/// Collect field roles explicitly: interchange strings that are labels or types are not expressions.
+/// Collect through the generated grammar/role/binder inventory; plain strings are not syntax.
 pub(crate) fn collect(
     rows: &[Declaration],
     documents: &dyn crate::document::Documents,
@@ -472,522 +470,40 @@ pub(crate) fn collect(
     }
     Ok(values)
 }
+impl pse_model::generated::authored::modeling_declarations::SourceExpressionVisitor for Collector<'_> {
+    type Error = crate::ModelingError;
+    fn expression(&mut self, grammar: pse_model::generated::authored::modeling_declarations::SourceGrammar, role: &str, position: usize, source: &str) -> Result<()> {
+        use pse_model::generated::authored::modeling_declarations::SourceGrammar;
+        match grammar {
+            SourceGrammar::Expression => self.expression(role, position, source),
+            SourceGrammar::Equation => self.equation_at(role, position, source),
+            SourceGrammar::Predicate => self.predicate(role, position, source),
+            SourceGrammar::Static => self.static_value(role, position, source),
+            SourceGrammar::Proposition => {
+                let syntax = dsl::parse_proposition(source).map_err(|error| self.failure(role, position, error))?;
+                self.insert(role, position, source, Syntax::Logic(syntax))
+            }
+        }
+    }
+    fn enter_scope(&mut self) { self.scopes.push(self.indices.len()); }
+    fn leave_scope(&mut self) { if let Some(length) = self.scopes.pop() { self.indices.truncate(length); } }
+    fn bind_index(&mut self, name: &str, domain: &str) { self.indices.push((name.to_owned(), domain.to_owned())); }
+}
 fn collect_fresh(
     rows: &[Declaration],
     documents: &dyn crate::document::Documents,
 ) -> Result<Occurrences> {
     let mut values = BTreeMap::new();
     for row in rows {
-        let v = &row.value;
-        let mut c = Collector {
+        if let Some(annotation) = &row.value.annotation { crate::annotation::shape(annotation, row.declaration_id)?; }
+        let mut collector = Collector {
             row,
             values: &mut values,
             indices: Vec::new(),
+            scopes: Vec::new(),
             fields: documents.field_spans(row.declaration_id),
         };
-        macro_rules! indices {
-            ($value:expr, $role:expr) => {
-                for (position, index) in $value.indices.iter().enumerate() {
-                    c.static_value(
-                        &format!("{}.indices.domain", $role),
-                        position,
-                        &index.domain,
-                    )?;
-                    c.indices.push((index.name.clone(), index.domain.clone()));
-                }
-            };
-        }
-        if let Some(b) = &v.binding {
-            indices!(b, "binding");
-            if let Some(source) = &b.expression {
-                c.static_value("binding.expression", 0, source)?;
-            }
-            if let Some(source) = &b.defined_by {
-                c.equation("binding.defined_by", source)?;
-            }
-        }
-        if let Some(e) = &v.equation {
-            indices!(e, "equation");
-            c.equation("equation.expression", &e.expression)?;
-            if let Some(condition) = &e.condition {
-                c.expression("equation.condition.variable", 0, &condition.variable)?;
-            }
-        }
-        if let Some(f) = &v.function {
-            if let Some(source) = &f.body {
-                c.expression("function.body", 0, source)?;
-            }
-            if let Some(source) = &f.validity {
-                c.predicate("function.validity", 0, source)?;
-            }
-            for (i, source) in f.applicability.iter().enumerate() {
-                c.expression("function.applicability", i, source)?;
-            }
-            if let Some(external) = &f.external {
-                c.expression("function.external.output", 0, &external.output)?;
-            }
-        }
-        if let Some(s) = &v.scope {
-            if let Some(fixture) = &s.fixture {
-                for (position, event) in fixture
-                    .modes
-                    .iter()
-                    .flat_map(|mode| &mode.events)
-                    .enumerate()
-                {
-                    c.expression("scope.fixture.modes.events.guard", position, &event.guard)?;
-                    c.expression(
-                        "scope.fixture.modes.events.tolerance",
-                        position,
-                        &event.tolerance,
-                    )?;
-                }
-                for (mode, value) in fixture.modes.iter().enumerate() {
-                    for (event, value) in value.events.iter().enumerate() {
-                        for (reset, value) in value.reset.iter().enumerate() {
-                            c.expression(
-                                &format!(
-                                    "scope.fixture.modes.{mode}.events.{event}.reset.{reset}.target"
-                                ),
-                                0,
-                                &value.target,
-                            )?;
-                            c.expression(&format!("scope.fixture.modes.{mode}.events.{event}.reset.{reset}.expression"), 0, &value.expression)?;
-                        }
-                    }
-                }
-                if let Some(integration) = &fixture.integration {
-                    for (position, source) in integration.samples.iter().enumerate() {
-                        c.expression("scope.fixture.integration.samples", position, source)?;
-                    }
-                    c.expression(
-                        "scope.fixture.integration.initial_step",
-                        0,
-                        &integration.initial_step,
-                    )?;
-                    for (position, value) in integration.quadratures.iter().enumerate() {
-                        c.expression(
-                            "scope.fixture.integration.quadratures.target",
-                            position,
-                            &value.target,
-                        )?;
-                        c.expression(
-                            "scope.fixture.integration.quadratures.absolute_tolerance",
-                            position,
-                            &value.absolute_tolerance,
-                        )?;
-                    }
-                    for (schedule, value) in integration.schedules.iter().enumerate() {
-                        c.expression(
-                            &format!("scope.fixture.integration.schedules.{schedule}.target"),
-                            0,
-                            &value.target,
-                        )?;
-                        for (position, source) in value.times.iter().enumerate() {
-                            c.expression(
-                                &format!("scope.fixture.integration.schedules.{schedule}.times"),
-                                position,
-                                source,
-                            )?;
-                        }
-                        for (position, source) in value.values.iter().enumerate() {
-                            c.expression(
-                                &format!("scope.fixture.integration.schedules.{schedule}.values"),
-                                position,
-                                source,
-                            )?;
-                        }
-                        if let Some(source) = &value.lower {
-                            c.expression(
-                                &format!("scope.fixture.integration.schedules.{schedule}.lower"),
-                                0,
-                                source,
-                            )?;
-                        }
-                        if let Some(source) = &value.upper {
-                            c.expression(
-                                &format!("scope.fixture.integration.schedules.{schedule}.upper"),
-                                0,
-                                source,
-                            )?;
-                        }
-                    }
-                }
-                if let Some(shooting) = &fixture.shooting {
-                    for (position, source) in shooting.nodes.iter().enumerate() {
-                        c.expression("scope.fixture.shooting.nodes", position, source)?;
-                    }
-                }
-                for (position, value) in fixture.specifications.iter().enumerate() {
-                    c.expression(
-                        "scope.fixture.specifications.target",
-                        position,
-                        &value.target,
-                    )?;
-                    if let Some(source) = &value.expression {
-                        c.expression("scope.fixture.specifications.expression", position, source)?;
-                    }
-                }
-                for (diagnostic, value) in fixture.diagnostics.iter().enumerate() {
-                    for (position, source) in value.members.iter().enumerate() {
-                        c.expression(
-                            &format!("scope.fixture.diagnostics.{diagnostic}.members"),
-                            position,
-                            source,
-                        )?;
-                    }
-                }
-                if let Some(expected) = &fixture.expected_failure {
-                    for (position, source) in expected.members.iter().enumerate() {
-                        c.expression("scope.fixture.expected_failure.members", position, source)?;
-                    }
-                    if let Some(applicability) = &expected.applicability {
-                        for (position, source) in applicability.variables.iter().enumerate() {
-                            c.expression(
-                                "scope.fixture.expected_failure.applicability.variables",
-                                position,
-                                source,
-                            )?;
-                        }
-                    }
-                    if let Some(validity) = &expected.validity {
-                        for (position, source) in validity.variables.iter().enumerate() {
-                            c.expression(
-                                "scope.fixture.expected_failure.validity.variables",
-                                position,
-                                source,
-                            )?;
-                        }
-                    }
-                    for (role, values) in [
-                        (
-                            "applicability",
-                            expected.applicability.as_ref().map(|v| &v.sets),
-                        ),
-                        ("validity", expected.validity.as_ref().map(|v| &v.sets)),
-                    ] {
-                        if let Some(values) = values {
-                            for (position, source) in values.iter().enumerate() {
-                                c.static_value(
-                                    &format!("scope.fixture.expected_failure.{role}.sets"),
-                                    position,
-                                    source,
-                                )?;
-                            }
-                        }
-                    }
-                }
-            }
-            for (i, parameter) in s.parameters.iter().enumerate() {
-                if let Some(source) = &parameter.default_value {
-                    c.static_value("scope.parameters.default_value", i, source)?;
-                }
-            }
-            if let Some(branch) = &s.branch {
-                c.predicate("scope.branch", 0, branch)?;
-            }
-            if let Some(operation) = &s.operational {
-                for (position, anchor) in operation.anchors.iter().enumerate() {
-                    c.expression("scope.operational.anchors.target", position, &anchor.target)?;
-                    c.expression(
-                        "scope.operational.anchors.expression",
-                        position,
-                        &anchor.expression,
-                    )?;
-                }
-                if let Some(neighborhood) = &operation.neighborhood {
-                    c.predicate("scope.operational.neighborhood", 0, neighborhood)?;
-                }
-            }
-            if let Some(selection) = &s.selection {
-                c.expression("scope.selection.criterion", 0, &selection.criterion)?;
-                c.expression("scope.selection.tolerance", 0, &selection.tolerance)?;
-            }
-            if let Some(source) = &s.eligibility {
-                c.predicate("scope.eligibility", 0, source)?;
-            }
-        }
-        if let Some(g) = &v.guard {
-            c.predicate("guard.predicate", 0, &g.predicate)?;
-        }
-        if let Some(r) = &v.requirement {
-            c.predicate("requirement.predicate", 0, &r.predicate)?;
-        }
-        if let Some(a) = &v.accumulator {
-            indices!(a, "accumulator");
-            c.expression("accumulator.tolerance", 0, &a.tolerance)?;
-            if let Some(source) = &a.boundary {
-                c.expression("accumulator.boundary", 0, source)?;
-            }
-        }
-        if let Some(a) = &v.contribution {
-            indices!(a, "contribution");
-            c.expression("contribution.target", 0, &a.target)?;
-            c.expression("contribution.expression", 0, &a.expression)?;
-        }
-        if let Some(a) = &v.connection {
-            indices!(a, "connection");
-            c.expression("connection.from", 0, &a.from)?;
-            c.expression("connection.to", 0, &a.to)?;
-        }
-        if let Some(a) = &v.state_specification {
-            indices!(a, "state_specification");
-            c.expression("state_specification.supplied", 0, &a.supplied)?;
-            if let Some(base) = &a.extends {
-                c.expression("state_specification.extends", 0, base)?;
-            }
-            let outer = c.indices.clone();
-            for (i, coordinate) in a.coordinates.iter().enumerate() {
-                c.indices.clone_from(&outer);
-                indices!(coordinate, format!("state_specification.coordinates.{i}"));
-                c.expression(
-                    "state_specification.coordinates.target",
-                    i,
-                    &coordinate.target,
-                )?;
-            }
-            for (i, reconstruction) in a.reconstructions.iter().enumerate() {
-                c.indices.clone_from(&outer);
-                indices!(
-                    reconstruction,
-                    format!("state_specification.reconstructions.{i}")
-                );
-                c.equation_at(
-                    "state_specification.reconstructions.equation",
-                    i,
-                    &reconstruction.equation,
-                )?;
-                c.expression(
-                    "state_specification.reconstructions.tolerance",
-                    i,
-                    &reconstruction.tolerance,
-                )?;
-            }
-            for (i, transport) in a.transports.iter().enumerate() {
-                c.indices.clone_from(&outer);
-                indices!(transport, format!("state_specification.transports.{i}"));
-                c.expression(
-                    "state_specification.transports.expression",
-                    i,
-                    &transport.expression,
-                )?;
-                c.expression(
-                    "state_specification.transports.tolerance",
-                    i,
-                    &transport.tolerance,
-                )?;
-            }
-            c.indices = outer;
-        }
-        if let Some(a) = &v.state_port {
-            indices!(a, "state_port");
-            c.expression("state_port.specification", 0, &a.specification)?;
-        }
-        if let Some(a) = &v.inventory_balance {
-            indices!(a, "inventory_balance");
-            c.expression("inventory_balance.axis", 0, &a.axis)?;
-            c.expression("inventory_balance.inventory", 0, &a.inventory)?;
-            c.expression("inventory_balance.flux", 0, &a.flux)?;
-            c.expression("inventory_balance.tolerance", 0, &a.tolerance)?;
-            for (i, transfer) in a.transfers.iter().enumerate() {
-                c.expression("inventory_balance.transfers.event", i, &transfer.event)?;
-                c.expression(
-                    "inventory_balance.transfers.expression",
-                    i,
-                    &transfer.expression,
-                )?;
-            }
-        }
-        if let Some(a) = &v.boundary {
-            indices!(a, "boundary");
-        }
-        if let Some(a) = &v.exchange {
-            indices!(a, "exchange");
-            c.expression("exchange.from", 0, &a.from)?;
-            c.expression("exchange.to", 0, &a.to)?;
-        }
-        if let Some(a) = &v.coordinate_slot {
-            indices!(a, "coordinate_slot");
-            c.expression("coordinate_slot.expression", 0, &a.expression)?;
-        }
-        if let Some(a) = &v.coordinate_map
-            && let Some(source) = &a.validity
-        {
-            c.predicate("coordinate_map.validity", 0, source)?;
-        }
-        if let Some(a) = &v.response {
-            c.expression("response.body", 0, &a.body)?;
-        }
-        if let Some(a) = &v.continuous {
-            c.expression("continuous.lower", 0, &a.lower)?;
-            c.expression("continuous.upper", 0, &a.upper)?;
-        }
-        if let Some(a) = &v.discretization {
-            c.expression("discretization.elements", 0, &a.elements)?;
-            c.expression("discretization.order", 0, &a.order)?;
-        }
-        if let Some(a) = &v.relaxation {
-            c.expression("relaxation.target", 0, &a.target)?;
-            c.expression("relaxation.nominal", 0, &a.nominal)?;
-        }
-        if let Some(a) = &v.continuation {
-            c.expression("continuation.target", 0, &a.target)?;
-            c.expression("continuation.start", 0, &a.start)?;
-            c.expression("continuation.end", 0, &a.end)?;
-        }
-        if let Some(a) = &v.realization {
-            if let Some(function) = &a.function {
-                c.expression("realization.function", 0, function)?;
-            }
-            if let Some(argument) = &a.argument {
-                c.expression("realization.argument", 0, argument)?;
-            }
-        }
-        if let Some(a) = &v.ordered_set {
-            indices!(a, "ordered_set");
-            c.expression("ordered_set.member", 0, &a.member)?;
-            c.expression("ordered_set.weight", 0, &a.weight)?;
-        }
-        if let Some(a) = &v.cardinality {
-            indices!(a, "cardinality");
-            c.expression("cardinality.member", 0, &a.member)?;
-            c.expression("cardinality.count", 0, &a.count)?;
-        }
-        if let Some(a) = &v.piecewise {
-            indices!(a, "piecewise");
-            for (role, source) in [
-                ("piecewise.input", &a.input),
-                ("piecewise.output", &a.output),
-                ("piecewise.abscissa", &a.abscissa),
-                ("piecewise.ordinate", &a.ordinate),
-            ] {
-                c.expression(role, 0, source)?;
-            }
-        }
-        if let Some(a) = &v.complementarity {
-            indices!(a, "complementarity");
-            c.expression("complementarity.first", 0, &a.first)?;
-            c.expression("complementarity.second", 0, &a.second)?;
-        }
-        if let Some(a) = &v.logic {
-            indices!(a, "logic");
-            let syntax = dsl::parse_proposition(&a.proposition)
-                .map_err(|error| c.failure("logic.proposition", 0, error))?;
-            c.insert(
-                "logic.proposition",
-                0,
-                &a.proposition,
-                Syntax::Logic(syntax),
-            )?;
-        }
-        if let Some(a) = &v.annotation {
-            use crate::annotation::Shape;
-            if a.kind != pse_model::generated::enums::ModelingAnnotationKind::EngineeringRule {
-                c.expression("annotation.target", 0, &a.target)?;
-            }
-            match crate::annotation::shape(a, row.declaration_id)? {
-                Shape::Expressions(count) => {
-                    for (i, source) in a.arguments[..count].iter().enumerate() {
-                        c.expression("annotation.arguments", i, source)?;
-                    }
-                }
-                Shape::Predicate => c.predicate("annotation.arguments", 0, &a.arguments[0])?,
-                Shape::Objective => {
-                    if let Some(members) = &a.objective {
-                        for (role, source) in [
-                            ("weight", &members.weight),
-                            ("normalization", &members.normalization),
-                            ("absolute_tolerance", &members.absolute_tolerance),
-                            ("relative_tolerance", &members.relative_tolerance),
-                        ] {
-                            if let Some(source) = source {
-                                c.expression(&format!("annotation.objective.{role}"), 0, source)?;
-                            }
-                        }
-                    }
-                }
-                Shape::AccuracyGoal => {
-                    if let Some(goal) = &a.accuracy_goal {
-                        for (role, source) in [
-                            ("time", &goal.time),
-                            ("resolution", &goal.resolution),
-                            ("criterion_lower", &goal.criterion_lower),
-                            ("criterion_upper", &goal.criterion_upper),
-                        ] {
-                            if let Some(source) = source {
-                                c.expression(
-                                    &format!("annotation.accuracy_goal.{role}"),
-                                    0,
-                                    source,
-                                )?;
-                            }
-                        }
-                    }
-                }
-                Shape::EngineeringScale => {
-                    if let Some(scale) = &a.engineering_scale {
-                        c.expression("annotation.engineering_scale.value", 0, &scale.value)?;
-                    }
-                }
-                Shape::EngineeringDefault | Shape::EngineeringRule => {}
-                Shape::Label => c.static_value("annotation.arguments", 0, &a.arguments[0])?,
-                _ => {}
-            }
-        }
-        if let Some(a) = &v.attribute
-            && let Some(source) = &a.derived
-        {
-            c.expression("attribute.derived", 0, source)?;
-        }
-        if let Some(a) = &v.table {
-            for (position, column) in a.columns.iter().enumerate() {
-                if let Some(source) = &column.derived {
-                    c.expression("table.columns.derived", position, source)?;
-                }
-            }
-            for (position, source) in a.requirements.iter().enumerate() {
-                c.predicate("table.requirements", position, source)?;
-            }
-        }
-        if let Some(a) = &v.permission {
-            for (position, source) in a.targets.iter().enumerate() {
-                c.expression("permission.targets", position, source)?;
-            }
-        }
-        if let Some(a) = &v.applicability {
-            c.expression("applicability.evidence", 0, &a.evidence)?;
-            if let Some(source) = &a.predicate {
-                c.predicate("applicability.predicate", 0, source)?;
-            }
-            for (role, source) in [("axis", &a.axis), ("lower", &a.lower), ("upper", &a.upper)] {
-                if let Some(source) = source {
-                    c.expression(&format!("applicability.{role}"), 0, source)?;
-                }
-            }
-            for (role, sources) in [
-                ("alternatives", &a.alternatives),
-                ("dependencies", &a.dependencies),
-            ] {
-                for (position, source) in sources.iter().enumerate() {
-                    c.expression(&format!("applicability.{role}"), position, source)?;
-                }
-            }
-        }
-        if let Some(a) = &v.reference_translation {
-            c.expression("reference_translation.temperature", 0, &a.temperature)?;
-            c.expression("reference_translation.pressure", 0, &a.pressure)?;
-        }
-        if let Some(a) = &v.reconstruction {
-            c.expression("reconstruction.normalization", 0, &a.normalization)?;
-        }
-        if let Some(a) = &v.expectation {
-            c.expression("expectation.actual", 0, &a.actual)?;
-            c.expression("expectation.expected", 0, &a.expected)?;
-            c.expression("expectation.tolerance", 0, &a.tolerance)?;
-            if let Some(source) = &a.relative_tolerance {
-                c.expression("expectation.relative_tolerance", 0, source)?;
-            }
-        }
+        row.value.visit_source_expressions(&mut collector)?;
     }
     Ok(values)
 }
@@ -1405,6 +921,66 @@ mod tests {
         checked(
             "package p {fn 'law.table'(x:Scalar)->Scalar=x; fn consumer('law.table':Fn(x:Scalar)->Scalar,x:Scalar)->Scalar='law.table'(x);}",
         );
+    }
+
+    #[test]
+    fn source_mask_refuses_plain_formal_names_and_uses_declared_expression_fields() {
+        let mut rows = crate::kernel_types::source("package p {fn law(x:Scalar)->Scalar=x;}");
+        let function = rows.iter_mut().find(|row| row.value.function.is_some()).unwrap();
+        assert_eq!(function.value.mask_source_expressions(|_, role, position, text| role == "function.arguments.name" && position == 0 && text == "x"), 0);
+        assert_eq!(function.value.function.as_ref().unwrap().arguments[0].name, "x");
+        assert_eq!(function.value.mask_source_expressions(|_, role, position, text| role == "function.body" && position == 0 && text == "x"), 1);
+        assert_eq!(function.value.function.as_ref().unwrap().body.as_deref(), Some(""));
+    }
+
+    #[test]
+    fn generated_source_inventory_visits_domains_before_binding_and_restores_nested_siblings() {
+        let rows = crate::kernel_types::source(r#"package p {def D {
+            state s[i in Outer] supplied(true) {
+                coordinate first[j in Members[i],k in Members[j]]=x[i,j,k];
+                coordinate second[m in Members[i]]=y[i,m];
+                reconstruct r[n in Members[i]]:z[i,n]==y[i,n] tolerance 1e-8;
+                transport t[p in Members[i]]=z[i,p] tolerance 1e-8;
+            }
+        }}"#);
+        let row = rows.iter().find(|row| row.value.state_specification.is_some()).unwrap();
+        let parsed = ParsedFields::parse(row, None).unwrap();
+        let at = |role: &str, position| &parsed.expressions()[&OccurrenceKey { declaration: row.declaration_id, role: role.into(), position }];
+        assert!(at("state_specification.indices.domain", 0).index_obligations.is_empty());
+        assert_eq!(at("state_specification.coordinates.0.indices.domain", 0).index_obligations.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(), ["i"]);
+        assert_eq!(at("state_specification.coordinates.0.indices.domain", 1).index_obligations.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(), ["i", "j"]);
+        assert_eq!(at("state_specification.coordinates.target", 0).index_obligations.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(), ["i", "j", "k"]);
+        for (role, position, names) in [
+            ("state_specification.coordinates.target", 1, vec!["i", "m"]),
+            ("state_specification.reconstructions.equation", 0, vec!["i", "n"]),
+            ("state_specification.transports.expression", 0, vec!["i", "p"]),
+        ] { assert_eq!(at(role, position).index_obligations.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(), names); }
+    }
+
+    #[test]
+    fn generated_source_inventory_preserves_flat_events_and_explicit_nested_schedule_roles() {
+        let rows = crate::kernel_types::source(r#"package p {test T fixture {
+            dof 0; route integrated; procedure integrate;
+            mode first; event x-1 direction(rising) tolerance(1e-6) reset(x=2) terminal;
+            event x-2 direction(falling) tolerance(2e-6) terminal;
+            mode second; event y-3 direction(either) tolerance(3e-6) reset(y=4) terminal;
+            integrate samples(0,1) relative(1e-6) normalized_absolute(1e-8) step(1e-4);
+            schedule u at(1,2) values(3,4,5);
+            schedule v at(6) values(7,8);
+        } {}}"#);
+        let mut row = rows.into_iter().find(|row| row.value.scope.as_ref().is_some_and(|scope| scope.fixture.is_some())).unwrap();
+        let parsed = ParsedFields::parse(&row, None).unwrap();
+        let at = |role: &str, position| &parsed.expressions()[&OccurrenceKey { declaration: row.declaration_id, role: role.into(), position }];
+        assert_eq!(at("scope.fixture.modes.events.guard", 2).text, "y-3");
+        assert_eq!(at("scope.fixture.modes.events.tolerance", 2).text, "3e-6");
+        assert_eq!(at("scope.fixture.modes.1.events.0.reset.0.target", 0).text, "y");
+        assert_eq!(at("scope.fixture.integration.schedules.1.times", 0).text, "6");
+        assert_eq!(at("scope.fixture.integration.schedules.0.values", 2).text, "5");
+        assert_eq!(row.value.mask_source_expressions(|_, role, position, text| role == "scope.fixture.modes.events.guard" && position == 2 && text == "y-3"), 1);
+        let fixture = row.value.scope.as_ref().unwrap().fixture.as_ref().unwrap();
+        assert_eq!(fixture.modes[1].events[0].guard, "");
+        assert_eq!(fixture.modes[0].events[0].guard, "x-1");
+        assert_eq!(fixture.modes[0].name, "first");
     }
 
     #[test]

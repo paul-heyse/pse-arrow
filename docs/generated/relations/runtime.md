@@ -539,6 +539,26 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `schema_digest` | `Utf8` | false | `payload` | — | — |
 | `issuing_store` | `Utf8` | false | `payload` | — | — |
 
+## `canonical_maintenance_operations`
+
+Current fenced privileged maintenance generation and immutable exact-operation page effects. Historical installation remains separately privileged; page replay never repeats authority rotation or placement mutation.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `operation` | `Utf8` | false | `payload` | — | — |
+| `generation` | `Utf8` | false | `payload` | — | — |
+| `phase` | `Utf8` | false | `payload` | — | — |
+| `source` | `Utf8` | false | `payload` | — | — |
+| `target` | `Utf8` | false | `payload` | — | — |
+| `kind` | `Utf8` | false | `payload` | — | — |
+| `after` | `Utf8` | false | `payload` | — | — |
+| `next` | `Utf8` | false | `payload` | — | — |
+| `count` | `UInt64` | false | `payload` | — | — |
+| `complete` | `Boolean` | false | `payload` | — | — |
+
 ## `canonical_manifest_tickets`
 
 Nonexpiring exact immutable selection read ticket covering future unread files; only actual authenticated owner death or completed reader drain releases it.
@@ -764,6 +784,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `coordinate_max` | `Float64` | true | `payload` | — | — |
 | `payload_bytes` | `UInt64` | false | `payload` | — | — |
 | `payload_digest` | `Utf8` | false | `payload` | — | — |
+| `statistics` | `Binary` | true | `payload` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 
 ## `canonical_result_manifests`
@@ -1284,6 +1305,20 @@ Version: 1. Snapshot class: `derived`. Primary key: `member`.
 | `rows` | `UInt64` | true | `payload` | — | — |
 | `document_json` | `Utf8` | false | `payload` | — | — |
 
+## `diagnostic_samples`
+
+Diagnostic samples with distinct sample identities and sparse physical Point values keyed by original coordinate identity. Coordinate keys must be unique within a sample and belong to the actual diagnostic owner. External inputs become an owned immutable numeric snapshot before execution.
+
+Version: 1. Snapshot class: `derived`. Primary key: `sample_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `sample_id` | `semantic_id` | false | `key` | — | — |
+| `values` | `List` | false | `payload` | — | — |
+| `values.item` | `Struct ScientificCoordinateValue` | false | `payload` | — | — |
+| `values.item.coordinate_id` | `semantic_id` | false | `payload` | — | — |
+| `values.item.value` | `quantity_value` | false | `payload` | — | — |
+
 ## `diagnostics_findings`
 
 blueprint §6.13 execution and evidence: diagnostics_findings.
@@ -1344,7 +1379,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, experiment_id, row_
 
 Observation-aligned original physical predictions and half weighted squared standardized residual contributions.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, observation_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, observation_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -1362,7 +1397,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, observation_id`.
 
 Original parameter identities, fixed decisions and optional final candidate values.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, parameter_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, parameter_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -1454,6 +1489,20 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `verification.margin` | `Float64` | false | `payload` | — | — |
 | `verification.tolerance` | `Float64` | false | `payload` | — | — |
 | `verification.verified` | `Boolean` | false | `payload` | — | — |
+
+## `initialization_stages`
+
+Ordered initialization stages containing sparse physical Point values keyed by original coordinate identity. Stage ordinals are contiguous from zero; an empty values list retains an empty stage. Coordinate keys must be unique within a stage and belong to the actual prepared owner. External inputs become an owned immutable numeric snapshot before execution.
+
+Version: 1. Snapshot class: `derived`. Primary key: `stage`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `stage` | `Int64` | false | `key` | — | — |
+| `values` | `List` | false | `payload` | — | — |
+| `values.item` | `Struct ScientificCoordinateValue` | false | `payload` | — | — |
+| `values.item.coordinate_id` | `semantic_id` | false | `payload` | — | — |
+| `values.item.value` | `quantity_value` | false | `payload` | — | — |
 
 ## `live_simulation_samples`
 
@@ -2236,7 +2285,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, level`.
 
 The covariance of a fit's free parameters at a certified estimate (ADR-0118 item 8), under the declared statistical model: weighted least squares with a declared standard deviation and unit importance for every included observation, the deviations taken as absolute, so no residual variance rescales it. One covariance per fit; the validity is in local_validity.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -2246,6 +2295,10 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 | `parameters.item` | `semantic_id` | false | `payload` | — | — |
 | `parameter_units` | `List` | false | `payload` | — | — |
 | `parameter_units.item` | `semantic_id` | false | `payload` | — | — |
+| `parameter_quantities` | `List` | false | `payload` | — | — |
+| `parameter_quantities.item` | `semantic_id` | false | `payload` | — | — |
+| `parameter_scales` | `List` | false | `payload` | — | — |
+| `parameter_scales.item` | `Float64` | false | `payload` | — | — |
 | `values` | `List` | false | `payload` | — | — |
 | `values.item` | `Float64` | false | `payload` | — | — |
 
@@ -2286,6 +2339,18 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, parameter_id,
 | `target_unit_id` | `semantic_id` | false | `payload` | — | — |
 | `primal` | `Float64` | true | `payload` | — | — |
 | `dual` | `Float64` | true | `payload` | — | — |
+
+## `primal_values`
+
+Physical Point values keyed by the actual original coordinate identity. Complete native starts and native attempt primals use the receiving prepared owner's actual quantity and representation-unit inventory; row order is not numerical placement. External inputs become an owned immutable numeric snapshot before asynchronous or native execution.
+
+Version: 1. Snapshot class: `derived`. Primary key: `coordinate_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `coordinate_id` | `semantic_id` | false | `key` | — | — |
+| `coordinate_role` | `enum:NativePrimalCoordinateRole` | false | `payload` | — | — |
+| `value` | `quantity_value` | false | `payload` | — | — |
 
 ## `profile_points`
 
@@ -2493,13 +2558,24 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, parameter_id, end, 
 
 A parameter covariance propagated to outputs, Σ_y = J·Σ_θ·Jᵀ (ADR-0118 items 1 and 11; the counterpart of IDAES sens.py): J is a modeling step's parametric sensitivities over the covariance's parameters, matched by identity, or a fit's response derivatives. A first-order statement valid while both its inputs are; its validity, the conjunction of theirs, is in local_validity.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, step`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `run_id` | `semantic_id` | false | `key` | — | — |
 | `step` | `Int64` | false | `key` | — | — |
-| `covariance_run_id` | `semantic_id` | false | `payload` | — | — |
+| `covariance_run_id` | `semantic_id` | true | `payload` | — | — |
+| `covariance_origin` | `enum:CovarianceInputOrigin` | false | `payload` | — | — |
+| `covariance_label` | `Utf8` | false | `payload` | — | — |
+| `covariance_assumptions` | `List` | false | `payload` | — | — |
+| `covariance_assumptions.item` | `Utf8` | false | `payload` | — | — |
+| `covariance_source_identity` | `content_hash` | true | `payload` | — | — |
+| `covariance_physical_identity` | `content_hash` | true | `payload` | — | — |
+| `parameter_scales` | `List` | false | `payload` | — | — |
+| `parameter_scales.item` | `Float64` | false | `payload` | — | — |
+| `psd_norm_inf` | `Float64` | false | `payload` | — | — |
+| `psd_tolerance` | `Float64` | false | `payload` | — | — |
+| `psd_minimum_eigenvalue` | `Float64` | false | `payload` | — | — |
 | `parameters` | `List` | false | `payload` | — | — |
 | `parameters.item` | `semantic_id` | false | `payload` | — | — |
 | `outputs` | `List` | false | `payload` | — | — |
@@ -2761,7 +2837,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, ordinal, symbol_id`
 
 Successfully completed physical samples only; no missing trajectory tail is fabricated.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, sample, symbol_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, sample, symbol_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -2793,7 +2869,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, rank, symbol_
 
 Fresh original constraint values; signed residual exists only for equality rows. Interval violations retain separate sides and physical tolerances.
 
-Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, row_id`.
+Version: 3. Snapshot class: `derived`. Primary key: `run_id, step, row_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -3166,7 +3242,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, mechanism, pr
 
 Original physical variable coordinates, including authored fixed values. Missing multipliers differ from zero. KKT residuals alone are not a sensitivity certificate. Every variable row states its declared domain (ADR-0103); parameter rows carry none.
 
-Version: 3. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
+Version: 4. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -3222,6 +3298,17 @@ Version: 4. Snapshot class: `derived`. Primary key: `backend`.
 | `lexicographic_classes.item` | `enum:NativeProblemClass` | false | `payload` | — | — |
 | `batch` | `Boolean` | false | `payload` | — | — |
 | `sensitivities` | `Boolean` | false | `payload` | — | — |
+
+## `state_tolerances`
+
+Strictly positive finite physical Delta absolute tolerances keyed by actual state coordinate identity. Admission requires exact state coverage and compatible complete quantities, applies representation scaling without Point offsets, then resolves the prepared numerical scales once. Row order is not state order; the admitted immutable snapshot survives native drain.
+
+Version: 1. Snapshot class: `derived`. Primary key: `coordinate_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `coordinate_id` | `semantic_id` | false | `key` | — | — |
+| `value` | `quantity_value` | false | `payload` | — | — |
 
 ## `structural_assessments`
 

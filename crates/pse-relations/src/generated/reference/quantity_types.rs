@@ -13,15 +13,17 @@ pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "quantity_types";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "reference.quantity_types";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Reference;
 /// The schema generation.
 pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    107u8, 110u8, 254u8, 248u8, 72u8, 199u8, 248u8, 160u8, 7u8, 81u8, 54u8, 93u8, 120u8,
-    232u8, 148u8, 27u8, 85u8, 169u8, 136u8, 13u8, 138u8, 141u8, 224u8, 36u8, 223u8,
-    128u8, 41u8, 162u8, 48u8, 155u8, 225u8, 163u8,
+    225u8, 145u8, 115u8, 181u8, 34u8, 232u8, 69u8, 8u8, 230u8, 203u8, 207u8, 86u8, 234u8,
+    181u8, 119u8, 155u8, 97u8, 229u8, 6u8, 123u8, 252u8, 181u8, 146u8, 203u8, 219u8,
+    126u8, 205u8, 253u8, 73u8, 36u8, 232u8, 57u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceQuantityTypesRow {
     fn append(

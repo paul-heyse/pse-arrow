@@ -118,11 +118,9 @@ impl fmt::Display for SemanticId {
 
 /// A 256-bit BLAKE3 content hash (blueprint §5.1, `pse.content_hash`).
 ///
-/// Produced by [`crate::derive::derive_hash`] under a `derive_key` context, by
-/// `pse.canon.v2` logical hashing, or by a plain hash over stored bytes. The role
-/// newtypes [`LogicalHash`] and [`EncodingChecksum`] exist because
-/// ADR-0045 separates those three roles and a bare `ContentHash` would let one stand in
-/// for another.
+/// Produced by [`crate::derive::derive_hash`] under a `derive_key` context or by
+/// a plain hash over stored bytes. [`EncodingChecksum`] identifies the latter role,
+/// keeping finished-byte integrity separate from derived semantic identity.
 ///
 /// ```
 /// use pse_ids::ContentHash;
@@ -246,7 +244,7 @@ impl schemars::JsonSchema for SemanticId {
         "SemanticId".into()
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!({ "type": "string", "pattern": "^[0-9a-fA-F]{32}$" })
+        schemars::json_schema!({ "type": "string", "pattern": "^[0-9a-fA-F]{32}$", "x-pse-identity": "SemanticId" })
     }
 }
 
@@ -259,7 +257,7 @@ impl schemars::JsonSchema for ContentHash {
         "ContentHash".into()
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!({ "type": "string", "pattern": "^blake3:[0-9a-fA-F]{64}$" })
+        schemars::json_schema!({ "type": "string", "pattern": "^blake3:[0-9a-fA-F]{64}$", "x-pse-identity": "ContentHash" })
     }
 }
 
@@ -286,28 +284,17 @@ macro_rules! hash_role {
 }
 
 hash_role! {
-    /// The identity of a relation's logical content under its contract
-    /// (`logical_hash`, blueprint §5.3 step 6).
-    ///
-    /// Equal declared content hashes equally across row and batch layout, hidden null
-    /// payload, dictionary encoding and supported file round trips. It is never a
-    /// statement about any particular stored object.
-    LogicalHash
-}
-
-hash_role! {
     /// The integrity check of one stored object's finished bytes
     /// (`encoding_checksum`, blueprint §5.3 step 6).
     ///
-    /// Two encodings of the same logical relation have different checksums and the same
-    /// [`LogicalHash`]; ADR-0045 refuses to let either substitute for the other.
+    /// Different encodings can have different checksums while representing the same
+    /// values; this checksum asserts integrity of one finished object.
     EncodingChecksum
 }
 
 /// The `@N` version of a relation's declared schema (blueprint §4.1).
 ///
-/// A `u32` because that is the width the `pse.canon.v2` and `pse.snapshot.v2` frames
-/// reserve for it (§5.3 steps 4 and 7).
+/// Serialized as a `u32`; framing preserves its declared width.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
 pub struct SchemaVersion(pub u32);
 
@@ -438,9 +425,8 @@ mod tests {
     }
 
     #[test]
-    fn role_newtypes_expose_their_digest_without_being_interchangeable() {
+    fn encoding_checksum_exposes_its_digest() {
         let digest = ContentHash::from_bytes([0x5a; 32]);
-        assert_eq!(LogicalHash(digest).content_hash(), digest);
         assert_eq!(EncodingChecksum(digest).content_hash(), digest);
     }
 

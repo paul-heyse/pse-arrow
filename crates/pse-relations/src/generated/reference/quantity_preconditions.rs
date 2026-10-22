@@ -13,15 +13,17 @@ pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "quantity_preconditions";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "reference.quantity_preconditions";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Reference;
 /// The schema generation.
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    71u8, 57u8, 249u8, 222u8, 27u8, 103u8, 232u8, 173u8, 13u8, 141u8, 65u8, 251u8, 145u8,
-    87u8, 151u8, 247u8, 192u8, 167u8, 132u8, 234u8, 115u8, 86u8, 192u8, 220u8, 69u8,
-    87u8, 242u8, 160u8, 213u8, 72u8, 42u8, 175u8,
+    117u8, 223u8, 170u8, 158u8, 15u8, 159u8, 145u8, 180u8, 1u8, 114u8, 209u8, 138u8,
+    183u8, 97u8, 89u8, 169u8, 92u8, 65u8, 71u8, 185u8, 197u8, 179u8, 150u8, 156u8, 208u8,
+    255u8, 158u8, 237u8, 113u8, 107u8, 153u8, 44u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceQuantityPreconditionsRow {
     fn append(

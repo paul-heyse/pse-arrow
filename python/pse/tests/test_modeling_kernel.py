@@ -18,6 +18,7 @@ from pse.conformance import RunSummary, load_manifest
 from pse.conformance import main as conformance_main
 from pse.contracts import documents
 from pse.contracts.enums import (
+    DynamicsMethod,
     DiagnosticCode,
     DiagnosticRule,
     DiagnosticStage,
@@ -28,6 +29,7 @@ from pse.contracts.enums import (
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
+from pse.tests.physical_input_fixture import coordinate_batch, member, sample_batch
 
 
 def identity(n: int) -> SemanticId:
@@ -629,14 +631,15 @@ def test_modeling_simulation_events_checks_and_terminal_reports(
     trajectory = package.simulate(
         case,
         pse.SimulationSettings(
+            runtime=runtime,
             start=0,
             end=2,
             samples=[0, 0.25, 0.75, 2],
-            atol=[1e-8],
-            parameter_scales=[1],
+            atol=coordinate_batch(runtime, [(member(package, case, "x"), 1e-8, "Time")]),
+            parameter_scales=coordinate_batch(runtime, [(member(package, case, "p"), 1.0, "Scalar")]),
             out_rtol=1e-8,
-            out_atol=[1e-9],
-            method="diffsol",
+            out_atol=coordinate_batch(runtime, [(member(package, case, "area"), 1e-9, "Time")]),
+            method=DynamicsMethod.DIFFSOL,
         ),
     )
     assert trajectory.accepted, trajectory.validation_error
@@ -781,7 +784,7 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         declaration(229),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         settings,
-        ((identity(233), {missing_columns[0]: 1.0, missing_columns[1]: -1.0}),),
+        sample_batch(runtime, [(identity(233), [(missing_columns[0], 1.0, "Scalar"), (missing_columns[1], -1.0, "Scalar")])]),
         origin=origin,
     )
     assert supplied.origin == origin
@@ -807,7 +810,7 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         package.diagnose(declaration(220), expired, settings, origin=origin)
     with pytest.raises(pse.InspectionError):
         package.diagnose_samples(
-            declaration(220), expired, settings, ((identity(230), {}),), origin=origin
+            declaration(220), expired, settings, sample_batch(runtime, [(identity(230), ())]), origin=origin
         )
     rows, columns = report.coordinates()
     source_settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
@@ -875,24 +878,22 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         declaration(220),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         settings,
-        (
-            (identity(230), {columns[0]: 2.0}),
-            (identity(231), {identity(249): 1.0}),
-            (identity(232), {}),
-        ),
+        sample_batch(runtime, [(identity(230), [(columns[0], 2.0, "Scalar")]), (identity(232), ())]),
     )
     assert samples.stop == "completed"
     assert samples.unattempted == 0
-    assert samples.ids() == (identity(230), identity(231), identity(232))
+    assert samples.ids() == (identity(230), identity(232))
     assert samples.result(0) is not None
-    assert samples.failure(1) is not None
+    assert samples.failure(1) is None
     sample_outcomes = pa.table(samples.table()).to_pylist()[0]["outcomes"]
     sample_findings = samples.findings()
     failure_rows = pa.table(sample_findings).to_pylist()
-    assert sample_outcomes[1]["failure_ordinal"] == 1
-    assert failure_rows[0]["ordinal"] == 1
-    assert failure_rows[0]["rule"]
-    sampled = samples.result(2)
+    assert all(outcome["failure_ordinal"] is None for outcome in sample_outcomes)
+    assert not failure_rows
+    with pytest.raises(pse.InspectionError, match="unknown physical coordinate"):
+        package.diagnose_samples(declaration(220), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings,
+            sample_batch(runtime, [(identity(231), [(identity(249), 1.0, "Scalar")])]))
+    sampled = samples.result(1)
     assert sampled is not None
     assert sampled.complete
     reference = pse.ModelingDiagnosticSettings.from_json(
@@ -903,7 +904,7 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         declaration(220),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         reference,
-        ((identity(230), {}), (identity(231), {})),
+        sample_batch(runtime, [(identity(230), ()), (identity(231), ())]),
         controls=pse.DiagnosticSamplesControls(maximum_samples=1),
     )
     assert capped.stop == "sample_limit"
@@ -932,18 +933,9 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     capped_table = capped.table()
     diagnostic_table = report.table()
     finding_table = report.table("runtime.modeling_findings")
-    nonfinite = package.diagnose_samples(
-        declaration(220),
-        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
-        settings,
-        ((identity(234), {columns[0]: float("nan")}),),
-    )
-    nonfinite_report = nonfinite.result(0)
-    assert nonfinite_report is not None
-    assert not nonfinite_report.complete
-    nonfinite_point = nonfinite_report.table()
-    nonfinite_findings = nonfinite_report.table("runtime.modeling_findings")
-    del nonfinite, nonfinite_report
+    with pytest.raises(pse.InspectionError, match="finite"):
+        package.diagnose_samples(declaration(220), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings,
+            sample_batch(runtime, [(identity(234), [(columns[0], float("nan"), "Scalar")])]))
     del samples, capped
     del package, runtime
     assert sampled.rank == 1
@@ -987,25 +979,8 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         v["source_id"] in durable["rows"] for v in durable["matrix"]["modes"][0]["left"]
     )
     assert pa.table(finding_table).num_rows > 0
-    assert (
-        pa.table(sample_table).to_pylist()[0]["outcomes"][1]["error_class"]
-        == "invalid_model"
-    )
+    assert all(outcome["error_class"] is None for outcome in pa.table(sample_table).to_pylist()[0]["outcomes"])
     assert pa.table(capped_table).to_pylist()[0]["unattempted"] == 1
-    invalid_point = pa.table(nonfinite_point).to_pylist()[0]
-    assert any(
-        v["kind"] == "indeterminate" and v["value"] is None
-        for v in invalid_point["point"]
-    )
-    invalid_finding = next(
-        row
-        for row in pa.table(nonfinite_findings).to_pylist()
-        if row["rule"] == "variable.nonfinite"
-    )
-    assert any(
-        v["real_kind"] == "indeterminate" and v["real"] is None
-        for v in invalid_finding["observations"]
-    )
     native_row = pa.table(native_table).to_pylist()[0]
     assert native_row["complete"]
     assert len(native_row["degenerate"]) == 1
@@ -1202,11 +1177,12 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
         package.simulate(
             declaration(207),
             pse.SimulationSettings(
+                runtime=runtime,
                 start=0.0,
                 end=1.0,
                 samples=[0.0, 1.0],
-                atol=[],
-                parameter_scales=[],
+                atol=coordinate_batch(runtime),
+                parameter_scales=coordinate_batch(runtime),
             ),
         )
     initialization_table = initialized.table()

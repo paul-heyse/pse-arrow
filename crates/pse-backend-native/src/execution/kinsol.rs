@@ -162,6 +162,38 @@ impl BackendExecution for Kinsol {
     fn capability(&self) -> &'static Capability {
         &CAPABILITY
     }
+    fn capability_for(&self, settings: &BackendSettings) -> Result<Capability, ProblemError> {
+        let method = match settings {
+            BackendSettings::Default => crate::settings::kinsol::Method::default(),
+            BackendSettings::Kinsol(method) => *method,
+            _ => return Err(super::foreign(Backend::Kinsol)),
+        };
+        method.validate()?;
+        let mut capability = CAPABILITY;
+        if matches!(method.strategy, crate::settings::kinsol::Strategy::FixedPoint | crate::settings::kinsol::Strategy::Picard) {
+            capability.classes = &[ProblemClass::DeclaredFixedPoint];
+            capability.automatic_classes = &[];
+            capability.derivatives = DerivativeCapability::ValueOnly;
+            capability.sign_bounds = false;
+            capability.sensitivities = false;
+            capability.warm = WarmCapability::None;
+            capability.reuse = "fresh KINSOL map application; authorized starts only; no retained history";
+        } else {
+            capability.classes = &[ProblemClass::SquareRoot];
+            capability.automatic_classes = &[ProblemClass::SquareRoot];
+        }
+        Ok(capability)
+    }
+    fn callback_demand(&self, settings: &BackendSettings) -> super::CallbackDemand {
+        let method = match settings {
+            BackendSettings::Kinsol(method) => *method,
+            _ => crate::settings::kinsol::Method::default(),
+        };
+        super::CallbackDemand {
+            jacobian_product: method.consumes_jvp(),
+            directional_only: method.consumes_directional_only(),
+        }
+    }
     fn representation(&self) -> Representation {
         Representation::Roots
     }
@@ -270,6 +302,7 @@ impl BackendExecution for Kinsol {
         ) {
             return Err(super::foreign(Backend::Kinsol));
         }
+        self.capability_for(settings)?;
         if controls.threads != 1 || !controls.options.is_empty() {
             return Err(ProblemError::Unsupported(
                 "serial KINSOL uses typed Settings and one core".into(),
@@ -301,6 +334,10 @@ impl BackendExecution for Kinsol {
     }
     fn accepts(&self, payload: &WarmPayload) -> bool {
         matches!(payload, WarmPayload::Root(_))
+    }
+    #[cfg(feature = "kinsol")]
+    fn execute_map(&self, input: super::MapInput<'_>) -> Result<SolveReport, ProblemError> {
+        super::maps::execute(input)
     }
     fn execute(
         &self,

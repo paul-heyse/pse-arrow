@@ -15,6 +15,8 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.tests.physical_input_fixture import coordinate_batch, member
+from pse.contracts.enums import DynamicSensitivity, DynamicsMethod
 from pse import codec, diagnostics
 from pse.contracts import documents as d
 from pse.contracts.enums import NativeBackend, NativeSolveIntent, PresolvePolicyKind
@@ -91,14 +93,15 @@ def _start(runtime: pse.Runtime, case: str) -> pse.RunHandle:
         return package.prepare_simulation(
             selected,
             pse.SimulationSettings(
-                method="idas",
+                runtime=runtime,
+                method=DynamicsMethod.IDAS,
                 start=0,
                 end=1,
                 samples=[0, 0.5, 1],
                 rtol=0.001,
-                atol=[0.001],
-                parameter_scales=[1],
-                sensitivity="none",
+                atol=coordinate_batch(runtime, [(member(package, selected, "x"), 0.001, "Time")]),
+                parameter_scales=coordinate_batch(runtime, [(member(package, selected, "p"), 1.0, "Scalar")]),
+                sensitivity=DynamicSensitivity.NONE,
             ),
         ).start()
     return package.prepare_solve(
@@ -132,7 +135,6 @@ def observer_fit_probe(
             batch_size=1024,
             cache=pse.CacheSettings(
                 working_bytes=16 << 30,
-                metadata_bytes=8 << 20,
                 concurrent_loads=1,
                 inflight_bytes=64 << 20,
                 inspection_bytes=4 << 20,

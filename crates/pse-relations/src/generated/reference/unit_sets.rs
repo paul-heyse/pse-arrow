@@ -11,15 +11,17 @@ pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "unit_sets";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "reference.unit_sets";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Reference;
 /// The schema generation.
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    71u8, 54u8, 244u8, 116u8, 193u8, 224u8, 145u8, 96u8, 210u8, 208u8, 68u8, 69u8, 140u8,
-    245u8, 245u8, 144u8, 120u8, 153u8, 35u8, 34u8, 111u8, 153u8, 149u8, 188u8, 181u8,
-    198u8, 228u8, 226u8, 103u8, 164u8, 53u8, 118u8,
+    54u8, 124u8, 190u8, 88u8, 79u8, 137u8, 161u8, 201u8, 31u8, 177u8, 39u8, 36u8, 245u8,
+    107u8, 204u8, 53u8, 155u8, 218u8, 13u8, 60u8, 124u8, 158u8, 182u8, 188u8, 183u8,
+    156u8, 67u8, 100u8, 46u8, 95u8, 174u8, 243u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceUnitSetsRow {
     fn append(

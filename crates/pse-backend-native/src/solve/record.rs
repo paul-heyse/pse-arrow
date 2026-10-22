@@ -14,6 +14,7 @@ pub struct SubmittedStartRecord {
     /// Full actual source-coordinate seed with explicit nonfinite observations.
     pub seed: Option<WarmStartSnapshot>,
     /// Full partial coordinate start, retaining exact IEEE bits including signed zero.
+    #[schemars(with = "Option<pse_ids::document::KeyedMap<SemanticId, u64>>")]
     pub sparse_seed: Option<BTreeMap<SemanticId, u64>>,
     /// Complete transformations actually applied before API submission.
     pub transformations: Vec<SeedTransformation>,

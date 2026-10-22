@@ -117,6 +117,11 @@ pub struct PreparedConic {
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl PreparedConic {
+    /// Physical coordinates declared by this conic request before native execution.
+    pub fn primal_coordinates(&self) -> Result<super::physical_values::PrimalCoordinates, WorkflowError> {
+        super::physical_values::PrimalCoordinates::original(&self.runtime, self.request.variables.iter().map(|port| pse_kernels::Port { id: port.symbol_id, quantity: port.quantity_id.into(), unit: port.unit_id.into() }).collect())
+    }
+
     /// Exact explicit representation supplied by the caller.
     pub fn request(&self) -> &ConicRequest {
         &self.request

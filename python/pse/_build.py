@@ -74,6 +74,7 @@ _NativeDiagnostics = _native.NativeDiagnostics
 _NativeOperationObservations = _native.NativeOperationObservations
 _NativeCaptureSession = _native.NativeCaptureSession
 _NativeLaunchedCommand = _native.NativeLaunchedCommand
+_admit_conformance_manifest = _native.admit_conformance_manifest
 _diagnostic_operation_id = _native.diagnostic_operation_id
 _diagnostic_operation_text = _native.diagnostic_operation_text
 _diagnostic_list = _native.diagnostic_list
@@ -82,6 +83,7 @@ _diagnostic_read_checkpoint = _native.diagnostic_read_checkpoint
 _diagnostic_inspect_image = _native.diagnostic_inspect_image
 _diagnostic_capture = _native.diagnostic_capture
 _diagnostic_launch_capture = _native.diagnostic_launch_capture
+_diagnostic_record_launch = _native.diagnostic_record_launch
 
 
 def build_info() -> BuildInfo:
@@ -117,6 +119,11 @@ def _check_native_compatibility(package_version: str) -> None:
             "pse generated contracts and native registry differ; "
             "regenerate and run just py-sync"
         )
+        raise ImportError(message)
+    from pse.contracts import documents
+
+    if _native.boundary_schema_fingerprint() != documents.SCHEMA_SET_FINGERPRINT:
+        message = "pse document catalogue and native extension differ; regenerate and run just py-sync"
         raise ImportError(message)
 
 

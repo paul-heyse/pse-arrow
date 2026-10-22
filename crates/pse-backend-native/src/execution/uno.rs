@@ -17,7 +17,7 @@ static CAPABILITY: Capability = Capability {
     lexicographic_degradation: crate::routing::DegradationSupport::Max,
     classes: &[ProblemClass::SmoothNlp],
     automatic_classes: &[],
-    derivatives: DerivativeCapability::ExactHessianOrLimitedMemory,
+    derivatives: DerivativeCapability::FirstOrderOnly,
     warm: WarmCapability::Primal,
     general_bounds: true,
     sign_bounds: true,
@@ -38,6 +38,14 @@ impl BackendExecution for Uno {
     }
     fn capability(&self) -> &'static Capability {
         &CAPABILITY
+    }
+    fn capability_for(&self, settings: &BackendSettings) -> Result<Capability, ProblemError> {
+        match settings {
+            BackendSettings::Default => crate::settings::uno::Settings::default().validate()?,
+            BackendSettings::Uno(settings) => settings.validate()?,
+            _ => return Err(super::foreign(Backend::Uno)),
+        }
+        Ok(CAPABILITY)
     }
     fn representation(&self) -> Representation {
         Representation::Nlp

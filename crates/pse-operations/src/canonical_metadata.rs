@@ -39,7 +39,7 @@ impl MetadataResponse {
             (rows * 32 * wire::METADATA_ID_BYTES + 512 * 64).min(wire::RESULT_MESSAGE_BYTES);
         let blobs = match self {
             Self::Protection | Self::Page => 0,
-            Self::BlockPage => rows * 2 * size_of::<f64>(),
+            Self::BlockPage => rows * (pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES + 2 * size_of::<f64>()),
             Self::Header | Self::Selection | Self::OutputPage => wire::RESULT_MESSAGE_BYTES,
         };
         surrealdb::opt::ResponseLimits {
@@ -62,7 +62,7 @@ impl MetadataResponse {
             string_length: wire::METADATA_ID_BYTES,
             blob_bytes: blobs,
             blob_length: if matches!(self, Self::BlockPage) {
-                size_of::<f64>()
+                pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES
             } else {
                 crate::canonical::PAYLOAD_BYTES
             },
@@ -124,11 +124,11 @@ mod tests {
         assert_eq!(MetadataResponse::Page.limits().blob_bytes, 0);
         assert_eq!(
             MetadataResponse::BlockPage.limits().blob_bytes,
-            crate::canonical_results::PAGE * 2 * size_of::<f64>()
+            crate::canonical_results::PAGE * (pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES + 2 * size_of::<f64>())
         );
         assert_eq!(
             MetadataResponse::BlockPage.limits().blob_length,
-            size_of::<f64>()
+            pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES
         );
         assert_eq!(MetadataResponse::Protection.limits().blob_bytes, 0);
         assert!(

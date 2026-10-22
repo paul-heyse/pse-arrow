@@ -276,6 +276,7 @@ impl Engine<'_, '_> {
         self.model.symbols.insert(
             parameter,
             Symbol {
+                definition: None,
                 id: parameter,
                 ty: Type::Quantity(pse_quantity::scheme::Scheme::Concrete(level.quantity)),
                 role: Kind::Parameter,
@@ -309,6 +310,7 @@ impl Engine<'_, '_> {
         self.model.symbols.insert(
             parameter,
             Symbol {
+                definition: None,
                 id: parameter,
                 ty: target_ty,
                 role: Kind::Parameter,
@@ -326,12 +328,7 @@ impl Engine<'_, '_> {
             },
             span: Span::default(),
         };
-        let types: BTreeMap<_, _> = self
-            .model
-            .symbols
-            .iter()
-            .map(|(id, s)| (symbol_name(*id), s.ty.clone()))
-            .collect::<BTreeMap<_, _>>();
+        let types = crate::TypeScope::new(&self.model.symbols);
         let ty = crate::expression::infer(
             &expression,
             &types,
@@ -344,6 +341,7 @@ impl Engine<'_, '_> {
         self.model.symbols.insert(
             term,
             Symbol {
+                definition: None,
                 id: term,
                 ty,
                 role: Kind::Let,

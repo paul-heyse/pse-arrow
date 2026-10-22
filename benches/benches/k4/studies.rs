@@ -380,12 +380,12 @@ async fn export_study_results(runtime: &Runtime, points: &[(u32, String, Option<
             }
         }
         if selections.is_empty() { return Err("no original terminal stored point selections available".into()); }
-        let evidence = pse_runtime::frozen_inspection::FrozenEvidenceSet::default();
+        let evidence = pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet::default();
         let pool: std::sync::Arc<dyn pse_columnar::MemoryPool> = std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(16 << 20));
-        let analysis = pse_runtime::review_analysis::analyze(&evidence,
-            &pse_runtime::review_analysis::AnalysisRequest::new(operation),&pool,&cancel)
+        let analysis = pse_runtime::tooling::review_analysis::analyze(&evidence,
+            &pse_runtime::tooling::review_analysis::AnalysisRequest::new(operation),&pool,&cancel)
             .map_err(|error| error.to_string())?;
-        let mut request = pse_runtime::review_pack::PackExportRequest::default();
+        let mut request = pse_runtime::tooling::review_pack::PackExportRequest::default();
         request.selection.maximum_output_bytes = 256 << 20;
         request.selection.missing_context = unavailable;
         request.selection.missing_context.push("Original study source/definition bytes retained separately; original managed RunResult review-context bridge unavailable".into());

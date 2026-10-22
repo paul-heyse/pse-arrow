@@ -231,6 +231,7 @@ impl Engine<'_, '_> {
             self.model.symbols.insert(
                 nominal_id,
                 Symbol {
+                    definition: None,
                     id: nominal_id,
                     ty: ty.clone(),
                     role: Kind::Parameter,
@@ -254,6 +255,7 @@ impl Engine<'_, '_> {
                 self.model.symbols.insert(
                     id,
                     Symbol {
+                        definition: None,
                         id,
                         ty: ty.clone(),
                         role: Kind::Variable,

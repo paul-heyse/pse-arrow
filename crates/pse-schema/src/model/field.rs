@@ -54,6 +54,24 @@ impl std::hash::Hash for FieldContract {
 }
 
 impl FieldContract {
+    /// Declare the scientific access role at the owning field.
+    #[must_use]
+    pub fn with_result_selection(self, role: super::ResultSelectionRole) -> Self {
+        self.facet(super::field_facets::RESULT_SELECTION, role.as_str())
+    }
+    /// Scientific result access role, when declared.
+    pub fn result_selection_role(&self) -> Option<super::ResultSelectionRole> {
+        self.get(super::field_facets::RESULT_SELECTION).and_then(super::ResultSelectionRole::from_name)
+    }
+    /// Declare an ordinal in the new scalar batch's lexicographic order.
+    #[must_use]
+    pub fn with_result_sort(self, ordinal: usize) -> Self {
+        self.facet(super::field_facets::RESULT_SORT, ordinal.to_string())
+    }
+    /// New-batch sort ordinal; dense trajectory fields omit this facet.
+    pub fn result_sort_ordinal(&self) -> Option<usize> {
+        self.get(super::field_facets::RESULT_SORT).and_then(|value| value.parse().ok())
+    }
     /// Declare the native graph endpoint mechanically derived from this reference.
     #[must_use]
     pub fn with_graph_endpoint(self, incoming: bool) -> Self {
@@ -323,6 +341,7 @@ impl FieldContract {
         let field = Self::native(use_.spec().storage()).facet(EXTENSION, use_.extension_name());
         match use_ {
             ExtensionUse::Enum(name) => field.facet(PARAMETER, name),
+            ExtensionUse::ExprDsl(grammar) => field.facet(PARAMETER, grammar.as_str()),
             ExtensionUse::OrdinalRef { target } => Self(
                 super::IntegerRange::NONNEGATIVE
                     .annotate(field.facet(PARAMETER, target).into_field()),
@@ -415,7 +434,7 @@ impl FieldContract {
             },
             "pse.source_span" => ExtensionUse::SourceSpan,
             "pse.enum" => ExtensionUse::Enum(self.get(PARAMETER)?),
-            "pse.expr_dsl" => ExtensionUse::ExprDsl,
+            "pse.expr_dsl" => ExtensionUse::ExprDsl(super::ExpressionGrammar::from_name(self.get(PARAMETER)?)?),
             "pse.target_path" => ExtensionUse::TargetPath,
             _ => return None,
         })
@@ -563,7 +582,7 @@ impl FieldContract {
         if self.get(PARAMETER).is_some()
             && !matches!(
                 self.extension(),
-                Some(ExtensionUse::Enum(_) | ExtensionUse::OrdinalRef { .. })
+                Some(ExtensionUse::Enum(_) | ExtensionUse::OrdinalRef { .. } | ExtensionUse::ExprDsl(_))
             )
         {
             return Err(invalid("extension parameter has no parameterized domain"));

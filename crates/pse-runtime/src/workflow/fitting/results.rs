@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Joined fitting observations use existing generated contracts.
 use super::*;
-use crate::workflow::{RunReport, RunRequest, RunResult, relation};
+use crate::workflow::{RunReport, RunResult, relation};
 use pse_relations::{
     columnar::FieldCheckedBatch,
     generated::{
@@ -22,16 +22,12 @@ impl RunResult {
         request: &crate::workflow::result_export::Projection,
     ) -> Result<(), WorkflowError> {
         let _phase = pse_diagnostics::observation::phase("fit.result_projection");
-        let RunRequest::Fit(p) = &self.request else {
+        let crate::workflow::RunOutcome::Fit { request: p, result } = &self.outcome else {
             return Err(contract("fit request mismatch"));
         };
         let prepared = p;
         let p = &prepared.problem;
-        let report = match &self.report {
-            Ok(RunReport::Fit(r)) => Some(r),
-            Err(_) => None,
-            _ => return Err(contract("fit report mismatch")),
-        };
+        let report = result.as_ref().ok();
         if let Some(report) = report {
             observe_report(report);
         }
@@ -533,6 +529,7 @@ impl RunResult {
                 &validation,
                 self.run_id,
                 p,
+                prepared.source.physical.identity(),
                 report.map(|r| &**r),
             )
             .await?;
@@ -585,7 +582,7 @@ impl RunResult {
         reports.finish().await.map_err(relation)?;
         let trace = report
             .and_then(|r| r.strategy.as_ref())
-            .or_else(|| match &self.report {
+            .or_else(|| match self.report() {
                 Err(error) => error.strategy_trace(),
                 _ => None,
             });
@@ -642,6 +639,7 @@ async fn uncertainty(
     validation: &pse_relations::validate::ValidationContext,
     run_id: RunId,
     p: &FitProblem,
+    physical: ContentHash,
     report: Option<&FitReport>,
 ) -> Result<(), WorkflowError> {
     let _phase = pse_diagnostics::observation::phase("fit.uncertainty_projection");
@@ -763,6 +761,8 @@ async fn uncertainty(
                         .iter()
                         .map(|id| unit(*id))
                         .collect::<Result<_, _>>()?,
+                    parameter_quantities: covariance.parameter_quantities.clone(),
+                    parameter_scales: covariance.scales.clone(),
                     values: values.clone(),
                 })
                 .await
@@ -885,41 +885,9 @@ async fn uncertainty(
         }
     }
     // The covariance propagated to the included predictions through the responses (S4).
-    if request.wants(local_validity::RELATION_ID)
-        && let Some(covariance) = report.covariance.as_ref().filter(|_| predictions)
-    {
-        let result = covariance.propagation_verdict().and_then(|()| {
-            if report.responses.is_some() {
-                Ok(())
-            } else {
-                Err(crate::workflow::uncertainty::Upstream {
-                    quantity: DerivedQuantity::ParameterCovariance,
-                    reason: pse_relations::generated::enums::WithheldReason::ResponsesUnavailable,
-                    detail: "the fit's responses are unavailable".into(),
-                })
-            }
-        });
-        validity
-            .push(local_validity::Row {
-                run_id,
-                step: 0,
-                quantity: DerivedQuantity::PropagatedCovariance,
-                validity: crate::workflow::local_analysis::record(
-                    result.as_ref().map_err(|upstream| {
-                        (
-                            pse_relations::generated::enums::WithheldReason::UpstreamWithheld,
-                            upstream.to_string(),
-                        )
-                    }),
-                    None,
-                    false,
-                ),
-            })
-            .await
-            .map_err(relation)?;
-    }
-    if request.wants(propagated_covariances::RELATION_ID)
-        && !propagated.skip_next()
+    let publish_propagation = request.wants(propagated_covariances::RELATION_ID)
+        && !propagated.skip_next();
+    if (request.wants(local_validity::RELATION_ID) || publish_propagation)
         && let Some(covariance) = report.covariance.as_ref().filter(|_| predictions)
     {
         let included_count = p.measurements.iter().filter(|o| o.included).count();
@@ -971,8 +939,15 @@ async fn uncertainty(
             reason: pse_relations::generated::enums::WithheldReason::ResponsesUnavailable,
             detail: "the fit's responses are unavailable".into(),
         });
-        let input = covariance.propagation_input(run_id);
-        let (result, _derived) = crate::workflow::uncertainty::propagate_reserved(
+        let point = report.solve.as_ref().and_then(|solve| solve.evidence.local.as_ref())
+            .and_then(|point| point.as_ref().ok());
+        let input = covariance.propagation_input(
+            crate::math::settings::CovarianceOrigin::QualifiedFit { run_id, record: None },
+            p.source_identity, physical,
+            crate::workflow::local_analysis::record(covariance.values.as_ref().map(|_| &())
+                .map_err(|withheld| (withheld.reason(), withheld.to_string())), point, false), pool,
+        );
+        let (result, _derived) = crate::workflow::uncertainty::propagate(
             input.as_ref().map_err(Clone::clone),
             jacobian.as_ref().map_err(Clone::clone),
             pool,
@@ -996,17 +971,9 @@ async fn uncertainty(
             })
             .await
             .map_err(relation)?;
-        if let Ok(result) = result {
+        if publish_propagation && let Ok(result) = result {
             propagated
-                .push(propagated_covariances::Row {
-                    run_id,
-                    step: 0,
-                    covariance_run_id: result.covariance_run,
-                    parameters: result.parameters,
-                    output_units: included.iter().map(|(_, o)| o.port.unit.as_id()).collect(),
-                    outputs: result.outputs,
-                    values: result.values,
-                })
+                .push(result.into_row(run_id, 0, included.iter().map(|(_, observation)| observation.port.unit.as_id()).collect()))
                 .await
                 .map_err(relation)?;
         }
@@ -1134,7 +1101,7 @@ impl RunResult {
         )
     }
     fn require_fit_publication(&self) -> Result<(), WorkflowError> {
-        match &self.report {
+        match self.report() {
             Ok(RunReport::Fit(report)) if report.estimate_qualified() => Ok(()),
             _ => Err(contract(
                 "parameter publication requires a completed freshly qualified, locally identifiable fit",
@@ -1146,7 +1113,7 @@ impl RunResult {
         request: &crate::workflow::result_export::Projection,
     ) -> Result<(), WorkflowError> {
         use pse_relations::generated::runtime::fitted_parameter_cells as cells;
-        let (RunRequest::Fit(prepared), Ok(RunReport::Fit(report))) = (&self.request, &self.report)
+        let crate::workflow::RunOutcome::Fit { request: prepared, result: Ok(report) } = &self.outcome
         else {
             return Err(contract(
                 "parameter publication requires a completed fitting run",

@@ -58,6 +58,7 @@ native-solvers = [
 ]
 
 [dependencies]
+datafusion-pruning.workspace = true
 levenberg-marquardt.workspace = true
 nalgebra.workspace = true
 async-trait.workspace = true

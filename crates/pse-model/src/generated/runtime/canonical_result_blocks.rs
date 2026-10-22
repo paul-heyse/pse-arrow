@@ -37,6 +37,8 @@ pub struct RuntimeCanonicalResultBlocksRow {
     pub r#payload_bytes: u64,
     ///payload_digest
     pub r#payload_digest: String,
+    ///statistics
+    pub r#statistics: Option<crate::Bytes>,
     ///interpretation
     pub r#interpretation: String,
 }
@@ -67,7 +69,7 @@ impl crate::SemanticEq for RuntimeCanonicalResultBlocksRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#payload_digest,
                 &other.r#payload_digest,
-            )
+            ) && crate::SemanticEq::semantic_eq(&self.r#statistics, &other.r#statistics)
             && crate::SemanticEq::semantic_eq(
                 &self.r#interpretation,
                 &other.r#interpretation,
@@ -111,6 +113,8 @@ impl crate::SemanticFrame for RuntimeCanonicalResultBlocksRow {
         crate::SemanticFrame::frame(&self.r#payload_bytes, hash);
         hash.str(stringify!(r#payload_digest));
         crate::SemanticFrame::frame(&self.r#payload_digest, hash);
+        hash.str(stringify!(r#statistics));
+        crate::SemanticFrame::frame(&self.r#statistics, hash);
         hash.str(stringify!(r#interpretation));
         crate::SemanticFrame::frame(&self.r#interpretation, hash);
     }
@@ -132,6 +136,7 @@ impl crate::HeapUsage for RuntimeCanonicalResultBlocksRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#coordinate_max))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#payload_bytes))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#payload_digest))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#statistics))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#interpretation))
     }
 }

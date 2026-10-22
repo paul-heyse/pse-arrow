@@ -272,7 +272,7 @@ fn there_are_eleven_extension_types_with_their_declared_storage() {
             storage,
             "{name} storage"
         );
-        assert_eq!(spec.metadata_version, 1, "{name} metadata generation");
+        assert_eq!(spec.metadata_version, if name == "pse.expr_dsl" { 2 } else { 1 }, "{name} metadata generation");
     }
 }
 

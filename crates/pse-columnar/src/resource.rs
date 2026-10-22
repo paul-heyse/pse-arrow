@@ -91,6 +91,12 @@ pub struct CancellationToken {
     inner: tokio_util::sync::CancellationToken,
 }
 
+/// An owned library guard which requests cancellation when its owner departs.
+#[derive(Debug)]
+pub struct CancellationGuard {
+    _inner: tokio_util::sync::DropGuard,
+}
+
 impl CancellationToken {
     /// Opens an uncancelled token.
     pub fn new() -> Self {
@@ -104,6 +110,11 @@ impl CancellationToken {
         Self {
             inner: self.inner.child_token(),
         }
+    }
+
+    /// Cancel this token on guard drop, using the cancellation tree's owned guard.
+    pub fn drop_guard(self) -> CancellationGuard {
+        CancellationGuard { _inner: self.inner.drop_guard() }
     }
 
     /// Cancels this token and every clone of it. Cancellation is one-way.

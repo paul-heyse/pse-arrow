@@ -1402,11 +1402,7 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
     let mut managed = ManagedWorkerCase::acquire();
     let (shared, local) = scip_runtime();
     managed.bind_database(local.canonical_store().unwrap().database());
-    let policy = LeasePolicy {
-        lease: Duration::from_secs(2),
-        heartbeat: Duration::from_millis(200),
-        ..Default::default()
-    };
+    let policy = LeasePolicy::new(Duration::from_secs(2), Duration::from_millis(200), 64, Duration::from_millis(200)).unwrap();
     let (local, operations) = bind_operations(&shared, local, "killed-enqueuer", policy);
     let handle = long_scip_study(&shared, &local, Duration::from_secs(30), 2).await;
     let mut worker = managed.spawn("worker-killed", 2);

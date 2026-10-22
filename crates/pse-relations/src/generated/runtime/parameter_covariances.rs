@@ -8,20 +8,22 @@ pub use pse_model::generated::r#runtime::r#parameter_covariances::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    99u8, 85u8, 126u8, 252u8, 216u8, 59u8, 118u8, 217u8, 66u8, 229u8, 119u8, 91u8, 64u8,
-    226u8, 120u8, 12u8,
+    160u8, 123u8, 156u8, 253u8, 188u8, 243u8, 43u8, 30u8, 203u8, 242u8, 162u8, 29u8,
+    78u8, 223u8, 100u8, 160u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "parameter_covariances";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "runtime.parameter_covariances";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    55u8, 117u8, 42u8, 208u8, 17u8, 100u8, 7u8, 197u8, 67u8, 175u8, 202u8, 52u8, 7u8,
-    201u8, 169u8, 216u8, 102u8, 102u8, 181u8, 164u8, 46u8, 95u8, 32u8, 62u8, 28u8, 200u8,
-    154u8, 216u8, 163u8, 92u8, 188u8, 211u8,
+    254u8, 94u8, 105u8, 74u8, 176u8, 201u8, 208u8, 165u8, 169u8, 59u8, 38u8, 140u8,
+    145u8, 152u8, 205u8, 102u8, 220u8, 207u8, 177u8, 149u8, 213u8, 162u8, 7u8, 111u8,
+    116u8, 114u8, 191u8, 76u8, 8u8, 46u8, 148u8, 115u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeParameterCovariancesRow {
     fn append(
@@ -45,7 +47,15 @@ impl crate::columnar::ArrowValue for RuntimeParameterCovariancesRow {
             &self.r#parameter_units,
             children[3usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#values, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parameter_quantities,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parameter_scales,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#values, children[6usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -69,8 +79,14 @@ impl crate::columnar::ArrowValue for RuntimeParameterCovariancesRow {
             pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Vec<
-            f64,
+            pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Vec<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -101,10 +117,22 @@ impl crate::columnar::ArrowValue for RuntimeParameterCovariancesRow {
                 input.column(3usize).as_ref(),
                 index,
             )?,
+            r#parameter_quantities: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#parameter_scales: <Vec<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
             r#values: <Vec<
                 f64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
+                input.column(6usize).as_ref(),
                 index,
             )?,
         })
@@ -176,7 +204,15 @@ impl crate::columnar::RelationRow for RuntimeParameterCovariancesRow {
             &self.r#parameter_units,
             columns[3usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#values, columns[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parameter_quantities,
+            columns[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parameter_scales,
+            columns[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#values, columns[6usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -212,10 +248,10 @@ impl crate::columnar::RelationRow for RuntimeParameterCovariancesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        16_384_usize + size_of::<Self::Builder>()
+        23_552_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        128usize
+        184usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -253,6 +289,30 @@ impl crate::columnar::RelationRow for RuntimeParameterCovariancesRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            (self.r#parameter_quantities)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, _| crate::columnar::allocation_add(
+                        bytes,
+                        Ok::<usize, crate::RelationError>(16usize)?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#parameter_scales)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, _| crate::columnar::allocation_add(
+                        bytes,
+                        Ok::<usize, crate::RelationError>(8usize)?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             (self.r#values)
                 .iter()
                 .try_fold(
@@ -273,7 +333,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -296,8 +356,18 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "values",
+        name: "parameter_quantities",
         position: 4usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "parameter_scales",
+        position: 5usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "values",
+        position: 6usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -310,8 +380,12 @@ pub mod columns {
     pub const PARAMETERS: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///parameter_units
     pub const PARAMETER_UNITS: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    ///parameter_quantities
+    pub const PARAMETER_QUANTITIES: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    ///parameter_scales
+    pub const PARAMETER_SCALES: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///values
-    pub const VALUES: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const VALUES: crate::columnar::ColumnReference = super::COLUMNS[6usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -323,6 +397,8 @@ pub struct RuntimeParameterCovariancesView<'a> {
     approximation_column: &'a arrow_array::StringArray,
     parameters_column: &'a arrow_array::ListArray,
     parameter_units_column: &'a arrow_array::ListArray,
+    parameter_quantities_column: &'a arrow_array::ListArray,
+    parameter_scales_column: &'a arrow_array::ListArray,
     values_column: &'a arrow_array::ListArray,
 }
 impl<'a> RuntimeParameterCovariancesView<'a> {
@@ -380,9 +456,15 @@ impl<'a> RuntimeParameterCovariancesView<'a> {
             parameter_units_column: crate::columnar::array::<
                 arrow_array::ListArray,
             >(batch.column(3usize).as_ref())?,
-            values_column: crate::columnar::array::<
+            parameter_quantities_column: crate::columnar::array::<
                 arrow_array::ListArray,
             >(batch.column(4usize).as_ref())?,
+            parameter_scales_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(5usize).as_ref())?,
+            values_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(6usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -447,6 +529,34 @@ impl<'a> RuntimeParameterCovariancesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "parameter_quantities",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn parameter_quantities_column(&self) -> &'a arrow_array::ListArray {
+        self.parameter_quantities_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "parameter_quantities",
+        "`.",
+    )]
+    pub fn parameter_quantities_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "parameter_scales",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn parameter_scales_column(&self) -> &'a arrow_array::ListArray {
+        self.parameter_scales_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "parameter_scales", "`.")]
+    pub fn parameter_scales_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "values",
         "`, including its offsets and validity bitmap.",
     )]
@@ -455,7 +565,7 @@ impl<'a> RuntimeParameterCovariancesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "values", "`.")]
     pub fn values_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -480,6 +590,14 @@ impl<'a> RuntimeParameterCovariancesView<'a> {
             )?,
             r#parameter_units: crate::columnar::ArrowValue::read(
                 self.parameter_units_column,
+                index,
+            )?,
+            r#parameter_quantities: crate::columnar::ArrowValue::read(
+                self.parameter_quantities_column,
+                index,
+            )?,
+            r#parameter_scales: crate::columnar::ArrowValue::read(
+                self.parameter_scales_column,
                 index,
             )?,
             r#values: crate::columnar::ArrowValue::read(self.values_column, index)?,

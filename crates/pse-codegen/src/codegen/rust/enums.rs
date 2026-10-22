@@ -22,7 +22,16 @@ pub(super) fn render(reg: &Registry) -> Result<TokenStream, SchemaError> {
             None => Ok(declared(spec)),
         })
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(quote!(#(#enums)*))
+    let names = reg.enums().iter().map(|spec| format_ident!("{}", super::types::pascal(spec.name))).collect::<Vec<_>>();
+    Ok(quote! {
+        #(#enums)*
+        /// Apply a consumer macro to every registry vocabulary, in declaration order.
+        /// Consumers project these names rather than maintain a second membership list.
+        #[macro_export]
+        macro_rules! for_each_registry_enum {
+            ($callback:ident) => { $callback!(#(#names),*); };
+        }
+    })
 }
 
 /// A re-export of the vocabulary's source type, with the generated value traits.

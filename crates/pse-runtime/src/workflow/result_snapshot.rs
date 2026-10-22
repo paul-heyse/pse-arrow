@@ -316,6 +316,19 @@ impl ProtectedResultDecode {
         descriptor: &FileBatch,
         cancel: &CancellationToken,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        self.access_block(block, descriptor, cancel, true).await?
+            .ok_or_else(|| contract("protected native batch decode absent"))
+    }
+    pub(super) async fn validate_pruned_block(&self, block: &Block, descriptor: &FileBatch, cancel: &CancellationToken) -> Result<(), WorkflowError> {
+        self.access_block(block, descriptor, cancel, false).await.map(|_| ())
+    }
+    async fn access_block(
+        &self,
+        block: &Block,
+        descriptor: &FileBatch,
+        cancel: &CancellationToken,
+        decode: bool,
+    ) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         if descriptor.key != block.batch
             || descriptor.ordinal != block.ordinal
@@ -392,6 +405,12 @@ impl ProtectedResultDecode {
                     .map_err(|_| contract("file batch index extent"))?,
             )
             .map_err(super::result_blocks::ResultBlockError::from)?;
+        if !decode {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("canonical.result.pruned_batches", "count", 1);
+            }
+            return Ok(None);
+        }
         let batch = cached
             .reader
             .next()
@@ -419,15 +438,17 @@ impl ProtectedResultDecode {
             .registry()
             .relation_by_id(self.relation)
             .ok_or_else(|| contract("snapshot relation unavailable"))?;
-        pse_relations::columnar::FieldCheckedBatch::admit_owned(
+        let checked = pse_relations::columnar::FieldCheckedBatch::admit_owned(
             self.runtime.registry(),
             spec,
             owned,
             &self.admission,
             cancel,
         )
-        .map_err(pse_engine::EngineError::from)
-        .map_err(Into::into)
+        .map_err(pse_engine::EngineError::from)?;
+        pse_relations::result_batch::validate_scalar_keys(self.runtime.registry(), &checked, &self.runtime.shared.pool(), cancel)
+            .map_err(pse_engine::EngineError::from)?;
+        Ok(Some(checked))
     }
 }
 
@@ -617,19 +638,38 @@ impl FrozenSnapshot {
     fn schema(&self) -> SchemaRef {
         self.decode().schema.clone()
     }
+    fn len(&self) -> usize {
+        match self { Self::Full(snapshot) => snapshot.0.blocks.len(), Self::Selected(snapshot) => snapshot.0.entries.len() }
+    }
+    fn member(&self, index: usize) -> Option<(&Block, &FileBatch)> {
+        match self {
+            Self::Full(snapshot) => {
+                let block = snapshot.0.blocks.get(index)?;
+                Some((block, snapshot.0.batches.get(&block.batch)?))
+            },
+            Self::Selected(snapshot) => snapshot.0.entries.get(index).map(|entry| (&entry.block, &entry.descriptor)),
+        }
+    }
     async fn next(
         &self,
         index: &mut usize,
         cache: &mut Option<(usize, pse_relations::columnar::FieldCheckedBatch)>,
         cancel: &CancellationToken,
+        pruning: Option<&PrunedSelection>,
     ) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
         match self {
             Self::Full(snapshot) => {
                 while let Some(block) = snapshot.0.blocks.get(*index) {
+                    let position = *index;
                     *index += 1;
                     let lower = snapshot.0.start.max(block.start);
                     let upper = snapshot.0.end.min(block.end);
                     if lower >= upper {
+                        continue;
+                    }
+                    if pruning.is_some_and(|selection| !selection.keeps(position)) {
+                        let (_, descriptor) = self.member(position).ok_or_else(|| contract("pruned batch outside frozen inventory"))?;
+                        self.decode().validate_pruned_block(block, descriptor, cancel).await?;
                         continue;
                     }
                     let batch = snapshot.read_block(block, cancel).await?;
@@ -645,10 +685,17 @@ impl FrozenSnapshot {
                 Ok(None)
             }
             Self::Selected(snapshot) => {
+                loop {
                 let Some(entry) = snapshot.0.entries.get(*index) else {
                     *cache = None;
                     return Ok(None);
                 };
+                if pruning.is_some_and(|selection| !selection.keeps(*index)) {
+                    self.decode().validate_pruned_block(&entry.block, &entry.descriptor, cancel).await?;
+                    *cache = None;
+                    *index += 1;
+                    continue;
+                }
                 let cached = cache.as_ref().and_then(|(position, batch)| {
                     snapshot
                         .0
@@ -671,13 +718,87 @@ impl FrozenSnapshot {
                 };
                 *cache = Some((*index, checked.clone()));
                 *index += 1;
-                entry
+                return entry
                     .rows
                     .apply(&checked, &snapshot.0.decode.runtime.shared.pool(), cancel)
-                    .map(Some)
+                    .map(Some);
+                }
             }
         }
     }
+}
+
+#[derive(Debug)]
+struct PrunedSelection {
+    keep: Vec<bool>,
+    _owner: MemoryReservation,
+}
+impl PrunedSelection {
+    fn keeps(&self, index: usize) -> bool { self.keep.get(index).copied().unwrap_or(true) }
+}
+
+fn prepare_pruning(snapshot: &FrozenSnapshot, state: &SessionState, filters: &[Expr]) -> NativeResult<Option<Arc<PrunedSelection>>> {
+    prepare_pruning_members(&snapshot.decode().runtime, snapshot.decode().relation, snapshot.schema(), state, filters, snapshot.len(), |index| snapshot.member(index))
+}
+fn prepare_pruning_members<'a>(
+    runtime: &Runtime, relation: pse_ids::SemanticId, schema: SchemaRef,
+    state: &SessionState, filters: &[Expr], count: usize,
+    member: impl Fn(usize) -> Option<(&'a Block, &'a FileBatch)>,
+) -> NativeResult<Option<Arc<PrunedSelection>>> {
+    use datafusion::common::{DFSchema, Statistics, pruning::PrunableStatistics, stats::Precision};
+    use datafusion_pruning::PruningPredicateBuilder;
+    if filters.is_empty() || count == 0 || !(0..count).any(|index| member(index).is_some_and(|(block, _)| block.statistics.is_some())) { return Ok(None); }
+    let per_member = schema.fields().len().checked_mul(512).and_then(|bytes| bytes.checked_add(2048));
+    let extent = per_member.and_then(|bytes| count.checked_mul(bytes))
+        .and_then(|base| (0..count).try_fold(base, |bytes, index| {
+            let encoded = member(index).and_then(|(block, _)| block.statistics.as_ref()).map_or(0, |bytes| bytes.len());
+            bytes.checked_add(encoded.checked_mul(16)?)
+        })).ok_or_else(|| DataFusionError::ResourcesExhausted("result pruning metadata extent".into()))?;
+    let owner = MemoryConsumer::new("canonical:result-pruning-plan").register(&runtime.shared.pool());
+    owner.try_grow(extent)?;
+    let Some(expression) = filters.iter().cloned().reduce(|left, right| left.and(right)) else { return Ok(None); };
+    let native = DFSchema::try_from(schema.as_ref().clone())?;
+    let physical = match state.create_physical_expr(expression, &native) { Ok(expression) => expression, Err(_) => return Ok(None) };
+    let predicate = match PruningPredicateBuilder::new().with_file_schema(schema.clone()).try_build(physical) {
+        Ok(predicate) if !predicate.always_true() => predicate,
+        _ => return Ok(None),
+    };
+    let mut statistics = Vec::with_capacity(count);
+    for index in 0..count {
+        let exact = member(index).and_then(|(block, descriptor)| {
+            let bytes = block.statistics.as_ref()?;
+            let binding = pse_relations::result_batch::StatisticsBinding {
+                instance: descriptor.file_instance.clone(), digest: descriptor.file_digest.clone(),
+                index: descriptor.file_batch_index, interpretation: block.interpretation.clone(),
+            };
+            let facts = pse_relations::result_batch::recorded_statistics(bytes.as_slice(), runtime.registry(), relation, schema.as_ref(), &binding)?;
+            (facts.num_rows == Precision::Exact(usize::try_from(block.rows).ok()?)).then_some(facts)
+        });
+        statistics.push(Arc::new(exact.unwrap_or_else(|| Statistics::new_unknown(schema.as_ref()))));
+    }
+    let statistics = PrunableStatistics::new(statistics, schema);
+    let keep = match predicate.prune(&statistics) {
+        Ok(keep) if keep.len() == count => keep,
+        _ => return Ok(None),
+    };
+    drop(statistics);
+    let retained = keep.capacity().checked_add(size_of::<PrunedSelection>()).ok_or_else(|| DataFusionError::ResourcesExhausted("result pruning mask extent".into()))?;
+    if retained > owner.size() { owner.try_grow(retained - owner.size())?; }
+    owner.shrink(owner.size() - retained);
+    Ok(Some(Arc::new(PrunedSelection { keep, _owner: owner })))
+}
+
+/// Share native metadata pruning with bounded typed scalar readers. Permission
+/// and physical integrity must still pass through the same protected decoder.
+pub(super) fn block_may_match(
+    runtime: &Runtime, relation: pse_ids::SemanticId, schema: SchemaRef,
+    block: &Block, descriptor: &FileBatch, expression: &Expr,
+) -> Result<bool, WorkflowError> {
+    if block.statistics.is_none() { return Ok(true); }
+    let state = runtime.bound_model().native_state();
+    let selection = prepare_pruning_members(runtime, relation, schema, &state, std::slice::from_ref(expression), 1, |_| Some((block, descriptor)))
+        .map_err(pse_engine::EngineError::from)?;
+    Ok(selection.is_none_or(|selection| selection.keeps(0)))
 }
 
 #[derive(Debug)]
@@ -695,7 +816,7 @@ impl TableProvider for SnapshotProvider {
         filters: &[&Expr],
     ) -> NativeResult<Vec<TableProviderFilterPushDown>> {
         Ok(vec![
-            TableProviderFilterPushDown::Unsupported;
+            TableProviderFilterPushDown::Inexact;
             filters.len()
         ])
     }
@@ -706,11 +827,6 @@ impl TableProvider for SnapshotProvider {
         filters: &[Expr],
         limit: Option<usize>,
     ) -> NativeResult<Arc<dyn ExecutionPlan>> {
-        if !filters.is_empty() {
-            return Err(DataFusionError::Plan(
-                "snapshot predicates require native residual evaluation".into(),
-            ));
-        }
         let state = state
             .as_any()
             .downcast_ref::<SessionState>()
@@ -725,38 +841,45 @@ impl TableProvider for SnapshotProvider {
                 "snapshot query uses another deployment pool".into(),
             ));
         }
+        let pruning = prepare_pruning(&self.0, state, filters)?;
         StreamingTable::try_new(
             self.schema(),
-            vec![Arc::new(SnapshotPartition(self.0.clone()))],
+            vec![Arc::new(SnapshotPartition { snapshot: self.0.clone(), pruning })],
         )?
-        .scan(state, projection, filters, limit)
+        // Inexact filters remain native residuals above this provider. An early
+        // limit could count false positives before the residual rejects them.
+        .scan(state, projection, &[], if filters.is_empty() { limit } else { None })
         .await
     }
 }
 
 #[derive(Debug)]
-struct SnapshotPartition(FrozenSnapshot);
+struct SnapshotPartition {
+    snapshot: FrozenSnapshot,
+    pruning: Option<Arc<PrunedSelection>>,
+}
 impl PartitionStream for SnapshotPartition {
     fn schema(&self) -> &SchemaRef {
-        &self.0.decode().schema
+        &self.snapshot.decode().schema
     }
     fn execute(&self, context: Arc<TaskContext>) -> SendableRecordBatchStream {
         let pool_matches = Arc::ptr_eq(
             &context.runtime_env().memory_pool,
-            &self.0.decode().runtime.shared.pool(),
+            &self.snapshot.decode().runtime.shared.pool(),
         );
-        let snapshot = self.0.clone();
+        let snapshot = self.snapshot.clone();
+        let pruning = self.pruning.clone();
         let cancel = CancellationToken::new();
         let stream = futures_util::stream::try_unfold(
-            (snapshot, 0usize, None, cancel, pool_matches),
-            |(snapshot, mut index, mut cache, cancel, pool_matches)| async move {
+            (snapshot, 0usize, None, cancel, pool_matches, pruning),
+            |(snapshot, mut index, mut cache, cancel, pool_matches, pruning)| async move {
                 if !pool_matches {
                     return Err(DataFusionError::Execution(
                         "snapshot execution uses another deployment pool".into(),
                     ));
                 }
                 let batch = snapshot
-                    .next(&mut index, &mut cache, &cancel)
+                    .next(&mut index, &mut cache, &cancel, pruning.as_deref())
                     .await
                     .map_err(pse_columnar::external)?;
                 let Some(batch) = batch else {
@@ -767,11 +890,11 @@ impl PartitionStream for SnapshotPartition {
                     .map_err(pse_columnar::external)?;
                 Ok::<_, DataFusionError>(Some((
                     batch,
-                    (snapshot, index, cache, cancel, pool_matches),
+                    (snapshot, index, cache, cancel, pool_matches, pruning),
                 )))
             },
         );
-        Box::pin(RecordBatchStreamAdapter::new(self.0.schema(), stream))
+        Box::pin(RecordBatchStreamAdapter::new(self.snapshot.schema(), stream))
     }
 }
 
@@ -1119,3 +1242,7 @@ mod decoder_lane_inquiry {
         }
     }
 }
+
+#[cfg(all(test, feature = "canonical-tests"))]
+#[path = "result_pruning_tests.rs"]
+mod result_pruning_tests;

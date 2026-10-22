@@ -843,7 +843,7 @@ impl Runtime {
         let operations = self.operations()?;
         let Some(fence) = self
             .canonical_store()?
-            .claim_study_admission(scope, operations.worker(), operations.policy().lease)
+            .claim_study_admission(scope, operations.worker(), operations.policy().lease())
             .await?
         else {
             return Ok(false);
@@ -851,13 +851,13 @@ impl Runtime {
         let child = cancel.child_with_deadline(None);
         let work = self.resolve_study_candidate_admission(scope, &fence, lane, &child);
         tokio::pin!(work);
-        let renewal = (operations.policy().lease / 3).max(Duration::from_millis(1));
+        let renewal = (operations.policy().lease() / 3).max(Duration::from_millis(1));
         let mut renewal_error = None;
         let result = loop {
             tokio::select! {
                 result = &mut work => break result,
                 () = tokio::time::sleep(renewal), if renewal_error.is_none() => {
-                    if let Err(error) = self.canonical_store()?.renew_attempt(&fence, operations.policy().lease).await {
+                    if let Err(error) = self.canonical_store()?.renew_attempt(&fence, operations.policy().lease()).await {
                         child.cancel(); renewal_error = Some(error);
                     }
                 }
@@ -1108,13 +1108,9 @@ impl Runtime {
                 }
                 let original_prediction_eligible = matches!(&operation,
                     super::PreparedStudyOperation::DeclaredCase(case)
-                        if case
-                            .solve
-                            .composition_request()
-                            .recovery
-                            .contains(&pse_model::strategy::StartOrigin::Predicted)
-                            && case.solve.numerical_strategy().start.policy
-                                != pse_backend_native::solve::StartPolicy::Explicit
+                        if pse_model::study_policy::prediction_entry(
+                            &case.solve.numerical_strategy().start, true,
+                        ) == pse_model::study_policy::PredictionEntry::Attempt
                 );
                 let operation_descriptor = super::study_operations::DeclaredStudyAdmission::key(
                     &definition.operation,
@@ -1402,12 +1398,12 @@ impl Runtime {
                             .map_err(crate::math::MathRuntimeError::from)?;
                     }
                     Err(error)
-                        if matches!(
-                            error.boundary_diagnostic().class,
-                            pse_model::diagnostic::BoundaryClass::Unsupported
-                                | pse_model::diagnostic::BoundaryClass::Incompatible
-                                | pse_model::diagnostic::BoundaryClass::Numerical
-                        ) => {}
+                        if pse_model::study_policy::prediction_choice(
+                            pse_model::study_policy::PredictionResult::Failed {
+                                stage: pse_model::study_policy::PredictionStage::Proposal,
+                                class: error.boundary_diagnostic().class,
+                            },
+                        ) == pse_model::study_policy::PredictionChoice::ContinueFromSeed => {}
                     Err(error) => return Err(error),
                 }
                 Ok(())
@@ -1711,7 +1707,7 @@ impl Runtime {
                     .begin_study_finalization(
                         &StudySummary::from(&study),
                         operations.worker(),
-                        operations.policy().lease,
+                        operations.policy().lease(),
                     )
                     .await?
                 else {
@@ -1784,6 +1780,7 @@ impl Runtime {
                                         coordinate_max: None,
                                         payload_bytes: payload.byte_len(),
                                         payload_digest: payload.digest().to_owned(),
+                                        statistics: None,
                                         interpretation:
                                             pse_operations::generated::surreal::INTERPRETATION
                                                 .into(),
@@ -1805,7 +1802,7 @@ impl Runtime {
                     )
                     .await?;
                     store
-                        .renew_attempt(&fence, operations.policy().lease)
+                        .renew_attempt(&fence, operations.policy().lease())
                         .await?;
                 }
                 if offset != study.point_count {
@@ -2372,7 +2369,7 @@ pub struct StudyPoint {
 #[serde(deny_unknown_fields)]
 pub struct StudyRequest {
     /// Document version.
-    pub version: Version<7>,
+    pub version: Version<8>,
     /// Explicit original-summary and occurrence-detail demand.
     pub output: super::StudyOutputDemand,
     /// Explicit points or a bounded immutable lazy structural input.
@@ -2390,7 +2387,7 @@ pub struct StudyPlan {
     pub inputs: super::StudyInputs,
 }
 
-const STUDY_DEFINITION_VERSION: u32 = 11;
+const STUDY_DEFINITION_VERSION: u32 = 12;
 
 /// Version 11 of a study's definition: the store's `definition` document and the content of
 /// the study's request identity.

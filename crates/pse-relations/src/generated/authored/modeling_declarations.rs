@@ -119,20 +119,22 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    128u8, 35u8, 121u8, 140u8, 205u8, 240u8, 108u8, 57u8, 208u8, 186u8, 219u8, 247u8,
-    37u8, 15u8, 20u8, 75u8,
+    86u8, 22u8, 65u8, 63u8, 88u8, 0u8, 240u8, 189u8, 117u8, 88u8, 81u8, 167u8, 34u8,
+    157u8, 110u8, 70u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_declarations";
+/// The declared qualified name at relation boundaries.
+pub const QUALIFIED_NAME: &str = "authored.modeling_declarations";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 25u32;
+pub const VERSION: u32 = 26u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    5u8, 238u8, 115u8, 44u8, 131u8, 9u8, 146u8, 193u8, 237u8, 81u8, 249u8, 158u8, 192u8,
-    7u8, 118u8, 82u8, 219u8, 156u8, 237u8, 144u8, 146u8, 21u8, 139u8, 158u8, 89u8, 241u8,
-    33u8, 13u8, 32u8, 189u8, 67u8, 243u8,
+    35u8, 75u8, 130u8, 97u8, 120u8, 214u8, 29u8, 55u8, 34u8, 19u8, 133u8, 62u8, 232u8,
+    185u8, 28u8, 159u8, 214u8, 144u8, 145u8, 8u8, 62u8, 102u8, 70u8, 107u8, 127u8, 134u8,
+    134u8, 252u8, 164u8, 148u8, 233u8, 99u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueTemporal {
     fn append(

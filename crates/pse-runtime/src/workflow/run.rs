@@ -8,11 +8,13 @@
 //! heartbeat lease whose durable cancellation flag stops it, streams its progress, and
 //! records its typed termination before its result is published to waiters.
 use super::{
-    Runtime, WorkflowError, contract,
+    Runtime, WorkflowError, RunOutcome, RunRequest, RunReport, contract,
+    run_outcome::PairedOperation,
     durable::{Canceller, Durability, DurableAttempt, RunDurability},
 };
 use crate::math::{MathRuntimeError, Submission};
 use pse_backend_native::solve::{Event, Progress};
+use futures_util::FutureExt;
 use pse_diagnostics::Cancellation;
 use pse_ids::SemanticId;
 use pse_model::generated::identities::RunId;
@@ -40,30 +42,31 @@ pub(in crate::workflow) fn family_worker_entry() -> Option<FamilyWorkerEntry> {
     FAMILY_WORKER_ENTRY.try_with(Arc::clone).ok()
 }
 
-/// Public cancellation lease. Dropping the last public handle requests cancellation;
-/// the supervisor retains the actual native handle until its join completes.
+/// Public cancellation lease. The library drop guard stops an immediate run when its
+/// last caller leaves; durable work remains owned by its worker through native join.
 #[derive(Debug)]
-struct Lease(
-    Cancellation,
-    Option<crate::CancelSource>,
-    Option<pse_diagnostics::observation::ObservationContext>,
-);
+struct Lease {
+    checks: crate::CancelSource,
+    observation: Option<pse_diagnostics::observation::ObservationContext>,
+    // Durable caller handles observe a worker-owned run; only an immediate caller
+    // owns cancellation on departure. Explicit cancel remains available for both.
+    _guard: Option<pse_columnar::resource::CancellationGuard>,
+}
 impl Lease {
+    fn new(checks: crate::CancelSource, durable: bool) -> Self {
+        Self {
+            _guard: (!durable).then(|| checks.token().drop_guard()),
+            checks,
+            observation: pse_diagnostics::observation::current(),
+        }
+    }
     fn cancel(&self) {
-        if let Some(context) = &self.2
+        if let Some(context) = &self.observation
             && context.is_active()
         {
             context.boolean("run.stop_requested", true);
         }
-        self.0.cancel();
-        if let Some(checks) = &self.1 {
-            checks.cancel();
-        }
-    }
-}
-impl Drop for Lease {
-    fn drop(&mut self) {
-        self.cancel();
+        self.checks.cancel();
     }
 }
 /// A repeatably awaitable, cancellable view of one native job.
@@ -86,6 +89,10 @@ impl RunHandle {
     /// Request stop; result ownership remains live until native teardown and join.
     pub fn cancel(&self) {
         self.lease.cancel();
+    }
+    #[cfg(test)]
+    pub(in crate::workflow) fn cancellation_scope(&self) -> &crate::CancelSource {
+        &self.lease.checks
     }
     /// The same terminal result remains available after cancellation of an earlier waiter.
     pub async fn wait(&self) -> Result<Arc<RunResult>, WorkflowError> {
@@ -149,30 +156,7 @@ impl RunHandle {
     pub fn canonical_attempt_key(&self) -> Option<&str> {
         self.canonical_keys.as_ref().map(|keys| keys.1.as_str())
     }
-    /// The handle of a run supervised as a staged sequence: cancelling it cancels `checks`,
-    /// which stops the step in progress and joins its native teardown.
-    pub(super) fn staged(
-        checks: crate::CancelSource,
-        receiver: tokio::sync::watch::Receiver<Option<Arc<RunResult>>>,
-        progress: Arc<Progress>,
-        run_id: RunId,
-        attempt_id: Option<pse_model::generated::identities::AttemptId>,
-        canonical_keys: Option<(String, String)>,
-    ) -> Self {
-        Self {
-            observation: observations_for(run_id, canonical_keys.as_ref()),
-            lease: Arc::new(Lease(
-                Cancellation::default(),
-                Some(checks),
-                pse_diagnostics::observation::current(),
-            )),
-            receiver,
-            progress,
-            run_id,
-            attempt_id,
-            canonical_keys,
-        }
-    }
+
 }
 fn observations_for(
     run: RunId,
@@ -196,41 +180,6 @@ pub enum StoredStart {
     /// This stored solution.
     Solution(pse_model::generated::identities::SolutionId),
 }
-/// Mathematical report variants share one joined public job lifecycle.
-#[derive(Debug)]
-pub enum RunReport {
-    /// Explicit compact horizon outcome; full modeling history was not requested.
-    Horizon(Arc<super::HorizonOutcome>),
-    /// Authored steady or simultaneous solve with original-model qualification.
-    Modeling(Vec<super::ModelingResult>),
-    /// A completed or partial native integration.
-    Simulation(Box<super::ModelingTrajectory>),
-    /// Native steady/transient parameter fitting.
-    Fit(Box<super::FitReport>),
-    /// Joined shooting NLP plus original physical trajectory and composed acceptance.
-    #[cfg(feature = "solver-diffsol")]
-    Shooting(Box<super::ShootingReport>),
-}
-/// Immutable request representation, with no mutable native objects.
-#[derive(Clone, Debug)]
-pub enum RunRequest {
-    /// Immutable compact horizon identity and original source owners.
-    Horizon(super::HorizonRequest),
-    /// One immutable authored algebraic case.
-    Modeling(Vec<super::ModelingSolvePreparation>),
-    /// One already-prepared physical simulation.
-    Simulation(Box<super::ModelingSimulation>),
-    /// Compiled shared-parameter experiments.
-    Fit(Box<super::PreparedFit>),
-    /// Admitted shooting problem and the exact requested initial coordinate vector.
-    #[cfg(feature = "solver-diffsol")]
-    Shooting {
-        /// Bound scientific problem admitted before dispatch.
-        problem: Arc<super::ShootingProblem>,
-        /// Caller-provided original coordinates, or the prepared defaults.
-        initial: Option<Vec<f64>>,
-    },
-}
 /// Immutable joined outcome. Table encoding and retention never invoke a solver again.
 #[derive(Debug)]
 pub struct RunResult {
@@ -244,8 +193,6 @@ pub struct RunResult {
     pub(super) modeling_origin: usize,
     pub(super) original_completion_captured: bool,
     pub(super) horizon_output: Option<Arc<super::HorizonOutcome>>,
-    /// Original horizon input, distinct from the materialized full-output solve prefix.
-    pub(super) original_horizon_request: Option<RunRequest>,
     #[cfg(feature = "solver-diffsol")]
     pub(super) horizon_owners: Vec<Arc<pse_columnar::AllocationLease>>,
     pub(super) horizon_tightenings: Option<Vec<pse_modeling::DomainTightening>>,
@@ -254,9 +201,8 @@ pub struct RunResult {
     /// job's tries share it; each try is its own attempt.
     pub run_id: RunId,
     pub(crate) runtime: Runtime,
-    pub(crate) request: RunRequest,
+    pub(crate) outcome: RunOutcome,
     pub(crate) _owner: Option<Arc<pse_columnar::AllocationLease>>,
-    pub(crate) report: Result<RunReport, Arc<WorkflowError>>,
     /// Completed modeling steps retained when a later step fails.
     pub(super) modeling_failure: Option<ModelingFailure>,
     pub(crate) assessments: Vec<pse_relations::generated::runtime::candidate_assessments::Row>,
@@ -279,9 +225,8 @@ impl RunResult {
     pub(super) fn joined(
         run_id: RunId,
         runtime: Runtime,
-        request: RunRequest,
+        outcome: RunOutcome,
         owner: Option<Arc<pse_columnar::AllocationLease>>,
-        report: Result<RunReport, Arc<WorkflowError>>,
     ) -> Self {
         let result_validation = Arc::new(runtime.validation_context().new_scope());
         let projection_owner =
@@ -297,16 +242,14 @@ impl RunResult {
             modeling_origin: 0,
             original_completion_captured: false,
             horizon_output: None,
-            original_horizon_request: None,
             #[cfg(feature = "solver-diffsol")]
             horizon_owners: Vec::new(),
             horizon_tightenings: None,
             horizon_unmerged: None,
             run_id,
             runtime,
-            request,
+            outcome,
             _owner: owner,
-            report,
             modeling_failure: None,
             assessments: vec![],
             completion: Err(Arc::new(contract("completion has not been captured"))),
@@ -334,12 +277,12 @@ impl RunResult {
     /// Every requested candidate is a result under the requested usability policy.
     /// Seed-only and diagnostic-only candidates are never results (ADR-0106).
     pub fn usable(&self) -> bool {
-        self.report.is_ok()
+        self.report().is_ok()
             && !self.assessments.is_empty()
             && self.assessments.iter().all(|a| a.permits_result)
     }
     pub(super) fn modeling_result(&self, step: usize) -> Option<&super::ModelingResult> {
-        match &self.report {
+        match self.report() {
             Ok(RunReport::Modeling(results)) => results.get(step),
             Err(_) => self.modeling_failure.as_ref()?.completed.get(step),
             _ => None,
@@ -357,14 +300,14 @@ impl RunResult {
             .as_ref()
             .map_or(Some(0), |failure| failure.step);
         (Some(step) == failed)
-            .then(|| self.report.as_ref().err().map(AsRef::as_ref))
+            .then(|| self.error().map(AsRef::as_ref))
             .flatten()
     }
     pub(super) fn completed(mut self) -> Self {
         if self.original_completion_captured || self.horizon_unmerged.is_some() {
             return self;
         }
-        if let Ok(RunReport::Fit(r)) = &mut self.report
+        if let RunOutcome::Fit { result: Ok(r), .. } = &mut self.outcome
             && let Some(seed) = r.solve.as_mut().and_then(|s| s.warm_start.as_mut())
         {
             seed.origin = Some(pse_backend_native::solve::SeedOrigin {
@@ -397,7 +340,7 @@ impl RunResult {
         result.invocation_cancelled = cancelled;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.boolean("run.cancel_requested", cancelled);
-            context.boolean("run.execution_failed", result.report.is_err());
+            context.boolean("run.execution_failed", result.report().is_err());
             context.boolean("run.original_completion.failed", result.completion.is_err());
             context.source_ref("run.identity", result.run_id.as_id().to_string().as_bytes());
         }
@@ -408,7 +351,7 @@ impl RunResult {
             let admission = attempt.begin_worker_publication().await;
             let publish = matches!(&admission, Ok(true));
             let preserve_scientific_failure =
-                !publish && (result.report.is_err() || result.completion.is_err());
+                !publish && (result.report().is_err() || result.completion.is_err());
             let publication = crate::invocation::stage("required_durable_publication");
             let record = if publish {
                 attempt.finish(&result, cancelled).await
@@ -416,10 +359,7 @@ impl RunResult {
                 // Keep the original failure when science already failed. An
                 // unadmitted cancelled owner only settles its existing attempt;
                 // it must not start a second payload publisher past capacity.
-                let prior = result
-                    .report
-                    .as_ref()
-                    .err()
+                let prior = result.error()
                     .or_else(|| result.completion.as_ref().err())
                     .cloned();
                 let interrupted = match admission {
@@ -431,7 +371,7 @@ impl RunResult {
                     .or_else(|| interrupted.clone())
                     .unwrap_or_else(|| Arc::new(MathRuntimeError::Cancelled.into()));
                 if prior.is_none() {
-                    result.report = Err(error.clone());
+                    result.fail_report(error.clone());
                     result.reset_result_projection();
                 }
                 if let Some(interrupted) = interrupted {
@@ -455,7 +395,7 @@ impl RunResult {
             if let Err(error) = &record.attempt
                 && !preserve_scientific_failure
             {
-                result.report = Err(error.clone());
+                result.fail_report(error.clone());
                 result.reset_result_projection();
             }
             result.durability = RunDurability::Durable(Arc::new(record));
@@ -467,7 +407,7 @@ impl RunResult {
     }
     /// A durable run that failed before it ran: record why, and publish the failure.
     pub(super) async fn refused(mut self, durable: Option<DurableAttempt>) -> Self {
-        self.invocation_cancelled = self.report.as_ref().err().is_some_and(|error| {
+        self.invocation_cancelled = self.error().is_some_and(|error| {
             pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref())
                 == Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled)
         });
@@ -475,7 +415,7 @@ impl RunResult {
         if let Some(recorder) = &self.invocation {
             recorder.terminal();
         }
-        if let (Some(attempt), Err(error)) = (durable, &self.report) {
+        if let (Some(attempt), Some(error)) = (durable, self.error()) {
             let error = error.clone();
             let record = attempt.abandon(&error).await;
             // A cleanup or sealing failure remains visible in the durable record.
@@ -499,7 +439,7 @@ impl RunResult {
     ) -> Result<super::DiagnosticOrigin, WorkflowError> {
         let modeling = step.and_then(|step| self.modeling_result(step));
         if let Some(step) = step {
-            let count = match &self.request {
+            let count = match self.request() {
                 RunRequest::Modeling(request) => request.len(),
                 _ => 0,
             };
@@ -514,10 +454,7 @@ impl RunResult {
                     self.modeling_error(step)
                         .map(WorkflowError::boundary_diagnostic)
                 }),
-            None => self
-                .report
-                .as_ref()
-                .err()
+            None => self.error()
                 .map(|error| error.boundary_diagnostic())
                 .or_else(|| {
                     (!self.usable())
@@ -554,10 +491,7 @@ impl RunResult {
             .as_ref()
             .map(|recorder| recorder.projection())
             .unwrap_or((None, InvocationEndpoints::default(), Vec::new(), 0, None));
-        let family = match self
-            .original_horizon_request
-            .as_ref()
-            .unwrap_or(&self.request)
+        let family = match self.original_request()
         {
             RunRequest::Horizon(_) => "horizon",
             RunRequest::Modeling(_) => "modeling",
@@ -575,11 +509,8 @@ impl RunResult {
                 ProductAvailability::Unavailable
             },
         }];
-        if let RunRequest::Fit(prepared) = &self.request {
-            let report = match &self.report {
-                Ok(RunReport::Fit(report)) => Some(report.as_ref()),
-                _ => None,
-            };
+        if let RunOutcome::Fit { request: prepared, result } = &self.outcome {
+            let report = result.as_ref().ok().map(Box::as_ref);
             let availability = |requested: bool, available: bool| {
                 if !requested {
                     ProductAvailability::NotRequested
@@ -641,7 +572,7 @@ impl RunResult {
                 ),
             });
         }
-        match &self.report {
+        match self.report() {
             Ok(RunReport::Simulation(trajectory)) => products.push(InvocationProduct {
                 role: "trajectory".into(),
                 step: None,
@@ -664,7 +595,7 @@ impl RunResult {
             _ => {}
         }
         let mut omitted_product_steps = 0;
-        if let RunRequest::Modeling(requests) = &self.request {
+        if let RunRequest::Modeling(requests) = self.request() {
             let limit = super::AttemptSummaryLimits::default().steps;
             omitted_product_steps = requests.len().saturating_sub(limit);
             for (step, request) in requests.iter().take(limit).enumerate() {
@@ -726,18 +657,23 @@ impl RunResult {
             clock_scope: "wall seconds from invocation establishment before dispatch; earlier preparation excluded".into(),
             timing_unavailable: self.invocation_timing_unavailable,
             canonical_run: self.canonical_run_key().map(str::to_owned), canonical_attempt: self.canonical_attempt_key().map(str::to_owned),
-            outcome: if self.invocation_cancelled { InvocationOutcome::Cancelled } else if self.report.is_err() { InvocationOutcome::Failed } else { InvocationOutcome::Completed },
+            outcome: if self.invocation_cancelled { InvocationOutcome::Cancelled } else if self.report().is_err() { InvocationOutcome::Failed } else { InvocationOutcome::Completed },
             endpoints, intervals, omitted_intervals, preparations,
             products, omitted_product_steps,
             attempts: owner.document(), }, _owner: owner })
     }
     /// Full typed reports and backend-specific metrics; errors preserve their original causes.
-    pub fn report(&self) -> Result<&RunReport, &WorkflowError> {
-        self.report.as_ref().map_err(AsRef::as_ref)
+    pub fn report(&self) -> Result<RunReport<'_>, &WorkflowError> {
+        self.outcome.report().map_err(AsRef::as_ref)
     }
+    /// The authoritative paired input and typed result.
+    pub fn outcome(&self) -> &RunOutcome { &self.outcome }
+    pub(super) fn error(&self) -> Option<&Arc<WorkflowError>> { self.outcome.error() }
+    pub(super) fn fail_report(&mut self, error: Arc<WorkflowError>) { self.outcome.fail(error); }
+    pub(super) fn original_request(&self) -> RunRequest<'_> { self.outcome.original_request() }
     /// Original immutable declarations for each requested step, including unattempted steps.
-    pub fn request(&self) -> &RunRequest {
-        &self.request
+    pub fn request(&self) -> RunRequest<'_> {
+        self.outcome.request()
     }
     /// What the run recorded durably: nothing for an ephemeral run; the attempt, its stored
     /// progress stream and its stored seeds for a durable one.
@@ -768,7 +704,7 @@ impl RunResult {
 
 /// The durable attempt of a run under `runtime`'s class, or none when ephemeral. A worker
 /// passes the attempt it claimed with its job, already under its lease.
-pub(super) fn attempt_for(
+fn attempt_for(
     runtime: &Runtime,
     given: Option<DurableAttempt>,
 ) -> Result<Option<DurableAttempt>, WorkflowError> {
@@ -783,7 +719,7 @@ pub(super) fn attempt_for(
 }
 /// The run's event stream: bounded in memory and, for a durable run, tapped by its store
 /// stream, which keeps every event.
-pub(super) fn progress_for(history: usize, durable: Option<&DurableAttempt>) -> Arc<Progress> {
+fn progress_for(history: usize, durable: Option<&DurableAttempt>) -> Arc<Progress> {
     Arc::new(match durable {
         Some(attempt) => Progress::tapped(history, attempt.tap()),
         None => Progress::new(history),
@@ -794,7 +730,7 @@ pub(super) fn progress_for(history: usize, durable: Option<&DurableAttempt>) -> 
 async fn admit<T>(
     durable: &mut Option<DurableAttempt>,
     run_id: RunId,
-    request: &RunRequest,
+    request: &RunRequest<'_>,
     admission: impl Future<Output = Result<T, WorkflowError>>,
     cancel: Canceller,
 ) -> Result<T, WorkflowError> {
@@ -838,34 +774,168 @@ async fn admitted(signal: Option<tokio::sync::oneshot::Receiver<()>>) -> Result<
         None => Ok(()),
     }
 }
-/// The existing supervisor keeps ownership through cancellation and native drain.
+/// One owner for execution identity, cancellation, progress and joined publication.
+/// Operation code retains its typed scientific finish, including partial prefixes.
+pub(in crate::workflow) struct RunSupervisor {
+    pub(in crate::workflow) runtime: Runtime,
+    pub(in crate::workflow) run_id: RunId,
+    pub(in crate::workflow) durable: Option<DurableAttempt>,
+    pub(in crate::workflow) progress: Arc<Progress>,
+    pub(in crate::workflow) checks: crate::CancelSource,
+    native: Cancellation,
+}
+impl RunSupervisor {
+    pub(in crate::workflow) fn new(
+        runtime: Runtime,
+        attempt: Option<DurableAttempt>,
+        parent: Option<&crate::CancelSource>,
+        deadline: Option<std::time::Instant>,
+        history: usize,
+    ) -> Result<Self, WorkflowError> {
+        let durable = attempt_for(&runtime, attempt)?;
+        let run_id = durable.as_ref().and_then(DurableAttempt::claimed_run)
+            .unwrap_or_else(pse_operations::mint_id);
+        Ok(Self {
+            runtime,
+            run_id,
+            progress: progress_for(history, durable.as_ref()),
+            durable,
+            checks: parent.map_or_else(
+                || crate::CancelSource::new().with_deadline(deadline),
+                |parent| parent.child_with_deadline(deadline),
+            ),
+            native: Cancellation::default(),
+        })
+    }
+    fn public_handle(
+        &self,
+        receiver: tokio::sync::watch::Receiver<Option<Arc<RunResult>>>,
+    ) -> RunHandle {
+        let canonical_keys = self.durable.as_ref().map(|attempt| attempt.canonical_keys(self.run_id));
+        RunHandle {
+            observation: observations_for(self.run_id, canonical_keys.as_ref()),
+            lease: Arc::new(Lease::new(self.checks.clone(), self.durable.is_some())),
+            receiver,
+            progress: self.progress.clone(),
+            run_id: self.run_id,
+            attempt_id: self.durable.as_ref().map(DurableAttempt::attempt_id),
+            canonical_keys,
+        }
+    }
+    pub(in crate::workflow) fn spawn<F, Fut>(self, work: F) -> RunHandle
+    where
+        F: FnOnce(Self) -> Fut + Send + 'static,
+        Fut: Future<Output = RunResult> + Send + 'static,
+    {
+        let (sender, receiver) = tokio::sync::watch::channel(None);
+        let handle = self.public_handle(receiver);
+        let checks = self.checks.clone();
+        let native = self.native.clone();
+        tokio::spawn(crate::workflow::inherit_runtime_activity(
+            joined_with_cancel(move || work(self), native, checks).map(move |result| {
+                sender.send_replace(Some(Arc::new(result)));
+            }),
+        ));
+        handle
+    }
+    /// Dispatch and typed finish travel together. This is the single registration,
+    /// admission, refusal/drain and durable completion skeleton for native families.
+    fn start_native<Operation, T, Dispatch, Finish, Finished>(
+        self,
+        operation: Operation,
+        dispatch: Dispatch,
+        finish: Finish,
+    ) -> Result<RunHandle, WorkflowError>
+    where
+        Operation: PairedOperation,
+        T: Send + 'static,
+        Dispatch: FnOnce(Submission) -> Result<crate::math::solves::SolveHandle<T>, WorkflowError> + Send + 'static,
+        Finish: FnOnce(crate::math::solves::SolveHandle<T>, Option<DurableAttempt>) -> Finished + Send + 'static,
+        Finished: Future<Output = (NativeFinished<Operation::Report>, Option<DurableAttempt>)> + Send + 'static,
+    {
+        let deadline = self.checks.deadline().ok_or_else(|| contract("native run deadline absent"))?;
+        let (submission, signal) = submission(&self.native, &self.progress, self.durable.is_some(), deadline);
+        let mut dispatch = Some(move || dispatch(submission));
+        let immediate = if self.durable.is_none() {
+            Some(dispatch.take().ok_or_else(|| contract("native dispatch absent"))?()?)
+        } else { None };
+        Ok(self.spawn(move |mut supervisor| async move {
+            let registered = async {
+                if let Some(attempt) = supervisor.durable.as_mut() {
+                    attempt.register(supervisor.run_id, &operation.request()).await?;
+                    let checks = supervisor.checks.clone();
+                    attempt.start(Arc::new(move || checks.cancel())).await?;
+                }
+                Ok::<(), WorkflowError>(())
+            }.await;
+            let handle = match registered {
+                Err(error) => {
+                    if let Some(handle) = immediate {
+                        handle.cancel();
+                        let _ = handle.finish().await;
+                    }
+                    return RunResult::joined(supervisor.run_id, supervisor.runtime, operation.finish(Err(Arc::new(error))), None)
+                        .refused(supervisor.durable).await;
+                }
+                Ok(()) => match immediate {
+                    Some(handle) => Ok(handle),
+                    None => dispatch.take().ok_or_else(|| contract("native dispatch absent")).and_then(|dispatch| dispatch()),
+                },
+            };
+            let handle = match handle {
+                Ok(handle) => handle,
+                Err(error) => return RunResult::joined(supervisor.run_id, supervisor.runtime, operation.finish(Err(Arc::new(error))), None)
+                    .refused(supervisor.durable).await,
+            };
+            if let Err(error) = admitted(signal).await {
+                handle.cancel();
+                let _ = handle.finish().await;
+                return RunResult::joined(supervisor.run_id, supervisor.runtime, operation.finish(Err(Arc::new(error))), None)
+                    .refused(supervisor.durable).await;
+            }
+            let join = crate::invocation::stage("native_join_and_workflow_postsolve");
+            let ((report, owner), durable) = finish(handle, supervisor.durable).await;
+            join.finish(if report.is_ok() { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
+            RunResult::joined(supervisor.run_id, supervisor.runtime, operation.finish(report), owner)
+                .finished(durable, supervisor.checks.token().is_cancelled()).await
+        }))
+    }
+}
+type NativeFinished<T> = (Result<T, Arc<WorkflowError>>, Option<Arc<pse_columnar::AllocationLease>>);
+async fn finish_native_report<T: Send + 'static>(
+    handle: crate::math::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>,
+    durable: Option<DurableAttempt>,
+) -> (NativeFinished<T>, Option<DurableAttempt>) {
+    let finished = match handle.finish().await {
+        Ok((report, owner)) => (Ok(report), Some(owner)),
+        Err(error) => (Err(Arc::new(WorkflowError::Math(error))), None),
+    };
+    (finished, durable)
+}
+/// One tree-to-native bridge. Stop sets the callback's cheap leaf and then joins
+/// the complete operation; no cancellation branch drops owned native work.
 #[inline(never)]
-fn supervised_with_cancel<F, Fut>(
+fn joined_with_cancel<F, Fut, T>(
     work: F,
-    stop: impl FnOnce(),
-    parent: Option<crate::CancelSource>,
-) -> impl Future<Output = ()>
+    native: Cancellation,
+    checks: crate::CancelSource,
+) -> impl Future<Output = T>
 where
     F: FnOnce() -> Fut,
-    Fut: Future<Output = ()> + Send + 'static,
+    Fut: Future<Output = T> + Send + 'static,
+    T: Send + 'static,
 {
-    // Construct behind the phase boundary, then erase the concrete future before
-    // activity wrappers and the supervisor move or poll it. Boxing an already
-    // constructed future leaves its large construction slots on the caller stack.
-    let mut inner: futures_util::future::BoxFuture<'static, ()> =
+    let mut inner: futures_util::future::BoxFuture<'static, T> =
         super::worker::boxed_worker_action(work);
-    let mut work = futures_util::future::poll_fn(move |context| {
+    let work = futures_util::future::poll_fn(move |context| {
         super::worker::poll_worker_action(inner.as_mut(), context)
     });
     crate::invocation::TransferredContext::capture().scope(async move {
-        if let Some(parent) = parent {
-            tokio::select! {
-                () = &mut work => {},
-                () = parent.cancelled() => { stop(); work.await; },
+        checks.join_native(&native, work, || {
+            if let Some(context) = pse_diagnostics::observation::current().filter(|context| context.is_active()) {
+                context.boolean("run.stop_requested", true);
             }
-        } else {
-            work.await;
-        }
+        }).await
     })
 }
 
@@ -907,6 +977,7 @@ impl super::ModelingSimulation {
     pub(crate) async fn start_attempt(
         &self,
         attempt: DurableAttempt,
+        cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity
@@ -928,7 +999,7 @@ impl super::ModelingSimulation {
                         return Err(WorkflowError::Shared(error));
                     }
                 };
-                self.start_owned(Some(attempt), deadline, None)
+                self.start_owned(Some(attempt), deadline, Some(cancel.clone()))
             })
             .await
     }
@@ -958,18 +1029,11 @@ impl super::ModelingSimulation {
         }
         let activity = self.runtime.admit_activity()?;
         activity.sync_scope(crate::invocation::start_scope(|| {
-            let runtime = self.runtime.clone();
-            let run_id: RunId = pse_operations::mint_id();
-            let mut durable = attempt_for(&runtime, attempt)?;
-            let run_id = durable
-                .as_ref()
-                .and_then(DurableAttempt::claimed_run)
-                .unwrap_or(run_id);
-            let progress = progress_for(256, durable.as_ref());
-            let cancel = Cancellation::default();
-            let forwarding = cancel.clone();
-            let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
-            let canonical_attempt = durable.as_ref().map(|attempt| attempt.canonical_keys(run_id).1);
+            let supervisor = RunSupervisor::new(self.runtime.clone(), attempt, parent.as_ref(), Some(deadline), 256)?;
+            let run_id = supervisor.run_id;
+            let deadline = supervisor.checks.deadline().ok_or_else(|| contract("simulation deadline absent"))?;
+            let cancel = supervisor.native.clone();
+            let canonical_attempt = supervisor.durable.as_ref().map(|attempt| attempt.canonical_keys(run_id).1);
             let live = live.map(|options| super::live_simulation::LiveDispatch::new(
                 self.clone(), options, run_id, canonical_attempt, &cancel, deadline,
             )).transpose()?;
@@ -979,111 +1043,21 @@ impl super::ModelingSimulation {
             };
             let dispatch_source = self.clone();
             let live_refusal = live_channel.as_ref().and_then(|channel| channel.projection.as_ref().err()).cloned();
-            let mut dispatch = Some(move || {
-                if let Some(error) = live_refusal { return Err(WorkflowError::Shared(error)); }
-                match observer {
-                    Some((retention, observer)) => dispatch_source.submit_with_samples(run_id, submission, retention, observer),
-                    None => dispatch_source.submit(run_id, submission),
-                }
-            });
-            let handle = if durable.is_none() {
-                Some(dispatch
-                    .take()
-                    .ok_or_else(|| contract("native dispatch absent"))?(
-                )?)
-            } else {
-                None
-            };
-            let lease = Arc::new(Lease(cancel.clone(), None, pse_diagnostics::observation::current()));
-            let attempt_id = durable.as_ref().map(DurableAttempt::attempt_id);
-            let canonical_keys = durable
-                .as_ref()
-                .map(|attempt| attempt.canonical_keys(run_id));
-            let (sender, receiver) = tokio::sync::watch::channel(None);
-            if let Some(cursor) = cursor.as_mut() { cursor.bind_completion(receiver.clone()); }
             let prepared = self.clone();
-            tokio::spawn(crate::workflow::inherit_runtime_activity(
-                supervised_with_cancel(
-                    move || async move {
-                        let request = RunRequest::Simulation(Box::new(prepared.clone()));
-                        let stop = cancel.clone();
-                        let registered = async {
-                            if let Some(attempt) = durable.as_mut() {
-                                attempt.register(run_id, &request).await?;
-                                let stop = stop.clone();
-                                attempt.start(Arc::new(move || stop.cancel())).await?;
-                            }
-                            Ok::<(), WorkflowError>(())
-                        }
-                        .await;
-                        if let Err(error) = registered {
-                            if let Some(handle) = handle {
-                                handle.cancel();
-                                let _ = handle.finish().await;
-                            }
-                            let refused = RunResult::joined(
-                                run_id,
-                                runtime,
-                                request,
-                                None,
-                                Err(Arc::new(error)),
-                            )
-                            .refused(durable)
-                            .await;
-                            sender.send_replace(Some(Arc::new(refused)));
-                            return;
-                        }
-                        let handle = match handle {
-                            Some(handle) => Ok(handle),
-                            None => match dispatch.take() {
-                                Some(dispatch) => dispatch(),
-                                None => Err(contract("native dispatch absent")),
-                            },
-                        };
-                        let handle = match handle {
-                            Ok(handle) => handle,
-                            Err(error) => {
-                                let refused = RunResult::joined(
-                                    run_id,
-                                    runtime,
-                                    request,
-                                    None,
-                                    Err(Arc::new(error)),
-                                )
-                                .refused(durable)
-                                .await;
-                                sender.send_replace(Some(Arc::new(refused)));
-                                return;
-                            }
-                        };
-                        if let Err(error) = admit(
-                            &mut durable,
-                            run_id,
-                            &request,
-                            admitted(signal),
-                            Arc::new(move || stop.cancel()),
-                        )
-                        .await
-                        {
-                            handle.cancel();
-                            let _ = handle.finish().await;
-                            let refused = RunResult::joined(
-                                run_id,
-                                runtime,
-                                request,
-                                None,
-                                Err(Arc::new(error)),
-                            )
-                            .refused(durable)
-                            .await;
-                            sender.send_replace(Some(Arc::new(refused)));
-                            return;
-                        }
+            let handle = supervisor.start_native(
+                Box::new(self.clone()),
+                move |submission| {
+                    if let Some(error) = live_refusal { return Err(WorkflowError::Shared(error)); }
+                    match observer {
+                        Some((retention, observer)) => dispatch_source.submit_with_samples(run_id, submission, retention, observer),
+                        None => dispatch_source.submit(run_id, submission),
+                    }
+                },
+                move |handle, mut durable| async move {
                         if let Some(channel) = &live_channel && let Some(attempt) = durable.as_mut()
                             && let Err(error) = attempt.begin_live_samples() {
                                 super::live_simulation::deliver(&channel.subscriber, super::LiveSimulationEvent::RecordingUnknown(Arc::new(error)), &cancel, deadline).await;
                             }
-                        let join = crate::invocation::stage("native_join_and_workflow_postsolve");
                         let finished = handle.finish();
                         tokio::pin!(finished);
                         let mut joined = None;
@@ -1141,31 +1115,15 @@ impl super::ModelingSimulation {
                             (Some(error), _) => Err(error),
                             (None, Ok(((report, checks, accuracy), owner))) => prepared
                                 .finish(run_id, report, checks, accuracy, owner)
-                                .map(|trajectory| RunReport::Simulation(Box::new(trajectory)))
+                                .map(Box::new)
                                 .map_err(Arc::new),
                             (None, Err(error)) => Err(Arc::new(WorkflowError::Math(error))),
                         };
-                        join.finish(if report.is_ok() { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
-                        let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
-                        let result = RunResult::joined(run_id, runtime, request, None, report)
-                            .finished(durable, cancelled)
-                            .await;
-                        let result = Arc::new(result);
-                        sender.send_replace(Some(result));
-                    },
-                    move || forwarding.cancel(),
-                    parent,
-                ),
-            ));
-            Ok((RunHandle {
-                observation: observations_for(run_id, canonical_keys.as_ref()),
-                lease,
-                receiver,
-                progress,
-                run_id,
-                attempt_id,
-                canonical_keys,
-            }, cursor))
+                    ((report, None), durable)
+                },
+            )?;
+            if let Some(cursor) = cursor.as_mut() { cursor.bind_completion(handle.receiver.clone()); }
+            Ok((handle, cursor))
         }))
     }
 }
@@ -1213,29 +1171,21 @@ impl super::ShootingProblem {
     ) -> Result<RunHandle, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity.sync_scope(crate::invocation::start_scope(|| {
-            let runtime = self.runtime.clone();
-            let run_id: RunId = pse_operations::mint_id();
-            let mut durable = attempt_for(&runtime, None)?;
-            let progress = progress_for(256, durable.as_ref());
-            let cancel = Cancellation::default();
-            let forwarding = cancel.clone();
             let deadline = std::time::Instant::now()
                 .checked_add(self.solver.controls.time_limit)
                 .ok_or_else(|| contract("submitted task deadline extent"))?;
-            let deadline = parent
-                .as_ref()
-                .and_then(crate::CancelSource::deadline)
-                .map_or(deadline, |outer| deadline.min(outer));
-            let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
+            let supervisor = RunSupervisor::new(self.runtime.clone(), None, parent.as_ref(), Some(deadline), 256)?;
+            let run_id = supervisor.run_id;
+            let deadline = supervisor.checks.deadline().ok_or_else(|| contract("shooting deadline absent"))?;
             let prepared = self.clone();
             let mut declared_profile = self.solver.clone();
             if initial.is_some() {
                 declared_profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
             }
             let start = initial.clone();
-            let native = runtime.native().clone();
+            let native = self.runtime.native().clone();
             let job_bytes = self.job_bytes()?;
-            let mut dispatch = Some(move || {
+            let dispatch = move |submission| {
                 native.submit_with_storage(
                     declared_profile.controls.threads,
                     job_bytes,
@@ -1253,137 +1203,15 @@ impl super::ShootingProblem {
                             .numeric_bytes()
                             .checked_add(prepared.solver.controls.report_allowance()?)
                             .ok_or(MathRuntimeError::Limit("shooting result extent"))?;
-                        Ok((RunReport::Shooting(Box::new(report)), retained))
+                        Ok((Box::new(report), retained))
                     },
-                )
-            });
-            let handle = if durable.is_none() {
-                Some(dispatch
-                    .take()
-                    .ok_or_else(|| contract("native dispatch absent"))?(
-                )?)
-            } else {
-                None
+                ).map_err(WorkflowError::from)
             };
-            let lease = Arc::new(Lease(
-                cancel.clone(),
-                None,
-                pse_diagnostics::observation::current(),
-            ));
-            let attempt_id = durable.as_ref().map(DurableAttempt::attempt_id);
-            let canonical_keys = durable
-                .as_ref()
-                .map(|attempt| attempt.canonical_keys(run_id));
-            let (sender, receiver) = tokio::sync::watch::channel(None);
-            let request = RunRequest::Shooting {
-                problem: self.clone(),
-                initial,
-            };
-            tokio::spawn(crate::workflow::inherit_runtime_activity(
-                supervised_with_cancel(
-                    move || async move {
-                        let stop = cancel.clone();
-                        let registered = async {
-                            if let Some(attempt) = durable.as_mut() {
-                                attempt.register(run_id, &request).await?;
-                                let stop = stop.clone();
-                                attempt.start(Arc::new(move || stop.cancel())).await?;
-                            }
-                            Ok::<(), WorkflowError>(())
-                        }
-                        .await;
-                        if let Err(error) = registered {
-                            if let Some(handle) = handle {
-                                handle.cancel();
-                                let _ = handle.finish().await;
-                            }
-                            let refused = RunResult::joined(
-                                run_id,
-                                runtime,
-                                request,
-                                None,
-                                Err(Arc::new(error)),
-                            )
-                            .refused(durable)
-                            .await;
-                            sender.send_replace(Some(Arc::new(refused)));
-                            return;
-                        }
-                        let handle = match handle {
-                            Some(handle) => Ok(handle),
-                            None => match dispatch.take() {
-                                Some(dispatch) => dispatch().map_err(WorkflowError::from),
-                                None => Err(contract("native dispatch absent")),
-                            },
-                        };
-                        let handle = match handle {
-                            Ok(handle) => handle,
-                            Err(error) => {
-                                let refused = RunResult::joined(
-                                    run_id,
-                                    runtime,
-                                    request,
-                                    None,
-                                    Err(Arc::new(error)),
-                                )
-                                .refused(durable)
-                                .await;
-                                sender.send_replace(Some(Arc::new(refused)));
-                                return;
-                            }
-                        };
-                        if let Err(error) = admit(
-                            &mut durable,
-                            run_id,
-                            &request,
-                            admitted(signal),
-                            Arc::new(move || stop.cancel()),
-                        )
-                        .await
-                        {
-                            handle.cancel();
-                            let _ = handle.finish().await;
-                            let refused = RunResult::joined(
-                                run_id,
-                                runtime,
-                                request,
-                                None,
-                                Err(Arc::new(error)),
-                            )
-                            .refused(durable)
-                            .await;
-                            sender.send_replace(Some(Arc::new(refused)));
-                            return;
-                        }
-                        let join = crate::invocation::stage("native_join_and_workflow_postsolve");
-                        let (report, owner) = match handle.finish().await {
-                            Ok((report, owner)) => (Ok(report), Some(owner)),
-                            Err(error) => (Err(Arc::new(WorkflowError::Math(error))), None),
-                        };
-                        join.finish(if report.is_ok() {
-                            crate::invocation::InvocationOutcome::Completed
-                        } else {
-                            crate::invocation::InvocationOutcome::Failed
-                        });
-                        let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
-                        let result = RunResult::joined(run_id, runtime, request, owner, report)
-                            .finished(durable, cancelled)
-                            .await;
-                        sender.send_replace(Some(Arc::new(result)));
-                    },
-                    move || forwarding.cancel(),
-                    parent,
-                ),
-            ));
-            Ok(RunHandle {
-                observation: observations_for(run_id, canonical_keys.as_ref()),
-                lease,
-                receiver,
-                progress,
-                run_id,
-                attempt_id,
-                canonical_keys,
-            })
+            supervisor.start_native(
+                super::run_outcome::ShootingOperation { problem: self.clone(), initial },
+                dispatch,
+                finish_native_report,
+            )
         }))
     }
 }
@@ -1413,6 +1241,7 @@ impl super::PreparedFit {
     pub(crate) async fn start_attempt(
         &self,
         attempt: DurableAttempt,
+        cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
         let activity = self.problem.runtime.admit_activity()?;
         activity
@@ -1432,7 +1261,7 @@ impl super::PreparedFit {
                         return Err(WorkflowError::Shared(error));
                     }
                 };
-                self.start_owned(Some(attempt), deadline, None)
+                self.start_owned(Some(attempt), deadline, Some(cancel.clone()))
             })
             .await
     }
@@ -1449,27 +1278,19 @@ impl super::PreparedFit {
     ) -> Result<RunHandle, WorkflowError> {
         let activity = self.problem.runtime.admit_activity()?;
         activity.sync_scope(crate::invocation::start_scope(|| {
-            let runtime = self.problem.runtime.clone();
+            let supervisor = RunSupervisor::new(self.problem.runtime.clone(), attempt, parent.as_ref(), Some(deadline), 256)?;
+            let run_id = supervisor.run_id;
+            let deadline = supervisor.checks.deadline().ok_or_else(|| contract("fit deadline absent"))?;
             let prepared = self.clone();
-            let run_id: RunId = pse_operations::mint_id();
-            let mut durable = attempt_for(&runtime, attempt)?;
-            let run_id = durable
-                .as_ref()
-                .and_then(DurableAttempt::claimed_run)
-                .unwrap_or(run_id);
-            let progress = progress_for(256, durable.as_ref());
-            let cancel = Cancellation::default();
-            let forwarding = cancel.clone();
-            let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
             // Estimation admits only its own demand. Profile teams acquire their next
             // stage after the estimate reaches the quiescent phase boundary.
-            let workers = self.problem.profile_workers(runtime.native().cores());
+            let workers = self.problem.profile_workers(self.problem.runtime.native().cores());
             let cores = self.problem.profile.solver.controls.threads;
             let bytes = self.problem.bytes;
-            let native = runtime.native().clone();
+            let native = self.problem.runtime.native().clone();
             #[cfg(test)]
             let entry = family_worker_entry();
-            let mut dispatch = Some(move || {
+            let dispatch = move |submission| {
                 native.submit_with_storage(
                     cores,
                     bytes,
@@ -1496,134 +1317,11 @@ impl super::PreparedFit {
                             .numeric_bytes()
                             .checked_add(allowance)
                             .ok_or(MathRuntimeError::Limit("fit result extent"))?;
-                        Ok((RunReport::Fit(Box::new(report)), retained))
+                        Ok((Box::new(report), retained))
                     },
-                )
-            });
-            let handle = if durable.is_none() {
-                Some(dispatch
-                    .take()
-                    .ok_or_else(|| contract("native dispatch absent"))?(
-                )?)
-            } else {
-                None
+                ).map_err(WorkflowError::from)
             };
-            let lease = Arc::new(Lease(
-                cancel.clone(),
-                None,
-                pse_diagnostics::observation::current(),
-            ));
-            let attempt_id = durable.as_ref().map(DurableAttempt::attempt_id);
-            let canonical_keys = durable
-                .as_ref()
-                .map(|attempt| attempt.canonical_keys(run_id));
-            let (sender, receiver) = tokio::sync::watch::channel(None);
-            let request = RunRequest::Fit(Box::new(self.clone()));
-            tokio::spawn(crate::workflow::inherit_runtime_activity(
-                supervised_with_cancel(
-                    move || async move {
-                        let stop = cancel.clone();
-                        let registered = async {
-                            if let Some(attempt) = durable.as_mut() {
-                                attempt.register(run_id, &request).await?;
-                                let stop = stop.clone();
-                                attempt.start(Arc::new(move || stop.cancel())).await?;
-                            }
-                            Ok::<(), WorkflowError>(())
-                        }
-                        .await;
-                        if let Err(error) = registered {
-                            if let Some(handle) = handle {
-                                handle.cancel();
-                                let _ = handle.finish().await;
-                            }
-                            let refused = RunResult::joined(
-                                run_id,
-                                runtime,
-                                request,
-                                None,
-                                Err(Arc::new(error)),
-                            )
-                            .refused(durable)
-                            .await;
-                            sender.send_replace(Some(Arc::new(refused)));
-                            return;
-                        }
-                        let handle = match handle {
-                            Some(handle) => Ok(handle),
-                            None => match dispatch.take() {
-                                Some(dispatch) => dispatch().map_err(WorkflowError::from),
-                                None => Err(contract("native dispatch absent")),
-                            },
-                        };
-                        let handle = match handle {
-                            Ok(handle) => handle,
-                            Err(error) => {
-                                let refused = RunResult::joined(
-                                    run_id,
-                                    runtime,
-                                    request,
-                                    None,
-                                    Err(Arc::new(error)),
-                                )
-                                .refused(durable)
-                                .await;
-                                sender.send_replace(Some(Arc::new(refused)));
-                                return;
-                            }
-                        };
-                        if let Err(error) = admit(
-                            &mut durable,
-                            run_id,
-                            &request,
-                            admitted(signal),
-                            Arc::new(move || stop.cancel()),
-                        )
-                        .await
-                        {
-                            handle.cancel();
-                            let _ = handle.finish().await;
-                            let refused = RunResult::joined(
-                                run_id,
-                                runtime,
-                                request,
-                                None,
-                                Err(Arc::new(error)),
-                            )
-                            .refused(durable)
-                            .await;
-                            sender.send_replace(Some(Arc::new(refused)));
-                            return;
-                        }
-                        let join = crate::invocation::stage("native_join_and_workflow_postsolve");
-                        let (report, owner) = match handle.finish().await {
-                            Ok((r, o)) => (Ok(r), Some(o)),
-                            Err(e) => (Err(Arc::new(WorkflowError::Math(e))), None),
-                        };
-                        join.finish(if report.is_ok() {
-                            crate::invocation::InvocationOutcome::Completed
-                        } else {
-                            crate::invocation::InvocationOutcome::Failed
-                        });
-                        let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
-                        let result = RunResult::joined(run_id, runtime, request, owner, report)
-                            .finished(durable, cancelled)
-                            .await;
-                        sender.send_replace(Some(Arc::new(result)));
-                    },
-                    move || forwarding.cancel(),
-                    parent,
-                ),
-            ));
-            Ok(RunHandle {
-                observation: observations_for(run_id, canonical_keys.as_ref()),
-                lease,
-                receiver,
-                progress,
-                run_id,
-                attempt_id,
-                canonical_keys,
-            })
+            supervisor.start_native(Box::new(self.clone()), dispatch, finish_native_report)
         }))
     }
 }
@@ -1641,16 +1339,24 @@ impl super::ModelingSolvePreparation {
         self.profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
         Ok(self)
     }
-    /// Select the complete original free-coordinate primal seed by semantic identity.
+    /// Select a complete physically typed original seed from its registered Arrow relation.
     pub fn with_primal_start(
         mut self,
-        values: BTreeMap<SemanticId, f64>,
+        batches: impl datafusion::arrow::record_batch::RecordBatchReader,
     ) -> Result<Self, WorkflowError> {
+        let snapshot = self.source.runtime.snapshot_primal_values(batches)?;
+        let plan = &self.model.case.compiled().plan;
+        let columns = plan.columns().iter().copied().collect::<std::collections::BTreeSet<_>>();
+        let ports = plan.structure().variables().iter()
+            .filter(|variable| columns.contains(&variable.port.id))
+            .map(|variable| variable.port.clone()).collect::<Vec<_>>();
+        let values = snapshot.admit(&self.source.quantities, &ports)?;
         self.solve = self
             .solve
             .with_primal_start(values)
             .map_err(MathRuntimeError::from)?;
         self.profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
+        self.stored_seed_owner = Some(Arc::new(snapshot));
         Ok(self)
     }
     /// Start from a seed in the operational store's solution store (ADR-0114 Outcome 17):
@@ -1740,6 +1446,7 @@ impl Runtime {
         &self,
         steps: Vec<super::ModelingSolvePreparation>,
         attempt: DurableAttempt,
+        cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
         let activity = self.admit_activity()?;
         activity
@@ -1756,7 +1463,7 @@ impl Runtime {
                     let _ = attempt.abandon(&error).await;
                     return Err(WorkflowError::Shared(error));
                 }
-                self.launch(steps, false, Some(attempt), None)
+                self.launch(steps, false, Some(attempt), Some(cancel.clone()))
             })
             .await
     }
@@ -1814,29 +1521,14 @@ impl Runtime {
             .map(|s| s.profile.controls.history)
             .max()
             .unwrap_or(0);
-        let mut durable = attempt_for(self, attempt)?;
-        let progress = progress_for(history, durable.as_ref());
-        let opened = match durable {
-            None => Some(super::staged::Staged::open(self, Some(progress.clone()))?),
+        let supervisor = RunSupervisor::new(self.clone(), attempt, parent.as_ref(), None, history)?;
+        let opened = match supervisor.durable {
+            None => Some(super::staged::Staged::open(self, Some(supervisor.progress.clone()))?),
             Some(_) => None,
         };
-        let cancel = crate::CancelSource::new().with_deadline(parent.as_ref().and_then(crate::CancelSource::deadline));
-        let forwarding = cancel.clone();
-        let checks = cancel.clone();
-        let (sender, receiver) = tokio::sync::watch::channel(None);
-        let runtime = self.clone();
-        // A claimed try runs as the run its job's attempts share; a new run is minted.
-        let run_id: RunId = durable
-            .as_ref()
-            .and_then(DurableAttempt::claimed_run)
-            .unwrap_or_else(pse_operations::mint_id);
-        let attempt_id = durable.as_ref().map(DurableAttempt::attempt_id);
-        let canonical_keys = durable
-            .as_ref()
-            .map(|attempt| attempt.canonical_keys(run_id));
-        let shared = progress.clone();
-        tokio::spawn(crate::workflow::inherit_runtime_activity(supervised_with_cancel(move || async move {
-            let request = RunRequest::Modeling(steps.clone());
+        Ok(supervisor.spawn(move |supervisor| async move {
+            let RunSupervisor { runtime, run_id, mut durable, progress: shared, checks: cancel, .. } = supervisor;
+            let request = steps.clone();
             let stop = cancel.clone();
             let session = async {
                 match opened {
@@ -1852,7 +1544,7 @@ impl Runtime {
             let mut staged = match admit(
                 &mut durable,
                 run_id,
-                &request,
+                &request.request(),
                 session,
                 Arc::new(move || stop.cancel()),
             )
@@ -1861,12 +1553,11 @@ impl Runtime {
                 Ok(staged) => staged,
                 Err(error) => {
                     let refused =
-                        RunResult::joined(run_id, runtime, request, None, Err(Arc::new(error)))
+                        RunResult::joined(run_id, runtime, request.finish(Err(Arc::new(error))), None)
                             .with_modeling_policy(continue_independent)
                             .refused(durable)
                             .await;
-                    sender.send_replace(Some(Arc::new(refused)));
-                    return;
+                    return refused;
                 }
             };
             let sequence = crate::invocation::stage("staged_modeling_execution_and_original_assessment");
@@ -1922,24 +1613,15 @@ impl Runtime {
                     Err(Arc::new(error)),
                     Some(ModelingFailure { completed: results, step: None }),
                 ),
-                (None, None) => (Ok(RunReport::Modeling(results)), None),
+                (None, None) => (Ok(results), None),
             };
             sequence.finish(if report.is_ok() { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
             let cancelled = cancel.token().is_cancelled();
-            let mut result = RunResult::joined(run_id, runtime, request, None, report);
+            let mut result = RunResult::joined(run_id, runtime, request.finish(report), None);
             result.modeling_continue_independent = continue_independent;
             result.modeling_failure = modeling_failure;
-            let result = result.finished(durable, cancelled).await;
-            sender.send_replace(Some(Arc::new(result)));
-        }, move || forwarding.cancel(), parent)));
-        Ok(RunHandle::staged(
-            checks,
-            receiver,
-            progress,
-            run_id,
-            attempt_id,
-            canonical_keys,
-        ))
+            result.finished(durable, cancelled).await
+        }))
 
         }))
     }
@@ -2093,14 +1775,16 @@ mod cancellation_tests {
             incumbent: None,
         });
         let (_sender, receiver) = tokio::sync::watch::channel(None);
-        let handle = super::RunHandle::staged(
-            crate::CancelSource::new(),
+        let handle = super::RunHandle {
+            lease: std::sync::Arc::new(super::Lease::new(crate::CancelSource::new(), false)),
+            observation: None,
             receiver,
             progress,
-            pse_model::generated::identities::RunId::from_bytes([1; 16]),
-            None,
-            None,
-        );
+            run_id: pse_model::generated::identities::RunId::from_bytes([1; 16]),
+            attempt_id: None,
+            canonical_keys: None,
+        };
+        assert!(!handle.cancellation_scope().token().is_cancelled());
         assert!(handle.progress().0.is_empty());
         let checkpoint = handle.current_progress();
         assert_eq!(checkpoint.highest_issued_sequence, 1);
@@ -2123,11 +1807,8 @@ mod cancellation_tests {
         let operation = hub.start("completed.run");
         let context = operation.context();
         let reader = operation.reader();
-        let lease = super::Lease(
-            pse_diagnostics::Cancellation::default(),
-            None,
-            Some(context),
-        );
+        let mut lease = super::Lease::new(crate::CancelSource::new(), false);
+        lease.observation = Some(context);
         operation.finish(pse_diagnostics::observation::Outcome::Completed);
         drop(lease);
         let snapshot = reader.snapshot(std::time::Duration::from_secs(60));
@@ -2140,6 +1821,42 @@ mod cancellation_tests {
                 .any(|metric| metric.name == "run.stop_requested")
         );
     }
+    #[test]
+    fn caller_departure_cancels_only_immediate_child_and_keeps_durable_owner_live() {
+        let caller = crate::CancelSource::new();
+        let sibling = caller.child_with_deadline(None);
+        let immediate = caller.child_with_deadline(None);
+        let lease = super::Lease::new(immediate.clone(), false);
+        drop(lease);
+        assert!(immediate.token().is_cancelled());
+        assert!(!caller.token().is_cancelled());
+        assert!(!sibling.token().is_cancelled());
+        let worker = crate::CancelSource::new();
+        let durable = worker.child_with_deadline(None);
+        drop(super::Lease::new(durable.clone(), true));
+        assert!(!durable.token().is_cancelled(), "caller disconnect does not stop durable work");
+        let explicit = worker.child_with_deadline(None);
+        let lease = super::Lease::new(explicit.clone(), true);
+        lease.cancel();
+        assert!(explicit.token().is_cancelled());
+        assert!(!worker.token().is_cancelled());
+        assert!(!durable.token().is_cancelled());
+        worker.cancel();
+        assert!(durable.token().is_cancelled());
+    }
+    #[tokio::test]
+    async fn cancellation_bridge_publishes_stop_before_a_simultaneously_ready_candidate() {
+        let source = crate::CancelSource::new();
+        let native = pse_diagnostics::Cancellation::default();
+        let observed = native.clone();
+        source.cancel();
+        let candidate = super::joined_with_cancel(
+            move || async move { assert!(observed.is_cancelled()); 7 },
+            native,
+            source,
+        ).await;
+        assert_eq!(candidate, 7, "drain retains its typed candidate for original assessment");
+    }
     #[tokio::test]
     async fn replay_parent_cancellation_reaches_pending_supervisor_and_keeps_drain_owned() {
         let parent = crate::CancelSource::new();
@@ -2147,14 +1864,14 @@ mod cancellation_tests {
         let flight = native.clone();
         let (observed, cancellation) = tokio::sync::oneshot::channel();
         let (release, drain) = tokio::sync::oneshot::channel();
-        let task = tokio::spawn(super::supervised_with_cancel(
+        let task = tokio::spawn(super::joined_with_cancel(
             move || async move {
                 flight.cancelled().await;
                 observed.send(()).unwrap();
                 drain.await.unwrap();
             },
-            move || native.cancel(),
-            Some(parent.clone()),
+            native,
+            parent.child_with_deadline(None),
         ));
         parent.cancel();
         cancellation.await.unwrap();

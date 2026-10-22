@@ -5,7 +5,7 @@
 use crate::{
     MathError,
     guarded::{Comparison, Condition, Stage, validate_dependencies},
-    jets::{EvaluationLimits, JetLayout, LiftInput, ProductKind, ProductValues, ProviderLift},
+    jets::{EvaluationLimits, JetLayout, LiftInput, ProductKind, ProductPreflight, ProductRoute, ProductValues, ProviderLift, SymbolicComposition},
     library::{self, Optimization},
 };
 use enum_map::EnumMap;
@@ -17,7 +17,7 @@ use pse_kernels::{
     ProviderKey, ProviderLinearizationToken, ProviderRequest, ProviderRuntime, ProviderSpec,
 };
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
     sync::{
         Arc, Weak,
         atomic::{AtomicBool, Ordering},
@@ -26,12 +26,16 @@ use std::{
 use symbolica::{
     atom::{Atom, AtomCore, Indeterminate, Symbol},
     evaluate::ExpressionEvaluator,
+    id::Replacement,
 };
 
 #[path = "products.rs"]
 mod products;
 #[path = "reverse.rs"]
 mod reverse;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RegionStrategy { Forward, ReverseSweep }
 
 fn order_name(order: DerivativeOrder) -> &'static str {
     match order {
@@ -82,6 +86,28 @@ impl PartialEq for PreparedSupport {
     }
 }
 impl PreparedSupport {
+    /// Select a route using only the exact demanded stage/support description and
+    /// declared settings. This performs no substitutions, derivatives or native builds.
+    /// # Errors
+    /// Product/order mismatch, invalid declared settings or invalid source references.
+    pub fn preflight_product(
+        &self,
+        kind: ProductKind,
+        options: Optimization,
+        limits: EvaluationLimits,
+    ) -> Result<ProductPreflight, MathError> {
+        limits.check()?;
+        options.validate()?;
+        if self.order() != kind.required_order(self.order()) {
+            return Err(MathError::Contract("product support order mismatch".into()));
+        }
+        let direct = matches!(kind, ProductKind::TransposeJacobianAction | ProductKind::WeightedHessian | ProductKind::WeightedHessianAction)
+            && self.body().direct_product_shape(limits)?;
+        let route = if direct { ProductRoute::Direct }
+            else if matches!(kind, ProductKind::TransposeJacobianAction | ProductKind::WeightedHessianAction) { ProductRoute::Reverse }
+            else { ProductRoute::Regional };
+        Ok(ProductPreflight { support: self.clone(), kind, options, limits, route })
+    }
     fn from_data(
         data: PreparedSupportData,
         owner: Option<Arc<dyn crate::AllocationOwner>>,
@@ -99,7 +125,7 @@ impl PreparedSupport {
             let stages = data
                 .body
                 .demand(&(0..data.outputs.len()).collect::<Vec<_>>(), &symbols);
-            Arc::new(PreparedStages::new(&stages, &parameters, &symbols, cancel)?)
+            Arc::new(PreparedStages::new(&stages, &parameters, &symbols, cancel, data.order)?)
         };
         if cancel.load(Ordering::Acquire) {
             return Err(MathError::Cancelled);
@@ -858,6 +884,7 @@ impl PreparedSupport {
                     cache.admit_prepare(
                         expressions,
                         &region.parameters,
+                        &region.definitions,
                         options,
                         scope.cancellation(),
                         limits,
@@ -871,6 +898,9 @@ impl PreparedSupport {
         }
         let mut cache = library::ScalarCache::default();
         collect(&self.program, options, limits, scope, &mut cache)?;
+        if let Some(values) = self.program.values.as_deref() {
+            collect(values, options, limits, scope, &mut cache)?;
+        }
         scope.check().map_err(crate::error::scope_error)?;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("math.scalar_preparation_completed", "count", 1);
@@ -897,6 +927,7 @@ impl PreparedSupport {
             ProductKind::SelectedPartials,
             self,
             Some(scalars),
+            RegionStrategy::Forward,
         )
     }
     /// Compile only a first directional action; no Value template is constructed.
@@ -924,6 +955,7 @@ impl PreparedSupport {
             ProductKind::JacobianAction,
             self,
             Some(scalars),
+            RegionStrategy::Forward,
         )
     }
     /// Compile numerical products after independent selected-closure capability admission.
@@ -945,6 +977,7 @@ impl PreparedSupport {
             ProductKind::SelectedPartials,
             self,
             None,
+            RegionStrategy::Forward,
         )
     }
     /// Compile strict-interior derivatives from retained exact scalar preparations.
@@ -968,6 +1001,7 @@ impl PreparedSupport {
             ProductKind::SelectedPartials,
             self,
             Some(scalars),
+            RegionStrategy::Forward,
         )
     }
     /// Compile a first directional action using one Taylor axis. Structural support
@@ -995,6 +1029,7 @@ impl PreparedSupport {
             ProductKind::JacobianAction,
             self,
             None,
+            RegionStrategy::Forward,
         )
     }
     /// Compile strict-interior derivatives; every trial retains boundary admission.
@@ -1016,6 +1051,7 @@ impl PreparedSupport {
             ProductKind::SelectedPartials,
             self,
             None,
+            RegionStrategy::Forward,
         )
     }
 }
@@ -1073,6 +1109,33 @@ impl PartialEq for PreparedBody {
     }
 }
 impl PreparedBody {
+    /// A source-only conservative bound decides whether the direct flattening profile
+    /// is eligible. Positive library/transient excess after selection is a refusal,
+    /// never permission to select another arithmetic implementation under the same key.
+    fn direct_product_shape(&self, limits: EvaluationLimits) -> Result<bool, MathError> {
+        if !self.is_flat_arithmetic() { return Ok(false); }
+        let ceiling = limits.scratch_bytes.min(1024 * 1024);
+        let mut definitions = BTreeMap::<usize, usize>::new();
+        let mut work = 0usize;
+        for stage in &self.stages {
+            let Stage::Block { expressions, outputs, .. } = stage else { continue; };
+            for (expression, &output) in expressions.iter().zip(outputs) {
+                let mut bytes = expression.as_view().get_byte_size();
+                for input in reads(std::slice::from_ref(expression), &self.symbols)? {
+                    if let Some(&replacement) = definitions.get(&input) {
+                        let Some(bound) = replacement.checked_add(1).and_then(|replacement| bytes.checked_mul(replacement)) else { return Ok(false); };
+                        if bound > ceiling { return Ok(false); }
+                        bytes = bound;
+                        let Some(next) = work.checked_add(bytes) else { return Ok(false); };
+                        work = next;
+                        if work > limits.operations { return Ok(false); }
+                    }
+                }
+                definitions.insert(output, bytes);
+            }
+        }
+        Ok(true)
+    }
     fn parameters(&self) -> Result<Vec<Atom>, MathError> {
         if self.formal_slots.is_empty() {
             (0..self.slots).map(library::formal).collect()
@@ -2072,6 +2135,7 @@ impl PreparedBody {
         product: ProductKind,
         prepared_support: &PreparedSupport,
         retained_scalars: Option<&library::ScalarProducts>,
+        region_strategy: RegionStrategy,
     ) -> Result<CompiledBody, MathError> {
         scope.check().map_err(crate::error::scope_error)?;
         let cancelled = scope.cancellation();
@@ -2182,8 +2246,9 @@ impl PreparedBody {
         } else {
             FirstLayout::from_support(prepared_support)
         });
-        #[cfg(feature = "compiled-evaluator")]
-        let mut native_modules = crate::native_compiled::Batch::default();
+        // Every region's source/layout route is fixed before any evaluator,
+        // derivative, native export or transient construction admission below.
+        let mut planned = Vec::new();
         for requested in [
             DerivativeOrder::Value,
             DerivativeOrder::First,
@@ -2202,22 +2267,6 @@ impl PreparedBody {
                     }
                 }
         }) {
-            let _order_phase = pse_diagnostics::observation::current().map(|context| {
-                context.count("math.compiled_order_constructions", "count", 1);
-                context.gauge(
-                    "math.compiled_derivative_order",
-                    "order",
-                    requested as u8 as f64,
-                );
-                context.phase("math.compiled_order_construction")
-            });
-            let order_construction = tracing::info_span!(
-                "pse.case.compiled_order_construction",
-                product = "compiled_order",
-                derivative_order = order_name(requested),
-                success = false
-            );
-            let _order_construction = order_construction.enter();
             let required_pairs = if hessian_action {
                 (0..coordinates.len())
                     .map(|axis| (axis, coordinates.len()))
@@ -2257,6 +2306,46 @@ impl PreparedBody {
                 limits,
             )?
             .with_slot_support(&frame_support, limits)?;
+            let profile = RegionProfile {
+                selected_first: self.stages.iter().all(|stage| matches!(stage, Stage::Block { .. })) && requested == DerivativeOrder::First && product == ProductKind::SelectedPartials,
+                scalar_inputs: self.inputs,
+                partial_order: order,
+                symbolic_regions: region_strategy == RegionStrategy::Forward && matches!(product, ProductKind::SelectedPartials | ProductKind::JacobianAction | ProductKind::WeightedHessian),
+            };
+            #[cfg(test)]
+            let profile = RegionProfile { selected_first: profile.selected_first && !FORCE_TAYLOR_FIRST.get(), ..profile };
+            let mut regions = VecDeque::new();
+            region_constructions(&prepared_support.program, &coordinate_support, &numeric, &layout, limits, profile, &symbols, cancelled, &mut regions)?;
+            let calls = regions.iter().try_fold(0usize, |sum, region| {
+                sum.checked_add(match &region.mode {
+                    RegionMode::Symbolic(plan) => plan.calls,
+                    RegionMode::SelectedFirst => region.selected_calls,
+                    RegionMode::Taylor => 0,
+                })
+            }).ok_or(MathError::Limit("regional construction calls"))?;
+            if calls > limits.operations { return Err(MathError::Limit("regional construction calls")); }
+            planned.push((requested, layout, profile, regions));
+        }
+        #[cfg(feature = "compiled-evaluator")]
+        let mut native_modules = crate::native_compiled::Batch::default();
+        let mut shared_partials = BTreeMap::new();
+        for (requested, layout, profile, regions) in planned {
+            let _order_phase = pse_diagnostics::observation::current().map(|context| {
+                context.count("math.compiled_order_constructions", "count", 1);
+                context.gauge(
+                    "math.compiled_derivative_order",
+                    "order",
+                    requested as u8 as f64,
+                );
+                context.phase("math.compiled_order_construction")
+            });
+            let order_construction = tracing::info_span!(
+                "pse.case.compiled_order_construction",
+                product = "compiled_order",
+                derivative_order = order_name(requested),
+                success = false
+            );
+            let _order_construction = order_construction.enter();
             let frame = layout.frame_entries(self.slots)?;
             limits.allocation(frame)?;
             let remaining_operations_before_order = remaining_operations;
@@ -2267,19 +2356,18 @@ impl PreparedBody {
                 instructions: 0,
                 instruction_count: 0,
                 modules: 0,
-                selected_first: self
-                    .stages
-                    .iter()
-                    .all(|stage| matches!(stage, Stage::Block { .. }))
-                    && requested == DerivativeOrder::First
-                    && product == ProductKind::SelectedPartials,
                 direct_action: directional,
                 first_variables: coordinates
                     .iter()
                     .map(|&slot| parameters[slot].clone())
                     .collect(),
-                scalar_inputs: self.inputs,
+                regions,
+                partials: std::mem::take(&mut shared_partials),
+                partial_order: order,
                 selected_partial_calls: limits.operations,
+                symbolic_regions: profile.symbolic_regions,
+                region_parameters: parameters.clone(),
+                region_formal_end: (0..self.slots).map(|slot| self.formal_id(slot)).max().unwrap_or(0).checked_add(1).ok_or(MathError::Limit("regional temporary formals"))?,
                 #[cfg(feature = "compiled-evaluator")]
                 native_prepaid: self.is_flat_arithmetic(),
                 local_order: if local_branches {
@@ -2301,6 +2389,8 @@ impl PreparedBody {
                 #[cfg(feature = "compiled-evaluator")]
                 &mut native_modules,
             )?;
+            if !allowance.regions.is_empty() { return Err(MathError::Contract("unconsumed regional construction preflight".into())); }
+            shared_partials = std::mem::take(&mut allowance.partials);
             retained_modules = retained_modules
                 .checked_add(allowance.modules)
                 .ok_or(MathError::Limit("compiled module storage"))?;
@@ -4472,23 +4562,336 @@ struct BuildAllowance {
     instruction_count: usize,
     /// Shared native code/template allowance, never copied into worker charges.
     modules: usize,
-    selected_first: bool,
     direct_action: bool,
     first_variables: Vec<Atom>,
-    scalar_inputs: usize,
+    regions: VecDeque<RegionConstruction>,
+    partials: BTreeMap<usize, Arc<LocalPartials>>,
+    partial_order: DerivativeOrder,
     selected_partial_calls: usize,
+    symbolic_regions: bool,
+    region_parameters: Vec<Atom>,
+    region_formal_end: usize,
     /// Flat arithmetic modules were included by the selected-source preflight.
     /// Opaque control/provider construction consumes the installed owner's prepaid capacity.
     #[cfg(feature = "compiled-evaluator")]
     native_prepaid: bool,
 }
 
-struct SelectedFirstRegion {
+struct SelectedRegion {
     expressions: Vec<Atom>,
     scatter: Vec<(usize, Option<usize>)>,
     output_ends: Vec<usize>,
 }
-impl SelectedFirstRegion {
+
+struct SymbolicRegionPlan {
+    dependencies: Vec<Vec<usize>>,
+    calls: usize,
+    bytes: usize,
+}
+impl SymbolicRegionPlan {
+    fn new(region: &PreparedArithmeticRegion, local: &JetLayout, symbols: &HashMap<Symbol, usize>, limits: EvaluationLimits, partial_order: DerivativeOrder) -> Result<Self, MathError> {
+        let dependencies = region.definitions.iter().map(|(_, rhs)| reads(std::slice::from_ref(rhs), symbols)).collect::<Result<Vec<_>, _>>()?;
+        // Refuse from the declared DAG/jet shape before constructing derivatives.
+        // This bounds local derivative calls and owned alias tables; the native
+        // symbolic heaps remain covered by the enclosing construction envelope.
+        let mut calls = 0usize;
+        let mut symbolic_work = 0usize;
+        let mut derivative_bytes = 0usize;
+        let mut aliases = region.inputs.len().checked_mul(local.width()).ok_or(MathError::Limit("regional symbolic aliases"))?;
+        for (inputs, (_, rhs)) in dependencies.iter().zip(&region.definitions) {
+            let arity = inputs.len();
+            let partials = arity.checked_add(if partial_order >= DerivativeOrder::Second { arity.checked_mul(arity.checked_add(1).ok_or(MathError::Limit("regional local partials"))?).and_then(|n| n.checked_div(2)).ok_or(MathError::Limit("regional local partials"))? } else { 0 }).ok_or(MathError::Limit("regional local partials"))?;
+            calls = calls.checked_add(partials).ok_or(MathError::Limit("regional local partials"))?;
+            derivative_bytes = derivative_bytes.checked_add(rhs.as_view().get_byte_size().checked_mul(partials).and_then(|n| n.checked_mul(8)).ok_or(MathError::Limit("regional local partial storage"))?).ok_or(MathError::Limit("regional local partial storage"))?;
+            symbolic_work = symbolic_work.checked_add(arity.checked_mul(arity).and_then(|n| n.checked_add(arity)).and_then(|n| n.checked_mul(3)).and_then(|n| n.checked_add(1)).and_then(|n| n.checked_mul(local.width())).ok_or(MathError::Limit("regional composition work"))?).ok_or(MathError::Limit("regional composition work"))?;
+            aliases = aliases.checked_add(partials).and_then(|n| n.checked_add(local.width())).ok_or(MathError::Limit("regional symbolic aliases"))?;
+        }
+        if calls > limits.operations { return Err(MathError::Limit("regional local partials")); }
+        if symbolic_work > limits.operations { return Err(MathError::Limit("regional composition work")); }
+        limits.allocation(symbolic_work)?;
+        limits.allocation(aliases)?;
+        let source_bytes = region.definitions.iter().try_fold(0usize, |n, (_, rhs)| n.checked_add(rhs.as_view().get_byte_size())).ok_or(MathError::Limit("regional symbolic construction"))?;
+        let bytes = aliases.checked_mul(size_of::<Atom>() * 8).and_then(|n| source_bytes.checked_mul(8)?.checked_add(n)).and_then(|n| n.checked_add(derivative_bytes)).ok_or(MathError::Limit("regional symbolic construction"))?;
+        Ok(Self { dependencies, calls, bytes })
+    }
+}
+
+enum RegionMode { Taylor, SelectedFirst, Symbolic(SymbolicRegionPlan) }
+struct RegionConstruction {
+    local: JetLayout,
+    components: Vec<usize>,
+    zero_components: Vec<(usize, usize)>,
+    mode: RegionMode,
+    selected_calls: usize,
+}
+
+#[derive(Clone, Copy)]
+struct RegionProfile {
+    selected_first: bool,
+    scalar_inputs: usize,
+    symbolic_regions: bool,
+    partial_order: DerivativeOrder,
+}
+
+fn region_constructions(
+    program: &PreparedStages,
+    coordinate_support: &[Vec<bool>],
+    numeric: &BTreeSet<usize>,
+    layout: &JetLayout,
+    limits: EvaluationLimits,
+    profile: RegionProfile,
+    symbols: &HashMap<Symbol, usize>,
+    cancel: &Arc<AtomicBool>,
+    result: &mut VecDeque<RegionConstruction>,
+) -> Result<(), MathError> {
+    if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
+    let program = if layout.order == DerivativeOrder::Value || profile.symbolic_regions { program.values.as_deref().unwrap_or(program) } else { program };
+    for prepared in &program.stages {
+        match &prepared.stage {
+            Stage::Block { outputs, .. } => {
+                let region = prepared.region.as_ref().ok_or_else(|| MathError::Contract("missing preflight arithmetic region".into()))?;
+                result.push_back(RegionConstruction::new(region, outputs, coordinate_support, numeric, layout, limits, profile.selected_first, profile.scalar_inputs, profile.symbolic_regions, profile.partial_order, symbols)?);
+            }
+            Stage::Domain { .. } | Stage::Applicability { .. } => {
+                let value = JetLayout::new(Vec::new(), DerivativeOrder::Value, limits)?;
+                region_constructions(&prepared.children[0], &[], &BTreeSet::new(), &value, limits, profile, symbols, cancel, result)?;
+            }
+            Stage::Branch { .. } => {
+                for child in &prepared.children {
+                    region_constructions(child, coordinate_support, numeric, layout, limits, profile, symbols, cancel, result)?;
+                }
+            }
+            Stage::Require { .. } | Stage::Provider { .. } => {}
+        }
+    }
+    Ok(())
+}
+
+impl RegionConstruction {
+    fn new(region: &PreparedArithmeticRegion, outputs: &[usize], coordinate_support: &[Vec<bool>], numeric: &BTreeSet<usize>, layout: &JetLayout, limits: EvaluationLimits, selected_first: bool, scalar_inputs: usize, symbolic_regions: bool, partial_order: DerivativeOrder, symbols: &HashMap<Symbol, usize>) -> Result<Self, MathError> {
+        let inputs = &region.inputs;
+                let active = active_block_axes(
+                    inputs,
+                    outputs,
+                    numeric,
+                    coordinate_support,
+                    layout.coordinates.len(),
+                    layout.order,
+                )
+                .into_iter()
+                .map(|axis| (axis, layout.coordinates[axis]))
+                .collect::<Vec<_>>();
+                let pairs = layout
+                    .pairs
+                    .iter()
+                    .filter_map(|&(i, j)| {
+                        Some((
+                            active.iter().position(|&(axis, _)| axis == i)?,
+                            active.iter().position(|&(axis, _)| axis == j)?,
+                        ))
+                    })
+                    .collect();
+                let local = JetLayout::with_pairs(
+                    active.iter().map(|&(_, slot)| slot).collect(),
+                    layout.order,
+                    pairs,
+                    limits,
+                )?;
+                let mut components = vec![0];
+                if layout.order >= DerivativeOrder::First {
+                    components.extend(active.iter().map(|&(i, _)| 1 + i));
+                }
+                if layout.order >= DerivativeOrder::Second {
+                    for &(i, j) in local.pairs.iter() {
+                        let pair = (active[i].0, active[j].0);
+                        let position = layout
+                            .pairs
+                            .iter()
+                            .position(|&p| p == pair)
+                            .ok_or_else(|| MathError::Contract("Taylor subset pair".into()))?;
+                        components.push(1 + layout.coordinates.len() + position);
+                    }
+                }
+                // A mixed Taylor component is absent when any differentiated axis
+                // is outside this input's conservative support. Branch alternatives
+                // and composed provider reachability are already included above.
+                let zero_components = inputs
+                    .iter()
+                    .enumerate()
+                    .flat_map(|(parameter, &input)| {
+                        local
+                            .shape
+                            .iter()
+                            .enumerate()
+                            .skip(1)
+                            .filter_map(|(component, powers)| {
+                                powers
+                                    .iter()
+                                    .enumerate()
+                                    .any(|(axis, power)| {
+                                        *power > 0 && !coordinate_support[input][active[axis].0]
+                                    })
+                                    .then_some((parameter, component))
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
+                let selected_count = outputs
+                    .iter()
+                    .map(|&slot| layout.frame_slot_range(slot).len())
+                    .sum::<usize>();
+                let mode = if !region.definitions.is_empty() && layout.order > DerivativeOrder::Value && symbolic_regions {
+                    RegionMode::Symbolic(SymbolicRegionPlan::new(region, &local, symbols, limits, partial_order)?)
+                } else if selected_first && inputs.iter().all(|&slot| slot < scalar_inputs) && selected_count < outputs.len() * local.width() {
+                    RegionMode::SelectedFirst
+                } else { RegionMode::Taylor };
+                let selected_calls = if matches!(mode, RegionMode::SelectedFirst) { selected_count.saturating_sub(outputs.len()) } else { 0 };
+                Ok(Self { local, components, zero_components, mode, selected_calls })
+    }
+}
+
+struct DefinitionPartials {
+    first: Vec<Atom>,
+    second: BTreeMap<(usize, usize), Atom>,
+}
+struct LocalPartials {
+    definitions: Vec<(Atom, Atom)>,
+    derivatives: Vec<DefinitionPartials>,
+    formal_end: usize,
+}
+impl LocalPartials {
+    fn new(region: &PreparedArithmeticRegion, plan: &SymbolicRegionPlan, allowance: &BuildAllowance, scope: &pse_kernels::ExecutionScope) -> Result<Self, MathError> {
+        crate::construction::additional(plan.bytes)?;
+        let mut next = allowance.region_formal_end;
+        let mut fresh = || -> Result<Atom, MathError> {
+            let atom = library::formal(next)?;
+            next = next.checked_add(1).ok_or(MathError::Limit("regional partial formals"))?;
+            Ok(atom)
+        };
+        let mut definitions = Vec::new();
+        let mut derivatives = Vec::new();
+        for ((lhs, rhs), inputs) in region.definitions.iter().zip(&plan.dependencies) {
+            scope.check().map_err(crate::error::scope_error)?;
+            definitions.push((lhs.clone(), rhs.clone()));
+            let mut first = Vec::new();
+            let mut second = BTreeMap::new();
+            for (i, &input) in inputs.iter().enumerate() {
+                scope.check().map_err(crate::error::scope_error)?;
+                if let Some(context) = pse_diagnostics::observation::current() { context.count("math.regional_local_partial_constructions", "count", 1); }
+                let derivative = rhs.derivative(Indeterminate::try_from(allowance.region_parameters[input].clone()).map_err(MathError::Library)?);
+                let alias = fresh()?;
+                definitions.push((alias.clone(), derivative.clone()));
+                first.push(alias);
+                if allowance.partial_order >= DerivativeOrder::Second {
+                    for (j, &input) in inputs.iter().enumerate().skip(i) {
+                        scope.check().map_err(crate::error::scope_error)?;
+                        if let Some(context) = pse_diagnostics::observation::current() { context.count("math.regional_local_partial_constructions", "count", 1); }
+                        let value = derivative.derivative(Indeterminate::try_from(allowance.region_parameters[input].clone()).map_err(MathError::Library)?);
+                        let alias = fresh()?;
+                        definitions.push((alias.clone(), value));
+                        second.insert((i, j), alias);
+                    }
+                }
+            }
+            derivatives.push(DefinitionPartials { first, second });
+        }
+        scope.check().map_err(crate::error::scope_error)?;
+        Ok(Self { definitions, derivatives, formal_end: next })
+    }
+}
+
+/// A joint definition region. Local partials and incoming raw derivatives are
+/// composed by the same Symbolica description used by provider lifts. Only the
+/// requested frame entries are exported; definitions keep shared lets named.
+struct SymbolicRegion {
+    selected: SelectedRegion,
+    parameters: Vec<Atom>,
+    definitions: Vec<(Atom, Atom)>,
+    gather: Vec<(usize, usize)>,
+}
+impl SymbolicRegion {
+    fn new(
+        region: &PreparedArithmeticRegion,
+        outputs: &[usize],
+        layout: &JetLayout,
+        local: &JetLayout,
+        components: &[usize],
+        scope: &pse_kernels::ExecutionScope,
+        limits: EvaluationLimits,
+        plan: &SymbolicRegionPlan,
+        allowance: &mut BuildAllowance,
+    ) -> Result<Self, MathError> {
+        let key = std::ptr::from_ref(region) as usize;
+        let partials = if let Some(partials) = allowance.partials.get(&key) { partials.clone() } else {
+            allowance.selected_partial_calls = allowance.selected_partial_calls.checked_sub(plan.calls).ok_or(MathError::Contract("regional preflight partial allowance".into()))?;
+            let partials = Arc::new(LocalPartials::new(region, plan, allowance, scope)?);
+            allowance.partials.insert(key, partials.clone());
+            partials
+        };
+        crate::construction::additional(plan.bytes)?;
+        let dependencies = &plan.dependencies;
+        let mut next = partials.formal_end;
+        let mut fresh = || -> Result<Atom, MathError> {
+            let atom = library::formal(next)?;
+            next = next.checked_add(1).ok_or(MathError::Limit("regional temporary formals"))?;
+            Ok(atom)
+        };
+        let mut parameters = Vec::new();
+        let mut gather = Vec::new();
+        let mut jets = BTreeMap::<usize, Vec<Atom>>::new();
+        for &input in &region.inputs {
+            let mut jet = Vec::new();
+            for (component, &global) in components.iter().enumerate() {
+                let atom = if component == 0 { allowance.region_parameters[input].clone() } else { fresh()? };
+                if let Some(source) = layout.frame_offset(input, global) {
+                    gather.push((parameters.len(), source));
+                }
+                parameters.push(atom.clone());
+                jet.push(atom);
+            }
+            jets.insert(input, jet);
+        }
+        let mut definitions = partials.definitions.clone();
+        let mut selected = SelectedRegion { expressions: Vec::new(), scatter: Vec::new(), output_ends: Vec::new() };
+        for (definition, (((lhs, _), inputs), &output)) in region.definitions.iter().zip(dependencies).zip(outputs).enumerate() {
+            scope.check().map_err(crate::error::scope_error)?;
+            let composition = SymbolicComposition::new(inputs.len(), local, limits, scope.cancellation())?;
+            let mut bindings = Vec::new();
+            for (formal, binding) in composition.parameters.iter().zip(&composition.inputs) {
+                scope.check().map_err(crate::error::scope_error)?;
+                let value = match *binding {
+                    LiftInput::Value => lhs.clone(),
+                    LiftInput::First(i) => partials.derivatives[definition].first[i].clone(),
+                    LiftInput::Second(i, j) => partials.derivatives[definition].second.get(&(i, j)).ok_or_else(|| MathError::Contract("regional shared second partial".into()))?.clone(),
+                    LiftInput::Argument(i, component) => jets.get(&inputs[i]).and_then(|jet| jet.get(component)).ok_or_else(|| MathError::Contract("regional incoming derivative".into()))?.clone() * Atom::num(local.raw_factor(component)),
+                };
+                bindings.push((formal.clone(), value));
+            }
+            let mut jet = vec![lhs.clone()];
+            for expression in composition.expressions.iter().skip(1) {
+                scope.check().map_err(crate::error::scope_error)?;
+                let value = expression.replace_multiple(bindings.iter().map(|(formal, value)| Replacement::new(formal.clone(), value.clone())));
+                let alias = fresh()?;
+                definitions.push((alias.clone(), value));
+                jet.push(alias);
+            }
+            for destination in layout.frame_slot_range(output) {
+                let global = layout.frame_component(destination);
+                let source = components.binary_search(&global).ok().map(|component| {
+                    let source = selected.expressions.len();
+                    selected.expressions.push(jet[component].clone());
+                    source
+                });
+                selected.scatter.push((destination, source));
+            }
+            selected.output_ends.push(selected.expressions.len());
+            jets.insert(output, jet);
+        }
+        scope.check().map_err(crate::error::scope_error)?;
+        Ok(Self { selected, parameters, definitions, gather })
+    }
+}
+impl SelectedRegion {
     fn new(
         expressions: &[Atom],
         outputs: &[usize],
@@ -4619,6 +5022,9 @@ fn stage_retained_bytes(items: &[Stage], seen: &mut BTreeSet<usize>) -> usize {
 #[derive(Clone, Debug)]
 struct PreparedStages {
     stages: Vec<PreparedStage>,
+    /// Joint definition regions. Selected-partial forward construction composes
+    /// their local partials; reverse products retain the original stage mapping.
+    values: Option<Box<PreparedStages>>,
 }
 #[derive(Clone, Debug)]
 struct PreparedStage {
@@ -4629,6 +5035,7 @@ struct PreparedStage {
 }
 #[derive(Clone, Debug)]
 struct PreparedArithmeticRegion {
+    definitions: Vec<(Atom, Atom)>,
     inputs: Vec<usize>,
     parameters: Vec<Atom>,
     checks: Vec<SourceCheck>,
@@ -4644,6 +5051,27 @@ impl PreparedStages {
         parameters: &[Atom],
         symbols: &HashMap<Symbol, usize>,
         cancel: &Arc<AtomicBool>,
+        order: DerivativeOrder,
+    ) -> Result<Self, MathError> {
+        if order == DerivativeOrder::Value {
+            return Self::build(stages, parameters, symbols, cancel, true);
+        }
+        let mut program = Self::build(stages, parameters, symbols, cancel, false)?;
+        if program.needs_joint_values() {
+            program.values = Some(Box::new(Self::build(stages, parameters, symbols, cancel, true)?));
+        }
+        Ok(program)
+    }
+    fn needs_joint_values(&self) -> bool {
+        self.stages.windows(2).any(|pair| matches!((&pair[0].stage, &pair[1].stage), (Stage::Block { .. }, Stage::Block { .. })))
+            || self.stages.iter().flat_map(|stage| &stage.children).any(Self::needs_joint_values)
+    }
+    fn build(
+        stages: &[Stage],
+        parameters: &[Atom],
+        symbols: &HashMap<Symbol, usize>,
+        cancel: &Arc<AtomicBool>,
+        fuse_dependencies: bool,
     ) -> Result<Self, MathError> {
         if cancel.load(Ordering::Acquire) {
             return Err(MathError::Cancelled);
@@ -4680,7 +5108,7 @@ impl PreparedStages {
                 return Err(MathError::Cancelled);
             }
             let initial = cursor;
-            let (next, combined, checks) = arithmetic_region(stages, initial, symbols, cancel)?;
+            let (next, combined, checks, definitions) = arithmetic_region(stages, initial, symbols, parameters, cancel, fuse_dependencies)?;
             cursor = next;
             let mut stage = combined.unwrap_or_else(|| stages[initial].clone());
             let mut region = None;
@@ -4688,9 +5116,14 @@ impl PreparedStages {
             let mut children = Vec::new();
             match &mut stage {
                 Stage::Block { expressions, .. } => {
-                    let inputs = reads(expressions, symbols)?;
+                    let inputs = if definitions.is_empty() { reads(expressions, symbols)? } else {
+                        let produced = definitions.iter().map(|(lhs, _)| reads(std::slice::from_ref(lhs), symbols)).collect::<Result<Vec<_>, _>>()?.into_iter().flatten().collect::<BTreeSet<_>>();
+                        let expressions = definitions.iter().map(|(_, rhs)| rhs.clone()).collect::<Vec<_>>();
+                        reads(&expressions, symbols)?.into_iter().filter(|slot| !produced.contains(slot)).collect()
+                    };
                     let parameters = inputs.iter().map(|&i| parameters[i].clone()).collect();
                     region = Some(PreparedArithmeticRegion {
+                        definitions,
                         inputs,
                         parameters,
                         checks,
@@ -4711,11 +5144,12 @@ impl PreparedStages {
                         .copied()
                         .collect::<Vec<_>>();
                     let local = value_scope(stages, &captures, parameters, symbols)?;
-                    children.push(Self::new(
+                    children.push(Self::build(
                         &local.stages,
                         &local.parameters,
                         &local.symbols,
                         cancel,
+                        true,
                     )?);
                     scope = Some(PreparedValueScope {
                         reads: local.reads,
@@ -4727,11 +5161,12 @@ impl PreparedStages {
                     stages, argument, ..
                 } => {
                     let local = value_scope(stages, &[*argument], parameters, symbols)?;
-                    children.push(Self::new(
+                    children.push(Self::build(
                         &local.stages,
                         &local.parameters,
                         &local.symbols,
                         cancel,
+                        true,
                     )?);
                     scope = Some(PreparedValueScope {
                         reads: local.reads,
@@ -4742,8 +5177,8 @@ impl PreparedStages {
                 Stage::Branch {
                     then, otherwise, ..
                 } => {
-                    children.push(Self::new(then, parameters, symbols, cancel)?);
-                    children.push(Self::new(otherwise, parameters, symbols, cancel)?);
+                    children.push(Self::build(then, parameters, symbols, cancel, fuse_dependencies)?);
+                    children.push(Self::build(otherwise, parameters, symbols, cancel, fuse_dependencies)?);
                     *then = Vec::new();
                     *otherwise = Vec::new();
                 }
@@ -4756,7 +5191,7 @@ impl PreparedStages {
                 children,
             });
         }
-        let product = Self { stages: prepared };
+        let product = Self { stages: prepared, values: None };
         if cancel.load(Ordering::Acquire) {
             return Err(MathError::Cancelled);
         }
@@ -4764,6 +5199,7 @@ impl PreparedStages {
     }
     fn retained_bytes(&self) -> usize {
         size_of::<Self>()
+            + self.values.as_ref().map_or(0, |values| values.retained_bytes())
             + self.stages.capacity() * size_of::<PreparedStage>()
             + self
                 .stages
@@ -4775,7 +5211,9 @@ impl PreparedStages {
                     )
                     .saturating_sub(size_of::<Stage>())
                         + prepared.region.as_ref().map_or(0, |region| {
-                            region.inputs.capacity() * size_of::<usize>()
+                            region.definitions.capacity() * size_of::<(Atom, Atom)>()
+                                + region.definitions.iter().map(|(lhs, rhs)| lhs.as_view().get_byte_size() + rhs.as_view().get_byte_size()).sum::<usize>()
+                                + region.inputs.capacity() * size_of::<usize>()
                                 + region.parameters.capacity() * size_of::<Atom>()
                                 + region
                                     .parameters
@@ -4803,10 +5241,14 @@ fn arithmetic_region(
     stages: &[Stage],
     initial: usize,
     symbols: &HashMap<Symbol, usize>,
+    parameters: &[Atom],
     cancel: &Arc<AtomicBool>,
-) -> Result<(usize, Option<Stage>, Vec<SourceCheck>), MathError> {
+    fuse_dependencies: bool,
+) -> Result<(usize, Option<Stage>, Vec<SourceCheck>, Vec<(Atom, Atom)>), MathError> {
     let mut cursor = initial + 1;
     let mut checks = Vec::new();
+    let mut definitions = Vec::new();
+    let mut dependent = false;
     let combined = if let Stage::Block {
         expressions,
         outputs,
@@ -4828,11 +5270,9 @@ fn arithmetic_region(
             if cancel.load(Ordering::Acquire) {
                 return Err(MathError::Cancelled);
             }
-            if reads(next, symbols)?
-                .iter()
-                .any(|slot| produced.contains(slot))
-            {
-                break;
+            if reads(next, symbols)?.iter().any(|slot| produced.contains(slot)) {
+                if !fuse_dependencies { break; }
+                dependent = true;
             }
             end = end
                 .checked_add(slots.len())
@@ -4883,6 +5323,10 @@ fn arithmetic_region(
                 joined.extend(expressions.iter().cloned());
                 slots.extend(outputs);
             }
+            if dependent {
+                definitions = slots.iter().zip(joined).map(|(&slot, expression)| (parameters[slot].clone(), expression)).collect();
+                joined = slots.iter().map(|&slot| parameters[slot].clone()).collect();
+            }
             Some(Stage::Block {
                 expressions: joined,
                 outputs: slots,
@@ -4894,7 +5338,7 @@ fn arithmetic_region(
     } else {
         None
     };
-    Ok((cursor, combined, checks))
+    Ok((cursor, combined, checks, definitions))
 }
 
 #[allow(
@@ -4915,6 +5359,7 @@ fn compile_stages(
 ) -> Result<Vec<CompiledStage>, MathError> {
     execution_scope.check().map_err(crate::error::scope_error)?;
     let cancelled = execution_scope.cancellation();
+    let program = if layout.order == DerivativeOrder::Value || allowance.symbolic_regions { program.values.as_deref().unwrap_or(program) } else { program };
     let mut result = vec![];
     for prepared in &program.stages {
         let stage = &prepared.stage;
@@ -5007,94 +5452,22 @@ fn compile_stages(
                 })?;
                 let inputs = &region.inputs;
                 let params = &region.parameters;
-                let active = active_block_axes(
-                    inputs,
-                    outputs,
-                    numeric,
-                    coordinate_support,
-                    layout.coordinates.len(),
-                    layout.order,
-                )
-                .into_iter()
-                .map(|axis| (axis, layout.coordinates[axis]))
-                .collect::<Vec<_>>();
-                let pairs = layout
-                    .pairs
-                    .iter()
-                    .filter_map(|&(i, j)| {
-                        Some((
-                            active.iter().position(|&(axis, _)| axis == i)?,
-                            active.iter().position(|&(axis, _)| axis == j)?,
-                        ))
-                    })
-                    .collect();
-                let local = JetLayout::with_pairs(
-                    active.iter().map(|&(_, slot)| slot).collect(),
-                    layout.order,
-                    pairs,
-                    limits,
-                )?;
-                let mut components = vec![0];
-                if layout.order >= DerivativeOrder::First {
-                    components.extend(active.iter().map(|&(i, _)| 1 + i));
-                }
-                if layout.order >= DerivativeOrder::Second {
-                    for &(i, j) in local.pairs.iter() {
-                        let pair = (active[i].0, active[j].0);
-                        let position = layout
-                            .pairs
-                            .iter()
-                            .position(|&p| p == pair)
-                            .ok_or_else(|| MathError::Contract("Taylor subset pair".into()))?;
-                        components.push(1 + layout.coordinates.len() + position);
-                    }
-                }
-                // A mixed Taylor component is absent when any differentiated axis
-                // is outside this input's conservative support. Branch alternatives
-                // and composed provider reachability are already included above.
-                let zero_components = inputs
-                    .iter()
-                    .enumerate()
-                    .flat_map(|(parameter, &input)| {
-                        local
-                            .shape
-                            .iter()
-                            .enumerate()
-                            .skip(1)
-                            .filter_map(|(component, powers)| {
-                                powers
-                                    .iter()
-                                    .enumerate()
-                                    .any(|(axis, power)| {
-                                        *power > 0 && !coordinate_support[input][active[axis].0]
-                                    })
-                                    .then_some((parameter, component))
-                            })
-                            .collect::<Vec<_>>()
-                    })
-                    .collect::<Vec<_>>();
-                let selected_count = outputs
-                    .iter()
-                    .map(|&slot| layout.frame_slot_range(slot).len())
-                    .sum::<usize>();
-                let selected_first = allowance.selected_first;
-                #[cfg(test)]
-                let selected_first = selected_first && !FORCE_TAYLOR_FIRST.get();
-                let selected = if selected_first
-                    && inputs.iter().all(|&slot| slot < allowance.scalar_inputs)
-                    && selected_count < outputs.len() * local.width()
-                {
-                    Some(SelectedFirstRegion::new(
-                        expressions,
-                        outputs,
-                        layout,
-                        execution_scope,
-                        allowance,
-                    )?)
-                } else {
-                    None
-                };
-                let inspected = if let Some(selected) = &selected {
+                let RegionConstruction { local, mut components, zero_components, mode, .. } = allowance.regions.pop_front().ok_or_else(|| MathError::Contract("missing regional construction preflight".into()))?;
+                let symbolic = if let RegionMode::Symbolic(plan) = &mode {
+                    Some(SymbolicRegion::new(region, outputs, layout, &local, &components, execution_scope, limits, plan, allowance)?)
+                } else { None };
+                let selected = if matches!(mode, RegionMode::SelectedFirst) {
+                    Some(SelectedRegion::new(expressions, outputs, layout, execution_scope, allowance)?)
+                } else { None };
+                let selected = symbolic.as_ref().map(|region| &region.selected).or(selected.as_ref());
+                let inspected = if let Some(symbolic) = &symbolic {
+                    library::bounded_defined_scalar_evaluator(&symbolic.selected.expressions, &symbolic.parameters, &symbolic.definitions, options, cancelled,
+                        EvaluationLimits { operations: allowance.operations, ..limits }, scalars)?
+                } else if !region.definitions.is_empty() {
+                    if layout.order != DerivativeOrder::Value { return Err(MathError::Contract("definition region requires value demand".into())); }
+                    library::bounded_defined_scalar_evaluator(expressions, params, &region.definitions, options, cancelled,
+                        EvaluationLimits { operations: allowance.operations, ..limits }, scalars)?
+                } else if let Some(selected) = &selected {
                     library::bounded_scalar_evaluator(
                         &selected.expressions,
                         params,
@@ -5130,7 +5503,9 @@ fn compile_stages(
                 let input_len = evaluator.get_input_len();
                 let output_len = evaluator.get_output_len();
                 if input_len
-                    != if selected.is_some() {
+                    != if let Some(symbolic) = &symbolic {
+                        symbolic.parameters.len()
+                    } else if selected.is_some() {
                         inputs.len()
                     } else {
                         inputs.len() * local.width()
@@ -5209,7 +5584,10 @@ fn compile_stages(
                             })
                     })
                     .collect();
-                let (gather, scatter) = if let Some(selected) = selected {
+                let (gather, scatter) = if let Some(symbolic) = &symbolic {
+                    components = vec![0];
+                    (symbolic.gather.clone(), symbolic.selected.scatter.clone())
+                } else if let Some(selected) = selected {
                     components = vec![0];
                     (
                         inputs
@@ -5221,7 +5599,7 @@ fn compile_stages(
                                     .map(|source| (argument, source))
                             })
                             .collect(),
-                        selected.scatter,
+                        selected.scatter.clone(),
                     )
                 } else {
                     let component_width = components.len();
@@ -6771,6 +7149,51 @@ mod compact_tests {
         )
         .unwrap()
     }
+    #[test]
+    fn product_preflight_identity_retains_kind_order_and_complete_source_support() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let body = analytic_body(4096);
+        let support = body.prepare_support(&[0], &[Y, X], DerivativeOrder::Second, &cancel).unwrap();
+        let options = Optimization::default();
+        let limits = EvaluationLimits::default();
+        let first = support.preflight_product(ProductKind::WeightedHessian, options, limits).unwrap();
+        assert_eq!(first.route(), ProductRoute::Direct);
+        assert_eq!(first.support(), &support);
+        assert_ne!(first, support.preflight_product(ProductKind::WeightedHessianAction, options, limits).unwrap());
+        let other = body.prepare_support(&[0], &[X], DerivativeOrder::Second, &cancel).unwrap();
+        assert_ne!(first, other.preflight_product(ProductKind::WeightedHessian, options, limits).unwrap());
+        assert!(support.preflight_product(ProductKind::TransposeJacobianAction, options, limits).is_err());
+        assert_eq!(first, support.preflight_product(ProductKind::WeightedHessian, options, limits).unwrap());
+    }
+    #[test]
+    fn product_preflight_distinguishes_source_ineligibility_from_transient_refusal() {
+        #[derive(Debug)]
+        struct Refuse;
+        impl crate::construction::ConstructionAdmission for Refuse {
+            fn try_grow(&self, _: usize) -> Result<(), MathError> { Err(MathError::Limit("test transient capacity")) }
+        }
+        crate::initialize().unwrap();
+        let x = library::formal(0).unwrap();
+        let intermediate = library::formal(1).unwrap();
+        let body = PreparedBody::new(1, 3, vec![2], vec![
+            Stage::Block { expressions: vec![x.pow(2)], outputs: vec![1], source: SemanticId::NIL },
+            Stage::Block { expressions: vec![intermediate + 1], outputs: vec![2], source: SemanticId::NIL },
+        ], DerivativeOrder::Second).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let support = body.prepare_support(&[0], &[0], DerivativeOrder::Second, &cancel).unwrap();
+        let normal = support.preflight_product(ProductKind::WeightedHessian, Optimization::default(), EvaluationLimits::default()).unwrap();
+        assert_eq!(normal.route(), ProductRoute::Direct);
+        let under_pressure = crate::construction::scoped(Arc::new(Refuse), ||
+            support.preflight_product(ProductKind::WeightedHessian, Optimization::default(), EvaluationLimits::default())).unwrap();
+        assert_eq!(under_pressure, normal, "transient capacity never chooses another route");
+        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
+        assert!(matches!(crate::construction::scoped(Arc::new(Refuse), || support.compile_product(
+            ProductKind::WeightedHessian, Optimization::default(), EvaluationLimits::default(), &scope)),
+            Err(MathError::Limit("test transient capacity"))));
+        assert_eq!(normal, support.preflight_product(ProductKind::WeightedHessian, Optimization::default(), EvaluationLimits::default()).unwrap());
+        let limited = support.preflight_product(ProductKind::WeightedHessian, Optimization::default(), EvaluationLimits { scratch_bytes: 1, ..Default::default() }).unwrap();
+        assert_eq!(limited.route(), ProductRoute::Regional, "only declared source/profile shape can choose the regional route");
+    }
     fn compiled(
         body: &PreparedBody,
         coordinates: &[usize],
@@ -7359,7 +7782,7 @@ mod compact_tests {
     }
 
     #[test]
-    fn dense_and_dependent_first_regions_keep_their_qualified_taylor_route() {
+    fn dense_taylor_and_dependent_symbolic_first_regions_keep_exact_derivatives() {
         crate::initialize().unwrap();
         let variables = (0..3)
             .map(|slot| library::formal(slot).unwrap())
@@ -9670,6 +10093,197 @@ mod compact_tests {
     }
 
     #[test]
+    fn deep_shared_let_value_region_retains_definitions_without_tree_expansion() {
+        crate::initialize().unwrap();
+        const DEPTH: usize = 64;
+        let stages = (0..DEPTH).map(|slot| Stage::Block {
+            expressions: vec![library::formal(slot).unwrap().pow(2) + Atom::num(1) / Atom::num(100)],
+            outputs: vec![slot + 1],
+            source: pse_ids::named_id(SemanticId::NIL, &format!("shared let {slot}")),
+        }).collect();
+        let body = PreparedBody::new(1, DEPTH + 1, vec![DEPTH], stages, DerivativeOrder::Value).unwrap();
+        let cancel = pse_diagnostics::Cancellation::new(false);
+        let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
+        let support = body.prepare_support(&[0], &[], DerivativeOrder::Value, &cancel.flag()).unwrap();
+        assert!(support.program.values.is_none(), "value-only demand retains one description");
+        assert_eq!(support.program.stages.len(), 1);
+        let region = support.program.stages[0].region.as_ref().unwrap();
+        assert_eq!(region.inputs, [0]);
+        assert_eq!(region.definitions.len(), DEPTH);
+        assert_eq!(region.checks.len(), DEPTH, "every original source remains checked");
+        assert!(region.definitions.iter().all(|(_, rhs)| rhs.as_view().get_byte_size() < 128));
+        let scalars = support.prepare_scalars(Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+        assert_eq!(scalars.len(), 1);
+        let compiled = support.compile_reusing(Optimization::default(), EvaluationLimits::default(), &scope, &scalars).unwrap();
+        let census = compiled.census[DerivativeOrder::Value].unwrap();
+        assert_eq!(census.arithmetic_blocks, 1);
+        // The exported library census, rather than a source-tree estimate, remains linear.
+        assert!(census.library_instructions < DEPTH * 16);
+        let mut expected = 0.2f64;
+        for _ in 0..DEPTH { expected = expected * expected + 0.01; }
+        let mut first = compiled.worker();
+        let mut second = compiled.worker();
+        assert!((eval(&mut first, &[0.2], DerivativeOrder::Value).unwrap().values[0] - expected).abs() < 1e-14);
+        assert_eq!(eval(&mut first, &[0.2], DerivativeOrder::Value).unwrap(), eval(&mut second, &[0.2], DerivativeOrder::Value).unwrap());
+        assert!(matches!(eval(&mut first, &[1e200], DerivativeOrder::Value), Err(MathError::Domain { source_id, .. }) if source_id == pse_ids::named_id(SemanticId::NIL, "shared let 0")));
+    }
+
+    #[test]
+    fn deep_symbolic_definition_derivatives_keep_linear_export_and_original_sources() {
+        crate::initialize().unwrap();
+        const DEPTH: usize = 32;
+        let first_source = pse_ids::named_id(SemanticId::NIL, "deep derivative first definition");
+        let stages = (0..DEPTH).map(|slot| Stage::Block {
+            expressions: vec![library::formal(slot).unwrap().pow(2)],
+            outputs: vec![slot + 1],
+            source: if slot == 0 { first_source } else { SemanticId::NIL },
+        }).collect();
+        let body = PreparedBody::new(1, DEPTH + 1, vec![DEPTH], stages, DerivativeOrder::Second).unwrap();
+        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
+        let compiled = body.compile(&[0], &[0], DerivativeOrder::Second, Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+        let census = compiled.census[DerivativeOrder::Second].unwrap();
+        assert_eq!(census.arithmetic_blocks, 1);
+        assert!(census.library_instructions < DEPTH * 64, "the actual exported derivative graph must remain linear in the definition count");
+        let result = eval(&mut compiled.worker(), &[1.], DerivativeOrder::Second).unwrap();
+        let exponent = 2f64.powi(DEPTH as i32);
+        assert_eq!(result.values, [1.]);
+        assert_eq!(result.jacobian, [exponent]);
+        assert_eq!(result.hessians, [exponent * (exponent - 1.)]);
+        assert!(matches!(eval(&mut compiled.worker(), &[1e200], DerivativeOrder::Second), Err(MathError::Domain { source_id, .. }) if source_id == first_source));
+    }
+
+    #[cfg(feature = "compiled-evaluator")]
+    #[test]
+    fn compiled_symbolic_definition_derivatives_keep_private_worker_scratch() {
+        crate::initialize().unwrap();
+        let p = (0..5).map(|slot| library::formal(slot).unwrap()).collect::<Vec<_>>();
+        let source = pse_ids::named_id(SemanticId::NIL, "compiled derivative original source");
+        let body = PreparedBody::new(2, 5, vec![4], vec![
+            Stage::Block { expressions: vec![p[0].pow(2)], outputs: vec![2], source },
+            Stage::Block { expressions: vec![&p[2] + &p[0] * &p[1]], outputs: vec![3], source: SemanticId::NIL },
+            Stage::Block { expressions: vec![&p[3] * &p[2]], outputs: vec![4], source: SemanticId::NIL },
+        ], DerivativeOrder::Second).unwrap();
+        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
+        let compiled = body.compile(&[0], &[0, 1], DerivativeOrder::Second, Optimization { evaluator: library::Evaluator::CompiledScalar { module_bytes: 32 << 20 }, ..Default::default() }, EvaluationLimits::default(), &scope).unwrap();
+        for order in [DerivativeOrder::Value, DerivativeOrder::First, DerivativeOrder::Second] { assert_eq!(compiled.census[order].unwrap().native_arithmetic_blocks, 1); }
+        let mut first = compiled.worker();
+        let mut second = compiled.worker();
+        let a = eval(&mut first, &[2., 3.], DerivativeOrder::Second).unwrap();
+        assert_eq!(a.values, [40.]); assert_eq!(a.jacobian, [68., 8.]); assert_eq!(a.hessians, [84., 12., 12., 0.]);
+        let b = eval(&mut second, &[3., 2.], DerivativeOrder::Second).unwrap();
+        assert_eq!(b.values, [135.]); assert_eq!(b.jacobian, [162., 27.]); assert_eq!(b.hessians, [144., 27., 27., 0.]);
+        assert_eq!(eval(&mut first, &[2., 3.], DerivativeOrder::Second).unwrap(), a);
+        assert!(matches!(eval(&mut second, &[1e200, 0.], DerivativeOrder::Second), Err(MathError::Domain { source_id, .. }) if source_id == source));
+    }
+
+    #[test]
+    fn symbolic_definition_regions_compose_mixed_partials_without_flattening_lets() {
+        crate::initialize().unwrap();
+        let p = (0..6).map(|slot| library::formal(slot).unwrap()).collect::<Vec<_>>();
+        let first_source = pse_ids::named_id(SemanticId::NIL, "symbolic first let");
+        let body = PreparedBody::new(3, 6, vec![3, 4, 5], vec![
+            Stage::Block { expressions: vec![p[0].pow(2)], outputs: vec![3], source: first_source },
+            Stage::Block { expressions: vec![&p[3] + &p[0] * &p[1]], outputs: vec![4], source: SemanticId::NIL },
+            Stage::Block { expressions: vec![&p[4] * &p[3]], outputs: vec![5], source: SemanticId::NIL },
+        ], DerivativeOrder::Second).unwrap();
+        let cancel = pse_diagnostics::Cancellation::new(false);
+        let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
+        let support = body.prepare_support(&[0, 1, 2], &[1, 0, 2], DerivativeOrder::Second, &cancel.flag()).unwrap();
+        {
+            use pse_diagnostics::observation::{ObservationHub, Policy};
+            let hub = ObservationHub::new(Policy::default());
+            let operation = hub.start("regional source preflight refusal");
+            let context = operation.context();
+            let _entered = context.enter();
+            assert!(matches!(support.compile(Optimization::default(), EvaluationLimits { operations: 1, ..Default::default() }, &scope), Err(MathError::Limit(_))));
+            let snapshot = context.reader().snapshot(std::time::Duration::from_secs(60));
+            assert!(!snapshot.metrics.iter().any(|metric| matches!(metric.name.as_str(), "math.rational_representation_inspections" | "math.regional_local_partial_constructions")), "all demanded regional plans refuse before even the Value evaluator or a local partial is built");
+        }
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("shared maximum-demand local partials");
+        let context = operation.context();
+        let entered = context.enter();
+        let compiled = support.compile(Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+        let snapshot = context.reader().snapshot(std::time::Duration::from_secs(60));
+        assert_eq!(snapshot.metrics.iter().find(|metric| metric.name == "math.regional_local_partial_constructions").unwrap().cumulative, pse_diagnostics::observation::Value::Count(16), "the three definitions require 2+9+5 local First/Second calls once across both requested order builds");
+        drop(entered);
+        assert_eq!(compiled.census[DerivativeOrder::First].unwrap().arithmetic_blocks, 1);
+        assert_eq!(compiled.census[DerivativeOrder::Second].unwrap().arithmetic_blocks, 1);
+        let result = eval(&mut compiled.worker(), &[2., 3., 17.], DerivativeOrder::Second).unwrap();
+        assert_eq!(result.values, [4., 10., 40.]);
+        assert_eq!(result.jacobian, [0., 4., 0., 2., 7., 0., 8., 68., 0.]);
+        assert_eq!(result.hessians, [
+            0., 0., 0., 0., 2., 0., 0., 0., 0.,
+            0., 1., 0., 1., 2., 0., 0., 0., 0.,
+            0., 12., 0., 12., 84., 0., 0., 0., 0.,
+        ]);
+        assert!(matches!(eval(&mut compiled.worker(), &[1e200, 0., 0.], DerivativeOrder::Second), Err(MathError::Domain { source_id, .. }) if source_id == first_source));
+        let action_support = body.prepare_support(&[0, 1, 2], &[1, 0, 2], DerivativeOrder::First, &cancel.flag()).unwrap();
+        let action = action_support.compile_product(ProductKind::JacobianAction, Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+        assert_eq!(action.census[DerivativeOrder::First].unwrap().arithmetic_blocks, 1);
+        let mut product = [0.; 3];
+        action.worker().evaluate_product_into(&[2., 3., 17.], ProductValues::JacobianAction { direction: &[3., 5., 7.] }, &mut ProviderBindings::new(), &cancel.flag(), &mut product).unwrap();
+        assert_eq!(product, [20., 41., 364.], "Jv agrees with the independent selected Jacobian, including direct and indirect terms");
+        cancel.cancel();
+        assert!(matches!(support.compile(Optimization::default(), EvaluationLimits::default(), &scope), Err(MathError::Cancelled)));
+    }
+
+    #[test]
+    fn value_definition_regions_preserve_host_obligation_barriers() {
+        crate::initialize().unwrap();
+        let formals = (0..4).map(|slot| library::formal(slot).unwrap()).collect::<Vec<_>>();
+        let source = pse_ids::named_id(SemanticId::NIL, "original positive guard");
+        let body = PreparedBody::new(1, 4, vec![3], vec![
+            Stage::Block { expressions: vec![formals[0].clone() + 1], outputs: vec![1], source: SemanticId::NIL },
+            Stage::Require { argument: 1, condition: Condition::Positive, order: DerivativeOrder::Value, source, lineage: None },
+            Stage::Block { expressions: vec![formals[1].pow(2)], outputs: vec![2], source: SemanticId::NIL },
+            Stage::Block { expressions: vec![formals[2].clone() + &formals[1]], outputs: vec![3], source: SemanticId::NIL },
+        ], DerivativeOrder::Value).unwrap();
+        let cancel = pse_diagnostics::Cancellation::new(false);
+        let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
+        let support = body.prepare_support(&[0], &[], DerivativeOrder::Value, &cancel.flag()).unwrap();
+        assert_eq!(support.program.stages.len(), 3);
+        assert!(matches!(support.program.stages[1].stage, Stage::Require { source: actual, .. } if actual == source));
+        let final_region = support.program.stages[2].region.as_ref().unwrap();
+        assert_eq!(final_region.inputs, [1]);
+        assert_eq!(final_region.definitions.len(), 2);
+        let compiled = support.compile(Optimization::default(), EvaluationLimits::default(), &scope).unwrap();
+        assert_eq!(eval(&mut compiled.worker(), &[1.], DerivativeOrder::Value).unwrap().values, [6.]);
+        assert!(matches!(eval(&mut compiled.worker(), &[-2.], DerivativeOrder::Value), Err(MathError::Domain { source_id, .. }) if source_id == source));
+    }
+
+    #[cfg(feature = "compiled-evaluator")]
+    #[test]
+    fn compiled_value_alias_region_preserves_sources_and_private_worker_scratch() {
+        crate::initialize().unwrap();
+        let formals = (0..4).map(|slot| library::formal(slot).unwrap()).collect::<Vec<_>>();
+        let first_source = pse_ids::named_id(SemanticId::NIL, "compiled alias first source");
+        let body = PreparedBody::new(1, 4, vec![2, 3], vec![
+            Stage::Block { expressions: vec![formals[0].pow(2)], outputs: vec![1], source: first_source },
+            Stage::Block { expressions: vec![formals[1].clone() + &formals[0]], outputs: vec![2], source: SemanticId::NIL },
+            Stage::Block { expressions: vec![formals[2].pow(2)], outputs: vec![3], source: SemanticId::NIL },
+        ], DerivativeOrder::Value).unwrap();
+        let cancel = pse_diagnostics::Cancellation::new(false);
+        let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
+        let support = body.prepare_support(&[0, 1], &[], DerivativeOrder::Value, &cancel.flag()).unwrap();
+        assert_eq!(support.program.stages.len(), 1);
+        assert_eq!(support.program.stages[0].region.as_ref().unwrap().definitions.len(), 3);
+        let compiled = support.compile(Optimization {
+            evaluator: library::Evaluator::CompiledScalar { module_bytes: 32 << 20 },
+            ..Default::default()
+        }, EvaluationLimits::default(), &scope).unwrap();
+        let census = compiled.census[DerivativeOrder::Value].unwrap();
+        assert_eq!(census.arithmetic_blocks, 1);
+        assert_eq!(census.native_arithmetic_blocks, 1, "the alias region must actually execute the C++ profile");
+        let mut first = compiled.worker();
+        let mut second = compiled.worker();
+        assert_eq!(eval(&mut first, &[2.], DerivativeOrder::Value).unwrap().values, [6., 36.]);
+        assert_eq!(eval(&mut second, &[3.], DerivativeOrder::Value).unwrap().values, [12., 144.]);
+        assert_eq!(eval(&mut first, &[2.], DerivativeOrder::Value).unwrap().values, [6., 36.]);
+        assert!(matches!(eval(&mut second, &[1e200], DerivativeOrder::Value), Err(MathError::Domain { source_id, .. }) if source_id == first_source));
+    }
+
+    #[test]
     fn joint_sibling_regions_preserve_sources_and_dependent_materialization() {
         crate::initialize().unwrap();
         let x = library::formal(0).unwrap();
@@ -9739,25 +10353,25 @@ mod compact_tests {
         };
         assert_eq!(
             count("math.arithmetic_region_preparations"),
-            Some(Value::Count(2))
+            Some(Value::Count(3))
         );
         assert_eq!(
             count("math.rational_representation_inspections"),
-            Some(Value::Count(2))
+            Some(Value::Count(5))
         );
         assert_eq!(
             count("math.taylor_representation_inspections"),
-            Some(Value::Count(4))
+            None
         );
         assert_eq!(
             count("math.floating_representation_inspections"),
-            Some(Value::Count(6))
+            Some(Value::Count(3))
         );
         assert_eq!(
             compiled.census[DerivativeOrder::Second]
                 .unwrap()
                 .arithmetic_blocks,
-            2
+            1
         );
         let mut origins = Vec::new();
         compiled.visit_arithmetic_origins(DerivativeOrder::Second, |origin| origins.push(origin));
@@ -9778,7 +10392,7 @@ mod compact_tests {
             [
                 (0, first_source, 0, 1),
                 (0, second_source, 1, 2),
-                (1, SemanticId::NIL, 0, 1)
+                (0, SemanticId::NIL, 2, 3)
             ]
         );
         let mut first_worker = compiled.worker();
@@ -9828,16 +10442,16 @@ mod compact_tests {
         ));
         assert_eq!(
             count("math.arithmetic_region_preparations"),
-            Some(Value::Count(2))
+            Some(Value::Count(3))
         );
         assert_eq!(
             count("math.rational_representation_inspections"),
-            Some(Value::Count(2)),
+            Some(Value::Count(5)),
             "current policy checks retained facts without a new rational export"
         );
         assert_eq!(
             count("math.floating_representation_inspections"),
-            Some(Value::Count(6)),
+            Some(Value::Count(3)),
             "evaluation and refusal do not inspect new representations"
         );
         drop(support);

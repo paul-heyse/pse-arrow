@@ -8,7 +8,8 @@
 )]
 use futures_util::FutureExt;
 use pse_diagnostics::observation::{ObservationContext, OperationGuard, Outcome, PhaseGuard};
-use pse_runtime::{CancelSource, inspection::InspectionRequest, observation::process_diagnostics};
+use pse_runtime::{CancelSource, observation::process_diagnostics};
+use pse_runtime::tooling::{inspection::InspectionRequest};
 use serde_json::{Value, json};
 use std::{
     future::Future,
@@ -61,7 +62,7 @@ fn supported_record_families() -> Vec<&'static str> {
     families
 }
 static STATE: OnceLock<Option<Arc<State>>> = OnceLock::new();
-type RecordingOwner = Arc<Mutex<Option<pse_runtime::capture::SourceRecordingSession>>>;
+type RecordingOwner = Arc<Mutex<Option<pse_runtime::tooling::capture::SourceRecordingSession>>>;
 static RECORDING: OnceLock<RecordingOwner> = OnceLock::new();
 static SOURCE_CONTEXT: OnceLock<ObservationContext> = OnceLock::new();
 #[derive(Debug)]
@@ -128,7 +129,7 @@ impl State {
     }
 }
 fn install_recording(
-    session: Option<pse_runtime::capture::SourceRecordingSession>,
+    session: Option<pse_runtime::tooling::capture::SourceRecordingSession>,
 ) -> Option<RecordingOwner> {
     session.map(|session| {
         let owner = Arc::new(Mutex::new(Some(session)));
@@ -139,7 +140,7 @@ fn install_recording(
         owner
     })
 }
-fn take_recording(owner: RecordingOwner) -> Option<pse_runtime::capture::SourceRecordingSession> {
+fn take_recording(owner: RecordingOwner) -> Option<pse_runtime::tooling::capture::SourceRecordingSession> {
     owner
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -285,14 +286,14 @@ pub(crate) async fn export_result(
             return Err("original result is ephemeral; protected canonical export is unavailable".into());
         };
         std::fs::create_dir_all(&base).map_err(|error| error.to_string())?;
-        let evidence = pse_runtime::frozen_inspection::FrozenEvidenceSet::default();
+        let evidence = pse_runtime::tooling::frozen_inspection::FrozenEvidenceSet::default();
         let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(16 << 20));
         let cancel = pse_columnar::CancellationToken::new();
-        let analysis = pse_runtime::review_analysis::analyze(
-            &evidence, &pse_runtime::review_analysis::AnalysisRequest::new(state.context.id()),
+        let analysis = pse_runtime::tooling::review_analysis::analyze(
+            &evidence, &pse_runtime::tooling::review_analysis::AnalysisRequest::new(state.context.id()),
             &pool, &cancel,
         ).map_err(|error| error.to_string())?;
-        let mut request = pse_runtime::review_pack::PackExportRequest::default();
+        let mut request = pse_runtime::tooling::review_pack::PackExportRequest::default();
         request.selection.maximum_output_bytes = allowance;
         request.selection.missing_context.push("Original descriptive context is retained independently by the selected source-recording handoff; this pack exports only actual protected result selections.".into());
         request.scientific_results = result.table_names().into_iter().enumerate().map(|(index, relation)| {
@@ -347,22 +348,22 @@ pub(crate) struct Audit {
     state: Option<Arc<State>>,
     publisher: Option<JoinHandle<()>>,
     detail: Option<RecordingOwner>,
-    capture: Option<pse_runtime::capture::CaptureSession>,
+    capture: Option<pse_runtime::tooling::capture::CaptureSession>,
     context: Option<ObservationContext>,
     completed: bool,
 }
 impl Audit {
-    pub(crate) fn capture_layer(&self) -> Option<pse_runtime::capture::CaptureLayer> {
+    pub(crate) fn capture_layer(&self) -> Option<pse_runtime::tooling::capture::CaptureLayer> {
         self.capture.as_ref().and_then(|session| session.layer())
     }
 
     pub(crate) fn start(case: &str, workload: &Value) -> Self {
         let Some(directory) = std::env::var_os("PSE_CASE_AUDIT_DIR").map(PathBuf::from) else {
             // A direct CLI launch can cooperate without enabling the audit publisher.
-            let operation = std::env::var_os(pse_runtime::capture::SOURCE_RECORDING_REQUEST_ENV)
+            let operation = std::env::var_os(pse_runtime::tooling::capture::SOURCE_RECORDING_REQUEST_ENV)
                 .map(|_| process_diagnostics().hub().start("audit.simulation_case"));
             let detail = operation.as_ref().and_then(|operation| {
-                match pse_runtime::capture::source_recording_from_environment(
+                match pse_runtime::tooling::capture::source_recording_from_environment(
                     operation.context(),
                     &supported_record_families(),
                 ) {
@@ -405,7 +406,7 @@ impl Audit {
         // Select source sequences before constructing any scientific invocation.
         // Failure is observational and leaves the ordinary scientific route intact.
         let mut detail_error = None;
-        let detail = match pse_runtime::capture::source_recording_from_environment(
+        let detail = match pse_runtime::tooling::capture::source_recording_from_environment(
             context.clone(),
             &supported_record_families(),
         ) {
@@ -457,14 +458,14 @@ impl Audit {
         state.snapshot("startup");
         // The real root is discoverable before attachment and before preparation.
         let capture = if std::env::var("PSE_CASE_CAPTURE_FROM_START").as_deref() == Ok("1") {
-            let request = pse_runtime::capture::CaptureRequest {
+            let request = pse_runtime::tooling::capture::CaptureRequest {
                 version: pse_model::document::Version,
                 checkpoint: diagnostics.checkpoint_path().to_path_buf(),
                 operation: state.context.id(),
-                kind: pse_runtime::capture::CaptureKind::Timeline,
+                kind: pse_runtime::tooling::capture::CaptureKind::Timeline,
                 output: state.directory.join("capture-from-start"),
                 duration: Duration::from_secs(3600),
-                budget: pse_runtime::capture::CaptureBudget {
+                budget: pse_runtime::observation_detail::CaptureBudget {
                     memory_bytes: 64 << 20,
                     output_bytes: 256 << 20,
                 },
@@ -472,7 +473,7 @@ impl Audit {
             if let Err(error) = write(&state.directory, "timeline-request.json", &json!(request)) {
                 state.error(error);
             }
-            match pse_runtime::capture::start_capture(request) {
+            match pse_runtime::tooling::capture::start_capture(request) {
                 Ok(session) => Some(session),
                 Err(error) => {
                     state.error(format!("timeline capture unavailable: {error}"));

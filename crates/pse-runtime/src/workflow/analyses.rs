@@ -260,7 +260,6 @@ fn located_rows<R: pse_relations::columnar::RelationRow>(
 impl ResponseEvidence {
     fn push(
         &mut self,
-        name: &str,
         batch: &pse_relations::columnar::FieldCheckedBatch,
         artifact: &str,
         block: u64,
@@ -276,17 +275,18 @@ impl ResponseEvidence {
                 self.$field.extend(rows);
             }};
         }
-        match name {
-            "runtime.scientific_contexts" => rows!(contexts),
-            "runtime.route_decisions" => rows!(routes),
-            "runtime.local_validity" => rows!(validity),
-            "runtime.computation_runs" => rows!(computations),
-            "runtime.trajectory_endpoints" => rows!(endpoints),
-            "runtime.simulation_samples" => rows!(samples),
-            "runtime.modeling_trajectory_modes" => rows!(modes),
-            "runtime.simulation_events" => rows!(events),
-            "runtime.parametric_sensitivities" => rows!(parametric),
-            "runtime.response_sensitivities" => rows!(responses),
+        use pse_relations::generated::runtime as relations;
+        match batch.relation_id() {
+            relations::scientific_contexts::RELATION_ID => rows!(contexts),
+            relations::route_decisions::RELATION_ID => rows!(routes),
+            relations::local_validity::RELATION_ID => rows!(validity),
+            relations::computation_runs::RELATION_ID => rows!(computations),
+            relations::trajectory_endpoints::RELATION_ID => rows!(endpoints),
+            relations::simulation_samples::RELATION_ID => rows!(samples),
+            relations::modeling_trajectory_modes::RELATION_ID => rows!(modes),
+            relations::simulation_events::RELATION_ID => rows!(events),
+            relations::parametric_sensitivities::RELATION_ID => rows!(parametric),
+            relations::response_sensitivities::RELATION_ID => rows!(responses),
             _ => {
                 self.interpretation.push(ArtifactLocator {
                     artifact: artifact.into(),
@@ -317,8 +317,8 @@ impl MemberFacts {
         analysis: bool,
     ) -> Result<Option<Self>, WorkflowError> {
         if !analysis
-            && name != "runtime.scientific_contexts"
-            && name != "runtime.trajectory_endpoints"
+            && batch.relation_id() != pse_relations::generated::runtime::scientific_contexts::RELATION_ID
+            && batch.relation_id() != pse_relations::generated::runtime::trajectory_endpoints::RELATION_ID
         {
             return Ok(None);
         }
@@ -341,7 +341,7 @@ impl MemberFacts {
             .try_grow(bytes)
             .map_err(pse_engine::EngineError::from)?;
         let mut evidence = ResponseEvidence::default();
-        evidence.push(name, batch, "", 0, analysis)?;
+        evidence.push(batch, "", 0, analysis)?;
         Ok(Some(Self {
             evidence,
             relation: name.into(),
@@ -1465,10 +1465,15 @@ impl Runtime {
         Box::pin(async move {
             let protected = self.select_scientific_input(run, attempt).await?;
             let mut prepared = Vec::new();
-            for name in ["runtime.scientific_contexts", "runtime.computation_runs"] {
+            use pse_relations::generated::runtime::{scientific_contexts, computation_runs};
+            use pse_model::generated::products::ScientificRelation;
+            for member in [
+                ScientificRelation { id: scientific_contexts::RELATION_ID, name: scientific_contexts::QUALIFIED_NAME },
+                ScientificRelation { id: computation_runs::RELATION_ID, name: computation_runs::QUALIFIED_NAME },
+            ] {
                 let spec = self
                     .registry()
-                    .relation(name)
+                    .relation_by_id(member.id)
                     .ok_or_else(|| contract("response dispatch relation absent"))?;
                 let Some(set) = protected
                     .input
@@ -1498,7 +1503,7 @@ impl Runtime {
                     let batch = snapshot.read_block(block, cancel).await?;
                     prepared.push(super::artifacts::prepare_scientific_member(
                         self,
-                        name,
+                        member,
                         &batch,
                         &block.payload_digest,
                         true,
