@@ -164,7 +164,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_repair_page($rpc_expiry:int,$operati
     IF $old!=NONE { RETURN $old; };
     fn::pse_execution_v1::register($rpc_expiry,'study-cancel:'+$study);
     LET $s=SELECT run FROM ONLY type::record('canonical_studies',$study);
-    IF $s=NONE OR $s.run!=$run OR array::len($items)>65 OR bytes::len(encoding::cbor::encode($request))>1048576 { THROW 'PSE_REFUSAL:study_readiness_repair_page_extent'; };
+    IF ($request.mutating=false AND $fence.mode!='verify') OR $s=NONE OR $s.run!=$run OR array::len($items)>65 OR bytes::len(encoding::cbor::encode($request))>1048576 { THROW 'PSE_REFUSAL:study_readiness_repair_page_extent'; };
     LET $old_cursor=SELECT * FROM ONLY type::record('canonical_study_readiness_cursors',$study);
     LET $outcomes=$items.map(|$item| fn::pse_study_v1::readiness_repair_item($rpc_expiry,$study,$generation,$cancelled,$item,$request.mutating));
     // A logical refusal cannot certify a scan prefix. Stale items have a durable

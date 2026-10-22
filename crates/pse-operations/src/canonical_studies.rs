@@ -1246,7 +1246,7 @@ impl CanonicalStore {
                         return Ok(examined.len() as u64);
                     }
                 }
-                if changes && error.proves_source_refusal() {
+                if changes && error.source_transaction_refused() {
                     self.release_history_obligation(&obligation).await?;
                 }
                 return Err(error);
@@ -1336,7 +1336,7 @@ impl CanonicalStore {
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     self.ensure_writes()?;
-                    let Some(owner) = self.canonical_study(study).await? else {
+                    let Some(owner) = self.canonical_study_summary(study).await? else {
                         return Err(CanonicalError::IncompleteResponse);
                     };
                     if !owner.active || owner.cancelled || owner.terminal {
