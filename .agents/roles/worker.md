@@ -20,7 +20,9 @@ scopes, which a brief can narrow. Name a markdown file you write for its content
 report, summary, findings or analysis. Resolve paths from the repository root; Codex
 discovers skills through `.agents/skills`, and their tracked source is `.codex/skills`.
 
-Preserve concurrent work. Do not commit, push or delegate further unless assigned. Report a missing
+Preserve concurrent work. The coordinator owns the shared index and commits under
+AGENTS.md's regular discrete-commit policy; hand off coherent items promptly for that purpose.
+Do not independently commit, push or delegate further unless assigned. Report a missing
 prerequisite, conflicting contract or material discovery beyond scope to the coordinator; continue
 independent in-scope work where useful. Make ordinary local decisions within the brief yourself.
 

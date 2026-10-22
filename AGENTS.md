@@ -308,6 +308,15 @@ changes, and remove fully merged worktrees. Never set `CARGO_TARGET_DIR` or poin
 checkouts at one target directory (ADR-0122); the sccache cache is shared. Details:
 [agent environment guide](docs/dev/agent-environment.md#worktrees).
 
+**Commit regularly in discrete, coherent changes during authorized implementation.**
+Commit an integrated item when it has a clear purpose and reviewable boundary; do not wait
+for the entire plan, scope-end qualification or the end of the conversation. Include its
+necessary declarations, generated outputs, consumers and deletions together, and describe
+the verification actually performed and any material remaining obligations. A commit does
+not establish plan completion or authorize a push. The coordinator owns the shared index
+and commits unless it explicitly delegates that responsibility. Stage only owned paths or
+hunks, preserving unrelated and concurrent work.
+
 ## Agent coordination and workflow skills
 
 Use subagents when independent work, context isolation, distinct capabilities or independent
