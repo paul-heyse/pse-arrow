@@ -33,9 +33,11 @@ PATCHES = (
     "canonical-profile.patch",
     "grpc-session-admission.patch",
     "grpc-status-details.patch",
+    "surrealism-locked-build.patch",
 )
 DISKANN_SHA256 = "3ead115d8a4f3917c1ae9c3db0aa4dd56251841864ef8637329969f8e5145dd3"
-FEATURES = "storage-mem,cli,mcp"
+FEATURES = "storage-mem,cli,mcp,surrealism"
+SURREALISM_SDK = "0.6.4"
 PROFILE = "release"
 BUILD_CONFIG = ['profile.release.panic="unwind"']
 
@@ -60,6 +62,7 @@ def inputs() -> dict[str, object]:
         "upstream_revision": REVISION,
         "upstream_origin": ORIGIN,
         "surrealmx_version": ENGINE,
+        "surrealism_sdk_version": SURREALISM_SDK,
         "patches": patches,
         "build_metadata": metadata,
         "cargo_config_sha256": digest(ROOT / ".cargo/config.toml"),
@@ -146,6 +149,8 @@ def verify_source(source: Path) -> None:
         raise BuildError("Source manifest does not select the required MX engine")
     if 'name = "surrealmx"\nversion = "1.0.0"' not in lock:
         raise BuildError("Source lockfile does not resolve the required MX engine")
+    if f'name = "surrealism-runtime"\nversion = "{SURREALISM_SDK}"' not in lock:
+        raise BuildError("Source lockfile does not resolve the required Surrealism runtime")
 
 
 def tree_digest(directory: Path) -> dict[str, str]:
@@ -266,9 +271,11 @@ def install(directory: Path) -> dict[str, object]:
     actual = command([str(binary), "version"]).strip()
     if VERSION not in actual or str(selected["build_metadata"]) not in actual:
         raise BuildError("Built executable version differs from its pinned source")
+    command([str(binary), "db", "module", "build", "--help"])
     receipt: dict[str, object] = {
         "version": VERSION,
         "surrealmx_version": ENGINE,
+        "surrealism_sdk_version": SURREALISM_SDK,
         "upstream_revision": REVISION,
         "binary": str(binary),
         "binary_sha256": digest(binary),

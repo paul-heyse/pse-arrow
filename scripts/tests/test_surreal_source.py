@@ -76,6 +76,17 @@ class SourceAdmissionTests(unittest.TestCase):
             extract.assert_not_called()
             self.assertFalse((directory / "source").exists())
 
+    def test_surrealism_feature_and_locked_cli_patch_are_build_inputs(self) -> None:
+        self.assertIn("surrealism", source.FEATURES.split(","))
+        self.assertEqual(source.inputs()["surrealism_sdk_version"], "0.6.4")
+        patch_text = (source.INPUTS / "surrealism-locked-build.patch").read_text()
+        self.assertIn('"build", "--locked"', patch_text)
+        self.assertIn('"metadata", "--locked"', patch_text)
+        self.assertIn('Declare .cargo/config.toml', patch_text)
+        prior = source.installation_name()
+        with patch.object(source, "FEATURES", "storage-mem,cli,mcp"):
+            self.assertNotEqual(source.installation_name(), prior)
+
     def test_changed_patch_toolchain_or_flags_select_new_installation(self) -> None:
         prior = source.installation_name()
         actual_digest = source.digest

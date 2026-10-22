@@ -1,0 +1,62 @@
+--- a/surrealdb/server/src/cli/module/build.rs
++++ b/surrealdb/server/src/cli/module/build.rs
+@@ -200,7 +200,7 @@
+ 	println!("Building WASM module (target: {target}, profile: {profile})...");
+ 
+ 	let mut cmd = Command::new("cargo");
+-	cmd.args(["build", "-p", package_name, "--target", target]);
++	cmd.args(["build", "--locked", "-p", package_name, "--target", target]);
+ 	if !debug {
+ 		cmd.arg("--release");
+ 	}
+@@ -389,7 +389,7 @@
+ /// versions are available for SDK compatibility checks.
+ fn metadata(path: &Path) -> Result<serde_json::Value> {
+ 	let output = Command::new("cargo")
+-		.args(["metadata", "--format-version", "1"])
++		.args(["metadata", "--locked", "--format-version", "1"])
+ 		.current_dir(path)
+ 		.output()
+ 		.prefix_err(|| "Failed to execute cargo metadata")?;
+--- a/surrealdb/server/src/cli/module/wasm_target.rs
++++ b/surrealdb/server/src/cli/module/wasm_target.rs
+@@ -1,35 +1,18 @@
+-use std::fs;
+ use std::path::Path;
+ use std::process::Command;
+ 
+ use anyhow::Result;
+-use surrealism_runtime::PrefixErr;
+ 
+ pub const TARGET: &str = "wasm32-wasip2";
+ 
+-const CARGO_CONFIG: &str = r#"[build]
+-rustflags = ["--cfg", "tokio_unstable"]
+-"#;
+-
+ const TOKIO_UNSTABLE_CFG: &str = "--cfg tokio_unstable";
+ 
+-/// Ensure the module project has `.cargo/config.toml` with WASI build flags.
+-///
+-/// The Surrealism SDK depends on Tokio's `net` feature for `wasm32-wasip2`.
+-/// Tokio currently requires `--cfg tokio_unstable` for that target. Existing
+-/// files are left untouched so operators can customise flags.
++/// Require declared module configuration; build tools do not mutate sources.
+ pub fn ensure_cargo_config(project_dir: &Path) -> Result<()> {
+-	let cargo_dir = project_dir.join(".cargo");
+-	let config_path = cargo_dir.join("config.toml");
+-	if config_path.exists() {
+-		return Ok(());
++	let config_path = project_dir.join(".cargo/config.toml");
++	if !config_path.is_file() {
++		anyhow::bail!("Declare .cargo/config.toml before building a canonical module");
+ 	}
+-
+-	fs::create_dir_all(&cargo_dir)
+-		.prefix_err(|| format!("Failed to create {}", cargo_dir.display()))?;
+-	fs::write(&config_path, CARGO_CONFIG)
+-		.prefix_err(|| format!("Failed to write {}", config_path.display()))?;
+-
+ 	Ok(())
+ }
+ 
