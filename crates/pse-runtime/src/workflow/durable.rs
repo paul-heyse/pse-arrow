@@ -1844,6 +1844,16 @@ impl DurableAttempt {
     }
     async fn terminate(
         &mut self,
+        stored: StoredCompletion,
+    ) -> Result<DurableRecord, WorkflowError> {
+        let pool = self.operations.pool.clone();
+        durable_publication_action(&pool, "durable:terminal-action", || {
+            self.terminate_inner(stored)
+        })
+        .await
+    }
+    async fn terminate_inner(
+        &mut self,
         mut stored: StoredCompletion,
     ) -> Result<DurableRecord, WorkflowError> {
         let fence = self.fence()?.clone();
@@ -2130,6 +2140,18 @@ impl DurableAttempt {
         }
     }
     async fn settle_cancelled_completion(
+        &self,
+        fence: &AttemptFence,
+        stored: StoredCompletion,
+        seeds: SeedEligibility,
+    ) -> Result<DurableRecord, WorkflowError> {
+        let pool = self.operations.pool.clone();
+        durable_publication_action(&pool, "durable:cancelled-completion-action", || {
+            self.settle_cancelled_completion_inner(fence, stored, seeds)
+        })
+        .await
+    }
+    async fn settle_cancelled_completion_inner(
         &self,
         fence: &AttemptFence,
         mut stored: StoredCompletion,
@@ -3735,11 +3757,12 @@ pub(super) fn source_edit(
         references: Vec::new(),
     }
 }
-// Keep each physical edit's construction temporaries out of the publication
+// Keep each publication phase's construction temporaries out of its caller's
 // poll frame. Admission precedes construction; out-of-line construction and
 // polling preserve ordinary executor stacks without changing task ownership.
-async fn physical_publication_action<T, F, Fut>(
+async fn durable_publication_action<T, F, Fut>(
     pool: &Arc<dyn MemoryPool>,
+    name: &'static str,
     action: F,
 ) -> Result<T, WorkflowError>
 where
@@ -3753,7 +3776,7 @@ where
     {
         size_of::<Fut>()
     }
-    let owner = MemoryConsumer::new("physical:publication-action").register(pool);
+    let owner = MemoryConsumer::new(name).register(pool);
     owner
         .try_grow(action_bytes(&action))
         .map_err(pse_engine::EngineError::from)?;
@@ -3794,7 +3817,7 @@ impl Operations {
             .collect::<Vec<_>>();
         // edit binds the complete original request and settles unknown activation
         // ACKs using its immutable operation receipt. No guessed parent advances.
-        physical_publication_action(&self.pool, || async {
+        durable_publication_action(&self.pool, "physical:publication-action", || async {
             Ok(pse_operations::canonical::response_ownership_scope(
                 group.owner.clone(),
                 self.store.edit(
@@ -3887,18 +3910,22 @@ impl Operations {
                 );
                 let problem = format!("physical:context:{}", physical.identity());
                 revisions.push(
-                    physical_publication_action(&self.pool, || async {
-                        Ok(pse_operations::canonical::response_ownership_scope(
-                            encoding.clone(),
-                            self.store.edit(
-                                &problem,
-                                None,
-                                &format!("physical:context:{}", physical.identity()),
-                                &[edit],
-                            ),
-                        )
-                        .await?)
-                    })
+                    durable_publication_action(
+                        &self.pool,
+                        "physical:publication-action",
+                        || async {
+                            Ok(pse_operations::canonical::response_ownership_scope(
+                                encoding.clone(),
+                                self.store.edit(
+                                    &problem,
+                                    None,
+                                    &format!("physical:context:{}", physical.identity()),
+                                    &[edit],
+                                ),
+                            )
+                            .await?)
+                        },
+                    )
                     .await?,
                 );
                 let result = runtime
@@ -3996,6 +4023,44 @@ mod physical_publication_unit;
 mod physical_publication_action_tests {
     use super::*;
 
+    #[test]
+    fn cancelled_completion_continuation_keeps_the_owned_phase_out_of_its_frame() {
+        fn phase_bytes<'a, F, Fut>(_: F) -> usize
+        where
+            F: FnOnce(
+                &'a DurableAttempt,
+                &'a AttemptFence,
+                StoredCompletion,
+                SeedEligibility,
+            ) -> Fut,
+            Fut: Future,
+        {
+            size_of::<Fut>()
+        }
+        fn terminal_bytes<'a, F, Fut>(_: F) -> usize
+        where
+            F: FnOnce(&'a mut DurableAttempt, StoredCompletion) -> Fut,
+            Fut: Future,
+        {
+            size_of::<Fut>()
+        }
+        let continuation = phase_bytes(DurableAttempt::settle_cancelled_completion);
+        let phase = phase_bytes(DurableAttempt::settle_cancelled_completion_inner);
+        let terminal = terminal_bytes(DurableAttempt::terminate);
+        let terminal_phase = terminal_bytes(DurableAttempt::terminate_inner);
+        assert!(
+            continuation * 8 < phase,
+            "the admitted continuation must not carry its large owned phase: {continuation}/{phase}"
+        );
+        assert!(
+            terminal * 8 < terminal_phase,
+            "terminal observation must not embed its owned phase: {terminal}/{terminal_phase}"
+        );
+        eprintln!(
+            "durable future bytes: cancellation={continuation}, cancellation_phase={phase}, terminal={terminal}, terminal_phase={terminal_phase}"
+        );
+    }
+
     struct Action {
         cancel: crate::CancelSource,
         dropped: Arc<AtomicU64>,
@@ -4027,7 +4092,7 @@ mod physical_publication_action_tests {
         let entered = Arc::new(AtomicU64::new(0));
         let dropped = Arc::new(AtomicU64::new(0));
         let tiny: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(extent - 1));
-        let refused = physical_publication_action(&tiny, || {
+        let refused = durable_publication_action(&tiny, "physical:publication-action", || {
             entered.fetch_add(1, Ordering::AcqRel);
             Action {
                 cancel: crate::CancelSource::new(),
@@ -4045,18 +4110,22 @@ mod physical_publication_action_tests {
         for cancelled in [false, true] {
             let cancel = crate::CancelSource::new();
             let dropped = Arc::new(AtomicU64::new(0));
-            let mut work = Box::pin(physical_publication_action(&pool, || {
-                assert_eq!(
-                    pool.reserved(),
-                    extent,
-                    "exact future admission precedes construction"
-                );
-                Action {
-                    cancel: cancel.clone(),
-                    dropped: dropped.clone(),
-                    _payload: [0; 1024],
-                }
-            }));
+            let mut work = Box::pin(durable_publication_action(
+                &pool,
+                "physical:publication-action",
+                || {
+                    assert_eq!(
+                        pool.reserved(),
+                        extent,
+                        "exact future admission precedes construction"
+                    );
+                    Action {
+                        cancel: cancel.clone(),
+                        dropped: dropped.clone(),
+                        _payload: [0; 1024],
+                    }
+                },
+            ));
             assert!(futures_util::poll!(work.as_mut()).is_pending());
             assert_eq!(pool.reserved(), extent);
             if cancelled {
