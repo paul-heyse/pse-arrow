@@ -13,6 +13,9 @@ mod partial;
 mod piecewise;
 #[path = "typed_receipts.rs"]
 pub mod receipts;
+#[path="typed_provider.rs"]
+mod provider;
+pub use provider::{PreparedProviderCall,PreparedProviderCallRecord};
 use crate::{
     Function, MathError,
     guarded::{Comparison, CompiledBody, Condition, PreparedBody, Stage},
@@ -1169,149 +1172,9 @@ impl<'a> BodyBuilder<'a> {
         partial: &[usize],
         source: SemanticId,
     ) -> Result<Vec<TypedValue>, MathError> {
-        self.tick()?;
-        let spec = registration.spec();
-        let remaining = (spec.derivatives.min(spec.smoothness) as usize)
-            .checked_sub(partial.len())
-            .ok_or_else(|| {
-                MathError::Contract("external partial exceeds supplied derivative order".into())
-            })?;
-        if partial.iter().any(|i| *i >= inputs.len()) {
-            return Err(MathError::Contract("external partial coordinate".into()));
-        }
-        let available = match remaining {
-            0 => DerivativeOrder::Value,
-            1 => DerivativeOrder::First,
-            _ => DerivativeOrder::Second,
-        };
-        if inputs.len() != spec.inputs.len() {
-            return Err(MathError::Contract("provider input arity".into()));
-        }
-        let cache_key = (
-            spec.key(),
-            inputs.iter().map(|v| v.atom.clone()).collect(),
-            partial.to_vec(),
-        );
-        if !self.physical_only
-            && let Some(outputs) = self.provider_cache.get(&cache_key)
-        {
-            for (value, port) in inputs.iter().zip(&spec.inputs) {
-                pse_quantity::admission::require_same_contract(
-                    value.quantity()?,
-                    port.quantity,
-                    self.registry,
-                )?;
-            }
-            if inputs.windows(2).any(|w| w[0].indices != w[1].indices) {
-                return Err(MathError::Contract(
-                    "provider lexical indices differ".into(),
-                ));
-            }
-            return Ok(outputs
-                .iter()
-                .cloned()
-                .map(|mut value| {
-                    value
-                        .effects
-                        .extend(inputs.iter().flat_map(|v| v.effects.iter().copied()));
-                    value.source = source;
-                    value.indices = inputs
-                        .first()
-                        .map_or_else(IndexSet::new, |v| v.indices.clone());
-                    value
-                })
-                .collect());
-        }
-        let mut input_slots = vec![];
-        let mut input_scales = vec![];
-        for (value, port) in inputs.iter().zip(&spec.inputs) {
-            pse_quantity::admission::require_same_contract(
-                value.quantity()?,
-                port.quantity,
-                self.registry,
-            )?;
-            let ty = self.registry.quantity_type(port.quantity)?;
-            let conversion = pse_quantity::convert_spec_for_type(
-                self.registry.unit(ty.canonical_unit)?,
-                self.registry.unit(port.unit)?,
-                &ty.key,
-            )?;
-            input_scales.push(conversion.scale);
-            input_slots.push(self.materialize(
-                &value.atom * Atom::num(conversion.scale) + Atom::num(conversion.offset),
-                source,
-            )?);
-        }
-        let mut slots = vec![];
-        let mut outputs = vec![];
-        for port in &spec.outputs {
-            let slot = if self.physical_only { 0 } else { self.slot()? };
-            slots.push(slot);
-            let ty = self.registry.quantity_type(port.quantity)?;
-            let conversion = pse_quantity::convert_spec_for_type(
-                self.registry.unit(port.unit)?,
-                self.registry.unit(ty.canonical_unit)?,
-                &ty.key,
-            )?;
-            use pse_quantity::scheme::{Scheme, Substitution};
-            let mut scheme = Scheme::Concrete(port.quantity);
-            for i in partial {
-                scheme = Scheme::Quotient(
-                    Box::new(Scheme::Delta(Box::new(scheme))),
-                    Box::new(Scheme::Delta(Box::new(Scheme::from_contract(
-                        inputs[*i].quantity.clone(),
-                    )))),
-                );
-            }
-            let quantity = scheme
-                .resolve_contract_with_evidence(self.registry, &Substitution::new(), self.checker)
-                .map_err(|e| MathError::Contract(e.to_string()))?;
-            let scale = partial
-                .iter()
-                .fold(conversion.scale, |s, i| s * input_scales[*i]);
-            if !scale.is_finite() {
-                return Err(MathError::Contract("external partial unit scale".into()));
-            }
-            outputs.push(TypedValue {
-                effects: inputs
-                    .iter()
-                    .flat_map(|v| v.effects.iter().copied())
-                    .chain([slot])
-                    .collect(),
-                atom: if self.physical_only {
-                    Atom::num(0)
-                } else {
-                    library::formal(slot)? * Atom::num(scale)
-                        + Atom::num(if partial.is_empty() {
-                            conversion.offset
-                        } else {
-                            0.
-                        })
-                },
-                quantity,
-                indices: inputs
-                    .first()
-                    .map_or_else(IndexSet::new, |v| v.indices.clone()),
-                source,
-            });
-        }
-        if inputs.windows(2).any(|w| w[0].indices != w[1].indices) {
-            return Err(MathError::Contract(
-                "provider lexical indices differ".into(),
-            ));
-        }
-        self.provider_order = self.provider_order.min(available);
-        if !self.physical_only {
-            self.stages.push(Stage::Provider {
-                spec: spec.clone(),
-                partial: partial.to_vec(),
-                inputs: input_slots,
-                outputs: slots,
-                source,
-            });
-            self.provider_cache.insert(cache_key, outputs.clone());
-        }
-        Ok(outputs)
+        let contracts=inputs.iter().map(|value|value.quantity.clone()).collect::<Vec<_>>();
+        let prepared=PreparedProviderCall::prepare(registration,&contracts,partial,self.registry,self.checker)?;
+        self.provider_partial_admitted(&prepared,inputs,source)
     }
     /// Construct independent lazy branch regions. No optimizer sees across their barriers.
     /// # Errors
