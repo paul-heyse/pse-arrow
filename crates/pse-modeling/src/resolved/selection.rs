@@ -459,7 +459,7 @@ fn required<T: Ord, U: Copy>(map: &BTreeMap<T, U>, slot: &T, kind: &str) -> Resu
     })
 }
 impl Relocation {
-    fn new(layout: &CanonicalLayout) -> Self {
+    pub(super) fn new(layout: &CanonicalLayout) -> Self {
         Self {
             symbols: map(layout.symbols.iter().map(|value| value.symbol)),
             nodes: map(layout.nodes.iter().copied()),

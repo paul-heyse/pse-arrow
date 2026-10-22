@@ -56,6 +56,24 @@ impl Fragment {
     }
 }
 
+/// The reached foreign premises of a local producer. Actual identities and source
+/// inspections stay intact; only typed coordinates are relocated. Unrelated root
+/// arena state is never retained by this boundary.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct CapturedFragment {
+    pub(crate) fragment: Fragment,
+    pub(crate) symbols: crate::specialize::Symbols,
+    // Receiver-only correspondence; never include these root coordinates in a producer key.
+    pub(crate) actual: Vec<SymbolIx>,
+}
+impl CapturedFragment {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        size_of::<Self>().saturating_add(self.fragment.retained_bytes())
+            .saturating_add(self.symbols.retained_bytes())
+            .saturating_add(self.actual.capacity() * size_of::<SymbolIx>())
+    }
+}
+
 /// Complete relocation issued by one successful import, including non-output
 /// roots used by the producer's original contribution/connection obligations.
 #[derive(Debug)]
@@ -81,6 +99,91 @@ fn offsets<T: Ord + Copy + From<usize>>(count: usize, start: usize) -> Result<BT
 }
 
 impl Construction {
+    /// Capture only the closure reached from explicitly selected foreign roots.
+    /// This uses the same checked traversal as mathematical selection, retaining
+    /// original meaning and attribution instead of making a neutral math region.
+    pub(crate) fn capture_fragment(
+        &self,
+        outputs: &[NodeIx],
+        guards: &[PredicateIx],
+        symbols: &crate::specialize::Symbols,
+    ) -> Result<CapturedFragment> {
+        let layout = self.layout(symbols, outputs, guards)?;
+        let relocation = Relocation::new(&layout);
+        let mut local_symbols = crate::specialize::Symbols::default();
+        let actual = layout.symbols.iter().map(|value| value.symbol).collect::<Vec<_>>();
+        let mut contracts = Vec::with_capacity(actual.len());
+        for slot in &actual {
+            let mut symbol = symbols.at(*slot).ok_or_else(|| invalid(
+                SemanticId::NIL, "captured scalar is outside its source owner",
+            ))?.clone();
+            contracts.push(ScalarContract::of(&symbol));
+            symbol.definition = symbol.definition.map(|root| relocation.node(root)).transpose()?;
+            local_symbols.push(symbol);
+        }
+        let mut arena = Arena::default();
+        let mut admissions = BTreeMap::new();
+        let mut literals = BTreeMap::new();
+        for old in &layout.nodes {
+            let local = relocation.node(*old)?;
+            arena.nodes.push(relocation.operation(&self.arena.nodes[*old])?);
+            if let Some(source) = self.arena.node_sources.get(old) {
+                arena.node_sources.insert(local, source.clone());
+            }
+            if let Some(value) = self.admissions.get(old) { admissions.insert(local, value.clone()); }
+            if let Some(value) = self.literals.get(old) { literals.insert(local, value.clone()); }
+            if let Some(value) = self.arena.finite_folds.get(old) {
+                arena.finite_folds.insert(local, FiniteFold {
+                    carrier: relocation.carrier(value.carrier)?, selected: value.selected.clone(),
+                    prototype: value.prototype.clone(),
+                });
+            }
+        }
+        for old in &layout.predicates {
+            let local = relocation.predicate(*old)?;
+            arena.predicates.push(relocation.guard(&self.arena.predicates[*old])?);
+            if let Some(source) = self.arena.predicate_sources.get(old) {
+                arena.predicate_sources.insert(local, source.clone());
+            }
+        }
+        for old in &layout.binders {
+            arena.binders.push(match self.arena.binders[*old] {
+                Binding::Value(root) => Binding::Value(relocation.node(root)?),
+                Binding::Coordinate(carrier) => Binding::Coordinate(relocation.carrier(carrier)?),
+                Binding::Accumulator => Binding::Accumulator, Binding::Item => Binding::Item,
+            });
+        }
+        for old in &layout.functions { arena.functions.push(self.arena.functions[*old].clone()); }
+        for old in &layout.evidence { arena.evidence.push(relocation.usage(&self.arena.evidence[*old])?); }
+        for old in &layout.carriers { arena.carriers.push(self.arena.carriers[*old].clone()); }
+        for old in &layout.groups {
+            let value = &self.arena.groups[*old];
+            arena.groups.push(IndexedGroup {
+                axes: value.axes.iter().map(|slot| relocation.carrier(*slot)).collect::<Result<_>>()?,
+                members: value.members.iter().map(|(tuple, slot)| Ok((tuple.clone(),
+                    slot.map(|slot| relocation.symbol(slot)).transpose()?))).collect::<Result<_>>()?,
+            });
+        }
+        for slot in &actual {
+            if let Some(value) = self.arena.member_ranges.get(slot) {
+                arena.member_ranges.insert(relocation.symbol(*slot)?, MemberRange {
+                    lower: relocation.node(value.lower)?, upper: relocation.node(value.upper)?, layer: value.layer,
+                });
+            }
+        }
+        let used = arena.nodes.len().saturating_add(arena.predicates.len())
+            .saturating_add(arena.binders.len()).saturating_add(arena.functions.len())
+            .saturating_add(arena.evidence.len()).saturating_add(arena.carriers.len())
+            .saturating_add(arena.groups.len()).saturating_add(arena.member_ranges.len())
+            .saturating_add(arena.finite_folds.values().map(|fold| fold.selected.len().saturating_add(1)).sum::<usize>())
+            .saturating_add(admissions.len()).saturating_add(literals.len());
+        Ok(CapturedFragment { fragment: Fragment {
+            arena: Arc::new(arena), admissions: Arc::new(admissions), literals: Arc::new(literals),
+            scalars: contracts.into(), outputs: relocation.nodes(outputs)?,
+            guards: guards.iter().map(|slot| relocation.predicate(*slot)).collect::<Result<_>>()?, used,
+        }, symbols: local_symbols, actual })
+    }
+
     /// Freeze one local producer. The ordered scalar contract is explicit: all
     /// referenced scalars must appear once, and no source/root index survives.
     pub(crate) fn into_fragment(
@@ -305,6 +408,41 @@ mod tests {
             bindings: vec![BinderIx::from(0)], body: imported.outputs[1],
         });
         target.finish(target_symbols, imported.outputs, imported.guards).unwrap();
+    }
+    #[test]
+    fn fragment_capture_selects_foreign_definition_closure_without_root_offsets() {
+        fn capture(prefix: bool) -> CapturedFragment {
+            let mut symbols = scalar_symbols(10, Type::Integer);
+            let mut root = Construction::new(128);
+            if prefix { literal(&mut root, "999", 99); }
+            let one = literal(&mut root, "1", 1);
+            let definition = root.node(Node::Neg(one), source(2)).unwrap();
+            symbols.define(SymbolIx::from(1), definition).unwrap();
+            let reference = root.node(Node::Reference(Reference::Symbol(SymbolIx::from(1))), source(3)).unwrap();
+            let zero = literal(&mut root, "0", 4);
+            root.member_range(SymbolIx::from(1), MemberRange { lower: zero, upper: one,
+                layer: pse_model::generated::enums::ModelingValidityLayer::Form }).unwrap();
+            let guard = root.predicate(ResolvedPredicate::Compare {
+                op: CompareOp::Ge, lhs: reference, rhs: zero,
+            }, source(5)).unwrap();
+            literal(&mut root, "888", 88);
+            root.capture_fragment(&[reference], &[guard], &symbols).unwrap()
+        }
+        let shifted = capture(true);
+        let capture = capture(false);
+        assert_eq!(capture.fragment, shifted.fragment);
+        assert_eq!(capture.symbols, shifted.symbols);
+        assert_eq!(capture.symbols.len(), 1);
+        assert_eq!(capture.fragment.arena.nodes.len(), 4);
+        assert_eq!(capture.actual, vec![SymbolIx::from(1)]);
+        assert!(capture.retained_bytes() > capture.fragment.retained_bytes());
+        let mut local = Construction::new(128);
+        let imported = local.import_fragment(&capture.fragment, &capture.symbols, &[SymbolIx::from(0)]).unwrap();
+        let definition = capture.symbols.at(SymbolIx::from(0)).unwrap().definition.unwrap();
+        assert!(matches!(local.arena.nodes[imported.node(definition).unwrap()], Node::Neg(_)));
+        assert_eq!(local.node_source(imported.outputs[0]).unwrap(), &source(3));
+        assert_eq!(local.predicate_source(imported.guards[0]).unwrap(), &source(5));
+        assert_eq!(local.layout(&capture.symbols, &imported.outputs, &imported.guards).unwrap().symbols.len(), 1);
     }
     #[test]
     fn fragment_refusals_do_not_partially_publish_into_the_receiving_arena() {
