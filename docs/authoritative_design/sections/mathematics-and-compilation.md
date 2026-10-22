@@ -909,6 +909,21 @@ poisons unfinished pure work instead of letting a later consumer restart it.
 
 Finite family-specific count capacities, live-root/backdating allowance and actual shared-root accounting replace routine reference-workload generation rotation. Current retained defaults are 131,072 entries/2 GiB known bytes, granular capacity 4,096 and live family capacity 256, subject to finite admitted extent. The known-byte allowance covers the supported reference's original granular inputs, current products and backdating values; it is neither RSS nor per-memo pinning. Immutable physical registries have canonical Salsa ingredient owners charged once, while distinct projected packages, field recipes and typed deltas retain their own extents. Exclusive accounting drains cloned readers before producing an owned observation; publication does not inspect a live borrowed accounting iterator.
 
+Selected static-function package projection is a tracked query of its complete immutable
+parent and normalized projection/read recipe. The producer interns a complete immutable payload;
+consumers reuse that owner rather than repeat whole-package equality on each field/function
+callback. Parent and selector identify the query, not a substitute semantic payload. Equal
+complete owners can share across parents, A/B/A products coexist, and nested selection retains
+its actual parent. Physical registries keep canonical shared owners while projected extents,
+source attribution, exact read sets and finite query retention remain explicit.
+
+Mathematical constructor admission distinguishes actual library AST populations, encoded source,
+arbitrary-precision literal payload, demanded Taylor width and exported program storage. Sparse
+stage descriptions charge reached formal occurrences plus one temporary formal inventory.
+Actual exported excess is reserved before floating conversion. These known charges retain their
+original finite constructor allowance and do not replace opaque foreign/compiler envelopes;
+source byte counts and cumulative admissions are not live heap or process RSS measurements.
+
 **Candidate and retained compiler ownership (accepted Plan45 RC02).** Candidate phase construction and retained compiler products have separate lifetimes. A candidate allowance bounds temporary work; publication transfers a conservative charge for genuinely retained owners rather than accumulating every historical construction allowance. Equality/backdating does not retain an identical candidate twice. Live old outputs, hidden shared nodes and unreported foreign allocations remain covered; failed/cancelled candidates release temporary grants. Reserved defaults, opaque allowances and conservative pressure rotation remain unchanged. A lifetime-bound census accounts for the actual current input roots, deduplicates shared input owners within that census and conservatively covers distinct persistent prefixes; tracked output allocations retain their own accounting. Historical candidate-construction allowances do not accumulate as current retained inputs.
 
 > Decision: [ADR-0195](../../adr/0195-notification-owned-execution-waits.md) (proposed; maintainer-authorized Plan43 target).

@@ -376,34 +376,22 @@ retain their deterministic eligibility; settled optional inquiries are not reope
 retain the configured sixteen jobs and unbounded ordinary build mode; scientific deployment
 envelopes and ownership remain explicit. The canceled broad native sweep stays canceled.
 
-Current package rows below remain open until their required acceptance is established. This
-continuation does not close independent 49f–49h work or establish comparative performance gains.
+The Outcome below records completed MAT01–MAT06 and RUN01–RUN10 acceptance. Independent
+49f–49h work remains open; this continuation establishes no comparative performance gain.
 
 ### Current continuation checkpoint
 
-The focused math/runtime/native acceptance identified and corrected recycle tear-coordinate
-custody and sparse description overpayment. Remaining scientific construction exposed a second
-source-byte versus numeric-population estimate; its library-owned AST census and coefficient
-coverage are being qualified without changing the 8GiB constructor allowance. Compiler fragment
-consumers also move repeated whole-package equality onto tracked parent/selection products,
-preserving exact read sets, physical owners and source attribution. These are MAT consumer and
-construction repairs within the selected target, not a new library-feasibility engagement.
+All remaining 49d–49e packages are complete for their selected contracts and acceptance. The
+[Outcome](#outcome--remaining-49d49e-2026-10-22) records constructor/projection repairs, complete
+explicit fitting policies, original-clock read retry, charged terminal phases and actual
+Rust/native/Python consumers. The final reference selection passes all six controls with normal
+physical drain; its publication test includes retirement's first returned cleanup page while
+retaining exact two-attempt retirement, independent graph and escaped Arrow assertions.
 
-The maintainer restored the documented inotify limits after genuine user-manager watch exhaustion.
-Normal native scope creation/drain now succeeds. The maintainer also explicitly selected disposal
-of the obsolete generated invocation. After authenticating the disappearance of its original
-process/scopes, the exact unfinished terminal guard and build allocation were released; no test
-outcome or terminal acknowledgment was invented. The obsolete poisoned functional store was then
-stopped under the same disposition after all 103 registered worker inventories were observed
-absent/drained. Ordinary reconciliation released its storage allocation. Historical unknown
-creation effects remain incomplete; they no longer require keeping an obsolete process running.
-The current selected Surrealism deployment is unchanged. This supersedes the earlier preservation
-instruction for invocation `d63c4731f12e4cc7b2a0d7eef19f7fac` and its obsolete storage lifetime.
-
-Next: freeze the constructor/fragment repairs, qualify the separated flash and remaining physical
-journeys, rebuild the linked Python/worker consumers, run the selected public/component and exact
-sixteen-owner reference checks, then reconcile package/findings and durable publication. The
-reference deployment is fresh and closed pending initialization; it is not yet qualified.
+Earlier failed runs retain their actual results. Only the maintainer-selected obsolete generated
+invocation/store lifetimes were discarded; unknown logical effects were not promoted to success.
+The normal selected Surrealism deployment remains the handoff target. The package/finding tables
+below retain independent 49f–49h scope; no canceled campaign is resumed by this closeout.
 
 ## Reading route and ownership
 
@@ -641,7 +629,7 @@ GOV02 is the remaining coordinator decision/publication route.
 | Package | Status | Owner | Required capability / completion |
 | --- | --- | --- | --- |
 | GOV01 | done | coordinator | Operator explicitly accepted RC01–RC21, 2026-10-21; no product implementation claimed |
-| GOV02 | in-progress | coordinator | Proposed ADR-0214/0215 and blueprint239–245 publish selected targets and completed 49a–49c acceptance. Publication for remaining 49d–49h stays open; formal ADR acceptance is separate. |
+| GOV02 | in-progress | coordinator | Proposed ADR-0214/0215 and blueprint239–246 publish selected targets and completed 49a–49e acceptance. Remaining 49f–49h publication stays open; formal ADR acceptance is separate. |
 | STO01 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: pinned source-built3.3.4/MX1.0, owned adapter conversions and actual source units; store Outcome. |
 | STO02 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: SSI, synchronous persistence/finite controls, authenticated native statistics, reader/fault controls; store Outcome. |
 | STO03 | done | [49a](49a-surrealmx-canonical-store.md) | Implemented and Tested: generated v7 phases/constraints/refusals, migrated consumers, terminal manifest event and exact witnesses; store Outcome. |
@@ -667,22 +655,22 @@ GOV02 is the remaining coordinator decision/publication route.
 | PRE07 | done | [49c](49c-resolved-model-and-incremental-preparation.md) | Tested: 738 pure library controls plus 51 selected native/scientific/portable controls and public reload/ownership journeys; wider MAT/QUAL campaigns remain separate. |
 | PRE08 | done | [49c](49c-resolved-model-and-incremental-preparation.md#pre08--typed-incremental-fragments) | Implemented and Tested: entity-local tracked premises and immutable fragments across supported producers; original root closure/contribution obligations and body backdating retained. |
 | PRE09 | done — investigation only | [49c](49c-resolved-model-and-incremental-preparation.md#pre09--finite-configuration-exploration-decision) | Bounded operation, alternatives, unknown/limit semantics and no-adoption recommendation recorded at the linked owner; RC23 remains unselected. |
-| MAT01 | in-progress | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
-| MAT02 | in-progress | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
-| MAT03 | in-progress | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
-| MAT04 | in-progress | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
-| MAT05 | proposed | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
-| MAT06 | proposed | [49d](49d-symbolica-mathematical-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN01 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN02 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN03 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN04 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN05 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN06 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN07 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN08 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
-| RUN09 | in-progress | [49e](49e-runtime-and-native-execution.md) | Independent library-default criteria, profile/replay and retained results implemented; focused native controls passed; wider Python/scientific qualification remains open |
-| RUN10 | in-progress | [49e](49e-runtime-and-native-execution.md) | Local package contract and acceptance at the linked owner |
+| MAT01 | done | [49d](49d-symbolica-mathematical-execution.md) | Implemented and Tested: Deterministic demanded-region/product preflight, complete identity and cancellation/refusal controls; 49d–49e Outcome. |
+| MAT02 | done | [49d](49d-symbolica-mathematical-execution.md) | Implemented and Tested: Library definition/alias DAG and joint regions across source/host barriers; shared-let and actual consumer controls; 49d–49e Outcome. |
+| MAT03 | done | [49d](49d-symbolica-mathematical-execution.md) | Implemented and Tested: All five local derivative products compose across provider/branch/intermediate boundaries; independent analytical/action checks; 49d–49e Outcome. |
+| MAT04 | done | [49d](49d-symbolica-mathematical-execution.md) | Implemented and Tested: Interpreted/C++ consumers, actual AST/literal/exported census, worker clones and compilation/drain controls; 49d–49e Outcome. |
+| MAT05 | done | [49d](49d-symbolica-mathematical-execution.md) | Implemented and Tested: Compiled guard/product/curvature controls and selected physical/native/public scientific acceptance; no whole-library/performance claim; 49d–49e Outcome. |
+| MAT06 | done | [49d](49d-symbolica-mathematical-execution.md) | Interface-checked: I11/I12/I13/I25 bounded no-additional-adoption decisions and concrete revisit conditions; 49d Outcome. |
+| RUN01 | done | [49e](49e-runtime-and-native-execution.md) | Implemented and Tested: one supervisor preserves caller/durable cancellation, original deadlines, partial horizons and actual native drain; runtime and final reference controls at the 49d–49e Outcome. |
+| RUN02 | done | [49e](49e-runtime-and-native-execution.md) | Implemented and Tested: five sixteen-owner controls plus isolated primary death preserve caller independence, fenced cancel, actual stop/join, publication and protected retirement; explicit nondurable strategy exception remains. Outcome. |
+| RUN03 | done | [49e](49e-runtime-and-native-execution.md) | Implemented and Tested: shared typed requests/preparation, paired outcomes, semantic admission/deployment and host-only Shooting refusal; complete explicit-input LM/covariance policies with six Runtime-free controls and retained actual consumers. Outcome. |
+| RUN04 | done | [49e](49e-runtime-and-native-execution.md) | Implemented and Tested: parameter-valued Simulation/Fit points preserve physical conversions, recorded starts and fresh consistent ICs; runtime and selected public scientific acceptance. Other overlay/history additions are not adopted (I22). |
+| RUN05 | done | [49e](49e-runtime-and-native-execution.md) | Implemented and Tested: runtime consumes compiler-owned annotation/view/start products; deliberate mode differences and pure predicted-start/fallback controls remain. Outcome. |
+| RUN06 | done | [49e](49e-runtime-and-native-execution.md) | Implemented and Tested: settings-dependent capabilities, fixed-point/Picard and separately admitted recovery preserve scaling, authorized starts and original residual; actual linked/unlinked controls. Fresh sessions remain (I17). |
+| RUN07 | done | [49e](49e-runtime-and-native-execution.md) | Implemented and Tested: named Uno outcomes map code 5 to Numerical; declared SQP-LBFGS integration and four numerical hunks retain actual FFI, curvature, cancellation and allocation-refusal controls. Outcome. |
+| RUN08 | done | [49e](49e-runtime-and-native-execution.md) | Implemented and Tested: FERAL pre-factor estimate plus post-factor retained enforcement; complete opaque foreign envelopes remain. Partial hooks and redundant pool/sizing adapters are not adopted (I15/I16). |
+| RUN09 | done | [49e](49e-runtime-and-native-execution.md) | Implemented and Tested: independent LM criteria/profile identity and effective work caps retain original stationarity/covariance gates; native policy/scientific and current installed Python acceptance. I18 and Outcome. |
+| RUN10 | done | [49e](49e-runtime-and-native-execution.md) | Implemented and Tested: actual retained worker handles join through stop and partial construction; fresh/preinitialized-host POUNCE/Symbolica controls preserve scoped ownership without resizing host global pools. Outcome. |
 | BND01 | in-progress | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
 | BND02 | in-progress | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
 | BND03 | in-progress | [49f](49f-python-and-scientific-boundaries.md) | Local package contract and acceptance at the linked owner |
@@ -715,38 +703,38 @@ Outcome supplies the selected STO evidence without closing combined downstream o
 | DA-003 | S11 | resolved — Implemented and Tested | PRE02 / PRE04 | Generated grammar/role handles and direct typed producer; rendered/text reconstruction retired. Remaining-scope Outcome. |
 | DA-004 | S04 | open — store portion implemented/tested | STO / BND01 | Store native phases/projections pass; complete shared boundary vocabulary remains BND01. See store Outcome. |
 | DA-005 | S08 | open — proposed route | BND02 / I20 | Physical keyed side inputs; unit resolver is a separate project decision |
-| DA-006 | S07 | open — preparation portion Implemented and Tested | PRE05 / RUN05 | Tracked annotation/view products and deliberate mode distinctions pass selected preparation controls; complete runtime consumer acceptance stays RUN05. |
+| DA-006 | S07 | resolved — Implemented and Tested | PRE05 / RUN05 | Compiler-owned annotation/view products and deliberate mode distinctions consumed by runtime; compiler/runtime and selected assembled acceptance at 49d–49e Outcome. |
 | DA-007 | S04 | open — store portion implemented/tested | STO lifecycle / TOOL04 | Native transition/holder/release controls pass with race guards; broader generated operator migration remains TOOL04. |
 | DA-008 | S05 | resolved — Implemented and Tested | STO typed refusals | Registry-native codes, typed exhaustion and distinct dispatch/cancel/replay/effect controls; unknown/forged errors fail closed. See store Outcome. |
-| DA-009 | S10 | open — proposed route | RUN02 / RUN03 | Discriminant-paired requests and outcomes |
+| DA-009 | S10 | resolved — Implemented and Tested | RUN02 / RUN03 | Discriminant-paired requests/outcomes and typed host/study projection; request/refusal and actual consumer controls at 49d–49e Outcome. |
 | DA-010 | S08 | open — proposed route | BND03 / BND04 | Hydrate/reconcile complete covariance; independent PSD admission |
 | DA-011 | S04 | open — proposed route | TOOL01 | Direction-aware actual compiled catalogue and import identity |
-| DA-012 | S03 | open — proposed route | RUN01 / RUN02 / RUN03 | Shared supervisor; explicitly state strategy exception, no automatic new durable feature |
-| DA-013 | S09 | open — preparation portion Implemented and Tested | PRE05 / RUN05 | Pure predicted-start/fallback owner supplied; enclosing runtime adoption remains RUN05. |
-| DA-014 | S09 | open — proposed route | RUN04 / I22 | Parameter-valued Fit/Simulation selected; other overlay/history questions bounded |
-| DA-015 | S10 | open — proposed route | RUN03 | Runtime admission, typed host projection and deployment owner |
-| DA-016 | S07 | open — proposed route | RUN06 | Settings-dependent map/recovery seam with original residual |
-| DA-017 | S07 | open — proposed route | RUN06 / TOOL07 | Advertised capability equals admitted execution and architecture |
-| DA-018 | S07 | open — proposed route | RUN07 / I23 | Challenge integration-as-fork diagnosis; declare four numerical hunks; no forced method loss |
+| DA-012 | S03 | resolved — Implemented and Tested | RUN01 / RUN02 / RUN03 | Shared supervisor preserves actual run lifecycle and native drain; strategies remain explicitly nondurable. Final reference and runtime controls at 49d–49e Outcome. |
+| DA-013 | S09 | resolved — Implemented and Tested | PRE05 / RUN05 | Pure predicted-start/fallback owner and complete runtime adoption; explicit-fact policy and actual consumer controls at 49d–49e Outcome. |
+| DA-014 | S09 | resolved — Implemented and Tested | RUN04 / I22 | Selected parameter-valued Fit/Simulation points preserve conversions, starts and fresh ICs; other overlay/session-history additions remain unselected per I22. Outcome. |
+| DA-015 | S10 | resolved — Implemented and Tested | RUN03 | Runtime-owned semantic admission, typed host projection and shared deployment sequence; ingress revalidation and per-host assertions remain. Outcome. |
+| DA-016 | S07 | resolved — Implemented and Tested | RUN06 | Settings-dependent map/recovery seam with authorized starts, scaling and original residual; linked/unlinked actual routing controls. Outcome. |
+| DA-017 | S07 | open — runtime portion Implemented and Tested | RUN06 / TOOL07 | Settings-dependent advertised capability equals actual admitted execution under linked/unlinked controls; broader documentation/tooling reconciliation remains TOOL07. 49d–49e Outcome. |
+| DA-018 | S07 | resolved — Implemented and Tested | RUN07 / I23 | Declare and retain legitimate Uno integration plus four numerical hunks; named outcomes, SQP-LBFGS and actual FFI/refusal controls pass. I23 and Outcome; no forced method loss. |
 | DA-019 | S04 | open — store portion implemented/tested | STO lifecycle / TOOL04 | Fresh installation/activation and exact event witnesses pass; broader generated guarded operator mutations remain TOOL04. Historical data preservation superseded. |
 | DA-020 | S10 | open — proposed route | TOOL05 / I21 | Product contracts before tooling; optional tracing/crate outcome |
-| DA-021 | S10 | open — proposed route | RUN03 | Test eligibility from explicit inputs without full runtime |
-| DA-022 | S01 | open — compiler portion Implemented and Tested | PRE01 / RUN08 / I06 / I16 | Exclusive owned Salsa observation, finite defaults and shared-Arc census exercised; this is known retained allocation accounting, not RSS or complete foreign/native coverage. RUN08 remains. |
+| DA-021 | S10 | resolved — Implemented and Tested | RUN03 | Complete LM eligibility and staged covariance withholding consume explicit actual inputs; six Runtime-free tables plus thirteen retained adapter/scientific controls pass. 49d–49e Outcome. |
+| DA-022 | S01 | resolved — Implemented and Tested | PRE01 / RUN08 / I06 / I16 | Exclusive owned Salsa accounting/shared census and native FERAL pre/post enforcement exercised; complete opaque envelopes retained. Known allocation accounting is not RSS or complete allocator-hook coverage. Outcome. |
 | DA-023 | S04 | open — proposed route | TOOL07 / QUAL05 | Documentation follows selected implemented changes through decision route |
 | DA-024 | S10 | open — proposed route | TOOL07 / I24 | Purpose decision on native child and pse.canon.v2; no automatic deletion |
 | DA-025 | S05 / S06 | open — store/result portions Implemented and Tested | STO / RES / TOOL04 | Necessary participants retained; scalar locator writes/collection removed, protected result retirement exercised. Broader operator migration remains TOOL04. |
 | DA-026 | S06 | resolved — Implemented and Tested | RES01–RES06 | Exact batch summaries and conservative native pruning/residual replace scalar locator writes; selected assembled acceptance and current complete-operation measurement at remaining-scope Outcome, without comparative speed claim. |
-| DA-027 | S11 | open — resolved-model portion Implemented and Tested | PRE04 / MAT01–MAT05 | Versioned resolved bodies lower directly with no text re-expansion; selected derivative/native controls pass. Whole mathematical execution acceptance remains MAT01–MAT05. |
-| DA-028 | S11 | open — proposed route | MAT01–MAT05 / I11 | Guarded regional realization; prior fixture did not establish universal magnitude |
+| DA-027 | S11 | resolved — Implemented and Tested | PRE04 / MAT01–MAT05 | Direct resolved bodies and demanded library regions remove text re-expansion; five derivative products, interpreted/C++ and selected physical/public consumers pass. Outcome. |
+| DA-028 | S11 | resolved — Implemented and Tested | MAT01–MAT05 / I11 | Guarded joint regional/alias realization and independent product/action checks pass; no universal expansion magnitude, speed or RSS claim. MAT Outcome and I11–I13/I25. |
 | DA-029 | S01 | resolved — Implemented and Tested | PRE03 / PRE04 | Complete current dependency/consumer graph, including rates, guards and memberships; incremental versus fresh preparation controls pass. |
 | DA-030 | S01 / S02 | resolved — Implemented and Tested | PRE01 / PRE06 | Production defaults preserve complete current ThreeUnits live/backdating population; pointer/key uses retain complete equality and live owners. No broad RSS or speed claim. |
-| DA-031 | S07 | open — preparation portion Implemented and Tested | PRE05 / RUN05 | One compiler view choice/product supplied and tested; full runtime consumer qualification remains RUN05. |
+| DA-031 | S07 | resolved — Implemented and Tested | PRE05 / RUN05 | Runtime consumes the compiler-owned view choice/product; compiler and actual consumer qualification at 49d–49e Outcome. |
 | DA-032 | S06 / S11 | resolved — Implemented and Tested | PRE02 / RES | Declaration-generated handles/roles and complete membership replace spelling-derived interpretation; result and preparation controls at remaining-scope Outcome. |
-| F01 | S03 | open — proposed route | RUN01 / RUN02 | Caller cancellation, deadline and native join |
-| F02 | S07 | open — proposed route | RUN07 | Uno code 5 Numerical, all named constants |
+| F01 | S03 | resolved — Implemented and Tested | RUN01 / RUN02 | Caller/durable cancellation, inherited typed TimeLimit, partial horizon and actual native join pass runtime and final reference controls. Outcome. |
+| F02 | S07 | resolved — Implemented and Tested | RUN07 | All named Uno outcomes and code 5 Numerical mapping pass actual bridge/adapter controls; callback and cancellation overrides remain. Outcome. |
 | F03 | S05 | resolved — Implemented and Tested | STO refusals / I01 | Typed retry exhaustion/fresh decision under original clock; commit-order cursor and sixteen-lane controls pass. Necessary sequence/source guards retained. See store Outcome. |
-| F04 | S03 | open — proposed route | RUN10 / I14 | Retained actual worker join; global reach investigated |
-| F05 | S09 | open — proposed route | RUN09 / I18 | Cosine gtol distinct from absolute scaled stationarity |
+| F04 | S03 | resolved — Implemented and Tested | RUN10 / I14 | Actual retained worker JoinHandles survive destruction acknowledgement and join before release; partial-construction/stop and reached scoped-pool controls pass. I14 and Outcome. |
+| F05 | S09 | resolved — Implemented and Tested | RUN09 / I18 | Independent LM cosine/cost/step criteria retain physical stationarity and covariance gates; revealing disagreement and actual public retained-result controls pass. I18 and Outcome. |
 | F06 | S06 | resolved — Implemented and Tested | RES cache package / I02 | Unused native file-cache adapter removed; reached analysis/preparation and protected IPC reader ownership retained and exercised. No hit-rate claim. |
 | F07 | S04 | resolved — Implemented and Tested | STO graph/access | Consumers use native records/ranges/graphs; direct CRUD key/id/u64 and access-plan controls precede redundant key-index removal. Engine scans remain distinct from page bounds. |
 | F08 | S04 | open — proposed route | TOOL07 | Correct stale statrs note without pretending type-crossing defect |
@@ -775,11 +763,11 @@ finding. Technical library capability is judged on merit; licenses are not rejec
 | I11 | resolved — retain scalar formals and aliases | MAT06 | Which function-shaped formal/retained definition path preserves cross-process identities, derivative expansion and compiled export? | Adopt the exact supported post-admission path; otherwise canonical scalar slots plus selected alias expansion remain. |
 | I12 | resolved — retain scalar profiles | MAT06 | Does JIT/SIMD/CUDA improve an eligible repeated/batched workload with declared float, cancellation and scratch semantics? | Select and qualify a specific realization; otherwise retain current scalar interpreted/C++ eligibility, no custom interpreter. |
 | I13 | resolved — retain scoped library algebra | MAT06 | Do exact solving, polynomial/coefficient domains, transformers or term streaming remove a concrete preparation burden? | Adopt scoped library work preserving coverage/domain/remainder and cleanup; otherwise keep current lowering and record conditions for reconsideration. |
-| I14 | resolved — scoped teams and retained upstream setup | RUN10 | Which production library actually reaches rayon global pool and who owns its embedding-host initialization? | Control reached work under admitted shared owner or report incompatibility; do not eagerly create/pin a global pool without a consumer. |
+| I14 | resolved — scoped teams and retained upstream setup | RUN10 | Actual fresh/preinitialized-host POUNCE/Symbolica controls preserve scoped teams and the embedding host pool; exact conditions and limits at the 49d–49e Outcome. | Control reached work under admitted shared owner or report incompatibility; do not eagerly create/pin a global pool without a consumer. |
 | I15 | resolved — retain envelope | RUN08 | Can PETSc/KLU hooks retain original allocation owner/size across free/realloc and process initialization, with bypasses identified? | Use domain-specific accounting with remaining envelope; otherwise retain the complete foreign envelope. |
 | I16 | resolved — retain admitted ownership and sizing | RES / RUN08 | Arrow claim tracks existing backing with an infallible reservation and replaces a shared per-buffer owner; it cannot replace fallible preflight or imported lease custody. Project HeapUsage and generated rows already account their actual structures; shared result facts retain one owner. | No additional pool or sizing crate. Revisit a concrete unsupported allocation/graph lifecycle with fallible admission, no double charge, last-alias custody and measured overhead; DataFusion structure sizing alone is not an admission proof. |
 | I17 | resolved — fresh sessions | RUN06 | Does KINSOL neutral reset match independently fresh sessions including history and errors? | Adopt only qualified reset or record warm history in semantics; otherwise fresh sessions stay. |
-| I18 | resolved — fixed independent criteria | RUN09 | Use the pinned non-minpack library defaults explicitly: separate relative cost, relative step and cosine criteria, each 30 times f64 epsilon, independently of physical stationarity and covariance qualification. Five actual LM controls passed, including the original-policy comparison and cosine/stationarity disagreement; retained public result reopening also passed. | Keep exact profile/replay identity and effective work caps. Wider scientific and Python qualification remains RUN09/QUAL scope; no public tuning knobs or speed claim. |
+| I18 | resolved — fixed independent criteria | RUN09 | Use the pinned non-minpack library defaults explicitly: separate relative cost, relative step and cosine criteria, each 30 times f64 epsilon, independently of physical stationarity and covariance qualification. Five actual LM controls passed, including the original-policy comparison and cosine/stationarity disagreement; retained public result reopening also passed. | Keep exact profile/replay identity and effective work caps. Selected native/scientific and public Python acceptance passes at the 49d–49e Outcome; broader QUAL scope remains separate. No public tuning knobs or speed claim. |
 | I19 | resolved — identical selected catalogues | TOOL01 | Does the actual direction-qualified exported catalogue vary across supported feature builds? | Actual default and linked-native force-validated extensions share the generated catalogue identity; future exported-shape variation must generate its actual identity. No all-feature-powerset claim. |
 | I20 | resolved — reuse existing physical owner | BND02 / PRE02 | Actual admitted Ports own coordinate identity/quantity/unit; BindingQuantity and CanonicalConversionPlan already resolve complete registered physical meaning. Tolerances/characteristic scales require Delta conversion, not point offsets. | Use those owners with the new keyed relation contracts and immutable snapshots; no independent unit table/resolver. BND02 integration and qualification remain open. |
 | I21 | resolved — retain hub and internal module | TOOL06 | Actual no-layer/current-hub/candidate-layer steady and fit results/covariance agree bitwise. Attributed spans reach the candidate, but the actual native.worker phase has no corresponding candidate span; bounded state drains on completion, future drop and panic. A separate tooling crate would currently require a runtime/catalogue dependency seam; no independent build benefit is established. | No Layer substrate or new crate adoption. Keep the current hub and corrected internal dependency boundary; no speed or overhead improvement is claimed. |
@@ -1477,3 +1465,218 @@ scheme in versioned identity/cache/serialization premises, cancelled-constructio
 derivative/guard equivalence and a total preparation comparison. No extra `optimize_stack`
 pass is added: the selected library construction already invokes it; an actual temporary
 census must justify another pass.
+
+
+## Outcome — remaining 49d–49e, 2026-10-22
+
+### What was built
+
+**Implemented:** demanded guarded library regions and all five derivative products, one typed
+run supervisor and native cancellation bridge, shared request/preparation/admission, parameter
+Simulation/Fit points, compiler-owned start/annotation/view policies and adapter-owned numerical
+capability are integrated with their actual Rust/Python consumers. The deliberate nondurable
+strategy exception remains; Shooting is still host-only. Study request/operation version 8 and stored
+definition version 12 have one current representation. Replaced per-kind lifecycle forwarding, host
+policy copies and per-output reconstruction are retired in the selected domain. Deterministic
+Direct/Reverse/Regional eligibility is retained rather than converted into transient fallback.
+
+This continuation repairs recycle tear-port physical custody, sparse stage-description charging,
+Symbolica AST/literal/exported census and repeated static-package projection. A tracked query
+keys projection by complete immutable parent plus normalized selection/read recipe and produces
+the original complete-content interned owner; parent/selector do not replace semantic equality.
+Cross-parent equal owners, A/B/A reuse, canonical physical owners, attribution and finite LRUs
+remain. Construction keeps the original 8 GiB allowance and complete opaque foreign coverage.
+Encoded source size is not a numeric population or an RSS measurement.
+
+Durable terminal and cancelled-completion phases use the existing admitted out-of-line action
+owner. The exact inner future is charged before construction and held until the future is
+dropped; construction and polling stay in the same task. No worker-stack increase, task spawn,
+effect replay or renewed deadline is introduced. Refusal follows the existing failed-export
+drain. Pure layout controls pass with cancellation continuation/core 3,104/373,440 bytes and
+terminal continuation/core 3,064/377,208 bytes. Those are future-storage observations, not an
+exact reconstruction of the earlier aborting instruction or process-memory measurements.
+
+**Implemented and Tested:** native map execution preserves shared scaling, permitted starts,
+authorized restarts and original residual checks using fresh KINSOL sessions. Uno uses named
+status constants (code 5 is Numerical), retaining SQP-LBFGS and its four declared numerical hunks.
+FERAL preflight supplements actual post-factor retained-storage enforcement. Surrogate workers
+retain actual handles through join, including partial construction. Reached POUNCE/Symbolica
+fresh-process and embedding-host controls preserve scoped ownership without resizing a host's
+global pool. Partial PETSc/KLU hooks are not adopted as a complete allocation protocol.
+Residual LM records three independent library criteria, each 30*f64::EPSILON, actual work caps
+and exact replay/profile identity; physical stationarity and covariance remain independent gates.
+Complete LM eligibility and staged covariance withholding now consume explicit shape, settings,
+resource, qualification, bound and numerical-evidence facts. Thin prepared-problem adapters supply
+those facts; policies need no Runtime construction. Existing matrix assembly, physical bound
+activity, first-refusal order and typed withholding remain unchanged.
+
+**Tested, selected scope; failure baseline zero:** every Arrow-consuming correctness closure
+below explicitly activates force-validation. Ordinary builds retain sixteen jobs and uncapped
+OS build placement; native scientific pools and reference roles keep their finite declarations.
+
+| Command / mode | Result and boundary |
+|---|---|
+| `just unit-package pse-math 'not test(realization_probe)' -p pse-compiler -p pse-runtime -p pse-backend-native` | Latest broad default run: 1963 passed/1 failed/9 filtered, 81.208s. The sole diagnostic-fixture failure was corrected; the exact adjacent selection below passes. This is composite acceptance, not a fresh 1,964-test clean run. |
+| `just unit-package pse-runtime 'test(/^workflow::local_caller_tests::observation_/)'` | 4 passed/0 failed/904 filtered after isolated-observation repair; completed/interrupted outcomes, original attribution and inline-future-size controls. |
+| `just unit-package pse-math '(test(library::admission) \| test(product) \| test(regional) \| test(symbolic_definition) \| test(deep_shared_let) \| test(abort_binding) \| test(native_scalar) \| test(assembly_reuses_exact) \| test(curvature) \| test(construction::)) & not test(realization_probe)' --features pse-math/compiled-evaluator` | 95 passed/0 failed/383 filtered, 2.434s; interpreted/C++ products, original guards, clones, cancellation and actual construction census. |
+| `just unit-package pse-math 'test(symbolic_initialization)' --features pse-math/compiled-evaluator --success-output final` | Fresh children exercise licensed/unlicensed × fresh/preinitialized host. Actual licensed requested width 2, unlicensed width 1, preexisting host width 2 preserved. Initial child-marker fixture failure was repaired and rerun. |
+| `just unit-native-package pse-tests-conformance pse-tests-conformance/native-acceptance 'test(authored_physical_nlp_)' --success-output final` | Final 2/2 passed, 16 filtered, 392.616s; heater/root/optimization, four further physical cases and both Ipopt/POUNCE flash assertions; fully drained exit0. |
+| `just native-python build/plan49de-python-final-20261022 @build/plan49de-python-final-selection.txt -n4 --dist loadgroup --basetemp=build/plan49de-py-final-temp-20261022` | Assembled selection: 51/51 passed, 601.53s, fully drained exit0 after linked correctness-extension rebuild. Contracts, physical/versioned inputs, modeling/recycle, dynamic/transient fitting, LM publication, live results, reload, CLI/export and custody. This predates the final read/terminal/policy repairs; the following current-extension selection supplements it. |
+| `just native-python build/plan49de-python-policy-final-20261022 @build/plan49de-python-terminal-selection.txt -n4 --dist loadgroup --basetemp=build/plan49de-py-policy-temp-20261022` | Post-repair installed extension: 4/4 passed, 44.09s, fully drained exit0. Public LM criteria/original qualification, fixed-fit roundtrip and shared results, typed bound solve/admission and exact lazy-study source retention. This overlaps the earlier 51, rather than adding four distinct cases. |
+| `just py-unit -n4` (retained selected run arguments in `build/plan49de-python-units-20261022.log`) | 235 passed/0 failed, 15.63s; earlier unchanged Python unit scope. |
+| Managed reference six-test selection below, declared 16-lane reference profile | 6/6 passed, 0 failures/1,488 filtered, 210.792s; normal terminal and drained shutdown. Five sixteen-owner controls plus isolated single-owner primary death. |
+
+The first managed reference selection passed 3/6 in 235.981s. Publication and successful
+sixteen-owner execution exposed native SSI read conflicts escaping the worker loop; mutations
+already used bounded retry. The second selection passed 2/6 in 255.589s, exposing four remaining
+readiness/settlement reads and a Tokio-worker stack overflow during durable cancellation.
+The twenty reached complete read queries now use that same typed
+32-attempt/original-clock owner. Uncertain, malformed, cancelled and other errors are not
+replayed. The disconnect fixture now clears its physical-program cache and joins protected
+release before closing its original transport; native work remains independent. Both failed
+reference engines were stopped only after authentic process/context drain, leaving their logical
+unknown effects and failed terminals unchanged.
+After the terminal repair, the third selection passes 5/6 in 200.806s (run
+`f3ea848f-0bbe-4171-8d5c-571edc613e07`), including four sixteen-owner lifecycle controls
+and the isolated single-owner primary-death control.
+Its publication test reaches result retirement, then incorrectly excludes the first cleanup page
+returned by `forget_run_results` from its exact two-batch total. The corrected fixture includes
+that returned page, retaining bounded completion, inaccessible producer results, independent
+graph and escaped Arrow assertions. The third engine stops through normal drained shutdown.
+
+**Tested, final reference acceptance:** run `930b30db-4b20-49ee-a542-7047893e79b3`
+passes all 6 controls in 210.792s, 0 failures/1,488 filtered, followed by normal quiesce and
+drained stop (instance `991e17bf-26b1-4e44-a36e-625070c17ce0`). The original production
+Surrealism artifact retains its strict 1s timeout, 64MiB memory and pool 4 limits. The reference
+supplies sixteen native lanes within its declared finite pool; constructor admission retains its
+8GiB allowance. Initialization, start, tests and stop share one reference owner. The exact selection is:
+
+```bash
+just native-test --managed-primary-route -p pse-runtime --lib -E 'test(/^workflow::study_tests::(managed_primary_sixteen_survive_caller_disconnect_until_explicit_cancel|managed_primary_worker_stop_joins_sixteen_native_owners_without_cancelling_study|managed_primary_study_enters_sixteen_native_owners_and_retains_original_results|managed_primary_study_cancellation_drains_admitted_sixteen_and_refuses_tail|managed_primary_publication_serves_exact_partial_history_and_escaped_arrow_retirement|managed_primary_death_returns_incomplete_study_without_fabricated_terminal)$/)'
+```
+
+The other focused selections cover 22 final compiler projection/consumer controls plus 4 retention/
+generation controls, 20 runtime lifecycle/parameter/horizon/LM controls, 20 native backend controls,
+5 Uno FFI controls, 2 retained-worker controls and 3 default-unlinked refusals. Vessel fitting across
+four kinds and the unidentifiable-fit control passed in the earlier composed scientific run;
+its original physical aggregate failed on false constructor charging and is replaced only by the
+subsequent successful final physical selection above. Guarded-product census is implementation
+characterization, with no comparative preparation/evaluation speed or memory-capacity claim.
+Raw selections, native provenance, terminal/drain facts and logs are retained under `build/` and
+its assessment/native-test owners; incomplete earlier runs are not relabeled successful.
+
+**Tested:** after the terminal-phase repair, the following linked-native selection passes 6/6,
+0 failures/1,482 filtered in 21.864s, with normal terminal/drain (run
+`a303bece-84c4-481d-a367-e3caff24db6e`). It preserves original completion through cancellation
+at seal, exact file-reservation settlement, pre-entry refusal and late-heartbeat/partial-prefix
+reopen, alongside the allocation-before-construction/drop and future-layout controls.
+
+```bash
+just native-test -p pse-runtime --lib -E 'test(physical_publication_action_tests) | test(canonical_complete_export_cancelled_at_seal_preserves_original_completion) | test(canonical_cancelled_file_reservation_settles_the_exact_study_attempt) | test(canonical_preentry_refusal_settles_only_acknowledged_cancellation) | test(canonical_cancelled_prefix_and_late_heartbeat_reopen_acknowledged_unavailable_science)' --success-output immediate
+```
+
+**Tested:** the explicit-policy selection below passes 19/19, 0 failures/1,475 filtered in
+0.786s, with normal terminal/drain (run `30d1f33b-a893-47f7-a4e8-ec43a662c20f`). Six direct
+controls construct no Runtime; thirteen retained controls exercise actual eligibility adapters,
+independent LM stopping, typed limits/cancellation and qualified or withheld native covariance.
+Initial test compilation rejected a qualified `scalar!` identifier; the imported identifier fixes
+it. One redundant test qualification was then removed; final all-target Clippy owns zero-warning
+confirmation. Neither correction changes the policy or numerical assertions.
+
+```bash
+just native-test -p pse-runtime --lib -E 'test(eligibility_policy_tests) | test(covariance_policy_) | test(fitting_residual_eligibility_preserves_required_native_contracts_before_callbacks) | test(fitting_residual_dense_workspace_eligibility_precedes_numerical_preparation) | test(fitting_lm_) | test(linear_regression_covariance_analytic) | test(covariance_withheld_)'
+```
+
+**Tested, static/manual scope:** `just clippy` passes default and no-default workspace/all-target
+modes with `-D warnings`, including the final observation and explicit-policy fixtures; `just lint-solver-contracts`
+passes linked-native workspace/all-target Clippy, 0 warnings/errors. `just typecheck` reports
+0 diagnostics (3 existing suppressions); Ruff passes. The initial hygiene's 3 E501 findings and
+one test-only unreachable macro were repaired and the failed leaves rerun. Other hygiene leaves
+passed, including generated output, imports, contracts, Rust documentation and family pins.
+`just governance` passes. Depth-two `just features-powerset` passes 420 combinations plus 34
+no-default checks, 0 warnings/errors; it predates the final constructor/projection/read/terminal/
+policy repairs, whose affected modes have subsequent default/native/C++ coverage. No feature or
+dependency changed after that matrix.
+
+The focused native command receipts are: backend 20, run `c90ba1b4-0d74-4095-a866-cbaffd88cb27`;
+Uno 5, run `49d1bf80-00a7-4949-af37-d424c67dbe75`; retained-worker 2, run
+`28c93e2f-6dea-4dcf-afdb-572ebb17c398`; default-unlinked 3, run
+`5e12924f-a4c8-46e0-bb47-9a64dc1c047f`. Each reports 0 failures/errors against baseline zero.
+These selections overlap broader controls and are not an additive grand total.
+
+```bash
+just unit-native-capability-package pse-backend-native native-solvers solver,klu,isolation,uno,petsc 'test(/single_thread_batch_stays_on_caller|selected_capabilities_match|map_seam_preserves|maps_keep_physical|picard_executes_constant|feral_symbolic_peak|retained_kkt_envelope|library_rungs_act|authorized_recycle_restarts/) | test(uno::tests::)'
+just unit-native-capability-package pse-uno-sys link solver,klu,isolation,uno,petsc 'test(/recoverable_trial_uses_native_trust_region_retry|bounded_sqp_solves_and_reports_effective_curvature|bounded_slp_solves_and_reports_effective_curvature|operator_storage_limit_is_terminal_before_matrix_allocation|scope_stop_precedes_native_start/)'
+just unit-native-capability-package pse-runtime native-solvers,canonical-tests solver,klu,isolation,uno,petsc 'test(/retained_pool_joins_actual_workers|retained_pool_constructor_failures/)'
+just unit-package pse-backend-native 'test(/unlinked_native_return_has_explicit_observation_coverage|published_capabilities_equal_routing_rules|selected_capabilities_match_native_methods_and_refuse_foreign_settings/)'
+```
+
+**Tested:** the final pure transport regression command
+`just unit-package pse-operations 'test(/^canonical::transport::tests::/)'` passes 23/23,
+0 failures/78 filtered, 10.042s (run `57b1fcb9-81db-43e9-bdd2-dee6377b9cb1`). It includes the
+new conflict/original-clock/exhaustion/non-replay controls. A stale joined-page fixture expected
+4,608 nodes after the earlier selector retirement; its actual declared grant is 8,704. Correcting
+that expectation retains all 64-row decode/ordinal/minmax checks and the 2,048-node refusal.
+
+The configured native setup suite initially passed 1,259/1,260 in 176.148s. Its one remaining real
+termination-control fixture omitted the required module/server identity; after correction the
+exact control passed 1/1 in 1.325s with normal native drain. This is composite 1,260-control evidence,
+not a rerun of the entire suite. Earlier unconfigured/inotify-cascade failures retain their scopes.
+Compile-heavy aggregate entry defaults now preserve the configured sixteen-core owner; the exact
+recipe precedence/borrowed-owner control passes. The boundary launcher now starts with checkout
+Python 3.14 instead of system Python 3.12 before archive inspection; `just ready`, exact shellcheck and real
+fresh reference initialization pass. `just docs` publishes 590 chapters with scoped search.
+
+**Tested, deployment handoff:** the selected ordinary instance
+`0a7d4aa4-fee0-429a-a95f-fa224a749dc7` is restored, authenticated, open and accepting writes,
+with no parked state. Its production module remains
+`f13446a6bf52aff8835b160d82367e67dd9445cec35997582dfbc701951b8282`
+under strict 1s/64MiB/pool 4 declarations. The final reference instance is stopped and quiesced.
+The checkout still selects the ordinary Surrealism state, sixteen compiler jobs and unbounded
+ordinary builds. No owned worktree remains to merge; selected test owners completed their drains.
+
+### A mistake made and corrected
+
+The first static-package repair used mutable tracked owners and broke existing A/B/A counters;
+the final tracked producer returns immutable complete-content owners, retaining cross-parent
+sharing assertions. Initial constructor estimates conflated encoded bytes with numeric storage
+and formal inventory with reached occurrences. Real science exposed both false refusals; actual
+AST/literal/Taylor/exported accounting fixes them without widening scientific allowances.
+Recycle export incorrectly looked up tear coordinates among original variable ports; it now
+resolves the admitted flow declaration and preserves report order, quantity/unit and role.
+
+The public fixtures contained stale declaration spellings, missing standalone versions and
+standalone versus per-experiment physical member identities. They now use actual compiled
+registry/reflection and authored integration controls; analytic values, sensitivity, fit and
+original-space assertions remain. A later broad run exposed nondeterministic global diagnostic
+admission in an outcome test. Its isolated unregistered diagnostics fixture preserves the exact
+Completed/Interrupted assertions and production best-effort/loss behavior.
+
+The first policy extraction stopped at request/workspace helpers: complete LM eligibility still
+read Runtime, and covariance withholding still required prepared-problem fixtures. Reconciliation
+against DA-021 caught that unfinished original obligation before closure. Complete input-based
+gates and direct policy controls now complement the retained actual fitting/covariance tests.
+The publication fixture also discarded retirement's first returned cleanup page; accounting for
+that page preserves its exact two-batch assertion rather than weakening the expected drain.
+
+### Deviations from the plan, deliberate
+
+Flash is independently selectable with all original assertions. The production-sized canceled
+native sweep stays canceled; selected functional cases supply this scope's acceptance. MAT06
+and I14/I15/I17/I22/I23/I25 retain their explicit bounded adoption/no-adoption decisions, rather
+than adding speculative JIT/device/streaming/hooks/history work. No extra execution daemon,
+global pool reset, historical importer or weakened scientific clock is introduced.
+
+The maintainer restored inotify 524,288 watches/1,024 instances after authenticated user-manager
+watch exhaustion. No teardown deadline was widened. Under the maintainer's explicit disposal
+selection, only obsolete invocation `d63c4731f12e4cc7b2a0d7eef19f7fac`'s authenticated dead scopes,
+unfinished guard and allocation were retired; the poisoned old store was stopped after all 103
+registered worker inventories were observed absent/drained. Private operator receipts remain in
+`build/plan49de-closeout-private/`. This supersedes the earlier preservation instruction for that obsolete invocation. No terminal
+outcome, acknowledgment or scientific success was invented; historical unknown creation effects
+remain incomplete and unrelated owners remain.
+
+Independent 49f–49h, broader model-library/parity/performance campaigns, new platforms and
+release/distribution qualification remain open. Proposed ADR-0215 remains formally proposed.
+Completed companions remain retained for active readers, with enduring meaning at blueprint
+§14.3/§14.3.2/§18/§19 and qualification at §24.2.

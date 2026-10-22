@@ -874,6 +874,39 @@ it establishes no controlled speedup. These selected checks do not close whole 4
 canceled native sweep, broader model-library/parity campaigns or independent plans. Proposed
 ADR-0214/0215 remain formally proposed; older unknown creation effects remain unresolved.
 
+Selected remaining Plan49d–49e acceptance of 2026-10-22 belongs to the
+[math/runtime Outcome](../../plans/49-library-native-remediation.md#outcome--remaining-49d49e-2026-10-22).
+**Implemented and Tested, selected scope:** demanded library regions compose all five local
+derivative products across provider, branch and intermediate boundaries. Interpreted/C++ controls
+retain guards, canonical inputs and independent analytical/action checks. Actual library AST,
+literal, Taylor-width and exported-storage admission replaces source-byte population estimates;
+sparse stage descriptions charge reached occurrences. Constructor allowances and opaque foreign
+envelopes remain. Tracked immutable package projections preserve cross-parent equality, A/B/A
+reuse, canonical physical owners, source attribution and finite retention.
+
+Shared run supervision preserves the original clock, downward cancellation, native stop flag,
+partial horizons and actual destruction/join before release. Typed requests and outcomes,
+runtime admission/deployment, parameter-valued Simulation/Fit points and compiler-owned policies
+serve their Rust/Python consumers. Native map routes retain fresh sessions, authorized starts,
+scaling and original residual qualification. Uno retains its declared SQP-LBFGS integration;
+FERAL estimates supplement post-factor envelope enforcement. Retained surrogate workers join
+their actual threads. Independent LM criteria do not replace physical stationarity or covariance
+qualification. Complete LM eligibility and staged covariance withholding take explicit actual
+facts, with Runtime-free policy tables and retained native scientific controls; prepared-problem
+adapters retain their ordered typed refusals and original numerical assembly.
+Conic/recycle/block-initialization strategies remain explicitly nondurable;
+Shooting remains host-only.
+
+The Outcome records final selected physical and public Python journeys, interpreted/C++,
+compiler, runtime and native controls, failed runs and composite repaired selections. The final
+six-test reference selection passes five sixteen-owner lifecycle/publication controls and isolated
+single-owner primary death, followed by normal quiesce and drained shutdown. Four current installed
+Python journeys supplement the earlier 51-case assembled selection after the final repairs.
+Fresh/preinitialized-host controls do not authorize resizing a host's global pool. Known-byte
+accounting and future layout are not process RSS; no controlled speedup, universal bit equality,
+whole-model-library/parity, new-platform or distribution claim follows. Independent 49f–49h and
+broader campaigns remain open, and ADR-0215 remains formally proposed.
+
 ### 24.3 Benchmarks
 
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)

@@ -1,8 +1,8 @@
 ---
 title: Runtime and native execution remediation
-status: in-progress
+status: done
 date: 2026-10-21
-adrs: []
+adrs: [ADR-0215]
 doc_role: plan
 doc_owner: docs/plans/49-library-native-remediation.md
 doc_topics: [design, numerical-execution, validation]
@@ -10,11 +10,11 @@ doc_topics: [design, numerical-execution, validation]
 
 # Runtime and native execution remediation
 
-Current execution: [the authorized 49d–49e continuation](49-library-native-remediation.md#execution-resumption--remaining-49d49e-2026-10-22).
+Completed execution: [the 49d–49e Outcome](49-library-native-remediation.md#outcome--remaining-49d49e-2026-10-22).
 The coordinator retains the earlier pause handoff as historical evidence.
 
 Selected continuation basis: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
-Execution is authorized; original authoring baselines and receipts retain their dates.
+Execution was authorized; original authoring baselines and receipts retain their dates.
 
 This companion develops R10–R16, retained-pool drain F04 and the fitting termination candidate F05 from the
 [integrated review](../design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md)
@@ -37,9 +37,9 @@ implementation belong to the adjacent companions; this document identifies their
 physical preparation, parameter-valued Simulation/Fit points, native capability/lifetime/status
 work and fixed independent LM criteria are integrated with bounded evidence at the coordinator.
 Current persisted operation/request is Version8 with four study operations and stored definition12;
-Version7 descriptions below are the historical authoring baseline. Remaining consumer migration,
-scientific/native/Python acceptance and publication stay open; the reassessment does not rebuild
-these mechanisms from scratch or turn earlier focused evidence into package completion.
+Version7 descriptions below are the historical authoring baseline. Final selected consumer,
+scientific/native/Python acceptance and publication are recorded in the Outcome; original focused
+evidence retains its scope and date.
 
 [Review O01](../functional_reviews/plan49-remaining-scope-and-library-integration-2026-10-22.md#O01)
 is now supplied by completed STO09: the selected same-source Surrealism `study::readiness`
@@ -284,7 +284,7 @@ when work starts even where logical dependencies permit parallel work.
 |---|---|---|
 | RUN01 — horizon stop correction | Existing child-token/clock contract; no supervisor prerequisite | Replace the fresh horizon source with a child; caller cancellation and inherited deadline reach native drain; remove the shadow authority. |
 | RUN02 — one run supervisor | RUN01 controls; selected RC13 lifecycle boundary | Simulation, fitting, modeling, shooting and horizon share lifecycle and one native bridge; worker drain is a stop child; delete per-kind skeleton/forwarding copies. |
-| RUN03 — requests and runtime admission | RUN02 paired finish interface; coordinator RC12 decision; catalogue input contract; working STO09 scope/apply contract for worker cutover | Shared request/preparation structs and paired outcomes; finish actual host migration and bounded worker operation adoption; delete replaced chains/defaults/per-point coordination. |
+| RUN03 — requests and runtime admission | RUN02 paired finish interface; coordinator RC12 decision; catalogue input contract; working STO09 same-source readiness/settlement receipts for worker cutover | Shared request/preparation structs and paired outcomes; finish actual host migration and bounded worker operation adoption; delete replaced chains/defaults/per-point coordination. |
 | RUN04 — parameter-valued points | RUN03 working preparation/binding entry; stable parameter and physical-context identities | Simulation binding builder and Fit/Simulation overlays with explicit starts/fresh ICs; replace unsupported-only branches for exactly these admitted inputs. |
 | RUN05 — scientific policy consumers | PRE05's working pure start-policy/compiler lowering/view products; STO09 scoped study facts | Migrate both predicted-start/fallback copies and all steady/implicit/dynamic annotation/view consumers onto PRE05; delete executor policy copies. |
 | RUN06 — truthful execution seam | Selected RC07; original residual/scale/start contracts | Settings-dependent capability, fixed-point/Picard route and recovery profiles; migrate runtime initialization/conditional paths; only then remove Python's KINSOL choice in RUN03. |
@@ -335,7 +335,8 @@ does not add tests or claim universal bit equality or a performance improvement.
 
 ## Verification and integration contract
 
-All acceptance below is **Proposed**. Historical probe C tests F01's caller-cancellation
+At original authoring, acceptance below was **Proposed**. Current executed scope and its
+limits are recorded in the Outcome and coordinator. Historical probe C tests F01's caller-cancellation
 divergence and probe D tests the synthetic Uno mapping; neither qualifies this implementation
 or its inherited-deadline/native journeys. During implementation use package compile checks
 and focused unit tests through the repository recipes, with explicit force-validation on actual
@@ -371,3 +372,72 @@ throughput, native capacity or preparation reuse, compare full admitted runs und
 size, sparsity, concurrency, 16-lane/multi-process load, allowance and cancellation conditions.
 Static removal of lifecycle/policy copies supports a locality claim only. Enduring contract and
 ADR amendments follow the coordinator's accepted rule routes before dependent implementation.
+
+
+## Outcome
+
+### What was built
+
+**Implemented and Tested, selected scope, 2026-10-22:** one supervisor pairs operation/native
+finish, inherits caller or durable-lane cancellation and the original deadline, retains the flat
+native stop flag, and joins actual destruction before release. Horizon keeps its completed prefix
+and typed TimeLimit. Typed runtime requests/admission/deployment serve both hosts; Shooting
+refuses study projection before effects. Parameter Simulation/Fit points recompute admitted ICs
+and preserve physical unit/value identity. Compiler-owned start, annotation and view products
+replace executor policy copies. The nondurable strategy exception remains explicit.
+
+The [coordinator Outcome](49-library-native-remediation.md#outcome--remaining-49d49e-2026-10-22)
+owns exact commands, counts and composite boundaries: runtime lifecycle/binding/LM controls,
+public 51-case Python acceptance, native capability/map/Uno/FERAL controls, retained-worker join,
+23 actual transport controls, 19 explicit-policy/retained fitting controls and scope-end
+static/manual checks. Final reference acceptance passes all six controls, including five
+sixteen-owner cases and isolated primary death, followed by normal drained shutdown.
+The refreshed installed extension also passes four affected public journeys; these supplement
+the earlier 51-case assembled selection.
+
+Complete worker discovery/recovery/finalization reads use the existing bounded typed-conflict
+retry owner. Every retry rebuilds a complete read under its inherited original deadline;
+uncertain/transport/protocol errors are not replayed. Guarded mutations and scientific actions
+retain their original effect boundaries. No new retry policy or worker-action replay is added.
+
+Terminal and cancelled-completion phases reuse the existing charged out-of-line action owner.
+Admission precedes exact future construction, and the charge outlives the actual future through
+completion or drop. They retain the same task, borrowed attempt/fence and original clock;
+allocation refusal uses the existing failed-export drain. Focused original-completion,
+pre-entry, file-reservation, partial-prefix and late-heartbeat cancellation controls pass.
+
+Native maps retain fresh KINSOL sessions, authorized starts/restarts, scaling and original
+residual qualification. Uno's named outcomes and declared SQP-LBFGS numerical integration
+remain. FERAL estimates precede actual factorization, followed by retained-envelope enforcement;
+opaque foreign storage keeps full reservations. LM uses independent cost/step/cosine criteria,
+each 30*f64::EPSILON, while physical stationarity/covariance permission stays independent.
+Complete LM eligibility and staged covariance withholding are pure policies of explicit actual
+facts, with thin prepared-problem adapters. No Runtime or native session is required to test their
+decisions; numerical assembly, physical bound activity and ordered typed refusals are retained.
+Actual retained parallel workers join through cancellation and partial construction. Fresh and
+preinitialized-host POUNCE/Symbolica controls preserve supported pool behavior without claiming
+ownership or resizing of an embedding host's global pool.
+
+### A mistake made and corrected
+
+Actual recycle execution exposed export of tear coordinates through the wrong original-variable
+lookup. The corrected owner resolves admitted flow declarations and preserves exact report order,
+physical meaning and role, refusing unknown coordinates. Real sixteen-owner reference contention
+then exposed unhandled read conflicts after native release; only complete read queries moved to
+the existing retry owner. The disconnect fixture initially retained its own physical-cache lease;
+it now explicitly evicts and joins protection releases before disconnecting, preserving the
+assertion that all sixteen native owners remain live until explicit durable cancellation.
+The next reference exposed a real cancellation stack overflow. The repaired boundaries remove
+large terminal phases from their continuations without increasing stacks or adding tasks.
+Future-size and compiled-frame observations characterize this repair; actual reference acceptance
+is recorded separately at the coordinator and does not establish universal stack safety.
+
+### Deviations from the plan, deliberate
+
+Fresh sessions and complete foreign envelopes remain where neutral history or allocator hooks
+lack complete ownership/semantic coverage. No additional Simulation/Fit overlay meaning, durable
+Shooting/strategy operation, execution daemon or global pool control is introduced. Actual request
+versions, independent fitting criteria and source receipts replace historical authoring spellings.
+The canceled broad native campaign stays canceled. Selected acceptance does not qualify the full
+model library, new platforms, distribution or comparative performance; independent 49f–49h and
+broader campaigns retain their own obligations. This companion stays retained for active readers.

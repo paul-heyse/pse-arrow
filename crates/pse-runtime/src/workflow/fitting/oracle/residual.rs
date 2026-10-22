@@ -562,10 +562,7 @@ mod eligibility_policy_tests {
             foreign_allowance: matrix_bytes(4, 2).unwrap(),
         };
         let cases: [fn(&mut FitProfile); 7] = [
-            |p| {
-                p.solver.selection =
-                    native::solve::SolverSelection::Explicit(Backend::Ipopt)
-            },
+            |p| p.solver.selection = native::solve::SolverSelection::Explicit(Backend::Ipopt),
             |p| {
                 p.solver.sensitivity = Some(crate::math::settings::SensitivityRequest {
                     parameters: vec![crate::workflow::tests::id(1)],

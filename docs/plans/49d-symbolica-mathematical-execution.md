@@ -1,8 +1,8 @@
 ---
 title: Symbolica mathematical execution
-status: in-progress
+status: done
 date: 2026-10-21
-adrs: []
+adrs: [ADR-0215]
 doc_role: plan
 doc_owner: docs/plans/49-library-native-remediation.md
 doc_topics: [design, libraries, numerical-execution, preparation, validation]
@@ -10,17 +10,17 @@ doc_topics: [design, libraries, numerical-execution, preparation, validation]
 
 # Symbolica mathematical execution
 
-Current execution: [the authorized 49d–49e continuation](49-library-native-remediation.md#execution-resumption--remaining-49d49e-2026-10-22).
-The coordinator retains the earlier pause handoff as historical evidence.
+Completed selected execution: [the 49d–49e Outcome](49-library-native-remediation.md#outcome--remaining-49d49e-2026-10-22).
+The coordinator owns package status, commands, repaired failures and remaining series scope.
 
 Selected continuation basis: [the 2026-10-22 reassessment](49-library-native-remediation.md#remaining-scope-reassessment--2026-10-22).
-Execution is authorized; original authoring baselines and receipts retain their dates.
+Execution was authorized; original authoring baselines and receipts retain their dates.
 
 This companion develops the mathematical execution target of
 [Plan 49](49-library-native-remediation.md). The coordinator owns source dispositions,
-rule decisions, **all package status** and combined qualification. The target below is
-**Proposed**, conditional on those decisions; it is complete enough to implement without
-another general library-feasibility exercise. Preparation contracts come from
+rule decisions, **all package status** and combined qualification. At original authoring the
+target below was **Proposed**, conditional on those decisions. The Outcome records implemented
+choices, selected acceptance and limits. Preparation contracts come from
 [49c](49c-resolved-model-and-incremental-preparation.md). This document owns arithmetic-region
 construction, demanded derivative products, evaluator ownership and their acceptance.
 
@@ -316,7 +316,8 @@ Targeted implementation checks use `just check-package pse-math`, related compil
 `just unit-package pse-math <filter>` for region/product/guard/curvature/implicit/native-compiled
 tests. Use explicit compiled/native test features and `scripts/pse-env` routes appropriate to
 the affected consumer; actual Arrow-consuming correctness closures retain force-validation.
-No tests/builds/probes were run for this proposal. The failure baseline is zero.
+No tests/builds/probes ran during original authoring. The Outcome below records subsequent
+execution; the failure baseline is zero.
 
 Combined integration/native/Python journeys, derivative-consistency and closure campaigns,
 performance characterization and once-at-scope-end static/manual checks are selected by the
@@ -331,3 +332,48 @@ F04. Remaining questions are bounded family/JIT/formal-slot choices and concrete
 limits, not whether to keep project expression reconstruction as the long-term architecture.
 Move enduring §7/§14 contracts through the coordinator's decision route before retiring this
 companion and its resolved source material.
+
+
+## Outcome
+
+### What was built
+
+**Implemented and Tested, 2026-10-22:** MAT01–MAT05 use deterministic demanded regions,
+Symbolica definition/alias sharing and local derivative products across provider, branch and
+intermediate barriers. Interpreted and C++ consumers share the admitted mathematical meaning;
+worker scratch, source checks, cancellation and actual exported storage retain their owners.
+The coordinator's [execution Outcome](49-library-native-remediation.md#outcome--remaining-49d49e-2026-10-22)
+records the 95 compiled-product controls, independent multivariate/action expectations, physical
+heater/optimization/flash acceptance and composed public journeys, including original residual,
+closure and applicability qualification. The selected probe reports actual guarded stage/product
+inventory and exported/retained allowances; these are not process RSS or a speed comparison.
+
+Constructor admission separates actual Symbolica AST populations from encoded source and
+arbitrary-precision literal bytes, includes demanded Taylor width, and reserves actual exported
+excess before floating conversion. Sparse stage descriptions charge reached formal occurrences
+plus one temporary inventory. The original 8GiB constructor and complete foreign envelopes stay.
+Tracked static-package projection moves repeated selection/equality work to a cached producer
+without changing complete immutable payload equality, canonical physical owners or A/B/A reuse.
+
+**Interface-checked, MAT06:** I11/I12/I13/I25 retain scalar formals, interpreted/C++ profiles,
+scoped library algebra and the direct-translation alias route. The coordinator records concrete
+reasons and revisit conditions. No JIT, SIMD, CUDA, streaming or hot-start adoption is claimed.
+
+### A mistake made and corrected
+
+Initial accounting treated encoded Atom bytes as numeric populations and multiplied whole formal
+inventories across stages. Real physical acceptance exposed false construction refusals. AST,
+literal and exported census controls now exercise their separate meanings without increasing
+allowances. The inherited claim that Symbolica's operation counter omitted functions was also
+corrected against pinned source. A first mutable tracked-owner approach broke existing A/B/A
+counters; it was replaced by a tracked projection query producing the original immutable owner.
+Existing cross-parent/equal-owner sharing assertions remain intact.
+
+### Deviations from the plan, deliberate
+
+The physical flash case is independently selectable from the remaining aggregate, retaining both
+native backends and every original scientific assertion. This makes the required functional
+assessment selectable without coupling it to a production-scale campaign. Optional library
+inquiries conclude with reasoned no-adoption outcomes. No benchmark, numerical speedup, complete
+heap bound or whole-model-library qualification is claimed. Independent 49f–49h and broader
+scientific campaigns retain their scope; this companion remains needed by those active readers.
