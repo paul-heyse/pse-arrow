@@ -484,9 +484,7 @@ mod canonical_result_retention_server_unit {
                 coordinate_max: Some(ordinal as f64),
                 payload_bytes: payload.len() as u64,
                 payload_digest: result_payload_digest(&payload),
-                // Deliberately opaque transport-only facts fill the legal blob
-                // bound. The scientific decoder conservatively treats them unknown.
-                statistics: Some(vec![0xff; pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES].into()),
+                statistics: None,
                 interpretation: wire::INTERPRETATION.into(),
             };
             store
@@ -502,6 +500,14 @@ mod canonical_result_retention_server_unit {
                 .await
                 .unwrap();
         }
+        // Deliberate privileged metadata corruption, after ordinary append has
+        // enforced its admitted-file proof: exercise the transport's legal blob extent
+        // and conservative unknown-statistics behavior. These bytes are not an
+        // admitted-file proof and must never be submitted as exact statistics.
+        store.db.query("UPDATE canonical_result_blocks SET statistics=$statistics WHERE result_set=$set RETURN NONE;")
+            .bind(("statistics", surrealdb::types::Bytes::from(vec![0xff; pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES])))
+            .bind(("set", set.clone()))
+            .await.unwrap().check().unwrap();
         let closed = store
             .close_result_ingestion(&fence, "close-multipage")
             .await
