@@ -72,9 +72,9 @@ def profile_arguments(profile_state: Path | None) -> list[str]:
     if profile_state is None:
         return [
             "--memory-mib",
-            "1536",
+            "2560",
             "--server-memory-mib",
-            "1024",
+            "2048",
             "--native-workers",
             "1",
             "--native-worker-memory-mib",

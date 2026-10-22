@@ -133,6 +133,7 @@ class PayloadLifecycleTests(unittest.TestCase):
             return {
                 "payload_incarnation": self.config["payload_incarnation"],
                 "interpretation": self.config["interpretation"],
+                "study_module_sha256": server.study_module(self.config)["sha256"],
             }
         if "drain_owner" in body:
             expected = json.loads(

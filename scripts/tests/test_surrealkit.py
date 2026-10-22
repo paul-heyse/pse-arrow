@@ -16,6 +16,7 @@ from unittest.mock import patch
 from scripts import surreal_server as server
 from scripts import surrealkit as tool
 from scripts import test_resources as resources
+from scripts.tests.test_surrealism_module import fixture_module
 
 
 class NamespaceTests(unittest.TestCase):
@@ -291,6 +292,10 @@ class DispatchTests(unittest.TestCase):
         config: dict[str, object] = {
             "resources": server.resources(4 * server.GIB, 2 * server.GIB, 2, server.GIB)
         }
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        config["server"] = {"binary_sha256": "1" * 64}
+        config["study_module"] = fixture_module(Path(temporary.name) / "modules")
         allocation = server.object_mapping(config["resources"])
         allocation["grpc_max_attached_sessions"] = 37
         credentials: dict[str, object] = {"username": "user", "password": "secret"}

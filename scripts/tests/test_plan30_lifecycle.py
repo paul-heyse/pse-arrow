@@ -26,6 +26,7 @@ from unittest.mock import MagicMock, patch
 from scripts import host_admission, native_operation, test_resources
 from scripts import surreal_server as server
 from scripts.tests import surreal_fixture_check
+from scripts.tests.test_surrealism_module import fixture_module
 
 startup_clock = server._STARTUP  # noqa: SLF001 -- checks restoration of the actual private lifecycle clock
 
@@ -73,12 +74,13 @@ class Plan30LifecycleTests(unittest.TestCase):
             ),
             "server": {
                 "binary": str(self.root / "surreal"),
-                "binary_sha256": "test",
+                "binary_sha256": "1" * 64,
                 "inputs": server.surreal_source.inputs(),
                 "surrealmx_version": "1.0.0",
             },
             "unit_materialized": True,
         }
+        self.config["study_module"] = fixture_module(self.root / "modules")
         server.write_json(self.state / "config.json", self.config)
         server.write_json(
             self.state / "credentials.json",
@@ -115,6 +117,15 @@ class Plan30LifecycleTests(unittest.TestCase):
         drained = patch.object(server, "workers_drained")
         self.drained = drained.start()
         self.addCleanup(drained.stop)
+        module_install = patch.object(
+            server.surrealism_module,
+            "install",
+            side_effect=lambda selected, _tools: fixture_module(
+                self.root / "modules", str(selected["binary_sha256"])
+            ),
+        )
+        module_install.start()
+        self.addCleanup(module_install.stop)
 
     def context(self) -> Path:
         directory = self.state / ".receivers/generation/case"
@@ -227,9 +238,9 @@ class Plan30LifecycleTests(unittest.TestCase):
                 "test",
                 "--no-resident",
                 "--memory-mib",
-                "1536",
+                "2560",
                 "--server-memory-mib",
-                "1024",
+                "2048",
                 "--native-workers",
                 "1",
                 "--native-worker-memory-mib",
@@ -535,6 +546,9 @@ class Plan30LifecycleTests(unittest.TestCase):
         binary = Path(self.config["server"]["binary"])
         binary.write_bytes(b"owned storage executable")
         self.config["server"]["binary_sha256"] = server.file_digest(binary)
+        self.config["study_module"] = fixture_module(
+            self.root / "modules", self.config["server"]["binary_sha256"]
+        )
         self.config.update(log_max_bytes=8 * server.MIB, log_backups=2)
         owner = MagicMock()
         owner.environment.return_value = {}

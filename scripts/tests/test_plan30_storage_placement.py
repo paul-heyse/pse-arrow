@@ -15,6 +15,7 @@ import pytest
 
 from scripts import host_admission as host
 from scripts import surreal_server as server
+from scripts.tests.test_surrealism_module import fixture_module
 
 
 class StoragePlacementTests(unittest.TestCase):
@@ -41,9 +42,17 @@ class StoragePlacementTests(unittest.TestCase):
                     "install",
                     return_value={
                         "binary": sys.executable,
+                        "binary_sha256": server.file_digest(Path(sys.executable)),
                         "inputs": server.surreal_source.inputs(),
                         "surrealmx_version": server.surreal_source.ENGINE,
                     },
+                ),
+                patch.object(
+                    server.surrealism_module,
+                    "install",
+                    side_effect=lambda selected, _tools: fixture_module(
+                        Path(scratch) / "modules", str(selected["binary_sha256"])
+                    ),
                 ),
                 patch.object(server, "primary_receiver", return_value=receiver),
                 patch.object(

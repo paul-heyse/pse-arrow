@@ -16,6 +16,7 @@ from unittest.mock import patch
 from scripts import surreal_server as server
 from scripts.tests import canonical_recovery_check as recovery
 from scripts.tests import canonical_recovery_science as science
+from scripts.tests.test_surrealism_module import fixture_module
 
 
 class ScientificRecoveryControls(unittest.TestCase):
@@ -461,8 +462,16 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
                     "surrealmx_version": server.surreal_source.ENGINE,
                     "inputs": server.surreal_source.inputs(),
                     "binary": "/unused",
+                    "binary_sha256": "1" * 64,
                     "archive_sha256": "fixture",
                 },
+            ),
+            patch.object(
+                server.surrealism_module,
+                "install",
+                side_effect=lambda selected, _tools: fixture_module(
+                    self.root / "modules", str(selected["binary_sha256"])
+                ),
             ),
             patch.object(server, "public_status", return_value={}),
         ):
