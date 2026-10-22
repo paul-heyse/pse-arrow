@@ -11,7 +11,7 @@ use crate::{
 use arrow_schema::DataType;
 
 /// Exact schema/codec/structural-operation interpretation.
-pub const INTERPRETATION: &str = "pse.substrate.v7";
+pub const INTERPRETATION: &str = "pse.substrate.v8";
 
 /// Self-contained scientific IPC admission, independent of derived indexes.
 pub const RESULT_BLOCK_BYTES: usize = 32 * 1024 * 1024;
@@ -182,8 +182,6 @@ indexes! {
     result_block_batch: canonical_result_blocks [batch, ordinal] true,
     result_output_range: canonical_result_block_outputs [result_set, output, partition, start] false,
     result_output_batch: canonical_result_block_outputs [batch, key] false,
-    result_row_selection: canonical_result_rows [result_set, output, partition, row] false,
-    result_row_batch: canonical_result_rows [batch, key] false,
     result_read_attempt: canonical_result_protections [attempt, key] false,
     result_read_run: canonical_result_protections [run, key] false,
     result_seed_eligibility: canonical_result_seeds [layout, preparation, backend, run_sequence, attempt_generation, step] false,
@@ -778,26 +776,6 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("interpretation", text()),
             ],
             "Derived native output-group index references exact original IPC rows; dense arrays never create per-element database cells.",
-        ),
-        (
-            "canonical_result_rows",
-            vec![
-                column("key", text()),
-                column("result_set", text()),
-                column("attempt", text()),
-                column("batch", text()),
-                column("relation_id", FieldContract::id()),
-                column("run_id", FieldContract::id().with_identity("run")),
-                column("owner", FieldContract::id()),
-                column("step", FieldContract::native(DataType::Int64)).optional(),
-                column("experiment_id", FieldContract::id()).optional(),
-                column("output", text()),
-                column("partition", text()),
-                column("row", uint()),
-                column("offset", uint()),
-                column("interpretation", text()),
-            ],
-            "One exact typed scientific row locator in its original immutable attempt/set/block; output and partition are derived access selectors, never scientific key authority.",
         ),
         (
             "canonical_result_protections",

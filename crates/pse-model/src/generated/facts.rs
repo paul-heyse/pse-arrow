@@ -263,8 +263,6 @@ pub enum FactBatch {
     r#RuntimeCanonicalResultRetirements(
         Vec<super::r#runtime::r#canonical_result_retirements::Row>,
     ),
-    #[doc = stringify!(r#RuntimeCanonicalResultRows)]
-    r#RuntimeCanonicalResultRows(Vec<super::r#runtime::r#canonical_result_rows::Row>),
     #[doc = stringify!(r#RuntimeCanonicalResultSeeds)]
     r#RuntimeCanonicalResultSeeds(Vec<super::r#runtime::r#canonical_result_seeds::Row>),
     #[doc = stringify!(r#RuntimeCanonicalResultSets)]
@@ -1018,12 +1016,6 @@ impl FactBatch {
                     47u8, 178u8, 27u8, 104u8, 25u8,
                 ])
             }
-            Self::r#RuntimeCanonicalResultRows(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    201u8, 9u8, 33u8, 219u8, 5u8, 236u8, 80u8, 241u8, 119u8, 157u8,
-                    133u8, 21u8, 173u8, 206u8, 72u8, 82u8,
-                ])
-            }
             Self::r#RuntimeCanonicalResultSeeds(_) => {
                 pse_ids::SemanticId::from_bytes([
                     64u8, 24u8, 236u8, 23u8, 42u8, 20u8, 115u8, 248u8, 245u8, 185u8,
@@ -1611,7 +1603,6 @@ impl FactBatch {
             Self::r#RuntimeCanonicalResultManifests(rows) => rows.len(),
             Self::r#RuntimeCanonicalResultProtections(rows) => rows.len(),
             Self::r#RuntimeCanonicalResultRetirements(rows) => rows.len(),
-            Self::r#RuntimeCanonicalResultRows(rows) => rows.len(),
             Self::r#RuntimeCanonicalResultSeeds(rows) => rows.len(),
             Self::r#RuntimeCanonicalResultSets(rows) => rows.len(),
             Self::r#RuntimeCanonicalRevisions(rows) => rows.len(),
@@ -2152,11 +2143,6 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeCanonicalResultRetirements(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#RuntimeCanonicalResultRows(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2972,10 +2958,6 @@ impl FactBatch {
                     .map(|row| Self::r#RuntimeCanonicalResultRetirements(
                         vec![row.clone()],
                     ))
-            }
-            Self::r#RuntimeCanonicalResultRows(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#RuntimeCanonicalResultRows(vec![row.clone()]))
             }
             Self::r#RuntimeCanonicalResultSeeds(rows) => {
                 rows.get(index)
@@ -4272,17 +4254,6 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalResultRetirements(left),
                 Self::r#RuntimeCanonicalResultRetirements(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#RuntimeCanonicalResultRows(left),
-                Self::r#RuntimeCanonicalResultRows(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -5787,13 +5758,6 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeCanonicalResultRetirements(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#RuntimeCanonicalResultRows(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -7463,17 +7427,6 @@ impl FactBatch {
                 }
             }
             (
-                Self::r#RuntimeCanonicalResultRows(left),
-                Self::r#RuntimeCanonicalResultRows(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
-                    }
-                    _ => false,
-                }
-            }
-            (
                 Self::r#RuntimeCanonicalResultSeeds(left),
                 Self::r#RuntimeCanonicalResultSeeds(right),
             ) => {
@@ -9108,10 +9061,6 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
-            Self::r#RuntimeCanonicalResultRows(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#key, &mut hash);
-            }
             Self::r#RuntimeCanonicalResultSeeds(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
@@ -10148,13 +10097,6 @@ impl FactBatch {
                 Ok(())
             }
             (
-                Self::r#RuntimeCanonicalResultRows(left),
-                Self::r#RuntimeCanonicalResultRows(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
                 Self::r#RuntimeCanonicalResultSeeds(left),
                 Self::r#RuntimeCanonicalResultSeeds(mut right),
             ) => {
@@ -10912,9 +10854,6 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalResultRetirements(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#RuntimeCanonicalResultRows(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalResultSeeds(rows) => {

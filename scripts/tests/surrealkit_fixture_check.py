@@ -80,7 +80,6 @@ def oracle(
         "readiness": selection.format(hint=""),
         "membership": "SELECT key FROM canonical_memberships WHERE problem='fixture' AND scope='fixture' AND key>'0' ORDER BY key LIMIT 64",
         "result_blocks": "SELECT key FROM canonical_result_block_outputs WHERE result_set='fixture' AND output='value' AND partition='fixture' AND start>=0dec ORDER BY start LIMIT 64",
-        "result_rows": "SELECT key FROM canonical_result_rows WHERE result_set='fixture' AND output='value' AND partition='fixture' AND row>=0dec ORDER BY row LIMIT 64",
         "analysis_edges": "SELECT key FROM canonical_analysis_edges WHERE source='fixture' AND key>'0' ORDER BY key LIMIT 64",
     }
     for name, query in queries.items():
@@ -93,7 +92,6 @@ def oracle(
         for table in (
             "canonical_memberships",
             "canonical_result_block_outputs",
-            "canonical_result_rows",
             "canonical_study_readiness",
             "canonical_analysis_edges",
         )

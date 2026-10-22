@@ -838,29 +838,6 @@ class RuntimeCanonicalResultRetirementsRow:
 
 
 @attrs.frozen(kw_only=True)
-class RuntimeCanonicalResultRowsRow:
-    """Declared relation row or nested value."""
-
-    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    result_set: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    attempt: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    batch: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    owner: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    step: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
-    experiment_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    output: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    partition: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    row: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    offset: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    interpretation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.result_set), v.scalar_key(self.attempt), v.scalar_key(self.batch), v.scalar_key(self.relation_id), v.scalar_key(self.run_id), v.scalar_key(self.owner), v.optional_key(v.scalar_key)(self.step), v.optional_key(v.scalar_key)(self.experiment_id), v.scalar_key(self.output), v.scalar_key(self.partition), v.scalar_key(self.row), v.scalar_key(self.offset), v.scalar_key(self.interpretation),))
-
-
-@attrs.frozen(kw_only=True)
 class RuntimeCanonicalResultSeedsRow:
     """Declared relation row or nested value."""
 

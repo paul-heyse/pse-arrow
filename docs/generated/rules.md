@@ -149,7 +149,6 @@
 | `runtime.canonical_result_manifests` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_result_manifests" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_result_protections` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_result_protections" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_result_retirements` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_result_retirements" s GROUP BY s."key" HAVING COUNT(*) > 1` |
-| `runtime.canonical_result_rows` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_result_rows" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_result_seeds` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_result_seeds" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_result_sets` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_result_sets" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_revisions` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_revisions" s GROUP BY s."key" HAVING COUNT(*) > 1` |

@@ -97,8 +97,6 @@ pub mod r#canonical_result_protections;
 ///Generated relation contract.
 pub mod r#canonical_result_retirements;
 ///Generated relation contract.
-pub mod r#canonical_result_rows;
-///Generated relation contract.
 pub mod r#canonical_result_seeds;
 ///Generated relation contract.
 pub mod r#canonical_result_sets;

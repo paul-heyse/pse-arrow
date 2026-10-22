@@ -158,7 +158,6 @@ refusals! {
     ExecutionImmutableBlockChanged: "execution_immutable_block_changed" => (Identity, "execution immutable block changed"),
     ExecutionImmutableDescriptorChanged: "execution_immutable_descriptor_changed" => (Identity, "execution immutable descriptor changed"),
     ExecutionImmutableOutputBlockIndexesChanged: "execution_immutable_output_block_indexes_changed" => (Identity, "execution immutable output block indexes changed"),
-    ExecutionImmutableScalarRowLocatorsChanged: "execution_immutable_scalar_row_locators_changed" => (Identity, "execution immutable scalar row locators changed"),
     ExecutionImmutableSeedDescriptorChanged: "execution_immutable_seed_descriptor_changed" => (Identity, "execution immutable seed descriptor changed"),
     ExecutionIndexMetadataExtentExceeded: "execution_index_metadata_extent_exceeded" => (Admission, "execution index metadata extent exceeded"),
     ExecutionIngestionAlreadyClosed: "execution_ingestion_already_closed" => (Invariant, "execution ingestion already closed"),

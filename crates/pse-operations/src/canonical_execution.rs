@@ -16,7 +16,7 @@ pub use pse_model::generated::runtime::{
 };
 use pse_model::generated::runtime::{
     canonical_result_block_outputs::Row as ResultOutput,
-    canonical_result_blocks::Row as ResultBlock, canonical_result_rows::Row as ResultRow,
+    canonical_result_blocks::Row as ResultBlock,
     canonical_result_sets::Row as ResultSet,
 };
 use serde::{Deserialize, Serialize};
@@ -154,11 +154,6 @@ pub fn result_metadata_extent(value: &Value) -> Result<usize, CanonicalError> {
         }),
         _ => Err(CanonicalError::PayloadLimit),
     }
-}
-
-/// Derive encoded scalar metadata extent through the canonical codec owner.
-pub fn result_row_metadata_extent(locator: &ResultRow) -> Result<usize, CanonicalError> {
-    result_metadata_extent(&Value::Object(wire::encode_canonical_result_rows(locator)?))
 }
 
 /// Derive dense output metadata extent through the canonical codec owner.
@@ -2700,7 +2695,6 @@ impl ResultBlockAppend {
         payload: ResultPayload,
         row_count: u64,
         block: &ResultBlock,
-        row_indexes: &[ResultRow],
         outputs: &[ResultOutput],
         owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
     ) -> Result<Self, CanonicalError> {
@@ -2712,7 +2706,6 @@ impl ResultBlockAppend {
             payload,
             row_count,
             Some(block),
-            row_indexes,
             outputs,
             Some(owner),
         )
@@ -2733,15 +2726,11 @@ impl ResultBlockAppend {
         payload: ResultPayload,
         row_count: u64,
         block: Option<&ResultBlock>,
-        row_indexes: &[ResultRow],
         outputs: &[ResultOutput],
         owner: Option<std::sync::Arc<dyn std::fmt::Debug + Send + Sync>>,
     ) -> Result<Self, CanonicalError> {
         identity(operation)?;
-        if row_indexes
-            .windows(2)
-            .any(|pair| pair[0].key >= pair[1].key)
-            || outputs.windows(2).any(|pair| pair[0].key >= pair[1].key)
+        if outputs.windows(2).any(|pair| pair[0].key >= pair[1].key)
         {
             return Err(CanonicalError::Configuration(
                 "result index metadata must have strictly ordered identities".into(),
@@ -2821,63 +2810,6 @@ impl ResultBlockAppend {
         if let Some(block) = block {
             crate::canonical_results::validate_result_block_metadata(block, &batch)?;
         }
-        if row_indexes.len() > wire::RESULT_INDEX_RECORDS {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        let mut row_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
-        row_hash.str("pse.execution.scalar-row-metadata.v1");
-        let mut scientific_keys = std::collections::BTreeSet::new();
-        let mut coordinates = std::collections::BTreeSet::new();
-        for locator in row_indexes {
-            crate::canonical_results::validate_result_row(locator)?;
-            if locator.attempt != fence.attempt
-                || locator.relation_id.to_string() != name
-                || !scientific_keys.insert((
-                    locator.relation_id,
-                    locator.run_id,
-                    locator.owner,
-                    locator.step,
-                ))
-                || !coordinates.insert(locator.row)
-                || block.is_none_or(|block| {
-                    block.start.checked_add(locator.offset) != Some(locator.row)
-                })
-            {
-                return Err(CanonicalError::Configuration(
-                    "scalar row typed key, attempt or original offset mismatch".into(),
-                ));
-            }
-            if locator.batch != key || locator.result_set != set_key {
-                return Err(CanonicalError::Configuration(
-                    "scalar locator batch coordinate mismatch".into(),
-                ));
-            }
-            if block.is_some_and(|block| locator.row < block.start || locator.row >= block.end) {
-                return Err(CanonicalError::Configuration(
-                    "scalar locator row is outside original IPC block".into(),
-                ));
-            }
-            pse_model::SemanticFrame::frame(locator, &mut row_hash);
-        }
-        let registry = pse_schema::registry()
-            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-        let scalar_relation = [
-            "runtime.solve_variables",
-            "runtime.solve_constraints",
-            "runtime.fit_parameters",
-            "runtime.fit_observations",
-        ]
-        .iter()
-        .any(|relation| {
-            registry
-                .relation(relation)
-                .is_some_and(|spec| spec.id.to_string() == name)
-        });
-        if (scalar_relation || !row_indexes.is_empty()) && row_indexes.len() as u64 != row_count {
-            return Err(CanonicalError::Configuration(
-                "scalar row coverage differs from original IPC block".into(),
-            ));
-        }
         if outputs.len() > wire::RESULT_INDEX_RECORDS {
             return Err(CanonicalError::PayloadLimit);
         }
@@ -2913,16 +2845,11 @@ impl ResultBlockAppend {
             &digest,
             row_count,
             block_hash.finish_hash().to_hex(),
-            row_hash.finish_hash().to_hex(),
             output_hash.finish_hash().to_hex(),
         ))?;
         let block = block
             .map(wire::encode_canonical_result_blocks)
             .transpose()?;
-        let row_indexes = row_indexes
-            .iter()
-            .map(wire::encode_canonical_result_rows)
-            .collect::<Result<Vec<_>, _>>()?;
         let outputs = outputs
             .iter()
             .map(wire::encode_canonical_result_block_outputs)
@@ -2931,17 +2858,6 @@ impl ResultBlockAppend {
         metadata.insert(
             "block",
             block.clone().map(Value::Object).unwrap_or(Value::None),
-        );
-        metadata.insert(
-            "row_indexes",
-            Value::Array(
-                row_indexes
-                    .iter()
-                    .cloned()
-                    .map(Value::Object)
-                    .collect::<Vec<_>>()
-                    .into(),
-            ),
         );
         metadata.insert(
             "outputs",
@@ -2981,16 +2897,6 @@ impl ResultBlockAppend {
         item.insert("set", Value::Object(encoded_set));
         item.insert("batch", Value::Object(encoded_batch));
         item.insert("block", block.map(Value::Object).unwrap_or(Value::None));
-        item.insert(
-            "row_indexes",
-            Value::Array(
-                row_indexes
-                    .into_iter()
-                    .map(Value::Object)
-                    .collect::<Vec<_>>()
-                    .into(),
-            ),
-        );
         item.insert(
             "outputs",
             Value::Array(
@@ -4450,7 +4356,6 @@ impl CanonicalStore {
                         row_count,
                         None,
                         &[],
-                        &[],
                     )
                     .await
                 })
@@ -4486,7 +4391,6 @@ impl CanonicalStore {
                         row_count,
                         Some(block),
                         &[],
-                        &[],
                     )
                     .await
                 })
@@ -4494,57 +4398,12 @@ impl CanonicalStore {
             })
             .await
     }
-    /// Retain complete scalar row locators and their batch receipt under one ingestion gate.
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "scalar indexes and their immutable batch descriptor must share the explicit fenced ingestion operation"
-    )]
-    pub async fn append_result_block_rows(
-        &self,
-        fence: &AttemptFence,
-        operation: &str,
-        name: &str,
-        ordinal: u64,
-        payload: ResultPayload,
-        row_count: u64,
-        block: &ResultBlock,
-        row_indexes: &[ResultRow],
-    ) -> Result<AppendAck, CanonicalError> {
-        let activity = self.admit_activity()?;
-        activity
-            .scope(async {
-                within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                    if row_indexes
-                        .windows(2)
-                        .any(|pair| pair[0].key >= pair[1].key)
-                    {
-                        return Err(CanonicalError::Configuration(
-                            "scalar metadata must have strictly ordered identities".into(),
-                        ));
-                    }
-                    self.append_execution_batch(
-                        fence,
-                        operation,
-                        name,
-                        ordinal,
-                        payload,
-                        row_count,
-                        Some(block),
-                        row_indexes,
-                        &[],
-                    )
-                    .await
-                })
-                .await
-            })
-            .await
-    }
-    /// Atomically index original IPC rows and scientific output groups with their one immutable payload.
+    /// Atomically retain dense scientific output ranges with their one immutable payload.
     #[allow(
         clippy::too_many_arguments,
         reason = "the original payload, block descriptor and derived indexes are distinct premises of one fenced operation"
     )]
-    pub async fn append_result_block_indexes(
+    pub async fn append_result_block_outputs(
         &self,
         fence: &AttemptFence,
         operation: &str,
@@ -4553,17 +4412,13 @@ impl CanonicalStore {
         payload: ResultPayload,
         row_count: u64,
         block: &ResultBlock,
-        row_indexes: &[ResultRow],
         outputs: &[ResultOutput],
     ) -> Result<AppendAck, CanonicalError> {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                    if row_indexes
-                        .windows(2)
-                        .any(|pair| pair[0].key >= pair[1].key)
-                        || outputs.windows(2).any(|pair| pair[0].key >= pair[1].key)
+                    if outputs.windows(2).any(|pair| pair[0].key >= pair[1].key)
                     {
                         return Err(CanonicalError::Configuration(
                             "result index metadata must have strictly ordered identities".into(),
@@ -4577,7 +4432,6 @@ impl CanonicalStore {
                         payload,
                         row_count,
                         Some(block),
-                        row_indexes,
                         outputs,
                     )
                     .await
@@ -4599,25 +4453,23 @@ impl CanonicalStore {
         payload: ResultPayload,
         row_count: u64,
         block: Option<&ResultBlock>,
-        row_indexes: &[ResultRow],
         outputs: &[ResultOutput],
     ) -> Result<AppendAck, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut prepared = ResultBlockAppend::prepare(fence, operation, name, ordinal, payload,
-                row_count, block, row_indexes, outputs, None)?;
+                row_count, block, outputs, None)?;
             self.prepare_result_file(fence,&mut prepared).await?;
             let generation = canonical_codec::encode_uint(fence.generation)?;
             self.ensure_writes()?;
             let result = self.protected_execution_query(&fence.run, "canonical_execution::append_execution_batch", || {
                 let item = &prepared.item;
-                let query = self.db.query("RETURN fn::pse_execution_v1::append($pse_rpc_expires_at,$run,$attempt,$generation,$operation,$request,$set,$batch,$block,$row_indexes,$outputs);")
+                let query = self.db.query("RETURN fn::pse_execution_v1::append($pse_rpc_expires_at,$run,$attempt,$generation,$operation,$request,$set,$batch,$block,$outputs);")
                     .bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone()))
                     .bind(("operation",item.get("operation").cloned().unwrap_or(Value::None)))
                     .bind(("request",item.get("request").cloned().unwrap_or(Value::None)))
                     .bind(("set",item.get("set").cloned().unwrap_or(Value::None)))
                     .bind(("batch",item.get("batch").cloned().unwrap_or(Value::None)))
                     .bind(("block",item.get("block").cloned().unwrap_or(Value::None)))
-                    .bind(("row_indexes",item.get("row_indexes").cloned().unwrap_or(Value::None)))
                     .bind(("outputs",item.get("outputs").cloned().unwrap_or(Value::None)))
                     ;
                 Ok(match prepared._owner.clone() { Some(owner) => query.payload_owner(owner), None => query })
@@ -5485,7 +5337,6 @@ mod canonical_result_admission_unit {
             1,
             &block,
             &[],
-            &[],
             std::sync::Arc::new(()),
         )
         .unwrap()
@@ -5499,7 +5350,7 @@ mod canonical_result_admission_unit {
                 Value::Object(block) => block.clone(), _ => panic!("fixture block"),
             }).unwrap();
             block.statistics = Some(br#"{"rows":1,"minimum":-999,"maximum":-999}"#.to_vec().into());
-            let result = ResultBlockAppend::new(&fence, "forged-equal-replay", "values", 0, seed.payload, 1, &block, &[], &[], std::sync::Arc::new(()));
+            let result = ResultBlockAppend::new(&fence, "forged-equal-replay", "values", 0, seed.payload, 1, &block, &[], std::sync::Arc::new(()));
             assert!(matches!(result, Err(CanonicalError::Configuration(message)) if message.contains("actual admitted-file proof")));
         }
     }
@@ -5771,7 +5622,7 @@ mod canonical_result_admission_unit {
         row.insert("partition", Value::String("x".repeat(65536)));
         let mut envelope = Object::new();
         envelope.insert(
-            "row_indexes",
+            "block",
             Value::Array(vec![Value::Object(row.clone())].into()),
         );
         envelope.insert("outputs", Value::Array(vec![Value::Object(row)].into()));

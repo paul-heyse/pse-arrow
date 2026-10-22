@@ -910,8 +910,8 @@ impl ResultReader {
                             if filter.dense {
                                 let page = self.runtime.canonical_store()?.result_output_page(
                                     &self.read, &self.set, &filter.output, &filter.partition,
-                                    self.start, self.end, self.after, true,
-                                    filter.minimum, filter.maximum, None,
+                                    self.start, self.end, self.after,
+                                    filter.minimum, filter.maximum,
                                 ).await?;
                                 self.exhausted = page.outputs.len() < 64;
                                 self.after = page.outputs.last().map(|output| output.start).or(self.after);
@@ -2742,18 +2742,19 @@ mod canonical_connected_results_server_unit {
         assert!(pool.reserved() > baseline);
         // Fully decoded buffers require no storage access. The reader's final
         // protection release can settle while these accounted arrays remain live.
-        let mut retired = false;
+        let mut retired = None;
         for _ in 0..32 {
-            if cleanup.forget_run_results("decoded-owner").await.is_ok() {
-                retired = true;
+            if let Ok(page) = cleanup.forget_run_results("decoded-owner").await {
+                retired = Some(page);
                 break;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        assert!(retired);
-        let mut reclaimed = 0;
-        let mut complete = false;
+        let retired = retired.expect("final protected-reader release settles");
+        let mut reclaimed = retired.batches;
+        let mut complete = retired.complete;
         for _ in 0..8 {
+            if complete { break; }
             let page = cleanup.reclaim_result_page("decoded-owner").await.unwrap();
             reclaimed += page.batches;
             if page.complete {
@@ -2916,33 +2917,6 @@ mod canonical_connected_results_server_unit {
             .read_results("projection", fence.attempt())
             .await
             .unwrap();
-        let set = result_set_key(fence.attempt(), &fit_parameters::RELATION_ID.to_string());
-        let page = store
-            .result_output_page(
-                &read,
-                &set,
-                &format!("{}:{absent}", fit_parameters::RELATION_ID),
-                "0",
-                0,
-                u64::MAX,
-                None,
-                false,
-                None,
-                None,
-                None,
-            )
-            .await
-            .unwrap();
-        assert_eq!(page.rows.len(), 1);
-        assert_eq!(page.blocks.len(), 1);
-        assert!(
-            read.sets()
-                .iter()
-                .find(|descriptor| descriptor.key == set)
-                .unwrap()
-                .batch_count
-                > page.blocks.len() as u64
-        );
         let mut missing = runtime
             .output_results(
                 "projection",
@@ -3161,10 +3135,8 @@ mod canonical_connected_results_server_unit {
                 0,
                 u64::MAX,
                 None,
-                true,
                 Some(20.0),
                 Some(22.0),
-                None,
             )
             .await
             .unwrap();

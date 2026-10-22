@@ -259,11 +259,11 @@ DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $ope
     RETURN $rpc_result;
 };
 
-DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $operation: string, $request: bytes, $set: object, $batch: object, $block: option<object>, $row_indexes: array<object>, $outputs: array<object>) -> object {
+DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $operation: string, $request: bytes, $set: object, $batch: object, $block: option<object>, $outputs: array<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::current_writer($rpc_expiry,$run);
-    IF $set.interpretation!=__INTERPRETATION__ OR ($block!=NONE AND $block.interpretation!=__INTERPRETATION__) OR array::len($row_indexes[WHERE interpretation!=__INTERPRETATION__])!=0 OR array::len($outputs[WHERE interpretation!=__INTERPRETATION__])!=0 { THROW 'PSE_REFUSAL:stale_execution_append_interpretation'; };
-    IF array::len($row_indexes) > __INDEX_RECORDS__ OR array::len($outputs) > __INDEX_RECORDS__ OR bytes::len(encoding::cbor::encode({block:$block,row_indexes:$row_indexes,outputs:$outputs})) > __INDEX_BYTES__ { THROW 'PSE_REFUSAL:execution_index_metadata_extent_exceeded'; };
+    IF $set.interpretation!=__INTERPRETATION__ OR ($block!=NONE AND $block.interpretation!=__INTERPRETATION__) OR array::len($outputs[WHERE interpretation!=__INTERPRETATION__])!=0 { THROW 'PSE_REFUSAL:stale_execution_append_interpretation'; };
+    IF array::len($outputs) > __INDEX_RECORDS__ OR bytes::len(encoding::cbor::encode({block:$block,outputs:$outputs})) > __INDEX_BYTES__ { THROW 'PSE_REFUSAL:execution_index_metadata_extent_exceeded'; };
     fn::pse_execution_v1::available($rpc_expiry, $run);
     LET $op = fn::pse_execution_v1::operation($rpc_expiry, $operation, 'append', $request);
     LET $writer = IF $op = NONE { fn::pse_execution_v1::writer($rpc_expiry, $run, $attempt, $generation, $operation, 'append') } ELSE { NONE };
@@ -276,8 +276,6 @@ DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $at
     IF $existing != NONE {
         IF object::remove($existing,'id')!=$batch OR $existing.digest != $batch.digest OR $existing.ordinal != $batch.ordinal OR $existing.row_count != $batch.row_count OR $existing.result_set != $batch.result_set OR $existing.attempt != $attempt { THROW 'PSE_REFUSAL:execution_immutable_batch_changed'; };
         IF ($block = NONE AND $existing_block != NONE) OR ($block != NONE AND ($existing_block = NONE OR object::remove($existing_block, 'id') != $block)) { THROW 'PSE_REFUSAL:execution_immutable_block_changed'; };
-        LET $old_row_indexes = SELECT * FROM canonical_result_rows WHERE batch = $batch.key ORDER BY key LIMIT __INDEX_REPLAY__;
-        IF array::len($old_row_indexes) != array::len($row_indexes) OR $old_row_indexes.map(|$row_index| object::remove($row_index, 'id')) != $row_indexes { THROW 'PSE_REFUSAL:execution_immutable_scalar_row_locators_changed'; };
         LET $old_outputs = SELECT * FROM canonical_result_block_outputs WHERE batch = $batch.key ORDER BY key LIMIT __INDEX_REPLAY__;
         IF array::len($old_outputs) != array::len($outputs) OR $old_outputs.map(|$output| object::remove($output, 'id')) != $outputs { THROW 'PSE_REFUSAL:execution_immutable_output_block_indexes_changed'; };
         IF $op != NONE { LET $rpc_result = {key:$batch.key,attempt:$attempt,result_set:$set.key,ordinal:$batch.ordinal,digest:$batch.digest,row_count:$batch.row_count,file_binding:$batch.file_binding,request:$request}; fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
@@ -295,10 +293,6 @@ DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $at
         fn::pse_files_v1::attach($rpc_expiry,$batch,'result',$attempt,'result:'+$batch.key);
         CREATE ONLY type::record('canonical_result_batches', $batch.key) CONTENT $batch;
         IF $block != NONE { CREATE ONLY type::record('canonical_result_blocks', $batch.key) CONTENT $block; };
-        IF array::len($row_indexes) != 0 {
-            LET $rows = $row_indexes.map(|$row_index| object::extend($row_index, {id:type::record('canonical_result_rows', $row_index.key)}));
-            INSERT INTO canonical_result_rows $rows RETURN NONE;
-        };
         IF array::len($outputs) != 0 {
             LET $rows = $outputs.map(|$output| object::extend($output, {id:type::record('canonical_result_block_outputs', $output.key)}));
             INSERT INTO canonical_result_block_outputs $rows RETURN NONE;
@@ -331,7 +325,7 @@ DEFINE FUNCTION fn::pse_execution_v1::append_many($rpc_expiry: int, $run: string
     // FOR executes each original append serially. A later gap, conflicting
     // immutable receipt or deadline THROW rolls the entire new group back.
     FOR $item IN $items {
-        LET $saved=fn::pse_execution_v1::append($rpc_expiry,$run,$attempt,$generation,$item.operation,$item.request,$item.set,$item.batch,$item.block,$item.row_indexes,$item.outputs);
+        LET $saved=fn::pse_execution_v1::append($rpc_expiry,$run,$attempt,$generation,$item.operation,$item.request,$item.set,$item.batch,$item.block,$item.outputs);
         IF $saved.pse_writer!=NONE { THROW 'PSE_REFUSAL:execution_append_group_admission_changed'; };
     };
     LET $receipts=$items.map(|$item| {key:$item.batch.key,attempt:$attempt,result_set:$item.set.key,ordinal:$item.batch.ordinal,digest:$item.batch.digest,row_count:$item.batch.row_count,file_binding:$item.batch.file_binding,request:$item.request});

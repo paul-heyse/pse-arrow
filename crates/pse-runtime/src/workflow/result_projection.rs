@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Native scalar indexes are derived from declared scientific fields. The
-//! original admitted Arrow row remains the scientific result authority.
+//! Admitted scientific batches are sorted and sealed with their actual statistics.
+//! Dense trajectory ranges retain their original payload coordinates.
 
 use super::{WorkflowError, contract, relation, result_files};
 use pse_columnar::{MemoryConsumer, MemoryPool};
 use pse_ids::SemanticId;
 use pse_model::generated::runtime::{
     canonical_result_block_outputs::Row as Output, canonical_result_blocks::Row as Block,
-    canonical_result_rows::Row as RowLocator,
 };
 use pse_operations::{
     canonical::CanonicalStore,
@@ -20,145 +19,17 @@ use pse_operations::{
 use pse_relations::{
     columnar::FieldCheckedBatch,
     generated::runtime::{
-        fit_observations, fit_parameters, simulation_samples, solve_constraints, solve_variables,
+        simulation_samples,
     },
 };
 use std::sync::Arc;
 
-fn indexed_scalar(id: SemanticId) -> bool {
-    pse_relations::generated::result_selection::for_relation(id)
-        .is_some_and(|selection| !selection.sort.is_empty())
-}
 pub(super) fn check_output_field(id: SemanticId, field: &str) -> Result<(), WorkflowError> {
     if !pse_relations::generated::result_selection::for_relation(id)
         .is_some_and(|selection| selection.values.contains(&field)) {
         return Err(contract("scientific output field has no declared native selection"));
     }
     Ok(())
-}
-
-/// Reconstruct the full typed key from the original columns, independently of
-/// any selected value field or numeric access predicate.
-pub(super) fn selected_scalar_row(
-    table: &FieldCheckedBatch,
-    attempt: &str,
-    set: &str,
-    batch: &str,
-    index: usize,
-    origin: u64,
-) -> Result<RowLocator, WorkflowError> {
-    use pse_relations::columnar::ArrowValue;
-    let relation_id = table.relation_id();
-    if index >= table.batch().num_rows() {
-        return Err(contract("selected scalar row outside original block"));
-    }
-    let (run_id, owner, step, experiment_id) = if relation_id == solve_variables::RELATION_ID {
-        let view = solve_variables::View::from_checked(table).map_err(relation)?;
-        (
-            ArrowValue::read(view.run_id_column(), index).map_err(relation)?,
-            ArrowValue::read(view.symbol_id_column(), index).map_err(relation)?,
-            Some(view.step_column().value(index)),
-            None,
-        )
-    } else if relation_id == solve_constraints::RELATION_ID {
-        let view = solve_constraints::View::from_checked(table).map_err(relation)?;
-        (
-            ArrowValue::read(view.run_id_column(), index).map_err(relation)?,
-            ArrowValue::read(view.row_id_column(), index).map_err(relation)?,
-            Some(view.step_column().value(index)),
-            None,
-        )
-    } else if relation_id == fit_parameters::RELATION_ID {
-        let view = fit_parameters::View::from_checked(table).map_err(relation)?;
-        (
-            ArrowValue::read(view.run_id_column(), index).map_err(relation)?,
-            ArrowValue::read(view.parameter_id_column(), index).map_err(relation)?,
-            None,
-            None,
-        )
-    } else if relation_id == fit_observations::RELATION_ID {
-        let view = fit_observations::View::from_checked(table).map_err(relation)?;
-        (
-            ArrowValue::read(view.run_id_column(), index).map_err(relation)?,
-            ArrowValue::read(view.observation_id_column(), index).map_err(relation)?,
-            None,
-            Some(ArrowValue::read(view.experiment_id_column(), index).map_err(relation)?),
-        )
-    } else {
-        return Err(contract("relation has no scalar row locator"));
-    };
-    let partition = if let Some(step) = step {
-        format!("step:{step}")
-    } else if let Some(experiment) = experiment_id {
-        format!("experiment:{experiment}")
-    } else {
-        "0".into()
-    };
-    let row = origin
-        .checked_add(index as u64)
-        .ok_or_else(|| contract("scientific row coordinate overflow"))?;
-    let locator = RowLocator {
-        key: format!("{batch}:{row}"),
-        result_set: set.into(),
-        attempt: attempt.into(),
-        batch: batch.into(),
-        relation_id,
-        run_id,
-        owner,
-        step,
-        experiment_id,
-        output: format!("{relation_id}:{owner}"),
-        partition,
-        row,
-        offset: index as u64,
-        interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
-    };
-    pse_operations::canonical_results::validate_result_row(&locator)?;
-    Ok(locator)
-}
-/// Validate every locator premise against its exact original decoded row.
-#[cfg(test)]
-pub(super) fn verify_scalar_row(
-    table: &FieldCheckedBatch,
-    locator: &RowLocator,
-    attempt: &str,
-    set: &str,
-    batch: &str,
-    origin: u64,
-) -> Result<usize, WorkflowError> {
-    let index = locator
-        .row
-        .checked_sub(origin)
-        .and_then(|row| usize::try_from(row).ok())
-        .ok_or_else(|| contract("selected scalar row outside original block"))?;
-    if selected_scalar_row(table, attempt, set, batch, index, origin)? != *locator {
-        return Err(contract(
-            "native scalar locator differs from original scientific row",
-        ));
-    }
-    Ok(index)
-}
-pub(super) fn scalar_rows_at(
-    table: &FieldCheckedBatch,
-    attempt: &str,
-    set: &str,
-    batch: &str,
-    start: usize,
-    count: usize,
-    origin: u64,
-) -> Result<Vec<RowLocator>, WorkflowError> {
-    if !indexed_scalar(table.relation_id()) {
-        return Ok(Vec::new());
-    }
-    let end = start
-        .checked_add(count)
-        .filter(|end| *end <= table.batch().num_rows())
-        .ok_or_else(|| contract("scalar row window outside original batch"))?;
-    let mut rows = (start..end)
-        .map(|index| selected_scalar_row(table, attempt, set, batch, index, origin))
-        .collect::<Result<Vec<_>, _>>()?;
-    rows.sort_by(|left, right| left.key.cmp(&right.key));
-    Ok(rows)
 }
 
 /// Lower the public scientific predicate once; the native session owns its execution.
@@ -197,19 +68,6 @@ pub(super) fn scalar_expression(
     Ok(predicate)
 }
 
-/// Evaluate through the same configured native state used by this runtime's queries.
-#[cfg(test)]
-pub(super) fn scalar_predicate(
-    state: &datafusion::execution::session_state::SessionState,
-    table: &FieldCheckedBatch,
-    field: &str,
-    minimum: Option<f64>,
-    maximum: Option<f64>,
-    missing: Option<bool>,
-) -> Result<datafusion::arrow::array::BooleanArray, WorkflowError> {
-    let expression = scalar_expression(table.relation_id(), field, minimum, maximum, missing)?;
-    evaluate_scalar_expression(state, expression, table.batch())
-}
 fn evaluate_scalar_expression(
     state: &datafusion::execution::session_state::SessionState,
     expression: datafusion::logical_expr::Expr,
@@ -253,7 +111,7 @@ pub(super) fn scalar_selection_mask(
     evaluate_scalar_expression(state, expression, table.batch())
 }
 
-/// Ingest the sole admitted scientific IPC payload and its derived scalar index
+/// Ingest the sole admitted scientific IPC payload and its admitted batch statistics
 /// through the same fenced transaction. IPC and derived metadata independently
 /// choose useful prefixes; scalar count is only a defensive extent ceiling.
 #[cfg(all(test, feature = "canonical-tests"))]
@@ -305,7 +163,6 @@ struct PendingBatch {
     ordinal: u64,
     source: FieldCheckedBatch,
     block: Block,
-    rows: Vec<RowLocator>,
     outputs: Vec<Output>,
     owner: Arc<pse_columnar::AllocationLease>,
 }
@@ -378,19 +235,10 @@ impl<'a> ResultAppendQueue<'a> {
         ordinal: u64,
         source: &FieldCheckedBatch,
         block: &Block,
-        rows: &[RowLocator],
         outputs: &[Output],
     ) -> Result<(), WorkflowError> {
         let offered = std::time::Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
-        let metadata =
-            rows.iter()
-                .try_fold(4096usize, |bytes, row| -> Result<_, WorkflowError> {
-                    bytes
-                        .checked_add(
-                            pse_operations::canonical_execution::result_row_metadata_extent(row)?,
-                        )
-                        .ok_or_else(|| contract("append metadata extent"))
-                })?;
+        let metadata = 4096usize;
         let metadata =
             outputs
                 .iter()
@@ -442,7 +290,6 @@ impl<'a> ResultAppendQueue<'a> {
             ordinal,
             source: source.clone(),
             block: block.clone(),
-            rows: rows.to_vec(),
             outputs: outputs.to_vec(),
             owner,
         });
@@ -523,15 +370,14 @@ impl<'a> ResultAppendQueue<'a> {
                     ordinal,
                     source,
                     block,
-                    rows,
                     outputs,
                     owner,
                 } = item;
                 drop(source); // Checked-storage/export metadata stays charged through sealing.
-                (name, ordinal, block, rows, outputs, owner)
+                (name, ordinal, block, outputs, owner)
             })
             .collect::<Vec<_>>();
-        for (index, (name, ordinal, mut block, rows, outputs, owner)) in
+        for (index, (name, ordinal, mut block, outputs, owner)) in
             metadata.into_iter().enumerate()
         {
             // The sealed payload has no resident bytes. Its existing per-item
@@ -548,7 +394,6 @@ impl<'a> ResultAppendQueue<'a> {
                 payload,
                 block.rows,
                 &block,
-                &rows,
                 &outputs,
                 owner.clone(),
             )?;
@@ -1055,20 +900,12 @@ async fn store_result_chunk(
     }
     let sorted = pse_relations::result_batch::sort_new_scalar(table, pool, &pse_columnar::CancellationToken::new()).map_err(relation)?;
     let table = &sorted;
-    let reservation = MemoryConsumer::new("canonical:result-scalar-index").register(pool);
-    // Live prepared locators, encoded metadata, Arrow writer/protobuf scratch and
-    // the outgoing payload are independent of either encoded admission ceiling.
+    let reservation = MemoryConsumer::new("canonical:result-batch-encoding").register(pool);
+    // Native encoding and descriptor copies retain their own prepaid allowance.
     let name = id.to_string();
     let set = result_set_key(fence.attempt(), &name);
-    let indexed = usize::from(indexed_scalar(id));
-    let window = if indexed != 0 {
-        pse_operations::generated::surreal::RESULT_INDEX_RECORDS.min(1024)
-    } else {
-        32768
-    };
-    let scratch = window * indexed * (size_of::<RowLocator>() + 1024)
-        + window * size_of::<usize>()
-        + 16 * pse_operations::canonical_execution::EXECUTION_METADATA_BYTES;
+    let window = 32768;
+    let scratch = 16 * pse_operations::canonical_execution::EXECUTION_METADATA_BYTES;
     if reservation.try_grow(scratch).is_err() {
         queue.yield_optional().await?;
         reservation
@@ -1078,44 +915,15 @@ async fn store_result_chunk(
     let _encoder_owner = pse_columnar::AllocationLease::new(reservation);
     for base in (0..table.batch().num_rows()).step_by(window) {
         let count = window.min(table.batch().num_rows() - base);
-        let initial_key = result_batch_key(fence.attempt(), &set, *ordinal);
-        let prepared = scalar_rows_at(
-            table,
-            fence.attempt(),
-            &set,
-            &initial_key,
-            base,
-            count,
-            origin,
-        )?;
-        let mut extents = vec![0_usize; count];
-        for locator in &prepared {
-            let extent = pse_operations::canonical_execution::result_row_metadata_extent(locator)?;
-            extents[(locator.row - origin) as usize - base] += extent;
-        }
         let mut offset = 0;
         while offset < count {
             let current = *ordinal;
             let key = result_batch_key(fence.attempt(), &set, current);
-            // Descriptor envelope allowance includes maximum encoded actual
-            // identity lengths below. Row extents are prepared once per window.
-            let rows = metadata_prefix(&extents[offset..])?;
-            let rows = result_files::result_prefix_rows(table.batch(), base + offset, rows)?;
+            let rows = result_files::result_prefix_rows(table.batch(), base + offset, count - offset)?;
             let payload = table.slice(base + offset, rows).map_err(relation)?;
             let start = origin
                 .checked_add((base + offset) as u64)
                 .ok_or_else(|| contract("result global row overflow"))?;
-            let locators = prepared
-                .iter()
-                .filter(|locator| locator.row >= start && locator.row < start + rows as u64)
-                .map(|locator| {
-                    let mut locator = locator.clone();
-                    locator.key = format!("{key}{}", &locator.key[initial_key.len()..]);
-                    locator.batch = key.clone();
-                    locator.offset = locator.row - start;
-                    locator
-                })
-                .collect::<Vec<_>>();
             let block = Block {
                 key: key.clone(),
                 batch: key,
@@ -1135,36 +943,13 @@ async fn store_result_chunk(
                 interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
             };
             queue
-                .push(&name, current, &payload, &block, &locators, &[])
+                .push(&name, current, &payload, &block, &[])
                 .await?;
             *ordinal += 1;
             offset += rows;
         }
     }
     Ok(())
-}
-
-fn metadata_prefix(extents: &[usize]) -> Result<usize, WorkflowError> {
-    // Runtime result identities are fixed-width hashes, relation names are at
-    // most128 bytes, partition is "0", and descriptor scalars are fixed-width.
-    // This conservative envelope covers those fields and array/map headers.
-    let mut metadata = 4096_usize;
-    let mut rows = 0;
-    for extent in extents {
-        if metadata.saturating_add(*extent)
-            > pse_operations::canonical_execution::EXECUTION_METADATA_BYTES
-        {
-            break;
-        }
-        metadata += extent;
-        rows += 1;
-    }
-    if rows == 0 {
-        return Err(contract(
-            "single result row index exceeds metadata admission",
-        ));
-    }
-    Ok(rows)
 }
 
 /// Original contiguous symbol ranges within one payload-shaped block. Canonical
@@ -1294,7 +1079,7 @@ async fn store_trajectory(
             interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
         };
         queue
-            .push(&name, *ordinal, &payload, &block, &[], &outputs)
+            .push(&name, *ordinal, &payload, &block, &outputs)
             .await?;
         *ordinal += 1;
         base += rows;
@@ -1305,6 +1090,7 @@ async fn store_trajectory(
 #[cfg(test)]
 mod result_projection_unit {
     use super::*;
+    use pse_relations::generated::runtime::{fit_parameters, solve_constraints};
     use datafusion::arrow::{
         array::{Array, BooleanArray, Float64Array},
         compute::filter_record_batch,
@@ -1858,7 +1644,9 @@ mod result_projection_unit {
             source_reservation.try_grow(64 * 1024).unwrap();
             let source_owner = pse_columnar::AllocationLease::new(source_reservation);
             let observed_source = Arc::downgrade(&source_owner);
+            let table = table.retained(&operations.pool, &pse_columnar::CancellationToken::new()).unwrap();
             let original = [table.with_export_owner(source_owner)];
+            let original_buffer = original[0].batch().column(0).to_data().buffers()[0].as_ptr();
             let cursor = super::super::ResultCursor::from_retained(
                 original[0].batch().schema(),
                 id,
@@ -1871,10 +1659,19 @@ mod result_projection_unit {
                 .await
                 .unwrap();
             drop(original);
-            assert!(
-                observed_source.upgrade().is_some(),
-                "packing retains the checked source allocation owner"
-            );
+            assert!(observed_source.upgrade().is_none(),
+                "packing replaces obsolete source-container metadata");
+            let packed = &queue.items.last().unwrap().source;
+            let bytes = packed.owned().expect("packing retains admitted buffer ownership")
+                .retained_bytes().unwrap();
+            assert!(bytes > 0, "actual scientific buffers retain their allocation grants");
+            if id == fit_parameters::RELATION_ID {
+                assert_eq!(fit_parameters::View::from_checked(packed).unwrap().row(0).unwrap().value, Some(2.0));
+            } else {
+                assert_eq!(packed.batch().column(0).to_data().buffers()[0].as_ptr(), original_buffer,
+                    "unsorted packing shares the original scientific backing");
+                assert_eq!(solve_metrics::View::from_checked(packed).unwrap().row(0).unwrap().real.unwrap().to_bits(), (-0.0f64).to_bits());
+            }
             queue.finish_deferred(id, position).await.unwrap();
             assert!(
                 observed_source.upgrade().is_none(),
@@ -2080,7 +1877,6 @@ mod result_projection_unit {
         let key = result_batch_key(fence.attempt(), &set, 0);
         let (payload, rows) = result_files::encode_result_prefix(table.batch(), 0, 1).unwrap();
         let _encoded = payload;
-        let locators = scalar_rows_at(&table, fence.attempt(), &set, &key, 0, rows, 0).unwrap();
         let block = Block {
             key: key.clone(),
             batch: key,
@@ -2101,7 +1897,7 @@ mod result_projection_unit {
         };
         acks.expect(&fence, &name).unwrap();
         queue
-            .push(&name, 0, &table, &block, &locators, &[])
+            .push(&name, 0, &table, &block, &[])
             .await
             .unwrap();
         queue
@@ -2363,287 +2159,6 @@ mod result_projection_unit {
         assert!(trajectory_outputs(&table, "block", "set", u64::MAX, 0, 6).is_err());
     }
 
-    #[test]
-    fn scalar_row_locators_are_field_independent_and_predicates_preserve_original_values() {
-        let registry = pse_schema::registry().unwrap();
-        let validation = validation();
-        let mut builder = fit_parameters::Builder::with_registry(registry, 6, &validation).unwrap();
-        let parameter = SemanticId::from_bytes([1; 16]);
-        // Scientific relations admit finite values only. Preserve an arbitrary
-        // admitted IEEE payload as well as both zero signs through projection.
-        let precise = f64::from_bits(0x4008_0000_0000_0042);
-        for value in [
-            Some(-0.0),
-            Some(0.0),
-            None,
-            Some(2.0),
-            Some(precise),
-            Some(f64::MAX),
-        ] {
-            builder
-                .push(fit_parameters::Row {
-                    run_id: pse_operations::mint_id(),
-                    parameter_id: parameter,
-                    fixed: false,
-                    value,
-                    unit_id: SemanticId::NIL,
-                    scale: 2.0,
-                    at_bound: None,
-                })
-                .unwrap();
-        }
-        let table = builder.finish().unwrap();
-        let locators = scalar_rows_at(&table, "attempt", "set", "block", 0, 6, 10000).unwrap();
-        assert_eq!(
-            locators.len(),
-            6,
-            "value and scale share one scientific row locator"
-        );
-        let zero = selected_scalar_row(&table, "attempt", "set", "block", 0, 10000).unwrap();
-        assert_eq!(zero.key, "block:10000");
-        assert_eq!(
-            zero.output,
-            format!("{}:{parameter}", fit_parameters::RELATION_ID)
-        );
-        assert_eq!(zero.partition, "0");
-        assert_eq!(zero.offset, 0);
-        assert_eq!(
-            selected(&scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "value", None, None, None).unwrap()),
-            vec![0, 1, 2, 3, 4, 5]
-        );
-        assert_eq!(
-            selected(&scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "value", None, None, Some(true)).unwrap()),
-            vec![2]
-        );
-        assert_eq!(
-            selected(&scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "value", None, None, Some(false)).unwrap()),
-            vec![0, 1, 3, 4, 5]
-        );
-        assert_eq!(
-            selected(&scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "scale", Some(2.0), Some(2.0), None).unwrap()),
-            vec![0, 1, 2, 3, 4, 5]
-        );
-        let mask = scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "value", Some(0.0), Some(-0.0), None).unwrap();
-        assert_eq!(selected(&mask), vec![0, 1]);
-        let gathered = filter_record_batch(table.batch(), &mask).unwrap();
-        let values = gathered
-            .column_by_name("value")
-            .unwrap()
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
-        assert_eq!(values.value(0).to_bits(), (-0.0f64).to_bits());
-        assert_eq!(values.value(1).to_bits(), 0.0f64.to_bits());
-        let original = table
-            .batch()
-            .column_by_name("value")
-            .unwrap()
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
-        assert_eq!(original.value(4).to_bits(), precise.to_bits());
-        assert_eq!(original.value(5).to_bits(), f64::MAX.to_bits());
-        assert!(original.is_null(2));
-        assert!(scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "fixed", None, None, None).is_err());
-        assert!(scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "value", Some(f64::NAN), None, None).is_err());
-        assert!(scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "value", Some(3.0), Some(2.0), None).is_err());
-        assert!(scalar_predicate(&datafusion::prelude::SessionContext::new().state(), &table, "value", Some(0.0), None, Some(true)).is_err());
-        assert!(selected_scalar_row(&table, "attempt", "set", "block", 6, 0).is_err());
-        assert!(selected_scalar_row(&table, "attempt", "set", "block", 1, u64::MAX).is_err());
-        let mut forged = zero.clone();
-        forged.run_id = pse_operations::mint_id();
-        assert!(pse_operations::canonical_results::validate_result_row(&forged).is_ok());
-        assert!(
-            verify_scalar_row(&table, &forged, "attempt", "set", "block", 10000).is_err(),
-            "shape-valid foreign keys are refused against original decoded columns"
-        );
-        assert_eq!(
-            verify_scalar_row(&table, &zero, "attempt", "set", "block", 10000).unwrap(),
-            0
-        );
-        for forged in [
-            RowLocator {
-                attempt: "foreign".into(),
-                ..zero.clone()
-            },
-            RowLocator {
-                result_set: "foreign".into(),
-                ..zero.clone()
-            },
-            RowLocator {
-                offset: 1,
-                ..zero.clone()
-            },
-            RowLocator {
-                owner: SemanticId::NIL,
-                ..zero.clone()
-            },
-        ] {
-            assert!(verify_scalar_row(&table, &forged, "attempt", "set", "block", 10000).is_err());
-        }
-    }
-
-    #[test]
-    fn scalar_row_locators_reconstruct_solve_keys_without_numeric_roundtrip_and_fit_experiment() {
-        use pse_model::generated::enums::DualQualification;
-        let registry = pse_schema::registry().unwrap();
-        let validation = validation();
-        let run_id = pse_operations::mint_id();
-        let owner = SemanticId::from_bytes([7; 16]);
-        // Actual scientific steps have the registry's bounded ordinal domain.
-        let step = i64::from(u32::MAX);
-        let mut variables =
-            solve_variables::Builder::with_registry(registry, 1, &validation).unwrap();
-        variables
-            .push(solve_variables::Row {
-                run_id,
-                step,
-                symbol_id: owner,
-                quantity_id: None,
-                unit_id: None,
-                fixed: false,
-                parameter: false,
-                domain: None,
-                value: Some(-0.0),
-                lower: None,
-                upper: None,
-                lower_violation: None,
-                upper_violation: None,
-                tolerance: None,
-                lower_dual: None,
-                upper_dual: None,
-                reduced_cost: None,
-                stationarity: None,
-                dual_qualification: DualQualification::Unavailable,
-            })
-            .unwrap();
-        let variables = variables.finish().unwrap();
-        let locator = selected_scalar_row(&variables, "attempt", "set", "block", 0, 0).unwrap();
-        assert_eq!(locator.run_id, run_id);
-        assert_eq!(locator.owner, owner);
-        assert_eq!(locator.step, Some(step));
-        assert_eq!(locator.partition, format!("step:{step}"));
-        // The locator transport itself retains exact native integers beyond
-        // f64's integral range, independently of the scientific step domain.
-        let large_step = 9_007_199_254_740_993;
-        let wide_locator = RowLocator {
-            step: Some(large_step),
-            partition: format!("step:{large_step}"),
-            ..locator.clone()
-        };
-        pse_operations::canonical_results::validate_result_row(&wide_locator).unwrap();
-        let encoded =
-            pse_operations::generated::surreal::encode_canonical_result_rows(&wide_locator)
-                .unwrap();
-        let decoded =
-            pse_operations::generated::surreal::decode_canonical_result_rows(encoded).unwrap();
-        assert_eq!(decoded, wide_locator);
-        assert_eq!(decoded.step, Some(large_step));
-        assert_eq!(
-            scalar_rows_at(&variables, "attempt", "set", "block", 0, 1, 0)
-                .unwrap()
-                .len(),
-            1,
-            "ten scalar fields still produce one locator"
-        );
-        let mut constraints =
-            solve_constraints::Builder::with_registry(registry, 1, &validation).unwrap();
-        constraints
-            .push(solve_constraints::Row {
-                run_id,
-                step,
-                row_id: owner,
-                quantity_id: None,
-                unit_id: None,
-                value: None,
-                lower: None,
-                upper: None,
-                equality_residual: None,
-                lower_violation: None,
-                upper_violation: None,
-                tolerance: None,
-                dual: None,
-                dual_qualification: DualQualification::Unavailable,
-            })
-            .unwrap();
-        let constraints = constraints.finish().unwrap();
-        let constraint =
-            selected_scalar_row(&constraints, "attempt", "set", "block", 0, 0).unwrap();
-        assert_eq!(
-            (constraint.run_id, constraint.owner, constraint.step),
-            (run_id, owner, Some(step))
-        );
-        assert_ne!(constraint.relation_id, locator.relation_id);
-        let experiment = SemanticId::from_bytes([9; 16]);
-        let mut observations =
-            fit_observations::Builder::with_registry(registry, 1, &validation).unwrap();
-        observations
-            .push(fit_observations::Row {
-                run_id,
-                observation_id: owner,
-                experiment_id: experiment.into(),
-                included: true,
-                prediction: None,
-                residual: None,
-                standardized_residual: None,
-                objective_contribution: None,
-                unit_id: SemanticId::NIL,
-            })
-            .unwrap();
-        let observations = observations.finish().unwrap();
-        let observed = selected_scalar_row(&observations, "attempt", "set", "block", 0, 0).unwrap();
-        assert_eq!(
-            (observed.run_id, observed.owner, observed.experiment_id),
-            (run_id, owner, Some(experiment))
-        );
-        assert_eq!(observed.step, None);
-        assert_eq!(observed.partition, format!("experiment:{experiment}"));
-    }
-
-    #[test]
-    fn result_metadata_prefix_packs_one_locator_per_row_by_encoded_extent() {
-        let relation = solve_variables::RELATION_ID;
-        let mut extents = Vec::new();
-        for row in 0..1000 {
-            let locator = RowLocator {
-                key: format!("{}:{row}", "b".repeat(64)),
-                result_set: "s".repeat(64),
-                attempt: "a".repeat(64),
-                batch: "b".repeat(64),
-                relation_id: relation,
-                run_id: SemanticId::NIL.into(),
-                owner: relation,
-                step: Some(0),
-                experiment_id: None,
-                output: format!("{relation}:{relation}"),
-                partition: "step:0".into(),
-                row,
-                offset: row,
-                interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
-            };
-            extents.push(
-                pse_operations::canonical_execution::result_row_metadata_extent(&locator).unwrap(),
-            );
-        }
-        let rows = metadata_prefix(&extents).unwrap();
-        assert!(
-            rows > 6,
-            "packing does not multiply metadata by ten requested fields"
-        );
-        assert!(rows < 1000);
-        assert!(
-            4096 + extents[..rows].iter().sum::<usize>()
-                <= pse_operations::canonical_execution::EXECUTION_METADATA_BYTES
-        );
-        assert!(
-            4096 + extents[..=rows].iter().sum::<usize>()
-                > pse_operations::canonical_execution::EXECUTION_METADATA_BYTES
-        );
-        assert!(
-            metadata_prefix(&[pse_operations::canonical_execution::EXECUTION_METADATA_BYTES])
-                .is_err()
-        );
-    }
 }
 
 #[cfg(test)]

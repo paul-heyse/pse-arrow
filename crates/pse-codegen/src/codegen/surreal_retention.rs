@@ -262,15 +262,12 @@ DEFINE FUNCTION fn::pse_retention_v1::collect_run($rpc_expiry: int, $run:string)
         LET $batches=SELECT key FROM canonical_result_batches WHERE result_set=$set ORDER BY ordinal LIMIT 1;
         IF array::len($batches)!=0 {
             LET $batch=$batches[0].key;
-            LET $row_indexes=SELECT key FROM canonical_result_rows WHERE batch=$batch ORDER BY key LIMIT 64;
             LET $outputs=SELECT key FROM canonical_result_block_outputs WHERE batch=$batch ORDER BY key LIMIT 64;
-            DELETE $row_indexes.map(|$row|type::record('canonical_result_rows',$row.key));
             DELETE $outputs.map(|$row|type::record('canonical_result_block_outputs',$row.key));
-            LET $remaining_row_indexes=SELECT key FROM canonical_result_rows WHERE batch=$batch LIMIT 1;
             LET $remaining_outputs=SELECT key FROM canonical_result_block_outputs WHERE batch=$batch LIMIT 1;
-            LET $deleted=array::len($remaining_row_indexes)=0 AND array::len($remaining_outputs)=0;
+            LET $deleted=array::len($remaining_outputs)=0;
             IF $deleted { fn::pse_files_v1::release_borrower($rpc_expiry,'result:'+$batch); DELETE ONLY type::record('canonical_result_blocks',$batch); DELETE ONLY type::record('canonical_result_batches',$batch); };
-            LET $rpc_result = {complete:false,batches:IF $deleted {1dec} ELSE {0dec},indexes:<decimal>(array::len($row_indexes)+array::len($outputs)),sets:0dec};
+            LET $rpc_result = {complete:false,batches:IF $deleted {1dec} ELSE {0dec},indexes:<decimal>array::len($outputs),sets:0dec};
             fn::pse_execution_v1::deadline($rpc_expiry);
             RETURN $rpc_result;
         };

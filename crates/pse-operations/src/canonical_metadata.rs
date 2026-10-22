@@ -92,7 +92,6 @@ mod tests {
             "canonical_result_manifests",
             "canonical_result_blocks",
             "canonical_result_batches",
-            "canonical_result_rows",
             "canonical_result_block_outputs",
             "canonical_file_instances",
             "canonical_artifacts",

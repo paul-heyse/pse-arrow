@@ -828,29 +828,6 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `after_generation` | `UInt64` | false | `payload` | — | — |
 | `complete` | `Boolean` | false | `payload` | — | — |
 
-## `canonical_result_rows`
-
-One exact typed scientific row locator in its original immutable attempt/set/block; output and partition are derived access selectors, never scientific key authority.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `result_set` | `Utf8` | false | `payload` | — | — |
-| `attempt` | `Utf8` | false | `payload` | — | — |
-| `batch` | `Utf8` | false | `payload` | — | — |
-| `relation_id` | `semantic_id` | false | `payload` | — | — |
-| `run_id` | `semantic_id` | false | `payload` | — | — |
-| `owner` | `semantic_id` | false | `payload` | — | — |
-| `step` | `Int64` | true | `payload` | — | — |
-| `experiment_id` | `semantic_id` | true | `payload` | — | — |
-| `output` | `Utf8` | false | `payload` | — | — |
-| `partition` | `Utf8` | false | `payload` | — | — |
-| `row` | `UInt64` | false | `payload` | — | — |
-| `offset` | `UInt64` | false | `payload` | — | — |
-| `interpretation` | `Utf8` | false | `payload` | — | — |
-
 ## `canonical_result_seeds`
 
 Indexed exact scientific seed descriptor; immutable chunks belong to the closed result selection, and completion independently grants eligibility.

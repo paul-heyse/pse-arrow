@@ -16,7 +16,7 @@ use pse_model::generated::runtime::{
     canonical_attempts::Row as Attempt, canonical_result_batches::Row as ResultBatch,
     canonical_result_block_outputs::Row as BlockOutput,
     canonical_result_blocks::Row as BlockMetadata, canonical_result_manifests::Row as Manifest,
-    canonical_result_rows::Row as ResultRow, canonical_runs::Row as Run,
+    canonical_runs::Row as Run,
 };
 use std::{sync::Arc, time::Duration};
 use surrealdb::types::{Object, Value};
@@ -431,8 +431,6 @@ impl ResultPayload {
 /// Narrow output indexes and their exact admitted original IPC block metadata.
 #[derive(Clone, Debug)]
 pub struct ResultOutputPage {
-    /// Complete typed scalar row locators; verified against IPC on decode.
-    pub rows: Vec<ResultRow>,
     /// Dense output coverage descriptors, without individual array elements.
     pub outputs: Vec<BlockOutput>,
     /// Existing original scientific blocks; each identity is manifest constrained.
@@ -445,89 +443,6 @@ fn invalid(message: &str) -> CanonicalError {
 fn identity(value: &str) -> Result<(), CanonicalError> {
     if value.is_empty() || value.len() > IDENTITY_BYTES {
         return Err(CanonicalError::PayloadLimit);
-    }
-    Ok(())
-}
-
-/// Check the relation-owned complete typed scientific key and independently
-/// derived access selectors. Original IPC comparison remains the read boundary.
-pub fn validate_result_row(locator: &ResultRow) -> Result<(), CanonicalError> {
-    if locator.interpretation != wire::INTERPRETATION {
-        return Err(invalid("result row interpretation"));
-    }
-    for value in [
-        &locator.key,
-        &locator.result_set,
-        &locator.attempt,
-        &locator.batch,
-        &locator.output,
-        &locator.partition,
-    ] {
-        identity(value)?;
-    }
-    let registry =
-        pse_schema::registry().map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-    let relation = registry
-        .relation_by_id(locator.relation_id)
-        .ok_or_else(|| invalid("unknown scalar row relation"))?;
-    if relation.key.namespace != pse_schema::model::Namespace::Runtime {
-        return Err(invalid("scalar row relation namespace"));
-    }
-    let partition = match relation.key.name {
-        "solve_variables"
-            if relation.primary_key == ["run_id", "step", "symbol_id"]
-                && locator.experiment_id.is_none() =>
-        {
-            format!(
-                "step:{}",
-                locator
-                    .step
-                    .filter(|step| *step >= 0)
-                    .ok_or_else(|| invalid("solve variable row lacks nonnegative step"))?
-            )
-        }
-        "solve_constraints"
-            if relation.primary_key == ["run_id", "step", "row_id"]
-                && locator.experiment_id.is_none() =>
-        {
-            format!(
-                "step:{}",
-                locator
-                    .step
-                    .filter(|step| *step >= 0)
-                    .ok_or_else(|| invalid("solve constraint row lacks nonnegative step"))?
-            )
-        }
-        "fit_parameters"
-            if relation.primary_key == ["run_id", "parameter_id"]
-                && locator.step.is_none()
-                && locator.experiment_id.is_none() =>
-        {
-            "0".into()
-        }
-        "fit_observations"
-            if relation.primary_key == ["run_id", "observation_id"] && locator.step.is_none() =>
-        {
-            format!(
-                "experiment:{}",
-                locator
-                    .experiment_id
-                    .ok_or_else(|| invalid("fit observation row lacks experiment selector"))?
-            )
-        }
-        _ => {
-            return Err(invalid(
-                "scalar row does not encode its complete registry key",
-            ));
-        }
-    };
-    if locator.output != format!("{}:{}", locator.relation_id, locator.owner)
-        || locator.partition != partition
-        || locator.key != format!("{}:{}", locator.batch, locator.row)
-    {
-        return Err(invalid(
-            "scalar row access selector or identity differs from typed key",
-        ));
     }
     Ok(())
 }
@@ -596,11 +511,10 @@ fn validate_result_block_interpretation(
 
 impl CanonicalStore {
     /// Select a bounded output index page natively, before fetching any original
-    /// scientific payload. Scalar predicates belong to decoded original columns;
-    /// dense coordinate predicates still select recorded time bounds.
+    /// scientific payload. Dense coordinate predicates select recorded time bounds.
     #[allow(
         clippy::too_many_arguments,
-        reason = "protected selection, output coordinates, cursor and finite scalar predicates are explicit native read premises"
+        reason = "protected selection, output coordinates, cursor and finite coordinate bounds are explicit native read premises"
     )]
     pub async fn result_output_page(
         &self,
@@ -611,10 +525,8 @@ impl CanonicalStore {
         start: u64,
         end: u64,
         after: Option<u64>,
-        dense: bool,
         minimum: Option<f64>,
         maximum: Option<f64>,
-        missing: Option<bool>,
     ) -> Result<ResultOutputPage, CanonicalError> {
         crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::OutputPage, async {
         let activity = read.owner.store.selection_activity(&read.owner.selection)?;
@@ -629,48 +541,26 @@ impl CanonicalStore {
             || minimum.is_some_and(|v| !v.is_finite())
             || maximum.is_some_and(|v| !v.is_finite())
             || minimum.zip(maximum).is_some_and(|(min, max)| min > max)
-            || missing == Some(true) && (minimum.is_some() || maximum.is_some())
         {
             return Err(invalid("invalid output range/predicate"));
         }
-        if !dense && (minimum.is_some() || maximum.is_some() || missing.is_some()) {
-            return Err(invalid(
-                "scalar predicates require decoded original columns",
-            ));
-        }
-        let table = if dense {
-            "canonical_result_block_outputs"
-        } else {
-            "canonical_result_rows"
-        };
+        let table = "canonical_result_block_outputs";
         // SurrealDB 3.3 selects the first range on a compound index column.
         // Resume from a cursor within the selected range; outside that window,
         // keep the selected range first and apply the exact cursor as a residual.
         let cursor_within_range = after.is_some_and(|cursor| cursor >= start && cursor < end);
         let cursor = if cursor_within_range {
-            if dense {
-                "start>$after AND "
-            } else {
-                "row>$after AND "
-            }
+            "start>$after AND "
         } else {
             ""
         };
         let residual_cursor = if after.is_some() && !cursor_within_range {
-            if dense {
-                " AND start>$after"
-            } else {
-                " AND row>$after"
-            }
+            " AND start>$after"
         } else {
             ""
         };
-        let bounds = if dense {
-            "end>$start AND start<$end AND ($minimum=NONE OR coordinate_max.projection>=$minimum) AND ($maximum=NONE OR coordinate_min.projection<=$maximum)"
-        } else {
-            "row>=$start AND row<$end"
-        };
-        let order = if dense { "start" } else { "row" };
+        let bounds = "end>$start AND start<$end AND ($minimum=NONE OR coordinate_max.projection>=$minimum) AND ($maximum=NONE OR coordinate_min.projection<=$maximum)";
+        let order = "start";
         let query = format!(
             "{PROTECTED_BEGIN}\nLET $indexes=SELECT * FROM {table} WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}{bounds}{residual_cursor} ORDER BY {order} LIMIT {PAGE};\nLET $blocks=SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND key IN $indexes.batch ORDER BY ordinal LIMIT 65;\nLET $pse_rpc_result = {{indexes:$indexes,blocks:$blocks}};\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"
         );
@@ -708,8 +598,7 @@ impl CanonicalStore {
                                 .unwrap_or(Value::None),
                         ))
                         .bind(("minimum", finite(minimum)))
-                        .bind(("maximum", finite(maximum)))
-                        .bind(("missing", missing.map(Value::Bool).unwrap_or(Value::None))))
+                        .bind(("maximum", finite(maximum))))
                 },
             )
             .await?;
@@ -745,52 +634,20 @@ impl CanonicalStore {
             }
         }
         let mut page = ResultOutputPage {
-            rows: Vec::new(),
             outputs: Vec::new(),
             blocks,
         };
         let mut previous = after;
         for index in indexes {
-            let (key, batch, recorded_output, recorded_partition, lower, upper) = if dense {
-                let item = wire::decode_canonical_result_block_outputs(index)?;
-                let result = (
-                    item.result_set.clone(),
-                    item.batch.clone(),
-                    item.output.clone(),
-                    item.partition.clone(),
-                    item.start,
-                    item.end,
-                );
-                if item.interpretation != read.run.interpretation {
-                    return Err(invalid("output index interpretation"));
-                }
-                page.outputs.push(item);
-                result
-            } else {
-                let item = wire::decode_canonical_result_rows(index)?;
-                validate_result_row(&item)?;
-                if item.attempt != read.attempt.key || item.relation_id.to_string() != set.name {
-                    return Err(invalid("scalar row belongs to another attempt or relation"));
-                }
-                let result = (
-                    item.result_set.clone(),
-                    item.batch.clone(),
-                    item.output.clone(),
-                    item.partition.clone(),
-                    item.row,
-                    item.row
-                        .checked_add(1)
-                        .ok_or(CanonicalError::PayloadLimit)?,
-                );
-                if !page.blocks.iter().any(|block| {
-                    block.batch == item.batch
-                        && block.start.checked_add(item.offset) == Some(item.row)
-                }) {
-                    return Err(invalid("scalar row offset differs from original block"));
-                }
-                page.rows.push(item);
-                result
-            };
+            let item = wire::decode_canonical_result_block_outputs(index)?;
+            let (key, batch, recorded_output, recorded_partition, lower, upper) = (
+                item.result_set.clone(), item.batch.clone(), item.output.clone(),
+                item.partition.clone(), item.start, item.end,
+            );
+            if item.interpretation != read.run.interpretation {
+                return Err(invalid("output index interpretation"));
+            }
+            page.outputs.push(item);
             if key != set.key
                 || recorded_output != output
                 || recorded_partition != partition
@@ -1327,100 +1184,6 @@ impl CanonicalStore {
 }
 
 #[cfg(test)]
-mod canonical_results_unit {
-    use super::*;
-    #[test]
-    fn scalar_row_locator_requires_full_typed_registry_key_and_derived_selectors() {
-        let registry = pse_schema::registry().unwrap();
-        let relation = registry.relation("runtime.solve_variables").unwrap().id;
-        let owner = pse_ids::SemanticId::from_bytes([1; 16]);
-        let locator = ResultRow {
-            key: "batch:9007199254740993".into(),
-            result_set: "set".into(),
-            attempt: "attempt".into(),
-            batch: "batch".into(),
-            relation_id: relation,
-            run_id: pse_ids::SemanticId::from_bytes([2; 16]).into(),
-            owner,
-            step: Some(9007199254740993),
-            experiment_id: None,
-            output: format!("{relation}:{owner}"),
-            partition: "step:9007199254740993".into(),
-            row: 9007199254740993,
-            offset: 1,
-            interpretation: wire::INTERPRETATION.into(),
-        };
-        assert!(
-            validate_result_row(&locator).is_ok(),
-            "integer scientific keys never pass through Float64"
-        );
-        for invalid in [
-            ResultRow {
-                step: None,
-                ..locator.clone()
-            },
-            ResultRow {
-                step: Some(-1),
-                ..locator.clone()
-            },
-            ResultRow {
-                experiment_id: Some(owner),
-                ..locator.clone()
-            },
-            ResultRow {
-                output: format!("{relation}:{owner}:value"),
-                ..locator.clone()
-            },
-            ResultRow {
-                partition: "step:1".into(),
-                ..locator.clone()
-            },
-            ResultRow {
-                key: "alias".into(),
-                ..locator.clone()
-            },
-        ] {
-            assert!(validate_result_row(&invalid).is_err());
-        }
-        let fit = registry.relation("runtime.fit_parameters").unwrap().id;
-        assert!(
-            validate_result_row(&ResultRow {
-                relation_id: fit,
-                step: None,
-                output: format!("{fit}:{owner}"),
-                partition: "0".into(),
-                ..locator.clone()
-            })
-            .is_ok()
-        );
-        let observation = registry.relation("runtime.fit_observations").unwrap().id;
-        let observation = ResultRow {
-            relation_id: observation,
-            step: None,
-            experiment_id: Some(owner),
-            output: format!("{observation}:{owner}"),
-            partition: format!("experiment:{owner}"),
-            ..locator
-        };
-        assert!(validate_result_row(&observation).is_ok());
-        assert!(
-            validate_result_row(&ResultRow {
-                experiment_id: None,
-                ..observation.clone()
-            })
-            .is_err()
-        );
-        assert!(
-            validate_result_row(&ResultRow {
-                step: Some(0),
-                ..observation
-            })
-            .is_err()
-        );
-    }
-}
-
-#[cfg(test)]
 mod protection_drain_unit {
     #![allow(
         clippy::unwrap_used,
@@ -1591,281 +1354,35 @@ mod canonical_results_server_unit {
     }
 
     #[tokio::test]
-    async fn canonical_results_scalar_exact_admission_and_historical_attempts() {
+    async fn canonical_results_keep_historical_manifest_after_new_terminal_attempt() {
         let (store, _database, revision) = fixture().await;
-        store
-            .begin_run(&RunRequest {
-                key: "run".into(),
-                revision,
-                sources: vec![],
-                request: vec![1],
-                source_selection: vec![2],
-                attestation: vec![3],
-            })
-            .await
-            .unwrap();
-        let first = store
-            .claim_run("run", "claim-1", "worker", Duration::from_secs(60))
-            .await
-            .unwrap();
-        let relation = pse_schema::registry()
-            .unwrap()
-            .relation("runtime.fit_parameters")
-            .unwrap()
-            .id;
-        let name = relation.to_string();
-        let set = result_set_key(first.attempt(), &name);
-        let key = result_batch_key(first.attempt(), &set, 0);
-        let owner = pse_ids::SemanticId::from_bytes([3; 16]);
-        let output = format!("{relation}:{owner}");
-        let mut row_indexes = (0..130u64)
-            .map(|row| ResultRow {
-                key: format!("{key}:{row}"),
-                result_set: set.clone(),
-                attempt: first.attempt().into(),
-                batch: key.clone(),
-                relation_id: relation,
-                run_id: pse_ids::SemanticId::from_bytes([(row + 1) as u8; 16]).into(),
-                owner,
-                step: None,
-                experiment_id: None,
-                output: output.clone(),
-                partition: "0".into(),
-                row,
-                offset: row,
-                interpretation: wire::INTERPRETATION.into(),
-            })
-            .collect::<Vec<_>>();
-        row_indexes.sort_by(|left, right| left.key.cmp(&right.key));
-        let payload = vec![1, 2, 3];
-        let block = BlockMetadata {
-            key: key.clone(),
-            batch: key,
-            result_set: set.clone(),
-            output: name.clone(),
-            partition: "0".into(),
-            ordinal: 0,
-            start: 0,
-            end: 130,
-            rows: 130,
-            columns: 1,
-            coordinate_min: None,
-            coordinate_max: None,
-            payload_bytes: payload.len() as u64,
-            payload_digest: crate::canonical_execution::result_payload_digest(&payload),
-            statistics: None,
-            interpretation: wire::INTERPRETATION.into(),
-        };
-        // This mechanism fixture tests exact native indexing/receipts. The runtime
-        // output control separately admits and verifies actual scientific IPC rows.
-        for mutation in 0..4 {
-            let mut invalid = row_indexes.clone();
-            match mutation {
-                0 => invalid[0].attempt = "foreign-attempt".into(),
-                1 => invalid[0].offset = 130,
-                2 => {
-                    invalid.pop();
-                }
-                _ => invalid[1].run_id = invalid[0].run_id,
-            }
-            assert!(
-                store
-                    .append_result_block_rows(
-                        &first,
-                        &format!("invalid-locator-{mutation}"),
-                        &name,
-                        0,
-                        crate::canonical_execution::ResultPayload::new(payload.clone()).unwrap(),
-                        130,
-                        &block,
-                        &invalid,
-                    )
-                    .await
-                    .is_err()
-            );
-        }
-        store
-            .append_result_block_rows(
-                &first,
-                "locator-write",
-                &name,
-                0,
-                crate::canonical_execution::ResultPayload::new(payload.clone()).unwrap(),
-                130,
-                &block,
-                &row_indexes,
-            )
-            .await
-            .unwrap();
-        let mut changed = row_indexes.clone();
-        changed[0].owner = pse_ids::SemanticId::from_bytes([4; 16]);
-        changed[0].output = format!("{relation}:{}", changed[0].owner);
-        assert!(
-            store
-                .append_result_block_rows(
-                    &first,
-                    "changed-locator-replay",
-                    &name,
-                    0,
-                    crate::canonical_execution::ResultPayload::new(payload).unwrap(),
-                    130,
-                    &block,
-                    &changed,
-                )
-                .await
-                .is_err(),
-            "immutable batch replay cannot replace a scalar typed key"
-        );
-        assert!(store.read_results("run", first.attempt()).await.is_err());
-        let closed = store
-            .close_result_ingestion(&first, "close-1")
-            .await
-            .unwrap();
+        store.begin_run(&RunRequest {key:"run".into(), revision, sources:vec![], request:vec![1], source_selection:vec![2], attestation:vec![3]}).await.unwrap();
+        let first = store.claim_run("run", "claim-first", "worker", Duration::from_secs(60)).await.unwrap();
+        store.append_result_batch(&first, "old-bytes", "observations", 0, crate::canonical_execution::ResultPayload::new(vec![17]).unwrap(), 1).await.unwrap();
+        let closed = store.close_result_ingestion(&first, "close-first").await.unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
-        // SAFETY: this fixture's retained scalar is explicitly partial, never scientific success.
-        unsafe {
-            store.seal_attempt(
-                &manifest,
-                "seal-1",
-                TerminalClass::Partial,
-                &[1],
-                crate::canonical_execution::SeedEligibility::Unavailable,
-            )
-        }
-        .await
-        .unwrap();
-        let read = store.read_results("run", first.attempt()).await.unwrap();
-        let values = store
-            .result_output_page(
-                &read, &set, &output, "0", 0, 1, None, false, None, None, None,
-            )
-            .await
-            .unwrap();
-        assert_eq!(values.rows[0].row, 0);
-        // Scalar pages retain the selected range when the cursor precedes it,
-        // then resume exclusively within that range and exhaust after its end.
-        for (after, expected) in [
-            (Some(50), (80..90).collect::<Vec<_>>()),
-            (Some(80), (81..90).collect()),
-            (Some(85), (86..90).collect()),
-            (Some(90), vec![]),
-            (Some(95), vec![]),
-            (Some(500), vec![]),
-        ] {
-            let page = store
-                .result_output_page(
-                    &read, &set, &output, "0", 80, 90, after, false, None, None, None,
-                )
-                .await
-                .unwrap();
-            assert_eq!(
-                page.rows
-                    .iter()
-                    .map(|locator| locator.row)
-                    .collect::<Vec<_>>(),
-                expected
-            );
-        }
-        for (after, expected) in [
-            (None, (0..64).collect::<Vec<_>>()),
-            (Some(63), (64..128).collect()),
-            (Some(127), vec![128, 129]),
-            (Some(129), vec![]),
-        ] {
-            let page = store
-                .result_output_page(
-                    &read, &set, &output, "0", 0, 130, after, false, None, None, None,
-                )
-                .await
-                .unwrap();
-            assert_eq!(
-                page.rows
-                    .iter()
-                    .map(|locator| locator.row)
-                    .collect::<Vec<_>>(),
-                expected
-            );
-        }
-        assert_eq!(
-            read.attempt().outcome.as_ref().map(|value| value.as_str()),
-            Some("partial")
-        );
-        assert!(store.result_payload(&read, &set, 1).await.is_err());
-        assert!(!read.sets().is_empty());
-        let second = store
-            .claim_run("run", "claim-2", "worker", Duration::from_secs(60))
-            .await
-            .unwrap();
-        let closed = store
-            .close_result_ingestion(&second, "close-2")
-            .await
-            .unwrap();
+        // SAFETY: transport-only fixture explicitly records partial availability.
+        unsafe {store.seal_attempt(&manifest, "seal-first", TerminalClass::Partial, &[1], crate::canonical_execution::SeedEligibility::Unavailable)}.await.unwrap();
+        let second = store.claim_run("run", "claim-second", "worker", Duration::from_secs(60)).await.unwrap();
+        let closed = store.close_result_ingestion(&second, "close-second").await.unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
-        // SAFETY: the empty fixture outcome is explicitly failed, never usable scientific success.
-        unsafe {
-            store.seal_attempt(
-                &manifest,
-                "seal-2",
-                TerminalClass::Failed,
-                &[2],
-                crate::canonical_execution::SeedEligibility::Unavailable,
-            )
-        }
-        .await
-        .unwrap();
+        // SAFETY: the empty fixture is failed, never usable scientific success.
+        unsafe {store.seal_attempt(&manifest, "seal-second", TerminalClass::Failed, &[2], crate::canonical_execution::SeedEligibility::Unavailable)}.await.unwrap();
         let historical = store.read_results("run", first.attempt()).await.unwrap();
-        assert_eq!(
-            store
-                .result_output_page(
-                    &historical,
-                    &set,
-                    &output,
-                    "0",
-                    0,
-                    1,
-                    None,
-                    false,
-                    None,
-                    None,
-                    None
-                )
-                .await
-                .unwrap()
-                .rows
-                .len(),
-            1
-        );
-        let failed = store.read_results("run", second.attempt()).await.unwrap();
-        assert!(failed.sets().is_empty());
-        assert_eq!(
-            failed
-                .attempt()
-                .outcome
-                .as_ref()
-                .map(|value| value.as_str()),
-            Some("failed")
-        );
+        assert_eq!(historical.attempt().key, first.attempt());
+        assert_eq!(historical.sets().len(), 1);
+        let payload = store.result_payload(&historical, &historical.sets()[0].key, 0).await.unwrap();
+        assert_eq!(payload.batch.payload.as_slice(), [17]);
+        assert!(store.result_payload(&historical, &historical.sets()[0].key, 1).await.is_err());
         let latest = store.latest_results("problem", &[]).await.unwrap();
         assert_eq!(latest.attempt().key, second.attempt());
-        assert!(
-            store
-                .latest_results("problem", &[TerminalClass::Succeeded])
-                .await
-                .is_err()
-        );
-        assert!(
-            store
-                .latest_results("problem", &[TerminalClass::Partial])
-                .await
-                .is_err()
-        );
-        drop(latest);
-        drop(values);
-        drop(read);
-        drop(historical);
-        drop(failed);
+        assert!(latest.sets().is_empty());
+        assert!(store.latest_results("problem", &[TerminalClass::Succeeded]).await.is_err());
+        assert!(store.latest_results("problem", &[TerminalClass::Partial]).await.is_err());
+        drop((payload, historical, latest));
         store.remove_isolated_fixture().await.unwrap();
     }
+
     #[tokio::test]
     async fn canonical_results_blocks_narrow_ranges_and_payload_receipts() {
         let (store, _database, revision) = fixture().await;
@@ -1920,7 +1437,7 @@ mod canonical_results_server_unit {
                 interpretation: wire::INTERPRETATION.into(),
             }];
             store
-                .append_result_block_indexes(
+                .append_result_block_outputs(
                     &fence,
                     &format!("write-{ordinal}"),
                     "trajectory",
@@ -1928,7 +1445,6 @@ mod canonical_results_server_unit {
                     crate::canonical_execution::ResultPayload::new(payload).unwrap(),
                     10,
                     &metadata,
-                    &[],
                     &outputs,
                 )
                 .await
@@ -2006,8 +1522,6 @@ mod canonical_results_server_unit {
                     start,
                     end,
                     after,
-                    true,
-                    None,
                     None,
                     None,
                 )
