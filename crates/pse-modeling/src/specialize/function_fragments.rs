@@ -329,8 +329,8 @@ fn product_extent_once(product: &Arc<FunctionProduct>, seen: &mut BTreeSet<usize
                                 .sum::<usize>()
                                 + record
                                     .uncertainties
-                                    .iter()
-                                    .map(|(name, _)| name.capacity() + 128)
+                                    .keys()
+                                    .map(|name| name.capacity() + 128)
                                     .sum::<usize>()
                                 + size_of_val(record)
                         })

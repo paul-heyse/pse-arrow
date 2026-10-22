@@ -298,6 +298,10 @@ impl CanonicalStore {
 }
 
 #[cfg(all(test, unix))]
+#[allow(
+    clippy::unwrap_used,
+    reason = "isolated fixture construction must fail its test immediately"
+)]
 pub(super) mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;

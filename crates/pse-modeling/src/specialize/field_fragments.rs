@@ -402,10 +402,8 @@ impl Engine<'_, '_> {
                         }
                     }
                 }
-            } else if ancestor {
-                if let Some(parent) = state.parent {
-                    path_dependencies(states, parent, segments, true, out, instances);
-                }
+            } else if ancestor && let Some(parent) = state.parent {
+                path_dependencies(states, parent, segments, true, out, instances);
             }
         }
         fn expression_dependencies(
@@ -499,10 +497,10 @@ impl Engine<'_, '_> {
             let mut owners = instances.iter().copied().collect::<Vec<_>>();
             while let Some(id) = owners.pop() {
                 dependencies.insert(self.states[&id].definition);
-                if let Some(owner) = self.states[&id].parent {
-                    if instances.insert(owner) {
-                        owners.push(owner);
-                    }
+                if let Some(owner) = self.states[&id].parent
+                    && instances.insert(owner)
+                {
+                    owners.push(owner);
                 }
             }
             // Forwarded parameters retain the constructor's original read source.

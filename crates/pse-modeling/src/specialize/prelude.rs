@@ -201,8 +201,8 @@ impl InstancePrelude {
             })
             .saturating_add(
                 self.members
-                    .iter()
-                    .map(|(name, _)| name.capacity() + 128)
+                    .keys()
+                    .map(|name| name.capacity() + 128)
                     .sum::<usize>(),
             )
             .saturating_add(
