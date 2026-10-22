@@ -377,6 +377,59 @@ class SurrealMcpTests(unittest.TestCase):
         self.assertEqual(before, after)
         self.assertNotIn("private-root-password", json.dumps(headers))
 
+    def test_selected_service_identity_redaction_and_changed_invocation(self) -> None:
+        with self.proof_controls():
+            selected = server.selected_service(self.state, self.deadline)
+            self.assertEqual(selected.identity["invocation"], "b" * 32)
+            self.assertNotIn(self.secret, repr(selected))
+            self.assertNotIn(self.secret, json.dumps(selected.identity))
+            with patch.object(server, "storage_unit_observation", return_value={"InvocationID": "c" * 32}):
+                with self.assertRaisesRegex(server.SupervisorError, "changed"):
+                    selected.recheck(self.deadline)
+
+    def test_selected_service_rechecks_protocol_proof_after_observation(self) -> None:
+        with self.proof_controls():
+            selected = server.selected_service(self.state, self.deadline)
+            self.write("protocol-readiness.json", {**self.proof, "invocation": "changed"})
+            with self.assertRaisesRegex(server.SupervisorError, "changed"):
+                selected.recheck(self.deadline)
+
+    def test_metrics_preserve_zero_normal_absence_and_exporter_metadata(self) -> None:
+        prefix = server.MX_METRIC_PREFIX
+        observed = server.selected_metric_values(
+            f"# HELP {prefix}active_readers Native reader count\n# TYPE {prefix}active_readers gauge\n{prefix}active_readers 0\n# TYPE {prefix}oldest_pinned_version gauge\n"
+        )["families"]
+        self.assertEqual(observed[prefix + "active_readers"]["samples"], [{"labels": "", "value": 0}])
+        self.assertEqual(observed[prefix + "oldest_pinned_version"]["availability"], "registered_no_sample")
+        self.assertEqual(observed[prefix + "poisoned"]["availability"], "unregistered")
+        with self.assertRaises(server.SupervisorError):
+            server.selected_metric_values(prefix + "active_readers not-a-number")
+
+    def test_metrics_request_is_fixed_and_changed_identity_refuses_output(self) -> None:
+        reply = MagicMock(status=200)
+        reply.read.return_value = (server.MX_METRIC_PREFIX + "active_readers 0\n").encode()
+        connection = MagicMock()
+        connection.getresponse.return_value = reply
+        with self.proof_controls(), patch.object(server.http.client, "HTTPConnection", return_value=connection):
+            snapshot = server.metric_snapshot(self.state, self.deadline)
+            connection.request.assert_called_once_with("GET", "/metrics", headers={"Authorization": self.authorization})
+            self.assertEqual(snapshot["identity"]["instance_id"], "server-instance")
+            self.assertNotIn(self.secret, json.dumps(snapshot))
+        with self.proof_controls(), patch.object(server.http.client, "HTTPConnection", return_value=connection):
+            connection.getresponse.side_effect = lambda: (self.write("protocol-readiness.json", {**self.proof, "invocation": "changed"}), reply)[1]
+            with self.assertRaisesRegex(server.SupervisorError, "changed"):
+                server.metric_snapshot(self.state, self.deadline)
+        connection.close.assert_called()
+
+    def test_metric_comparison_refuses_restart_and_preserves_gauge_meaning(self) -> None:
+        before = {"identity": {"invocation": "first"}, **server.selected_metric_values(server.MX_METRIC_PREFIX + "active_readers 0")}
+        after = {"identity": before["identity"], **server.selected_metric_values(server.MX_METRIC_PREFIX + "active_readers 1")}
+        comparison = server.compare_metric_snapshots(before, after)
+        self.assertIn("gauge", comparison["scope"])
+        after["identity"] = {"invocation": "second"}
+        with self.assertRaisesRegex(server.SupervisorError, "changed"):
+            server.compare_metric_snapshots(before, after)
+
     def test_fixed_route_bypasses_mutating_dispatch_and_compiler_setup(self) -> None:
         result = subprocess.CompletedProcess(
             [],

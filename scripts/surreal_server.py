@@ -9068,8 +9068,44 @@ def mcp_private_record(path: Path, deadline: float) -> tuple[dict[str, object], 
     return value, hashlib.sha256(raw).hexdigest()
 
 
-def mcp_authorization(state: Path, endpoint: str, deadline: float) -> dict[str, str]:
-    """Return only the existing VIEWER header after observing the exact live owner."""
+@dataclass(frozen=True, repr=False)
+class SelectedService:
+    """Frozen live owner; credentials stay internal to fixed endpoint consumers."""
+
+    state: Path
+    port: int
+    _config: dict[str, object] = field(repr=False)
+    _credential_digest: str = field(repr=False)
+    _proof_digest: str = field(repr=False)
+    _invocation: str = field(repr=False)
+    _password: str = field(repr=False)
+
+    @property
+    def identity(self) -> dict[str, object]:
+        return {
+            "state": str(self.state), "instance_id": self._config["instance_id"],
+            "invocation": self._invocation, "port": self.port,
+            "binary_sha256": object_mapping(self._config["server"]).get("binary_sha256"),
+        }
+
+    def recheck(self, deadline: float) -> None:
+        if (
+            config_for(self.state, deadline=deadline) != self._config
+            or mcp_private_record(self.state / "credentials.json", deadline)[1] != self._credential_digest
+            or mcp_private_record(self.state / "protocol-readiness.json", deadline)[1] != self._proof_digest
+            or storage_unit_observation(self.state, deadline=deadline).get("InvocationID") != self._invocation
+            or not owns_listener(self.state, self._config, deadline=deadline)
+        ):
+            raise SupervisorError("Selected service changed during observation")
+        remaining(deadline)
+
+    def authorization(self) -> dict[str, str]:
+        token = base64.b64encode(f"pse-selection:{self._password}".encode()).decode()
+        return {"Authorization": "Basic " + token}
+
+
+def selected_service(state: Path, deadline: float) -> SelectedService:
+    """Validate the existing selected listener, proof and root VIEWER identity; no effects."""
     remaining(deadline)
     state = lexical_absolute(state)
     if any(path.is_symlink() for path in (state, *state.parents)):
@@ -9083,8 +9119,7 @@ def mcp_authorization(state: Path, endpoint: str, deadline: float) -> dict[str, 
         raise SupervisorError("MCP state must already be private and owned")
     config = config_for(state, deadline=deadline)
     if (
-        endpoint != f"http://127.0.0.1:{integer(config['port'])}/mcp"
-        or config.get("service_state") is not None
+        config.get("service_state") is not None
         or config.get("credentials_file") != str(state / "credentials.json")
         or not owns_listener(state, config, deadline=deadline)
     ):
@@ -9092,7 +9127,7 @@ def mcp_authorization(state: Path, endpoint: str, deadline: float) -> dict[str, 
     credentials, credential_digest = mcp_private_record(
         state / "credentials.json", deadline
     )
-    proof, _ = mcp_private_record(state / "protocol-readiness.json", deadline)
+    proof, proof_digest = mcp_private_record(state / "protocol-readiness.json", deadline)
     observed = storage_unit_observation(state, deadline=deadline)
     if (
         proof.get("schema") != "native-grpc-readiness-v1"
@@ -9113,19 +9148,111 @@ def mcp_authorization(state: Path, endpoint: str, deadline: float) -> dict[str, 
         or not credentials["selection_password"]
     ):
         raise SupervisorError("MCP VIEWER readiness identity is unavailable")
-    # Recheck live ownership and credential/config identity before releasing the header.
-    if (
-        config_for(state, deadline=deadline) != config
-        or mcp_private_record(state / "credentials.json", deadline)[1]
-        != credential_digest
-        or not owns_listener(state, config, deadline=deadline)
-    ):
-        raise SupervisorError("MCP service changed while reading credentials")
-    remaining(deadline)
-    token = base64.b64encode(
-        f"pse-selection:{credentials['selection_password']}".encode()
-    ).decode()
-    return {"Authorization": "Basic " + token}
+    selected = SelectedService(state, integer(config["port"]), config, credential_digest,
+                               proof_digest, str(observed.get("InvocationID", "")),
+                               str(credentials["selection_password"]))
+    selected.recheck(deadline)
+    return selected
+
+
+def mcp_authorization(state: Path, endpoint: str, deadline: float) -> dict[str, str]:
+    """Release a header only for the exact selected native MCP endpoint."""
+    selected = selected_service(state, deadline)
+    if endpoint != f"http://127.0.0.1:{selected.port}/mcp":
+        raise SupervisorError("MCP endpoint does not match its live owned service")
+    return selected.authorization()
+
+
+MX_METRIC_PREFIX = "surrealdb_storage_surrealmx_"
+MX_METRIC_FIELDS = (
+    "live_keys", "live_versions", "approx_data_bytes", "active_readers",
+    "oldest_pinned_version", "gc_candidate_keys", "commit_ring_occupancy",
+    "async_queue_depth", "async_queue_bytes", "async_dropped_batches", "poisoned",
+)
+METRIC_FAMILIES = ("surrealdb_process_", "surrealdb_query_", "surrealdb_transaction_")
+
+
+def selected_metric_values(exposition: str) -> dict[str, object]:
+    """Keep selected native metadata/series; distinguish missing samples from zero."""
+    families: dict[str, dict[str, object]] = {
+        MX_METRIC_PREFIX + field: {"availability": "unregistered", "samples": []}
+        for field in MX_METRIC_FIELDS
+    }
+    for line in exposition.splitlines():
+        if line.startswith(("# HELP ", "# TYPE ")):
+            kind, _, rest = line[2:].partition(" ")
+            name, _, description = rest.partition(" ")
+            if name not in families and not name.startswith(METRIC_FAMILIES):
+                continue
+            entry = families.setdefault(name, {"samples": []})
+            entry[kind.lower()] = description
+            entry["availability"] = "registered_no_sample"
+        elif line and not line.startswith("#"):
+            match = re.fullmatch(r'([a-zA-Z_:][a-zA-Z0-9_:]*)(\{.*\})?\s+([^\s]+)(?:\s+[0-9]+)?', line)
+            if match is None:
+                if line.startswith((MX_METRIC_PREFIX, *METRIC_FAMILIES)):
+                    raise SupervisorError("Selected native metric exposition is malformed")
+                continue
+            name, labels, raw = match.groups()
+            if name not in families and not name.startswith(METRIC_FAMILIES):
+                continue
+            try:
+                value = float(raw)
+            except ValueError:
+                raise SupervisorError("Selected native metric value is malformed") from None
+            if not math.isfinite(value):
+                raise SupervisorError("Selected native metric value is nonfinite")
+            if name.startswith(MX_METRIC_PREFIX) and (not value.is_integer() or value < 0):
+                raise SupervisorError("Native MX gauge is not a nonnegative integer")
+            entry = families.setdefault(name, {"samples": []})
+            entry["availability"] = "observed"
+            samples = entry["samples"]
+            if not isinstance(samples, list):
+                raise SupervisorError("Selected metric series is malformed")
+            samples.append({"labels": labels or "", "value": int(raw) if raw.isdecimal() else value})
+    return {"families": families, "oldest_pinned_version_absence": "normal when no reader; absence alone does not establish reader state"}
+
+
+def metric_snapshot(state: Path, deadline: float) -> dict[str, object]:
+    """One root VIEWER request to the frozen loopback /metrics listener; no redirects."""
+    selected = selected_service(state, deadline)
+    started = time.time_ns()
+    connection = http.client.HTTPConnection("127.0.0.1", selected.port, timeout=remaining(deadline))
+    try:
+        connection.request("GET", "/metrics", headers=selected.authorization())
+        response = connection.getresponse()
+        if response.status != 200:
+            raise SupervisorError("Selected native metrics request/authentication failed")
+        raw = response.read((4 << 20) + 1)
+        if len(raw) > 4 << 20:
+            raise SupervisorError("Selected native metrics exceeds its response bound")
+        values = selected_metric_values(raw.decode())
+    except (OSError, UnicodeError, http.client.HTTPException):
+        raise SupervisorError("Selected native metrics request/parse failed") from None
+    finally:
+        connection.close()
+    selected.recheck(deadline)
+    return {
+        "schema": "selected-native-metrics-v1", "identity": selected.identity,
+        "started_unix_ns": started, "finished_unix_ns": time.time_ns(),
+        **values,
+        "scope": "shared server observation; no exclusive operation attribution; estimated data bytes is not RSS or disk; queue zero does not establish synchronous durability",
+    }
+
+
+def compare_metric_snapshots(before: dict[str, object], after: dict[str, object]) -> dict[str, object]:
+    """Compare like identities and series; gauge differences remain gauge differences."""
+    if before.get("identity") != after.get("identity"):
+        raise SupervisorError("Selected service changed between metric snapshots")
+    changes: dict[str, object] = {}
+    left, right = object_mapping(before["families"]), object_mapping(after["families"])
+    for name in sorted(left.keys() | right.keys()):
+        first, last = object_mapping(left.get(name, {})), object_mapping(right.get(name, {}))
+        if first.get("samples") != last.get("samples"):
+            changes[name] = {"type": last.get("type", first.get("type", "unknown")),
+                             "before": first, "after": last}
+    return {"identity": after["identity"], "changes": changes,
+            "scope": "shared service; gauge changes are not counter deltas and do not establish operation attribution"}
 
 
 def mcp_headers_main(arguments: list[str]) -> int:
