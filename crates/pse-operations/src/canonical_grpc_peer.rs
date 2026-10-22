@@ -102,6 +102,7 @@ pub(super) async fn start_with_restore_delay(generations: usize, delay: bool) ->
     let release = Arc::new(Semaphore::new(0));
     let peer_release = release.clone();
     let barrier = Arc::new(tokio::sync::Barrier::new(2));
+    let read_conflicts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let server = tokio::spawn(async move {
         for generation in 0..generations {
             let (socket, _) = listener.accept().await.unwrap();
@@ -109,12 +110,14 @@ pub(super) async fn start_with_restore_delay(generations: usize, delay: bool) ->
             let methods_sent = methods_sent.clone();
             let peer_release = peer_release.clone();
             let barrier = barrier.clone();
+            let read_conflicts = read_conflicts.clone();
             let service = hyper::service::service_fn(
                 move |request: http::Request<hyper::body::Incoming>| {
                     let methods_sent = methods_sent.clone();
                     let sent = sent.clone();
                     let release = peer_release.clone();
                     let barrier = barrier.clone();
+                    let read_conflicts = read_conflicts.clone();
                     async move {
                         let method = request.uri().path().rsplit('/').next().unwrap().to_owned();
                         let _ = methods_sent.send(method.clone());
@@ -164,7 +167,31 @@ pub(super) async fn start_with_restore_delay(generations: usize, delay: bool) ->
                                 if query.contains("HOLD") {
                                     release.acquire().await.unwrap().forget();
                                 }
-                                if query.contains("MALFORMED") {
+                                if query.contains("READ_ALWAYS_CONFLICT")
+                                    || (query.contains("READ_CONFLICT_TWICE")
+                                        && read_conflicts
+                                            .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+                                            < 2)
+                                    || query.contains("READ_CANCELLED")
+                                {
+                                    status = "10";
+                                    native_error = Some(
+                                        proto::SurrealError::new(
+                                            proto::ErrorKind::Query,
+                                            "scripted complete read refusal",
+                                        )
+                                        .with_details(
+                                            if query.contains("READ_CANCELLED") {
+                                                "Cancelled"
+                                            } else {
+                                                "TransactionConflict"
+                                            },
+                                            None,
+                                        )
+                                        .encode_to_vec(),
+                                    );
+                                    Vec::new()
+                                } else if query.contains("MALFORMED") {
                                     vec![0, 0, 0, 0, 2, 0x3a, 255]
                                 } else {
                                     let value = if query.contains("GENERATED_BLOCK_PAGE") {

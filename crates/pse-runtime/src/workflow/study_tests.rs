@@ -4178,6 +4178,12 @@ async fn managed_primary_sixteen_survive_caller_disconnect_until_explicit_cancel
     let study = handle.study_id();
     fixture.observation(|value| value["active"] == 16).await;
     drop(handle);
+    // Preparation retention owns source protections on this physical client.
+    // Evict its idle cache and join the registered releases before disconnecting.
+    runtime.clear_program_cache();
+    pse_operations::testing::drain_result_releases(runtime.canonical_store().unwrap())
+        .await
+        .unwrap();
     runtime.close();
     runtime
         .canonical_store()

@@ -5,7 +5,7 @@
 
 use crate::{
     canonical::transport::{original_deadline, within_clock},
-    canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, bounded_query},
+    canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, bounded_query, protected_query},
     canonical_codec,
     generated::surreal as wire,
 };
@@ -4124,7 +4124,7 @@ impl CanonicalStore {
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(key)?;
-            let mut response = bounded_query(self.db.query("BEGIN; fn::pse_history_v1::point($pse_rpc_expires_at,$key); LET $point = SELECT * FROM ONLY type::record('canonical_study_points',$key); RETURN {point:$point,attempt:(SELECT * FROM ONLY type::record('canonical_attempts',$point.attempt)),study:(SELECT * FROM ONLY type::record('canonical_studies',$point.study)),run:(SELECT * FROM ONLY type::record('canonical_runs',$point.run))}; COMMIT;").bind(("key",key.to_owned()))).await?;
+            let mut response = protected_query("canonical_execution::recovery_snapshot", || Ok(self.db.query("BEGIN; fn::pse_history_v1::point($pse_rpc_expires_at,$key); LET $point = SELECT * FROM ONLY type::record('canonical_study_points',$key); RETURN {point:$point,attempt:(SELECT * FROM ONLY type::record('canonical_attempts',$point.attempt)),study:(SELECT * FROM ONLY type::record('canonical_studies',$point.study)),run:(SELECT * FROM ONLY type::record('canonical_runs',$point.run))}; COMMIT;").bind(("key",key.to_owned())))).await?;
             let index = response.num_statements().saturating_sub(2);
             let mut row = response
                 .take::<Option<Object>>(index)?
@@ -4165,11 +4165,10 @@ impl CanonicalStore {
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                    let mut response = bounded_query(
+                    let mut response = protected_query("canonical_execution::canonical_run", || Ok(
                         self.db
                             .metadata_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_run($pse_rpc_expires_at,$key);")
-                            .bind(("key", key.to_owned())),
-                    )
+                            .bind(("key", key.to_owned()))))
                     .await?;
                     response
                         .take::<Option<Object>>(0)?
@@ -4216,11 +4215,10 @@ impl CanonicalStore {
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                    let mut response = bounded_query(
+                    let mut response = protected_query("canonical_execution::canonical_attempt", || Ok(
                         self.db
                             .metadata_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_attempt($pse_rpc_expires_at,$key);")
-                            .bind(("key", key.to_owned())),
-                    )
+                            .bind(("key", key.to_owned()))))
                     .await?;
                     response
                         .take::<Option<Object>>(0)?
@@ -4243,11 +4241,10 @@ impl CanonicalStore {
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                    let mut response = bounded_query(
+                    let mut response = protected_query("canonical_execution::canonical_result_manifest", || Ok(
                 self.db
                     .metadata_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_manifest($pse_rpc_expires_at,$key);")
-                    .bind(("key", key.to_owned())),
-            )
+                    .bind(("key", key.to_owned()))))
             .await?;
                     let row = response
                         .take::<Option<Object>>(0)?

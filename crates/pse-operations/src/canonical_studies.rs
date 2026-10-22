@@ -1126,8 +1126,8 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result = bounded_query(self.db.query(crate::canonical_history::study_query("SELECT key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal FROM ONLY type::record('canonical_studies',$key);","key"))
-                .bind(("key",key.to_owned()))).await?;
+            let mut result = protected_query("canonical_studies::canonical_study_summary", || Ok(self.db.query(crate::canonical_history::study_query("SELECT key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal FROM ONLY type::record('canonical_studies',$key);","key"))
+                .bind(("key",key.to_owned())))).await?;
             result.take::<Option<Object>>(0)?.map(decode_study_summary).transpose()
         }).await
             }).await
@@ -1138,14 +1138,15 @@ impl CanonicalStore {
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                    let mut result = bounded_query(
-                        self.db
+                    let mut result = protected_query("canonical_studies::canonical_study", || {
+                        Ok(self
+                            .db
                             .query(crate::canonical_history::study_query(
                                 "SELECT * FROM ONLY type::record('canonical_studies',$key);",
                                 "key",
                             ))
-                            .bind(("key", key.to_owned())),
-                    )
+                            .bind(("key", key.to_owned())))
+                    })
                     .await?;
                     result
                         .take::<Option<Object>>(0)?
@@ -1166,15 +1167,17 @@ impl CanonicalStore {
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                    let mut result = bounded_query(
+                    let mut result =
+                        protected_query("canonical_studies::canonical_study_point", || {
+                            Ok(
                         self.db
                             .query(crate::canonical_history::point_query(
                                 "SELECT * FROM ONLY type::record('canonical_study_points',$key);",
                                 "key",
                             ))
-                            .bind(("key", key.to_owned())),
-                    )
-                    .await?;
+                            .bind(("key", key.to_owned())))
+                        })
+                        .await?;
                     result
                         .take::<Option<Object>>(0)?
                         .map(wire::decode_canonical_study_points)
@@ -1221,14 +1224,15 @@ impl CanonicalStore {
         &self,
         study: &str,
     ) -> Result<Option<PendingReadinessPage>, CanonicalError> {
-        let mut response = bounded_query(
-            self.db
+        let mut response = protected_query("canonical_studies::pending_readiness_page", || {
+            Ok(self
+                .db
                 .metadata_query(
                     crate::canonical::MetadataResponse::Page,
                     "RETURN fn::pse_study_v1::readiness_pending_page($pse_rpc_expires_at,$study);",
                 )
-                .bind(("study", study.to_owned())),
-        )
+                .bind(("study", study.to_owned())))
+        })
         .await?;
         response
             .take::<Option<Object>>(0)?
@@ -1419,7 +1423,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result=bounded_query(self.db.query(crate::canonical_history::study_query("LET $s=SELECT cancelled FROM ONLY type::record('canonical_studies',$study); LET $h=IF $s.cancelled { SELECT key FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=false AND ordinal>$after ORDER BY ordinal LIMIT 64 } ELSE { SELECT point AS key FROM canonical_study_readiness WHERE study=$study AND eligible=true AND ordinal>$after ORDER BY ordinal LIMIT 64 }; RETURN $h.map(|$hint| SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM ONLY type::record('canonical_study_points',$hint.key)).filter(|$point| $point!=NONE AND $point.assigned=false AND $point.settled=false);","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
+            let mut result=protected_query("canonical_studies::study_candidates", || Ok(self.db.query(crate::canonical_history::study_query("LET $s=SELECT cancelled FROM ONLY type::record('canonical_studies',$study); LET $h=IF $s.cancelled { SELECT key FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=false AND ordinal>$after ORDER BY ordinal LIMIT 64 } ELSE { SELECT point AS key FROM canonical_study_readiness WHERE study=$study AND eligible=true AND ordinal>$after ORDER BY ordinal LIMIT 64 }; RETURN $h.map(|$hint| SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM ONLY type::record('canonical_study_points',$hint.key)).filter(|$point| $point!=NONE AND $point.assigned=false AND $point.settled=false);","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
             result
                 .take::<Vec<Object>>(0)?
                 .into_iter()
@@ -1437,7 +1441,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result=bounded_query(self.db.query(crate::canonical_history::study_query("SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study=$study AND ordinal > $after ORDER BY ordinal LIMIT 64;","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
+            let mut result=protected_query("canonical_studies::study_point_page", || Ok(self.db.query(crate::canonical_history::study_query("SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study=$study AND ordinal > $after ORDER BY ordinal LIMIT 64;","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
             result
                 .take::<Vec<Object>>(0)?
                 .into_iter()
@@ -1451,8 +1455,8 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut response = bounded_query(self.db.query(crate::canonical_history::study_query("SELECT key FROM canonical_study_points WHERE study=$study AND settled=false LIMIT 1;","study"))
-                .bind(("study", study.to_owned()))).await?;
+            let mut response = protected_query("canonical_studies::study_has_pending", || Ok(self.db.query(crate::canonical_history::study_query("SELECT key FROM canonical_study_points WHERE study=$study AND settled=false LIMIT 1;","study"))
+                .bind(("study", study.to_owned())))).await?;
             Ok(!response.take::<Vec<Object>>(0)?.is_empty())
         }).await
             }).await
@@ -1468,9 +1472,9 @@ impl CanonicalStore {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             // Four maximum-size definitions/outcomes fit below the existing message
             // bound. Do not use the 64-row metadata-page limit for these byte payloads.
-            let mut response = bounded_query(self.db.query(crate::canonical_history::study_query("SELECT ordinal,occurrence,descriptor,admission,policy,outcome,settled FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT 4;","study"))
+            let mut response = protected_query("canonical_studies::study_outcome_page", || Ok(self.db.query(crate::canonical_history::study_query("SELECT ordinal,occurrence,descriptor,admission,policy,outcome,settled FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT 4;","study"))
                 .bind(("study", study.to_owned()))
-                .bind(("after", after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
+                .bind(("after", after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
             response.take::<Vec<Object>>(0)?.into_iter().map(decode_outcome_point).collect()
         }).await
             }).await
@@ -1481,11 +1485,12 @@ impl CanonicalStore {
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                    let mut result = bounded_query(
-                        self.db
+                    let mut result = protected_query("canonical_studies::study_scope", || {
+                        Ok(self
+                            .db
                             .query("RETURN fn::pse_study_v1::scope($pse_rpc_expires_at, $point);")
-                            .bind(("point", point.to_owned())),
-                    )
+                            .bind(("point", point.to_owned())))
+                    })
                     .await?;
                     let mut object = result
                         .take::<Option<Object>>(0)?
@@ -1934,15 +1939,17 @@ impl CanonicalStore {
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                    let mut result = bounded_query(
-                        self.db
-                            .query(crate::canonical_history::run_query(
-                                "SELECT * FROM canonical_studies WHERE run=$run LIMIT 1;",
-                                "run",
-                            ))
-                            .bind(("run", run.to_owned())),
-                    )
-                    .await?;
+                    let mut result =
+                        protected_query("canonical_studies::canonical_study_for_run", || {
+                            Ok(self
+                                .db
+                                .query(crate::canonical_history::run_query(
+                                    "SELECT * FROM canonical_studies WHERE run=$run LIMIT 1;",
+                                    "run",
+                                ))
+                                .bind(("run", run.to_owned())))
+                        })
+                        .await?;
                     let mut rows = result.take::<Vec<Object>>(0)?;
                     rows.pop()
                         .map(wire::decode_canonical_studies)
@@ -2046,7 +2053,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result=bounded_query(self.db.query(crate::canonical_history::study_query("SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=true AND ordinal>$after ORDER BY ordinal LIMIT 64;","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
+            let mut result=protected_query("canonical_studies::study_assigned_page", || Ok(self.db.query(crate::canonical_history::study_query("SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=true AND ordinal>$after ORDER BY ordinal LIMIT 64;","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
             result
                 .take::<Vec<Object>>(0)?
                 .into_iter()
@@ -2184,7 +2191,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result=bounded_query(self.db.query("SELECT key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal FROM $page WHERE active=true AND (terminal=false OR type::record('canonical_study_readiness_cursors',key).pending_operation!=NONE) ORDER BY id LIMIT 64;").bind(("page",crate::canonical_codec::record_page("canonical_studies",after.unwrap_or(""))))).await?;
+            let mut result=protected_query("canonical_studies::study_page", || Ok(self.db.query("SELECT key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal FROM $page WHERE active=true AND (terminal=false OR type::record('canonical_study_readiness_cursors',key).pending_operation!=NONE) ORDER BY id LIMIT 64;").bind(("page",crate::canonical_codec::record_page("canonical_studies",after.unwrap_or("")))))).await?;
             result
                 .take::<Vec<Object>>(0)?
                 .into_iter()

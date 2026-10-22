@@ -198,8 +198,8 @@ async fn grpc_generated_64_row_block_page_fits_original_owned_node_budget() {
         let db = connect(&peer).await;
         let mut limits = crate::canonical::MetadataResponse::JoinedBlockPage.limits();
         assert_eq!(
-            limits.nodes, 4608,
-            "the original endpoint grant is unchanged"
+            limits.nodes, 8704,
+            "the joined endpoint prepays block and batch metadata"
         );
         if !accepted {
             limits.nodes = 2048;
@@ -705,6 +705,121 @@ async fn canonical_conflict_clock_does_not_renew_nested_deadlines() {
         result,
         Err(crate::canonical::CanonicalError::Timeout)
     ));
+}
+
+#[tokio::test]
+async fn canonical_complete_read_retries_native_conflicts_before_exposing_response() {
+    let mut peer = peer::start().await;
+    let db = connect(&peer).await;
+    let mut clocks = Vec::new();
+    let mut response = crate::canonical::protected_query("complete-read-control", || {
+        let deadline = super::original_deadline(crate::canonical::REQUEST_TIMEOUT);
+        clocks.push(deadline);
+        Ok(db
+            .query("RETURN 'READ_CONFLICT_TWICE';")
+            .request_context(RequestContext::new(deadline.into_std())))
+    })
+    .await
+    .unwrap();
+    assert_eq!(response.take::<Value>(0).unwrap(), Value::Bool(true));
+    assert_eq!(clocks.len(), 3);
+    assert!(clocks.iter().all(|deadline| *deadline == clocks[0]));
+    for _ in 0..3 {
+        assert_eq!(
+            peer.received.recv().await.unwrap(),
+            "RETURN 'READ_CONFLICT_TWICE'"
+        );
+    }
+    assert!(peer.received.try_recv().is_err());
+    db.disconnect().await.unwrap();
+    peer.server.await.unwrap();
+}
+
+#[tokio::test]
+async fn canonical_complete_read_conflicts_keep_original_clock_and_typed_exhaustion() {
+    let peer = peer::start().await;
+    let db = connect(&peer).await;
+    let deadline = tokio::time::Instant::now() + Duration::from_millis(30);
+    let mut clocks = Vec::new();
+    let result = super::within_clock(
+        deadline,
+        crate::canonical::protected_query("read-clock-control", || {
+            let inherited = super::original_deadline(Duration::from_secs(30));
+            clocks.push(inherited);
+            // Observe the enclosing retry clock independently of an SDK deadline
+            // racing to return its correctly unreplayed unknown-outcome error.
+            Ok(db
+                .query("RETURN 'READ_ALWAYS_CONFLICT';")
+                .request_context(context()))
+        }),
+    )
+    .await;
+    assert!(
+        matches!(result, Err(crate::canonical::CanonicalError::Timeout)),
+        "{result:?}"
+    );
+    assert!(!clocks.is_empty());
+    assert!(clocks.iter().all(|inherited| *inherited == deadline));
+    assert!(clocks.len() < crate::canonical::GUARDED_ATTEMPTS as usize);
+    db.disconnect().await.unwrap();
+    peer.server.await.unwrap();
+
+    let mut peer = peer::start().await;
+    let db = connect(&peer).await;
+    let result = crate::canonical::protected_query("read-exhaustion-control", || {
+        Ok(db
+            .query("RETURN 'READ_ALWAYS_CONFLICT';")
+            .request_context(RequestContext::new(
+                super::original_deadline(Duration::from_secs(30)).into_std(),
+            )))
+    })
+    .await;
+    assert!(matches!(
+        result,
+        Err(crate::canonical::CanonicalError::ConflictExhausted {
+            operation: "read-exhaustion-control",
+            attempts: crate::canonical::GUARDED_ATTEMPTS,
+        })
+    ));
+    let mut sent = 0;
+    while peer.received.try_recv().is_ok() {
+        sent += 1;
+    }
+    assert_eq!(sent, crate::canonical::GUARDED_ATTEMPTS);
+    db.disconnect().await.unwrap();
+    peer.server.await.unwrap();
+}
+
+#[tokio::test]
+async fn canonical_complete_read_never_retries_nonconflict_or_incomplete_protocol() {
+    for query in [
+        "RETURN 'READ_CANCELLED';",
+        "RETURN 'LATE_FAILURE';",
+        "RETURN 'MALFORMED';",
+    ] {
+        let mut peer = peer::start().await;
+        let db = connect(&peer).await;
+        let result = crate::canonical::protected_query("read-no-replay-control", || {
+            Ok(db.query(query).request_context(RequestContext::new(
+                super::original_deadline(crate::canonical::REQUEST_TIMEOUT).into_std(),
+            )))
+        })
+        .await;
+        assert!(
+            matches!(result, Err(crate::canonical::CanonicalError::Driver(_))),
+            "{query}: {result:?}"
+        );
+        assert_eq!(
+            peer.received.recv().await.unwrap(),
+            query.trim_end_matches(';')
+        );
+        assert!(
+            peer.received.try_recv().is_err(),
+            "failed read was not replayed"
+        );
+        db.disconnect().await.unwrap();
+        peer.server.await.unwrap();
+    }
 }
 
 #[tokio::test]
